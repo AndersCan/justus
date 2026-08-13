@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
     "noEmit": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "target": "es2023",
     "lib": ["ES2023"],
+    "types": ["node"],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,

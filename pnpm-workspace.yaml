@@ -3,13 +3,14 @@ packages:
   - packages/*
   - tools/*
 
-catalogMode: prefer
-
 catalog:
   "@types/node": ^24
+  hyperdht: ^6.33.1
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vite-plus: 0.2.8
+
+catalogMode: prefer
 overrides:
   vite: "catalog:"
 peerDependencyRules:
