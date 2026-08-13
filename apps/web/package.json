@@ -1,0 +1,27 @@
+{
+  "name": "@justus/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Justus gallery UI — lit-html + nanostores + mantaq + UnoCSS.",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "tsc && vp build",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "@ekrooh/bare": "^0.1.0",
+    "@justus/core": "workspace:*",
+    "@mantaq/core": "^0.2.0",
+    "@mantaq/sugar": "^0.2.0",
+    "@nanostores/router": "^1.0.0",
+    "lit-html": "^3.3.2",
+    "nanostores": "^1.2.0",
+    "unocss": "^66.0.0"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

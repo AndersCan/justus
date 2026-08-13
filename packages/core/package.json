@@ -1,0 +1,16 @@
+{
+  "name": "@justus/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared justus.photos plugin events and types for the web layer and the Bare backend.",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ekrooh/bare": "^0.1.0"
+  }
+}

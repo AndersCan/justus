@@ -34,3 +34,6 @@ dist-ssr
 !.vscode/
 !.vscode/settings.json
 !.vscode/extensions.json
+
+# Justus dev backend data
+apps/backend/.dev

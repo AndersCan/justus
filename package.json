@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
-    "dev": "vp run website#dev",
+    "dev": "pnpm --parallel --filter './apps/*' run dev",
     "prepare": "vp config"
   },
   "devDependencies": {
+    "require-asset": "^1.2.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
