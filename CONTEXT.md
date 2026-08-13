@@ -9,19 +9,27 @@ A single image captured or picked on a device and stored in the folder.
 _Avoid_: media, file, asset
 
 **Folder**:
-The peer-to-peer share unit — one collection of photos every member can add to. A folder is identified by its share key.
+The peer-to-peer share unit: the creator's drive (holding the membership registry) plus each member's own single-writer drive. A folder is identified by its share key.
 _Avoid_: drive, album, collection
 
 **Member**:
-A device enrolled in a folder with its own write space. Every member can add photos.
-_Avoid_: device, user, peer
+A device enrolled in a folder with its own drive it can add photos to. Enrollment is creator-mediated: the creator records the member's drive key in the registry.
+_Avoid_: device, user, peer, writer
+
+**Reader**:
+A device that joined a folder read-only by share key — it can view and seed but has no own drive and cannot add photos.
+_Avoid_: guest, viewer
 
 **Creator**:
-The member whose device created the folder and holds its root write authority.
+The member whose device created the folder and owns its registry; the only one who can enroll or remove members.
 _Avoid_: owner, host
 
+**Registry**:
+The creator-owned membership record mapping members to their drive keys.
+_Avoid_: member list, contacts
+
 **Share key**:
-The secret that grants access to a folder — anyone holding it can join and read the folder's photos.
+The secret that grants access to a folder — the creator drive's key. Anyone holding it can read the folder; writer enrollment additionally records a member's own drive key.
 _Avoid_: invite code, link, password
 
 **Gallery**:
