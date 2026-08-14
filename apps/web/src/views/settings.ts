@@ -1,5 +1,6 @@
 import { html } from "lit-html";
-import { $syncBusy, $syncError, $syncState, $syncStatus, sync } from "../machines/sync-machine";
+import type { SyncStatus } from "@justus/core";
+import { $syncViewModel, sync } from "../machines/sync-machine";
 import { useStore } from "../use-store";
 
 async function copyKey(value: string) {
@@ -10,12 +11,14 @@ async function copyKey(value: string) {
   }
 }
 
-export function settingsView() {
-  const status = useStore($syncStatus);
-  const state = useStore($syncState);
-  const busy = useStore($syncBusy);
-  const error = useStore($syncError);
+type SyncViewModel = {
+  status: SyncStatus | null;
+  state: string;
+  busy: boolean;
+  error: string | null;
+};
 
+function syncBody({ status, state, busy, error }: SyncViewModel) {
   return html`
     <div class="max-w-xl space-y-6">
       <h1 class="text-2xl font-semibold">Sync</h1>
@@ -172,4 +175,8 @@ export function settingsView() {
       }
     </div>
   `;
+}
+
+export function settingsView() {
+  return useStore($syncViewModel, (vm) => syncBody(vm));
 }

@@ -6,9 +6,11 @@
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "pnpm --parallel --filter './apps/*' run dev",
+    "test:e2e": "playwright test",
     "prepare": "vp config"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "require-asset": "^1.2.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"

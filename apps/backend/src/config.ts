@@ -37,14 +37,26 @@ export function resolveJustusConfig(): JustusRuntimeOptions {
   }
   const argv = typeof Bare !== "undefined" && Array.isArray(Bare.argv) ? Bare.argv : [];
   const dirs = argv.filter(isDirectory);
-  const portArg = argv.find((a) => /^\d{4,5}$/.test(a));
+  // Labeled tokens (`storage=...`, `webassets=...`, ...) are unambiguous and
+  // let the e2e server serve the built web app from the worklet. Positional
+  // dirs stay as a fallback for the plain dev loop.
+  const label = (name: string) => {
+    const hit = argv.find((a) => a.startsWith(`${name}=`));
+    return hit ? hit.slice(name.length + 1) : undefined;
+  };
+  const webAssets = label("webassets") ?? undefined;
+  const storage = label("storage") ?? dirs[0];
+  const cache = label("cache") ?? dirs[1];
+  const inbox = label("inbox") ?? dirs[2];
+  const portArg = label("port") ?? argv.find((a) => /^\d{4,5}$/.test(a));
   const port = portArg ? Number(portArg) : 8080;
-  const bootstrapArg = argv.find((a) => a.startsWith("bootstrap:"));
-  const bootstrap = bootstrapArg ? [bootstrapArg.slice("bootstrap:".length)] : undefined;
+  const bootstrapArg = label("bootstrap") ?? argv.find((a) => a.startsWith("bootstrap:"));
+  const bootstrap = bootstrapArg ? [bootstrapArg] : undefined;
   return {
-    storage: dirs[0],
-    cache: dirs[1],
-    inbox: dirs[2],
+    webAssets,
+    storage,
+    cache,
+    inbox,
     auth: false,
     port,
     bootstrap,

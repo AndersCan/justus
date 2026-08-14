@@ -1,0 +1,28 @@
+import { defineConfig } from "@playwright/test";
+
+/**
+ * E2e against the REAL stack: `scripts/e2e-server.mjs` boots the Bare worklet
+ * (fresh storage → 3 seeded photos) serving the built web app same-origin on
+ * 127.0.0.1:8080 — the same flow a device runs.
+ */
+export default defineConfig({
+  testDir: "./e2e",
+  // Tests share ONE stateful worklet (fresh per run, but order matters) —
+  // run serially and keep assertions order-independent.
+  fullyParallel: false,
+  workers: 1,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  reporter: "list",
+  use: {
+    baseURL: "http://127.0.0.1:8080",
+    trace: "retain-on-failure",
+  },
+  webServer: {
+    command: "node scripts/e2e-server.mjs",
+    url: "http://127.0.0.1:8080/index.html",
+    reuseExistingServer: false,
+    timeout: 90_000,
+  },
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+});

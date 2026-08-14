@@ -251,7 +251,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
     const handle = swarm.join(topic, opts);
     joins.push(handle);
-    await handle.flushed?.().catch(() => {});
+    // Fire-and-forget: never block setup on DHT bootstrap — the app must
+    // boot and serve the gallery even when the swarm is unreachable.
+    void handle.flushed?.().catch(() => {});
   }
 
   /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -383,7 +385,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function spoolToFile(drive: Drive, drivePath: string, spoolPath: string) {
     if (fs.existsSync(spoolPath)) return;
     fs.mkdirSync(path.dirname(spoolPath), { recursive: true });
-    const tmp = `${spoolPath}.tmp`;
+    // Unique tmp per call so concurrent spools of the same photo never collide;
+    // rename is atomic (last write wins, content is identical).
+    const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
     const stream = drive.createReadStream(drivePath);
     await pumpToFile(stream, tmp);
     fs.renameSync(tmp, spoolPath);
@@ -424,7 +428,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Registered before any topic join so early connections replicate too.
     swarm.on("connection", (conn: any) => {
       conn.on("error", () => {});
-      corestore.replicate(conn);
+      try {
+        corestore.replicate(conn);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error(`[justus] replicate failed: ${message}`);
+      }
     });
     await joinTopic(ownDrive.discoveryKey);
 

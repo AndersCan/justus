@@ -1,5 +1,5 @@
 import { Actor, RealClock, event, state, type Snapshot } from "@mantaq/core";
-import { atom } from "nanostores";
+import { atom, computed } from "nanostores";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 
@@ -24,6 +24,12 @@ export const $syncStatus = atom<SyncStatus | null>(null);
 export const $syncState = atom<SyncStateName>("idle");
 export const $syncBusy = atom<boolean>(false);
 export const $syncError = atom<string | null>(null);
+
+/** Plain view model for the sync UI (see $galleryViewModel). */
+export const $syncViewModel = computed(
+  [$syncStatus, $syncState, $syncBusy, $syncError],
+  (status, state, busy, error) => ({ status, state, busy, error }),
+);
 
 const idle = state("idle")();
 const refreshing = state("refreshing")();

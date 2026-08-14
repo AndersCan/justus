@@ -38,6 +38,11 @@ dist-ssr
 # Justus dev backend data
 apps/backend/.dev
 
+# e2e
+.dev-e2e
+test-results
+playwright-report
+
 # Android build outputs + generated assets
 apps/android/.gradle
 apps/android/app/build

@@ -3,6 +3,12 @@ import type { Photo, PhotoChanged, SyncStatus } from "./types";
 
 /** Importing a photo file (read + spool + put) can take a while. */
 const PHOTOS_ADD_TIMEOUT_MS = 120_000;
+/** list/status spool remote photos on first load — network pulls can be slow. */
+const PHOTOS_LIST_TIMEOUT_MS = 30_000;
+/** join waits for a peer handshake; give it a generous window. */
+const PHOTOS_JOIN_TIMEOUT_MS = 60_000;
+/** remove/enroll touch local drives — still, don't be stingy. */
+const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
 
 export const photoSpecs = {
   list: {
@@ -52,25 +58,25 @@ export const photoSpecs = {
 export const photoEvents = {
   photos: {
     list(): InvokeEnvelope<"photos.list", Record<string, never>, { photos: Photo[] }> {
-      return invokeEvent(photoSpecs.list, {});
+      return invokeEvent(photoSpecs.list, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
     add(path: string): InvokeEnvelope<"photos.add", { path: string }, Photo> {
       return invokeEvent(photoSpecs.add, { path }, null, PHOTOS_ADD_TIMEOUT_MS);
     },
     remove(id: string): InvokeEnvelope<"photos.remove", { id: string }, { id: string }> {
-      return invokeEvent(photoSpecs.remove, { id });
+      return invokeEvent(photoSpecs.remove, { id }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
     join(key: string): InvokeEnvelope<"photos.join", { key: string }, SyncStatus> {
-      return invokeEvent(photoSpecs.join, { key });
+      return invokeEvent(photoSpecs.join, { key }, null, PHOTOS_JOIN_TIMEOUT_MS);
     },
     enroll(
       key: string,
       name: string,
     ): InvokeEnvelope<"photos.enroll", { key: string; name: string }, SyncStatus> {
-      return invokeEvent(photoSpecs.enroll, { key, name });
+      return invokeEvent(photoSpecs.enroll, { key, name }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
     status(): InvokeEnvelope<"photos.status", Record<string, never>, SyncStatus> {
-      return invokeEvent(photoSpecs.status, {});
+      return invokeEvent(photoSpecs.status, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
   },
 } as const;

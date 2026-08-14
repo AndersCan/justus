@@ -1,5 +1,5 @@
 import { Actor, RealClock, event, state, type Snapshot } from "@mantaq/core";
-import { atom } from "nanostores";
+import { atom, computed } from "nanostores";
 import type { Photo } from "@justus/core";
 import { gateway } from "../gateway";
 
@@ -26,6 +26,13 @@ export const $photos = atom<Photo[]>([]);
 export const $galleryState = atom<GalleryStateName>("booting");
 export const $galleryBusy = atom<boolean>(false);
 export const $galleryError = atom<string | null>(null);
+
+/** Plain view model for the gallery UI (directives cannot be dereferenced —
+ * this maps the atoms to a value a template can read). */
+export const $galleryViewModel = computed(
+  [$galleryState, $galleryBusy, $galleryError, $photos],
+  (state, busy, error, photos) => ({ state, busy, error, photos }),
+);
 
 const booting = state("booting")();
 const loading = state("loading")();
