@@ -1,0 +1,126 @@
+plugins {
+  id "com.android.application"
+  id "org.jetbrains.kotlin.android"
+}
+
+android {
+  namespace = "io.justus.app"
+  compileSdk = 35
+  ndkVersion = "27.2.12479018"
+
+  defaultConfig {
+    applicationId = "io.justus.app"
+    minSdk = 29
+    targetSdk = 35
+    versionCode = 1
+    versionName = "0.1.0"
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+
+  sourceSets {
+    main {
+      jniLibs.srcDirs "src/main/addons"
+    }
+  }
+
+  packaging {
+    jniLibs {
+      useLegacyPackaging = true
+    }
+  }
+}
+
+// Robust PATH including common locations for node/npm and the vp toolchain.
+def getExtendedPath() {
+  def paths = [
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin"
+  ]
+  def nvmDir = new File(System.getProperty('user.home'), ".nvm/versions/node")
+  if (nvmDir.exists()) {
+    nvmDir.listFiles().each { dir ->
+      if (dir.isDirectory()) {
+        def binDir = new File(dir, "bin")
+        if (binDir.exists()) paths.add(binDir.absolutePath)
+      }
+    }
+  }
+  def systemPath = System.getenv("PATH")
+  if (systemPath) paths.addAll(systemPath.split(File.pathSeparator))
+  return paths.unique().join(File.pathSeparator)
+}
+
+// Root of the Justus monorepo (apps/android → ../../).
+def justusRoot = file("../../")
+
+def configureExec(Exec task, String command) {
+  def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+  task.environment "PATH", getExtendedPath()
+  task.workingDir justusRoot
+  if (isWindows) {
+    task.commandLine "cmd", "/c", command
+  } else {
+    task.commandLine "bash", "-c", command
+  }
+}
+
+// Link the p2p native addons (rocksdb/sodium/udx-native, bare-*) for Android.
+tasks.register("link", Exec) {
+  def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+  def bin = isWindows
+    ? "node_modules\\.bin\\bare-link.cmd"
+    : "apps/backend/node_modules/.bin/bare-link"
+  configureExec(it, "${bin} --preset android --out apps/android/app/src/main/addons")
+}
+
+// Build the Bare worklet bundle from apps/backend.
+tasks.register("buildBareJs", Exec) {
+  configureExec(it, "pnpm --filter @justus/backend run build")
+}
+
+// Clean + rebuild the web assets from apps/web/dist into the APK assets.
+// Scoped to web output only — never touches main.core.bundle or addons.
+tasks.register("cleanWebAssets", Delete) {
+  delete fileTree("src/main/assets") {
+    include "index.html"
+  }
+  delete fileTree("src/main/assets/assets")
+}
+
+tasks.register("buildWebAssets", Exec) {
+  dependsOn "cleanWebAssets"
+  configureExec(it, "pnpm --filter @justus/web run build && cp -R apps/web/dist/. apps/android/app/src/main/assets/")
+}
+
+// Pack the worklet bundle for the bare-kit runtime.
+tasks.register("packApp", Exec) {
+  dependsOn "buildBareJs", "buildWebAssets"
+  def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+  def bin = isWindows
+    ? "node_modules\\.bin\\bare-pack.cmd"
+    : "apps/backend/node_modules/.bin/bare-pack"
+  configureExec(it, "${bin} --preset android --out apps/android/app/src/main/assets/main.core.bundle apps/backend/dist/main.core.gen.js")
+}
+
+preBuild.dependsOn link, buildWebAssets, packApp
+
+dependencies {
+  implementation "io.ekrooh:bare-host:0.1.0"
+  implementation "androidx.appcompat:appcompat:1.7.0"
+  implementation "androidx.core:core-ktx:1.13.1"
+  implementation "androidx.activity:activity-ktx:1.9.3"
+  implementation "com.google.android.material:material:1.12.0"
+  implementation "androidx.constraintlayout:constraintlayout:2.1.4"
+}

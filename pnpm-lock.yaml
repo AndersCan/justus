@@ -69,6 +69,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
+      bare-link:
+        specifier: ^3.3.0
+        version: 3.3.0(bare-buffer@3.7.0)(bare-events@2.9.1)
+      bare-pack:
+        specifier: ^2.2.1
+        version: 2.2.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
       bare-runtime:
         specifier: ^1.28.0
         version: 1.31.0(bare-buffer@3.7.0)(bare-url@2.5.2)
@@ -1334,6 +1340,23 @@ packages:
     resolution: {integrity: sha512-/xRTbBuLis7sE3Izii0A0yOm+WqH1/gh12UVqkpIAOLZ4gWluyK0THbGB+UysKI8ZBjcZ+MaEs9Auxcyiz2yLA==}
     engines: {bare: '>=1.20.0'}
 
+  bare-bundle-id@1.0.2:
+    resolution: {integrity: sha512-RG/y1J/s6zWmsqUIDtclXh+xxMRTh1jo/10vFL58FKhe9UESchMNkwn0Cz10o5AdA/35WR/KUGoHhIGdyCjQrg==}
+    peerDependencies:
+      bare-buffer: '*'
+      bare-bundle: '*'
+
+  bare-bundle@1.10.0:
+    resolution: {integrity: sha512-4LVlnJAHr00Hh6Vu6ZUJS38rcEtJT3b3vChXSsBsJ2mk1TN0lQ+gzd+Dw5L0aV7uqDZv84smuwW+O02X7PfDlw==}
+    peerDependencies:
+      bare-buffer: '*'
+      bare-url: '*'
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+      bare-url:
+        optional: true
+
   bare-crypto@1.15.3:
     resolution: {integrity: sha512-macV9lbyJTsLPRXJkBtz8ivTGEo3LCyJInLT9IB/PWJ7pRXwvHs/FP4bx/fWw+HZkiepIYCAV2cuU5CR92XWCw==}
     peerDependencies:
@@ -1398,11 +1421,40 @@ packages:
     resolution: {integrity: sha512-6xmjxF3vPxNYNb5I6nqPgaRQlQhO1qjkRNe2lKUSTel5IZZQtHJKm59OVYFgCly4urvVqJJvRrJecZGy6rUWdQ==}
     engines: {bare: '>=1.18.0'}
 
+  bare-lief@0.2.6:
+    resolution: {integrity: sha512-sq1DmnANQ/EYR0gFnt6UnrWGc+QCz1fVXfiqp+Of8WYptoxMXnvUyKw7hIBXxcsrLzhbzQuO8gESlIvPcRZQRA==}
+
+  bare-link@3.3.0:
+    resolution: {integrity: sha512-gAa3PJ+kZnL7vT5MGCgqXDfBKDu62turjBaZBRp0ZqnGT3BFeox9jWYrW1zo/8sQqmSpMEcWGWCyJpPt8huYRA==}
+    hasBin: true
+
+  bare-mime@1.0.0:
+    resolution: {integrity: sha512-lUOswzBkfqham4zjLDueKOd4Qj3gS56BiZ3q2f0g0adoFhF+HFNupvTUfZBWoicl7fWJ7Hp2RUZjmkY47dxxOQ==}
+
+  bare-module-lexer@1.6.3:
+    resolution: {integrity: sha512-NQY7cnPV3GZlHJphX4nXmPdNPER/Tp17pVi9/he2ODw/GNZ7FXzrZlrS7WMF8zbtWigqW/NMc9aQc2BH8UJXqA==}
+    peerDependencies:
+      bare-buffer: '*'
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+
   bare-module-resolve@1.12.4:
     resolution: {integrity: sha512-xcfgg2u7HqgJiBmah71O9vvdFAgHCvkqC/WSC2O7Bbgosoc1eC/BWe/6IDJ4OsfKlkxuvC/TDWXC+oH5yeW8mA==}
     peerDependencies:
       bare-url: '*'
     peerDependenciesMeta:
+      bare-url:
+        optional: true
+
+  bare-module-traverse@2.4.4:
+    resolution: {integrity: sha512-zK4bDxqeD15Tvu/C5B1Mi/epl9PavjIhU3SVh5RhDb4Hpet6applPVX8Q9rinu7nT80yzgSSlBn0exzJaNXv0A==}
+    peerDependencies:
+      bare-buffer: '*'
+      bare-url: '*'
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
       bare-url:
         optional: true
 
@@ -1412,6 +1464,18 @@ packages:
   bare-os@3.9.3:
     resolution: {integrity: sha512-fF4Q7QsyKVF5Rj0qvI8BgUNjqzC2JvQlpTaPLjVJVxYVUX5Zr9un+y3w1HmA4nNKdFmRBT8z/WmrjvXzXVerKQ==}
     engines: {bare: '>=1.14.0'}
+
+  bare-pack@2.2.1:
+    resolution: {integrity: sha512-7w9tcotjBxT31Azwqr/gq5acO//8cMxiNwtNccLvIhu0ZmlEXvqrBsZfUJ9P3i+Nd13/7DOY1bLcq+4lCcqzqQ==}
+    hasBin: true
+    peerDependencies:
+      bare-buffer: ^3.6.0
+      bare-url: ^2.4.0
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+      bare-url:
+        optional: true
 
   bare-path@3.1.1:
     resolution: {integrity: sha512-JprUlveX3QjApC1cTpsUOiscADftCGVWkzitbHsRqv84hzYwYHw2mbluddsq5TvI8mH/8Ov1f4BiMAdcB0oYnQ==}
@@ -1957,6 +2021,9 @@ packages:
   package-manager-detector@1.8.0:
     resolution: {integrity: sha512-yQA4H19AmPEoMUeavPMDIe1higySl/gH/yaQrkT/s07Qp+7pp2hYz30N3z2l5BkjVkF9Ow6o0wjJamm2y7Sn0A==}
 
+  paparam@1.12.0:
+    resolution: {integrity: sha512-BsJwOA7qYC3dwVtklwNZBxPasXXwVCKUp9ZpvYrHGbG+1hzdgOGZDpnHdjkW226t2JiWqJmP2jz0YG/hUmR2qQ==}
+
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
@@ -1984,6 +2051,9 @@ packages:
   pretty-format@27.5.1:
     resolution: {integrity: sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==}
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
+
+  promaphore@1.0.0:
+    resolution: {integrity: sha512-Eg8401+KJddVvDULkpy8bR964GMX8xMPegL6NdxTeBH2Wa3L86cZlEHizbkFJikr5u+E3wFoR5dLWJ+1OPyEfw==}
 
   protocol-buffers-encodings@1.2.0:
     resolution: {integrity: sha512-daeNPuKh1NlLD1uDfbLpD+xyUTc07nEtfHwmBZmt/vH0B7VOM+JOCOpDcx9ZRpqHjAiIkGqyTDi+wfGSl17R9w==}
@@ -3196,6 +3266,22 @@ snapshots:
 
   bare-buffer@3.7.0: {}
 
+  bare-bundle-id@1.0.2(bare-buffer@3.7.0)(bare-bundle@1.10.0(bare-buffer@3.7.0)(bare-url@2.5.2))(bare-events@2.9.1)(bare-url@2.5.2):
+    dependencies:
+      bare-buffer: 3.7.0
+      bare-bundle: 1.10.0(bare-buffer@3.7.0)(bare-url@2.5.2)
+      sodium-native: 5.1.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-events
+      - bare-url
+      - react-native-b4a
+
+  bare-bundle@1.10.0(bare-buffer@3.7.0)(bare-url@2.5.2):
+    optionalDependencies:
+      bare-buffer: 3.7.0
+      bare-url: 2.5.2
+
   bare-crypto@1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1):
     dependencies:
       bare-assert: 1.2.0(bare-buffer@3.7.0)(bare-events@2.9.1)
@@ -3273,10 +3359,58 @@ snapshots:
       - bare-events
       - react-native-b4a
 
+  bare-lief@0.2.6(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2):
+    dependencies:
+      bare-assert: 1.2.0(bare-buffer@3.7.0)(bare-events@2.9.1)
+      require-addon: 1.2.0(bare-url@2.5.2)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - bare-events
+      - bare-url
+      - react-native-b4a
+
+  bare-link@3.3.0(bare-buffer@3.7.0)(bare-events@2.9.1):
+    dependencies:
+      bare-fs: 4.8.0(bare-buffer@3.7.0)
+      bare-lief: 0.2.6(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
+      bare-module-resolve: 1.12.4(bare-url@2.5.2)
+      bare-os: 3.9.3
+      bare-path: 3.1.1
+      bare-semver: 1.1.0
+      bare-subprocess: 6.1.0(bare-buffer@3.7.0)
+      bare-url: 2.5.2
+      paparam: 1.12.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - bare-events
+      - react-native-b4a
+
+  bare-mime@1.0.0: {}
+
+  bare-module-lexer@1.6.3(bare-buffer@3.7.0)(bare-url@2.5.2):
+    dependencies:
+      require-addon: 1.2.0(bare-url@2.5.2)
+    optionalDependencies:
+      bare-buffer: 3.7.0
+    transitivePeerDependencies:
+      - bare-url
+
   bare-module-resolve@1.12.4(bare-url@2.5.2):
     dependencies:
       bare-semver: 1.1.0
     optionalDependencies:
+      bare-url: 2.5.2
+
+  bare-module-traverse@2.4.4(bare-buffer@3.7.0)(bare-url@2.5.2):
+    dependencies:
+      bare-addon-resolve: 1.10.1(bare-url@2.5.2)
+      bare-mime: 1.0.0
+      bare-module-lexer: 1.6.3(bare-buffer@3.7.0)(bare-url@2.5.2)
+      bare-module-resolve: 1.12.4(bare-url@2.5.2)
+    optionalDependencies:
+      bare-buffer: 3.7.0
       bare-url: 2.5.2
 
   bare-net@2.3.3(bare-buffer@3.7.0):
@@ -3291,6 +3425,23 @@ snapshots:
       - react-native-b4a
 
   bare-os@3.9.3: {}
+
+  bare-pack@2.2.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2):
+    dependencies:
+      bare-bundle: 1.10.0(bare-buffer@3.7.0)(bare-url@2.5.2)
+      bare-bundle-id: 1.0.2(bare-buffer@3.7.0)(bare-bundle@1.10.0(bare-buffer@3.7.0)(bare-url@2.5.2))(bare-events@2.9.1)(bare-url@2.5.2)
+      bare-fs: 4.8.0(bare-buffer@3.7.0)
+      bare-module-traverse: 2.4.4(bare-buffer@3.7.0)(bare-url@2.5.2)
+      bare-path: 3.1.1
+      paparam: 1.12.0
+      promaphore: 1.0.0
+    optionalDependencies:
+      bare-buffer: 3.7.0
+      bare-url: 2.5.2
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-events
+      - react-native-b4a
 
   bare-path@3.1.1: {}
 
@@ -4235,6 +4386,8 @@ snapshots:
 
   package-manager-detector@1.8.0: {}
 
+  paparam@1.12.0: {}
+
   pathe@2.0.3: {}
 
   perfect-debounce@2.1.0: {}
@@ -4262,6 +4415,8 @@ snapshots:
       ansi-regex: 5.0.1
       ansi-styles: 5.2.0
       react-is: 17.0.2
+
+  promaphore@1.0.0: {}
 
   protocol-buffers-encodings@1.2.0:
     dependencies:
