@@ -32,3 +32,7 @@ The five canonical triage roles map to the default label strings (`needs-triage`
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Handoff
+
+Read `HANDOFF.md` at the repo root first — durable state, decisions, blockers, and dev facts from the prior session.
