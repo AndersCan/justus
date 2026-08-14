@@ -5,7 +5,7 @@
   "description": "Justus gallery UI — lit-html + nanostores + mantaq + UnoCSS.",
   "type": "module",
   "scripts": {
-    "dev": "vp dev",
+    "dev": "vp dev --port 5173 --strictPort",
     "build": "tsc && vp build",
     "preview": "vp preview"
   },
