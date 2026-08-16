@@ -181,15 +181,10 @@ function galleryBody({ state, busy, error, photos }: GalleryViewModel) {
       }
       ${
         state !== "loading" || photos.length > 0
-          ? html`<div
-              class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
-              aria-label="Photos"
-            >
+          ? html`<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="Photos">
               ${photos.map(
                 (photo) => html`
-                  <figure
-                    class="group relative overflow-hidden rounded-2xl border border-mist-200 bg-white/70 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft-lg"
-                  >
+                  <figure class="group relative overflow-hidden bg-mist-200">
                     <img
                       class="aspect-square w-full object-cover"
                       src="${photo.url}"
@@ -197,8 +192,12 @@ function galleryBody({ state, busy, error, photos }: GalleryViewModel) {
                       referrerpolicy="no-referrer"
                       loading="lazy"
                     />
+                    <div
+                      class="pointer-events-none absolute inset-0 bg-transparent transition-colors duration-150 group-hover:bg-ink-950/15"
+                      aria-hidden="true"
+                    ></div>
                     <button
-                      class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-ink-950/55 text-white opacity-0 shadow-soft transition-all duration-150 hover:bg-coral-600 group-hover:opacity-100 focus-visible:opacity-100"
+                      class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-ink-950/55 text-white opacity-0 transition-all duration-150 hover:bg-coral-600 group-hover:opacity-100 focus-visible:opacity-100"
                       title="Remove ${photo.name}"
                       aria-label="Remove ${photo.name}"
                       ?disabled=${busy}
@@ -220,10 +219,10 @@ function galleryBody({ state, busy, error, photos }: GalleryViewModel) {
                       </svg>
                     </button>
                     <figcaption
-                      class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/75 via-ink-950/25 to-transparent px-3 pb-2.5 pt-10 text-white"
+                      class="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-ink-950/80 via-ink-950/30 to-transparent px-2.5 pb-1.5 pt-8 text-white"
                     >
-                      <div class="truncate text-sm font-medium drop-shadow-sm">${photo.name}</div>
-                      <div class="truncate text-xs text-white/85">
+                      <div class="truncate text-xs font-medium drop-shadow-sm">${photo.name}</div>
+                      <div class="truncate text-[11px] text-white/85">
                         ${photo.member.name} · ${new Date(photo.addedAt).toLocaleDateString()}
                       </div>
                     </figcaption>
