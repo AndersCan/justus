@@ -34,6 +34,8 @@ Consumer session building **Justus**, a photo-sharing app validating the `@ekroo
 - Build tasks (`preBuild` deps): `link` (bare-link → `src/main/addons`, entry `apps/backend`), `buildWebAssets` (web dist → assets), `packApp` (bare-pack worklet bundle). Commands resolve against repo root via `ext.justusRoot = file("../../..")`.
 - **pnpm hoisted linker required** (`nodeLinker: hoisted` in `pnpm-workspace.yaml`) — bare-link/bare-pack can't traverse pnpm's isolated symlinks (ekrooh#37). `devEngines.packageManager = pnpm 11.22.0`. Don't switch the linker back to isolated.
 - Build the APK: `cd apps/android && ./gradlew :app:assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk` (~108 MB).
+- **`libnativehelper.so` shim committed** at `app/src/main/nativehelper/<abi>/` (added to `jniLibs.srcDirs` in `app/build.gradle`). `libbare-kit.so` in the `bare-host` AAR `DT_NEED`s `libnativehelper.so` but never resolves symbols from it and the AAR omits it — without the shim, `Worklet.<clinit>` crashes with `UnsatisfiedLinkError: libnativehelper.so not found`. See **ekrooh#45**. Keep the shim; it does not break the arm64 emulator.
+- **The Nexus 7 (`flo`) cannot run `bare-host` 0.3.0**: it runs **LineageOS 18.1 (Android 11, API 30)** but on a **32-bit-only userspace** (`zygote32` — the `flo` kernel/hw are 32-bit), with no `/system/lib/libnativehelper.so`. Even with the shim it SIGSEGVs in `bare_kit__on_thread_enter` — see **ekrooh#46** (the vendor fingerprint reports stock 6.0.1, normal for LineageOS). Use the arm64 emulator for on-device testing; the Nexus 7 is a dead end for this AAR version.
 
 ## Dev
 
@@ -50,6 +52,8 @@ Consumer session building **Justus**, a photo-sharing app validating the `@ekroo
 - **#37** — bare-link/bare-pack need flat npm-style node_modules; bare-link silently links nothing without an entry.
 - **#38** — example `workingDir "../../"` fragile for consumers.
 - **#39** — on-device argv `[webassets, storage, cache]` undocumented; cache-fallback warning each boot.
+- **#45** — bare-host AAR's `libbare-kit.so` `DT_NEED`s `libnativehelper.so` but never ships it; crash on install-run. Worked around in-tree via the committed shim.
+- **#46** — bare-kit worklet SIGSEGVs in `bare_kit__on_thread_enter` on 32-bit-only ARM devices (Nexus 7). No in-tree fix; device can't run this AAR.
 - (Earlier: #26–#35 incl. #28 Noise handshake — superseded on Android by #41; #34 creds → resolved by Maven Central publish; #33/#32/#31/#30/#29/#26 docs/seams.)
 
 ## Next tasks once ekrooh ships the fix

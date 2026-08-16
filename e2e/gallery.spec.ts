@@ -102,12 +102,12 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
   await expectAllImagesDecodable(page);
 });
 
-test("settings shows creator status", async ({ page }) => {
+test("settings shows creator status and folder list", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByText("creator", { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Invite another device" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your folders" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your name" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy share key" })).toBeVisible();
-  await expect(page.getByText(/^Peers$/)).toBeVisible();
 });
 
 test("tapping a photo opens the lightbox; Escape closes it; remove asks for confirmation", async ({

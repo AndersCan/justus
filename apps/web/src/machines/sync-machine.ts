@@ -20,6 +20,10 @@ export const $syncError = atom<string | null>(null);
 /** True only for mantaq's universal `__error`: the machine is dead and Retry
  * cannot help — the UI must offer a reload instead. */
 export const $syncFatal = atom(false);
+/** Set when the last join landed as a *pending request* (the folder was added
+ * read-only and the requester is awaiting the creator's approval). The sync
+ * UI uses it to explain the outcome instead of navigating away. */
+export const $pendingJoin = atom(false);
 
 /** Plain view model for the sync UI (see $galleryViewModel). `busy` is
  * derived: it is exactly "a join or enroll is in flight". */
@@ -111,6 +115,7 @@ const syncActor = new Actor({
 
     m.on(ok, join, (e, opts) => {
       $syncError.set(null);
+      $pendingJoin.set(false);
       opts.context.set({ pendingJoin: e.payload.key, pendingEnroll: null });
       return { state: joining };
     });
@@ -133,6 +138,7 @@ const syncActor = new Actor({
     m.on(joining, joined, (e, opts) => {
       $syncError.set(null);
       $syncStatus.set(e.payload.status);
+      $pendingJoin.set(Boolean((e.payload.status as SyncStatus).folder?.pending));
       opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });

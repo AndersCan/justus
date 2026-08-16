@@ -1,5 +1,5 @@
 import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
-import type { Photo, PhotoChanged, SyncStatus } from "./types";
+import type { FolderSummary, JoinRequest, Photo, PhotoChanged, SyncStatus } from "./types";
 
 /** Importing a photo file (read + spool + put) can take a while. */
 const PHOTOS_ADD_TIMEOUT_MS = 120_000;
@@ -7,7 +7,7 @@ const PHOTOS_ADD_TIMEOUT_MS = 120_000;
 const PHOTOS_LIST_TIMEOUT_MS = 30_000;
 /** join waits for a peer handshake; give it a generous window. */
 const PHOTOS_JOIN_TIMEOUT_MS = 60_000;
-/** remove/enroll touch local drives — still, don't be stingy. */
+/** remove/enroll/respond/create touch local drives — still, don't be stingy. */
 const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
 
 export const photoSpecs = {
@@ -50,6 +50,45 @@ export const photoSpecs = {
     args: {} as Record<string, never>,
     result: {} as SyncStatus,
   },
+  folders: {
+    pluginId: "justus.photos",
+    name: "photos.folders",
+    args: {} as Record<string, never>,
+    result: {} as {
+      folders: FolderSummary[];
+      activeFolderId: string;
+    },
+  },
+  createFolder: {
+    pluginId: "justus.photos",
+    name: "photos.createFolder",
+    args: {} as { name: string },
+    result: {} as { folder: FolderSummary },
+  },
+  setActive: {
+    pluginId: "justus.photos",
+    name: "photos.setActive",
+    args: {} as { folderId: string },
+    result: {} as SyncStatus,
+  },
+  setName: {
+    pluginId: "justus.photos",
+    name: "photos.setName",
+    args: {} as { name: string },
+    result: {} as { name: string },
+  },
+  requests: {
+    pluginId: "justus.photos",
+    name: "photos.requests",
+    args: {} as Record<string, never>,
+    result: {} as { requests: JoinRequest[] },
+  },
+  respond: {
+    pluginId: "justus.photos",
+    name: "photos.respond",
+    args: {} as { folderId: string; requesterKey: string; approve: boolean },
+    result: {} as { ok: boolean },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -88,6 +127,49 @@ export const photoEvents = {
     },
     status(): InvokeEnvelope<"photos.status", Record<string, never>, SyncStatus> {
       return invokeEvent(photoSpecs.status, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    },
+    folders(): InvokeEnvelope<
+      "photos.folders",
+      Record<string, never>,
+      { folders: FolderSummary[]; activeFolderId: string }
+    > {
+      return invokeEvent(photoSpecs.folders, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    },
+    createFolder(
+      name: string,
+    ): InvokeEnvelope<"photos.createFolder", { name: string }, { folder: FolderSummary }> {
+      return invokeEvent(photoSpecs.createFolder, { name }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    setActive(
+      folderId: string,
+    ): InvokeEnvelope<"photos.setActive", { folderId: string }, SyncStatus> {
+      return invokeEvent(photoSpecs.setActive, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    setName(name: string): InvokeEnvelope<"photos.setName", { name: string }, { name: string }> {
+      return invokeEvent(photoSpecs.setName, { name }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    requests(): InvokeEnvelope<
+      "photos.requests",
+      Record<string, never>,
+      { requests: JoinRequest[] }
+    > {
+      return invokeEvent(photoSpecs.requests, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    },
+    respond(
+      folderId: string,
+      requesterKey: string,
+      approve: boolean,
+    ): InvokeEnvelope<
+      "photos.respond",
+      { folderId: string; requesterKey: string; approve: boolean },
+      { ok: boolean }
+    > {
+      return invokeEvent(
+        photoSpecs.respond,
+        { folderId, requesterKey, approve },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
   },
 } as const;

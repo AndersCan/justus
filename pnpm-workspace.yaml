@@ -28,3 +28,6 @@ peerDependencyRules:
 
 # pnpm 11 hoisted linker: ensure workspace packages are symlinked at root.
 linkWorkspacePackages: true
+
+minimumReleaseAgeExclude:
+  - "@ekrooh/bare@0.4.0"

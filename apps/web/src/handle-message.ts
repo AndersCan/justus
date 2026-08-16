@@ -1,6 +1,8 @@
 import type { WireMessage } from "@ekrooh/bare/core";
 import { photoSpecs } from "@justus/core";
+import { folders } from "./machines/folders-machine";
 import { $lastSyncAt, gallery } from "./machines/gallery-machine";
+import { requests } from "./machines/requests-machine";
 import { sync } from "./machines/sync-machine";
 
 /** Routes inbound wire messages: backend→web pushes refresh the actors;
@@ -12,6 +14,8 @@ export function handleMessage(msg: WireMessage) {
     $lastSyncAt.set(Date.now());
     gallery.load();
     sync.refresh();
+    folders.refresh();
+    requests.refresh();
   } else if (h.type === "INVOKE_RESPONSE" && h.error) {
     console.error("Plugin invoke failed:", h.pluginId, h.event, h.error.message);
   }

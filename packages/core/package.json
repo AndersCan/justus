@@ -11,6 +11,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@ekrooh/bare": "^0.2.0"
+    "@ekrooh/bare": "^0.4.0"
   }
 }

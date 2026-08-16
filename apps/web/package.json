@@ -10,7 +10,7 @@
     "preview": "vp preview"
   },
   "dependencies": {
-    "@ekrooh/bare": "^0.2.0",
+    "@ekrooh/bare": "^0.4.0",
     "@justus/core": "workspace:*",
     "@mantaq/core": "^0.2.0",
     "@mantaq/sugar": "^0.3.0",

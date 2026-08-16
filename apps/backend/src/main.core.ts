@@ -77,7 +77,7 @@ void store
   })
   .then((status) => {
     console.log(
-      `[justus] role=${status.role} name=${status.name} photos=${status.photos} peers=${status.peers}`,
+      `[justus] role=${status.folder.role} name=${status.name} photos=${status.photos} peers=${status.peers}`,
     );
   })
   .catch((err: unknown) => {

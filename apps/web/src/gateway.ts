@@ -22,4 +22,11 @@ export const gateway = {
   join: (key: string) => bus.invoke(photoEvents.photos.join(key)),
   enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),
   status: () => bus.invoke(photoEvents.photos.status()),
+  folders: () => bus.invoke(photoEvents.photos.folders()),
+  createFolder: (name: string) => bus.invoke(photoEvents.photos.createFolder(name)),
+  setActive: (folderId: string) => bus.invoke(photoEvents.photos.setActive(folderId)),
+  setName: (name: string) => bus.invoke(photoEvents.photos.setName(name)),
+  requests: () => bus.invoke(photoEvents.photos.requests()),
+  respond: (folderId: string, requesterKey: string, approve: boolean) =>
+    bus.invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
 };

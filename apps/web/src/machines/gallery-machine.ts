@@ -37,7 +37,7 @@ export const $galleryViewModel = computed(
     error,
     fatal,
     photos,
-    role: status?.role ?? null,
+    role: status?.folder?.role ?? null,
   }),
 );
 

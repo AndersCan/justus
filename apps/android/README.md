@@ -12,6 +12,10 @@ Consumes the published **`io.ekrooh:bare-host`** AAR from GitHub Packages
 
 - `settings.gradle` — resolves `io.ekrooh:bare-host` from
   `https://maven.pkg.github.com/AndersCan/ekrooh`.
+- `app/src/main/nativehelper/` — bundled `libnativehelper.so` shim. The published `bare-host` AAR's
+  `libbare-kit.so` `DT_NEED`s `libnativehelper.so` (a private Android platform lib) but never ships nor
+  calls into it, so `System.loadLibrary("bare-kit")` fails on install-run without this shim present in
+  the app's jniLibs (**ekrooh#45**). Do not remove it while consuming `bare-host` 0.3.0.
 - `app/build.gradle` — the app module; Gradle tasks run the monorepo builds:
   - `link` — `bare-link --preset android` links the p2p native addons into
     `src/main/addons`
@@ -47,6 +51,12 @@ gradle wrapper --gradle-version 8.9
 The APK lands in `app/build/outputs/apk/debug/app-debug.apk`. On the emulator/
 device, the gallery's "Pick photo" button opens the system picker; the worklet
 stores the photo in the folder drive and serves it over the loopback server.
+
+> **Device ABI caveat:** verified booting on the **arm64 emulator**. The physical
+> Nexus 7 (`flo`) runs **LineageOS 18.1 (Android 11)** but on a **32-bit-only**
+> userspace (`zygote32`) and cannot run `bare-host` 0.3.0 — it SIGSEGVs in
+> `bare_kit__on_thread_enter` even with the `libnativehelper` shim
+> (ekrooh#46). Use an arm64 emulator/device for on-device testing.
 
 > Note: this host app was scaffolded to the framework's reference pattern but
 > has not been compiled here — the AAR credentials and an Android SDK were not

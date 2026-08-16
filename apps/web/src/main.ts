@@ -4,12 +4,15 @@ import { getPagePath } from "@nanostores/router";
 import "uno.css";
 import { messenger, transport } from "./gateway";
 import { handleMessage } from "./handle-message";
+import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
+import { requests } from "./machines/requests-machine";
 import { sync } from "./machines/sync-machine";
 import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
+import { requestsView } from "./views/requests";
 import { settingsView } from "./views/settings";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
@@ -25,6 +28,8 @@ transport.subscribe((message) => {
 
 gallery.load();
 sync.refresh();
+folders.refresh();
+requests.refresh();
 
 // Small shared animations for confirm sheets and toasts (respects reduced
 // motion). Injected once; lit-html only plays them on element insert.
@@ -52,7 +57,7 @@ render(
         >
           <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
           ${useStore($router, (page) => {
-            const link = (name: "gallery" | "settings", label: string) => {
+            const link = (name: "gallery" | "settings" | "requests", label: string) => {
               const active = page?.route === name;
               return html`<a
                 class="decoration-line underline-offset-4 hover:text-clay hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30 ${
@@ -63,7 +68,8 @@ render(
                 >${label}</a
               >`;
             };
-            return html`${link("gallery", "Gallery")} ${link("settings", "Folder")}`;
+            return html`${link("gallery", "Gallery")} ${link("settings", "Folder")}
+            ${link("requests", "Requests")}`;
           })}
         </nav>
       </header>
@@ -80,5 +86,7 @@ function routeView(page: AppPage | undefined) {
   if (!page) {
     return html`<p class="text-taupe">We couldn't find that page.</p>`;
   }
-  return page.route === "gallery" ? galleryView() : settingsView();
+  if (page.route === "gallery") return galleryView();
+  if (page.route === "requests") return requestsView();
+  return settingsView();
 }

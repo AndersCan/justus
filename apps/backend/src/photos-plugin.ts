@@ -45,6 +45,24 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
           return errResult(e);
         }
       },
+      folders: async () => {
+        try {
+          return [null, await deps.store.folders()];
+        } catch (e) {
+          return errResult(e);
+        }
+      },
+      createFolder: async (args) => deps.store.createFolder(args.name),
+      setActive: async (args) => deps.store.setActive(args.folderId),
+      setName: async (args) => deps.store.setName(args.name),
+      requests: async () => {
+        try {
+          return [null, await deps.store.requests()];
+        } catch (e) {
+          return errResult(e);
+        }
+      },
+      respond: async (args) => deps.store.respond(args.folderId, args.requesterKey, args.approve),
     },
   });
 }

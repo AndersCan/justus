@@ -32,7 +32,11 @@ function isDirectory(p: unknown): boolean {
  */
 export function resolveJustusConfig(): JustusRuntimeOptions {
   const device = resolveWorkletConfig();
-  if (device.storage) {
+  // `resolveWorkletConfig()` also parses the CLI labeled tokens (used by the
+  // e2e/dev loop), which set `storage` but explicitly `deviceMode:false` — a
+  // dev config. Only the real on-device host config (which never sets
+  // `deviceMode`) should be treated as non-dev.
+  if (device.storage && device.deviceMode !== false) {
     return { ...device, dev: false };
   }
   const argv = typeof Bare !== "undefined" && Array.isArray(Bare.argv) ? Bare.argv : [];
