@@ -104,7 +104,10 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
 
 test("settings shows creator status and folder list", async ({ page }) => {
   await page.goto("/settings");
-  await expect(page.getByText("creator", { exact: true })).toBeVisible({ timeout: 20_000 });
+  const activeFolder = page.getByRole("heading", { name: "Active folder" });
+  await expect(activeFolder).toBeVisible({ timeout: 20_000 });
+  await expect(activeFolder.locator("xpath=following-sibling::span")).toContainText("creator");
+  await expect(page.getByRole("listitem").getByText("creator", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your folders" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your name" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy share key" })).toBeVisible();
