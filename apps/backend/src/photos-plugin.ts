@@ -1,4 +1,4 @@
-import { CoreError, definePlugin } from "@ekrooh/bare/core";
+import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
 import { photoSpecs } from "@justus/core";
 import type { PhotoStore } from "./photo-store";
 
@@ -20,7 +20,21 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
           return errResult(e);
         }
       },
-      add: async (args) => deps.store.add(args.path),
+      add: async (args, context: PluginContext) => {
+        // Two add flows share one invoke: a host-picked file already on disk
+        // (`path`), or bytes uploaded in-band as the invoke payload from the
+        // browser multi-file picker (`name` + payload).
+        if (args.path) return deps.store.add(args.path);
+        const payload = context?.payload;
+        if (payload && payload.byteLength > 0) {
+          const name =
+            typeof args.name === "string" && args.name.trim()
+              ? args.name
+              : `photo-${Date.now()}.jpg`;
+          return deps.store.addBytes(name, payload);
+        }
+        return errResult(new Error("photos.add needs a path or file bytes"));
+      },
       remove: async (args) => deps.store.remove(args.id),
       join: async (args) => deps.store.join(args.key),
       enroll: async (args) => deps.store.enroll(args.key, args.name),
