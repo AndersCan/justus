@@ -20,7 +20,10 @@ export const photoSpecs = {
   add: {
     pluginId: "justus.photos",
     name: "photos.add",
-    args: {} as { path: string },
+    // Either `path` (a file the host picked, already on disk) or `name`
+    // (the original file name when the bytes travel in-band as the invoke
+    // payload). The plugin picks whichever the caller provided.
+    args: {} as { path?: string; name?: string },
     result: {} as Photo,
   },
   remove: {
@@ -60,8 +63,16 @@ export const photoEvents = {
     list(): InvokeEnvelope<"photos.list", Record<string, never>, { photos: Photo[] }> {
       return invokeEvent(photoSpecs.list, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
-    add(path: string): InvokeEnvelope<"photos.add", { path: string }, Photo> {
+    add(path: string): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
       return invokeEvent(photoSpecs.add, { path }, null, PHOTOS_ADD_TIMEOUT_MS);
+    },
+    /** Adds a photo whose bytes travel in-band as the invoke payload (the
+     * browser multi-file picker — no host path exists there). */
+    addFile(
+      name: string,
+      bytes: Uint8Array | ArrayBuffer,
+    ): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
+      return invokeEvent(photoSpecs.add, { name }, bytes, PHOTOS_ADD_TIMEOUT_MS);
     },
     remove(id: string): InvokeEnvelope<"photos.remove", { id: string }, { id: string }> {
       return invokeEvent(photoSpecs.remove, { id }, null, PHOTOS_SHORT_TIMEOUT_MS);

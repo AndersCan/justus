@@ -64,6 +64,8 @@ export interface PhotoStore {
   ready(): Promise<void>;
   list(): Promise<Photo[]>;
   add(path: string): Promise<EitherResult<Photo>>;
+  /** Adds a photo from in-band bytes (browser multi-file picker). */
+  addBytes(name: string, bytes: Uint8Array): Promise<EitherResult<Photo>>;
   remove(id: string): Promise<EitherResult<{ id: string }>>;
   join(key: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
@@ -489,59 +491,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async add(filePath) {
+      return addFromPath(filePath);
+    },
+
+    /** Adds a photo from bytes uploaded in-band (browser multi-file picker):
+     * stages the bytes to a temp file so the path-based flow stays the single
+     * source of truth, then imports it. */
+    async addBytes(name, bytes) {
       await readyPromise;
       if (role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
-      let stat: ReturnType<typeof fs.statSync>;
+      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId()}`;
+      const ext = path.extname(safeName).toLowerCase();
+      const staged = path.join(deps.cacheDir, `upload-${newId()}${ext}`);
       try {
-        stat = fs.statSync(filePath);
-      } catch {
-        return err(PhotoError.NOT_FOUND, `No file at ${filePath}`);
-      }
-      if (!stat.isFile()) {
-        return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
-      }
-      let bytes: unknown;
-      try {
-        bytes = fs.readFileSync(filePath);
+        fs.writeFileSync(staged, bytes as Buffer);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
+        return err(ErrorCode.HOST_ERROR, `Failed to stage upload: ${message}`);
       }
-      const name = path.basename(filePath);
-      const ext = path.extname(name).toLowerCase();
-      const mime = guessMime(ext);
-      const id = newId();
-      const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-      const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
       try {
-        await ownDrive.put(drivePath, bytes, { metadata });
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
+        return await addFromPath(staged);
+      } finally {
+        try {
+          fs.unlinkSync(staged);
+        } catch {
+          // already gone — nothing to clean up
+        }
       }
-      const spoolPath = path.join(spoolDir, `${hex(ownDrive.key).slice(0, 12)}-${id}${ext}`);
-      try {
-        await spoolToFile(ownDrive, drivePath, spoolPath);
-      } catch {
-        // spool failure is non-fatal — the drive has the bytes
-      }
-      const mount = `/photos/${hex(ownDrive.key).slice(0, 12)}-${id}`;
-      if (!mounted.has(mount)) {
-        deps.server.mount(mount, spoolPath);
-        mounted.add(mount);
-      }
-      deps.onChanged({ cause: "add", memberKey: hex(ownDrive.key) });
-      return ok({
-        id,
-        url: `${await deps.server.origin()}${mount}`,
-        name,
-        mime,
-        size: stat.size,
-        addedAt: metadata.addedAt,
-        member: { key: hex(ownDrive.key), name: state.name },
-      });
     },
 
     async remove(id) {
@@ -705,6 +683,64 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // malformed
     }
     return { version: 1, members: {} };
+  }
+
+  /** Shared import logic for `add` (host path) and `addBytes` (in-band bytes):
+   * validates, reads, stores on the own drive and mounts for loopback serving. */
+  async function addFromPath(filePath: string): Promise<EitherResult<Photo>> {
+    await readyPromise;
+    if (role === "reader") {
+      return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
+    }
+    let stat: ReturnType<typeof fs.statSync>;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      return err(PhotoError.NOT_FOUND, `No file at ${filePath}`);
+    }
+    if (!stat.isFile()) {
+      return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
+    }
+    let bytes: unknown;
+    try {
+      bytes = fs.readFileSync(filePath);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
+    }
+    const name = path.basename(filePath);
+    const ext = path.extname(name).toLowerCase();
+    const mime = guessMime(ext);
+    const id = newId();
+    const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
+    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
+    try {
+      await ownDrive.put(drivePath, bytes, { metadata });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
+    }
+    const spoolPath = path.join(spoolDir, `${hex(ownDrive.key).slice(0, 12)}-${id}${ext}`);
+    try {
+      await spoolToFile(ownDrive, drivePath, spoolPath);
+    } catch {
+      // spool failure is non-fatal — the drive has the bytes
+    }
+    const mount = `/photos/${hex(ownDrive.key).slice(0, 12)}-${id}`;
+    if (!mounted.has(mount)) {
+      deps.server.mount(mount, spoolPath);
+      mounted.add(mount);
+    }
+    deps.onChanged({ cause: "add", memberKey: hex(ownDrive.key) });
+    return ok({
+      id,
+      url: `${await deps.server.origin()}${mount}`,
+      name,
+      mime,
+      size: stat.size,
+      addedAt: metadata.addedAt,
+      member: { key: hex(ownDrive.key), name: state.name },
+    });
   }
 }
 

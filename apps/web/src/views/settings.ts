@@ -18,70 +18,108 @@ type SyncViewModel = {
   error: string | null;
 };
 
+function roleBadge(role: SyncStatus["role"]) {
+  const tone =
+    role === "creator"
+      ? "border-lavpur-500/40 bg-lavpur-500/10 text-lavpur-700"
+      : role === "member"
+        ? "border-gold-500/50 bg-gold-500/15 text-gold-800"
+        : "border-coral-500/40 bg-coral-500/10 text-coral-700";
+  return html`<span class="chip uppercase ${tone}">${role}</span>`;
+}
+
 function syncBody({ status, state, busy, error }: SyncViewModel) {
+  const refreshing = state === "refreshing" || state === "idle";
   return html`
-    <div class="max-w-xl space-y-6">
-      <h1 class="text-2xl font-semibold">Sync</h1>
+    <div class="max-w-2xl space-y-6">
+      <div>
+        <p class="label mb-1">Folder &amp; devices</p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-ink-900 sm:text-4xl">
+          Sync
+        </h1>
+        <p class="mt-1.5 max-w-md text-sm text-ink-600">
+          How this folder is shared between your devices.
+        </p>
+      </div>
 
       ${
         error
           ? html`<div
-              class="rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-300"
+              class="flex items-start gap-3 rounded-xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-800 shadow-soft"
+              role="alert"
             >
-              ${error}
-              ${
-                state === "error"
-                  ? html`<button class="ml-2 underline" @click=${() => sync.retry()}>Retry</button>`
-                  : null
-              }
+              <svg
+                class="mt-0.5 h-4 w-4 shrink-0 text-coral-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              <div class="min-w-0 flex-1">
+                <p>${error}</p>
+                ${
+                  state === "error"
+                    ? html`<button class="btn-link mt-1 text-xs" @click=${() => sync.retry()}>
+                        Retry
+                      </button>`
+                    : null
+                }
+              </div>
             </div>`
           : null
       }
 
-      <section class="rounded-lg border border-zinc-800 p-4">
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-400">This device</h2>
+      <section class="card p-5">
+        <div class="mb-4 flex items-center justify-between gap-2">
+          <h2 class="label">This device</h2>
           <button
-            class="rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-            ?disabled=${busy || state === "refreshing"}
+            class="btn-ghost !px-3 !py-1 text-xs"
+            ?disabled=${busy || refreshing}
             @click=${() => sync.refresh()}
           >
+            ${
+              refreshing
+                ? html`<span
+                    class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-mist-300 border-t-lavpur-600"
+                    aria-hidden="true"
+                  ></span>`
+                : null
+            }
             Refresh
           </button>
         </div>
         ${
-          state === "idle" || state === "refreshing"
-            ? html`<p class="text-zinc-400">Loading status…</p>`
+          refreshing
+            ? html`<p class="text-sm text-ink-500">Loading status…</p>`
             : !status
-              ? html`<p class="text-zinc-400">No status.</p>`
+              ? html`<p class="text-sm text-ink-500">No status.</p>`
               : html`
-                  <dl class="grid grid-cols-2 gap-y-2 text-sm">
-                    <dt class="text-zinc-400">Role</dt>
-                    <dd>
-                      <span
-                        class="rounded bg-zinc-800 px-1.5 py-0.5 text-xs uppercase ${
-                          status.role === "creator"
-                            ? "text-emerald-400"
-                            : status.role === "member"
-                              ? "text-blue-400"
-                              : "text-amber-400"
-                        }"
-                        >${status.role}</span
+                  <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    <dt class="text-ink-500">Role</dt>
+                    <dd>${roleBadge(status.role)}</dd>
+                    <dt class="text-ink-500">Device</dt>
+                    <dd class="font-medium text-ink-900">${status.name}</dd>
+                    <dt class="text-ink-500">Peers</dt>
+                    <dd class="font-medium text-ink-900">${status.peers}</dd>
+                    <dt class="text-ink-500">Photos</dt>
+                    <dd class="font-medium text-ink-900">${status.photos}</dd>
+                    <dt class="text-ink-500">Members</dt>
+                    <dd class="font-medium text-ink-900">${status.members.length}</dd>
+                    <dt class="text-ink-500">Share key</dt>
+                    <dd class="flex min-w-0 items-center gap-2">
+                      <code
+                        class="truncate rounded-md bg-mist-100 px-2 py-1 font-mono text-xs text-ink-800"
+                        >${status.shareKey}</code
                       >
-                    </dd>
-                    <dt class="text-zinc-400">Device</dt>
-                    <dd>${status.name}</dd>
-                    <dt class="text-zinc-400">Peers</dt>
-                    <dd>${status.peers}</dd>
-                    <dt class="text-zinc-400">Photos</dt>
-                    <dd>${status.photos}</dd>
-                    <dt class="text-zinc-400">Members</dt>
-                    <dd>${status.members.length}</dd>
-                    <dt class="text-zinc-400">Share key</dt>
-                    <dd class="flex items-center gap-2">
-                      <code class="truncate text-xs text-zinc-300">${status.shareKey}</code>
                       <button
-                        class="shrink-0 rounded border border-zinc-700 px-1.5 py-0.5 text-xs hover:bg-zinc-800"
+                        class="btn-ghost !rounded-md !px-2 !py-1 text-xs"
+                        title="Copy share key"
                         @click=${() => void copyKey(status.shareKey)}
                       >
                         copy
@@ -92,11 +130,9 @@ function syncBody({ status, state, busy, error }: SyncViewModel) {
         }
       </section>
 
-      <section class="rounded-lg border border-zinc-800 p-4">
-        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-          Join a folder
-        </h2>
-        <p class="mb-2 text-sm text-zinc-400">
+      <section class="card p-5">
+        <h2 class="label mb-2">Join a folder</h2>
+        <p class="mb-3 text-sm text-ink-600">
           Paste a share key to read (and seed) someone else's folder. Your device joins as a member
           automatically if the creator enrolled it.
         </p>
@@ -109,16 +145,12 @@ function syncBody({ status, state, busy, error }: SyncViewModel) {
           }}
         >
           <input
-            class="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+            class="input font-mono"
             placeholder="64-char hex share key"
             aria-label="Share key"
             spellcheck="false"
           />
-          <button
-            class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm text-white hover:bg-emerald-500 disabled:opacity-50"
-            type="submit"
-            ?disabled=${busy || state === "refreshing"}
-          >
+          <button class="btn-primary shrink-0" type="submit" ?disabled=${busy || refreshing}>
             Join
           </button>
         </form>
@@ -127,11 +159,9 @@ function syncBody({ status, state, busy, error }: SyncViewModel) {
       ${
         status?.role === "creator"
           ? html`
-              <section class="rounded-lg border border-zinc-800 p-4">
-                <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                  Enroll a member
-                </h2>
-                <p class="mb-2 text-sm text-zinc-400">
+              <section class="card p-5">
+                <h2 class="label mb-2">Enroll a member</h2>
+                <p class="mb-3 text-sm text-ink-600">
                   Add a writer to this folder: paste the member device's drive key and its name.
                 </p>
                 <form
@@ -149,22 +179,22 @@ function syncBody({ status, state, busy, error }: SyncViewModel) {
                   }}
                 >
                   <input
-                    class="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+                    class="input font-mono"
                     placeholder="member drive key (hex)"
                     aria-label="Member drive key"
                     data-k
                     spellcheck="false"
                   />
                   <input
-                    class="w-40 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+                    class="input sm:max-w-44"
                     placeholder="member name"
                     aria-label="Member name"
                     data-n
                   />
                   <button
-                    class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+                    class="btn-primary shrink-0"
                     type="submit"
-                    ?disabled=${busy || state === "refreshing"}
+                    ?disabled=${busy || refreshing}
                   >
                     Enroll
                   </button>

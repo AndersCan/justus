@@ -13,6 +13,12 @@ import { gateway } from "../gateway";
 
 export type GalleryStateName = "booting" | "loading" | "ready" | "error" | "adding" | "removing";
 
+/** A file picked in the browser to upload in-band (multi-file pick). */
+export type AddFileInput = {
+  name: string;
+  bytes: Uint8Array;
+};
+
 const STATE_NAMES: ReadonlySet<string> = new Set([
   "booting",
   "loading",
@@ -45,7 +51,8 @@ const load = event("LOAD")();
 const loaded = event("LOADED")<{ photos: Photo[] }>();
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 const add = event("ADD")<{ path: string }>();
-const added = event("ADDED")<{ photo: Photo }>();
+const addFiles = event("ADD_FILES")<{ files: AddFileInput[]; notice?: string }>();
+const added = event("ADDED")<{ photos: Photo[]; errors?: string[]; notice?: string }>();
 const addFailed = event("ADD_FAILED")<{ message: string }>();
 const remove = event("REMOVE")<{ id: string }>();
 const removed = event("REMOVED")<{ id: string }>();
@@ -57,6 +64,8 @@ type GalleryContext = {
   $busy: typeof $galleryBusy;
   $error: typeof $galleryError;
   pendingAdd: string | null;
+  pendingFiles: AddFileInput[] | null;
+  pendingNotice: string | null;
   pendingRemove: string | null;
 };
 
@@ -85,7 +94,7 @@ function runInvoke(
 }
 
 const galleryActor = new Actor({
-  inputs: [load, add, remove, retry],
+  inputs: [load, add, addFiles, remove, retry],
   internal: [loaded, loadFailed, added, addFailed, removed, removeFailed],
   outputs: [],
   states: [booting, loading, ready, error, adding, removing],
@@ -96,6 +105,8 @@ const galleryActor = new Actor({
     $busy: $galleryBusy,
     $error: $galleryError,
     pendingAdd: null,
+    pendingFiles: null,
+    pendingNotice: null,
     pendingRemove: null,
   } as GalleryContext,
   setup: (m) => {
@@ -131,8 +142,52 @@ const galleryActor = new Actor({
       opts.context.set({ ...s, pendingAdd: e.payload.path });
       return { state: adding };
     });
+    m.on(ready, addFiles, (e, opts) => {
+      const s = opts.context.get();
+      s.$busy.set(true);
+      s.$error.set(null);
+      opts.context.set({
+        ...s,
+        pendingFiles: e.payload.files,
+        pendingNotice: e.payload.notice ?? null,
+      });
+      return { state: adding };
+    });
     m.effect(adding, ({ signal, emit, context }) => {
-      const path = context.get().pendingAdd;
+      const s = context.get();
+      const files = s.pendingFiles;
+      if (files && files.length > 0) {
+        // Batch upload (browser multi-file pick): import sequentially so a
+        // stalled photo never starves the rest; successes and failures are
+        // reported together so the UI lands in `ready` either way.
+        void (async () => {
+          const photos: Photo[] = [];
+          const errors: string[] = [];
+          for (const file of files) {
+            if (signal.aborted) return;
+            try {
+              const [err, result] = await gateway.addFile(file.name, file.bytes);
+              if (signal.aborted) return;
+              if (err) errors.push(`${file.name}: ${err.message}`);
+              else if (result) photos.push(result as Photo);
+            } catch (e) {
+              if (signal.aborted) return;
+              const message = e instanceof Error ? e.message : String(e);
+              errors.push(`${file.name}: ${message}`);
+            }
+          }
+          if (signal.aborted) return;
+          emit(
+            added.create({
+              photos,
+              errors: errors.length > 0 ? errors : undefined,
+              notice: context.get().pendingNotice ?? undefined,
+            }),
+          );
+        })();
+        return;
+      }
+      const path = s.pendingAdd;
       if (!path) {
         emit(addFailed.create({ message: "no pending photo to add" }));
         return;
@@ -140,26 +195,34 @@ const galleryActor = new Actor({
       runInvoke(
         signal,
         () => gateway.add(path),
-        (result) => emit(added.create({ photo: result as Photo })),
+        (result) => emit(added.create({ photos: [result as Photo] })),
         (message) => emit(addFailed.create({ message })),
       );
     });
     m.on(adding, added, (e, opts) => {
       const s = opts.context.get();
       s.$busy.set(false);
-      s.$error.set(null);
-      s.$photos.set([
-        e.payload.photo,
-        ...s.$photos.get().filter((p) => p.id !== e.payload.photo.id),
-      ]);
-      opts.context.set({ ...s, pendingAdd: null });
+      const errors = [...(e.payload.errors ?? [])];
+      if (e.payload.notice) errors.push(e.payload.notice);
+      if (errors.length) {
+        const n = errors.length;
+        s.$error.set(
+          `Added ${e.payload.photos.length} of ${e.payload.photos.length + n} photos — ${n} issue${n === 1 ? "" : "s"} (${errors[0]}${n > 1 ? " …" : ""}).`,
+        );
+      } else {
+        s.$error.set(null);
+      }
+      const byId = new Map(s.$photos.get().map((p) => [p.id, p]));
+      for (const photo of e.payload.photos) byId.set(photo.id, photo);
+      s.$photos.set([...byId.values()].sort((a, b) => b.addedAt - a.addedAt));
+      opts.context.set({ ...s, pendingAdd: null, pendingFiles: null, pendingNotice: null });
       return { state: ready };
     });
     m.on(adding, addFailed, (e, opts) => {
       const s = opts.context.get();
       s.$busy.set(false);
       s.$error.set(e.payload.message);
-      opts.context.set({ ...s, pendingAdd: null });
+      opts.context.set({ ...s, pendingAdd: null, pendingFiles: null, pendingNotice: null });
       return { state: ready };
     });
 
@@ -214,6 +277,8 @@ export const gallery = {
   state: () => nameOf(galleryActor.snapshot()),
   load: () => galleryActor.send(load.create()),
   add: (path: string) => galleryActor.send(add.create({ path })),
+  addFiles: (files: AddFileInput[], notice?: string) =>
+    galleryActor.send(addFiles.create({ files, notice })),
   remove: (id: string) => galleryActor.send(remove.create({ id })),
   retry: () => galleryActor.send(retry.create()),
 };

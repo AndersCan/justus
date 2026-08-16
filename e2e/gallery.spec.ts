@@ -68,6 +68,33 @@ test("dropping a file into the dev inbox adds it to the gallery live", async ({ 
   await expectAllImagesDecodable(page);
 });
 
+test("picking several files at once adds them all to the gallery", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  const before = await page.locator("figure img").count();
+
+  // The hidden multi-file input is the 'Add photos' picker; Playwright drives
+  // it directly with two real decodable JPEGs.
+  const stamp = Date.now();
+  await page.locator('input[type="file"]').setInputFiles([
+    {
+      name: `multi-a-${stamp}.jpg`,
+      mimeType: "image/jpeg",
+      buffer: Buffer.from(TINY_JPEG, "base64"),
+    },
+    {
+      name: `multi-b-${stamp}.jpg`,
+      mimeType: "image/jpeg",
+      buffer: Buffer.from(TINY_JPEG, "base64"),
+    },
+  ]);
+
+  await expect
+    .poll(async () => page.locator("figure img").count(), { timeout: 20_000 })
+    .toBe(before + 2);
+  await expectAllImagesDecodable(page);
+});
+
 test("settings shows creator status", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByText("creator", { exact: true })).toBeVisible({ timeout: 20_000 });
