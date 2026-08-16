@@ -1,4 +1,4 @@
-import { dispatchEvent, invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
+import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
 import type { Photo, PhotoChanged, SyncStatus } from "./types";
 
 /** Importing a photo file (read + spool + put) can take a while. */
@@ -91,10 +91,3 @@ export const photoEvents = {
     },
   },
 } as const;
-
-/** Dispatch envelope for the backend → web `photos.changed` push. The web
- * layer subscribes to the transport and matches this header shape; this
- * builder is also used by the backend to construct the frame. */
-export function photoChangedEnvelope(change: PhotoChanged) {
-  return dispatchEvent(photoSpecs.changed, change);
-}

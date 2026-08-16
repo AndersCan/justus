@@ -8,6 +8,8 @@ const node = HyperDHT.bootstrapper(port, "127.0.0.1");
 await node.ready();
 const addr = node.address();
 console.log(`local DHT bootstrap bound to ${addr.host}:${addr.port}`);
-process.on("SIGINT", () => {
+const shutdown = () => {
   void node.destroy().then(() => process.exit(0));
-});
+};
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

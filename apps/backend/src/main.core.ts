@@ -1,10 +1,11 @@
-import { MessageType } from "@ekrooh/bare/core";
-import { createWorkletRuntime } from "@ekrooh/bare/runtime";
-import type { PhotoChanged } from "@justus/core";
+import { createLoopbackPush, createWorkletRuntime } from "@ekrooh/bare/runtime";
+import { photoSpecs, type PhotoChanged } from "@justus/core";
+import path from "bare-path";
 import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
 import { createDevInbox } from "./dev-inbox";
+import { registerUploadRoute } from "./upload-route";
 
 const config = resolveJustusConfig();
 
@@ -16,35 +17,20 @@ const runtime = createWorkletRuntime({
   port: config.port,
 });
 
-// Backend → web push seam. The published @ekrooh/bare@0.1.0 has no
-// `createLoopbackPush`, so we register our own connection handler on the
-// loopback server and write dispatch frames to the single protocol socket.
-let pushSocket: { write(data: unknown): boolean } | null = null;
-runtime.server.onConnection((socket) => {
-  pushSocket = socket;
-  socket.on("close", () => {
-    if (pushSocket === socket) pushSocket = null;
-  });
-});
+// Backend → web push seam (`createLoopbackPush`, shipped in @ekrooh/bare
+// 0.2.0): writes DISPATCH envelopes to the connected protocol socket.
+const push = createLoopbackPush(runtime.server, runtime.protocol);
 
-function push(change: PhotoChanged) {
-  if (!pushSocket) return;
-  try {
-    const frame = runtime.protocol.encode(
-      MessageType.ENVELOPE,
-      {
-        type: "DISPATCH",
-        pluginId: "justus.photos",
-        event: "photos.changed",
-        args: change,
-      },
-      null,
-    );
-    pushSocket.write(frame);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.error(`[justus] push failed: ${message}`);
-  }
+function pushChange(change: PhotoChanged) {
+  push(
+    {
+      type: "DISPATCH",
+      pluginId: photoSpecs.changed.pluginId,
+      event: photoSpecs.changed.name,
+      args: change,
+    },
+    null,
+  );
 }
 
 const storageDir = config.storage ?? ".justus-storage";
@@ -55,19 +41,29 @@ const store: PhotoStore = createPhotoStore({
   cacheDir,
   server: runtime.server,
   deviceName: `Device-${Math.floor(Math.random() * 100000)}`,
-  onChanged: push,
+  onChanged: pushChange,
   seedOnEmpty: config.dev,
   bootstrap: config.bootstrap,
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store }));
 
-let _inbox: ReturnType<typeof createDevInbox> | null = null;
+// The real upload route on the worklet's own loopback server — the add path
+// the browser "Pick photo" uses in dev and on the device WebView alike.
+registerUploadRoute({
+  server: runtime.server,
+  store,
+  uploadsDir: path.join(cacheDir, "uploads"),
+});
+
 if (config.dev && config.inbox) {
-  _inbox = createDevInbox({
+  createDevInbox({
     inboxDir: config.inbox,
     onFile: (filePath) => {
-      void store.add(filePath);
+      void (async () => {
+        const [err] = await store.add(filePath);
+        if (err) console.error(`[justus] inbox import failed: ${err.message}`);
+      })();
     },
   });
 }

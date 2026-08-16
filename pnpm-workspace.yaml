@@ -1,7 +1,6 @@
 packages:
   - apps/*
   - packages/*
-  - tools/*
 
 catalog:
   "@playwright/test": ^1.62.1

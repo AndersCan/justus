@@ -44,7 +44,7 @@ export function resolveJustusConfig(): JustusRuntimeOptions {
     const hit = argv.find((a) => a.startsWith(`${name}=`));
     return hit ? hit.slice(name.length + 1) : undefined;
   };
-  const webAssets = label("webassets") ?? undefined;
+  const webAssets = label("webassets");
   const storage = label("storage") ?? dirs[0];
   const cache = label("cache") ?? dirs[1];
   const inbox = label("inbox") ?? dirs[2];

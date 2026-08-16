@@ -1,7 +1,6 @@
 import { html, render } from "lit-html";
 import { cache } from "lit-html/directives/cache.js";
 import { getPagePath } from "@nanostores/router";
-// UnoCSS global mode: the generated stylesheet must be imported by the entry.
 import "uno.css";
 import { messenger, transport } from "./gateway";
 import { handleMessage } from "./handle-message";
@@ -10,6 +9,7 @@ import { sync } from "./machines/sync-machine";
 import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
+import { lightboxView } from "./views/lightbox";
 import { settingsView } from "./views/settings";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
@@ -26,71 +26,59 @@ transport.subscribe((message) => {
 gallery.load();
 sync.refresh();
 
+// Small shared animations for confirm sheets and toasts (respects reduced
+// motion). Injected once; lit-html only plays them on element insert.
+const motionStyle = document.createElement("style");
+motionStyle.textContent = `
+  @keyframes justus-rise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+  @keyframes justus-fade { from { opacity: 0; } }
+  .justus-backdrop { animation: justus-fade 180ms ease-out; }
+  .justus-sheet { animation: justus-rise 260ms cubic-bezier(.22,1,.36,1); }
+  .justus-toast { animation: justus-rise 240ms cubic-bezier(.22,1,.36,1); }
+  @media (prefers-reduced-motion: reduce) {
+    .justus-backdrop, .justus-sheet, .justus-toast { animation: none; }
+  }
+`;
+document.head.appendChild(motionStyle);
+
 const renderRoot = document.getElementById("render-root");
-
-const cameraMark = html`<svg
-  class="h-[18px] w-[18px]"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  aria-hidden="true"
->
-  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-  <circle cx="12" cy="13" r="4" />
-</svg>`;
-
-function navItem(page: AppPage | undefined, route: "gallery" | "settings", label: string) {
-  const active = page?.route === route;
-  return html`<a
-    class="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-      active
-        ? "bg-lavpur-600 text-white shadow-soft"
-        : "text-ink-700 hover:bg-mist-200 hover:text-ink-900"
-    }"
-    href="${getPagePath($router, route)}"
-    aria-current=${active ? "page" : undefined}
-    >${label}</a
-  >`;
-}
-
 render(
   html`
-    <div class="min-h-screen bg-paper bg-mist-100 font-body text-ink-900">
-      <header class="sticky top-0 z-10 border-b border-mist-200 bg-mist-50/90 backdrop-blur-sm">
-        <nav class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 text-sm" aria-label="Main">
-          <a href="${getPagePath($router, "gallery")}" class="mr-1 flex items-center gap-2.5">
-            <span
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-lavpur-600 text-white shadow-soft"
-              >${cameraMark}</span
-            >
-            <span class="font-display text-2xl font-bold tracking-tight text-ink-900">Justus</span>
-          </a>
-          <span class="flex items-center gap-1 rounded-full bg-mist-100 p-1 ring-1 ring-mist-200">
-            ${useStore(
-              $router,
-              (page) =>
-                html`${navItem(page, "gallery", "Gallery")}${navItem(page, "settings", "Sync")}`,
-            )}
-          </span>
+    <div class="min-h-screen bg-paper pb-[max(1.5rem,env(safe-area-inset-bottom))] text-cocoa">
+      <header class="border-b border-line bg-linen">
+        <nav
+          class="mx-auto flex max-w-6xl items-center gap-6 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-sm sm:px-6"
+          aria-label="Main"
+        >
+          <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
+          ${useStore($router, (page) => {
+            const link = (name: "gallery" | "settings", label: string) => {
+              const active = page?.route === name;
+              return html`<a
+                class="decoration-line underline-offset-4 hover:text-clay hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30 ${
+                  active ? "font-semibold text-clay" : "text-cocoa"
+                }"
+                href="${getPagePath($router, name)}"
+                aria-current=${active ? "page" : undefined}
+                >${label}</a
+              >`;
+            };
+            return html`${link("gallery", "Gallery")} ${link("settings", "Folder")}`;
+          })}
         </nav>
       </header>
-      <main class="mx-auto max-w-6xl px-4 py-8">
+      <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         ${useStore($router, (page) => cache(routeView(page)))}
       </main>
-      <footer class="mx-auto max-w-6xl px-4 pb-10 pt-2 text-center">
-        <p class="text-xs text-ink-500">Justus · your photos, cosy on every device you own</p>
-      </footer>
     </div>
+    ${lightboxView()}
   `,
   renderRoot!,
 );
 
 function routeView(page: AppPage | undefined) {
   if (!page) {
-    return html`<p class="text-ink-600">Not found.</p>`;
+    return html`<p class="text-taupe">We couldn't find that page.</p>`;
   }
-  return page.route === "gallery" ? cache(galleryView()) : cache(settingsView());
+  return page.route === "gallery" ? galleryView() : settingsView();
 }

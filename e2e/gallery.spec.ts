@@ -12,21 +12,33 @@ const INBOX = resolve(".dev-e2e/inbox");
 /** All rendered photos must actually decode: complete + naturalWidth > 0.
  * This is the check that catches corrupt seed/import data (a 200 with a
  * JPEG header but undecodable pixels otherwise sails through every HTTP
- * assertion). */
+ * assertion). Images are lazy-loaded and decode asynchronously, so poll until
+ * every one is decodable instead of asserting a single snapshot. */
 async function expectAllImagesDecodable(page: import("@playwright/test").Page) {
   const images = page.locator("figure img");
   await expect(images.first()).toBeAttached({ timeout: 20_000 });
-  await expect.poll(() => images.count()).toBeGreaterThan(0);
-  const bad = await images.evaluateAll((els) =>
-    els
-      .map((el) => ({
-        src: (el as HTMLImageElement).src,
-        complete: (el as HTMLImageElement).complete,
-        naturalWidth: (el as HTMLImageElement).naturalWidth,
-      }))
-      .filter((i) => !i.complete || i.naturalWidth === 0),
-  );
-  expect(bad, `undecodable images: ${JSON.stringify(bad, null, 2)}`).toEqual([]);
+  await expect.poll(() => images.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        // Images are lazy-loaded: scroll every one into view so below-fold
+        // photos start decoding, then report the still-undecodable ones.
+        await images.evaluateAll((els) =>
+          els.forEach((el) => (el as Element).scrollIntoView({ block: "nearest" })),
+        );
+        return images.evaluateAll((els) =>
+          els
+            .map((el) => ({
+              src: (el as HTMLImageElement).src,
+              complete: (el as HTMLImageElement).complete,
+              naturalWidth: (el as HTMLImageElement).naturalWidth,
+            }))
+            .filter((i) => !i.complete || i.naturalWidth === 0),
+        );
+      },
+      { timeout: 20_000 },
+    )
+    .toEqual([]);
 }
 
 test("gallery loads seeded photos, all decodable, no console errors", async ({ page }) => {
@@ -68,36 +80,60 @@ test("dropping a file into the dev inbox adds it to the gallery live", async ({ 
   await expectAllImagesDecodable(page);
 });
 
-test("picking several files at once adds them all to the gallery", async ({ page }) => {
+test("picking a photo in the browser uploads it to the worklet route and adds it live", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
   const before = await page.locator("figure img").count();
 
-  // The hidden multi-file input is the 'Add photos' picker; Playwright drives
-  // it directly with two real decodable JPEGs.
-  const stamp = Date.now();
-  await page.locator('input[type="file"]').setInputFiles([
-    {
-      name: `multi-a-${stamp}.jpg`,
-      mimeType: "image/jpeg",
-      buffer: Buffer.from(TINY_JPEG, "base64"),
-    },
-    {
-      name: `multi-b-${stamp}.jpg`,
-      mimeType: "image/jpeg",
-      buffer: Buffer.from(TINY_JPEG, "base64"),
-    },
-  ]);
+  // The gallery's Pick button is a hidden file input; setting files exercises
+  // the browser → worklet `POST /photos` route → store.add → push path with a
+  // real chosen file (same-origin, exactly like the WebView on device).
+  await page.setInputFiles("input[type=file]", {
+    name: `picked-${Date.now()}.jpg`,
+    mimeType: "image/jpeg",
+    buffer: Buffer.from(TINY_JPEG, "base64"),
+  });
 
   await expect
     .poll(async () => page.locator("figure img").count(), { timeout: 20_000 })
-    .toBe(before + 2);
+    .toBe(before + 1);
   await expectAllImagesDecodable(page);
 });
 
 test("settings shows creator status", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByText("creator", { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("Share key", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Invite another device" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy share key" })).toBeVisible();
   await expect(page.getByText(/^Peers$/)).toBeVisible();
+});
+
+test("tapping a photo opens the lightbox; Escape closes it; remove asks for confirmation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const first = page.locator("figure").first();
+  await expect(first).toBeAttached({ timeout: 20_000 });
+
+  // Open the lightbox from the tile.
+  await first.click();
+  const close = page.getByRole("button", { name: "Close" });
+  await expect(close).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByRole("button", { name: "Remove", exact: true })).toBeVisible();
+
+  // Esc closes it.
+  await page.keyboard.press("Escape");
+  await expect(close).toHaveCount(0, { timeout: 5_000 });
+
+  // Remove requires the confirmation sheet, and "Keep" leaves the photo alone.
+  const tileName = await first.getAttribute("aria-label");
+  await page.locator('button[aria-label^="Remove"]').first().click();
+  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText(/Remove “.+”?/)).toBeVisible();
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 5_000 });
+  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 5_000 });
+  await expect(page.locator(`figure[aria-label="${tileName}"]`)).toHaveCount(1);
 });

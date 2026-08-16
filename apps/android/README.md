@@ -24,9 +24,13 @@ Consumes the published **`io.ekrooh:bare-host`** AAR from GitHub Packages
 
 ## Prerequisites
 
+Full tool-by-tool list (versions, archives, network endpoints, Docker notes):
+**see [`docs/android-build-dependencies.md`](../../docs/android-build-dependencies.md)**.
+
 - **GitHub Packages credentials** — even for public packages, GitHub Packages
   Maven requires a token. Put in `~/.gradle/gradle.properties`:
-  `GH_USER=<github username>` and `GH_TOKEN=<PAT with read:packages>`.
+  `GH_USER=<github username>` and `GH_TOKEN=<PAT with read:packages>`
+  (or export the same names). Tracked as ekrooh#34.
 - **Android SDK** — `local.properties` with `sdk.dir=...` (or `ANDROID_HOME`).
 - **Node/pnpm/vp** on PATH (the Gradle exec tasks run the monorepo builds).
 

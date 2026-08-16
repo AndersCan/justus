@@ -53,7 +53,7 @@ The native shell (Android/iOS) that starts the backend, owns system APIs (camera
 _Avoid_: launcher, wrapper
 
 **Actor**:
-A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; an actor's context may hold nanostore atoms the UI reads reactively.
+A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; each actor's change handler writes module-scope nanostore atoms, and the UI reads them reactively via computed view-models.
 _Avoid_: reducer, store, controller
 
 **Encryption**:

@@ -1,11 +1,11 @@
 import { context } from "esbuild";
-import { spawn, exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import net from "node:net";
 import { workletBuildOptions } from "./build.mjs";
+import { ensurePortFree } from "./port-utils.mjs";
 
 const require = createRequire(import.meta.url);
 const bareExecutable = require("bare-runtime")();
@@ -28,77 +28,9 @@ let bareProcess = null;
 let restartTimer = null;
 let shuttingDown = false;
 let restartChain = Promise.resolve();
-let lastRestartAt = 0;
 
 function log(message) {
   console.log(`[justus:backend] ${message}`);
-}
-
-function sleep(ms) {
-  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
-}
-
-/** True if something is listening on 127.0.0.1:port. */
-function isPortInUse(port) {
-  return new Promise((resolveProbe) => {
-    const server = net.createServer();
-    server.once("error", () => resolveProbe(true));
-    server.listen(port, "127.0.0.1", () => {
-      server.close(() => resolveProbe(false));
-    });
-  });
-}
-
-/** PIDs of processes listening on `port` (via lsof; [] when unavailable). */
-function listenerPids(port) {
-  return new Promise((resolvePids) => {
-    exec(`lsof -nP -iTCP:${port} -sTCP:LISTEN -t`, (err, stdout) => {
-      if (err) return resolvePids([]);
-      resolvePids(stdout.trim().split("\n").filter(Boolean));
-    });
-  });
-}
-
-function commandOf(pid) {
-  return new Promise((resolveCmd) => {
-    exec(`ps -o command= -p ${pid}`, (err, stdout) => resolveCmd(err ? "" : stdout.trim()));
-  });
-}
-
-/**
- * Makes sure the worklet's port is free before spawning. A stale Justus
- * worklet (left over from an aborted run) is killed with a warning; anything
- * else on the port fails the dev loop loudly instead of silently failing the
- * WebSocket connection the web layer expects.
- */
-async function ensurePortFree() {
-  if (!(await isPortInUse(WORKLET_PORT))) return;
-  const stale = [];
-  for (const pid of await listenerPids(WORKLET_PORT)) {
-    const cmd = await commandOf(pid);
-    if (/main\.core\.gen\.js|bare-runtime/.test(cmd)) stale.push(Number(pid));
-  }
-  if (stale.length > 0) {
-    log(
-      `Port ${WORKLET_PORT} is held by a stale Justus worklet (pid ${stale.join(", ")}) — killing it.`,
-    );
-    for (const pid of stale) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // already gone
-      }
-    }
-    await sleep(600);
-    if (!(await isPortInUse(WORKLET_PORT))) return;
-    log(`ERROR: port ${WORKLET_PORT} is still in use after killing the stale worklet.`);
-    process.exit(1);
-  }
-  log(
-    `ERROR: port ${WORKLET_PORT} is already in use by another process. The web layer connects to ws://localhost:${WORKLET_PORT} — free the port first.`,
-  );
-  log(`Run: lsof -nP -iTCP:${WORKLET_PORT} -sTCP:LISTEN`);
-  process.exit(1);
 }
 
 function stopBare() {
@@ -129,6 +61,11 @@ async function startBare() {
     stdio: "inherit",
   });
   log(`Started Bare worklet (pid=${bareProcess.pid ?? "unknown"}).`);
+  bareProcess.on("error", (error) => {
+    if (shuttingDown) return;
+    log(`Failed to spawn Bare: ${error.message}`);
+    bareProcess = null;
+  });
   bareProcess.on("exit", (code, signal) => {
     if (bareProcess && code !== 0 && !shuttingDown) {
       log(`Bare exited unexpectedly (code=${code}, signal=${signal ?? "none"})`);
@@ -137,18 +74,23 @@ async function startBare() {
 }
 
 function scheduleRestart() {
-  const now = Date.now();
-  if (now - lastRestartAt < 1000) return;
   if (restartTimer) clearTimeout(restartTimer);
   restartTimer = setTimeout(() => {
-    lastRestartAt = Date.now();
-    restartChain = restartChain.then(() => startBare());
+    restartChain = restartChain
+      .then(() => startBare())
+      .catch((error) => {
+        log(`Bare restart failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
   }, 50);
 }
 
 async function main() {
   rmSync(outFile, { force: true });
-  await ensurePortFree();
+  await ensurePortFree({
+    port: WORKLET_PORT,
+    bundlePattern: /\/apps\/backend\/\.dev\/main\.core\.gen\.js/,
+    log,
+  });
   const buildContext = await context({
     ...workletBuildOptions(undefined, outFile),
     plugins: [

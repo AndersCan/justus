@@ -5,21 +5,27 @@ class UseStoreDirective extends AsyncDirective {
   #unsub: (() => void) | undefined;
   #store: ReadableAtom<unknown> | undefined;
   #select: ((value: unknown) => unknown) | undefined;
+  #viewTransition = false;
+  #activeTransition: ViewTransition | undefined;
+  #pendingUpdate: (() => void) | undefined;
 
-  render<Value>(store: ReadableAtom<Value>): Value;
-  render<Value, Selected>(store: ReadableAtom<Value>, select: (value: Value) => Selected): Selected;
-  render<Value, Selected = Value>(
+  render<Value, Selected>(
     store: ReadableAtom<Value>,
-    select?: (value: Value) => Selected,
-  ): Value | Selected {
-    if (this.#store !== store || this.#select !== select) {
+    select: (value: Value) => Selected,
+    transitions?: boolean,
+  ): Selected {
+    if (
+      this.#store !== store ||
+      this.#select !== select ||
+      this.#viewTransition !== (transitions ?? false)
+    ) {
       this.#cleanup();
       this.#store = store;
       this.#select = select as ((value: unknown) => unknown) | undefined;
+      this.#viewTransition = transitions ?? false;
       if (this.isConnected) this.#subscribe();
     }
-    const raw = store.get();
-    return select ? select(raw) : raw;
+    return select(store.get());
   }
 
   #subscribe(): void {
@@ -27,11 +33,46 @@ class UseStoreDirective extends AsyncDirective {
     if (!store) return;
     const select = this.#select;
     this.#unsub = store.listen((value) => {
-      this.setValue(select ? select(value) : value);
+      const update = () => this.setValue(select ? select(value) : value);
+      this.#runTransition(update);
     });
   }
 
+  #runTransition(update: () => void): void {
+    const start =
+      typeof document !== "undefined" ? document.startViewTransition.bind(document) : undefined;
+    if (!this.#viewTransition || !start) {
+      update();
+      return;
+    }
+    if (this.#activeTransition) {
+      this.#pendingUpdate = update;
+      return;
+    }
+    let t: ViewTransition;
+    try {
+      t = start(update);
+    } catch {
+      update();
+      return;
+    }
+    this.#activeTransition = t;
+    void t.updateCallbackDone.catch(() => {});
+    void t.ready.catch(() => {});
+    t.finished
+      .catch(() => {})
+      .finally(() => {
+        this.#activeTransition = undefined;
+        const next = this.#pendingUpdate;
+        this.#pendingUpdate = undefined;
+        if (next && this.isConnected) {
+          this.#runTransition(next);
+        }
+      });
+  }
+
   #cleanup(): void {
+    this.#pendingUpdate = undefined;
     this.#unsub?.();
     this.#unsub = undefined;
   }
@@ -47,14 +88,10 @@ class UseStoreDirective extends AsyncDirective {
 
 const useStoreDirective = directive(UseStoreDirective);
 
-export function useStore<Value>(store: ReadableAtom<Value>): Value;
 export function useStore<Value, Selected>(
   store: ReadableAtom<Value>,
   select: (value: Value) => Selected,
-): Selected;
-export function useStore<Value, Selected = Value>(
-  store: ReadableAtom<Value>,
-  select?: (value: Value) => Selected,
-): Value | Selected {
-  return useStoreDirective(store, select as (value: unknown) => unknown) as Value | Selected;
+  transitions?: boolean,
+): Selected {
+  return useStoreDirective(store, select as (value: unknown) => unknown, transitions) as Selected;
 }

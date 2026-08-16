@@ -1,274 +1,351 @@
 import { html } from "lit-html";
 import { createRef, ref } from "lit-html/directives/ref.js";
+import { atom } from "nanostores";
+import { mediaEvents } from "@ekrooh/bare/plugins/media/events";
 import type { Photo } from "@justus/core";
+import { bus } from "../gateway";
 import {
   $galleryError,
+  $galleryState,
   $galleryViewModel,
+  $lastSyncAt,
   gallery,
-  type AddFileInput,
-  type GalleryStateName,
 } from "../machines/gallery-machine";
+import { $syncStatus } from "../machines/sync-machine";
 import { useStore } from "../use-store";
+import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
+import { memberColor } from "../utils/palette";
+import { errorBanner } from "./error-banner";
+import { confirmAction } from "./confirm";
+import { toast } from "./toast";
+import { openLightbox } from "./lightbox";
 
-/** In-band uploads share one protocol frame — stay comfortably under the
- * 16 MiB frame cap (header bytes included). Bigger files get a friendly
- * skip message; use the dev inbox / host picker for those. */
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-
+// "Pick photo" posts the chosen file to the worklet's own `POST /photos`
+// route (same-origin in the WebView, Vite-proxied in dev). In the native
+// shell (Android/iOS WebView) the file input is dead — those hosts have no
+// onShowFileChooser — so there we always use the host picker (`media.pick`),
+// which the shell implements.
 const fileInputRef = createRef<HTMLInputElement>();
+const inNativeShell =
+  typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
+/** Web-only: a browser upload is in flight (it bypasses the gallery machine,
+ * so `busy` doesn't cover it). Guards against double-pick and drives the
+ * Pick button's disabled state. */
+const $webUploading = atom(false);
 
-/** Reads every picked file and hands the whole batch to the gallery actor
- * (which uploads sequentially). The browser picker supports multi-select. */
+/** CSS <custom-ident> for the view-transition-name: unique per photo so the
+ * grid reshuffles (Bramus-style) when photos are added/removed. */
+const vtName = (id: string) => `photo-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
 async function pickAndAdd() {
-  const input = fileInputRef.value;
-  if (!input) return;
-  const files = Array.from(input.files ?? []);
-  input.value = ""; // allow re-selecting the same files next time
-  if (files.length === 0) return;
-
-  const tooBig = files.filter((f) => f.size > MAX_UPLOAD_BYTES);
-  const ok = files.filter((f) => f.size <= MAX_UPLOAD_BYTES);
-
-  if (tooBig.length > 0 && ok.length === 0) {
-    const names = tooBig
-      .slice(0, 3)
-      .map((f) => f.name)
-      .join(", ");
-    const more = tooBig.length > 3 ? ` and ${tooBig.length - 3} more` : "";
-    $galleryError.set(
-      `Skipped ${tooBig.length} photo${tooBig.length === 1 ? "" : "s"} over the 15 MiB upload limit: ${names}${more}.`,
-    );
+  if (inNativeShell) {
+    const [err, result] = await bus.invoke(mediaEvents.media.pick("image"));
+    if (err || !result?.path) {
+      if (err?.message?.toLowerCase().includes("cancelled")) return;
+      $galleryError.set("Couldn't open that photo — try another.");
+      return;
+    }
+    gallery.add(result.path);
     return;
   }
-
-  const inputs: AddFileInput[] = [];
-  for (const file of ok) {
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      inputs.push({ name: file.name, bytes });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      $galleryError.set(`Could not read ${file.name}: ${message}`);
-    }
-  }
-  if (inputs.length === 0) return;
-
-  const notice =
-    tooBig.length > 0
-      ? `Skipped ${tooBig.length} photo${tooBig.length === 1 ? "" : "s"} over the 15 MiB upload limit`
-      : undefined;
-  gallery.addFiles(inputs, notice);
+  fileInputRef.value?.click();
 }
 
-type GalleryViewModel = {
-  state: GalleryStateName;
-  busy: boolean;
-  error: string | null;
-  photos: Photo[];
-};
+async function onFileChosen(file: File | null | undefined) {
+  if (!file || $webUploading.get()) return;
+  $webUploading.set(true);
+  try {
+    const response = await fetch(`/photos?filename=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      throw new Error(body?.error ?? `HTTP ${response.status}`);
+    }
+    // The add pushes photos.changed — the gallery refreshes live.
+    toast(`Added “${file.name}”`);
+  } catch {
+    $galleryError.set(`That photo didn't make it. Try again?`);
+    toast("That photo didn't make it — try another");
+  } finally {
+    $webUploading.set(false);
+  }
+}
 
-function galleryBody({ state, busy, error, photos }: GalleryViewModel) {
+type GalleryViewModel = ReturnType<typeof $galleryViewModel.get>;
+
+/** Warm polaroid illustration for the empty state. */
+function emptyIllustration() {
+  return html`<svg
+    width="120"
+    height="120"
+    viewBox="0 0 120 120"
+    fill="none"
+    aria-hidden="true"
+    class="mx-auto mb-4"
+  >
+    <rect x="26" y="18" width="68" height="84" rx="10" fill="#FFFDF6" stroke="#E2CEB2" />
+    <rect x="34" y="26" width="52" height="44" rx="6" fill="#F3E4CC" />
+    <circle cx="52" cy="40" r="7" fill="#C99A5B" />
+    <path d="M34 64 L48 50 L60 62 L68 54 L86 70 L86 70 L34 70 Z" fill="#B05C2E" />
+    <rect x="42" y="78" width="36" height="5" rx="2.5" fill="#E8D6BA" />
+  </svg>`;
+}
+
+async function confirmRemove(photo: Photo) {
+  if ($galleryState.get() === "removing") return;
+  const ok = await confirmAction({
+    title: `Remove “${photo.name}”?`,
+    detail: "It will disappear from every device sharing this folder.",
+    confirmLabel: "Remove",
+    tone: "brick",
+  });
+  if (!ok) return;
+  gallery.remove(photo.id);
+  toast(`Removed “${photo.name}”`);
+}
+
+function photoTile(photo: Photo) {
   return html`
-    <div class="space-y-8">
-      <section class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="label mb-1">Your photo folder</p>
-          <h1 class="font-display text-3xl font-bold tracking-tight text-ink-900 sm:text-4xl">
-            Gallery
-          </h1>
-          <p class="mt-1.5 max-w-md text-sm text-ink-600">
-            Every photo in your folder, in one cosy place — ready when you are.
-          </p>
+    <figure
+      class="group relative cursor-pointer overflow-hidden rounded-2xl bg-linen shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)] ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60"
+      style="view-transition-name: ${vtName(photo.id)}"
+      role="button"
+      tabindex="0"
+      aria-label="View ${photo.name}"
+      @click=${() => openLightbox(photo)}
+      @keydown=${(e: KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openLightbox(photo);
+        }
+      }}
+    >
+      <img
+        class="aspect-square w-full object-cover"
+        src="${photo.url}"
+        alt="${photo.name}"
+        referrerpolicy="no-referrer"
+        loading="lazy"
+      />
+      <figcaption
+        class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/90 via-ink/50 to-transparent px-3 pb-2.5 pt-8"
+      >
+        <div class="truncate font-serif text-sm italic text-linen">${photo.name}</div>
+        <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#E9D3B5]">
+          <span
+            class="inline-block h-2 w-2 shrink-0 rounded-full"
+            style="background: ${memberColor(photo.member.key)}"
+          ></span>
+          <span class="truncate">${photo.member.name}</span>
+          <span>·</span>
+          <span>${formatRelative(photo.addedAt)}</span>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+      </figcaption>
+      <button
+        class="absolute right-2 top-2 flex h-11 min-h-11 w-11 items-center justify-center rounded-full bg-ink/60 text-sm text-linen backdrop-blur-sm transition hover:bg-brick focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+        title="Remove ${photo.name}"
+        aria-label="Remove ${photo.name}"
+        @click=${(e: Event) => {
+          e.stopPropagation();
+          void confirmRemove(photo);
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 6h18" />
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </svg>
+      </button>
+    </figure>
+  `;
+}
+
+/** Month-grouped photo tiles: "August 2026" serif rules between runs. */
+function groupedPhotos(photos: Photo[]) {
+  const groups: { label: string; photos: Photo[] }[] = [];
+  for (const photo of photos) {
+    const last = groups[groups.length - 1];
+    if (last && sameMonth(photo.addedAt, last.photos[last.photos.length - 1].addedAt)) {
+      last.photos.push(photo);
+    } else {
+      groups.push({ label: formatMonthGroup(photo.addedAt), photos: [photo] });
+    }
+  }
+  return groups.map(
+    (group) => html`
+      <div class="mt-8 first:mt-0">
+        <h2
+          class="mb-3 flex items-baseline gap-2 border-b border-butter pb-2 font-serif text-lg text-cocoa"
+        >
+          <span>${group.label}</span>
+          <span class="font-sans text-xs text-taupe">${group.photos.length}</span>
+        </h2>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          ${group.photos.map(photoTile)}
+        </div>
+      </div>
+    `,
+  );
+}
+
+function presenceStrip() {
+  const status = $syncStatus.get();
+  if (!status) {
+    return html`<span class="text-sm text-taupe">Looking for your folder…</span>`;
+  }
+  const peers = status.peers;
+  const known = status.members.length;
+  const online = peers > 0;
+  const alone = known <= 1;
+  const dotColor = online ? "bg-moss" : alone ? "bg-caramel" : "bg-honey";
+  const dotLabel = online ? "In sync" : alone ? "Ready to share" : "Waiting for devices";
+  const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
+  const lastSync = $lastSyncAt.get();
+  const otherCount = known > 1 ? known - 1 : 0;
+  return html`
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-taupe">
+      <span class="inline-flex items-center gap-1.5">
+        <span class="h-2 w-2 rounded-full ${dotColor} ${dotPulse}"></span>
+        ${dotLabel}
+      </span>
+      <span>${status.photos} photo${status.photos === 1 ? "" : "s"}</span>
+      ${
+        otherCount > 0
+          ? html`<span>shared with ${otherCount} other${otherCount === 1 ? "" : "s"}</span>`
+          : null
+      }
+      ${lastSync ? html`<span class="text-xs">synced ${formatRelative(lastSync)}</span>` : null}
+      <span class="flex items-center gap-1.5" aria-hidden="true">
+        ${status.members.map(
+          (m) => html`<span
+            class="inline-block h-3 w-3 rounded-full ring-2 ring-linen"
+            style="background: ${memberColor(m.key)}"
+            title="${m.name}"
+          ></span>`,
+        )}
+      </span>
+    </div>
+  `;
+}
+
+function emptyState(view: GalleryViewModel) {
+  const canAdd = view.role !== "reader";
+  return html`
+    <div class="mt-10 rounded-3xl bg-linen px-6 py-10 text-center ring-1 ring-line">
+      ${emptyIllustration()}
+      <h2 class="font-serif text-2xl text-ink">This folder is empty — for now.</h2>
+      <p class="mx-auto mt-2 max-w-sm text-sm text-cocoa">
+        ${
+          canAdd
+            ? "Add your first photo and it will appear on every device you share this folder with."
+            : "Photos from this folder will appear here as your devices come online."
+        }
+      </p>
+      <div class="mt-5 flex justify-center gap-2">
+        ${
+          canAdd
+            ? html`<button class="warm-pill" @click=${() => void pickAndAdd()}>Add a photo</button>`
+            : null
+        }
+        <a class="warm-ghost inline-flex items-center" href="/settings"
+          >${view.role === "reader" ? "Join a folder" : "Set up another device"}</a
+        >
+      </div>
+    </div>
+  `;
+}
+
+function galleryBody(view: GalleryViewModel) {
+  const { state, busy, error, fatal, photos } = view;
+  const readyEmpty = photos.length === 0 && state === "ready";
+  return html`
+    <div class="space-y-6">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-2">
+          <h1 class="font-serif text-3xl text-ink">Gallery</h1>
+          ${presenceStrip()}
+        </div>
+        <div class="flex shrink-0 gap-2">
           <input
             ${ref(fileInputRef)}
-            class="hidden"
             type="file"
             accept="image/*"
-            multiple
-            aria-label="Pick photos"
-            @change=${() => void pickAndAdd()}
+            class="hidden"
+            @change=${(e: Event) => {
+              const input = e.target as HTMLInputElement;
+              void onFileChosen(input.files?.[0]);
+              input.value = "";
+            }}
           />
           <button
-            class="btn-primary"
-            ?disabled=${busy || state === "loading"}
-            @click=${() => fileInputRef.value?.click()}
-          >
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.2"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Add photos
-          </button>
-          <button
-            class="btn-ghost"
-            ?disabled=${busy || state === "loading"}
+            class="warm-ghost"
+            ?disabled=${busy || state === "loading" || fatal}
             @click=${() => gallery.load()}
           >
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <path d="M21 3v6h-6" />
-            </svg>
-            Refresh
+            Check for new photos
           </button>
-        </div>
-      </section>
-
-      ${
-        error
-          ? html`<div
-              class="flex items-start gap-3 rounded-xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-800 shadow-soft"
-              role="alert"
+          ${useStore(
+            $webUploading,
+            (uploading) => html`<button
+              class="warm-pill"
+              ?disabled=${busy || state !== "ready" || uploading}
+              @click=${() => void pickAndAdd()}
             >
-              <svg
-                class="mt-0.5 h-4 w-4 shrink-0 text-coral-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              <div class="min-w-0 flex-1">
-                <p>${error}</p>
-                ${
-                  state === "error"
-                    ? html`<button class="btn-link mt-1 text-xs" @click=${() => gallery.retry()}>
-                        Retry
-                      </button>`
-                    : null
-                }
-              </div>
-            </div>`
-          : null
-      }
+              ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add a photo"}
+            </button>`,
+          )}
+        </div>
+      </div>
+
+      ${errorBanner(
+        error,
+        state === "error" && !fatal ? () => gallery.retry() : undefined,
+        fatal ? () => window.location.reload() : undefined,
+      )}
       ${
-        state === "loading"
-          ? html`<div class="flex items-center gap-2.5 py-10 text-ink-600">
-              <span
-                class="h-5 w-5 animate-spin rounded-full border-2 border-mist-300 border-t-lavpur-600"
-                aria-hidden="true"
-              ></span>
-              <span class="text-sm">Loading…</span>
-            </div>`
-          : null
-      }
-      ${
-        state === "error" && !error
-          ? html`<p class="py-10 text-sm text-ink-600">Could not load the gallery.</p>`
-          : null
-      }
-      ${
-        state !== "loading" || photos.length > 0
-          ? html`<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="Photos">
-              ${photos.map(
-                (photo) => html`
-                  <figure class="group relative overflow-hidden bg-mist-200">
-                    <img
-                      class="aspect-square w-full object-cover"
-                      src="${photo.url}"
-                      alt="${photo.name}"
-                      referrerpolicy="no-referrer"
-                      loading="lazy"
-                    />
-                    <div
-                      class="pointer-events-none absolute inset-0 bg-transparent transition-colors duration-150 group-hover:bg-ink-950/15"
-                      aria-hidden="true"
-                    ></div>
-                    <button
-                      class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-ink-950/55 text-white opacity-0 transition-all duration-150 hover:bg-coral-600 group-hover:opacity-100 focus-visible:opacity-100"
-                      title="Remove ${photo.name}"
-                      aria-label="Remove ${photo.name}"
-                      ?disabled=${busy}
-                      @click=${() => gallery.remove(photo.id)}
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
-                        />
-                      </svg>
-                    </button>
-                    <figcaption
-                      class="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-ink-950/80 via-ink-950/30 to-transparent px-2.5 pb-1.5 pt-8 text-white"
-                    >
-                      <div class="truncate text-xs font-medium drop-shadow-sm">${photo.name}</div>
-                      <div class="truncate text-[11px] text-white/85">
-                        ${photo.member.name} · ${new Date(photo.addedAt).toLocaleDateString()}
-                      </div>
-                    </figcaption>
-                  </figure>
-                `,
+        state === "loading" && photos.length === 0
+          ? html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              ${Array.from(
+                { length: 8 },
+                () =>
+                  html`<div
+                    class="aspect-square animate-pulse rounded-2xl bg-butter motion-reduce:animate-none"
+                  ></div>`,
               )}
             </div>`
           : null
       }
       ${
-        photos.length === 0 && state === "ready"
-          ? html`<section
-              class="card mx-auto flex max-w-md flex-col items-center gap-3 px-8 py-12 text-center"
-            >
-              <span
-                class="flex h-16 w-16 items-center justify-center rounded-full bg-mist-100 text-ink-500"
-                aria-hidden="true"
-              >
-                <svg
-                  class="h-8 w-8"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <path d="m21 15-5-5L5 21" />
-                </svg>
-              </span>
-              <h2 class="font-display text-xl font-bold text-ink-900">No photos yet</h2>
-              <p class="text-sm text-ink-600">
-                Pick a few to start your folder — select one or many at once.
-              </p>
-              <button class="btn-primary mt-1" @click=${() => fileInputRef.value?.click()}>
-                Add your first photos
-              </button>
-            </section>`
-          : null
+        readyEmpty
+          ? emptyState(view)
+          : html`
+              ${groupedPhotos(photos)}
+              <footer class="pt-8 text-center font-serif text-sm italic text-taupe">
+                — ${photos.length} photo${photos.length === 1 ? "" : "s"} shared with care —
+              </footer>
+            `
       }
     </div>
   `;
 }
 
 export function galleryView() {
-  return useStore($galleryViewModel, (vm) => galleryBody(vm));
+  return useStore($galleryViewModel, (vm) => galleryBody(vm), true);
 }
