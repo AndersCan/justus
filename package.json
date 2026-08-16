@@ -17,9 +17,9 @@
   },
   "devEngines": {
     "packageManager": {
-      "name": "npm",
-      "version": "11.17.0",
-      "onFail": "warn"
+      "name": "pnpm",
+      "version": "11.22.0",
+      "onFail": "download"
     }
   },
   "engines": {

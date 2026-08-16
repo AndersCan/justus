@@ -3,6 +3,13 @@ packages:
   - packages/*
   - tools/*
 
+# The ekrooh bare toolchain (bare-link/bare-pack) cannot traverse pnpm's
+# isolated (symlinked) node_modules — it needs a flat npm-style layout.
+nodeLinker: hoisted
+
+allowBuilds:
+  esbuild: true
+
 catalog:
   "@playwright/test": ^1.62.1
   "@types/node": ^24
@@ -19,3 +26,6 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+
+# pnpm 11 hoisted linker: ensure workspace packages are symlinked at root.
+linkWorkspacePackages: true

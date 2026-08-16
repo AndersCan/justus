@@ -10,17 +10,7 @@ dependencyResolutionManagement {
   repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
   repositories {
     google()
-    mavenCentral()
-    maven {
-      // io.ekrooh:bare-host (GitHub Packages) — credentials required even for
-      // public packages. Provide via ~/.gradle/gradle.properties or GH_USER/
-      // GH_TOKEN environment variables.
-      url = uri("https://maven.pkg.github.com/AndersCan/ekrooh")
-      credentials {
-        username = providers.gradleProperty("GH_USER").orNull ?: System.getenv("GH_USER")
-        password = providers.gradleProperty("GH_TOKEN").orNull ?: System.getenv("GH_TOKEN")
-      }
-    }
+    mavenCentral() // io.github.anderscan.ekrooh:bare-host publishes here (no credentials)
   }
 }
 
