@@ -39,8 +39,10 @@ Backend dev details:
 - The worklet runs under the `bare` CLI with persistent storage under
   `apps/backend/.dev/` (gitignored), auth off, port 8080, and seeds sample
   photos on first run.
-- **Dev-only adds**: drop a photo into `apps/backend/.dev/inbox/` and it is
-  imported into the gallery within ~2s (browser dev has no native picker).
+- **Dev-only adds**: use the gallery's **Pick photo** button — it POSTs your
+  chosen file to the worklet's own `POST /photos` upload route (Vite-proxied
+  in dev), imported within ~2s — or drop a photo into
+  `apps/backend/.dev/inbox/` directly. Browser dev has no native picker host.
 - `node apps/backend/scripts/dev-invoke.mjs photos.status` probes the worklet
   over the protocol.
 - `node apps/backend/scripts/local-dht.mjs 49737` starts a local DHT bootstrap;

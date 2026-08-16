@@ -41,7 +41,7 @@ export type SyncStatus = {
   members: SyncMember[];
 };
 
-export type PhotoChangedCause = "add" | "remove" | "enroll" | "unenroll";
+export type PhotoChangedCause = "add" | "remove" | "enroll";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {

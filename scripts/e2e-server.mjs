@@ -1,9 +1,9 @@
-import { spawn, exec, execSync } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import net from "node:net";
+import { ensurePortFree, isPortInUse, portHeldBy } from "../apps/backend/scripts/port-utils.mjs";
 
 /**
  * Boots the REAL Justus stack for Playwright, exactly like on-device:
@@ -34,55 +34,6 @@ function build(what, command, cwd) {
   execSync(command, { cwd, stdio: "inherit" });
 }
 
-function isPortInUse(port) {
-  return new Promise((resolveProbe) => {
-    const server = net.createServer();
-    server.once("error", () => resolveProbe(true));
-    server.listen(port, "127.0.0.1", () => {
-      server.close(() => resolveProbe(false));
-    });
-  });
-}
-
-function listenerPids(port) {
-  return new Promise((resolvePids) => {
-    exec(`lsof -nP -iTCP:${port} -sTCP:LISTEN -t`, (err, stdout) => {
-      if (err) return resolvePids([]);
-      resolvePids(stdout.trim().split("\n").filter(Boolean));
-    });
-  });
-}
-
-function commandOf(pid) {
-  return new Promise((resolveCmd) => {
-    exec(`ps -o command= -p ${pid}`, (err, stdout) => resolveCmd(err ? "" : stdout.trim()));
-  });
-}
-
-/** Kills any stale Justus worklet squatting on the port, so a fresh e2e run
- * never collides with a leftover dev process. */
-async function ensurePortFree() {
-  if (!(await isPortInUse(PORT))) return;
-  const stale = [];
-  for (const pid of await listenerPids(PORT)) {
-    const cmd = await commandOf(pid);
-    if (/main\.core\.gen\.js|bare-runtime/.test(cmd)) stale.push(Number(pid));
-  }
-  for (const pid of stale) {
-    log(`killing stale worklet pid ${pid} on port ${PORT}`);
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // already gone
-    }
-  }
-  if (stale.length > 0) await new Promise((r) => setTimeout(r, 600));
-  if (await isPortInUse(PORT)) {
-    log(`ERROR: port ${PORT} is held by a non-Justus process. Free it first.`);
-    process.exit(1);
-  }
-}
-
 async function waitForPort(port, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -99,7 +50,11 @@ async function main() {
   mkdirSync(cacheDir, { recursive: true });
   mkdirSync(inboxDir, { recursive: true });
 
-  await ensurePortFree();
+  await ensurePortFree({
+    port: PORT,
+    bundlePattern: /\/apps\/backend\/dist\/main\.core\.gen\.js/,
+    log,
+  });
 
   build("web app", "pnpm --filter @justus/web run build", root);
   build("backend worklet", "pnpm --filter @justus/backend run build", root);
@@ -123,6 +78,22 @@ async function main() {
 
   if (!(await waitForPort(PORT, 30_000))) {
     log(`ERROR: worklet did not bind port ${PORT} within 30s.`);
+    try {
+      bare.kill("SIGKILL");
+    } catch {
+      // already gone
+    }
+    process.exit(1);
+  }
+  // The port could have been grabbed by a foreign process while we were
+  // building/spawning — refuse to run against anything but our own worklet.
+  if (!(await portHeldBy(PORT, /\/apps\/backend\/dist\/main\.core\.gen\.js/))) {
+    log(`ERROR: port ${PORT} is bound by a foreign process — aborting.`);
+    try {
+      bare.kill("SIGKILL");
+    } catch {
+      // already gone
+    }
     process.exit(1);
   }
   log(`worklet up on http://127.0.0.1:${PORT}/index.html`);

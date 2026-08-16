@@ -62,7 +62,9 @@ def getExtendedPath() {
   return paths.unique().join(File.pathSeparator)
 }
 
-// Root of the Justus monorepo (apps/android/app → ../../../).
+// Root of the Justus monorepo (apps/android/app → ../../..).
+ext.justusRoot = file("../../..")
+
 def configureExec(Exec task, String command) {
   def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
   task.environment "PATH", getExtendedPath()
@@ -101,7 +103,7 @@ tasks.register("cleanWebAssets", Delete) {
 
 tasks.register("buildWebAssets", Exec) {
   dependsOn "cleanWebAssets"
-  configureExec(it, "mkdir -p apps/android/app/src/main/assets && pnpm --filter @justus/web run build && cp -R apps/web/dist/. apps/android/app/src/main/assets/")
+  configureExec(it, "pnpm --filter @justus/web run build && mkdir -p apps/android/app/src/main/assets && cp -R apps/web/dist/. apps/android/app/src/main/assets/")
 }
 
 // Pack the worklet bundle for the bare-kit runtime.

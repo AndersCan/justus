@@ -1,7 +1,6 @@
 packages:
   - apps/*
   - packages/*
-  - tools/*
 
 # The ekrooh bare toolchain (bare-link/bare-pack) cannot traverse pnpm's
 # isolated (symlinked) node_modules — it needs a flat npm-style layout.

@@ -6,7 +6,7 @@ import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
-import type { Photo, PhotoChanged, SyncMember, SyncStatus } from "@justus/core";
+import type { Photo, PhotoChanged, Role, SyncMember, SyncStatus } from "@justus/core";
 
 /** Canonical app-scoped error codes (preserved verbatim on the wire). */
 export const PhotoError = {
@@ -17,17 +17,19 @@ export const PhotoError = {
   INVALID_KEY: "justus.photos/invalid-key",
 } as const;
 
-export type FolderRole = "creator" | "member" | "reader";
-
 /** Any drive handle (the p2p packages ship no types). */
 type Drive = any;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
 type EitherResult<T> = [CoreError, null] | [null, T];
 
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 type PersistedState = {
   name: string;
-  folder: { role: FolderRole; shareKey: string } | null;
+  folder: { role: Role; shareKey: string } | null;
 };
 
 type RegistryFile = {
@@ -64,6 +66,8 @@ export interface PhotoStore {
   ready(): Promise<void>;
   list(): Promise<Photo[]>;
   add(path: string): Promise<EitherResult<Photo>>;
+  /** Adds a photo from in-band bytes (browser multi-file picker). */
+  addBytes(name: string, bytes: Uint8Array): Promise<EitherResult<Photo>>;
   remove(id: string): Promise<EitherResult<{ id: string }>>;
   join(key: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
@@ -93,21 +97,51 @@ function isTextJSON(value: unknown): value is { [k: string]: unknown } {
   return typeof value === "object" && value !== null;
 }
 
-/** Pumps a source stream into a file, resolving on completion. */
-function pumpToFile(source: NodeJS.ReadableStream, destPath: string): Promise<void> {
+type StreamSource = {
+  on(event: "data" | "end" | "error", listener: (...args: any[]) => void): unknown;
+};
+
+/** Pumps a source stream into a file, resolving with the byte count. Pass
+ * `maxBytes` to fail (and abort) once the stream exceeds it. */
+export function pumpToFile(
+  source: StreamSource,
+  destPath: string,
+  maxBytes?: number,
+): Promise<number> {
   return new Promise((resolve, reject) => {
     const out = fs.createWriteStream(destPath);
-    source.on("data", (chunk: unknown) => out.write(chunk as never));
-    source.on("end", () => out.end(() => resolve()));
-    source.on("error", (e) => {
+    let size = 0;
+    let done = false;
+    const fail = (err: Error) => {
+      if (done) return;
+      done = true;
       try {
         out.destroy();
       } catch {
         // already closed
       }
-      reject(e);
+      reject(err);
+    };
+    source.on("data", (chunk: unknown) => {
+      if (done) return;
+      const bytes = chunk instanceof Uint8Array ? chunk : Buffer.from(String(chunk));
+      size += bytes.length;
+      if (maxBytes !== undefined && size > maxBytes) {
+        fail(new Error(`stream too large (>${maxBytes} bytes)`));
+        return;
+      }
+      out.write(bytes as never);
     });
-    out.on("error", reject);
+    source.on("end", () => {
+      if (done) return;
+      out.end(() => {
+        if (done) return;
+        done = true;
+        resolve(size);
+      });
+    });
+    source.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
+    out.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
   });
 }
 
@@ -120,7 +154,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let state: PersistedState = { name: deps.deviceName, folder: null };
   let ownDrive: Drive;
   let folderDrive: Drive = null as unknown as Drive;
-  let role: FolderRole = "creator";
+  let role: Role = "creator";
   let members: SyncMember[] = [];
   const memberDrives = new Map<string, Drive>();
   const memberNameCache = new Map<string, string>();
@@ -141,7 +175,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           isTextJSON(folderRaw) &&
           typeof folderRaw.role === "string" &&
           typeof folderRaw.shareKey === "string"
-            ? { role: folderRaw.role as FolderRole, shareKey: folderRaw.shareKey }
+            ? { role: folderRaw.role as Role, shareKey: folderRaw.shareKey }
             : null;
         return { name, folder };
       }
@@ -155,7 +189,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       fs.writeFileSync(stateFile, JSON.stringify(state));
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = errMsg(e);
       console.error(`[justus] failed to persist state: ${message}`);
     }
   }
@@ -195,23 +229,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readRegistry(): Promise<RegistryFile> {
-    const text = await getText(folderDrive, DRIVE_PATH_MEMBERS);
-    if (text === null) {
-      return { version: 1, members: {} };
-    }
-    try {
-      const parsed = JSON.parse(text) as { version?: unknown; members?: unknown };
-      if (parsed.version === 1 && isTextJSON(parsed.members)) {
-        return { version: 1, members: parsed.members as RegistryFile["members"] };
-      }
-    } catch {
-      // malformed — start empty
-    }
-    return { version: 1, members: {} };
+    return readRegistryIn(folderDrive);
   }
 
   async function readRemoved(): Promise<RemovedFile["removed"]> {
-    if (role !== "creator") return {};
     const text = await getText(folderDrive, DRIVE_PATH_REMOVED);
     if (text === null) return {};
     try {
@@ -226,26 +247,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function watchDrive(drive: Drive, label: string) {
-    const handler = debounce(() => {
-      // Drive metadata changed locally or via replication — the gallery is
-      // derived, so a refresh always suffices.
-      scheduleChanged({ cause: "add", memberKey: label });
-    }, 400);
-    drive.on("update", handler);
-    const remove = () => drive.removeListener("update", handler);
-    watchers.add(remove);
-  }
-
-  function debounce(fn: () => void, ms: number): () => void {
     let timer: ReturnType<typeof setTimeout> | null = null;
-    return () => {
+    const handler = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(fn, ms);
+      timer = setTimeout(() => {
+        // Drive metadata changed locally or via replication — the gallery is
+        // derived, so a refresh always suffices.
+        deps.onChanged({ cause: "add", memberKey: label });
+      }, 400);
     };
-  }
-
-  function scheduleChanged(change: PhotoChanged) {
-    deps.onChanged(change);
+    drive.on("update", handler);
+    const remove = () => {
+      drive.removeListener("update", handler);
+      if (timer) clearTimeout(timer);
+    };
+    watchers.add(remove);
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
@@ -280,7 +296,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (name) memberNameCache.set(keyHex, name);
       watchDrive(drive, keyHex);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = errMsg(e);
       console.error(`[justus] failed to open member drive ${keyHex.slice(0, 12)}: ${message}`);
     }
   }
@@ -292,12 +308,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       name: m.name,
     }));
     members = entries;
+    // Prune drives for members no longer in the registry so their photos and
+    // swarm announce don't outlive their enrollment.
+    const live = new Set(entries.map((e) => e.key));
+    for (const [key, drive] of memberDrives) {
+      if (live.has(key)) continue;
+      memberDrives.delete(key);
+      memberNameCache.delete(key);
+      try {
+        await drive.close();
+      } catch {
+        // already closed
+      }
+    }
     for (const entry of entries) {
       await loadMemberDrive(entry.key, entry.name);
     }
   }
 
-  async function switchFolder(shareKey: string, nextRole: FolderRole) {
+  async function switchFolder(shareKey: string, nextRole: Role) {
     // Tear down the previous folder scope.
     for (const join of joins) {
       try {
@@ -311,11 +340,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     watchers.clear();
     memberDrives.clear();
     memberNameCache.clear();
+    // Spooled photos and mounted routes are keyed by member-drive key — they
+    // must not serve stale bytes from a previous folder. Drop them so the new
+    // folder's photos are re-spooled and re-mounted on the next list.
+    mounted.clear();
+    fs.rmSync(spoolDir, { recursive: true, force: true });
+    fs.mkdirSync(spoolDir, { recursive: true });
 
+    // Joining a folder must not stop announcing this device's own drive —
+    // peers discover it (device.json + photos) through that topic.
+    await joinTopic(ownDrive.discoveryKey);
     folderDrive = await openDriveWithTopic(shareKey, { server: false });
     role = nextRole;
     state.folder = { role, shareKey };
     saveState();
+  }
+
+  /** Base file names under the photos dir of a drive (sans the dir prefix);
+   * empty when the drive isn't downloaded yet. */
+  async function drivePhotoKeys(drive: Drive): Promise<string[]> {
+    const keys: string[] = [];
+    try {
+      const list = drive.list(DRIVE_PATH_PHOTOS);
+      for await (const entry of list) {
+        keys.push((entry as { key: string }).key.slice(DRIVE_PATH_PHOTOS.length + 1));
+      }
+    } catch {
+      // Drive not downloaded yet — empty.
+    }
+    return keys;
   }
 
   async function listPhotos(): Promise<Photo[]> {
@@ -340,6 +393,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // Drive not downloaded yet — skip.
         continue;
       }
+      const memberName = key === selfKey ? state.name : await readDeviceName(drive, key);
       for (const entry of entries) {
         const base = entry.key.slice(DRIVE_PATH_PHOTOS.length + 1);
         const extMatch = /^(.*?)(\.[^/.]+)?$/.exec(base);
@@ -352,7 +406,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const size = typeof entry.value?.size === "number" ? entry.value.size : 0;
         const addedAt = typeof meta.addedAt === "number" ? meta.addedAt : 0;
         if (removed[`${key}:${id}`]) continue;
-        const memberName = key === selfKey ? state.name : await readDeviceName(drive, key);
         const mount = `/photos/${key.slice(0, 12)}-${id}`;
         const spoolPath = path.join(spoolDir, `${key.slice(0, 12)}-${id}${ext}`);
         try {
@@ -362,7 +415,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             mounted.add(mount);
           }
         } catch (e) {
-          const message = e instanceof Error ? e.message : String(e);
+          const message = errMsg(e);
           console.error(`[justus] spool failed for ${base}: ${message}`);
           continue;
         }
@@ -394,8 +447,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function seedSamplePhotos() {
-    const existing = (await getText(ownDrive, DRIVE_PATH_PHOTOS)) ? 1 : 0;
-    if (existing) return;
     try {
       const list = ownDrive.list(DRIVE_PATH_PHOTOS);
       for await (const _ of list) return; // non-empty — already seeded
@@ -431,7 +482,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       try {
         corestore.replicate(conn);
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = errMsg(e);
         console.error(`[justus] replicate failed: ${message}`);
       }
     });
@@ -489,106 +540,58 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async add(filePath) {
+      return addFromPath(filePath);
+    },
+
+    /** Adds a photo from bytes uploaded in-band (browser multi-file picker):
+     * stages the bytes to a temp file so the path-based flow stays the single
+     * source of truth, then imports it. */
+    async addBytes(name, bytes) {
       await readyPromise;
       if (role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
-      let stat: ReturnType<typeof fs.statSync>;
+      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId()}`;
+      const ext = path.extname(safeName).toLowerCase();
+      const staged = path.join(deps.cacheDir, `upload-${newId()}${ext}`);
       try {
-        stat = fs.statSync(filePath);
-      } catch {
-        return err(PhotoError.NOT_FOUND, `No file at ${filePath}`);
-      }
-      if (!stat.isFile()) {
-        return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
-      }
-      let bytes: unknown;
-      try {
-        bytes = fs.readFileSync(filePath);
+        fs.writeFileSync(staged, bytes as Buffer);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
+        return err(ErrorCode.HOST_ERROR, `Failed to stage upload: ${message}`);
       }
-      const name = path.basename(filePath);
-      const ext = path.extname(name).toLowerCase();
-      const mime = guessMime(ext);
-      const id = newId();
-      const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-      const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
       try {
-        await ownDrive.put(drivePath, bytes, { metadata });
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
+        return await addFromPath(staged);
+      } finally {
+        try {
+          fs.unlinkSync(staged);
+        } catch {
+          // already gone — nothing to clean up
+        }
       }
-      const spoolPath = path.join(spoolDir, `${hex(ownDrive.key).slice(0, 12)}-${id}${ext}`);
-      try {
-        await spoolToFile(ownDrive, drivePath, spoolPath);
-      } catch {
-        // spool failure is non-fatal — the drive has the bytes
-      }
-      const mount = `/photos/${hex(ownDrive.key).slice(0, 12)}-${id}`;
-      if (!mounted.has(mount)) {
-        deps.server.mount(mount, spoolPath);
-        mounted.add(mount);
-      }
-      deps.onChanged({ cause: "add", memberKey: hex(ownDrive.key) });
-      return ok({
-        id,
-        url: `${await deps.server.origin()}${mount}`,
-        name,
-        mime,
-        size: stat.size,
-        addedAt: metadata.addedAt,
-        member: { key: hex(ownDrive.key), name: state.name },
-      });
     },
 
     async remove(id) {
       await readyPromise;
       const selfKey = hex(ownDrive.key);
       // Own photo → delete from own drive.
-      const ownEntries: string[] = [];
-      try {
-        const list = ownDrive.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) {
-          const base = (entry as { key: string }).key.slice(DRIVE_PATH_PHOTOS.length + 1);
-          ownEntries.push(base);
+      for (const base of await drivePhotoKeys(ownDrive)) {
+        if (base.startsWith(`${id}.`) || base === id) {
+          await ownDrive.del(`${DRIVE_PATH_PHOTOS}/${base}`);
+          deps.onChanged({ cause: "remove", memberKey: selfKey });
+          return ok({ id });
         }
-      } catch {
-        // no photos
-      }
-      const match = ownEntries.find((base) => base.startsWith(`${id}.`) || base === id);
-      if (match) {
-        await ownDrive.del(`${DRIVE_PATH_PHOTOS}/${match}`);
-        deps.onChanged({ cause: "remove", memberKey: selfKey });
-        return ok({ id });
       }
       // Creator → tombstone another member's photo out of the derived view.
       if (role === "creator") {
-        const text = await getText(folderDrive, DRIVE_PATH_REMOVED);
-        let removed: RemovedFile["removed"] = {};
-        if (text) {
-          try {
-            const parsed = JSON.parse(text) as { removed?: unknown };
-            if (isTextJSON(parsed.removed)) removed = parsed.removed as RemovedFile["removed"];
-          } catch {
-            // start fresh
-          }
-        }
+        let removed = await readRemoved();
         let tombstoned = false;
-        for (const key of memberDrives.keys()) {
-          try {
-            const list = memberDrives.get(key)!.list(DRIVE_PATH_PHOTOS);
-            for await (const entry of list) {
-              const base = (entry as { key: string }).key.slice(DRIVE_PATH_PHOTOS.length + 1);
-              if (base.startsWith(`${id}.`) || base === id) {
-                removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
-                tombstoned = true;
-              }
+        for (const [key, drive] of memberDrives) {
+          for (const base of await drivePhotoKeys(drive)) {
+            if (base.startsWith(`${id}.`) || base === id) {
+              removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
+              tombstoned = true;
             }
-          } catch {
-            // skip
           }
         }
         if (tombstoned) {
@@ -609,32 +612,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (key === hex(ownDrive.key))
         return err(PhotoError.INVALID_KEY, "You already own this folder");
       let drive: Drive;
+      let registry: RegistryFile;
       try {
         // Join the folder topic first so a peer serves the drive's blocks
         // (a remote `drive.ready()` otherwise waits forever).
-        drive = new Hyperdrive(corestore, Buffer.from(key, "hex"));
-        const topic = drive.discoveryKey;
-        await joinTopic(topic, { server: false });
-        await Promise.race([
-          drive.ready(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("timeout opening folder")), 45_000),
-          ),
-        ]);
-        await readRegistryIn(drive);
+        drive = await openDriveWithTopic(key, { server: false });
+        // The registry tells us whether this device is enrolled as a member.
+        registry = await readRegistryIn(drive);
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = errMsg(e);
         return err(PhotoError.INVALID_KEY, `Cannot open folder: ${message}`);
       }
-      // The registry tells us whether this device is enrolled as a member.
-      const registry = await readRegistryIn(drive);
       const enrolled = Object.values(registry.members).some((m) => m.key === hex(ownDrive.key));
-      const nextRole: FolderRole = enrolled ? "member" : "reader";
+      const nextRole: Role = enrolled ? "member" : "reader";
       await switchFolder(key, nextRole);
       await refreshMembers();
       watchDrive(folderDrive, hex(folderDrive.key));
       deps.onChanged({ cause: "enroll" });
-      return ok(await status());
+      return ok(await computeStatus());
     },
 
     async enroll(key, name) {
@@ -652,12 +647,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
       await loadMemberDrive(key, name);
       deps.onChanged({ cause: "enroll", memberKey: key });
-      return ok(await status());
+      return ok(await computeStatus());
     },
 
     async status() {
       await readyPromise;
-      return status();
+      return computeStatus();
     },
 
     async close() {
@@ -674,7 +669,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
   };
 
-  async function status(): Promise<SyncStatus> {
+  async function computeStatus(): Promise<SyncStatus> {
     const registry = await readRegistry();
     const memberList: SyncMember[] =
       role === "creator"
@@ -705,6 +700,64 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // malformed
     }
     return { version: 1, members: {} };
+  }
+
+  /** Shared import logic for `add` (host path) and `addBytes` (in-band bytes):
+   * validates, reads, stores on the own drive and mounts for loopback serving. */
+  async function addFromPath(filePath: string): Promise<EitherResult<Photo>> {
+    await readyPromise;
+    if (role === "reader") {
+      return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
+    }
+    let stat: ReturnType<typeof fs.statSync>;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      return err(PhotoError.NOT_FOUND, `No file at ${filePath}`);
+    }
+    if (!stat.isFile()) {
+      return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
+    }
+    let bytes: unknown;
+    try {
+      bytes = fs.readFileSync(filePath);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
+    }
+    const name = path.basename(filePath);
+    const ext = path.extname(name).toLowerCase();
+    const mime = guessMime(ext);
+    const id = newId();
+    const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
+    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
+    try {
+      await ownDrive.put(drivePath, bytes, { metadata });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
+    }
+    const spoolPath = path.join(spoolDir, `${hex(ownDrive.key).slice(0, 12)}-${id}${ext}`);
+    try {
+      await spoolToFile(ownDrive, drivePath, spoolPath);
+    } catch {
+      // spool failure is non-fatal — the drive has the bytes
+    }
+    const mount = `/photos/${hex(ownDrive.key).slice(0, 12)}-${id}`;
+    if (!mounted.has(mount)) {
+      deps.server.mount(mount, spoolPath);
+      mounted.add(mount);
+    }
+    deps.onChanged({ cause: "add", memberKey: hex(ownDrive.key) });
+    return ok({
+      id,
+      url: `${await deps.server.origin()}${mount}`,
+      name,
+      mime,
+      size: stat.size,
+      addedAt: metadata.addedAt,
+      member: { key: hex(ownDrive.key), name: state.name },
+    });
   }
 }
 

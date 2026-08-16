@@ -1,4 +1,4 @@
-import { dispatchEvent, invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
+import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
 import type { Photo, PhotoChanged, SyncStatus } from "./types";
 
 /** Importing a photo file (read + spool + put) can take a while. */
@@ -20,7 +20,10 @@ export const photoSpecs = {
   add: {
     pluginId: "justus.photos",
     name: "photos.add",
-    args: {} as { path: string },
+    // Either `path` (a file the host picked, already on disk) or `name`
+    // (the original file name when the bytes travel in-band as the invoke
+    // payload). The plugin picks whichever the caller provided.
+    args: {} as { path?: string; name?: string },
     result: {} as Photo,
   },
   remove: {
@@ -60,8 +63,16 @@ export const photoEvents = {
     list(): InvokeEnvelope<"photos.list", Record<string, never>, { photos: Photo[] }> {
       return invokeEvent(photoSpecs.list, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
-    add(path: string): InvokeEnvelope<"photos.add", { path: string }, Photo> {
+    add(path: string): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
       return invokeEvent(photoSpecs.add, { path }, null, PHOTOS_ADD_TIMEOUT_MS);
+    },
+    /** Adds a photo whose bytes travel in-band as the invoke payload (the
+     * browser multi-file picker — no host path exists there). */
+    addFile(
+      name: string,
+      bytes: Uint8Array | ArrayBuffer,
+    ): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
+      return invokeEvent(photoSpecs.add, { name }, bytes, PHOTOS_ADD_TIMEOUT_MS);
     },
     remove(id: string): InvokeEnvelope<"photos.remove", { id: string }, { id: string }> {
       return invokeEvent(photoSpecs.remove, { id }, null, PHOTOS_SHORT_TIMEOUT_MS);
@@ -80,10 +91,3 @@ export const photoEvents = {
     },
   },
 } as const;
-
-/** Dispatch envelope for the backend → web `photos.changed` push. The web
- * layer subscribes to the transport and matches this header shape; this
- * builder is also used by the backend to construct the frame. */
-export function photoChangedEnvelope(change: PhotoChanged) {
-  return dispatchEvent(photoSpecs.changed, change);
-}

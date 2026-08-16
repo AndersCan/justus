@@ -15,6 +15,9 @@ export const bus = createPluginBus(messenger);
 export const gateway = {
   list: () => bus.invoke(photoEvents.photos.list()),
   add: (path: string) => bus.invoke(photoEvents.photos.add(path)),
+  /** Adds a photo from bytes picked in the browser (multi-file upload). */
+  addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
+    bus.invoke(photoEvents.photos.addFile(name, bytes)),
   remove: (id: string) => bus.invoke(photoEvents.photos.remove(id)),
   join: (key: string) => bus.invoke(photoEvents.photos.join(key)),
   enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),

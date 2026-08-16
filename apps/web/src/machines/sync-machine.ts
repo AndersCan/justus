@@ -1,34 +1,37 @@
-import { Actor, RealClock, event, state, type Snapshot } from "@mantaq/core";
+import { Actor, RealClock, event, state } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
+import { bindStateAtoms, runInvoke } from "./actor-utils";
 
 /**
  * The sync/join state machine: folder status, reader join, creator enroll.
- * Same pattern as the gallery — a mantaq actor whose context holds atoms,
- * with every invoke wrapped so transport failures become failure events.
+ * Same pattern as the gallery — a mantaq actor whose context holds the
+ * in-flight join/enroll params the effects read, with every invoke wrapped
+ * so transport failures become failure events.
  */
 
-export type SyncStateName = "idle" | "refreshing" | "ok" | "joining" | "enrolling" | "error";
-
-const STATE_NAMES: ReadonlySet<string> = new Set([
-  "idle",
-  "refreshing",
-  "ok",
-  "joining",
-  "enrolling",
-  "error",
-]);
+const SYNC_STATES = ["idle", "refreshing", "ok", "joining", "enrolling", "error"] as const;
+export type SyncStateName = (typeof SYNC_STATES)[number];
 
 export const $syncStatus = atom<SyncStatus | null>(null);
 export const $syncState = atom<SyncStateName>("idle");
-export const $syncBusy = atom<boolean>(false);
 export const $syncError = atom<string | null>(null);
+/** True only for mantaq's universal `__error`: the machine is dead and Retry
+ * cannot help — the UI must offer a reload instead. */
+export const $syncFatal = atom(false);
 
-/** Plain view model for the sync UI (see $galleryViewModel). */
+/** Plain view model for the sync UI (see $galleryViewModel). `busy` is
+ * derived: it is exactly "a join or enroll is in flight". */
 export const $syncViewModel = computed(
-  [$syncStatus, $syncState, $syncBusy, $syncError],
-  (status, state, busy, error) => ({ status, state, busy, error }),
+  [$syncStatus, $syncState, $syncError, $syncFatal],
+  (status, state, error, fatal) => ({
+    status,
+    state,
+    busy: state === "joining" || state === "enrolling",
+    error,
+    fatal,
+  }),
 );
 
 const idle = state("idle")();
@@ -50,34 +53,9 @@ const enrollFailed = event("ENROLL_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type SyncContext = {
-  $status: typeof $syncStatus;
-  $busy: typeof $syncBusy;
-  $error: typeof $syncError;
   pendingJoin: string | null;
   pendingEnroll: { key: string; name: string } | null;
 };
-
-function runInvoke(
-  signal: AbortSignal,
-  work: () => Promise<[unknown, unknown]>,
-  onSuccess: (result: unknown) => void,
-  onFailure: (message: string) => void,
-) {
-  void (async () => {
-    let outcome: [unknown, unknown];
-    try {
-      outcome = await work();
-    } catch (e) {
-      if (signal.aborted) return;
-      onFailure(e instanceof Error ? e.message : String(e));
-      return;
-    }
-    if (signal.aborted) return;
-    const [err, result] = outcome;
-    if (err) onFailure(err instanceof Error ? err.message : "unknown error");
-    else onSuccess(result);
-  })();
-}
 
 const syncActor = new Actor({
   inputs: [refresh, join, enroll, retry],
@@ -87,20 +65,29 @@ const syncActor = new Actor({
   initial: idle,
   clock: new RealClock(),
   context: {
-    $status: $syncStatus,
-    $busy: $syncBusy,
-    $error: $syncError,
     pendingJoin: null,
     pendingEnroll: null,
   } as SyncContext,
   setup: (m) => {
-    m.on(idle, refresh, () => ({ state: refreshing }));
-    m.on(ok, refresh, () => ({ state: refreshing }));
-    m.on(error, refresh, () => ({ state: refreshing }));
-    m.on(error, retry, () => ({ state: refreshing }));
+    m.on(idle, refresh, () => {
+      $syncError.set(null);
+      return { state: refreshing };
+    });
+    m.on(ok, refresh, () => {
+      $syncError.set(null);
+      return { state: refreshing };
+    });
+    m.on(error, refresh, () => {
+      $syncError.set(null);
+      return { state: refreshing };
+    });
+    m.on(error, retry, () => {
+      $syncError.set(null);
+      return { state: refreshing };
+    });
 
     m.effect(refreshing, ({ signal, emit }) => {
-      runInvoke(
+      return runInvoke(
         signal,
         () => gateway.status(),
         (result) =>
@@ -111,21 +98,20 @@ const syncActor = new Actor({
       );
     });
     m.on(refreshing, status, (e, opts) => {
-      const s = opts.context.get();
-      s.$status.set(e.payload.status);
-      s.$error.set(null);
+      $syncStatus.set(e.payload.status);
+      $syncError.set(null);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });
     m.on(refreshing, statusFailed, (e, opts) => {
-      opts.context.get().$error.set(e.payload.message);
+      $syncError.set(e.payload.message);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: error };
     });
 
     m.on(ok, join, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(true);
-      s.$error.set(null);
-      opts.context.set({ ...s, pendingJoin: e.payload.key });
+      $syncError.set(null);
+      opts.context.set({ pendingJoin: e.payload.key, pendingEnroll: null });
       return { state: joining };
     });
     m.effect(joining, ({ signal, emit, context }) => {
@@ -134,7 +120,7 @@ const syncActor = new Actor({
         emit(joinFailed.create({ message: "no pending join key" }));
         return;
       }
-      runInvoke(
+      return runInvoke(
         signal,
         () => gateway.join(key),
         (result) =>
@@ -145,28 +131,22 @@ const syncActor = new Actor({
       );
     });
     m.on(joining, joined, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(false);
-      s.$error.set(null);
-      s.$status.set(e.payload.status);
-      opts.context.set({ ...s, pendingJoin: null });
+      $syncError.set(null);
+      $syncStatus.set(e.payload.status);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });
     m.on(joining, joinFailed, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(false);
-      s.$error.set(e.payload.message);
-      opts.context.set({ ...s, pendingJoin: null });
+      $syncError.set(e.payload.message);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });
 
     m.on(ok, enroll, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(true);
-      s.$error.set(null);
+      $syncError.set(null);
       opts.context.set({
-        ...s,
         pendingEnroll: { key: e.payload.key, name: e.payload.name },
+        pendingJoin: null,
       });
       return { state: enrolling };
     });
@@ -176,7 +156,7 @@ const syncActor = new Actor({
         emit(enrollFailed.create({ message: "no pending enrollment" }));
         return;
       }
-      runInvoke(
+      return runInvoke(
         signal,
         () => gateway.enroll(pending.key, pending.name),
         (result) =>
@@ -187,34 +167,29 @@ const syncActor = new Actor({
       );
     });
     m.on(enrolling, enrolled, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(false);
-      s.$error.set(null);
-      s.$status.set(e.payload.status);
-      opts.context.set({ ...s, pendingEnroll: null });
+      $syncError.set(null);
+      $syncStatus.set(e.payload.status);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });
     m.on(enrolling, enrollFailed, (e, opts) => {
-      const s = opts.context.get();
-      s.$busy.set(false);
-      s.$error.set(e.payload.message);
-      opts.context.set({ ...s, pendingEnroll: null });
+      $syncError.set(e.payload.message);
+      opts.context.set({ pendingJoin: null, pendingEnroll: null });
       return { state: ok };
     });
   },
 });
 
-const nameOf = (snapshot: Snapshot<SyncContext>) => {
-  const name = snapshot.path[0] as string;
-  return (STATE_NAMES.has(name) ? name : "error") as SyncStateName;
-};
-
-syncActor.on("change", (snapshot) => {
-  $syncState.set(nameOf(snapshot));
+const { state: stateName } = bindStateAtoms({
+  actor: syncActor,
+  states: SYNC_STATES,
+  $state: $syncState,
+  $error: $syncError,
+  $fatal: $syncFatal,
 });
 
 export const sync = {
-  state: () => nameOf(syncActor.snapshot()),
+  state: stateName,
   refresh: () => syncActor.send(refresh.create()),
   join: (key: string) => syncActor.send(join.create({ key })),
   enroll: (key: string, name: string) => syncActor.send(enroll.create({ key, name })),

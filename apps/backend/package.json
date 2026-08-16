@@ -9,7 +9,7 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
-    "@ekrooh/bare": "^0.1.0",
+    "@ekrooh/bare": "^0.2.0",
     "@justus/core": "workspace:*",
     "bare-crypto": "^1.15.3",
     "bare-encoding": "^1.0.3",
