@@ -39,6 +39,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webappDir: File
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // Debug builds get a much longer handoff window so slow cold emulator boots (AAR + worklet
+    // bundle) don't make the WebView give up before handoff.json appears (release keeps 15s).
+    private val handoffTimeoutMs: Long =
+        if (BuildConfig.DEBUG) 90_000L else 15_000L
+
     private lateinit var pickLauncher: ActivityResultLauncher<PickVisualMediaRequest>
     private lateinit var imageCaptureLauncher: ActivityResultLauncher<Uri>
     private lateinit var videoCaptureLauncher: ActivityResultLauncher<Uri>
@@ -90,6 +95,11 @@ class MainActivity : AppCompatActivity() {
         webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         webView.webViewClient = BareWebViewClient()
 
+        // Maestro drives WebView content via Chrome DevTools; only meaningful in debug.
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
         waitForHandoffAndLoad()
 
         onBackPressedDispatcher.addCallback(
@@ -117,7 +127,7 @@ class MainActivity : AppCompatActivity() {
      * page from the loopback origin. */
     private fun waitForHandoffAndLoad() {
         val handoff = File(storageDir, "handoff.json")
-        val deadline = System.currentTimeMillis() + 15_000
+        val deadline = System.currentTimeMillis() + handoffTimeoutMs
         fun poll() {
             val text = if (handoff.exists()) handoff.readText() else null
             if (text != null) {

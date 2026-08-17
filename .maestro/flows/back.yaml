@@ -1,0 +1,21 @@
+appId: io.justus.app
+androidWebViewHierarchy: devtools
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Set up another device"
+    timeout: 60000
+- tapOn: "Set up another device"
+- extendedWaitUntil:
+    visible: "Your folders" # settings overview header (settings.ts:166) — page-unique
+    timeout: 60000
+- back
+# NB "Gallery" cannot be used as the return check (persistent nav link). Prove we left /settings
+# (Your folders gone) and re-rendered the gallery (empty-state heading back).
+- extendedWaitUntil:
+    notVisible: "Your folders"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "This folder is empty — for now."
+    timeout: 15000

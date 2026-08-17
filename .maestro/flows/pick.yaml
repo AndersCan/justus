@@ -1,0 +1,24 @@
+appId: io.justus.app
+androidWebViewHierarchy: devtools
+---
+- launchApp:
+    clearState: true
+# On an empty folder "Add a photo" is BOTH the header pill and the empty-state button; both call
+# pickAndAdd() so tapping either is fine.
+- extendedWaitUntil:
+    visible: "Add a photo"
+    timeout: 60000
+- tapOn: "Add a photo"
+# The system photo picker is a NATIVE surface. Its toolbar title on API 36 is "Photos" (a Photo
+# Picker security note "Justus will only have access to the photos you select" and the photo
+# thumbnails are below it). The exact node label is OS-version dependent (plan's bring-up item) —
+# verified "Photos" on this API 36 arm64 emulator.
+- extendedWaitUntil:
+    visible: "Photos"
+    timeout: 15000
+- back
+# Return to the gallery: assert the page-unique empty-state heading (not "Add a photo", which is
+# ambiguous), allowing settle time.
+- extendedWaitUntil:
+    visible: "This folder is empty — for now."
+    timeout: 15000
