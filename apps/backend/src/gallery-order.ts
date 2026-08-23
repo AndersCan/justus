@@ -16,3 +16,107 @@ export function compareGalleryOrder(a: Photo, b: Photo): number {
   if (byMember !== 0) return byMember;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
+
+/** One drive's `/photos` listing as fed into the gallery derivation. */
+export interface DriveScan {
+  /** Hex key of the drive that owns these entries (tombstone scope). */
+  key: string;
+  /** Raw hyperdrive entries under `photos/` (key + value with metadata). */
+  entries: Array<{ key: string; value: Record<string, unknown> }>;
+}
+
+/** A derived gallery entry before host effects (mounting, URL building). */
+export interface DerivedPhoto {
+  driveKey: string;
+  id: string;
+  ext: string;
+  name: string;
+  mime: string;
+  size: number;
+  addedAt: number;
+  sha256?: string;
+  /** Resolved display name for the owning member drive. */
+  memberName: string;
+}
+
+const PHOTO_BASE_RE = /^(.*?)(\.[^/.]+)?$/;
+
+/**
+ * I1/I2/I4/I6 at the derivation layer (issue #23). Pure: same inputs give
+ * the same output on every replica, independent of scan order or batching.
+ *
+ * - I1 identity: an entry is `driveKey:id` — the composite key tombstones
+ *   and ordering use, unambiguous across members reusing local ids.
+ * - I2/I4: a tombstone `driveKey:id` hides that entry whenever it exists —
+ *   visibility-independent, sticky while the tombstone stands, inert for ids
+ *   never seen again.
+ * - I6: output depends only on the SET of scans — commutative over order,
+ *   idempotent under duplicate scans, associative over batching; canonical
+ *   order applied at the end.
+ */
+export function deriveGallery(
+  scans: DriveScan[],
+  removed: Record<string, unknown>,
+  memberNameFor: (driveKey: string) => string,
+): DerivedPhoto[] {
+  // Idempotence + associativity: a drive may arrive as one scan or several
+  // batches — entries are merged per drive key and deduped by entry path
+  // (a later batch's value for the same path wins), never dropped.
+  const byKey = new Map<string, Map<string, DriveScan["entries"][number]>>();
+  for (const scan of scans) {
+    let paths = byKey.get(scan.key);
+    if (!paths) {
+      paths = new Map();
+      byKey.set(scan.key, paths);
+    }
+    for (const entry of scan.entries) paths.set(entry.key, entry);
+  }
+  const out: DerivedPhoto[] = [];
+  for (const [key, paths] of byKey) {
+    const memberName = memberNameFor(key);
+    for (const entry of paths.values()) {
+      const base = entry.key.slice("photos/".length);
+      const extMatch = PHOTO_BASE_RE.exec(base);
+      if (!extMatch) continue;
+      const id = extMatch[1]!;
+      const ext = extMatch[2] ?? "";
+      const meta = (entry.value?.metadata ?? {}) as Record<string, unknown>;
+      // I2/I4: tombstones apply over the registry snapshot, never gated on
+      // this device having "seen" the photo first.
+      if (removed[`${key}:${id}`]) continue;
+      out.push({
+        driveKey: key,
+        id,
+        ext,
+        name: typeof meta.name === "string" ? meta.name : base,
+        mime: typeof meta.mime === "string" ? meta.mime : guessMimeFor(ext),
+        size: typeof entry.value?.size === "number" ? entry.value.size : 0,
+        addedAt: typeof meta.addedAt === "number" ? meta.addedAt : 0,
+        ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
+        memberName,
+      });
+    }
+  }
+  return out.sort(byDerivedOrder);
+}
+
+function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
+  if (a.addedAt !== b.addedAt) return b.addedAt - a.addedAt;
+  const byMember = a.driveKey < b.driveKey ? -1 : a.driveKey > b.driveKey ? 1 : 0;
+  if (byMember !== 0) return byMember;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** Mirrors photo-store's extension→mime table for the pure derivation. */
+function guessMimeFor(ext: string): string {
+  switch (ext) {
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    default:
+      return "image/jpeg";
+  }
+}
