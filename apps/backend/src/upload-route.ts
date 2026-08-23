@@ -55,7 +55,7 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
         res.end(JSON.stringify(body));
       };
       try {
-        const bytes = await pumpToFile(req, filePath, MAX_UPLOAD_BYTES);
+        const bytes = await pumpToFile(req, filePath, MAX_UPLOAD_BYTES, fs);
         if (bytes === 0) {
           send(400, { ok: false, error: "empty upload" });
           return;

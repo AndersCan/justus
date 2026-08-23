@@ -1,15 +1,40 @@
-import fs from "bare-fs";
-import path from "bare-path";
-import crypto from "bare-crypto";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { deriveGallery, type DriveScan } from "./gallery-order";
 import { pumpStream, type PumpWriter } from "./pump";
 import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
-import { type LoopbackServer } from "@ekrooh/bare/runtime";
+import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
+
+/**
+ * Dependency-injection seam. `photo-store.ts` used to import the full p2p
+ * stack (`bare-fs` / `bare-path` / `bare-crypto` / `corestore` / `hyperdrive`)
+ * at module top, which pulls in native addons and makes the module impossible
+ * to load under Node/vitest (no Bare runtime). Those symbols are now injected
+ * through {@link PhotoStoreDeps}, so the module loads without Bare and the
+ * drives/corestore/swarm can be substituted with in-memory fakes in tests.
+ * Production (`main.core.ts`) passes the real `bare-*` implementations; the
+ * only behavior that changes is *where* the constructors are chosen.
+ */
+type CorestoreLike = {
+  ready(): Promise<void>;
+  replicate(conn: unknown): void;
+  close(): Promise<void>;
+};
+
+type SwarmLike = {
+  join(topic: Buffer, opts?: { server?: boolean }): {
+    flushed?: () => Promise<void>;
+    destroy(): void | Promise<void>;
+  };
+  on(event: "connection", handler: (conn: unknown) => void): void;
+  connections: Set<unknown>;
+  destroy(): void | Promise<void>;
+};
+
+/** Default swarm factory (used when `deps.makeSwarm` is omitted). */
+const defaultSwarm = (opts?: { bootstrap?: string[] }): SwarmLike =>
+  new Hyperswarm(opts) as unknown as SwarmLike;
 import type {
   FolderSummary,
   JoinRequest,
@@ -121,6 +146,19 @@ export type PhotoStoreDeps = {
   seedOnEmpty: boolean;
   /** Hyperswarm DHT bootstrap servers (dev/test: local DHT node). */
   bootstrap?: string[];
+  /** Filesystem access. Injected so the store loads under Node/vitest without
+   * the Bare runtime; production passes `bare-fs`. */
+  fs: typeof import("bare-fs");
+  /** Path helpers. Injected; production passes `bare-path`. */
+  path: typeof import("bare-path");
+  /** Crypto helpers. Injected; production passes `bare-crypto`. */
+  crypto: typeof import("bare-crypto");
+  /** Builds the Corestore for a storage directory (no Node equivalent). */
+  makeCorestore: (dir: string) => CorestoreLike;
+  /** Builds a Hyperdrive over a corestore + optional root key. */
+  makeDrive: (corestore: unknown, key?: Buffer) => Drive;
+  /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
+  makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
 };
 
 export interface PhotoStore {
@@ -154,8 +192,8 @@ const DRIVE_PATH_FOLDER = "/folder.json";
 const DRIVE_PATH_REQUESTS = "/requests.json";
 const STATE_FILE = "justus.json";
 
-function newId(): string {
-  return `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+function newId(c: typeof import("bare-crypto")): string {
+  return `${Date.now().toString(36)}-${c.randomBytes(4).toString("hex")}`;
 }
 
 function hex(buffer: Buffer): string {
@@ -214,7 +252,8 @@ const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
 export function pumpToFile(
   source: StreamSource,
   destPath: string,
-  maxBytes?: number,
+  maxBytes: number | undefined,
+  fs: typeof import("bare-fs"),
 ): Promise<number> {
   return pumpStream(source, {
     createWriter: () => fs.createWriteStream(destPath) as unknown as PumpWriter,
@@ -250,8 +289,13 @@ type FolderRuntime = {
 };
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
-  const corestore = new Corestore(path.join(deps.storageDir, "corestore"));
-  const swarm = new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
+  const fs = deps.fs;
+  const path = deps.path;
+  const crypto = deps.crypto;
+  const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
+  const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
+    deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
+  );
   const stateFile = path.join(deps.storageDir, STATE_FILE);
 
   let state: PersistedState = loadState();
@@ -368,7 +412,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Opens a drive by key, joining its swarm topic first so peers serve its
    * blocks (a remote `drive.ready()` otherwise waits forever). */
   async function openDriveWithTopic(keyHex: string, opts?: { server?: boolean }): Promise<Drive> {
-    const drive = new Hyperdrive(corestore, Buffer.from(keyHex, "hex"));
+    const drive = deps.makeDrive(corestore, Buffer.from(keyHex, "hex"));
     const topic = drive.discoveryKey;
     await joinTopic(topic, opts);
     await Promise.race([
@@ -610,7 +654,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
     const stream = drive.createReadStream(drivePath);
-    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES);
+    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
     fs.renameSync(tmp, spoolPath);
   }
 
@@ -628,7 +672,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     ];
     const addedAt = Date.now() - samples.length * 60_000;
     for (const [i, sample] of samples.entries()) {
-      const id = newId();
+      const id = newId(deps.crypto);
       await drive.put(`${DRIVE_PATH_PHOTOS}/${id}.jpg`, sample.data, {
         metadata: { addedAt: addedAt + i * 60_000, name: sample.name, mime: sample.mime },
       });
@@ -676,7 +720,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       candidates.find((p) => p.sha256 === sha256 && p.member.key === selfKeyHex) ??
       candidates.find((p) => p.sha256 === sha256);
     if (duplicate) return ok(duplicate);
-    const id = newId();
+    const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
     const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
     // A creator writes to the folder's own drive; a member writes to its own
@@ -853,7 +897,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   async function setup(): Promise<void> {
     await corestore.ready();
-    ownDrive = new Hyperdrive(corestore);
+    ownDrive = deps.makeDrive(corestore);
     await ownDrive.ready();
     await ensureOwnDriveIdentity();
 
@@ -912,7 +956,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // No folders yet (fresh install) → create the device's first creator folder
     // from its identity drive, mirroring the previous single-folder behaviour.
     if (state.folders.length === 0) {
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
       const folderDrive = ownDrive;
       const rt: FolderRuntime = {
         record: {
@@ -977,9 +1021,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (rt.record.role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
-      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId()}`;
+      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
       const ext = path.extname(safeName).toLowerCase();
-      const staged = path.join(deps.cacheDir, `upload-${newId()}${ext}`);
+      const staged = path.join(deps.cacheDir, `upload-${newId(deps.crypto)}${ext}`);
       try {
         fs.writeFileSync(staged, bytes as Buffer);
       } catch (e) {
@@ -1060,7 +1104,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const ownKey = hex(ownDrive.key);
       const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
       const role: Role = enrolled ? "member" : "reader";
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
 
       const rt: FolderRuntime = {
         record: {
@@ -1171,7 +1215,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const cleanName = name.trim();
       // A new creator folder gets a NEW single-writer drive of its own.
-      const newDrive = new Hyperdrive(corestore);
+      const newDrive = deps.makeDrive(corestore);
       await newDrive.ready();
       await newDrive.put(DRIVE_PATH_DEVICE, Buffer.from(JSON.stringify({ name: state.name })));
       await newDrive.put(
@@ -1179,7 +1223,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         Buffer.from(JSON.stringify({ version: 1, name: cleanName })),
       );
 
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
       const rt: FolderRuntime = {
         record: {
           id: folderId,
