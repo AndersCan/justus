@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>justus — Gallery grid (prototype)</title>
+
+    <!--
+      Building blocks for the justus Gallery grid — the home view described in
+      vision.md ("Timeline is the home view") and docs/design/library-gallery-spec.md.
+      This is a standalone prototype (HTML + UnoCSS) that recreates the look &
+      feel of the Google Photos / Immich photo grid, re-expressed through the
+      justus warm, privacy-first theme. It uses the UnoCSS runtime (CDN) so the
+      file is viewable as-is; the theme tokens mirror apps/web/uno.config.ts.
+
+      Building blocks demonstrated:
+        1. Page shell + warm theme tokens
+        2. Header: title, density toggle, no-server chip, connection dot
+        3. Status / presence line
+        4. Month/year group header (reverse-chronological)
+        5. Photo tile (square crop, hover check/remove, caption, provenance)
+        6. Multi-select mode + action bar
+        7. Skeleton loading state
+    -->
+
+    <style>
+      /* A couple of things UnoCSS can't express cheaply as utilities. */
+      body {
+        /* warm paper page */
+        background: #faf3e7;
+      }
+      /* The grid reshuffles (Bramus-style) when tiles are added/removed. */
+      @media (prefers-reduced-motion: no-preference) {
+        .photo-tile {
+          view-transition-name: var(--vt, none);
+        }
+      }
+      /* shimmer for skeleton tiles */
+      @keyframes shimmer {
+        0% {
+          background-position: -400px 0;
+        }
+        100% {
+          background-position: 400px 0;
+        }
+      }
+      .shimmer {
+        background: linear-gradient(90deg, #f3e4cc 25%, #fffdf6 50%, #f3e4cc 75%);
+        background-size: 800px 100%;
+        animation: shimmer 1.4s infinite linear;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .shimmer {
+          animation: none;
+        }
+      }
+    </style>
+
+    <script type="module">
+      import init from "https://esm.sh/@unocss/runtime";
+
+      // Theme mirrors apps/web/uno.config.ts so this prototype stays visually
+      // faithful to the real app.
+      window.__unocss = {
+        // keep the runtime's default preset (presetUno) for base utilities
+        theme: {
+          colors: {
+            paper: "#FAF3E7",
+            linen: "#FFFDF6",
+            butter: "#F3E4CC",
+            line: "#E8D6BA",
+            "line-strong": "#E2CEB2",
+            ink: "#3A2A1D",
+            cocoa: "#5A4533",
+            taupe: "#8A7159",
+            clay: "#B05C2E",
+            "clay-deep": "#9A4E24",
+            caramel: "#C99A5B",
+            moss: "#6E7F45",
+            plum: "#7C5A88",
+            honey: "#C98A2D",
+            brick: "#B3452F",
+          },
+          fontFamily: {
+            serif: 'ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif',
+          },
+        },
+        shortcuts: {
+          "warm-card":
+            "rounded-2xl bg-linen ring-1 ring-line shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)]",
+          "warm-pill":
+            "rounded-full bg-clay px-5 py-2.5 min-h-11 text-sm font-semibold text-linen shadow-[0_4px_12px_rgba(176,92,46,.35)] hover:bg-clay-deep active:translate-y-px disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30",
+          "warm-ghost":
+            "rounded-full border border-line bg-white/70 min-h-11 px-4 py-2.5 text-cocoa hover:bg-butter active:translate-y-px disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30",
+        },
+      };
+
+      init();
+    </script>
+  </head>
+
+  <body class="font-sans text-ink antialiased">
+    <!-- ===================================================================
+         BUILDING BLOCK 1 — Page shell
+         A max-width column, warm paper background, serif headings.
+    ==================================================================== -->
+    <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <!-- =================================================================
+           BUILDING BLOCK 2 — Header
+           Title + density toggle on the left; no-server chip + connection
+           dot keep the "no servers" promise legible (vision.md §UI/UX).
+      ================================================================== -->
+      <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <h1 class="font-serif text-3xl text-ink">Gallery</h1>
+
+            <!-- No-server chip: persistent, calm, moss outline (ui-ux-spec §3.4). -->
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full border border-moss/50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-moss"
+              title="Photos move directly between devices. No server is involved."
+            >
+              <span aria-hidden="true">✕☁</span> direct · no server
+            </span>
+          </div>
+
+          <!-- BUILDING BLOCK 3 — Status / presence line -->
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-taupe">
+            <span class="inline-flex items-center gap-1.5">
+              <!-- connection dot owns moss/honey/brick, nothing else does -->
+              <span class="h-2 w-2 rounded-full bg-moss"></span>
+              In sync
+            </span>
+            <span>128 photos</span>
+            <span>shared with 2 others</span>
+            <span class="text-xs">synced 4m ago</span>
+            <!-- member identity dots (who holds the folder) -->
+            <span class="flex items-center gap-1.5" aria-hidden="true">
+              <span
+                class="h-3 w-3 rounded-full ring-2 ring-linen"
+                style="background: #b05c2e"
+                title="You"
+              ></span>
+              <span
+                class="h-3 w-3 rounded-full ring-2 ring-linen"
+                style="background: #6e7f45"
+                title="Maya"
+              ></span>
+              <span
+                class="h-3 w-3 rounded-full ring-2 ring-linen"
+                style="background: #7c5a88"
+                title="Nils"
+              ></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <!-- Density toggle: cozy / comfortable (vision.md mentions a density
+               toggle). Drives the grid column count. -->
+          <div
+            class="inline-flex overflow-hidden rounded-full border border-line bg-linen"
+            role="group"
+            aria-label="Grid density"
+          >
+            <button
+              data-density="comfortable"
+              class="density-btn min-h-11 px-3 text-sm font-semibold text-linen bg-clay"
+              aria-pressed="true"
+            >
+              Comfortable
+            </button>
+            <button
+              data-density="cozy"
+              class="density-btn min-h-11 px-3 text-sm font-semibold text-cocoa hover:bg-butter"
+              aria-pressed="false"
+            >
+              Cozy
+            </button>
+          </div>
+
+          <button class="warm-pill inline-flex items-center gap-1.5" id="addBtn">
+            <span aria-hidden="true">＋</span> Add photos
+          </button>
+        </div>
+      </header>
+
+      <!-- =================================================================
+           BUILDING BLOCK 6 — Selection action bar (hidden until selecting)
+           Mirrors Google Photos / Immich multi-select: count + Share / Delete
+           / Cancel. Appears above the grid.
+      ================================================================== -->
+      <div
+        id="selectBar"
+        class="mt-4 hidden items-center justify-between rounded-2xl bg-ink/95 px-4 py-2.5 text-linen shadow-lg"
+      >
+        <span id="selectCount" class="text-sm font-semibold">0 selected</span>
+        <div class="flex items-center gap-2">
+          <button class="warm-ghost !text-linen !border-linen/30 !bg-white/10">Share…</button>
+          <button class="warm-ghost !text-brick !border-brick/40 !bg-white/10">Delete</button>
+          <button class="warm-ghost !text-linen !border-linen/30 !bg-white/10" id="cancelSelect">
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- =================================================================
+           BUILDING BLOCK 4 + 5 — Grouped grid
+           Reverse-chronological months; each month is a header + responsive
+           square-crop grid of photo tiles.
+      ================================================================== -->
+      <section id="gallery" class="mt-6 space-y-8">
+        <!-- month groups injected here -->
+      </section>
+
+      <footer class="pt-8 text-center font-serif text-sm italic text-taupe">
+        — 128 photos shared with care —
+      </footer>
+    </main>
+
+    <script type="module">
+      // -------------------------------------------------------------------
+      // Sample data (real decodable images so the grid reads like a real app).
+      // -------------------------------------------------------------------
+      const MEMBERS = {
+        you: { name: "You", color: "#B05C2E" },
+        maya: { name: "Maya", color: "#6E7F45" },
+        nils: { name: "Nils", color: "#7C5A88" },
+      };
+
+      // reverse-chronological months
+      const GROUPS = [
+        { label: "August 2026", photos: 18 },
+        { label: "July 2026", photos: 42 },
+        { label: "June 2026", photos: 30 },
+        { label: "May 2026", photos: 38 },
+      ];
+
+      let seed = 1;
+      const nextUrl = () => `https://picsum.photos/seed/justus-${seed++}/600/600`;
+      const memberKeys = Object.keys(MEMBERS);
+
+      // -------------------------------------------------------------------
+      // BUILDING BLOCK 5 — Photo tile
+      // square crop · hover check (top-left) + remove (top-right) · caption
+      // gradient (name, member dot, date) · provenance chip ("on N devices").
+      // -------------------------------------------------------------------
+      function photoTile(id) {
+        const member = MEMBERS[memberKeys[id % memberKeys.length]];
+        const devices = 1 + (id % 3); // 1..3 devices holding it
+        const day = ((id * 7) % 28) + 1;
+        const name = `IMG_${String(1000 + id)}.jpg`;
+        const selected = selectedIds.has(id);
+
+        const tile = document.createElement("figure");
+        tile.className =
+          "photo-tile group relative cursor-pointer overflow-hidden rounded-2xl bg-linen shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)] ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60";
+        tile.style.setProperty("--vt", `photo-${id}`);
+        tile.tabIndex = 0;
+        tile.setAttribute("role", "button");
+        tile.setAttribute("aria-label", `View ${name}`);
+        tile.dataset.id = String(id);
+
+        tile.innerHTML = `
+          <img
+            class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+            src="${nextUrl()}"
+            alt="${name}"
+            loading="lazy"
+          />
+
+          <!-- selection check (top-left): appears on hover or when selected -->
+          <span
+            class="check absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-linen bg-ink/40 text-linen transition
+                   [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100
+                   ${selected ? "!opacity-100 !bg-clay !border-clay" : ""}"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+
+          <!-- remove (top-right) -->
+          <button
+            class="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-linen backdrop-blur-sm transition hover:bg-brick
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/60
+                   [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+            title="Remove ${name}" aria-label="Remove ${name}"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            </svg>
+          </button>
+
+          <!-- caption: name + uploader + date + provenance chip -->
+          <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/90 via-ink/50 to-transparent px-3 pb-2.5 pt-8">
+            <div class="truncate font-serif text-sm italic text-linen">${name}</div>
+            <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#E9D3B5]">
+              <span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background:${member.color}"></span>
+              <span class="truncate">${member.name}</span>
+              <span>·</span>
+              <span>Aug ${day}</span>
+              <span class="ml-auto rounded-full bg-linen/20 px-1.5 py-0.5 text-[10px] text-linen">on ${devices} device${devices === 1 ? "" : "s"}</span>
+            </div>
+          </figcaption>
+        `;
+
+        // tap toggles selection in select mode; opens (no-op) otherwise
+        tile.addEventListener("click", () => {
+          if (selectedIds.size === 0) return; // not in select mode → open lightbox
+          toggleSelect(id, tile);
+        });
+        return tile;
+      }
+
+      // -------------------------------------------------------------------
+      // BUILDING BLOCK 4 — Month group header + grid container
+      // -------------------------------------------------------------------
+      function monthGroup(label, count) {
+        const wrap = document.createElement("div");
+        const head = document.createElement("h2");
+        head.className =
+          "mb-3 flex items-baseline gap-2 border-b border-butter pb-2 font-serif text-lg text-cocoa";
+        head.innerHTML = `<span>${label}</span><span class="font-sans text-xs text-taupe">${count}</span>`;
+
+        const grid = document.createElement("div");
+        grid.className = "photo-grid grid gap-1.5 sm:gap-2";
+        grid.dataset.cols = "comfortable"; // default
+
+        let id = Math.floor(Math.random() * 1000);
+        for (let i = 0; i < count; i++) grid.appendChild(photoTile(id++));
+
+        wrap.append(head, grid);
+        return wrap;
+      }
+
+      // -------------------------------------------------------------------
+      // Density toggle → column count (cozy = more columns)
+      // -------------------------------------------------------------------
+      function applyDensity(mode) {
+        document.querySelectorAll(".photo-grid").forEach((g) => {
+          g.classList.remove(
+            "grid-cols-2",
+            "sm:grid-cols-3",
+            "lg:grid-cols-4",
+            "xl:grid-cols-5",
+            "sm:grid-cols-4",
+            "lg:grid-cols-5",
+            "xl:grid-cols-6",
+            "2xl:grid-cols-7",
+          );
+          if (mode === "cozy") {
+            g.classList.add(
+              "grid-cols-3",
+              "sm:grid-cols-4",
+              "lg:grid-cols-5",
+              "xl:grid-cols-6",
+              "2xl:grid-cols-7",
+            );
+          } else {
+            g.classList.add("grid-cols-2", "sm:grid-cols-3", "lg:grid-cols-4", "xl:grid-cols-5");
+          }
+        });
+        document.querySelectorAll(".density-btn").forEach((b) => {
+          const on = b.dataset.density === mode;
+          b.setAttribute("aria-pressed", String(on));
+          b.className =
+            "density-btn min-h-11 px-3 text-sm font-semibold " +
+            (on ? "text-linen bg-clay" : "text-cocoa hover:bg-butter");
+        });
+      }
+
+      document
+        .querySelectorAll(".density-btn")
+        .forEach((b) => b.addEventListener("click", () => applyDensity(b.dataset.density)));
+
+      // -------------------------------------------------------------------
+      // BUILDING BLOCK 6 — Multi-select
+      // -------------------------------------------------------------------
+      const selectedIds = new Set();
+      const selectBar = document.getElementById("selectBar");
+      const selectCount = document.getElementById("selectCount");
+
+      function toggleSelect(id, tile) {
+        if (selectedIds.has(id)) selectedIds.delete(id);
+        else selectedIds.add(id);
+        const on = selectedIds.has(id);
+        const check = tile.querySelector(".check");
+        check.classList.toggle("!opacity-100", on);
+        check.classList.toggle("!bg-clay", on);
+        check.classList.toggle("!border-clay", on);
+
+        if (selectedIds.size === 0) {
+          selectBar.classList.add("hidden");
+          selectBar.classList.remove("flex");
+        } else {
+          selectBar.classList.remove("hidden");
+          selectBar.classList.add("flex");
+        }
+        selectCount.textContent = `${selectedIds.size} selected`;
+      }
+
+      // long-press / right-click a tile to enter select mode
+      document.getElementById("gallery").addEventListener("contextmenu", (e) => {
+        const tile = e.target.closest(".photo-tile");
+        if (!tile) return;
+        e.preventDefault();
+        if (selectedIds.size === 0) toggleSelect(Number(tile.dataset.id), tile);
+      });
+      document.getElementById("cancelSelect").addEventListener("click", () => {
+        selectedIds.clear();
+        document
+          .querySelectorAll(".photo-tile .check")
+          .forEach((c) => c.classList.remove("!opacity-100", "!bg-clay", "!border-clay"));
+        selectBar.classList.add("hidden");
+        selectBar.classList.remove("flex");
+        selectCount.textContent = "0 selected";
+      });
+
+      // -------------------------------------------------------------------
+      // Render
+      // -------------------------------------------------------------------
+      const gallery = document.getElementById("gallery");
+      GROUPS.forEach((g) => gallery.appendChild(monthGroup(g.label, g.photos)));
+      applyDensity("comfortable");
+    </script>
+  </body>
+</html>
