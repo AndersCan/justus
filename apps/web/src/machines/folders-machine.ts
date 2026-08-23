@@ -163,7 +163,7 @@ const foldersActor = new Actor({
         () => gateway.createFolder(name),
         (result) =>
           result
-            ? emit(created.create({ folder: result as FolderSummary }))
+            ? emit(created.create({ folder: (result as { folder: FolderSummary }).folder }))
             : emit(createFailed.create({ message: "create returned no folder" })),
         (message) => emit(createFailed.create({ message })),
       );
