@@ -137,24 +137,3 @@ function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
     { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
   );
 }
-
-/** Mirrors photo-store's extension→mime table for the pure derivation
- * (case-insensitive: extensions come from drive paths, which keep their case). */
-function guessMimeFor(extRaw: string): string {
-  switch (extRaw.toLowerCase()) {
-    case ".png":
-      return "image/png";
-    case ".gif":
-      return "image/gif";
-    case ".webp":
-      return "image/webp";
-    case ".heic":
-      return "image/heic";
-    case ".mp4":
-      return "video/mp4";
-    case ".mov":
-      return "video/quicktime";
-    default:
-      return "image/jpeg";
-  }
-}
