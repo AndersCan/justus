@@ -24,6 +24,9 @@ function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
+/** A 64-char hex string is treated as a literal drive key (see FakeDrive). */
+const HEX64 = /^[0-9a-f]{64}$/;
+
 /** Minimal EventEmitter used by the fake p2p handles. */
 class Emitter {
   private handlers = new Set<(...args: any[]) => void>();
@@ -48,7 +51,14 @@ export class FakeDrive extends Emitter {
 
   constructor(seed: string) {
     super();
-    this.key = Buffer.from(sha256Hex(`key:${seed}`), "hex");
+    // A 64-char hex seed is treated as the literal drive key. This lets a drive
+    // opened *by key* resolve to the same identity as one created *without* a key
+    // (whose `.key` is derived from its seed) — required so several stores that
+    // share a drive registry agree on a drive's identity for the multi-device
+    // scenarios (#43/#49/#52).
+    this.key = HEX64.test(seed)
+      ? Buffer.from(seed, "hex")
+      : Buffer.from(sha256Hex(`key:${seed}`), "hex");
     this.discoveryKey = Buffer.from(sha256Hex(`disc:${seed}`), "hex");
   }
 
@@ -69,14 +79,15 @@ export class FakeDrive extends Emitter {
     this.emit("update");
   }
 
-  async list(path: string): Promise<Array<{ name: string }>> {
+  // The real p2p `Drive.list` returns an *async iterable* (consumed with
+  // `for await`), not a Promise — model that faithfully so `listPhotosIn` and
+  // `drivePhotoKeys` iterate entries instead of silently yielding nothing.
+  async *list(path: string): AsyncIterable<{ key: string; name: string }> {
     const prefix = path.endsWith("/") ? path : `${path}/`;
-    const out: Array<{ name: string }> = [];
     for (const key of this.files.keys()) {
       if (key === path) continue;
-      if (key.startsWith(prefix)) out.push({ name: key.slice(prefix.length) });
+      if (key.startsWith(prefix)) yield { key, name: key.slice(prefix.length) };
     }
-    return out;
   }
 
   createReadStream(_path: string): Readable {
@@ -130,6 +141,12 @@ export class FakeLoopbackServer {
 
 let seedCounter = 0;
 
+/** Drives are cached by their canonical key so re-opening a drive (by key, or
+ * as a device's own drive) returns the SAME instance — its contents then
+ * persist across the open/reopen cycle (modelling p2p replication). This is
+ * also what lets multiple stores share one drive registry for #43/#49/#52. */
+const driveCache = new Map<string, FakeDrive>();
+
 /** Builds a `PhotoStoreDeps` that runs entirely in memory via the fake
  * constructs above. Pass it straight to `createPhotoStore`. */
 export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStoreDeps {
@@ -150,8 +167,15 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
     crypto: nodeCrypto as unknown as typeof import("bare-crypto"),
     makeCorestore: () => corestore,
     makeSwarm: () => new FakeSwarm(),
-    makeDrive: (_cs: unknown, key?: Buffer) =>
-      new FakeDrive(key ? key.toString("hex") : `seed-${seedCounter++}`),
+    makeDrive: (_cs: unknown, key?: Buffer) => {
+      const seed = key ? key.toString("hex") : `seed-${seedCounter++}`;
+      const drive = new FakeDrive(seed);
+      const id = drive.key.toString("hex");
+      const cached = driveCache.get(id);
+      if (cached) return cached;
+      driveCache.set(id, drive);
+      return drive;
+    },
     ...overrides,
   } as PhotoStoreDeps;
 }

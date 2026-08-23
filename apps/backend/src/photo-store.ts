@@ -727,10 +727,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // device has must never silently adopt another member's entry (a later
     // remove of that entry would then 404 for us).
     const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive : ownDrive);
-    const duplicate =
-      candidates.find((p) => p.sha256 === sha256 && p.member.key === selfKeyHex) ??
-      candidates.find((p) => p.sha256 === sha256);
-    if (duplicate) return ok(duplicate);
+    // Only a copy this device already holds short-circuits the add. A matching
+    // sha256 on *another* member's drive must NOT be adopted (issue #49): that
+    // would leave the "added" photo unowned and unremovable for us. Instead we
+    // fall through and write a local copy below, so the entry is owned and
+    // removable. Content-sharing across members stays intact — we just don't
+    // silently borrow another member's drive entry.
+    const ownDuplicate = candidates.find(
+      (p) => p.sha256 === sha256 && p.member.key === selfKeyHex,
+    );
+    if (ownDuplicate) return ok(ownDuplicate);
     const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
     const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };

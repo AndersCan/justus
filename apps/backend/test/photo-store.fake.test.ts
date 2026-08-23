@@ -148,3 +148,118 @@ describe("#42 a creator folder must stay a creator after a restart", () => {
     await store2.close();
   });
 });
+
+/** Hex-encode a buffer (mirrors the store's internal `hex`). */
+const hexKey = (b: Buffer): string => b.toString("hex");
+
+/**
+ * Builds N stores whose p2p constructs are in-memory AND share ONE drive
+ * registry, so a drive opened by key resolves to the same `FakeDrive` instance
+ * across every store (modelling p2p replication). This is what lets us drive
+ * genuine multi-device scenarios (#43/#49/#52) where a member's drive contents
+ * are visible to another member's store.
+ *
+ * `ownDrive()` returns the device's identity drive (created on `ready()`), whose
+ * key is random — so the test reads it back after `ready()` to enrol members.
+ */
+function buildDevices(names: string[]) {
+  const cache = new Map<string, FakeDrive>();
+  const meta = names.map(() => ({ ownDrive: null as FakeDrive | null }));
+  let devSeed = 0;
+  const makeDriveFor = (i: number) => {
+    let firstNoKey = true;
+    return (_cs: unknown, key?: Buffer): FakeDrive => {
+      const seed = key ? key.toString("hex") : `seed-${i}-${devSeed++}`;
+      const drive = new FakeDrive(seed);
+      const id = drive.key.toString("hex");
+      let cached = cache.get(id);
+      if (!cached) {
+        cache.set(id, drive);
+        cached = drive;
+      }
+      if (!key && firstNoKey) {
+        firstNoKey = false;
+        meta[i].ownDrive = cached;
+      }
+      return cached;
+    };
+  };
+  const devices = names.map((name, i) => {
+    const changes: Array<{ folderId: string }> = [];
+    const deps = makeFakeDeps({
+      deviceName: name,
+      onChanged: (c) => changes.push({ folderId: c.folderId }),
+      makeDrive: makeDriveFor(i),
+    });
+    // addBytes stages uploads into cacheDir, which the production runtime
+    // pre-creates — mirror that here so staging doesn't throw.
+    mkdirSync(deps.cacheDir, { recursive: true });
+    const store = createPhotoStore(deps);
+    return { store, changes, deps, ownDrive: () => meta[i].ownDrive! };
+  });
+  return { devices, cache };
+}
+
+describe("#49 a member re-adding another member's bytes must own its own copy", () => {
+  it("writes a local copy instead of adopting the foreign entry", async () => {
+    const { devices } = buildDevices(["Creator", "Alice", "Bob"]);
+    const [creator, alice, bob] = devices;
+
+    // Bring every device up so each has its (random) identity drive.
+    await creator.store.ready();
+    await alice.store.ready();
+    await bob.store.ready();
+    const aliceKey = hexKey(alice.ownDrive().key);
+    const bobKey = hexKey(bob.ownDrive().key);
+
+    // Creator makes a folder and pre-enrols both members. The fake has no p2p
+    // peers, so we enrol directly via respond() (it only needs the member key).
+    const created = await creator.store.createFolder("Family");
+    expect(created[0]).toBeNull();
+    const folderId = created[1].folder.id;
+    const folderKey = created[1].folder.shareKey;
+    await creator.store.respond(folderId, aliceKey, true);
+    await creator.store.respond(folderId, bobKey, true);
+
+    // Both join as members (the registry now lists them as enrolled). setup()
+    // also auto-creates a "My Photos" creator folder, so target Family by key.
+    const aj = await alice.store.join(folderKey);
+    expect(aj[0]).toBeNull();
+    const aliceFamily = (await alice.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!;
+    expect(aliceFamily.role).toBe("member");
+    const bj = await bob.store.join(folderKey);
+    expect(bj[0]).toBeNull();
+    const bobFamily = (await bob.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!;
+    expect(bobFamily.role).toBe("member");
+
+    const photo = new Uint8Array([1, 2, 3, 4, 5]);
+
+    // Alice adds the photo — it lives on Alice's own drive.
+    await alice.store.setActive(aliceFamily.id);
+    const aRes = await alice.store.addBytes("alice.jpg", photo);
+    expect(aRes[0]).toBeNull();
+    const aPhoto = aRes[1];
+    expect(aPhoto.member.key).toBe(aliceKey);
+
+    // Bob re-adds the SAME bytes. Before the fix this adopted Alice's entry
+    // (member.key === aliceKey) and was unremovable for Bob; after the fix Bob
+    // owns his own copy on his own drive.
+    await bob.store.setActive(bobFamily.id);
+    const bRes = await bob.store.addBytes("bob.jpg", photo);
+    expect(bRes[0]).toBeNull();
+    const bPhoto = bRes[1];
+    expect(bPhoto.member.key).toBe(bobKey);
+
+    // Because the copy is on Bob's own drive, Bob can remove it.
+    const rm = await bob.store.remove(bPhoto.id);
+    expect(rm[0]).toBeNull();
+
+    await creator.store.close();
+    await alice.store.close();
+    await bob.store.close();
+  });
+});

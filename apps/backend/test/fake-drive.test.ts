@@ -24,7 +24,8 @@ describe("FakeDrive", () => {
     expect((await drive.get("/photos/a.jpg"))?.toString()).toBe("a");
     expect(await drive.get("/missing")).toBeNull();
 
-    const listed = await drive.list("/photos");
+    const listed: Array<{ key: string; name: string }> = [];
+    for await (const e of drive.list("/photos")) listed.push(e);
     expect(listed.map((e) => e.name).sort()).toEqual(["a.jpg", "b.jpg"]);
 
     await drive.del("/photos/a.jpg");
