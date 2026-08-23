@@ -390,6 +390,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const handler = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
+        const rt = runtimes.get(folderId);
+        // A member whose join was approved since we last ran is now a member —
+        // re-read the registry and upgrade reader → member in-session (issue
+        // #52) instead of waiting for a restart.
+        if (rt && rt.record.role === "reader") {
+          void upgradePendingRole(rt);
+        }
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
         deps.onChanged({ cause, folderId, memberKey: label });
@@ -537,6 +544,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
     }
+  }
+
+  /** Re-derive a pending `reader` folder's role when the creator has since
+   * approved the join: if this device is now listed in the folder's registry,
+   * flip `reader` → `member` in-session and announce the upgrade (issue #52).
+   * Returns true when an upgrade happened. No-op for non-reader folders or
+   * folders still awaiting approval. Cheap — reads a single registry file. */
+  async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
+    if (rt.record.role !== "reader") return false;
+    const registry = await readRegistryIn(rt.folderDrive);
+    const ownKey = hex(ownDrive.key);
+    const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
+    if (!enrolled) return false;
+    rt.record.role = "member";
+    rt.record.pending = false;
+    rt.record.driveKey = ownKey;
+    rt.selfDrive = ownDrive;
+    await refreshMembersFor(rt);
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: ownKey });
+    return true;
   }
 
   async function unmountRuntime(rt: FolderRuntime) {
@@ -1233,6 +1260,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         state.activeFolderId = folderId;
         saveState();
         await refreshMembersFor(rt);
+        // Watch the folder (creator) drive so replication updates — including
+        // the creator's approval that flips this device reader → member — reach
+        // this store in-session (issue #52).
+        watchDrive(drive, folderId, hex(drive.key), "add");
         deps.onChanged({ cause: "request", folderId });
         return ok(await computeStatus());
       }

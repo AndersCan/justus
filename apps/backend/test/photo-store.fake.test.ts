@@ -263,3 +263,55 @@ describe("#49 a member re-adding another member's bytes must own its own copy", 
     await bob.store.close();
   });
 });
+
+describe("#52 an approved join must upgrade reader → member in-session", () => {
+  it("flips a pending reader to member and lets them add after approval", async () => {
+    const { devices } = buildDevices(["Creator", "Bob"]);
+    const [creator, bob] = devices;
+
+    await creator.store.ready();
+    await bob.store.ready();
+    const bobKey = hexKey(bob.ownDrive().key);
+
+    const created = await creator.store.createFolder("Trip");
+    expect(created[0]).toBeNull();
+    const folderId = created[1].folder.id;
+    const folderKey = created[1].folder.shareKey;
+
+    // Bob joins before being approved → pending reader (can read, cannot add).
+    const bj = await bob.store.join(folderKey);
+    expect(bj[0]).toBeNull();
+    const bobFolder = (await bob.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!;
+    expect(bobFolder.role).toBe("reader");
+    expect(bobFolder.pending).toBe(true);
+
+    // An unapproved reader cannot add photos.
+    const earlyAdd = await bob.store.addBytes("early.jpg", new Uint8Array([1, 2, 3]));
+    expect(earlyAdd[0]).not.toBeNull();
+
+    // Creator approves. respond() writes the membership into the folder drive,
+    // which replicates to Bob's watched drive and triggers the in-session
+    // reader → member upgrade (no restart required).
+    const resp = await creator.store.respond(folderId, bobKey, true);
+    expect(resp[0]).toBeNull();
+
+    // Let the debounced drive "update" handler re-derive Bob's role.
+    await sleep(600);
+
+    const after = (await bob.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!;
+    expect(after.role).toBe("member");
+    expect(after.pending).toBe(false);
+
+    // The upgraded member can now add photos in-session.
+    const add = await bob.store.addBytes("bob.jpg", new Uint8Array([4, 5, 6, 7]));
+    expect(add[0]).toBeNull();
+    expect(add[1].member.key).toBe(bobKey);
+
+    await creator.store.close();
+    await bob.store.close();
+  });
+});
