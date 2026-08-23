@@ -3,6 +3,7 @@ import { atom, computed } from "nanostores";
 import type { JoinRequest } from "@justus/core";
 import { gateway } from "../gateway";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { removeRequestFromList } from "./requests-list";
 
 /**
  * Join-request inbox: pending "<name> wants to join <folder>" requests shown
@@ -132,7 +133,9 @@ const requestsActor = new Actor({
     });
     m.on(responding, responded, (e, opts) => {
       $requestsError.set(null);
-      $requests.set($requests.get().filter((r) => r.requesterKey !== e.payload.requesterKey));
+      $requests.set(
+        removeRequestFromList($requests.get(), e.payload.folderId, e.payload.requesterKey),
+      );
       opts.context.set({ pendingRespond: null });
       return { state: ok };
     });
