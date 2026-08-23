@@ -73,3 +73,29 @@ describe("#46 setActive must drop the previous folder's update watcher", () => {
     await store.close();
   });
 });
+
+describe("#47 join must be idempotent for an already-joined share key", () => {
+  it("does not mint a second FolderRecord on a repeat join", async () => {
+    const { store } = buildStore();
+    await store.ready();
+
+    // A valid 64-char hex share key (not our own identity drive).
+    const key = "0123456789abcdef".repeat(4);
+
+    const first = await store.join(key);
+    expect(first[0]).toBeNull();
+    const firstCount = (await store.folders()).folders.length;
+
+    // Re-joining the same key must be a no-op at the record level.
+    const second = await store.join(key);
+    expect(second[0]).toBeNull();
+    const after = await store.folders();
+    expect(after.folders.length).toBe(firstCount);
+
+    // Exactly one folder carries that share key — no duplicate FolderRecord.
+    const joined = after.folders.filter((f) => f.shareKey === key);
+    expect(joined.length).toBe(1);
+
+    await store.close();
+  });
+});

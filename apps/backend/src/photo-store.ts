@@ -1099,6 +1099,48 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (key === hex(ownDrive.key))
         return err(PhotoError.INVALID_KEY, "You already own this folder");
 
+      // Idempotency (issue #47): re-joining a folder we already hold must not
+      // mint a second `FolderRecord` with a fresh id — that leaves two folders
+      // pointing at the same share key and double-counts it in `folders()`.
+      // Reuse the existing record/runtime instead.
+      const existing = state.folders.find((f) => f.shareKey === key);
+      if (existing) {
+        let rt = runtimes.get(existing.id);
+        if (!rt) {
+          // Runtime was dropped (e.g. after a restart re-setup): rebuild it from
+          // the persisted record so the device's own view stays consistent.
+          try {
+            const fd = await openDriveWithTopic(key, { server: false });
+            const registryForRole = await readRegistryIn(fd);
+            const ownKey = hex(ownDrive.key);
+            const enrolled = Object.values(registryForRole.members).some((m) => m.key === ownKey);
+            const role: Role =
+              existing.role === "creator" ? "creator" : enrolled ? "member" : "reader";
+            rt = {
+              record: {
+                ...existing,
+                role,
+                driveKey: role === "reader" ? "" : ownKey,
+                pending: role === "reader" ? Boolean(existing.pending) : false,
+              },
+              folderDrive: fd,
+              selfDrive: role === "reader" ? null : ownDrive,
+              memberDrives: new Map(),
+              memberNameCache: new Map(),
+              mounted: new Set(),
+              watcherRemoves: new Set(),
+              social: { peers: new Set() },
+            };
+            runtimes.set(existing.id, rt);
+            await refreshMembersFor(rt);
+            watchDrive(fd, rt.record.id, hex(fd.key), "add");
+          } catch {
+            return ok(await computeStatus());
+          }
+        }
+        return ok(await computeStatus());
+      }
+
       let drive: Drive;
       let registry: RegistryFile;
       let folderName = "";
