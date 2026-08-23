@@ -6,6 +6,7 @@ import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { deriveGallery, type DriveScan } from "./gallery-order";
 import { pumpStream, type PumpWriter } from "./pump";
+import { guessMime } from "./mime";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import type {
@@ -944,25 +945,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const ownFolder = state.folders.find((f) => f.shareKey === ownKey) ?? state.folders[0];
       state.activeFolderId = ownFolder.id;
       saveState();
-    }
-  }
-
-  function guessMime(ext: string): string {
-    switch (ext.toLowerCase()) {
-      case ".png":
-        return "image/png";
-      case ".gif":
-        return "image/gif";
-      case ".webp":
-        return "image/webp";
-      case ".heic":
-        return "image/heic";
-      case ".mp4":
-        return "video/mp4";
-      case ".mov":
-        return "video/quicktime";
-      default:
-        return "image/jpeg";
     }
   }
 
