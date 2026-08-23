@@ -60,12 +60,14 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
           send(400, { ok: false, error: "empty upload" });
           return;
         }
-        const [err] = await deps.store.add(filePath);
+        const [err, photo] = await deps.store.add(filePath);
         if (err) {
           send(500, { ok: false, error: err.message });
           return;
         }
-        send(200, { ok: true });
+        // Surface the resulting entry so clients (and e2e) can observe
+        // ingest dedupe: a repeated identical upload returns the SAME id.
+        send(200, { ok: true, id: photo?.id });
       } catch (e) {
         const message = errMsg(e);
         console.error(`[justus] upload failed: ${message}`);

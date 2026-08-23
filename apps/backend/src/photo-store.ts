@@ -675,8 +675,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const ext = path.extname(name).toLowerCase();
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
-    const sha256 = crypto.createHash("sha256").update(bytes as Buffer).digest("hex");
-    const duplicate = (await listPhotosIn(rt)).find((p) => p.sha256 === sha256);
+    // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
+    const sha256 = crypto
+      .createHash("sha-256")
+      .update(bytes as Buffer)
+      .digest("hex");
+    const candidates = await listPhotosIn(rt);
+    // Prefer OUR own entry when we already hold a copy: re-adding bytes this
+    // device has must never silently adopt another member's entry (a later
+    // remove of that entry would then 404 for us).
+    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive : ownDrive);
+    const duplicate =
+      candidates.find((p) => p.sha256 === sha256 && p.member.key === selfKeyHex) ??
+      candidates.find((p) => p.sha256 === sha256);
     if (duplicate) return ok(duplicate);
     const id = newId();
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;

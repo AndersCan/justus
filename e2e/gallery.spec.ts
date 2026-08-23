@@ -90,16 +90,55 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
   // The gallery's Pick button is a hidden file input; setting files exercises
   // the browser → worklet `POST /photos` route → store.add → push path with a
   // real chosen file (same-origin, exactly like the WebView on device).
+  // Distinct bytes from the inbox test above: since #20's sha256 ingest
+  // dedupe, identical content no longer grows the gallery twice.
   await page.setInputFiles("input[type=file]", {
-    name: `picked-${Date.now()}.jpg`,
-    mimeType: "image/jpeg",
-    buffer: Buffer.from(TINY_JPEG, "base64"),
+    name: `picked-${Date.now()}.png`,
+    mimeType: "image/png",
+    buffer: Buffer.from(TINY_PNG, "base64"),
   });
 
   await expect
     .poll(async () => page.locator("figure img").count(), { timeout: 20_000 })
     .toBe(before + 1);
   await expectAllImagesDecodable(page);
+});
+
+/** A real, decodable 1x1 PNG (distinct from the JPEG used by the inbox and
+ * seed paths, so dedupe tests can isolate their own content). */
+const TINY_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+test("adding identical bytes twice is deduped to one entry (#20)", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  const before = await page.locator("figure img").count();
+
+  const uploadOnce = () =>
+    Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/photos") && r.request().method() === "POST",
+      ),
+      page.setInputFiles("input[type=file]", {
+        name: "dedupe-probe.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(TINY_PNG, "base64"),
+      }),
+    ]);
+
+  const [res1] = await uploadOnce();
+  const firstId = ((await res1.json()) as { id?: string }).id;
+  expect(firstId).toBeTruthy();
+
+  // Same bytes again: the ingest boundary must recognize the content and
+  // return the SAME entry instead of creating a second one.
+  const [res2] = await uploadOnce();
+  const secondId = ((await res2.json()) as { id?: string }).id;
+  expect(secondId).toBe(firstId);
+
+  // And the derived gallery must not have grown.
+  await page.waitForTimeout(1_000);
+  expect(await page.locator("figure img").count()).toBe(before + 1);
 });
 
 test("settings shows creator status and folder list", async ({ page }) => {
