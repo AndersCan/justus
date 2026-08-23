@@ -56,13 +56,19 @@
       }
     </style>
 
+    <!-- UnoCSS runtime (ESM). We explicitly import presetUno and pass it in
+         presets[], because a custom window.__unocss config with no presets
+         resolves to an empty preset set (base utilities like `rounded-full`
+         then go unmatched). Top-level await lets us set the config before
+         init() runs. -->
     <script type="module">
+      import presetUno from "https://esm.sh/@unocss/preset-uno";
       import init from "https://esm.sh/@unocss/runtime";
 
       // Theme mirrors apps/web/uno.config.ts so this prototype stays visually
       // faithful to the real app.
       window.__unocss = {
-        // keep the runtime's default preset (presetUno) for base utilities
+        presets: [presetUno],
         theme: {
           colors: {
             paper: "#FAF3E7",
@@ -99,19 +105,19 @@
     </script>
   </head>
 
-  <body class="font-sans text-ink antialiased">
+  <body class="m-0 font-sans text-ink antialiased">
     <!-- ===================================================================
          BUILDING BLOCK 1 — Page shell
          A max-width column, warm paper background, serif headings.
     ==================================================================== -->
-    <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+    <main class="w-full">
       <!-- =================================================================
            BUILDING BLOCK 2 — Header
            Title + density toggle on the left; no-server chip + connection
            dot keep the "no servers" promise legible (vision.md §UI/UX).
       ================================================================== -->
       <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="space-y-2">
+        <div class="space-y-2 px-4 py-4 sm:px-6">
           <div class="flex items-center gap-3">
             <h1 class="font-serif text-3xl text-ink">Gallery</h1>
 
@@ -209,7 +215,7 @@
            Reverse-chronological months; each month is a header + responsive
            square-crop grid of photo tiles.
       ================================================================== -->
-      <section id="gallery" class="mt-6 space-y-8">
+      <section id="gallery" class="mt-2 space-y-0">
         <!-- month groups injected here -->
       </section>
 
@@ -254,7 +260,7 @@
 
         const tile = document.createElement("figure");
         tile.className =
-          "photo-tile group relative cursor-pointer overflow-hidden rounded-2xl bg-linen shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)] ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60";
+          "photo-tile group relative m-0 cursor-pointer overflow-hidden bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60 focus-visible:ring-inset";
         tile.style.setProperty("--vt", `photo-${id}`);
         tile.tabIndex = 0;
         tile.setAttribute("role", "button");
@@ -263,7 +269,7 @@
 
         tile.innerHTML = `
           <img
-            class="aspect-square w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+            class="aspect-square w-full object-cover transition duration-200 group-hover:brightness-90"
             src="${nextUrl()}"
             alt="${name}"
             loading="lazy"
@@ -323,11 +329,11 @@
         const wrap = document.createElement("div");
         const head = document.createElement("h2");
         head.className =
-          "mb-3 flex items-baseline gap-2 border-b border-butter pb-2 font-serif text-lg text-cocoa";
+          "mb-1 mt-4 flex items-baseline gap-2 px-4 font-serif text-base text-cocoa sm:px-6";
         head.innerHTML = `<span>${label}</span><span class="font-sans text-xs text-taupe">${count}</span>`;
 
         const grid = document.createElement("div");
-        grid.className = "photo-grid grid gap-1.5 sm:gap-2";
+        grid.className = "photo-grid grid gap-0";
         grid.dataset.cols = "comfortable"; // default
 
         let id = Math.floor(Math.random() * 1000);
