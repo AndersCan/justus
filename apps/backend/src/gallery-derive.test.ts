@@ -11,7 +11,7 @@ function entry(
   value: Record<string, unknown>;
 } {
   return {
-    key: `photos/${id}.jpg`,
+    key: `/photos/${id}.jpg`,
     value: { size: 1, metadata: { addedAt: 0, name: id, mime: "image/jpeg", ...meta } },
   };
 }
@@ -79,7 +79,7 @@ describe("deriveGallery invariants (issue #23)", () => {
 
   test("metadata fallbacks: missing addedAt → 0, name → basename, sha256 passthrough", () => {
     const raw = {
-      key: "photos/legacy",
+      key: "/photos/legacy",
       value: { size: 5, metadata: { sha256: "abc" } },
     };
     const out = deriveGallery([{ key: kA, entries: [raw as never] }], {}, NAME);
@@ -96,7 +96,7 @@ describe("deriveGallery invariants (issue #23)", () => {
 
   test("mime fallback mirrors the host table, case-insensitively", () => {
     const raw = (id: string): { key: string; value: Record<string, unknown> } => ({
-      key: `photos/${id}`,
+      key: `/photos/${id}`,
       value: { size: 1, metadata: {} },
     });
     const out = deriveGallery(
@@ -115,5 +115,20 @@ describe("deriveGallery invariants (issue #23)", () => {
       u: "image/png",
       v: "video/mp4",
     });
+  });
+
+  test("regression #50 — absolute /photos keys yield slash-free ids (matches remove())", () => {
+    const out = deriveGallery(
+      [
+        {
+          key: kA,
+          entries: [{ key: "/photos/a.jpg", value: { size: 1, metadata: { addedAt: 0 } } }],
+        },
+      ],
+      {},
+      NAME,
+    );
+    expect(out[0]!.id).toBe("a");
+    expect(out[0]!.ext).toBe(".jpg");
   });
 });
