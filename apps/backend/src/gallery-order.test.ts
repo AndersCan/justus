@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { compareGalleryOrder } from "./gallery-order";
+import { canonicalGalleryOrder, compareGalleryOrder, deriveGallery } from "./gallery-order";
 import type { Photo } from "@justus/core";
 
 function photo(id: string, addedAt: number, memberKey: string): Photo {
@@ -65,5 +65,88 @@ describe("compareGalleryOrder (invariant I3)", () => {
     // Canonical expectation for this set:
     // 300: kA/p3, then kB/p1+p5 (id asc); 200: kC/p4; 100: kA/p2, kB/p6.
     expect(sort([0, 1, 2, 3, 4, 5])).toEqual(["p3", "p1", "p5", "p4", "p2", "p6"]);
+  });
+});
+
+/**
+ * I3 — production path (bug #55): deriveGallery must produce output ordered
+ * by the same canonical key the I3 spec certifies (compareGalleryOrder), not a
+ * divergent one. The derived tie-break key (driveKey) and the raw Photo tie-
+ * break key (member.key) must reduce to one source of truth.
+ */
+
+/**
+ * I3 — production path (bug #55): deriveGallery must produce output ordered
+ * by the same canonical key the I3 spec certifies (compareGalleryOrder), not a
+ * divergent one. The derived tie-break key (driveKey) and the raw Photo tie-
+ * break key (member.key) must reduce to one source of truth.
+ */
+describe("deriveGallery canonical order matches I3 spec (issue #55)", () => {
+  const kA = "a".repeat(64);
+  const kB = "b".repeat(64);
+  const NAME = () => "device";
+
+  function ds(
+    key: string,
+    ids: Array<[string, number]>,
+  ): {
+    key: string;
+    entries: Array<{ key: string; value: Record<string, unknown> }>;
+  } {
+    return {
+      key,
+      entries: ids.map(([id, addedAt]) => ({
+        key: `photos/${id}.jpg`,
+        value: { size: 1, metadata: { addedAt, name: id, mime: "image/jpeg" } },
+      })),
+    };
+  }
+
+  test("deriveGallery output is already canonically ordered", () => {
+    const derived = deriveGallery(
+      [
+        ds(kA, [
+          ["p1", 300],
+          ["p2", 300],
+        ]),
+        ds(kB, [["p3", 100]]),
+      ],
+      {},
+      NAME,
+    );
+    const idOf = (p: { driveKey: string; id: string }) => `${p.driveKey}:${p.id}`;
+    const sortedAgain = [...derived].sort((a, b) =>
+      canonicalGalleryOrder(
+        { addedAt: a.addedAt, memberKey: a.driveKey, id: a.id },
+        { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
+      ),
+    );
+    expect(derived.map(idOf)).toEqual(sortedAgain.map(idOf));
+  });
+
+  test("served order matches compareGalleryOrder when Photos carry member.key = driveKey", () => {
+    const derived = deriveGallery(
+      [
+        ds(kA, [["p1", 300]]),
+        ds(kB, [
+          ["q1", 300],
+          ["q2", 200],
+        ]),
+      ],
+      {},
+      NAME,
+    );
+    const asPhotos: Photo[] = derived.map((d) => ({
+      id: d.id,
+      url: `http://x/${d.id}`,
+      name: d.name,
+      mime: d.mime,
+      size: d.size,
+      addedAt: d.addedAt,
+      member: { key: d.driveKey, name: d.memberName },
+    }));
+    const reSorted = [...asPhotos].sort(compareGalleryOrder);
+    const keyOf = (p: Photo) => `${p.member.key}:${p.id}`;
+    expect(asPhotos.map(keyOf)).toEqual(reSorted.map(keyOf));
   });
 });
