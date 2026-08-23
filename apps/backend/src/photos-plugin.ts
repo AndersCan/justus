@@ -2,6 +2,12 @@ import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
 import { photoSpecs } from "@justus/core";
 import type { PhotoStore } from "./photo-store";
 
+// Mirror the upload route's cap (upload-route.ts MAX_UPLOAD_BYTES): the in-band
+// add path writes the payload to a temp file and then reads it fully into
+// memory, so an unbounded picker payload is a memory/disk DoS. The native
+// picker path (`args.path`) is already a file on the device and is not capped.
+const MAX_INBAND_ADD_BYTES = 50 * 1024 * 1024;
+
 function errResult(error: unknown): [CoreError, null] {
   const message = error instanceof Error ? error.message : String(error);
   return [new CoreError("PLUGIN_ERROR", message), null];
@@ -27,6 +33,9 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
         if (args.path) return deps.store.add(args.path);
         const payload = context?.payload;
         if (payload && payload.byteLength > 0) {
+          if (payload.byteLength > MAX_INBAND_ADD_BYTES) {
+            return errResult(new Error("photos.add payload exceeds size limit"));
+          }
           const name =
             typeof args.name === "string" && args.name.trim()
               ? args.name
