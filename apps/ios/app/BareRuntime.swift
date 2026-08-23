@@ -113,9 +113,12 @@ final class BareRuntime {
         BareHostLogger.log("Timed out waiting for worklet handoff")
         return
       }
+      let payloadJSON =
+        (try? JSONSerialization.data(withJSONObject: ["token": token]))
+        .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"token\":\"\"}"
       webView.configuration.userContentController.addUserScript(
         WKUserScript(
-          source: "window.__ekrooh={token:'\(token)'};window.BareShell=true;",
+          source: "window.__ekrooh=" + payloadJSON + ";window.BareShell=true;",
           injectionTime: .atDocumentStart,
           forMainFrameOnly: true
         )

@@ -5,6 +5,8 @@ import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { deriveGallery, type DriveScan } from "./gallery-order";
+import { pumpStream, type PumpWriter } from "./pump";
+import { guessMime } from "./mime";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import type {
@@ -196,47 +198,26 @@ type StreamSource = {
   on(event: "data" | "end" | "error", listener: (...args: any[]) => void): unknown;
 };
 
+/** Cap on bytes spooled from a drive to the local cache dir (issue #57). A
+ * collaborator's drive can carry an oversized "photo"; capping it bounds
+ * device-storage use. Mirrors the upload cap in the upload route. */
+const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
+
 /** Pumps a source stream into a file, resolving with the byte count. Pass
- * `maxBytes` to fail (and abort) once the stream exceeds it. */
+ * `maxBytes` to fail (and abort) once the stream exceeds it.
+ *
+ * Delegates to the bare-agnostic, unit-tested {@link pumpStream} (./pump) so
+ * the writer's backpressure signal is honored and `maxBytes` is enforced for
+ * every caller. The previous inline copy ignored backpressure and the spool
+ * path passed no cap (issues #53 and #57). */
 export function pumpToFile(
   source: StreamSource,
   destPath: string,
   maxBytes?: number,
 ): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const out = fs.createWriteStream(destPath);
-    let size = 0;
-    let done = false;
-    const fail = (err: Error) => {
-      if (done) return;
-      done = true;
-      try {
-        out.destroy();
-      } catch {
-        // already closed
-      }
-      reject(err);
-    };
-    source.on("data", (chunk: unknown) => {
-      if (done) return;
-      const bytes = chunk instanceof Uint8Array ? chunk : Buffer.from(String(chunk));
-      size += bytes.length;
-      if (maxBytes !== undefined && size > maxBytes) {
-        fail(new Error(`stream too large (>${maxBytes} bytes)`));
-        return;
-      }
-      out.write(bytes as never);
-    });
-    source.on("end", () => {
-      if (done) return;
-      out.end(() => {
-        if (done) return;
-        done = true;
-        resolve(size);
-      });
-    });
-    source.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
-    out.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
+  return pumpStream(source, {
+    createWriter: () => fs.createWriteStream(destPath) as unknown as PumpWriter,
+    maxBytes,
   });
 }
 
@@ -628,7 +609,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
     const stream = drive.createReadStream(drivePath);
-    await pumpToFile(stream, tmp);
+    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES);
     fs.renameSync(tmp, spoolPath);
   }
 
@@ -964,25 +945,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const ownFolder = state.folders.find((f) => f.shareKey === ownKey) ?? state.folders[0];
       state.activeFolderId = ownFolder.id;
       saveState();
-    }
-  }
-
-  function guessMime(ext: string): string {
-    switch (ext.toLowerCase()) {
-      case ".png":
-        return "image/png";
-      case ".gif":
-        return "image/gif";
-      case ".webp":
-        return "image/webp";
-      case ".heic":
-        return "image/heic";
-      case ".mp4":
-        return "video/mp4";
-      case ".mov":
-        return "video/quicktime";
-      default:
-        return "image/jpeg";
     }
   }
 

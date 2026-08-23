@@ -71,12 +71,22 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
       } catch (e) {
         const message = errMsg(e);
         console.error(`[justus] upload failed: ${message}`);
+        // Oversize/rejected uploads: tear down the request stream so a large or
+        // malicious upload can't keep the connection open streaming discarded
+        // bytes (issue #44). Harmless once the request has already ended.
+        try {
+          (req as { destroy?: () => void }).destroy?.();
+        } catch {
+          // already closed
+        }
         send(500, { ok: false, error: message });
       } finally {
+        // Remove the whole per-request upload dir (not just the file) so a
+        // subdir isn't leaked on every upload (issue #44).
         try {
-          fs.unlinkSync(filePath);
+          fs.rmSync(uploadDir, { recursive: true, force: true });
         } catch {
-          // temp file already gone
+          // temp dir already gone
         }
       }
     })();
