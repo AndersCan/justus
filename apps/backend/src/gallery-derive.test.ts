@@ -93,4 +93,27 @@ describe("deriveGallery invariants (issue #23)", () => {
       memberName: "device",
     });
   });
+
+  test("mime fallback mirrors the host table, case-insensitively", () => {
+    const raw = (id: string): { key: string; value: Record<string, unknown> } => ({
+      key: `photos/${id}`,
+      value: { size: 1, metadata: {} },
+    });
+    const out = deriveGallery(
+      [
+        {
+          key: kA,
+          entries: [raw("v.MP4"), raw("h.Heic"), raw("m.mov"), raw("u.PNG")],
+        },
+      ],
+      {},
+      NAME,
+    );
+    expect(Object.fromEntries(out.map((p) => [p.id, p.mime]))).toEqual({
+      h: "image/heic",
+      m: "video/quicktime",
+      u: "image/png",
+      v: "video/mp4",
+    });
+  });
 });
