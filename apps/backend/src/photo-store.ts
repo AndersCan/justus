@@ -84,6 +84,7 @@ type PhotoMeta = {
   addedAt: number;
   name: string;
   mime: string;
+  sha256?: string;
 };
 
 /**
@@ -606,6 +607,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           size,
           addedAt,
           member: { key, name: memberName },
+          ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
         });
       }
     }
@@ -672,9 +674,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const name = path.basename(filePath);
     const ext = path.extname(name).toLowerCase();
     const mime = guessMime(ext);
+    // Content dedupe (#20): the same bytes must not create a second entry.
+    const sha256 = crypto.createHash("sha256").update(bytes as Buffer).digest("hex");
+    const duplicate = (await listPhotosIn(rt)).find((p) => p.sha256 === sha256);
+    if (duplicate) return ok(duplicate);
     const id = newId();
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
+    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
     // A creator writes to the folder's own drive; a member writes to its own
     // drive (still within the same folder's derived view).
     const targetDrive = rt.record.role === "creator" ? rt.folderDrive : ownDrive;
