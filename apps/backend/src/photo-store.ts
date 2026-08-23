@@ -4,7 +4,7 @@ import crypto from "bare-crypto";
 import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
-import { compareGalleryOrder } from "./gallery-order";
+import { deriveGallery, type DriveScan } from "./gallery-order";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import type {
@@ -530,7 +530,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
     const removed = await readRemovedIn(rt.folderDrive);
-    const photos: Photo[] = [];
     const role = rt.record.role;
     const creatorKey = hex(rt.folderDrive.key);
     const selfKey = role === "creator" ? creatorKey : hex(ownDrive.key);
@@ -562,62 +561,63 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       addScan(key, drive);
     }
 
+    const driveByKey = new Map(drivesToScan.map((s) => [s.key, s.drive]));
+
+    // Raw scans only — parsing, tombstones, dedupe, and canonical order are
+    // the pure derivation's job (gallery-order.ts), so this host function
+    // cannot drift from the invariants tested there.
+    const scans: DriveScan[] = [];
     for (const { key, drive } of drivesToScan) {
-      let entries: Array<{ key: string; value: Record<string, unknown> }> = [];
       try {
+        const entries: DriveScan["entries"] = [];
         const list = drive.list(DRIVE_PATH_PHOTOS);
         for await (const entry of list) entries.push(entry as never);
+        scans.push({ key, entries });
       } catch {
         // Drive not downloaded yet — skip.
         continue;
       }
-      const memberName =
-        key === selfKey
-          ? state.name
-          : (rt.memberNameCache.get(key) ?? (await readDeviceName(drive)));
-      for (const entry of entries) {
-        const base = entry.key.slice(DRIVE_PATH_PHOTOS.length + 1);
-        const extMatch = /^(.*?)(\.[^/.]+)?$/.exec(base);
-        if (!extMatch) continue;
-        const id = extMatch[1];
-        const ext = extMatch[2] ?? "";
-        const meta = (entry.value?.metadata ?? {}) as Partial<PhotoMeta>;
-        const name = meta.name ?? base;
-        const mime = meta.mime ?? guessMime(ext);
-        const size = typeof entry.value?.size === "number" ? entry.value.size : 0;
-        const addedAt = typeof meta.addedAt === "number" ? meta.addedAt : 0;
-        if (removed[`${key}:${id}`]) continue;
-        const mount = `/photos/${rt.record.id}/${key.slice(0, 12)}-${id}`;
-        const spoolPath = path.join(spoolDirFor(rt.record.id), `${key.slice(0, 12)}-${id}${ext}`);
-        try {
-          await spoolToFile(drive, entry.key, spoolPath);
-          if (!rt.mounted.has(mount)) {
-            deps.server.mount(mount, spoolPath);
-            rt.mounted.add(mount);
-          }
-        } catch (e) {
-          const message = errMsg(e);
-          console.error(`[justus] spool failed for ${base}: ${message}`);
-          continue;
-        }
-        photos.push({
-          id,
-          url: `${await deps.server.origin()}${mount}`,
-          name,
-          mime,
-          size,
-          addedAt,
-          member: { key, name: memberName },
-          ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
-        });
-      }
     }
 
-    // I3 canonical gallery order: (addedAt desc, memberKey asc, id asc) —
-    // a pure function of record data, identical on every replica. Ties on
-    // addedAt are common across devices (same-ms captures/replication), so
-    // the member/id tie-breakers are what keep replicas byte-identical.
-    photos.sort(compareGalleryOrder);
+    // Resolve member names up-front so the derivation stays a pure sync
+    // function of record data.
+    const memberNames = new Map<string, string>();
+    for (const { key, drive } of drivesToScan) {
+      if (key === selfKey) memberNames.set(key, state.name);
+      else memberNames.set(key, rt.memberNameCache.get(key) ?? (await readDeviceName(drive)));
+    }
+
+    const photos: Photo[] = [];
+    for (const d of deriveGallery(scans, removed, (k) => memberNames.get(k) ?? "Unknown device")) {
+      const drive = driveByKey.get(d.driveKey);
+      if (!drive) continue;
+      const mount = `/photos/${rt.record.id}/${d.driveKey.slice(0, 12)}-${d.id}`;
+      const spoolPath = path.join(
+        spoolDirFor(rt.record.id),
+        `${d.driveKey.slice(0, 12)}-${d.id}${d.ext}`,
+      );
+      try {
+        await spoolToFile(drive, `${DRIVE_PATH_PHOTOS}/${d.id}${d.ext}`, spoolPath);
+        if (!rt.mounted.has(mount)) {
+          deps.server.mount(mount, spoolPath);
+          rt.mounted.add(mount);
+        }
+      } catch (e) {
+        const message = errMsg(e);
+        console.error(`[justus] spool failed for ${d.id}${d.ext}: ${message}`);
+        continue;
+      }
+      photos.push({
+        id: d.id,
+        url: `${await deps.server.origin()}${mount}`,
+        name: d.name,
+        mime: d.mime,
+        size: d.size,
+        addedAt: d.addedAt,
+        member: { key: d.driveKey, name: d.memberName },
+        ...(d.sha256 ? { sha256: d.sha256 } : {}),
+      });
+    }
     return photos;
   }
 

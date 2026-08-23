@@ -107,15 +107,22 @@ function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** Mirrors photo-store's extension→mime table for the pure derivation. */
-function guessMimeFor(ext: string): string {
-  switch (ext) {
+/** Mirrors photo-store's extension→mime table for the pure derivation
+ * (case-insensitive: extensions come from drive paths, which keep their case). */
+function guessMimeFor(extRaw: string): string {
+  switch (extRaw.toLowerCase()) {
     case ".png":
       return "image/png";
-    case ".webp":
-      return "image/webp";
     case ".gif":
       return "image/gif";
+    case ".webp":
+      return "image/webp";
+    case ".heic":
+      return "image/heic";
+    case ".mp4":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
     default:
       return "image/jpeg";
   }
