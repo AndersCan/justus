@@ -1,4 +1,5 @@
 import type { Photo } from "@justus/core";
+import { guessMime } from "./mime";
 
 /**
  * I3 canonical gallery order: (addedAt desc, memberKey asc, id asc).
@@ -116,7 +117,7 @@ export function deriveGallery(
         id,
         ext,
         name: typeof meta.name === "string" ? meta.name : base,
-        mime: typeof meta.mime === "string" ? meta.mime : guessMimeFor(ext),
+        mime: typeof meta.mime === "string" ? meta.mime : guessMime(ext),
         size: typeof entry.value?.size === "number" ? entry.value.size : 0,
         addedAt: typeof meta.addedAt === "number" ? meta.addedAt : 0,
         ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
@@ -135,25 +136,4 @@ function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
     { addedAt: a.addedAt, memberKey: a.driveKey, id: a.id },
     { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
   );
-}
-
-/** Mirrors photo-store's extension→mime table for the pure derivation
- * (case-insensitive: extensions come from drive paths, which keep their case). */
-function guessMimeFor(extRaw: string): string {
-  switch (extRaw.toLowerCase()) {
-    case ".png":
-      return "image/png";
-    case ".gif":
-      return "image/gif";
-    case ".webp":
-      return "image/webp";
-    case ".heic":
-      return "image/heic";
-    case ".mp4":
-      return "video/mp4";
-    case ".mov":
-      return "video/quicktime";
-    default:
-      return "image/jpeg";
-  }
 }
