@@ -138,7 +138,7 @@ class MainActivity : AppCompatActivity() {
                     val token = json.getString("token")
                     WebViewCompat.addDocumentStartJavaScript(
                         webView,
-                        "window.__ekrooh={token:'$token'};window.BareShell=true;",
+                        "window.__ekrooh={token:${JSONObject.quote(token)}};window.BareShell=true;",
                         setOf("http://127.0.0.1:$port"),
                     )
                     webView.loadUrl("$origin/index.html")
