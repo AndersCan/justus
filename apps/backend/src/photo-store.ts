@@ -7,6 +7,7 @@ import Hyperswarm from "hyperswarm";
 import { deriveGallery, type DriveScan } from "./gallery-order";
 import { pumpStream, type PumpWriter } from "./pump";
 import { guessMime } from "./mime";
+import { spoolNameFor } from "./spool-name";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import type {
@@ -572,11 +573,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const d of deriveGallery(scans, removed, (k) => memberNames.get(k) ?? "Unknown device")) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
-      const mount = `/photos/${rt.record.id}/${d.driveKey.slice(0, 12)}-${d.id}`;
-      const spoolPath = path.join(
-        spoolDirFor(rt.record.id),
-        `${d.driveKey.slice(0, 12)}-${d.id}${d.ext}`,
-      );
+      // `d.id`/`d.ext` derive from untrusted drive photo keys, so the spool
+      // name must be filesystem-safe — never interpolate them raw (issue #71).
+      const spoolName = spoolNameFor(d.driveKey, d.id, d.ext);
+      const mount = `/photos/${rt.record.id}/${spoolName}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
       try {
         await spoolToFile(drive, `${DRIVE_PATH_PHOTOS}/${d.id}${d.ext}`, spoolPath);
         if (!rt.mounted.has(mount)) {
