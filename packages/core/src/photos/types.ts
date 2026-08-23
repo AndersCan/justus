@@ -18,6 +18,9 @@ export type Photo = {
   size: number;
   addedAt: number;
   member: PhotoMember;
+  /** sha256 of the original bytes (ingest dedupe). Optional: entries stored
+   * before this field existed don't carry it. */
+  sha256?: string;
 };
 
 export type SyncMember = {

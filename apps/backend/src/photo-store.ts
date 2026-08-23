@@ -84,6 +84,7 @@ type PhotoMeta = {
   addedAt: number;
   name: string;
   mime: string;
+  sha256?: string;
 };
 
 /**
@@ -606,6 +607,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           size,
           addedAt,
           member: { key, name: memberName },
+          ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
         });
       }
     }
@@ -672,9 +674,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const name = path.basename(filePath);
     const ext = path.extname(name).toLowerCase();
     const mime = guessMime(ext);
+    // Content dedupe (#20): the same bytes must not create a second entry.
+    // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
+    const sha256 = crypto
+      .createHash("sha-256")
+      .update(bytes as Buffer)
+      .digest("hex");
+    const candidates = await listPhotosIn(rt);
+    // Prefer OUR own entry when we already hold a copy: re-adding bytes this
+    // device has must never silently adopt another member's entry (a later
+    // remove of that entry would then 404 for us).
+    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive : ownDrive);
+    const duplicate =
+      candidates.find((p) => p.sha256 === sha256 && p.member.key === selfKeyHex) ??
+      candidates.find((p) => p.sha256 === sha256);
+    if (duplicate) return ok(duplicate);
     const id = newId();
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime };
+    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
     // A creator writes to the folder's own drive; a member writes to its own
     // drive (still within the same folder's derived view).
     const targetDrive = rt.record.role === "creator" ? rt.folderDrive : ownDrive;
