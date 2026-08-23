@@ -9,6 +9,9 @@
  * follow as their fixes land.
  */
 import { describe, it, expect } from "vitest";
+import { mkdtempSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createPhotoStore, type PhotoStore } from "../src/photo-store";
 import { FakeDrive, makeFakeDeps } from "./fake-drive";
 
@@ -97,5 +100,51 @@ describe("#47 join must be idempotent for an already-joined share key", () => {
     expect(joined.length).toBe(1);
 
     await store.close();
+  });
+});
+
+describe("#42 a creator folder must stay a creator after a restart", () => {
+  it("keeps the 2nd creator folder as creator and addable after re-createPhotoStore", async () => {
+    // Share one on-disk storageDir so the persisted folder records survive the
+    // "restart" (a second createPhotoStore against the same dir).
+    const storageDir = mkdtempSync(join(tmpdir(), "justus-42-"));
+    const cacheDir = join(storageDir, "cache");
+    // The harness doesn't pre-create the cache dir; addBytes stages uploads into
+    // it, so create it the way the production runtime does.
+    mkdirSync(cacheDir, { recursive: true });
+
+    // Session 1: build the device, add a 2nd creator folder, add a photo.
+    const store1 = createPhotoStore(
+      makeFakeDeps({ storageDir, cacheDir, seedOnEmpty: false }),
+    );
+    await store1.ready();
+    const created = await store1.createFolder("Holidays");
+    expect(created[0]).toBeNull();
+    const holidayId = created[1].folder.id;
+    expect(created[1].folder.role).toBe("creator");
+
+    const add1 = await store1.addBytes("beach.jpg", new Uint8Array([1, 2, 3, 4]));
+    expect(add1[0]).toBeNull();
+    await store1.close();
+
+    // Session 2: simulate a restart — same storageDir, fresh in-memory drives.
+    const store2 = createPhotoStore(
+      makeFakeDeps({ storageDir, cacheDir, seedOnEmpty: false }),
+    );
+    await store2.ready();
+
+    const after = await store2.folders();
+    const holidays = after.folders.find((f) => f.id === holidayId);
+    expect(holidays).toBeDefined();
+    // The bug: a 2nd+ creator folder recomputed its role from the live registry
+    // (which doesn't list the creator) and downgraded to "reader".
+    expect(holidays!.role).toBe("creator");
+
+    // Being a creator, add must still succeed in the restarted session.
+    await store2.setActive(holidayId);
+    const add2 = await store2.addBytes("sunset.jpg", new Uint8Array([5, 6, 7, 8]));
+    expect(add2[0]).toBeNull();
+
+    await store2.close();
   });
 });

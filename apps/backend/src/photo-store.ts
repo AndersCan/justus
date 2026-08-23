@@ -944,15 +944,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const fd = isOwn ? ownDrive : await openDriveWithTopic(record.shareKey, { server: false });
       const registry = await readRegistryIn(fd);
       const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
-      const role: Role = isOwn ? "creator" : enrolled ? "member" : "reader";
+      // A folder this device created is persisted with role "creator"; after a
+      // restart the identity-drive shortcut (`isOwn`) only fires for the single
+      // identity drive, so a 2nd+ creator folder would otherwise be recomputed
+      // from the live registry (which doesn't list the creator as a member) and
+      // downgrade to "reader" (issue #42). Trust the persisted creator role so
+      // every creator folder re-opens as a creator.
+      const role: Role =
+        record.role === "creator" ? "creator" : isOwn ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
       // (reader) folders like the one created at join() time.
-      const pending = isOwn ? false : enrolled ? false : Boolean(record.pending);
+      const pending = record.role === "creator" ? false : enrolled ? false : Boolean(record.pending);
       const rt: FolderRuntime = {
-        record: { ...record, role, driveKey: isOwn ? ownKey : enrolled ? ownKey : "", pending },
+        record: {
+          ...record,
+          role,
+          driveKey: record.role === "creator" ? hex(fd.key) : enrolled ? ownKey : "",
+          pending,
+        },
         folderDrive: fd,
-        selfDrive: role === "reader" ? null : isOwn ? ownDrive : ownDrive,
+        selfDrive: role === "reader" ? null : ownDrive,
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
@@ -961,7 +973,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       };
       runtimes.set(record.id, rt);
       await refreshMembersFor(rt);
-      watchDrive(fd, record.id, isOwn ? ownKey : hex(fd.key), isOwn ? "enroll" : "add");
+      watchDrive(fd, record.id, hex(fd.key), record.role === "creator" ? "enroll" : "add");
       if (isOwn) watchDrive(ownDrive, record.id, ownKey, "enroll");
     }
 
