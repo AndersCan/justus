@@ -10,11 +10,33 @@ import type { Photo } from "@justus/core";
  * without them Array#sort stability would differ between replicas that
  * received the same entries in different orders.
  */
-export function compareGalleryOrder(a: Photo, b: Photo): number {
+/** The canonical tie-break key for one photo, independent of whether it is a
+ * raw `Photo` (member.key) or a derived gallery entry (driveKey). The two
+ * comparators below reduce to this so production order matches the I3 spec. */
+export interface CanonicalOrderKey {
+  addedAt: number;
+  memberKey: string;
+  id: string;
+}
+
+/**
+ * I3 canonical gallery order: (addedAt desc, memberKey asc, id asc). Pure —
+ * no clock or environment — so the derived gallery is byte-identical on every
+ * replica (issue #23, invariant I3). Single source of truth for both the raw
+ * `Photo` comparator and the derived-entry comparator (bug #55).
+ */
+export function canonicalGalleryOrder(a: CanonicalOrderKey, b: CanonicalOrderKey): number {
   if (a.addedAt !== b.addedAt) return b.addedAt - a.addedAt;
-  const byMember = a.member.key < b.member.key ? -1 : a.member.key > b.member.key ? 1 : 0;
+  const byMember = a.memberKey < b.memberKey ? -1 : a.memberKey > b.memberKey ? 1 : 0;
   if (byMember !== 0) return byMember;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+export function compareGalleryOrder(a: Photo, b: Photo): number {
+  return canonicalGalleryOrder(
+    { addedAt: a.addedAt, memberKey: a.member.key, id: a.id },
+    { addedAt: b.addedAt, memberKey: b.member.key, id: b.id },
+  );
 }
 
 /** One drive's `/photos` listing as fed into the gallery derivation. */
@@ -101,10 +123,13 @@ export function deriveGallery(
 }
 
 function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
-  if (a.addedAt !== b.addedAt) return b.addedAt - a.addedAt;
-  const byMember = a.driveKey < b.driveKey ? -1 : a.driveKey > b.driveKey ? 1 : 0;
-  if (byMember !== 0) return byMember;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  // Delegates to the I3 canonical order so production order matches the
+  // documented spec (bug #55): deriveGallery's tie-break key is driveKey,
+  // which is the same value compareGalleryOrder reads as member.key.
+  return canonicalGalleryOrder(
+    { addedAt: a.addedAt, memberKey: a.driveKey, id: a.id },
+    { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
+  );
 }
 
 /** Mirrors photo-store's extension→mime table for the pure derivation
