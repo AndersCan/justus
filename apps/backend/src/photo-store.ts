@@ -281,6 +281,9 @@ type FolderRuntime = {
   memberNameCache: Map<string, string>;
   /** Loopback mount routes served for this folder's photos. */
   mounted: Set<string>;
+  /** `remove` closures for this folder's `drive.on("update")` watchers, drained
+   * on unmount/close so inactive folders stop firing `onChanged` (#46). */
+  watcherRemoves: Set<() => void>;
   social: {
     /** Peers seen on this folder's topic since we joined it. Keys are the raw
      * `remotePublicKey` hex from swarm connections. */
@@ -304,7 +307,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let ownDrive: Drive;
   const runtimes = new Map<string, FolderRuntime>();
   const joins: Array<{ destroy(): void | Promise<void> }> = [];
-  const watchers = new Set<() => void>();
   let readyPromise: Promise<void> | null = null;
 
   function loadState(): PersistedState {
@@ -398,7 +400,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       drive.removeListener("update", handler);
       if (timer) clearTimeout(timer);
     };
-    watchers.add(remove);
+    const rt = runtimes.get(folderId);
+    rt?.watcherRemoves.add(remove);
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
@@ -537,6 +540,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function unmountRuntime(rt: FolderRuntime) {
+    for (const remove of rt.watcherRemoves) {
+      try {
+        remove();
+      } catch {
+        // already removed
+      }
+    }
+    rt.watcherRemoves.clear();
     for (const route of rt.mounted) {
       try {
         deps.server.unmount(route);
@@ -945,6 +956,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(record.id, rt);
@@ -972,6 +984,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -1120,6 +1133,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -1238,6 +1252,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -1345,6 +1360,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async close() {
+      for (const rt of runtimes.values()) {
+        for (const remove of rt.watcherRemoves) {
+          try {
+            remove();
+          } catch {
+            // already removed
+          }
+        }
+        rt.watcherRemoves.clear();
+      }
       try {
         await swarm.destroy();
       } catch {

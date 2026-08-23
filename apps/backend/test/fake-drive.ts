@@ -11,8 +11,11 @@
  * no real bytes).
  */
 import { createHash } from "node:crypto";
+import * as nodeCrypto from "node:crypto";
+import * as nodeFs from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
+import * as nodePath from "node:path";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import type { PhotoStoreDeps } from "../src/photo-store";
@@ -139,6 +142,12 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
     deviceName: "Tester",
     onChanged: () => {},
     seedOnEmpty: false,
+    // Node's fs/path/crypto are runtime-compatible with the bare-*` shapes the
+    // seam expects (writeFileSync/rmSync, join, randomBytes/createHash) and let
+    // the store run under Node/vitest without the Bare runtime.
+    fs: nodeFs as unknown as typeof import("bare-fs"),
+    path: nodePath as unknown as typeof import("bare-path"),
+    crypto: nodeCrypto as unknown as typeof import("bare-crypto"),
     makeCorestore: () => corestore,
     makeSwarm: () => new FakeSwarm(),
     makeDrive: (_cs: unknown, key?: Buffer) =>
