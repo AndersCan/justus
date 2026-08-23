@@ -77,6 +77,18 @@ adb install app/build/outputs/apk/debug/app-debug.apk
   needs Node + the installed `node_modules`, not just the Android toolchain.
 - Keep `GH_USER`/`GH_TOKEN` as build-time secrets (env), never bake into the image.
 
+## Maestro CLI (dev-only, for the native UI tests)
+
+Maestro ([`maestro`](https://maestro.mobile.dev)) runs the native/device UI test
+suite (`bash scripts/maestro-e2e.sh`, a.k.a. `vp run test:native`) against the
+installed APK. It is **not** needed to build the APK — only to run the
+`.maestro/flows/` device tests on an emulator/device.
+
+- Install: `curl -fsSL "https://get.maestro.mobile.dev" | bash`
+- Recommended version: **2.8.0** (tested).
+- Modeled in the Docker image? No — builds stay APK-only; Maestro runs on the
+  host with the emulator/device attached (alongside `adb`).
+
 ## Open blockers
 
 1. **`io.ekrooh:bare-host` needs a PAT** — GitHub Packages Maven requires auth

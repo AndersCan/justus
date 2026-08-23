@@ -43,6 +43,9 @@ apps/backend/.dev
 test-results
 playwright-report
 
+# Maestro native/device test output
+.maestro/out
+
 # Android build outputs + generated assets
 apps/android/.gradle
 apps/android/app/build

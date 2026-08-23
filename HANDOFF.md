@@ -37,6 +37,13 @@ Consumer session building **Justus**, a photo-sharing app validating the `@ekroo
 - **`libnativehelper.so` shim committed** at `app/src/main/nativehelper/<abi>/` (added to `jniLibs.srcDirs` in `app/build.gradle`). `libbare-kit.so` in the `bare-host` AAR `DT_NEED`s `libnativehelper.so` but never resolves symbols from it and the AAR omits it — without the shim, `Worklet.<clinit>` crashes with `UnsatisfiedLinkError: libnativehelper.so not found`. See **ekrooh#45**. Keep the shim; it does not break the arm64 emulator.
 - **The Nexus 7 (`flo`) cannot run `bare-host` 0.3.0**: it runs **LineageOS 18.1 (Android 11, API 30)** but on a **32-bit-only userspace** (`zygote32` — the `flo` kernel/hw are 32-bit), with no `/system/lib/libnativehelper.so`. Even with the shim it SIGSEGVs in `bare_kit__on_thread_enter` — see **ekrooh#46** (the vendor fingerprint reports stock 6.0.1, normal for LineageOS). Use the arm64 emulator for on-device testing; the Nexus 7 is a dead end for this AAR version.
 
+## Maestro native/device tests
+
+- Gate: `pnpm test:native` / `vp run test:native` (runs `scripts/maestro-e2e.sh`). It builds the debug APK (`:app:assembleDebug`), cold-boots the arm64 `Medium_Phone_API_36.1` AVD if needed, installs the APK, and runs the Maestro suite in `.maestro/flows/`. Pass a serial (`bash scripts/maestro-e2e.sh <serial>`) to target a specific attached emulator.
+- Flows assert against page-unique web strings rendered by the worklet-served app inside the WebView. Config (output dir, timeouts, hierarchy settings) lives in `.maestro/config.yaml`; on failure the runner dumps `JUSTUS_ANDROID` logcat + worklet logs into `.maestro/out/`.
+- Requires `androidWebViewHierarchy: devtools` at the top of each top-level flow file — Maestro reads the WebView DOM through Chrome DevTools Protocol, so WebView debugging (`setWebContentsDebuggingEnabled`) is enabled in debug builds.
+- **NOT** part of the fast `vp check` gate — it needs the Android SDK + emulator image + a debug APK build, so it only runs on a machine with the Android toolchain attached.
+
 ## Dev
 
 - `pnpm run dev` → web `http://localhost:5173` (Vite proxies `POST /photos` → `:8080`), worklet `ws://127.0.0.1:8080` (auth off, `.dev` storage, seeds 3 photos; gallery "Pick" POSTs to the worklet's real `POST /photos` route; `.dev/inbox` terminal drops also add live).

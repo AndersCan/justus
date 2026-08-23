@@ -63,3 +63,29 @@ stores the photo in the folder drive and serves it over the loopback server.
 > available in the authoring environment. Run `./gradlew :app:assembleDebug`
 > on a machine with the prerequisites to produce the APK, and file any
 > `io.ekrooh:bare-host` API gaps against AndersCan/ekrooh.
+
+## Maestro tests
+
+Native/device UI tests for the host app, run with Maestro against an Android
+emulator or device. From the repo root:
+
+```bash
+vp run test:native        # or: bash scripts/maestro-e2e.sh
+```
+
+The runner builds the debug APK, cold-boots the arm64 `Medium_Phone_API_36.1`
+AVD if needed, installs the APK, and runs the `.maestro/flows/` suite
+(`bash scripts/maestro-e2e.sh <serial>` targets a specific attached emulator).
+
+**Prerequisites:** the
+[Maestro CLI](../../docs/android-build-dependencies.md#maestro-cli-dev-only-for-the-native-ui-tests),
+the Android SDK, and the arm64 AVD `Medium_Phone_API_36.1` (the only image that
+runs `bare-host` 0.3.0 — see the ABI caveat above).
+
+**What it exercises:** host boot, worklet + handoff + WebView load, the
+`vendor.media` picker (picking a photo into the folder), and back/exit navigation.
+Flows assert against page-unique web strings rendered inside the WebView.
+
+**Debug-only:** these tests rely on WebView debugging plus a relaxed worklet
+handoff deadline, both enabled in debug builds — the release path isn't covered
+here.
