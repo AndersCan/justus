@@ -112,7 +112,7 @@ async function confirmRemove(photo: Photo) {
 function photoTile(photo: Photo) {
   return html`
     <figure
-      class="group relative cursor-pointer overflow-hidden rounded-2xl bg-linen shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)] ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60"
+      class="group relative m-0 cursor-pointer overflow-hidden bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60 focus-visible:ring-inset"
       style="view-transition-name: ${vtName(photo.id)}"
       role="button"
       tabindex="0"
@@ -126,7 +126,7 @@ function photoTile(photo: Photo) {
       }}
     >
       <img
-        class="aspect-square w-full object-cover"
+        class="aspect-square w-full object-cover transition duration-200 group-hover:brightness-90"
         src="${photo.url}"
         alt="${photo.name}"
         referrerpolicy="no-referrer"
@@ -197,7 +197,7 @@ function groupedPhotos(photos: Photo[]) {
           <span>${group.label}</span>
           <span class="font-sans text-xs text-taupe">${group.photos.length}</span>
         </h2>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           ${group.photos.map(photoTile)}
         </div>
       </div>
@@ -321,12 +321,12 @@ function galleryBody(view: GalleryViewModel) {
       )}
       ${
         state === "loading" && photos.length === 0
-          ? html`<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          ? html`<div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               ${Array.from(
                 { length: 8 },
                 () =>
                   html`<div
-                    class="aspect-square animate-pulse rounded-2xl bg-butter motion-reduce:animate-none"
+                    class="aspect-square animate-pulse bg-butter motion-reduce:animate-none"
                   ></div>`,
               )}
             </div>`
