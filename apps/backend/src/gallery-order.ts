@@ -75,7 +75,12 @@ export function deriveGallery(
   for (const [key, paths] of byKey) {
     const memberName = memberNameFor(key);
     for (const entry of paths.values()) {
-      const base = entry.key.slice("photos/".length);
+      // Production hyperdrive keys are absolute (`/photos/<id>.<ext>`). Strip a
+      // leading slash before dropping the prefix so the derived id never carries
+      // a spurious `/` — otherwise `remove()`'s key match (which uses the
+      // slash-free `drivePhotoKeys`) fails for every photo (issue #50).
+      const stripped = entry.key.startsWith("/") ? entry.key.slice(1) : entry.key;
+      const base = stripped.slice("photos/".length);
       const extMatch = PHOTO_BASE_RE.exec(base);
       if (!extMatch) continue;
       const id = extMatch[1]!;
