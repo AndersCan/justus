@@ -4,6 +4,7 @@ import crypto from "bare-crypto";
 import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
+import { compareGalleryOrder } from "./gallery-order";
 import { type LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import type {
@@ -612,7 +613,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
 
-    photos.sort((a, b) => b.addedAt - a.addedAt);
+    // I3 canonical gallery order: (addedAt desc, memberKey asc, id asc) —
+    // a pure function of record data, identical on every replica. Ties on
+    // addedAt are common across devices (same-ms captures/replication), so
+    // the member/id tie-breakers are what keep replicas byte-identical.
+    photos.sort(compareGalleryOrder);
     return photos;
   }
 
