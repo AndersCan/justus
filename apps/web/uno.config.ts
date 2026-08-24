@@ -27,6 +27,14 @@ export default defineConfig({
       plum: "#7C5A88",
       honey: "#C98A2D",
       brick: "#B3452F",
+      // Trust color language — reserved for connection state only (vision:
+      // "green/amber/red reserved for connection"). The header's p2p indicator
+      // is the sole consumer.
+      trust: {
+        green: "#2E8B57",
+        amber: "#C98A2D",
+        red: "#B3452F",
+      },
     },
     fontFamily: {
       serif: 'ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif',
