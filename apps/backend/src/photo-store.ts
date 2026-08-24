@@ -357,6 +357,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               id: f.id,
               name: f.name,
               role: (typeof f.role === "string" ? f.role : "reader") as Role,
+              // Carry the pending (awaiting-approval) flag so a requested join
+              // keeps its badge after a restart (#94). `saveState` already
+              // serializes it; only loadState was dropping it.
+              pending: typeof f.pending === "boolean" ? f.pending : false,
               shareKey: f.shareKey,
               driveKey: f.driveKey,
               createdAt: typeof f.createdAt === "number" ? f.createdAt : 0,
