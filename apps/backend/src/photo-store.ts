@@ -320,7 +320,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * followed; throws on the first symlink (or an unresolvable component). */
   const assertNoSymlink = (resolved: string): void => {
     const parts = resolved.split(path.sep).filter(Boolean);
-    let acc = path.sep;
+    let acc: string = path.sep;
     for (const part of parts) {
       acc = path.join(acc, part);
       let st: ReturnType<typeof fs.lstatSync>;
@@ -489,7 +489,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     rt.watcherRemoves.clear();
-    watchDrive(rt.folderDrive, rt.record.id, hex(rt.folderDrive.key), rt.record.role === "creator" ? "enroll" : "add");
+    watchDrive(
+      rt.folderDrive,
+      rt.record.id,
+      hex(rt.folderDrive.key),
+      rt.record.role === "creator" ? "enroll" : "add",
+    );
     if (rt.selfDrive) watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
     for (const [key, drive] of rt.memberDrives) {
       watchDrive(drive, rt.record.id, key, "add");
@@ -894,10 +899,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // followed. A missing file falls through to NOT_FOUND below.
     const resolved = path.resolve(filePath);
     if (!importRoots.some((root) => isWithinRoot(resolved, root))) {
-      return err(
-        PhotoError.FORBIDDEN,
-        `Import path escapes allowed roots: ${filePath}`,
-      );
+      return err(PhotoError.FORBIDDEN, `Import path escapes allowed roots: ${filePath}`);
     }
     try {
       assertNoSymlink(resolved);
