@@ -169,6 +169,10 @@ export type PhotoStoreDeps = {
   makeDrive: (corestore: unknown, key?: Buffer) => Drive;
   /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
   makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
+  /** Max ms to wait for a remote drive to become ready before giving up on it
+   * (e.g. when reading a peer's join-request outbox in `requests()`). Defaults
+   * to 45_000. Test seams lower it so latency regressions surface quickly. */
+  driveOpenTimeoutMs?: number;
 };
 
 export interface PhotoStore {
@@ -320,7 +324,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * followed; throws on the first symlink (or an unresolvable component). */
   const assertNoSymlink = (resolved: string): void => {
     const parts = resolved.split(path.sep).filter(Boolean);
-    let acc = path.sep;
+    let acc: string = path.sep;
     for (const part of parts) {
       acc = path.join(acc, part);
       let st: ReturnType<typeof fs.lstatSync>;
@@ -348,7 +352,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * requester would otherwise re-surface in `requests()` every time it re-files
    * a join request (issue #85). We remember denials in-memory for the session. */
   const deniedRequesters = new Set<string>();
-  const joins: Array<{ destroy(): void | Promise<void> }> = [];
+  // Swarm topic joins keyed by discoveryKey hex (issue #95). A Map (not an
+  // array) lets us make `joinTopic` idempotent — the same topic always returns
+  // the same handle — and lets `leaveTopic` reclaim a handle on unmount so a
+  // folder switch / re-enroll doesn't leak one join per member drive.
+  const joins = new Map<string, { destroy(): void | Promise<void> }>();
   let readyPromise: Promise<void> | null = null;
 
   /**
@@ -489,7 +497,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     rt.watcherRemoves.clear();
-    watchDrive(rt.folderDrive, rt.record.id, hex(rt.folderDrive.key), rt.record.role === "creator" ? "enroll" : "add");
+    watchDrive(
+      rt.folderDrive,
+      rt.record.id,
+      hex(rt.folderDrive.key),
+      rt.record.role === "creator" ? "enroll" : "add",
+    );
     if (rt.selfDrive) watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
     for (const [key, drive] of rt.memberDrives) {
       watchDrive(drive, rt.record.id, key, "add");
@@ -497,11 +510,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
+    const key = hex(topic);
+    const existing = joins.get(key);
+    if (existing) return existing;
     const handle = swarm.join(topic, opts);
-    joins.push(handle);
+    joins.set(key, handle);
     // Fire-and-forget: never block setup on DHT bootstrap — the app must
     // boot and serve the gallery even when the swarm is unreachable.
     void handle.flushed?.().catch(() => {});
+    return handle;
+  }
+
+  /** Leaves a previously-joined swarm topic, releasing its handle. No-op if the
+   * topic was never joined (or was already left). */
+  function leaveTopic(keyHex: string) {
+    const handle = joins.get(keyHex);
+    if (!handle) return;
+    joins.delete(keyHex);
+    try {
+      void handle.destroy?.();
+    } catch {
+      // already destroyed
+    }
   }
 
   /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -513,7 +543,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await Promise.race([
       drive.ready(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("timeout opening remote drive")), 45_000),
+        setTimeout(
+          () => reject(new Error("timeout opening remote drive")),
+          deps.driveOpenTimeoutMs ?? 45_000,
+        ),
       ),
     ]);
     return drive;
@@ -733,6 +766,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     rt.mounted.clear();
+    // Issue #95: tear down this folder's member-drive swarm joins (and close
+    // the drives) on unmount so a folder switch or re-enroll doesn't leak one
+    // join per member. The device-identity `ownDrive` join is never present
+    // here — `loadMemberDrive` skips selfKey — so it is preserved across
+    // folder switches.
+    for (const drive of rt.memberDrives.values()) {
+      leaveTopic(hex(drive.discoveryKey));
+      try {
+        await drive.close();
+      } catch {
+        // already closed
+      }
+    }
+    rt.memberDrives.clear();
+    rt.memberNameCache.clear();
     const spool = spoolDirFor(rt.record.id);
     try {
       fs.rmSync(spool, { recursive: true, force: true });
@@ -880,7 +928,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     console.log("[justus] seeded sample photos");
   }
 
-  async function addFromPath(filePath: string): Promise<EitherResult<Photo>> {
+  async function addFromPath(
+    filePath: string,
+    originalName?: string,
+  ): Promise<EitherResult<Photo>> {
     const rt = activeRuntime();
     if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
     if (rt.record.role === "reader") {
@@ -894,10 +945,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // followed. A missing file falls through to NOT_FOUND below.
     const resolved = path.resolve(filePath);
     if (!importRoots.some((root) => isWithinRoot(resolved, root))) {
-      return err(
-        PhotoError.FORBIDDEN,
-        `Import path escapes allowed roots: ${filePath}`,
-      );
+      return err(PhotoError.FORBIDDEN, `Import path escapes allowed roots: ${filePath}`);
     }
     try {
       assertNoSymlink(resolved);
@@ -920,7 +968,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
     }
-    const name = path.basename(resolved);
+    // The original filename travels in via `originalName` (e.g. the real name
+    // of an in-band `addBytes` upload, which is otherwise lost because the bytes
+    // are staged to a transient `upload-<id>` file — issue #82). Fall back to
+    // the staged file's basename only when no name was supplied (the
+    // host-picked `add(path)` flow, where basename is the real name).
+    const name =
+      originalName && originalName.trim() ? originalName.trim() : path.basename(resolved);
     const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
@@ -1017,12 +1071,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const role = rt.record.role;
     const driveKey =
       role === "creator" ? hex(rt.folderDrive.key) : role === "member" ? hex(ownDrive.key) : "";
+    // The member drives `refreshMembersFor` opened are exactly the other
+    // enrolled members' drives (self is skipped in `loadMemberDrive`). For a
+    // reader the same set is the writers it can see — so derive the count from
+    // it rather than hard-coding 0 (issue #89). `memberDrives` is a `Map`, so
+    // use `.size` (not `Object.values`, which is always empty for a Map).
     const memberCount =
-      role === "creator"
-        ? Object.values(rt.memberDrives).length + 1
-        : role === "reader"
-          ? 0
-          : Object.values(rt.memberDrives).length + 1;
+      role === "creator" || role === "member" ? rt.memberDrives.size + 1 : rt.memberDrives.size;
     return {
       id: rt.record.id,
       name: rt.record.name,
@@ -1059,10 +1114,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = rt.record.role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
-    const memberList: SyncMember[] =
-      rt.record.role === "creator"
-        ? [{ key: selfKey, name: state.name }, ...Object.values(registry.members)]
-        : Object.values(registry.members).map((m) => ({ key: m.key, name: m.name }));
+    // Every role reports a self-consistent member set: the local device first,
+    // then the enrolled members from the registry. Dedupe self in case the
+    // registry already lists this device (issue #89) — a member/reader's own key
+    // may appear in `registry.members`, but must not be double-counted.
+    const memberList: SyncMember[] = [
+      { key: selfKey, name: state.name },
+      ...Object.values(registry.members)
+        .filter((m) => m.key !== selfKey)
+        .map((m) => ({ key: m.key, name: m.name })),
+    ];
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
     return {
@@ -1114,42 +1175,48 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    */
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
     const shareKey = rt.record.shareKey;
-    const out: JoinRequest[] = [];
-    for (const peerKeyHex of rt.social.peers) {
-      if (!isHexKey(peerKeyHex)) continue;
-      let peerDrive: Drive;
-      try {
-        peerDrive = await openDriveWithTopic(peerKeyHex, { server: false });
-      } catch (e) {
-        const message = errMsg(e);
-        console.error(
-          `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${message}`,
-        );
-        continue;
-      }
-      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
-      if (text === null) continue;
-      let parsed: RequestsFile;
-      try {
-        const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
-        if (raw.version !== 1 || !isTextJSON(raw.requests)) continue;
-        parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-      } catch {
-        continue;
-      }
-      for (const req of Object.values(parsed.requests)) {
-        if (req.shareKey !== shareKey) continue;
-        out.push({
-          requesterKey: req.requesterKey,
-          requesterName: req.requesterName || "Unknown device",
-          folderId: rt.record.id,
-          folderName: req.folderName || rt.record.name,
-          shareKey,
-          requestedAt: req.requestedAt,
-        });
-      }
-    }
-    return out;
+    // Open every peer's request outbox concurrently. A peer whose drive never
+    // becomes ready (unreachable) is bounded by `openDriveWithTopic`'s timeout
+    // *per drive* — running the opens in parallel keeps total latency at ~one
+    // timeout rather than N timeouts summed across unreachable peers (issue #88).
+    const tasks = [...rt.social.peers]
+      .filter(isHexKey)
+      .map(async (peerKeyHex): Promise<JoinRequest[]> => {
+        let peerDrive: Drive;
+        try {
+          peerDrive = await openDriveWithTopic(peerKeyHex, { server: false });
+        } catch (e) {
+          console.error(
+            `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
+          );
+          return [];
+        }
+        const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
+        if (text === null) return [];
+        let parsed: RequestsFile;
+        try {
+          const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
+          if (raw.version !== 1 || !isTextJSON(raw.requests)) return [];
+          parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
+        } catch {
+          return [];
+        }
+        const out: JoinRequest[] = [];
+        for (const req of Object.values(parsed.requests)) {
+          if (req.shareKey !== shareKey) continue;
+          out.push({
+            requesterKey: req.requesterKey,
+            requesterName: req.requesterName || "Unknown device",
+            folderId: rt.record.id,
+            folderName: req.folderName || rt.record.name,
+            shareKey,
+            requestedAt: req.requestedAt,
+          });
+        }
+        return out;
+      });
+    const settled = await Promise.allSettled(tasks);
+    return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   }
 
   async function setup(): Promise<void> {
@@ -1311,7 +1378,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(ErrorCode.HOST_ERROR, `Failed to stage upload: ${message}`);
       }
       try {
-        return await addFromPath(staged);
+        // Thread the real upload filename through (#82); the staged temp file is
+        // named `upload-<id>`, so without this the stored photo would be named
+        // after the temp file rather than the user's file.
+        return await addFromPath(staged, safeName);
       } finally {
         try {
           fs.unlinkSync(staged);
@@ -1697,6 +1767,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const rt of runtimes.values()) {
         await unmountRuntime(rt);
       }
+      // Defensively release any remaining joins (e.g. the device-identity
+      // `ownDrive` join that `unmountRuntime` never leaves) before tearing down
+      // the swarm (issue #95).
+      for (const key of [...joins.keys()]) leaveTopic(key);
       try {
         await swarm.destroy();
       } catch {

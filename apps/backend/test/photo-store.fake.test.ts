@@ -346,32 +346,79 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
     await store.close();
   });
 
-describe("#76 setActive must re-arm the incoming folder's watcher after a round-trip", () => {
-  it("keeps firing onChanged for A after A->B->A", async () => {
-    const { store, drives, changes } = buildStore();
-    await store.ready();
-    const aRes = await store.createFolder("A");
-    expect(aRes[0]).toBeNull();
-    const bRes = await store.createFolder("B");
-    expect(bRes[0]).toBeNull();
-    const aId = (aRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
-    const bId = (bRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
-    const aKey = (aRes[1] as { folder: { shareKey: string } }).folder.shareKey;
-    const bKey = (bRes[1] as { folder: { shareKey: string } }).folder.shareKey;
-    const aDrive = driveFor(drives, aKey);
-    const bDrive = driveFor(drives, bKey);
-    await store.setActive(aId);
-    await store.setActive(bId);
-    await store.setActive(aId);
-    const beforeA = changes.length;
-    aDrive.emitUpdate();
-    await sleep(500);
-    expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
-    const beforeB = changes.length;
-    bDrive.emitUpdate();
-    await sleep(500);
-    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
-    await store.close();
+  describe("#76 setActive must re-arm the incoming folder's watcher after a round-trip", () => {
+    it("keeps firing onChanged for A after A->B->A", async () => {
+      const { store, drives, changes } = buildStore();
+      await store.ready();
+      const aRes = await store.createFolder("A");
+      expect(aRes[0]).toBeNull();
+      const bRes = await store.createFolder("B");
+      expect(bRes[0]).toBeNull();
+      const aId = (aRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
+      const bId = (bRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
+      const aKey = (aRes[1] as { folder: { shareKey: string } }).folder.shareKey;
+      const bKey = (bRes[1] as { folder: { shareKey: string } }).folder.shareKey;
+      const aDrive = driveFor(drives, aKey);
+      const bDrive = driveFor(drives, bKey);
+      await store.setActive(aId);
+      await store.setActive(bId);
+      await store.setActive(aId);
+      const beforeA = changes.length;
+      aDrive.emitUpdate();
+      await sleep(500);
+      expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
+      const beforeB = changes.length;
+      bDrive.emitUpdate();
+      await sleep(500);
+      expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+      await store.close();
+    });
   });
 });
+
+describe("#89 folder/status member metadata must be consistent across roles", () => {
+  it("reader reports a real member count; member and reader lists include self", async () => {
+    const { devices } = buildDevices(["Creator", "Alice", "Bob", "Reader"]);
+    const [creator, alice, bob, reader] = devices;
+    await creator.store.ready();
+    await alice.store.ready();
+    await bob.store.ready();
+    await reader.store.ready();
+    const aliceKey = hexKey(alice.ownDrive().key);
+    const bobKey = hexKey(bob.ownDrive().key);
+    const readerKey = hexKey(reader.ownDrive().key);
+
+    const created = await creator.store.createFolder("Fam");
+    expect(created[0]).toBeNull();
+    const folderId = created[1]!.folder.id;
+    const folderKey = created[1]!.folder.shareKey;
+
+    // Creator enrols Alice and Bob; Reader stays a pending reader.
+    await creator.store.respond(folderId, aliceKey, true);
+    await creator.store.respond(folderId, bobKey, true);
+
+    expect((await alice.store.join(folderKey))[0]).toBeNull();
+    expect((await bob.store.join(folderKey))[0]).toBeNull();
+    expect((await reader.store.join(folderKey))[0]).toBeNull();
+
+    // Let the folder's watch handlers settle their async member-drive refreshes
+    // (the same microtask gap #52 waits out) before asserting on derived counts.
+    await sleep(600);
+
+    // Alice (member): status().members must include her own device key.
+    const aliceFam = (await alice.store.folders()).folders.find((f) => f.shareKey === folderKey)!;
+    await alice.store.setActive(aliceFam.id);
+    const aliceStatus = await alice.store.status();
+    expect(aliceStatus.members.map((m: { key: string }) => m.key)).toContain(aliceKey);
+
+    // Reader: member count must be derived from the opened member drives, not
+    // hard-coded to 0, and its status list must include itself.
+    const readerFam = (await reader.store.folders()).folders.find((f) => f.shareKey === folderKey)!;
+    expect(readerFam.members).toBeGreaterThan(0);
+    await reader.store.setActive(readerFam.id);
+    const readerStatus = await reader.store.status();
+    expect(readerStatus.members.map((m: { key: string }) => m.key)).toContain(readerKey);
+
+    await Promise.all(devices.map((d) => d.store.close()));
+  });
 });
