@@ -1619,15 +1619,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async close() {
+      // Tear down every folder: drop update watchers, unmount loopback routes,
+      // and remove the per-folder spool dir so a shutdown leaves no mounts or
+      // stale cache behind (#101).
       for (const rt of runtimes.values()) {
-        for (const remove of rt.watcherRemoves) {
-          try {
-            remove();
-          } catch {
-            // already removed
-          }
-        }
-        rt.watcherRemoves.clear();
+        await unmountRuntime(rt);
       }
       try {
         await swarm.destroy();
