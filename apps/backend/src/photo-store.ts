@@ -1028,12 +1028,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const role = rt.record.role;
     const driveKey =
       role === "creator" ? hex(rt.folderDrive.key) : role === "member" ? hex(ownDrive.key) : "";
+    // The member drives `refreshMembersFor` opened are exactly the other
+    // enrolled members' drives (self is skipped in `loadMemberDrive`). For a
+    // reader the same set is the writers it can see — so derive the count from
+    // it rather than hard-coding 0 (issue #89). `memberDrives` is a `Map`, so
+    // use `.size` (not `Object.values`, which is always empty for a Map).
     const memberCount =
-      role === "creator"
-        ? Object.values(rt.memberDrives).length + 1
-        : role === "reader"
-          ? 0
-          : Object.values(rt.memberDrives).length + 1;
+      role === "creator" || role === "member" ? rt.memberDrives.size + 1 : rt.memberDrives.size;
     return {
       id: rt.record.id,
       name: rt.record.name,
@@ -1070,10 +1071,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = rt.record.role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
-    const memberList: SyncMember[] =
-      rt.record.role === "creator"
-        ? [{ key: selfKey, name: state.name }, ...Object.values(registry.members)]
-        : Object.values(registry.members).map((m) => ({ key: m.key, name: m.name }));
+    // Every role reports a self-consistent member set: the local device first,
+    // then the enrolled members from the registry. Dedupe self in case the
+    // registry already lists this device (issue #89) — a member/reader's own key
+    // may appear in `registry.members`, but must not be double-counted.
+    const memberList: SyncMember[] = [
+      { key: selfKey, name: state.name },
+      ...Object.values(registry.members)
+        .filter((m) => m.key !== selfKey)
+        .map((m) => ({ key: m.key, name: m.name })),
+    ];
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
     return {
