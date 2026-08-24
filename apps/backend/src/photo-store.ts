@@ -309,6 +309,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const joins: Array<{ destroy(): void | Promise<void> }> = [];
   let readyPromise: Promise<void> | null = null;
 
+  /**
+   * Content index (issue #43): sha256 → the photos carrying those bytes, so
+   * `add`'s content dedupe no longer re-scans every drive (which silently skips
+   * unreachable peers and let a re-add of our own bytes slip through). Seeded
+   * best-effort from the drives we can see and kept current on add/remove; it is
+   * never evicted when a drive is merely unreachable, so a momentary outage
+   * can't defeat the dedupe.
+   */
+  type IndexedPhoto = {
+    id: string;
+    driveKey: string;
+    name: string;
+    mime: string;
+    size: number;
+    addedAt: number;
+    sha256: string;
+  };
+  const contentIndex = new Map<string, IndexedPhoto[]>();
+
   function loadState(): PersistedState {
     try {
       const raw = fs.readFileSync(stateFile, "utf8");
@@ -544,6 +563,69 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
     }
+    // Seed the content index from whatever drives are currently reachable. A
+    // drive that is offline is skipped (its entries are already indexed from
+    // when it was reachable) — never evicted.
+    await seedContentIndex(rt);
+  }
+
+  /** Records a photo in the content index so a later re-add dedupes even when
+   * the owning drive is momentarily unreachable (issue #43). Idempotent on
+   * (sha256, driveKey, id). */
+  function indexPhoto(p: IndexedPhoto) {
+    const arr = contentIndex.get(p.sha256) ?? [];
+    if (arr.some((e) => e.driveKey === p.driveKey && e.id === p.id)) return;
+    arr.push(p);
+    contentIndex.set(p.sha256, arr);
+  }
+
+  /** Drops a photo from the content index once it is removed. */
+  function pruneIndex(photoId: string, driveKey: string) {
+    for (const arr of contentIndex.values()) {
+      const i = arr.findIndex((e) => e.id === photoId && e.driveKey === driveKey);
+      if (i >= 0) arr.splice(i, 1);
+    }
+  }
+
+  /** Best-effort (re)build of the content index from the drives we can currently
+   * see. Drives that throw on `list` (unreachable / not downloaded) are skipped,
+   * leaving their already-indexed entries intact — that is the whole point of the
+   * index: dedupe must not depend on every peer being reachable at add time. */
+  async function seedContentIndex(rt: FolderRuntime) {
+    const role = rt.record.role;
+    const drives: Drive[] = [];
+    if (role === "creator" || role === "member") {
+      drives.push(role === "creator" ? rt.folderDrive : ownDrive);
+    }
+    if (role === "reader" || role === "member") {
+      drives.push(rt.folderDrive);
+    }
+    for (const d of rt.memberDrives.values()) drives.push(d);
+    const scans: DriveScan[] = [];
+    for (const d of drives) {
+      try {
+        const entries: DriveScan["entries"] = [];
+        const list = d.list(DRIVE_PATH_PHOTOS);
+        for await (const entry of list) entries.push(entry as never);
+        scans.push({ key: hex(d.key), entries });
+      } catch {
+        // Unreachable drive — its entries are already indexed; skip, don't evict.
+        continue;
+      }
+    }
+    const derived = deriveGallery(scans, {}, (k) => rt.memberNameCache.get(k) ?? state.name);
+    for (const p of derived) {
+      if (!p.sha256) continue;
+      indexPhoto({
+        id: p.id,
+        driveKey: p.driveKey,
+        name: p.name,
+        mime: p.mime,
+        size: p.size,
+        addedAt: p.addedAt,
+        sha256: p.sha256,
+      });
+    }
   }
 
   /** Re-derive a pending `reader` folder's role when the creator has since
@@ -749,21 +831,38 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       .createHash("sha-256")
       .update(bytes as Buffer)
       .digest("hex");
-    const candidates = await listPhotosIn(rt);
-    // Prefer OUR own entry when we already hold a copy: re-adding bytes this
-    // device has must never silently adopt another member's entry (a later
-    // remove of that entry would then 404 for us).
-    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive : ownDrive);
-    // Only a copy this device already holds short-circuits the add. A matching
-    // sha256 on *another* member's drive must NOT be adopted (issue #49): that
-    // would leave the "added" photo unowned and unremovable for us. Instead we
-    // fall through and write a local copy below, so the entry is owned and
-    // removable. Content-sharing across members stays intact — we just don't
-    // silently borrow another member's drive entry.
-    const ownDuplicate = candidates.find(
-      (p) => p.sha256 === sha256 && p.member.key === selfKeyHex,
-    );
-    if (ownDuplicate) return ok(ownDuplicate);
+    // Reachability-independent content dedupe (issue #43): consult the
+    // in-session content index instead of re-scanning every drive (which silently
+    // skips unreachable peers and would let a re-add of our own bytes slip
+    // through). Only a copy this device already holds short-circuits the add — a
+    // matching sha256 on *another* member's drive must NOT be adopted (issue
+    // #49): that would leave the "added" photo unowned and unremovable for us, so
+    // we fall through and write a local copy below.
+    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive.key : ownDrive.key);
+    const ownIdx = contentIndex.get(sha256)?.find((e) => e.driveKey === selfKeyHex);
+    if (ownIdx) {
+      const shortKey = selfKeyHex.slice(0, 12);
+      const mount = `/photos/${rt.record.id}/${shortKey}-${ownIdx.id}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), `${shortKey}-${ownIdx.id}`);
+      if (!rt.mounted.has(mount)) {
+        try {
+          deps.server.mount(mount, spoolPath);
+          rt.mounted.add(mount);
+        } catch {
+          // mount is best-effort
+        }
+      }
+      return ok({
+        id: ownIdx.id,
+        url: `${await deps.server.origin()}${mount}`,
+        name: ownIdx.name,
+        mime: ownIdx.mime,
+        size: ownIdx.size,
+        addedAt: ownIdx.addedAt,
+        member: { key: ownIdx.driveKey, name: state.name },
+        ...(ownIdx.sha256 ? { sha256: ownIdx.sha256 } : {}),
+      });
+    }
     const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
     const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
@@ -777,6 +876,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
     }
+    // Record the new content in the index so a later re-add dedupes even if this
+    // drive is momentarily unreachable at that moment (issue #43).
+    indexPhoto({
+      id,
+      driveKey: selfKey,
+      name,
+      mime,
+      size: stat.size,
+      addedAt: metadata.addedAt,
+      sha256,
+    });
     const spoolPath = path.join(spoolDirFor(rt.record.id), `${selfKey.slice(0, 12)}-${id}${ext}`);
     try {
       await spoolToFile(targetDrive, drivePath, spoolPath);
@@ -1110,6 +1220,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
           await selfDrive.del(`${DRIVE_PATH_PHOTOS}/${base}`);
+          pruneIndex(id, selfKey);
           deps.onChanged({ cause: "remove", folderId: rt.record.id, memberKey: selfKey });
           return ok({ id });
         }
@@ -1122,6 +1233,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           for (const base of await drivePhotoKeys(drive)) {
             if (base.startsWith(`${id}.`) || base === id) {
               removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
+              pruneIndex(id, key);
               tombstoned = true;
             }
           }

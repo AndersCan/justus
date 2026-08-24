@@ -48,6 +48,11 @@ export class FakeDrive extends Emitter {
   readonly key: Buffer;
   readonly discoveryKey: Buffer;
   private files = new Map<string, Buffer>();
+  /** Test hook: when true, `list()` throws (models an unreachable / not-yet-
+   * downloaded peer drive). Lets a scenario assert that dedupe and gallery
+   * derivation no longer depend on the drive being reachable at call time
+   * (issue #43). */
+  unreachable = false;
 
   constructor(seed: string) {
     super();
@@ -83,6 +88,7 @@ export class FakeDrive extends Emitter {
   // `for await`), not a Promise — model that faithfully so `listPhotosIn` and
   // `drivePhotoKeys` iterate entries instead of silently yielding nothing.
   async *list(path: string): AsyncIterable<{ key: string; name: string }> {
+    if (this.unreachable) throw new Error("fake drive unreachable");
     const prefix = path.endsWith("/") ? path : `${path}/`;
     for (const key of this.files.keys()) {
       if (key === path) continue;
@@ -102,6 +108,15 @@ export class FakeDrive extends Emitter {
   /** Test helper — inspect the in-memory contents. */
   readFile(path: string): Buffer | null {
     return this.files.get(path) ?? null;
+  }
+
+  /** Test helper — count photos stored under `/photos` (independent of the
+   * `list()` reachability flag) so a scenario can assert no duplicate was
+   * written (issue #43). */
+  countPhotos(): number {
+    let n = 0;
+    for (const key of this.files.keys()) if (key.startsWith("/photos/")) n++;
+    return n;
   }
 }
 

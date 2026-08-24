@@ -31,6 +31,9 @@ function buildStore() {
     },
   });
   const store = createPhotoStore(deps);
+  // addBytes stages uploads into cacheDir, which the production runtime
+  // pre-creates — mirror that here so staging doesn't throw.
+  mkdirSync(deps.cacheDir, { recursive: true });
   return { store, drives, changes };
 }
 
@@ -313,5 +316,43 @@ describe("#52 an approved join must upgrade reader → member in-session", () =>
 
     await creator.store.close();
     await bob.store.close();
+  });
+});
+
+describe("#43 content dedupe must survive an unreachable drive", () => {
+  it("does not write a duplicate when the owner's drive is briefly offline", async () => {
+    const { store, drives } = buildStore();
+    await store.ready();
+
+    const photo = new Uint8Array([9, 8, 7, 6, 5, 4]);
+
+    // First add writes the photo and seeds the content index.
+    const r1 = await store.addBytes("mine.jpg", photo);
+    expect(r1[0]).toBeNull();
+    const firstId = r1[1].id;
+
+    // Simulate this device's own drive going unreachable right before a re-add
+    // (a flaky peer / not-yet-replicated block). A live full-gallery scan would
+    // now skip it and miss the existing copy.
+    const own = drives[0];
+    own.unreachable = true;
+
+    // Re-adding the same bytes must dedupe in-session via the content index,
+    // returning the SAME entry rather than writing a second copy.
+    const r2 = await store.addBytes("mine.jpg", photo);
+    expect(r2[0]).toBeNull();
+    expect(r2[1].id).toBe(firstId);
+
+    // No second photo was written to the drive.
+    expect(own.countPhotos()).toBe(1);
+
+    // After the drive recovers, the original is still there and dedupes.
+    own.unreachable = false;
+    const r3 = await store.addBytes("mine.jpg", photo);
+    expect(r3[0]).toBeNull();
+    expect(r3[1].id).toBe(firstId);
+    expect(own.countPhotos()).toBe(1);
+
+    await store.close();
   });
 });
