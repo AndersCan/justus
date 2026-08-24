@@ -118,7 +118,7 @@ async function confirmRemove(photo: Photo) {
   toast(`Removed “${photo.name}”`);
 }
 
-function photoTile(photo: Photo) {
+export function photoTile(photo: Photo) {
   return html`
     <figure
       class="group relative m-0 cursor-pointer overflow-hidden bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60 focus-visible:ring-inset"
