@@ -437,6 +437,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt?.watcherRemoves.add(remove);
   }
 
+  function armFolderWatchers(rt: FolderRuntime) {
+    for (const remove of rt.watcherRemoves) {
+      try {
+        remove();
+      } catch {
+        // already removed
+      }
+    }
+    rt.watcherRemoves.clear();
+    watchDrive(rt.folderDrive, rt.record.id, hex(rt.folderDrive.key), rt.record.role === "creator" ? "enroll" : "add");
+    if (rt.selfDrive) watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
+    for (const [key, drive] of rt.memberDrives) {
+      watchDrive(drive, rt.record.id, key, "add");
+    }
+  }
+
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
     const handle = swarm.join(topic, opts);
     joins.push(handle);
@@ -831,7 +847,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
     }
     const name = path.basename(filePath);
-    const ext = path.extname(name).toLowerCase();
+    const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
     // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
@@ -1205,7 +1221,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const safeName =
         typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
-      const ext = path.extname(safeName).toLowerCase();
+      const ext = path.extname(safeName).toLowerCase().replace(/^\.$/, "");
       const staged = path.join(deps.cacheDir, `upload-${newId(deps.crypto)}${ext}`);
       try {
         fs.writeFileSync(staged, bytes as Buffer);
@@ -1496,6 +1512,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       state.activeFolderId = folderId;
       saveState();
+      armFolderWatchers(rt);
       deps.onChanged({ cause: "enroll", folderId });
       return ok(await computeStatus());
     },
