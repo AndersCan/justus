@@ -3,12 +3,12 @@ import path from "bare-path";
 import type { LoopbackRouteHandler, LoopbackServer } from "@ekrooh/bare/runtime";
 import { pumpToFile } from "./photo-store";
 import type { PhotoStore } from "./photo-store";
+import { classifyOrigin } from "./cors";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
-const JSON_RESPONSE_HEADERS = {
+const BASE_RESPONSE_HEADERS = {
   "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
   "Referrer-Policy": "no-referrer",
 };
 
@@ -39,6 +39,18 @@ export function registerUploadRoute(deps: UploadRouteDeps): void {
 function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
   return (req, res) => {
     void (async () => {
+      // Enforce the loopback origin policy (issue #69): only a same-origin
+      // (loopback) caller may drive the upload and read its response. A
+      // cross-origin browser request is rejected before any body is read, so a
+      // remote site cannot upload a photo or read the JSON response back.
+      const rawOrigin = req.headers.origin;
+      const origin = typeof rawOrigin === "string" ? rawOrigin : undefined;
+      const verdict = classifyOrigin(origin);
+      if (!verdict.allowed) {
+        res.writeHead(403, BASE_RESPONSE_HEADERS);
+        res.end(JSON.stringify({ ok: false, error: "cross-origin request forbidden" }));
+        return;
+      }
       const query = new URL(req.url ?? "/", "http://localhost").searchParams;
       const name = sanitizeName(query.get("filename"));
       // Unique subdir per upload so the persisted file's basename is the
@@ -54,7 +66,12 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
         status: 200 | 400 | 500,
         body: { ok: boolean; error?: string; id?: string },
       ) => {
-        res.writeHead(status, JSON_RESPONSE_HEADERS);
+        res.writeHead(status, {
+          ...BASE_RESPONSE_HEADERS,
+          // Reflect only a loopback Origin — never `*` — so a remote site
+          // cannot read the response cross-origin.
+          ...(verdict.corsOrigin ? { "Access-Control-Allow-Origin": verdict.corsOrigin } : {}),
+        });
         res.end(JSON.stringify(body));
       };
       try {
