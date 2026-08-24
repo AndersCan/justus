@@ -23,7 +23,10 @@ type CorestoreLike = {
 };
 
 type SwarmLike = {
-  join(topic: Buffer, opts?: { server?: boolean }): {
+  join(
+    topic: Buffer,
+    opts?: { server?: boolean },
+  ): {
     flushed?: () => Promise<void>;
     destroy(): void | Promise<void>;
   };
@@ -325,6 +328,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     size: number;
     addedAt: number;
     sha256: string;
+    /** Extension (incl. leading dot) — needed to re-derive the spool name when
+     * a re-add of the same bytes is served from the content index (issues
+     * #81/#83/#87). */
+    ext: string;
   };
   const contentIndex = new Map<string, IndexedPhoto[]>();
 
@@ -624,6 +631,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         size: p.size,
         addedAt: p.addedAt,
         sha256: p.sha256,
+        ext: p.ext,
       });
     }
   }
@@ -841,9 +849,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive.key : ownDrive.key);
     const ownIdx = contentIndex.get(sha256)?.find((e) => e.driveKey === selfKeyHex);
     if (ownIdx) {
-      const shortKey = selfKeyHex.slice(0, 12);
-      const mount = `/photos/${rt.record.id}/${shortKey}-${ownIdx.id}`;
-      const spoolPath = path.join(spoolDirFor(rt.record.id), `${shortKey}-${ownIdx.id}`);
+      // Serve the same spool file the original add wrote, so the re-add's URL
+      // matches what `listPhotosIn` derives (issues #81/#83/#87).
+      const spoolName = spoolNameFor(ownIdx.driveKey, ownIdx.id, ownIdx.ext);
+      const mount = `/photos/${rt.record.id}/${spoolName}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
       if (!rt.mounted.has(mount)) {
         try {
           deps.server.mount(mount, spoolPath);
@@ -886,14 +896,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       size: stat.size,
       addedAt: metadata.addedAt,
       sha256,
+      ext,
     });
-    const spoolPath = path.join(spoolDirFor(rt.record.id), `${selfKey.slice(0, 12)}-${id}${ext}`);
+    // Spool under the same name `listPhotosIn` derives (#71/#73), so an added
+    // photo is served from one spool file and its add-URL matches its list-URL
+    // (issues #81/#83/#87). The legacy `selfKey.slice(0,12)-id` name diverged
+    // from `spoolNameFor`, orphaning the spool file and returning a stale URL.
+    const spoolName = spoolNameFor(selfKey, id, ext);
+    const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
     try {
       await spoolToFile(targetDrive, drivePath, spoolPath);
     } catch {
       // spool failure is non-fatal — the drive has the bytes
     }
-    const mount = `/photos/${rt.record.id}/${selfKey.slice(0, 12)}-${id}`;
+    const mount = `/photos/${rt.record.id}/${spoolName}`;
     if (!rt.mounted.has(mount)) {
       deps.server.mount(mount, spoolPath);
       rt.mounted.add(mount);
@@ -1098,7 +1114,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
       // (reader) folders like the one created at join() time.
-      const pending = record.role === "creator" ? false : enrolled ? false : Boolean(record.pending);
+      const pending =
+        record.role === "creator" ? false : enrolled ? false : Boolean(record.pending);
       const rt: FolderRuntime = {
         record: {
           ...record,
@@ -1189,7 +1206,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (rt.record.role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
-      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
+      const safeName =
+        typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
       const ext = path.extname(safeName).toLowerCase();
       const staged = path.join(deps.cacheDir, `upload-${newId(deps.crypto)}${ext}`);
       try {
