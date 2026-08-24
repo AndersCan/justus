@@ -1178,7 +1178,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   return {
     async ready() {
       if (readyPromise) return readyPromise;
-      readyPromise = setup();
+      // A transient `setup()` failure (e.g. a flaky corestore/swarm) must not
+      // permanently poison the store: clear the memoized promise on rejection so
+      // the next `ready()` re-runs setup instead of re-throwing the same stale
+      // error forever (issue #98).
+      readyPromise = setup().catch((e) => {
+        readyPromise = null;
+        throw e;
+      });
       return readyPromise;
     },
 
