@@ -15,6 +15,7 @@ import { $syncStatus } from "../machines/sync-machine";
 import { useStore } from "../use-store";
 import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
 import { memberColor } from "../utils/palette";
+import { gridColsFor, readDensity, writeDensity, type Density } from "../utils/gallery-density";
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
@@ -32,6 +33,9 @@ const inNativeShell =
  * so `busy` doesn't cover it). Guards against double-pick and drives the
  * Pick button's disabled state. */
 const $webUploading = atom(false);
+
+/** Gallery grid density — comfortable (default) or compact. Persisted. */
+const $density = atom<Density>(readDensity());
 
 /** CSS <custom-ident> for the view-transition-name: unique per photo so the
  * grid reshuffles (Bramus-style) when photos are added/removed. */
@@ -178,7 +182,7 @@ function photoTile(photo: Photo) {
 }
 
 /** Month-grouped photo tiles: "August 2026" serif rules between runs. */
-function groupedPhotos(photos: Photo[]) {
+function groupedPhotos(photos: Photo[], density: Density) {
   const groups: { label: string; photos: Photo[] }[] = [];
   for (const photo of photos) {
     const last = groups[groups.length - 1];
@@ -197,12 +201,28 @@ function groupedPhotos(photos: Photo[]) {
           <span>${group.label}</span>
           <span class="font-sans text-xs text-taupe">${group.photos.length}</span>
         </h2>
-        <div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          ${group.photos.map(photoTile)}
-        </div>
+        <div class="grid ${gridColsFor(density)} gap-0">${group.photos.map(photoTile)}</div>
       </div>
     `,
   );
+}
+
+/** Toggle between the comfortable and compact gallery grids. */
+function densityToggle() {
+  return useStore($density, (density) => {
+    const next: Density = density === "compact" ? "comfortable" : "compact";
+    return html`<button
+      class="warm-ghost"
+      title="Toggle grid density"
+      aria-label="Toggle gallery grid density (currently ${density})"
+      @click=${() => {
+        $density.set(next);
+        writeDensity(next);
+      }}
+    >
+      ${density === "compact" ? "Comfortable" : "Compact"}
+    </button>`;
+  });
 }
 
 function presenceStrip() {
@@ -272,7 +292,7 @@ function emptyState(view: GalleryViewModel) {
   `;
 }
 
-function galleryBody(view: GalleryViewModel) {
+function galleryBody(view: GalleryViewModel, density: Density) {
   const { state, busy, error, fatal, photos } = view;
   const readyEmpty = photos.length === 0 && state === "ready";
   return html`
@@ -282,7 +302,7 @@ function galleryBody(view: GalleryViewModel) {
           <h1 class="font-serif text-3xl text-ink">Gallery</h1>
           ${presenceStrip()}
         </div>
-        <div class="flex shrink-0 gap-2">
+        <div class="flex shrink-0 flex-wrap gap-2">
           <input
             ${ref(fileInputRef)}
             type="file"
@@ -311,6 +331,7 @@ function galleryBody(view: GalleryViewModel) {
               ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add a photo"}
             </button>`,
           )}
+          ${densityToggle()}
         </div>
       </div>
 
@@ -336,7 +357,7 @@ function galleryBody(view: GalleryViewModel) {
         readyEmpty
           ? emptyState(view)
           : html`
-              ${groupedPhotos(photos)}
+              ${groupedPhotos(photos, density)}
               <footer class="pt-8 text-center font-serif text-sm italic text-taupe">
                 — ${photos.length} photo${photos.length === 1 ? "" : "s"} shared with care —
               </footer>
@@ -347,5 +368,9 @@ function galleryBody(view: GalleryViewModel) {
 }
 
 export function galleryView() {
-  return useStore($galleryViewModel, (vm) => galleryBody(vm), true);
+  return useStore(
+    $galleryViewModel,
+    (vm) => useStore($density, (density) => galleryBody(vm, density)),
+    true,
+  );
 }

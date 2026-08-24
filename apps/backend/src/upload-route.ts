@@ -50,12 +50,15 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
       );
       fs.mkdirSync(uploadDir, { recursive: true });
       const filePath = path.join(uploadDir, name);
-      const send = (status: 200 | 400 | 500, body: { ok: boolean; error?: string }) => {
+      const send = (
+        status: 200 | 400 | 500,
+        body: { ok: boolean; error?: string; id?: string },
+      ) => {
         res.writeHead(status, JSON_RESPONSE_HEADERS);
         res.end(JSON.stringify(body));
       };
       try {
-        const bytes = await pumpToFile(req, filePath, MAX_UPLOAD_BYTES);
+        const bytes = await pumpToFile(req, filePath, MAX_UPLOAD_BYTES, fs);
         if (bytes === 0) {
           send(400, { ok: false, error: "empty upload" });
           return;

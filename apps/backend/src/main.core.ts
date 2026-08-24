@@ -1,6 +1,10 @@
 import { createLoopbackPush, createWorkletRuntime } from "@ekrooh/bare/runtime";
 import { photoSpecs, type PhotoChanged } from "@justus/core";
+import fs from "bare-fs";
 import path from "bare-path";
+import crypto from "bare-crypto";
+import Corestore from "corestore";
+import Hyperdrive from "hyperdrive";
 import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
@@ -44,6 +48,11 @@ const store: PhotoStore = createPhotoStore({
   onChanged: pushChange,
   seedOnEmpty: config.dev,
   bootstrap: config.bootstrap,
+  fs,
+  path,
+  crypto,
+  makeCorestore: (dir) => new Corestore(dir),
+  makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store }));
