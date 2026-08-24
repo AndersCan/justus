@@ -1667,6 +1667,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       state.activeFolderId = folderId;
       saveState();
+      // Issue #86/#91/#96: switching away from this folder ran `unmountRuntime`,
+      // which closed + cleared `rt.memberDrives`. If we now re-activate it, those
+      // member drives must be re-opened and their update watchers re-armed —
+      // otherwise peer/owner live updates stop reaching the gallery after a
+      // folder round-trip. Re-sync the enrolled member set from the registry
+      // (idempotent when already loaded) before arming watchers.
+      await refreshMembersFor(rt);
       armFolderWatchers(rt);
       deps.onChanged({ cause: "enroll", folderId });
       return ok(await computeStatus());
