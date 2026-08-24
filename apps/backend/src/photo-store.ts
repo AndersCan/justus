@@ -60,6 +60,7 @@ export const PhotoError = {
   NAME_REQUIRED: "justus.photos/name-required",
   NO_ACTIVE_FOLDER: "justus.photos/no-active-folder",
   NOT_PENDING: "justus.photos/not-pending",
+  FORBIDDEN: "justus.photos/import-path-forbidden",
 } as const;
 
 /** Any drive handle (the p2p packages ship no types). */
@@ -140,6 +141,12 @@ type RequestsFile = {
 export type PhotoStoreDeps = {
   storageDir: string;
   cacheDir: string;
+  /** Allowed roots for `add(path)` imports (issue #93/#97). The native picker
+   * copies selections into `cacheDir`, so that is the default; production may
+   * pass additional roots if the picker is configured to write elsewhere. A
+   * path that does not resolve inside one of these roots is rejected before any
+   * bytes are read. */
+  importRoots?: string[];
   server: LoopbackServer;
   /** This device's display name (persisted; defaults generated). */
   deviceName: string;
@@ -298,6 +305,33 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const fs = deps.fs;
   const path = deps.path;
   const crypto = deps.crypto;
+  // #93/#97: `add(path)` must only import files the picker actually placed in
+  // an allowed root (the native picker copies selections into `cacheDir`).
+  const importRoots = deps.importRoots ?? [deps.cacheDir];
+  /** True when `resolved` is `root` itself or nested under it; avoids prefix
+   * false-positives (e.g. `/cache` matching `/cache-evil`). */
+  const isWithinRoot = (resolved: string, root: string): boolean => {
+    const r = path.resolve(root);
+    const p = path.resolve(resolved);
+    return p === r || p.startsWith(r + path.sep);
+  };
+  /** Reject any symlink in the path's components — a link can point outside an
+   * allowed root. Uses lstat so neither the final entry nor an ancestor is
+   * followed; throws on the first symlink (or an unresolvable component). */
+  const assertNoSymlink = (resolved: string): void => {
+    const parts = resolved.split(path.sep).filter(Boolean);
+    let acc = path.sep;
+    for (const part of parts) {
+      acc = path.join(acc, part);
+      let st: ReturnType<typeof fs.lstatSync>;
+      try {
+        st = fs.lstatSync(acc);
+      } catch {
+        throw new Error("unresolvable path component");
+      }
+      if (st.isSymbolicLink()) throw new Error("symlink component");
+    }
+  };
   const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
   const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
     deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
@@ -852,9 +886,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (rt.record.role === "reader") {
       return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
     }
+    // #93/#97: contain the import path before reading any bytes. Normalize
+    // `..`/relative segments (path.resolve) and reject anything that escapes an
+    // allowed root (the native picker copies selections into `cacheDir`), then
+    // reject any symlink component (which could point outside the root). The
+    // symlink walk uses lstat so neither the final entry nor an ancestor is
+    // followed. A missing file falls through to NOT_FOUND below.
+    const resolved = path.resolve(filePath);
+    if (!importRoots.some((root) => isWithinRoot(resolved, root))) {
+      return err(
+        PhotoError.FORBIDDEN,
+        `Import path escapes allowed roots: ${filePath}`,
+      );
+    }
+    try {
+      assertNoSymlink(resolved);
+    } catch {
+      return err(PhotoError.FORBIDDEN, `Import path contains a symlink: ${filePath}`);
+    }
     let stat: ReturnType<typeof fs.statSync>;
     try {
-      stat = fs.statSync(filePath);
+      stat = fs.statSync(resolved);
     } catch {
       return err(PhotoError.NOT_FOUND, `No file at ${filePath}`);
     }
@@ -863,12 +915,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     let bytes: import("bare-buffer").Buffer;
     try {
-      bytes = fs.readFileSync(filePath) as unknown as import("bare-buffer").Buffer;
+      bytes = fs.readFileSync(resolved) as unknown as import("bare-buffer").Buffer;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
     }
-    const name = path.basename(filePath);
+    const name = path.basename(resolved);
     const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
