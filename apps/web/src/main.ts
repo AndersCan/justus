@@ -11,6 +11,7 @@ import { sync } from "./machines/sync-machine";
 import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
+import { albumsView } from "./views/albums";
 import { lightboxView } from "./views/lightbox";
 import { requestsView } from "./views/requests";
 import { settingsView } from "./views/settings";
@@ -59,7 +60,7 @@ render(
           <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
           <span class="ml-auto">${connectionIndicator()}</span>
           ${useStore($router, (page) => {
-            const link = (name: "gallery" | "settings" | "requests", label: string) => {
+            const link = (name: "gallery" | "albums" | "settings" | "requests", label: string) => {
               const active = page?.route === name;
               return html`<a
                 class="decoration-line underline-offset-4 hover:text-clay hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30 ${
@@ -70,8 +71,8 @@ render(
                 >${label}</a
               >`;
             };
-            return html`${link("gallery", "Gallery")} ${link("settings", "Folder")}
-            ${link("requests", "Requests")}`;
+            return html`${link("gallery", "Gallery")} ${link("albums", "Albums")}
+            ${link("settings", "Folder")} ${link("requests", "Requests")}`;
           })}
         </nav>
       </header>
@@ -89,6 +90,7 @@ function routeView(page: AppPage | undefined) {
     return html`<p class="text-taupe">We couldn't find that page.</p>`;
   }
   if (page.route === "gallery") return galleryView();
+  if (page.route === "albums") return albumsView();
   if (page.route === "requests") return requestsView();
   return settingsView();
 }
