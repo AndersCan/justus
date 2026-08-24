@@ -12,6 +12,27 @@ import { toast } from "./toast";
 const $newName = atom("");
 const newNameRef = createRef<HTMLInputElement>();
 
+/** Inline rename state: which album's name is being edited, and the draft. */
+const $editingId = atom<string | null>(null);
+const $renameValue = atom("");
+
+function startRename(id: string, name: string) {
+  $editingId.set(id);
+  $renameValue.set(name);
+}
+function commitRename() {
+  const id = $editingId.get();
+  if (!id) return;
+  const name = $renameValue.get().trim();
+  if (name) albums.rename(id, name);
+  $editingId.set(null);
+  $renameValue.set("");
+}
+function cancelRename() {
+  $editingId.set(null);
+  $renameValue.set("");
+}
+
 function submitNew(e: Event) {
   e.preventDefault();
   const name = $newName.get().trim();
@@ -90,62 +111,171 @@ function albumPhotoTile(photo: Photo) {
   `;
 }
 
+function iconButton(
+  cls: string,
+  title: string,
+  ariaLabel: string,
+  onClick: () => void,
+  svg: ReturnType<typeof html>,
+) {
+  return html`
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-md text-taupe hover:bg-linen hover:text-clay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40 ${cls}"
+      title="${title}"
+      aria-label="${ariaLabel}"
+      @click=${onClick}
+    >
+      ${svg}
+    </button>
+  `;
+}
+
+const trashSvg = html`
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+  </svg>
+`;
+
+const pencilSvg = html`
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+`;
+
+const checkSvg = html`
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+`;
+
+const closeSvg = html`
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M18 6 6 18" />
+    <path d="M6 6l12 12" />
+  </svg>
+`;
+
+/** A single album row in the list, switching between display and inline-edit. */
+function albumRow(
+  album: { id: string; name: string; photoIds: string[] },
+  activeId: string | null,
+) {
+  return useStore($editingId, (editingId) =>
+    editingId === album.id
+      ? html`
+          <li class="flex items-center gap-1">
+            <input
+              class="min-w-0 flex-1 rounded-md border border-line bg-linen px-2 py-1.5 text-sm text-cocoa focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+              .value=${$renameValue.get()}
+              aria-label="Rename album"
+              @input=${(e: Event) => $renameValue.set((e.target as HTMLInputElement).value)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitRename();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelRename();
+                }
+              }}
+            />
+            ${iconButton("", "Save", "Save rename", commitRename, checkSvg)}
+            ${iconButton("", "Cancel", "Cancel rename", cancelRename, closeSvg)}
+          </li>
+        `
+      : html`
+          <li class="flex items-center gap-1">
+            <button
+              type="button"
+              class="flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm ${
+                activeId === album.id
+                  ? "bg-butter font-semibold text-clay"
+                  : "text-cocoa hover:bg-linen"
+              }"
+              aria-current=${activeId === album.id ? "page" : undefined}
+              @click=${() => albums.open(album.id)}
+            >
+              ${album.name}
+              <span class="ml-1 text-xs text-taupe">${album.photoIds.length}</span>
+            </button>
+            ${iconButton(
+              "",
+              `Rename ${album.name}`,
+              `Rename ${album.name}`,
+              () => startRename(album.id, album.name),
+              pencilSvg,
+            )}
+            ${iconButton(
+              "",
+              `Delete ${album.name}`,
+              `Delete ${album.name}`,
+              () =>
+                void confirmAction({
+                  title: `Delete the album “${album.name}”?`,
+                  detail: "Photos are not removed from the folder.",
+                  confirmLabel: "Delete",
+                  tone: "brick",
+                }).then((ok) => {
+                  if (ok) albums.remove(album.id);
+                }),
+              trashSvg,
+            )}
+          </li>
+        `,
+  );
+}
+
 function albumList() {
   return html`
     <ul class="flex flex-col gap-1">
       ${useStore($albumsViewModel, (vm) =>
         vm.albums.length === 0
           ? html`<li class="text-sm text-taupe">No albums yet.</li>`
-          : vm.albums.map(
-              (album) => html`
-                <li class="flex items-center gap-1">
-                  <button
-                    type="button"
-                    class="flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm ${
-                      vm.activeId === album.id
-                        ? "bg-butter font-semibold text-clay"
-                        : "text-cocoa hover:bg-linen"
-                    }"
-                    aria-current=${vm.activeId === album.id ? "page" : undefined}
-                    @click=${() => albums.open(album.id)}
-                  >
-                    ${album.name}
-                    <span class="ml-1 text-xs text-taupe">${album.photoIds.length}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-taupe hover:bg-linen hover:text-clay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
-                    title="Delete ${album.name}"
-                    aria-label="Delete ${album.name}"
-                    @click=${() =>
-                      void confirmAction({
-                        title: `Delete the album “${album.name}”?`,
-                        detail: "Photos are not removed from the folder.",
-                        confirmLabel: "Delete",
-                        tone: "brick",
-                      }).then((ok) => {
-                        if (ok) albums.remove(album.id);
-                      })}
-                  >
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    </svg>
-                  </button>
-                </li>
-              `,
-            ),
+          : vm.albums.map((album) => albumRow(album, vm.activeId)),
       )}
     </ul>
   `;
