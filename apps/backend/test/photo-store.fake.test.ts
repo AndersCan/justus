@@ -422,3 +422,60 @@ describe("#89 folder/status member metadata must be consistent across roles", ()
     await Promise.all(devices.map((d) => d.store.close()));
   });
 });
+
+describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-trip", () => {
+  it("keeps firing onChanged for a peer's drive after Family -> Trips -> Family", async () => {
+    const { devices, cache } = buildDevices(["Creator", "Alice", "Bob"]);
+    const [creator, alice, bob] = devices;
+    await creator.store.ready();
+    await alice.store.ready();
+    await bob.store.ready();
+    const aliceKey = hexKey(alice.ownDrive().key);
+    const bobKey = hexKey(bob.ownDrive().key);
+
+    // Creator makes a folder and pre-enrols Alice + Bob. Alice joins as a member,
+    // so her Family runtime opens Bob's drive into `rt.memberDrives` and arms a
+    // watcher on it (issue #89 path). The fake shares drives by key, so the
+    // instance Alice watches is the same one `cache.get(bobKey)` returns below.
+    const created = await creator.store.createFolder("Family");
+    expect(created[0]).toBeNull();
+    const folderId = created[1]!.folder.id;
+    const folderKey = created[1]!.folder.shareKey;
+    await creator.store.respond(folderId, aliceKey, true);
+    await creator.store.respond(folderId, bobKey, true);
+    const aj = await alice.store.join(folderKey);
+    expect(aj[0]).toBeNull();
+    const aliceFamily = (await alice.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!;
+    expect(aliceFamily.role).toBe("member");
+
+    // A second folder to switch away to (so Family becomes the "previous active"
+    // and gets unmounted — which clears Family's `memberDrives`).
+    const trips = await alice.store.createFolder("Trips");
+    expect(trips[0]).toBeNull();
+    const tripsId = trips[1]!.folder.id;
+
+    // Let the async member-drive refresh (Bob's drive open) settle.
+    await sleep(600);
+
+    // Round-trip: activate Family, switch to Trips (unmounts Family, dropping
+    // its member-drive watchers), then re-activate Family.
+    await alice.store.setActive(aliceFamily.id);
+    await alice.store.setActive(tripsId);
+    await alice.store.setActive(aliceFamily.id);
+
+    // The re-activation must have re-opened Bob's drive and re-armed its watcher.
+    await sleep(600);
+    const bobDrive = cache.get(bobKey);
+    expect(bobDrive).toBeDefined();
+    const before = alice.changes.length;
+    bobDrive!.emitUpdate();
+    await sleep(600);
+
+    // Replication from Bob's drive must still reach the gallery for Family.
+    expect(alice.changes.slice(before).some((c) => c.folderId === aliceFamily.id)).toBe(true);
+
+    await Promise.all(devices.map((d) => d.store.close()));
+  });
+});
