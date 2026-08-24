@@ -309,6 +309,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * member writes its photos to. Also the drive of the FIRST creator folder. */
   let ownDrive: Drive;
   const runtimes = new Map<string, FolderRuntime>();
+  /** Requester keys the creator denied this session. Denials write no durable
+   * state (the request only lives on the requester's own drive), so a denied
+   * requester would otherwise re-surface in `requests()` every time it re-files
+   * a join request (issue #85). We remember denials in-memory for the session. */
+  const deniedRequesters = new Set<string>();
   const joins: Array<{ destroy(): void | Promise<void> }> = [];
   let readyPromise: Promise<void> | null = null;
 
@@ -1573,8 +1578,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const out: JoinRequest[] = [];
       for (const rt of runtimes.values()) {
         if (rt.record.role !== "creator") continue;
+        // A requester already enrolled as a member is no longer pending — its
+        // request lives on only in its own outbox, so drop it (#84).
+        let enrolled: Set<string> | null = null;
+        try {
+          const registry = await readRegistryIn(rt.folderDrive);
+          enrolled = new Set(Object.values(registry.members).map((m) => m.key));
+        } catch {
+          enrolled = new Set();
+        }
         const found = await readRequestsFromPeers(rt);
-        for (const req of found) out.push(req);
+        for (const req of found) {
+          if (enrolled.has(req.requesterKey)) continue;
+          if (deniedRequesters.has(req.requesterKey)) continue;
+          out.push(req);
+        }
       }
       return { requests: out };
     },
@@ -1591,7 +1609,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const alreadyPresent = Boolean(registry.members[requesterKey]);
       if (!approve) {
         // Denials have no state to write — the request just stays on the
-        // requester's own drive until it is superseded.
+        // requester's own drive until it is superseded. Remember it for the
+        // session so a re-filed request doesn't resurface as pending (#85).
+        deniedRequesters.add(requesterKey);
         deps.onChanged({ cause: "request", folderId });
         return ok({ ok: true });
       }
