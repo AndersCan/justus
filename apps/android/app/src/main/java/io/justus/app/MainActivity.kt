@@ -280,13 +280,15 @@ class MainActivity : AppCompatActivity() {
      * serve it from the filesystem. */
     private fun copyUriToCache(uri: Uri): String? {
         return try {
+            // Preserve the real media type from the content MIME subtype instead
+            // of forcing .jpg/.mp4 by class: a picked PNG/WebP/HEIC must keep its
+            // own extension so the loopback spool serves it with the right content
+            // type (#102). The native capture path encodes to JPEG/MP4 explicitly,
+            // so only the picker (which copies the original bytes) needs this.
             val ext =
                 contentResolver.getType(uri)?.let { mime ->
-                    when {
-                        mime.startsWith("image/") -> ".jpg"
-                        mime.startsWith("video/") -> ".mp4"
-                        else -> ".bin"
-                    }
+                    val sub = mime.substringAfter("/", "")
+                    if (sub.isNotEmpty() && !sub.contains('*')) ".$sub" else null
                 } ?: ".bin"
             val dest = File(cacheDir, "media-${System.currentTimeMillis()}$ext")
             val copied =

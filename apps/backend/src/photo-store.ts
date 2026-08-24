@@ -1,14 +1,43 @@
-import fs from "bare-fs";
-import path from "bare-path";
-import crypto from "bare-crypto";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { deriveGallery, type DriveScan } from "./gallery-order";
 import { pumpStream, type PumpWriter } from "./pump";
 import { guessMime } from "./mime";
-import { type LoopbackServer } from "@ekrooh/bare/runtime";
+import { spoolNameFor } from "./spool-name";
+import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
+
+/**
+ * Dependency-injection seam. `photo-store.ts` used to import the full p2p
+ * stack (`bare-fs` / `bare-path` / `bare-crypto` / `corestore` / `hyperdrive`)
+ * at module top, which pulls in native addons and makes the module impossible
+ * to load under Node/vitest (no Bare runtime). Those symbols are now injected
+ * through {@link PhotoStoreDeps}, so the module loads without Bare and the
+ * drives/corestore/swarm can be substituted with in-memory fakes in tests.
+ * Production (`main.core.ts`) passes the real `bare-*` implementations; the
+ * only behavior that changes is *where* the constructors are chosen.
+ */
+type CorestoreLike = {
+  ready(): Promise<void>;
+  replicate(conn: unknown): void;
+  close(): Promise<void>;
+};
+
+type SwarmLike = {
+  join(
+    topic: Buffer,
+    opts?: { server?: boolean },
+  ): {
+    flushed?: () => Promise<void>;
+    destroy(): void | Promise<void>;
+  };
+  on(event: "connection", handler: (conn: unknown) => void): void;
+  connections: Set<unknown>;
+  destroy(): void | Promise<void>;
+};
+
+/** Default swarm factory (used when `deps.makeSwarm` is omitted). */
+const defaultSwarm = (opts?: { bootstrap?: string[] }): SwarmLike =>
+  new Hyperswarm(opts) as unknown as SwarmLike;
 import type {
   FolderSummary,
   JoinRequest,
@@ -120,6 +149,19 @@ export type PhotoStoreDeps = {
   seedOnEmpty: boolean;
   /** Hyperswarm DHT bootstrap servers (dev/test: local DHT node). */
   bootstrap?: string[];
+  /** Filesystem access. Injected so the store loads under Node/vitest without
+   * the Bare runtime; production passes `bare-fs`. */
+  fs: typeof import("bare-fs");
+  /** Path helpers. Injected; production passes `bare-path`. */
+  path: typeof import("bare-path");
+  /** Crypto helpers. Injected; production passes `bare-crypto`. */
+  crypto: typeof import("bare-crypto");
+  /** Builds the Corestore for a storage directory (no Node equivalent). */
+  makeCorestore: (dir: string) => CorestoreLike;
+  /** Builds a Hyperdrive over a corestore + optional root key. */
+  makeDrive: (corestore: unknown, key?: Buffer) => Drive;
+  /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
+  makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
 };
 
 export interface PhotoStore {
@@ -153,8 +195,8 @@ const DRIVE_PATH_FOLDER = "/folder.json";
 const DRIVE_PATH_REQUESTS = "/requests.json";
 const STATE_FILE = "justus.json";
 
-function newId(): string {
-  return `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+function newId(c: typeof import("bare-crypto")): string {
+  return `${Date.now().toString(36)}-${c.randomBytes(4).toString("hex")}`;
 }
 
 function hex(buffer: Buffer): string {
@@ -213,7 +255,8 @@ const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
 export function pumpToFile(
   source: StreamSource,
   destPath: string,
-  maxBytes?: number,
+  maxBytes: number | undefined,
+  fs: typeof import("bare-fs"),
 ): Promise<number> {
   return pumpStream(source, {
     createWriter: () => fs.createWriteStream(destPath) as unknown as PumpWriter,
@@ -241,6 +284,9 @@ type FolderRuntime = {
   memberNameCache: Map<string, string>;
   /** Loopback mount routes served for this folder's photos. */
   mounted: Set<string>;
+  /** `remove` closures for this folder's `drive.on("update")` watchers, drained
+   * on unmount/close so inactive folders stop firing `onChanged` (#46). */
+  watcherRemoves: Set<() => void>;
   social: {
     /** Peers seen on this folder's topic since we joined it. Keys are the raw
      * `remotePublicKey` hex from swarm connections. */
@@ -249,8 +295,13 @@ type FolderRuntime = {
 };
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
-  const corestore = new Corestore(path.join(deps.storageDir, "corestore"));
-  const swarm = new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
+  const fs = deps.fs;
+  const path = deps.path;
+  const crypto = deps.crypto;
+  const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
+  const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
+    deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
+  );
   const stateFile = path.join(deps.storageDir, STATE_FILE);
 
   let state: PersistedState = loadState();
@@ -259,8 +310,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let ownDrive: Drive;
   const runtimes = new Map<string, FolderRuntime>();
   const joins: Array<{ destroy(): void | Promise<void> }> = [];
-  const watchers = new Set<() => void>();
   let readyPromise: Promise<void> | null = null;
+
+  /**
+   * Content index (issue #43): sha256 → the photos carrying those bytes, so
+   * `add`'s content dedupe no longer re-scans every drive (which silently skips
+   * unreachable peers and let a re-add of our own bytes slip through). Seeded
+   * best-effort from the drives we can see and kept current on add/remove; it is
+   * never evicted when a drive is merely unreachable, so a momentary outage
+   * can't defeat the dedupe.
+   */
+  type IndexedPhoto = {
+    id: string;
+    driveKey: string;
+    name: string;
+    mime: string;
+    size: number;
+    addedAt: number;
+    sha256: string;
+    /** Extension (incl. leading dot) — needed to re-derive the spool name when
+     * a re-add of the same bytes is served from the content index (issues
+     * #81/#83/#87). */
+    ext: string;
+  };
+  const contentIndex = new Map<string, IndexedPhoto[]>();
 
   function loadState(): PersistedState {
     try {
@@ -343,6 +416,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const handler = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
+        const rt = runtimes.get(folderId);
+        // A member whose join was approved since we last ran is now a member —
+        // re-read the registry and upgrade reader → member in-session (issue
+        // #52) instead of waiting for a restart.
+        if (rt && rt.record.role === "reader") {
+          void upgradePendingRole(rt);
+        }
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
         deps.onChanged({ cause, folderId, memberKey: label });
@@ -353,7 +433,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       drive.removeListener("update", handler);
       if (timer) clearTimeout(timer);
     };
-    watchers.add(remove);
+    const rt = runtimes.get(folderId);
+    rt?.watcherRemoves.add(remove);
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
@@ -367,7 +448,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Opens a drive by key, joining its swarm topic first so peers serve its
    * blocks (a remote `drive.ready()` otherwise waits forever). */
   async function openDriveWithTopic(keyHex: string, opts?: { server?: boolean }): Promise<Drive> {
-    const drive = new Hyperdrive(corestore, Buffer.from(keyHex, "hex"));
+    const drive = deps.makeDrive(corestore, Buffer.from(keyHex, "hex"));
     const topic = drive.discoveryKey;
     await joinTopic(topic, opts);
     await Promise.race([
@@ -489,9 +570,101 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
     }
+    // Seed the content index from whatever drives are currently reachable. A
+    // drive that is offline is skipped (its entries are already indexed from
+    // when it was reachable) — never evicted.
+    await seedContentIndex(rt);
+  }
+
+  /** Records a photo in the content index so a later re-add dedupes even when
+   * the owning drive is momentarily unreachable (issue #43). Idempotent on
+   * (sha256, driveKey, id). */
+  function indexPhoto(p: IndexedPhoto) {
+    const arr = contentIndex.get(p.sha256) ?? [];
+    if (arr.some((e) => e.driveKey === p.driveKey && e.id === p.id)) return;
+    arr.push(p);
+    contentIndex.set(p.sha256, arr);
+  }
+
+  /** Drops a photo from the content index once it is removed. */
+  function pruneIndex(photoId: string, driveKey: string) {
+    for (const arr of contentIndex.values()) {
+      const i = arr.findIndex((e) => e.id === photoId && e.driveKey === driveKey);
+      if (i >= 0) arr.splice(i, 1);
+    }
+  }
+
+  /** Best-effort (re)build of the content index from the drives we can currently
+   * see. Drives that throw on `list` (unreachable / not downloaded) are skipped,
+   * leaving their already-indexed entries intact — that is the whole point of the
+   * index: dedupe must not depend on every peer being reachable at add time. */
+  async function seedContentIndex(rt: FolderRuntime) {
+    const role = rt.record.role;
+    const drives: Drive[] = [];
+    if (role === "creator" || role === "member") {
+      drives.push(role === "creator" ? rt.folderDrive : ownDrive);
+    }
+    if (role === "reader" || role === "member") {
+      drives.push(rt.folderDrive);
+    }
+    for (const d of rt.memberDrives.values()) drives.push(d);
+    const scans: DriveScan[] = [];
+    for (const d of drives) {
+      try {
+        const entries: DriveScan["entries"] = [];
+        const list = d.list(DRIVE_PATH_PHOTOS);
+        for await (const entry of list) entries.push(entry as never);
+        scans.push({ key: hex(d.key), entries });
+      } catch {
+        // Unreachable drive — its entries are already indexed; skip, don't evict.
+        continue;
+      }
+    }
+    const derived = deriveGallery(scans, {}, (k) => rt.memberNameCache.get(k) ?? state.name);
+    for (const p of derived) {
+      if (!p.sha256) continue;
+      indexPhoto({
+        id: p.id,
+        driveKey: p.driveKey,
+        name: p.name,
+        mime: p.mime,
+        size: p.size,
+        addedAt: p.addedAt,
+        sha256: p.sha256,
+        ext: p.ext,
+      });
+    }
+  }
+
+  /** Re-derive a pending `reader` folder's role when the creator has since
+   * approved the join: if this device is now listed in the folder's registry,
+   * flip `reader` → `member` in-session and announce the upgrade (issue #52).
+   * Returns true when an upgrade happened. No-op for non-reader folders or
+   * folders still awaiting approval. Cheap — reads a single registry file. */
+  async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
+    if (rt.record.role !== "reader") return false;
+    const registry = await readRegistryIn(rt.folderDrive);
+    const ownKey = hex(ownDrive.key);
+    const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
+    if (!enrolled) return false;
+    rt.record.role = "member";
+    rt.record.pending = false;
+    rt.record.driveKey = ownKey;
+    rt.selfDrive = ownDrive;
+    await refreshMembersFor(rt);
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: ownKey });
+    return true;
   }
 
   async function unmountRuntime(rt: FolderRuntime) {
+    for (const remove of rt.watcherRemoves) {
+      try {
+        remove();
+      } catch {
+        // already removed
+      }
+    }
+    rt.watcherRemoves.clear();
     for (const route of rt.mounted) {
       try {
         deps.server.unmount(route);
@@ -572,11 +745,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const d of deriveGallery(scans, removed, (k) => memberNames.get(k) ?? "Unknown device")) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
-      const mount = `/photos/${rt.record.id}/${d.driveKey.slice(0, 12)}-${d.id}`;
-      const spoolPath = path.join(
-        spoolDirFor(rt.record.id),
-        `${d.driveKey.slice(0, 12)}-${d.id}${d.ext}`,
-      );
+      // `d.id`/`d.ext` derive from untrusted drive photo keys, so the spool
+      // name must be filesystem-safe — never interpolate them raw (issue #71).
+      const spoolName = spoolNameFor(d.driveKey, d.id, d.ext);
+      const mount = `/photos/${rt.record.id}/${spoolName}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
       try {
         await spoolToFile(drive, `${DRIVE_PATH_PHOTOS}/${d.id}${d.ext}`, spoolPath);
         if (!rt.mounted.has(mount)) {
@@ -609,7 +782,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
     const stream = drive.createReadStream(drivePath);
-    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES);
+    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
     fs.renameSync(tmp, spoolPath);
   }
 
@@ -627,7 +800,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     ];
     const addedAt = Date.now() - samples.length * 60_000;
     for (const [i, sample] of samples.entries()) {
-      const id = newId();
+      const id = newId(deps.crypto);
       await drive.put(`${DRIVE_PATH_PHOTOS}/${id}.jpg`, sample.data, {
         metadata: { addedAt: addedAt + i * 60_000, name: sample.name, mime: sample.mime },
       });
@@ -650,9 +823,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!stat.isFile()) {
       return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
     }
-    let bytes: unknown;
+    let bytes: import("bare-buffer").Buffer;
     try {
-      bytes = fs.readFileSync(filePath);
+      bytes = fs.readFileSync(filePath) as unknown as import("bare-buffer").Buffer;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
@@ -662,20 +835,42 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
     // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
-    const sha256 = crypto
-      .createHash("sha-256")
-      .update(bytes as Buffer)
-      .digest("hex");
-    const candidates = await listPhotosIn(rt);
-    // Prefer OUR own entry when we already hold a copy: re-adding bytes this
-    // device has must never silently adopt another member's entry (a later
-    // remove of that entry would then 404 for us).
-    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive : ownDrive);
-    const duplicate =
-      candidates.find((p) => p.sha256 === sha256 && p.member.key === selfKeyHex) ??
-      candidates.find((p) => p.sha256 === sha256);
-    if (duplicate) return ok(duplicate);
-    const id = newId();
+    const sha256 = crypto.createHash("sha-256").update(bytes).digest("hex");
+    // Reachability-independent content dedupe (issue #43): consult the
+    // in-session content index instead of re-scanning every drive (which silently
+    // skips unreachable peers and would let a re-add of our own bytes slip
+    // through). Only a copy this device already holds short-circuits the add — a
+    // matching sha256 on *another* member's drive must NOT be adopted (issue
+    // #49): that would leave the "added" photo unowned and unremovable for us, so
+    // we fall through and write a local copy below.
+    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive.key : ownDrive.key);
+    const ownIdx = contentIndex.get(sha256)?.find((e) => e.driveKey === selfKeyHex);
+    if (ownIdx) {
+      // Serve the same spool file the original add wrote, so the re-add's URL
+      // matches what `listPhotosIn` derives (issues #81/#83/#87).
+      const spoolName = spoolNameFor(ownIdx.driveKey, ownIdx.id, ownIdx.ext);
+      const mount = `/photos/${rt.record.id}/${spoolName}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
+      if (!rt.mounted.has(mount)) {
+        try {
+          deps.server.mount(mount, spoolPath);
+          rt.mounted.add(mount);
+        } catch {
+          // mount is best-effort
+        }
+      }
+      return ok({
+        id: ownIdx.id,
+        url: `${await deps.server.origin()}${mount}`,
+        name: ownIdx.name,
+        mime: ownIdx.mime,
+        size: ownIdx.size,
+        addedAt: ownIdx.addedAt,
+        member: { key: ownIdx.driveKey, name: state.name },
+        ...(ownIdx.sha256 ? { sha256: ownIdx.sha256 } : {}),
+      });
+    }
+    const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
     const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
     // A creator writes to the folder's own drive; a member writes to its own
@@ -688,13 +883,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
     }
-    const spoolPath = path.join(spoolDirFor(rt.record.id), `${selfKey.slice(0, 12)}-${id}${ext}`);
+    // Record the new content in the index so a later re-add dedupes even if this
+    // drive is momentarily unreachable at that moment (issue #43).
+    indexPhoto({
+      id,
+      driveKey: selfKey,
+      name,
+      mime,
+      size: stat.size,
+      addedAt: metadata.addedAt,
+      sha256,
+      ext,
+    });
+    // Spool under the same name `listPhotosIn` derives (#71/#73), so an added
+    // photo is served from one spool file and its add-URL matches its list-URL
+    // (issues #81/#83/#87). The legacy `selfKey.slice(0,12)-id` name diverged
+    // from `spoolNameFor`, orphaning the spool file and returning a stale URL.
+    const spoolName = spoolNameFor(selfKey, id, ext);
+    const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
     try {
       await spoolToFile(targetDrive, drivePath, spoolPath);
     } catch {
       // spool failure is non-fatal — the drive has the bytes
     }
-    const mount = `/photos/${rt.record.id}/${selfKey.slice(0, 12)}-${id}`;
+    const mount = `/photos/${rt.record.id}/${spoolName}`;
     if (!rt.mounted.has(mount)) {
       deps.server.mount(mount, spoolPath);
       rt.mounted.add(mount);
@@ -852,7 +1064,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   async function setup(): Promise<void> {
     await corestore.ready();
-    ownDrive = new Hyperdrive(corestore);
+    ownDrive = deps.makeDrive(corestore);
     await ownDrive.ready();
     await ensureOwnDriveIdentity();
 
@@ -888,30 +1100,44 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const fd = isOwn ? ownDrive : await openDriveWithTopic(record.shareKey, { server: false });
       const registry = await readRegistryIn(fd);
       const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
-      const role: Role = isOwn ? "creator" : enrolled ? "member" : "reader";
+      // A folder this device created is persisted with role "creator"; after a
+      // restart the identity-drive shortcut (`isOwn`) only fires for the single
+      // identity drive, so a 2nd+ creator folder would otherwise be recomputed
+      // from the live registry (which doesn't list the creator as a member) and
+      // downgrade to "reader" (issue #42). Trust the persisted creator role so
+      // every creator folder re-opens as a creator.
+      const role: Role =
+        record.role === "creator" ? "creator" : isOwn ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
       // (reader) folders like the one created at join() time.
-      const pending = isOwn ? false : enrolled ? false : Boolean(record.pending);
+      const pending =
+        record.role === "creator" ? false : enrolled ? false : Boolean(record.pending);
       const rt: FolderRuntime = {
-        record: { ...record, role, driveKey: isOwn ? ownKey : enrolled ? ownKey : "", pending },
+        record: {
+          ...record,
+          role,
+          driveKey: record.role === "creator" ? hex(fd.key) : enrolled ? ownKey : "",
+          pending,
+        },
         folderDrive: fd,
-        selfDrive: role === "reader" ? null : isOwn ? ownDrive : ownDrive,
+        selfDrive: role === "reader" ? null : ownDrive,
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(record.id, rt);
       await refreshMembersFor(rt);
-      watchDrive(fd, record.id, isOwn ? ownKey : hex(fd.key), isOwn ? "enroll" : "add");
+      watchDrive(fd, record.id, hex(fd.key), record.role === "creator" ? "enroll" : "add");
       if (isOwn) watchDrive(ownDrive, record.id, ownKey, "enroll");
     }
 
     // No folders yet (fresh install) → create the device's first creator folder
     // from its identity drive, mirroring the previous single-folder behaviour.
     if (state.folders.length === 0) {
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
       const folderDrive = ownDrive;
       const rt: FolderRuntime = {
         record: {
@@ -927,6 +1153,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -976,9 +1203,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (rt.record.role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
-      const safeName = typeof name === "string" && name.trim() ? name.trim() : `photo-${newId()}`;
+      const safeName =
+        typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
       const ext = path.extname(safeName).toLowerCase();
-      const staged = path.join(deps.cacheDir, `upload-${newId()}${ext}`);
+      const staged = path.join(deps.cacheDir, `upload-${newId(deps.crypto)}${ext}`);
       try {
         fs.writeFileSync(staged, bytes as Buffer);
       } catch (e) {
@@ -1007,6 +1235,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
           await selfDrive.del(`${DRIVE_PATH_PHOTOS}/${base}`);
+          pruneIndex(id, selfKey);
           deps.onChanged({ cause: "remove", folderId: rt.record.id, memberKey: selfKey });
           return ok({ id });
         }
@@ -1019,6 +1248,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           for (const base of await drivePhotoKeys(drive)) {
             if (base.startsWith(`${id}.`) || base === id) {
               removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
+              pruneIndex(id, key);
               tombstoned = true;
             }
           }
@@ -1041,6 +1271,48 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (key === hex(ownDrive.key))
         return err(PhotoError.INVALID_KEY, "You already own this folder");
 
+      // Idempotency (issue #47): re-joining a folder we already hold must not
+      // mint a second `FolderRecord` with a fresh id — that leaves two folders
+      // pointing at the same share key and double-counts it in `folders()`.
+      // Reuse the existing record/runtime instead.
+      const existing = state.folders.find((f) => f.shareKey === key);
+      if (existing) {
+        let rt = runtimes.get(existing.id);
+        if (!rt) {
+          // Runtime was dropped (e.g. after a restart re-setup): rebuild it from
+          // the persisted record so the device's own view stays consistent.
+          try {
+            const fd = await openDriveWithTopic(key, { server: false });
+            const registryForRole = await readRegistryIn(fd);
+            const ownKey = hex(ownDrive.key);
+            const enrolled = Object.values(registryForRole.members).some((m) => m.key === ownKey);
+            const role: Role =
+              existing.role === "creator" ? "creator" : enrolled ? "member" : "reader";
+            rt = {
+              record: {
+                ...existing,
+                role,
+                driveKey: role === "reader" ? "" : ownKey,
+                pending: role === "reader" ? Boolean(existing.pending) : false,
+              },
+              folderDrive: fd,
+              selfDrive: role === "reader" ? null : ownDrive,
+              memberDrives: new Map(),
+              memberNameCache: new Map(),
+              mounted: new Set(),
+              watcherRemoves: new Set(),
+              social: { peers: new Set() },
+            };
+            runtimes.set(existing.id, rt);
+            await refreshMembersFor(rt);
+            watchDrive(fd, rt.record.id, hex(fd.key), "add");
+          } catch {
+            return ok(await computeStatus());
+          }
+        }
+        return ok(await computeStatus());
+      }
+
       let drive: Drive;
       let registry: RegistryFile;
       let folderName = "";
@@ -1059,7 +1331,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const ownKey = hex(ownDrive.key);
       const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
       const role: Role = enrolled ? "member" : "reader";
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
 
       const rt: FolderRuntime = {
         record: {
@@ -1075,6 +1347,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -1114,6 +1387,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         state.activeFolderId = folderId;
         saveState();
         await refreshMembersFor(rt);
+        // Watch the folder (creator) drive so replication updates — including
+        // the creator's approval that flips this device reader → member — reach
+        // this store in-session (issue #52).
+        watchDrive(drive, folderId, hex(drive.key), "add");
         deps.onChanged({ cause: "request", folderId });
         return ok(await computeStatus());
       }
@@ -1170,7 +1447,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const cleanName = name.trim();
       // A new creator folder gets a NEW single-writer drive of its own.
-      const newDrive = new Hyperdrive(corestore);
+      const newDrive = deps.makeDrive(corestore);
       await newDrive.ready();
       await newDrive.put(DRIVE_PATH_DEVICE, Buffer.from(JSON.stringify({ name: state.name })));
       await newDrive.put(
@@ -1178,7 +1455,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         Buffer.from(JSON.stringify({ version: 1, name: cleanName })),
       );
 
-      const folderId = newId();
+      const folderId = newId(deps.crypto);
       const rt: FolderRuntime = {
         record: {
           id: folderId,
@@ -1193,6 +1470,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
+        watcherRemoves: new Set(),
         social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
@@ -1300,6 +1578,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async close() {
+      for (const rt of runtimes.values()) {
+        for (const remove of rt.watcherRemoves) {
+          try {
+            remove();
+          } catch {
+            // already removed
+          }
+        }
+        rt.watcherRemoves.clear();
+      }
       try {
         await swarm.destroy();
       } catch {

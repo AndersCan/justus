@@ -14,6 +14,7 @@ import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { requestsView } from "./views/requests";
 import { settingsView } from "./views/settings";
+import { connectionIndicator } from "./views/connection";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
@@ -56,6 +57,7 @@ render(
           aria-label="Main"
         >
           <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
+          <span class="ml-auto">${connectionIndicator()}</span>
           ${useStore($router, (page) => {
             const link = (name: "gallery" | "settings" | "requests", label: string) => {
               const active = page?.route === name;
