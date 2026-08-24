@@ -797,8 +797,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Unique tmp per call so concurrent spools of the same photo never collide;
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-    const stream = drive.createReadStream(drivePath);
-    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
+    try {
+      const stream = drive.createReadStream(drivePath);
+      await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
+    } catch (e) {
+      // A failed or oversized/capped spool (e.g. a malicious photo past
+      // MAX_SPOOL_BYTES, or a disk error) must not leave its staging file
+      // behind — clean it up so the cache spool dir never accumulates orphan
+      // `*.tmp` files (issues #90/#92).
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        // already gone
+      }
+      throw e;
+    }
     fs.renameSync(tmp, spoolPath);
   }
 
