@@ -116,9 +116,7 @@ test("adding identical bytes twice is deduped to one entry (#20)", async ({ page
 
   const uploadOnce = () =>
     Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes("/photos") && r.request().method() === "POST",
-      ),
+      page.waitForResponse((r) => r.url().includes("/photos") && r.request().method() === "POST"),
       page.setInputFiles("input[type=file]", {
         name: "dedupe-probe.png",
         mimeType: "image/png",
