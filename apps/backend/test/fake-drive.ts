@@ -54,7 +54,14 @@ export class FakeDrive extends Emitter {
    * (issue #43). */
   unreachable = false;
 
-  constructor(seed: string) {
+  /** Test hook: when > 0, `ready()` resolves only after this many ms; when
+   * `Infinity`, `ready()` never resolves (models a drive that is announced but
+   * whose blocks never arrive — an unreachable peer). Lets a scenario assert
+   * that `requests()` no longer multiplies per-peer open latency across
+   * unreachable peers (issue #88). */
+  private readyDelayMs: number;
+
+  constructor(seed: string, opts: { readyDelayMs?: number } = {}) {
     super();
     // A 64-char hex seed is treated as the literal drive key. This lets a drive
     // opened *by key* resolve to the same identity as one created *without* a key
@@ -65,9 +72,18 @@ export class FakeDrive extends Emitter {
       ? Buffer.from(seed, "hex")
       : Buffer.from(sha256Hex(`key:${seed}`), "hex");
     this.discoveryKey = Buffer.from(sha256Hex(`disc:${seed}`), "hex");
+    this.readyDelayMs = opts.readyDelayMs ?? 0;
   }
 
-  async ready(): Promise<void> {}
+  async ready(): Promise<void> {
+    if (this.readyDelayMs === Infinity) {
+      // Never resolves — models an unreachable peer drive.
+      return new Promise<void>(() => {});
+    }
+    if (this.readyDelayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, this.readyDelayMs));
+    }
+  }
   async close(): Promise<void> {}
 
   async get(path: string): Promise<Buffer | null> {
@@ -131,8 +147,14 @@ export class FakeCorestore {
 /** In-memory Hyperswarm. No peers by default; `connections` is an empty set. */
 export class FakeSwarm extends Emitter {
   readonly connections = new Set<unknown>();
-  join(_topic: Buffer, _opts?: { server?: boolean }): { flushed?: () => Promise<void> } {
-    return { flushed: () => Promise.resolve() };
+  join(
+    _topic: Buffer,
+    _opts?: { server?: boolean },
+  ): {
+    flushed?: () => Promise<void>;
+    destroy(): void | Promise<void>;
+  } {
+    return { flushed: () => Promise.resolve(), destroy: () => {} };
   }
   destroy(): void {}
 }
