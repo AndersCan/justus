@@ -885,7 +885,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     console.log("[justus] seeded sample photos");
   }
 
-  async function addFromPath(filePath: string): Promise<EitherResult<Photo>> {
+  async function addFromPath(
+    filePath: string,
+    originalName?: string,
+  ): Promise<EitherResult<Photo>> {
     const rt = activeRuntime();
     if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
     if (rt.record.role === "reader") {
@@ -922,7 +925,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
     }
-    const name = path.basename(resolved);
+    // The original filename travels in via `originalName` (e.g. the real name
+    // of an in-band `addBytes` upload, which is otherwise lost because the bytes
+    // are staged to a transient `upload-<id>` file — issue #82). Fall back to
+    // the staged file's basename only when no name was supplied (the
+    // host-picked `add(path)` flow, where basename is the real name).
+    const name =
+      originalName && originalName.trim() ? originalName.trim() : path.basename(resolved);
     const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
@@ -1313,7 +1322,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(ErrorCode.HOST_ERROR, `Failed to stage upload: ${message}`);
       }
       try {
-        return await addFromPath(staged);
+        // Thread the real upload filename through (#82); the staged temp file is
+        // named `upload-<id>`, so without this the stored photo would be named
+        // after the temp file rather than the user's file.
+        return await addFromPath(staged, safeName);
       } finally {
         try {
           fs.unlinkSync(staged);
