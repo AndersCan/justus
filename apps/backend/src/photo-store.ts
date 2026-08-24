@@ -348,7 +348,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * requester would otherwise re-surface in `requests()` every time it re-files
    * a join request (issue #85). We remember denials in-memory for the session. */
   const deniedRequesters = new Set<string>();
-  const joins: Array<{ destroy(): void | Promise<void> }> = [];
+  // Swarm topic joins keyed by discoveryKey hex (issue #95). A Map (not an
+  // array) lets us make `joinTopic` idempotent — the same topic always returns
+  // the same handle — and lets `leaveTopic` reclaim a handle on unmount so a
+  // folder switch / re-enroll doesn't leak one join per member drive.
+  const joins = new Map<string, { destroy(): void | Promise<void> }>();
   let readyPromise: Promise<void> | null = null;
 
   /**
@@ -502,11 +506,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
+    const key = hex(topic);
+    const existing = joins.get(key);
+    if (existing) return existing;
     const handle = swarm.join(topic, opts);
-    joins.push(handle);
+    joins.set(key, handle);
     // Fire-and-forget: never block setup on DHT bootstrap — the app must
     // boot and serve the gallery even when the swarm is unreachable.
     void handle.flushed?.().catch(() => {});
+    return handle;
+  }
+
+  /** Leaves a previously-joined swarm topic, releasing its handle. No-op if the
+   * topic was never joined (or was already left). */
+  function leaveTopic(keyHex: string) {
+    const handle = joins.get(keyHex);
+    if (!handle) return;
+    joins.delete(keyHex);
+    try {
+      void handle.destroy?.();
+    } catch {
+      // already destroyed
+    }
   }
 
   /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -738,6 +759,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     rt.mounted.clear();
+    // Issue #95: tear down this folder's member-drive swarm joins (and close
+    // the drives) on unmount so a folder switch or re-enroll doesn't leak one
+    // join per member. The device-identity `ownDrive` join is never present
+    // here — `loadMemberDrive` skips selfKey — so it is preserved across
+    // folder switches.
+    for (const drive of rt.memberDrives.values()) {
+      leaveTopic(hex(drive.discoveryKey));
+      try {
+        await drive.close();
+      } catch {
+        // already closed
+      }
+    }
+    rt.memberDrives.clear();
+    rt.memberNameCache.clear();
     const spool = spoolDirFor(rt.record.id);
     try {
       fs.rmSync(spool, { recursive: true, force: true });
@@ -1718,6 +1754,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const rt of runtimes.values()) {
         await unmountRuntime(rt);
       }
+      // Defensively release any remaining joins (e.g. the device-identity
+      // `ownDrive` join that `unmountRuntime` never leaves) before tearing down
+      // the swarm (issue #95).
+      for (const key of [...joins.keys()]) leaveTopic(key);
       try {
         await swarm.destroy();
       } catch {
