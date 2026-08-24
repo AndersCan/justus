@@ -169,6 +169,10 @@ export type PhotoStoreDeps = {
   makeDrive: (corestore: unknown, key?: Buffer) => Drive;
   /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
   makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
+  /** Max ms to wait for a remote drive to become ready before giving up on it
+   * (e.g. when reading a peer's join-request outbox in `requests()`). Defaults
+   * to 45_000. Test seams lower it so latency regressions surface quickly. */
+  driveOpenTimeoutMs?: number;
 };
 
 export interface PhotoStore {
@@ -518,7 +522,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await Promise.race([
       drive.ready(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("timeout opening remote drive")), 45_000),
+        setTimeout(
+          () => reject(new Error("timeout opening remote drive")),
+          deps.driveOpenTimeoutMs ?? 45_000,
+        ),
       ),
     ]);
     return drive;
@@ -1125,42 +1132,48 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    */
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
     const shareKey = rt.record.shareKey;
-    const out: JoinRequest[] = [];
-    for (const peerKeyHex of rt.social.peers) {
-      if (!isHexKey(peerKeyHex)) continue;
-      let peerDrive: Drive;
-      try {
-        peerDrive = await openDriveWithTopic(peerKeyHex, { server: false });
-      } catch (e) {
-        const message = errMsg(e);
-        console.error(
-          `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${message}`,
-        );
-        continue;
-      }
-      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
-      if (text === null) continue;
-      let parsed: RequestsFile;
-      try {
-        const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
-        if (raw.version !== 1 || !isTextJSON(raw.requests)) continue;
-        parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-      } catch {
-        continue;
-      }
-      for (const req of Object.values(parsed.requests)) {
-        if (req.shareKey !== shareKey) continue;
-        out.push({
-          requesterKey: req.requesterKey,
-          requesterName: req.requesterName || "Unknown device",
-          folderId: rt.record.id,
-          folderName: req.folderName || rt.record.name,
-          shareKey,
-          requestedAt: req.requestedAt,
-        });
-      }
-    }
-    return out;
+    // Open every peer's request outbox concurrently. A peer whose drive never
+    // becomes ready (unreachable) is bounded by `openDriveWithTopic`'s timeout
+    // *per drive* — running the opens in parallel keeps total latency at ~one
+    // timeout rather than N timeouts summed across unreachable peers (issue #88).
+    const tasks = [...rt.social.peers]
+      .filter(isHexKey)
+      .map(async (peerKeyHex): Promise<JoinRequest[]> => {
+        let peerDrive: Drive;
+        try {
+          peerDrive = await openDriveWithTopic(peerKeyHex, { server: false });
+        } catch (e) {
+          console.error(
+            `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
+          );
+          return [];
+        }
+        const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
+        if (text === null) return [];
+        let parsed: RequestsFile;
+        try {
+          const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
+          if (raw.version !== 1 || !isTextJSON(raw.requests)) return [];
+          parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
+        } catch {
+          return [];
+        }
+        const out: JoinRequest[] = [];
+        for (const req of Object.values(parsed.requests)) {
+          if (req.shareKey !== shareKey) continue;
+          out.push({
+            requesterKey: req.requesterKey,
+            requesterName: req.requesterName || "Unknown device",
+            folderId: rt.record.id,
+            folderName: req.folderName || rt.record.name,
+            shareKey,
+            requestedAt: req.requestedAt,
+          });
+        }
+        return out;
+      });
+    const settled = await Promise.allSettled(tasks);
+    return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   }
 
   async function setup(): Promise<void> {
