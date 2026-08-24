@@ -10,7 +10,7 @@ Consumes, read-only, the ekrooh framework's iOS host library:
   dependency via xcodegen; the ekrooh repo is a sibling checked out at `..`).
 - **`BareKit.xcframework`** — the prebuilt runtime at
   `../ekrooh/prebuilds/ios` (gitignored in ekrooh; fetch with `npm run
-  prebuilds` from the ekrooh repo).
+prebuilds` from the ekrooh repo).
 - **Native addon xcframeworks** — produced locally by `bare-link --preset ios`
   from `apps/backend`'s dependency graph (bare-* + the p2p stack: rocksdb/
   sodium/udx/quickbit/rabin/simdle/fs-native-extensions).

@@ -18,8 +18,8 @@ The gallery is home (`/`). It must answer three questions at a glance:
 - **Header:** folder switcher (see §5) + persistent no-server chip
   (`✕☁ direct · no server`) + connection dot (moss/honey/brick semantics,
   ui-ux-spec §3.4).
-- **Status line [has]:** under header — connection dot + pulse, *"shared with
-  N others"*, *"synced ⟨relative time⟩"* (from sync-machine state).
+- **Status line [has]:** under header — connection dot + pulse, _"shared with
+  N others"_, _"synced ⟨relative time⟩"_ (from sync-machine state).
 - **Content:** photos grouped by capture month **[has]**; month header shows
   count. Responsive grid 2/3/4 columns (matches current `grid-cols-2 sm:3 lg:4`).
 - **Primary action [add]:** floating `warm-pill` **＋ Add photos** pinned
@@ -39,8 +39,8 @@ The gallery is home (`/`). It must answer three questions at a glance:
   folder is alone and unsynced (ties to L3 lesson trigger).
 - **[add] Selection mode:** long-press / checkbox toggle enters multi-select
   bar (count, Share…, Delete, Cancel). Delete always confirms via existing
-  `confirm.ts` dialog with copy stating the scope: *"removes from every device
-  in this folder"* **⚠ open** — actual deletion semantics across peers depend
+  `confirm.ts` dialog with copy stating the scope: _"removes from every device
+  in this folder"_ **⚠ open** — actual deletion semantics across peers depend
   on conflict-resolution decisions (technical vision, issue #23 invariants).
 
 ## 4. Lightbox
@@ -60,18 +60,18 @@ create/join/manage + join requests).
 - **Switcher [add]:** header dropdown listing folders with member-count and
   own-status chips; current folder bold. Selecting switches `$router`
   query-less store (folder id lives in gallery/folders machines).
-- **Empty folder state [has→refine]:** keep *"Looking for your folder…"* for
-  loading; empty folder gets: illustration-free card — *"No photos yet. Add
-  the first one, or wait until peers share into this folder."* + Add button.
+- **Empty folder state [has→refine]:** keep _"Looking for your folder…"_ for
+  loading; empty folder gets: illustration-free card — _"No photos yet. Add
+  the first one, or wait until peers share into this folder."_ + Add button.
 - **Joining flow** links out to onboarding spec §2.3 (invite/request UX).
 
 ## 6. States matrix (per view region)
 
-| Region | Loading | Empty | Offline/degraded | Error |
-|---|---|---|---|---|
-| Grid | skeleton cards (butter shimmer, reduced-motion static) | empty-folder card | grid stays usable; cards show pending badges | inline `error-banner.ts`, retry keeps scroll pos |
-| Status line | — | *"just you in this folder"* | honey/brick dot copy per §3.4 | dot + short reason |
-| Lightbox | progressive img load w/ blur-up | — | cached copies open; remote-only show ⏳ | banner + retry |
+| Region      | Loading                                                | Empty                       | Offline/degraded                             | Error                                            |
+| ----------- | ------------------------------------------------------ | --------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| Grid        | skeleton cards (butter shimmer, reduced-motion static) | empty-folder card           | grid stays usable; cards show pending badges | inline `error-banner.ts`, retry keeps scroll pos |
+| Status line | —                                                      | _"just you in this folder"_ | honey/brick dot copy per §3.4                | dot + short reason                               |
+| Lightbox    | progressive img load w/ blur-up                        | —                           | cached copies open; remote-only show ⏳      | banner + retry                                   |
 
 Rule: **offline never blocks browsing.** Everything already replicated is
 fully interactive; only cross-peer actions degrade honestly.
@@ -88,6 +88,6 @@ photos **[add]** (measure first; don't pre-optimize).
 
 - All interactive targets ≥ 44 px (existing min-h-11 pattern); focus-visible
   rings everywhere (already used on cards).
-- Alt text: photo name + uploader (*"Beach sunset, added by Maya"*); month
+- Alt text: photo name + uploader (_"Beach sunset, added by Maya"_); month
   headers are real headings (h2) for screen-reader nav.
 - Respect `prefers-reduced-motion`: disable dot pulses and diagram loops.
