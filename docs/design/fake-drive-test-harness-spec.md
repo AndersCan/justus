@@ -40,19 +40,19 @@ follow-up PR (see §4 for the ordering constraint).
 `photo-store.ts` treats a drive as an opaque `any` but uses a small, stable
 subset of the Hyperdrive API. The fake must implement exactly this surface:
 
-| Member | Kind | Used at (examples) |
-|---|---|---|
-| `.key` | `Buffer` (prop) | `ownDrive.key` (×9), `folderDrive.key` (×7) |
-| `.discoveryKey` | `Buffer` (prop) | `drive.discoveryKey`, `ownDrive.discoveryKey` (×3) |
-| `.ready()` | `() => Promise<void>` | `drive.ready()` (×3), `ownDrive.ready()` |
-| `.get(path)` | `(string) => Promise<Buffer \| null>` | `getText` at :331 |
-| `.put(path, data, opts?)` | `(string, Buffer, opts?) => Promise<void>` | `folderDrive.put` (×5), `ownDrive.put` (×3), `drive.put` |
-| `.list(path)` | `(string) => Promise<Entry[]>` | `drive.list(DRIVE_PATH_PHOTOS)` (:464, :573, :637) |
-| `.del(path)` | `(string) => Promise<void>` | `selfDrive.del` |
-| `.on("update", h)` | EventEmitter | `watchDrive` :370 |
-| `.removeListener("update", h)` | EventEmitter | (teardown, currently unused) |
-| `.createReadStream(path)` | `(string) => Readable` | spool download path |
-| `.close()` | `() => Promise<void>` | `drive.close` |
+| Member                         | Kind                                       | Used at (examples)                                       |
+| ------------------------------ | ------------------------------------------ | -------------------------------------------------------- |
+| `.key`                         | `Buffer` (prop)                            | `ownDrive.key` (×9), `folderDrive.key` (×7)              |
+| `.discoveryKey`                | `Buffer` (prop)                            | `drive.discoveryKey`, `ownDrive.discoveryKey` (×3)       |
+| `.ready()`                     | `() => Promise<void>`                      | `drive.ready()` (×3), `ownDrive.ready()`                 |
+| `.get(path)`                   | `(string) => Promise<Buffer \| null>`      | `getText` at :331                                        |
+| `.put(path, data, opts?)`      | `(string, Buffer, opts?) => Promise<void>` | `folderDrive.put` (×5), `ownDrive.put` (×3), `drive.put` |
+| `.list(path)`                  | `(string) => Promise<Entry[]>`             | `drive.list(DRIVE_PATH_PHOTOS)` (:464, :573, :637)       |
+| `.del(path)`                   | `(string) => Promise<void>`                | `selfDrive.del`                                          |
+| `.on("update", h)`             | EventEmitter                               | `watchDrive` :370                                        |
+| `.removeListener("update", h)` | EventEmitter                               | (teardown, currently unused)                             |
+| `.createReadStream(path)`      | `(string) => Readable`                     | spool download path                                      |
+| `.close()`                     | `() => Promise<void>`                      | `drive.close`                                            |
 
 Supporting constructs that also need fakes:
 
@@ -127,14 +127,14 @@ One suite per bug, each building a `PhotoStore` from fakes and asserting the
 **fixed** behavior (written alongside the fix in the follow-up implementation
 PR, so the test initially documents the expected contract):
 
-| Bug | Harness scenario | Assertion (post-fix) |
-|---|---|---|
-| #42 | Build device, `createFolder("Holidays")` (own key ≠ identity key), `add` ok, then **re-`createPhotoStore` from the same `storageDir`** with fakes | `folders()` reports the 2nd folder as `creator`; `add` on it still succeeds |
-| #43 | Folder with reachable member drive holding sha `S`; set `FakeSwarm` to mark that member **unreachable**; `addBytes` same `S` | not written twice; dedupe consults a local content index, not the live scan |
-| #46 | `createFolder(A)`, `createFolder(B)`, `setActive(B.id)`, `fakeDrive(A).emitUpdate()` | `onChanged` is **not** called with `folderId: A`; `watchers` drained on `setActive`/`close` |
-| #47 | `join(sameKey)` twice | `folders().length` unchanged; second call idempotent (returns existing status) |
-| #49 | Member A adds sha `S`; member B `addBytes(S)`; B `remove(returned.id)` | B's own drive gets a copy (or remove resolves); returned entry is B-owned/removable |
-| #52 | Member B `join` (pending), creator `respond` approves, simulate `photos.changed` for B's folder | B's `role` flips `reader`→`member`, `pending: false`, `add` now succeeds in-session |
+| Bug | Harness scenario                                                                                                                                  | Assertion (post-fix)                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| #42 | Build device, `createFolder("Holidays")` (own key ≠ identity key), `add` ok, then **re-`createPhotoStore` from the same `storageDir`** with fakes | `folders()` reports the 2nd folder as `creator`; `add` on it still succeeds                 |
+| #43 | Folder with reachable member drive holding sha `S`; set `FakeSwarm` to mark that member **unreachable**; `addBytes` same `S`                      | not written twice; dedupe consults a local content index, not the live scan                 |
+| #46 | `createFolder(A)`, `createFolder(B)`, `setActive(B.id)`, `fakeDrive(A).emitUpdate()`                                                              | `onChanged` is **not** called with `folderId: A`; `watchers` drained on `setActive`/`close` |
+| #47 | `join(sameKey)` twice                                                                                                                             | `folders().length` unchanged; second call idempotent (returns existing status)              |
+| #49 | Member A adds sha `S`; member B `addBytes(S)`; B `remove(returned.id)`                                                                            | B's own drive gets a copy (or remove resolves); returned entry is B-owned/removable         |
+| #52 | Member B `join` (pending), creator `respond` approves, simulate `photos.changed` for B's folder                                                   | B's `role` flips `reader`→`member`, `pending: false`, `add` now succeeds in-session         |
 
 ## 4. Ordering constraint — **⚠ important**
 

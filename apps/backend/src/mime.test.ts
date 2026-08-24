@@ -27,13 +27,6 @@ describe("guessMime (shared source of truth, issue #48)", () => {
     // Both the served gallery (photo-store) and the tested derivation
     // (gallery-order) delegate here, so editing one table can no longer
     // silently drift the two apart.
-    expect(Object.keys(EXT_MIME)).toEqual([
-      ".png",
-      ".gif",
-      ".webp",
-      ".heic",
-      ".mp4",
-      ".mov",
-    ]);
+    expect(Object.keys(EXT_MIME)).toEqual([".png", ".gif", ".webp", ".heic", ".mp4", ".mov"]);
   });
 });

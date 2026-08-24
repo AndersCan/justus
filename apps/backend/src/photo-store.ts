@@ -309,6 +309,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * member writes its photos to. Also the drive of the FIRST creator folder. */
   let ownDrive: Drive;
   const runtimes = new Map<string, FolderRuntime>();
+  /** Requester keys the creator denied this session. Denials write no durable
+   * state (the request only lives on the requester's own drive), so a denied
+   * requester would otherwise re-surface in `requests()` every time it re-files
+   * a join request (issue #85). We remember denials in-memory for the session. */
+  const deniedRequesters = new Set<string>();
   const joins: Array<{ destroy(): void | Promise<void> }> = [];
   let readyPromise: Promise<void> | null = null;
 
@@ -357,6 +362,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               id: f.id,
               name: f.name,
               role: (typeof f.role === "string" ? f.role : "reader") as Role,
+              // Carry the pending (awaiting-approval) flag so a requested join
+              // keeps its badge after a restart (#94). `saveState` already
+              // serializes it; only loadState was dropping it.
+              pending: typeof f.pending === "boolean" ? f.pending : false,
               shareKey: f.shareKey,
               driveKey: f.driveKey,
               createdAt: typeof f.createdAt === "number" ? f.createdAt : 0,
@@ -435,6 +444,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     };
     const rt = runtimes.get(folderId);
     rt?.watcherRemoves.add(remove);
+  }
+
+  function armFolderWatchers(rt: FolderRuntime) {
+    for (const remove of rt.watcherRemoves) {
+      try {
+        remove();
+      } catch {
+        // already removed
+      }
+    }
+    rt.watcherRemoves.clear();
+    watchDrive(rt.folderDrive, rt.record.id, hex(rt.folderDrive.key), rt.record.role === "creator" ? "enroll" : "add");
+    if (rt.selfDrive) watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
+    for (const [key, drive] of rt.memberDrives) {
+      watchDrive(drive, rt.record.id, key, "add");
+    }
   }
 
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
@@ -781,8 +806,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Unique tmp per call so concurrent spools of the same photo never collide;
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
-    const stream = drive.createReadStream(drivePath);
-    await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
+    try {
+      const stream = drive.createReadStream(drivePath);
+      await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
+    } catch (e) {
+      // A failed or oversized/capped spool (e.g. a malicious photo past
+      // MAX_SPOOL_BYTES, or a disk error) must not leave its staging file
+      // behind — clean it up so the cache spool dir never accumulates orphan
+      // `*.tmp` files (issues #90/#92).
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        // already gone
+      }
+      throw e;
+    }
     fs.renameSync(tmp, spoolPath);
   }
 
@@ -831,7 +869,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
     }
     const name = path.basename(filePath);
-    const ext = path.extname(name).toLowerCase();
+    const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
     const mime = guessMime(ext);
     // Content dedupe (#20): the same bytes must not create a second entry.
     // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
@@ -1178,7 +1216,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   return {
     async ready() {
       if (readyPromise) return readyPromise;
-      readyPromise = setup();
+      // A transient `setup()` failure (e.g. a flaky corestore/swarm) must not
+      // permanently poison the store: clear the memoized promise on rejection so
+      // the next `ready()` re-runs setup instead of re-throwing the same stale
+      // error forever (issue #98).
+      readyPromise = setup().catch((e) => {
+        readyPromise = null;
+        throw e;
+      });
       return readyPromise;
     },
 
@@ -1205,7 +1250,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const safeName =
         typeof name === "string" && name.trim() ? name.trim() : `photo-${newId(deps.crypto)}`;
-      const ext = path.extname(safeName).toLowerCase();
+      const ext = path.extname(safeName).toLowerCase().replace(/^\.$/, "");
       const staged = path.join(deps.cacheDir, `upload-${newId(deps.crypto)}${ext}`);
       try {
         fs.writeFileSync(staged, bytes as Buffer);
@@ -1496,6 +1541,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       state.activeFolderId = folderId;
       saveState();
+      armFolderWatchers(rt);
       deps.onChanged({ cause: "enroll", folderId });
       return ok(await computeStatus());
     },
@@ -1532,8 +1578,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const out: JoinRequest[] = [];
       for (const rt of runtimes.values()) {
         if (rt.record.role !== "creator") continue;
+        // A requester already enrolled as a member is no longer pending — its
+        // request lives on only in its own outbox, so drop it (#84).
+        let enrolled: Set<string> | null = null;
+        try {
+          const registry = await readRegistryIn(rt.folderDrive);
+          enrolled = new Set(Object.values(registry.members).map((m) => m.key));
+        } catch {
+          enrolled = new Set();
+        }
         const found = await readRequestsFromPeers(rt);
-        for (const req of found) out.push(req);
+        for (const req of found) {
+          if (enrolled.has(req.requesterKey)) continue;
+          if (deniedRequesters.has(req.requesterKey)) continue;
+          out.push(req);
+        }
       }
       return { requests: out };
     },
@@ -1550,7 +1609,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const alreadyPresent = Boolean(registry.members[requesterKey]);
       if (!approve) {
         // Denials have no state to write — the request just stays on the
-        // requester's own drive until it is superseded.
+        // requester's own drive until it is superseded. Remember it for the
+        // session so a re-filed request doesn't resurface as pending (#85).
+        deniedRequesters.add(requesterKey);
         deps.onChanged({ cause: "request", folderId });
         return ok({ ok: true });
       }
@@ -1578,15 +1639,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async close() {
+      // Tear down every folder: drop update watchers, unmount loopback routes,
+      // and remove the per-folder spool dir so a shutdown leaves no mounts or
+      // stale cache behind (#101).
       for (const rt of runtimes.values()) {
-        for (const remove of rt.watcherRemoves) {
-          try {
-            remove();
-          } catch {
-            // already removed
-          }
-        }
-        rt.watcherRemoves.clear();
+        await unmountRuntime(rt);
       }
       try {
         await swarm.destroy();

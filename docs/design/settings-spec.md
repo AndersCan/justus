@@ -10,14 +10,14 @@ section answers a question a non-technical user actually has.
 
 ## 1. Section inventory
 
-| # | Section | Status | Content |
-|---|---|---|---|
-| 1 | **You** | [has→refine] | Display name (rename [has]); device identity card (name + memberColor ring, from /peers spec §2.1); *"This device holds full copies of ⟨N⟩ folders"* |
-| 2 | **Folders** | [has→refine] | Per folder: name, member count, role (creator/member), rename [has], **share key** reveal/copy [has] with capability warning copy ("anyone with this key can ask to join") — aligns with peer-connection-spec §3.1 expiry ⚠ open |
-| 3 | **How justus works** | [add] | Replay the five onboarding lessons (ui-ux-spec §2.2); link to audit screen (*Where are my photos?*) |
-| 4 | **Appearance** | [add] | Theme: System / Light / Dark (tokens from ui-ux-spec §3.3); persisted locally; motion-reduce override |
-| 5 | **Storage** | [add] | Per-folder local size, cache/original split; "free up space" = drop originals kept only as previews **⚠ open** (depends on sparse mirrors/GC, issue #27/#32) |
-| 6 | **Danger zone** | [has→extend] | Leave folder (copy states copies remain on other devices until they remove them ⚠ open #26); delete folder (creator only; confirm via `confirm.ts` with typed confirmation for creator-loss weight, issue #26) |
+| #   | Section              | Status       | Content                                                                                                                                                                                                                          |
+| --- | -------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **You**              | [has→refine] | Display name (rename [has]); device identity card (name + memberColor ring, from /peers spec §2.1); _"This device holds full copies of ⟨N⟩ folders"_                                                                             |
+| 2   | **Folders**          | [has→refine] | Per folder: name, member count, role (creator/member), rename [has], **share key** reveal/copy [has] with capability warning copy ("anyone with this key can ask to join") — aligns with peer-connection-spec §3.1 expiry ⚠ open |
+| 3   | **How justus works** | [add]        | Replay the five onboarding lessons (ui-ux-spec §2.2); link to audit screen (_Where are my photos?_)                                                                                                                              |
+| 4   | **Appearance**       | [add]        | Theme: System / Light / Dark (tokens from ui-ux-spec §3.3); persisted locally; motion-reduce override                                                                                                                            |
+| 5   | **Storage**          | [add]        | Per-folder local size, cache/original split; "free up space" = drop originals kept only as previews **⚠ open** (depends on sparse mirrors/GC, issue #27/#32)                                                                     |
+| 6   | **Danger zone**      | [has→extend] | Leave folder (copy states copies remain on other devices until they remove them ⚠ open #26); delete folder (creator only; confirm via `confirm.ts` with typed confirmation for creator-loss weight, issue #26)                   |
 
 ## 2. Copy rules
 

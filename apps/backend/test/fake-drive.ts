@@ -36,7 +36,7 @@ class Emitter {
   removeListener(_event: string, handler: (...args: any[]) => void): void {
     this.handlers.delete(handler);
   }
-  emit(...args: any[]): void {
+  emit(_name: string, ...args: any[]): void {
     for (const h of this.handlers) h(...args);
   }
 }

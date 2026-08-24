@@ -10,28 +10,28 @@
 > Markings: **[has]** exists · **[add]** new · **⚠ open** needs decision.
 
 Trust here is architectural, not decorative: peers are named devices the user
-explicitly approved, and every screen in this family shows *who* is connected,
-*what they hold*, and *that nothing routes anywhere else*.
+explicitly approved, and every screen in this family shows _who_ is connected,
+_what they hold_, and _that nothing routes anywhere else_.
 
 ## 1. Header `<connection-chip>` (global)
 
 One compact chip, persistent on every screen (ui-ux-spec §3.4 colors):
 
-| Underlying state | Chip | Color |
-|---|---|---|
-| ≥1 peer reachable, all synced | `● direct · N peers` | moss |
-| transport up, peers pending / syncing | `● syncing…` | honey |
-| alone (0 peers), unsynced local changes | `○ offline · changes waiting` | brick |
-| alone, everything already replicated everywhere | `○ offline · up to date` | taupe (calm) |
-| joining/enrolling folder | `◌ joining folder…` | honey |
+| Underlying state                                | Chip                          | Color        |
+| ----------------------------------------------- | ----------------------------- | ------------ |
+| ≥1 peer reachable, all synced                   | `● direct · N peers`          | moss         |
+| transport up, peers pending / syncing           | `● syncing…`                  | honey        |
+| alone (0 peers), unsynced local changes         | `○ offline · changes waiting` | brick        |
+| alone, everything already replicated everywhere | `○ offline · up to date`      | taupe (calm) |
+| joining/enrolling folder                        | `◌ joining folder…`           | honey        |
 
-- Tap → navigates to `/peers` (§2). The chip is a *status*, never a button
+- Tap → navigates to `/peers` (§2). The chip is a _status_, never a button
   with side effects.
 - **[add]** Derivation: map sync-machine state + replication status to the
   five rows above; expose as one nanostores atom so every view consumes the
   same truth (no per-view interpretation).
 - **Honesty rule:** if the underlying link is degraded (e.g. remote drive open
-  timing out, ekrooh#41), the chip must show honey *with reason on tap*
+  timing out, ekrooh#41), the chip must show honey _with reason on tap_
   ("Maya's device is reachable but slow to respond") — not silently appear
   healthy. Timeout threshold: 10 s to degrade, recovery flips back.
 
@@ -46,12 +46,12 @@ Sections:
 2. **Peers** — one card per approved device across folders: name, owner,
    identity color, folders shared, last seen (relative), reachability dot
    (same color language). Actions: rename (local nickname), remove-from-
-   folder (→ confirm dialog reiterating L5 semantics: removal stops *future*
+   folder (→ confirm dialog reiterating L5 semantics: removal stops _future_
    photos; copies already replicated remain until that peer deletes them
    **⚠ open** — revocation/removal semantics are issue #26/#30 territory).
 3. **Where are my photos? (audit)** — per folder: which devices hold a copy,
    last verified contact, count of items held remotely vs locally. Footer:
-   *"Servers holding your photos: **0**"* with a link "see how this works"
+   _"Servers holding your photos: **0**"_ with a link "see how this works"
    (replays ui-ux-spec lessons L1/L5). This screen is the product's proof
    surface; it must render entirely from local replication state — no network
    call may be required to display it.
@@ -66,8 +66,8 @@ requester asks to join; an approver confirms (requests machine). UI pieces:
 
 - Screen: folder picker → **QR** (primary, for in-person) + **copyable join
   code** (fallback, any channel).
-- Copy states the capability honestly: *"This code lets someone **ask** to
-  join ⟨folder⟩. Nothing happens until you approve."*
+- Copy states the capability honestly: _"This code lets someone **ask** to
+  join ⟨folder⟩. Nothing happens until you approve."_
 - Security notes carried into UI: code auto-expires (**⚠ open** duration);
   regenerating invalidates the old one; per ADR 0003 the code is a bootstrap
   capability — it never appears in URLs, logs, or page-visible globals; the
@@ -81,12 +81,12 @@ requester asks to join; an approver confirms (requests machine). UI pieces:
 ### 3.2 Joiner side — **[has partial]** requests view
 
 - Enter code / scan QR → preview screen: folder name, owner chip, member
-  count, and consent line: *"joining downloads a full copy of this folder to
-  this device"* → explicit **Request to join** button (maps to `joining`
-  state; spinner copy: *"asking ⟨owner⟩…"*).
-- Denied/expired states get honest, non-blaming copy: *"⟨owner⟩ hasn't
+  count, and consent line: _"joining downloads a full copy of this folder to
+  this device"_ → explicit **Request to join** button (maps to `joining`
+  state; spinner copy: _"asking ⟨owner⟩…"_).
+- Denied/expired states get honest, non-blaming copy: _"⟨owner⟩ hasn't
   approved yet. You can close this — you'll be added automatically if they
-  do."*
+  do."_
 
 ### 3.3 Approver side — **[has]** requests view
 
@@ -96,12 +96,12 @@ requester asks to join; an approver confirms (requests machine). UI pieces:
 
 ## 4. States matrix
 
-| Region | Loading | Empty | Degraded/offline | Error |
-|---|---|---|---|---|
-| Peers list | skeleton rows | *"No peers yet — share a folder to add some."* | last-seen frozen, dots go taupe/brick honestly | banner + retry |
-| Audit | computed locally — instant | per-folder zero rows fine | unchanged (local data) | n/a |
-| Invite | QR/code generation spinner | — | QR still renders (offline pairing allowed) **⚠ open** | regen affordance |
-| Requests | skeletons | *"No pending requests."* [has] | approvals queue and apply on reconnect **⚠ open** | inline error + retry |
+| Region     | Loading                    | Empty                                          | Degraded/offline                                      | Error                |
+| ---------- | -------------------------- | ---------------------------------------------- | ----------------------------------------------------- | -------------------- |
+| Peers list | skeleton rows              | _"No peers yet — share a folder to add some."_ | last-seen frozen, dots go taupe/brick honestly        | banner + retry       |
+| Audit      | computed locally — instant | per-folder zero rows fine                      | unchanged (local data)                                | n/a                  |
+| Invite     | QR/code generation spinner | —                                              | QR still renders (offline pairing allowed) **⚠ open** | regen affordance     |
+| Requests   | skeletons                  | _"No pending requests."_ [has]                 | approvals queue and apply on reconnect **⚠ open**     | inline error + retry |
 
 ## 5. Accessibility & i18n
 
