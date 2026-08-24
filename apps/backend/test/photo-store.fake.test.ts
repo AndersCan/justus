@@ -345,4 +345,33 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
 
     await store.close();
   });
+
+describe("#76 setActive must re-arm the incoming folder's watcher after a round-trip", () => {
+  it("keeps firing onChanged for A after A->B->A", async () => {
+    const { store, drives, changes } = buildStore();
+    await store.ready();
+    const aRes = await store.createFolder("A");
+    expect(aRes[0]).toBeNull();
+    const bRes = await store.createFolder("B");
+    expect(bRes[0]).toBeNull();
+    const aId = (aRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
+    const bId = (bRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
+    const aKey = (aRes[1] as { folder: { shareKey: string } }).folder.shareKey;
+    const bKey = (bRes[1] as { folder: { shareKey: string } }).folder.shareKey;
+    const aDrive = driveFor(drives, aKey);
+    const bDrive = driveFor(drives, bKey);
+    await store.setActive(aId);
+    await store.setActive(bId);
+    await store.setActive(aId);
+    const beforeA = changes.length;
+    aDrive.emitUpdate();
+    await sleep(500);
+    expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
+    const beforeB = changes.length;
+    bDrive.emitUpdate();
+    await sleep(500);
+    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+    await store.close();
+  });
+});
 });
