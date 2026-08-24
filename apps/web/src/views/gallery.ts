@@ -1,6 +1,6 @@
 import { html } from "lit-html";
 import { createRef, ref } from "lit-html/directives/ref.js";
-import { atom } from "nanostores";
+import { atom, computed } from "nanostores";
 import { mediaEvents } from "@ekrooh/bare/plugins/media/events";
 import type { Photo } from "@justus/core";
 import { bus } from "../gateway";
@@ -12,6 +12,7 @@ import {
   gallery,
 } from "../machines/gallery-machine";
 import { $syncStatus } from "../machines/sync-machine";
+import { $activeFolderId, $folders, folders } from "../machines/folders-machine";
 import { useStore } from "../use-store";
 import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
 import { memberColor } from "../utils/palette";
@@ -269,6 +270,53 @@ function presenceStrip() {
   `;
 }
 
+/** Active-folder anchor for the Gallery home view (G1): names the folder the
+ * gallery is currently showing and offers an in-context switch when more than
+ * one folder exists. Reads the same folder atoms the Folder tab uses; web-only. */
+const $folderView = computed([$folders, $activeFolderId], (folders, activeId) => ({
+  active: folders.find((f) => f.id === activeId) ?? null,
+  all: folders,
+}));
+
+function folderContext() {
+  return useStore($folderView, ({ active, all }) => {
+    if (!active) {
+      return html`<p class="text-sm text-taupe">No folder selected</p>`;
+    }
+    const others = all.filter((f) => f.id !== active.id);
+    return html`
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm text-taupe">in</span>
+        <span class="truncate font-serif text-xl text-cocoa" title=${active.name}
+          >${active.name}</span
+        >
+        ${
+          others.length > 0
+            ? html`<label class="inline-flex items-center">
+                <span class="sr-only">Switch folder</span>
+                <select
+                  class="warm-ghost cursor-pointer"
+                  aria-label="Switch folder"
+                  @change=${(e: Event) => {
+                    const id = (e.target as HTMLSelectElement).value;
+                    if (id) folders.switchTo(id);
+                  }}
+                >
+                  ${all.map(
+                    (f) =>
+                      html`<option value=${f.id} ?selected=${f.id === active.id}>
+                        ${f.name}
+                      </option>`,
+                  )}
+                </select>
+              </label>`
+            : null
+        }
+      </div>
+    `;
+  });
+}
+
 function emptyState(view: GalleryViewModel) {
   const canAdd = view.role !== "reader";
   return html`
@@ -304,7 +352,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-2">
           <h1 class="font-serif text-3xl text-ink">Gallery</h1>
-          ${presenceStrip()}
+          ${folderContext()} ${presenceStrip()}
         </div>
         <div class="flex shrink-0 flex-wrap gap-2">
           <input
