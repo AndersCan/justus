@@ -124,8 +124,10 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
     MediaHostPlugins.release(self)
   }
 
-  private func finish(_ path: URL) {
-    respond(.ok(["path": path.path]))
+  private func finish(_ path: URL, name: String? = nil) {
+    var payload: [String: Any] = ["path": path.path]
+    if let name, !name.isEmpty { payload["name"] = name }
+    respond(.ok(payload))
     MediaHostPlugins.release(self)
   }
 
@@ -163,7 +165,9 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
         self.abort("Failed to stage picked file")
         return
       }
-      self.finish(dest)
+      // Thread the picker's original display name through (#99) so the stored
+      // photo keeps the user's file name instead of the temp staging name.
+      self.finish(dest, name: result.itemProvider.suggestedName)
     }
   }
 

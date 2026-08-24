@@ -102,8 +102,16 @@ export const photoEvents = {
     list(): InvokeEnvelope<"photos.list", Record<string, never>, { photos: Photo[] }> {
       return invokeEvent(photoSpecs.list, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
-    add(path: string): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
-      return invokeEvent(photoSpecs.add, { path }, null, PHOTOS_ADD_TIMEOUT_MS);
+    add(
+      path: string,
+      name?: string,
+    ): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
+      return invokeEvent(
+        photoSpecs.add,
+        name ? { path, name } : { path },
+        null,
+        PHOTOS_ADD_TIMEOUT_MS,
+      );
     },
     /** Adds a photo whose bytes travel in-band as the invoke payload (the
      * browser multi-file picker — no host path exists there). */

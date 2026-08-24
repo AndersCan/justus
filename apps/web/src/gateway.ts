@@ -14,7 +14,7 @@ export const bus = createPluginBus(messenger);
  * framework's `Either` tuple `[error, result]`. */
 export const gateway = {
   list: () => bus.invoke(photoEvents.photos.list()),
-  add: (path: string) => bus.invoke(photoEvents.photos.add(path)),
+  add: (path: string, name?: string) => bus.invoke(photoEvents.photos.add(path, name)),
   /** Adds a photo from bytes picked in the browser (multi-file upload). */
   addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
     bus.invoke(photoEvents.photos.addFile(name, bytes)),

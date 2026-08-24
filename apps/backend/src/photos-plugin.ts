@@ -30,7 +30,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
         // Two add flows share one invoke: a host-picked file already on disk
         // (`path`), or bytes uploaded in-band as the invoke payload from the
         // browser multi-file picker (`name` + payload).
-        if (args.path) return deps.store.add(args.path);
+        if (args.path) return deps.store.add(args.path, args.name);
         const payload = context?.payload;
         if (payload && payload.byteLength > 0) {
           if (payload.byteLength > MAX_INBAND_ADD_BYTES) {

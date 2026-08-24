@@ -178,7 +178,7 @@ export type PhotoStoreDeps = {
 export interface PhotoStore {
   ready(): Promise<void>;
   list(): Promise<Photo[]>;
-  add(path: string): Promise<EitherResult<Photo>>;
+  add(path: string, name?: string): Promise<EitherResult<Photo>>;
   /** Adds a photo from in-band bytes (browser multi-file picker). */
   addBytes(name: string, bytes: Uint8Array): Promise<EitherResult<Photo>>;
   remove(id: string): Promise<EitherResult<{ id: string }>>;
@@ -1352,9 +1352,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return rt ? listPhotosIn(rt) : [];
     },
 
-    async add(filePath) {
+    async add(filePath, name) {
       await readyPromise;
-      return addFromPath(filePath);
+      // Thread the picker's original display name through (#99); without it the
+      // stored photo would be named after the host's temp staging file rather
+      // than the user's file. `addFromPath` falls back to the basename when
+      // `name` is absent, so the old behaviour is preserved for nameless adds.
+      return addFromPath(filePath, name);
     },
 
     /** Adds a photo from bytes uploaded in-band (browser multi-file picker):

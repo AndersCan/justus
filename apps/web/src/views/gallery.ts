@@ -49,7 +49,11 @@ async function pickAndAdd() {
       $galleryError.set("Couldn't open that photo — try another.");
       return;
     }
-    gallery.add(result.path);
+    // The host returns the original display name alongside the path, but the
+    // framework's `MediaResult` type predates that field; read it structurally
+    // so the picked photo keeps its real name in the native shell (#99).
+    const picked = result as { path: string; name?: string };
+    gallery.add(picked.path, picked.name);
     return;
   }
   fileInputRef.value?.click();
