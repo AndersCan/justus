@@ -51,7 +51,7 @@ const removing = state("removing")();
 const load = event("LOAD")();
 const loaded = event("LOADED")<{ photos: Photo[] }>();
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-const add = event("ADD")<{ path: string }>();
+const add = event("ADD")<{ path: string; name?: string }>();
 const added = event("ADDED")<{ photo: Photo }>();
 const addFailed = event("ADD_FAILED")<{ message: string }>();
 const remove = event("REMOVE")<{ id: string }>();
@@ -60,7 +60,7 @@ const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type GalleryContext = {
-  pendingAdd: string | null;
+  pendingAdd: { path: string; name?: string } | null;
   pendingRemove: string | null;
 };
 
@@ -123,18 +123,22 @@ const galleryActor = new Actor({
 
     m.on(ready, add, (e, opts) => {
       $galleryError.set(null);
-      opts.context.set({ pendingAdd: e.payload.path, pendingRemove: null });
+      opts.context.set({
+        pendingAdd: { path: e.payload.path, name: e.payload.name },
+        pendingRemove: null,
+      });
       return { state: adding };
     });
     m.effect(adding, ({ signal, emit, context }) => {
-      const path = context.get().pendingAdd;
+      const pending = context.get().pendingAdd;
+      const path = pending?.path;
       if (!path) {
         emit(addFailed.create({ message: "no pending photo to add" }));
         return;
       }
       return runInvoke(
         signal,
-        () => gateway.add(path),
+        () => gateway.add(path, pending.name),
         (result) =>
           result
             ? emit(added.create({ photo: result as Photo }))
@@ -197,7 +201,7 @@ const { state: stateName } = bindStateAtoms({
 export const gallery = {
   state: stateName,
   load: () => galleryActor.send(load.create()),
-  add: (path: string) => galleryActor.send(add.create({ path })),
+  add: (path: string, name?: string) => galleryActor.send(add.create({ path, name })),
   remove: (id: string) => galleryActor.send(remove.create({ id })),
   retry: () => galleryActor.send(retry.create()),
 };

@@ -2,6 +2,7 @@ package io.justus.app
 
 import android.annotation.SuppressLint
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -215,8 +216,8 @@ class MainActivity : AppCompatActivity() {
                 )
                 return@registerForActivityResult
             }
-            val path = copyUriToCache(uri)
-            if (path == null) {
+            val staged = copyUriToCache(uri)
+            if (staged == null) {
                 respond(
                     HostPluginRegistry.HostInvokeOutcome.Fail(
                         ErrorCodes.HOST_ERROR,
@@ -224,7 +225,9 @@ class MainActivity : AppCompatActivity() {
                     ),
                 )
             } else {
-                respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("path", path)))
+                val json = JSONObject().put("path", staged.path)
+                if (staged.name != null) json.put("name", staged.name)
+                respond(HostPluginRegistry.HostInvokeOutcome.Ok(json))
             }
         }
         imageCaptureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
@@ -278,7 +281,9 @@ class MainActivity : AppCompatActivity() {
 
     /** Copies a picker content:// URI into the app cache so the worklet can
      * serve it from the filesystem. */
-    private fun copyUriToCache(uri: Uri): String? {
+    private data class StagedMedia(val path: String, val name: String?)
+
+    private fun copyUriToCache(uri: Uri): StagedMedia? {
         return try {
             // Preserve the real media type from the content MIME subtype instead
             // of forcing .jpg/.mp4 by class: a picked PNG/WebP/HEIC must keep its
@@ -295,7 +300,19 @@ class MainActivity : AppCompatActivity() {
                 contentResolver.openInputStream(uri)?.use { input ->
                     dest.outputStream().use { output -> input.copyTo(output) }
                 }
-            if (copied == null) null else dest.absolutePath
+            if (copied == null) {
+                null
+            } else {
+                // Thread the picker's original display name through (#99) so the
+                // stored photo keeps the user's file name rather than the temp
+                // staging name. Some providers omit DISPLAY_NAME — the backend
+                // falls back to the basename in that case.
+                val name =
+                    contentResolver
+                        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                StagedMedia(dest.absolutePath, name)
+            }
         } catch (e: Exception) {
             Log.e("JUSTUS_ANDROID", "Failed to copy picked media", e)
             null
