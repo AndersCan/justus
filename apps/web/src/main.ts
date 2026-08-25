@@ -16,11 +16,20 @@ import { lightboxView } from "./views/lightbox";
 import { requestsView } from "./views/requests";
 import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
+import { startWebLogCapture } from "./log-capture";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
 if (window.location.pathname.endsWith("/index.html")) {
   $router.open("/", true);
+}
+
+// Capture web-layer diagnostics (console + page errors) into the shared log
+// timeline. Skips itself on the mock transport; on unload we drain the last
+// sub-interval batch so it isn't lost (issue #14).
+const webLogCapture = startWebLogCapture();
+if (webLogCapture) {
+  window.addEventListener("pagehide", () => webLogCapture.flush());
 }
 
 transport.subscribe((message) => {

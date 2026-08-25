@@ -13,6 +13,11 @@ export default defineConfig({
       "/photos": {
         target: "http://127.0.0.1:8080",
       },
+      // Forward the web-layer log collector POST to the worklet's loopback
+      // server so browser dev reaches `POST /__logs` same-origin (issue #14).
+      "/__logs": {
+        target: "http://127.0.0.1:8080",
+      },
     },
   },
   build: {
