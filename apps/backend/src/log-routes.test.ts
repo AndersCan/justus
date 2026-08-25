@@ -126,4 +126,16 @@ describe("log-routes", () => {
     expect(res.status).toBe(403);
     expect(collector.entries()).toHaveLength(0);
   });
+
+  test("GET /__logs rejects a cross-origin caller (no log leak)", () => {
+    const server = fakeServer();
+    const collector = createLogCollector({ now: () => 1000 });
+    collector.append({ source: "backend", message: "secret-device-log" });
+    registerLogRoutes({ server: server as never, collector });
+
+    const res = mockRes();
+    server.routes["GET /__logs"](getReq("/__logs", "https://evil.example"), res as never);
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain("secret-device-log");
+  });
 });
