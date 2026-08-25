@@ -57,7 +57,11 @@ const renaming = state("renaming")();
 const error = state("error")();
 
 const refresh = event("REFRESH")();
-const loaded = event("LOADED")<{ name: string; folders: FolderSummary[]; activeId: string }>();
+const loaded = event("LOADED")<{
+  name: string;
+  folders: FolderSummary[];
+  activeId: string | null;
+}>();
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 const createFolder = event("CREATE_FOLDER")<{ name: string }>();
 const created = event("CREATED")<{ folder: FolderSummary }>();
@@ -121,7 +125,11 @@ const foldersActor = new Actor({
         () => gateway.folders(),
         (result) => {
           const r = result as { folders?: FolderSummary[]; activeFolderId?: string } | null;
-          if (!r?.folders || !r?.activeFolderId) {
+          // `activeFolderId` may legitimately be null (a fresh device with no
+          // folder chosen yet) — only a missing folder list is a real load
+          // failure. Treating null as an error wedged first-run users on the
+          // error screen instead of the empty gallery.
+          if (!r?.folders) {
             emit(loadFailed.create({ message: "folders returned no data" }));
             return;
           }
@@ -129,7 +137,7 @@ const foldersActor = new Actor({
             loaded.create({
               name: $userName.get(),
               folders: r.folders,
-              activeId: r.activeFolderId,
+              activeId: r.activeFolderId ?? null,
             }),
           );
         },
