@@ -1781,7 +1781,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // Defensively release any remaining joins (e.g. the device-identity
       // `ownDrive` join that `unmountRuntime` never leaves) before tearing down
       // the swarm (issue #95).
-      for (const key of [...joins.keys()]) leaveTopic(key);
+      for (const key of joins.keys()) leaveTopic(key);
       try {
         await swarm.destroy();
       } catch {

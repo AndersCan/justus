@@ -17,8 +17,6 @@ import { createPhotoStore } from "../src/photo-store.ts";
 import { FakeSwarm, makeFakeDeps } from "./fake-drive.ts";
 import type { FakeDrive } from "./fake-drive.ts";
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
 /** Build a store on the in-memory harness, recording its keyless (identity)
  * drive so a scenario can act as the swarm peer that announced it. */
 function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {

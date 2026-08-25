@@ -15,7 +15,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps, type PhotoStoreDeps } from "./fake-drive.ts";
+import { makeFakeDeps } from "./fake-drive.ts";
+import type { PhotoStoreDeps } from "../src/photo-store.ts";
 
 /** An `fs` whose `createWriteStream` opens the file but fails the first write,
  * modelling a disk-full / write-error mid-spool. The tmp file is created on
