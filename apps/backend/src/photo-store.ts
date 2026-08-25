@@ -494,7 +494,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // re-read the registry and upgrade reader → member in-session (issue
         // #52) instead of waiting for a restart.
         if (rt && rt.record.role === "reader") {
-          void upgradePendingRole(rt);
+          // Best-effort background upgrade; never block the watcher. Guard the
+          // promise so a rejection (e.g. registry read failing) can't become an
+          // unhandled rejection that crashes the process.
+          void upgradePendingRole(rt).catch(() => {});
         }
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
@@ -550,7 +553,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!handle) return;
     joins.delete(keyHex);
     try {
-      void handle.destroy?.();
+      const d = handle.destroy?.();
+      // `destroy` may return a promise; swallow a rejection so leaving a topic
+      // can't raise an unhandled rejection. A sync throw (already destroyed) is
+      // already caught by the surrounding try/catch.
+      if (d instanceof Promise) d.catch(() => {});
     } catch {
       // already destroyed
     }
