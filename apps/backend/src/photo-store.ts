@@ -910,22 +910,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Unique tmp per call so concurrent spools of the same photo never collide;
     // rename is atomic (last write wins, content is identical).
     const tmp = `${spoolPath}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    let ok = false;
     try {
       const stream = drive.createReadStream(drivePath);
       await pumpToFile(stream, tmp, MAX_SPOOL_BYTES, fs);
-    } catch (e) {
-      // A failed or oversized/capped spool (e.g. a malicious photo past
-      // MAX_SPOOL_BYTES, or a disk error) must not leave its staging file
-      // behind — clean it up so the cache spool dir never accumulates orphan
-      // `*.tmp` files (issues #90/#92).
-      try {
-        fs.unlinkSync(tmp);
-      } catch {
-        // already gone
+      fs.renameSync(tmp, spoolPath);
+      ok = true;
+    } finally {
+      if (!ok) {
+        // A failed or oversized/capped spool (e.g. a malicious photo past
+        // MAX_SPOOL_BYTES, or a disk error) must not leave its staging file
+        // behind — clean it up so the cache spool dir never accumulates orphan
+        // `*.tmp` files (issues #90/#92). The writer opens its destination file
+        // asynchronously, so a fast failure can race the open: the synchronous
+        // unlink below sees ENOENT (file not yet on disk) while the open still
+        // completes and creates it afterwards. Remove it now and again on the
+        // next tick to catch that late open — this is the load-dependent CI
+        // flake reported in #142.
+        try {
+          fs.unlinkSync(tmp);
+        } catch {
+          // already gone
+        }
+        setImmediate(() => {
+          try {
+            fs.unlinkSync(tmp);
+          } catch {
+            // already gone
+          }
+        });
       }
-      throw e;
     }
-    fs.renameSync(tmp, spoolPath);
   }
 
   async function seedSamplePhotos(drive: Drive) {
