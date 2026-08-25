@@ -1,4 +1,4 @@
-import type { Snapshot } from "@mantaq/core";
+import type { Snapshot, ErrorInfo } from "@mantaq/core";
 import type { WritableAtom } from "nanostores";
 
 /** Safe runner for an async invoke inside a mantaq effect: models rejections
@@ -54,6 +54,7 @@ export function bindStateAtoms<State extends string>(args: {
       event: "change",
       fn: (snapshot: Snapshot<unknown>, prev: Snapshot<unknown>) => void,
     ): unknown;
+    on(event: "error", fn: (info: ErrorInfo) => void): unknown;
     snapshot(): Snapshot<unknown>;
   };
   states: readonly State[];
@@ -67,6 +68,14 @@ export function bindStateAtoms<State extends string>(args: {
     const fatal = fatalErrorOf(snapshot);
     args.$fatal.set(fatal !== null);
     if (fatal) args.$error.set(fatal.message);
+  });
+  // A construction-time death fires on("error") before any "change" — and
+  // mantaq's Subscribers replays the buffered error to subscribers added
+  // after construction — so wiring it here makes a silent __error observable.
+  args.actor.on("error", (info) => {
+    args.$fatal.set(true);
+    const detail = info.error instanceof Error ? info.error.message : String(info.error);
+    args.$error.set(`Internal error (${info.reason}): ${detail}`);
   });
   return { state: () => nameOf(args.actor.snapshot()) };
 }
