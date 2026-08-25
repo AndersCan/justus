@@ -24,12 +24,37 @@ describe("FakeDrive", () => {
     expect((await drive.get("/photos/a.jpg"))?.toString()).toBe("a");
     expect(await drive.get("/missing")).toBeNull();
 
-    const listed: Array<{ key: string; name: string }> = [];
+    const listed: Array<{ key: string; value: { metadata: Record<string, unknown> } }> = [];
     for await (const e of drive.list("/photos")) listed.push(e);
-    expect(listed.map((e) => e.name).sort()).toEqual(["a.jpg", "b.jpg"]);
+    expect(listed.map((e) => e.key).sort()).toEqual(["/photos/a.jpg", "/photos/b.jpg"]);
+    // No metadata attached → empty metadata object (faithful to the real
+    // hyperdrive `list()` contract `entry.value.metadata`).
+    expect(listed.every((e) => Object.keys(e.value.metadata).length === 0)).toBe(true);
 
     await drive.del("/photos/a.jpg");
     expect(await drive.get("/photos/a.jpg")).toBeNull();
+  });
+
+  it("round-trips put metadata through list (v2 seam parity, issue #19)", async () => {
+    const drive = new FakeDrive("seed-meta");
+    await drive.put("/photos/a.jpg", Buffer.from("a"), {
+      metadata: { name: "beach.jpg", mime: "image/jpeg", addedAt: 1000 },
+    });
+    const listed: Array<{ key: string; value: { metadata: Record<string, unknown> } }> = [];
+    for await (const e of drive.list("/photos")) listed.push(e);
+    expect(listed).toHaveLength(1);
+    expect(listed[0]!.key).toBe("/photos/a.jpg");
+    expect(listed[0]!.value.metadata).toEqual({
+      name: "beach.jpg",
+      mime: "image/jpeg",
+      addedAt: 1000,
+    });
+
+    // Metadata is dropped when the file is deleted, so a re-list is empty.
+    await drive.del("/photos/a.jpg");
+    const after: Array<{ key: string; value: { metadata: Record<string, unknown> } }> = [];
+    for await (const e of drive.list("/photos")) after.push(e);
+    expect(after).toHaveLength(0);
   });
 
   it("fires update handlers on put/del (used by #46 watcher tests)", () => {
