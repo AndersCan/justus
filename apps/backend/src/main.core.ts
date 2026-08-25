@@ -10,8 +10,27 @@ import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
 import { createDevInbox } from "./dev-inbox";
 import { registerUploadRoute } from "./upload-route";
+import { createLogCollector } from "./log-collector";
+import type { FsLike, PathLike } from "./log-collector";
+import { registerLogRoutes } from "./log-routes";
 
 const config = resolveJustusConfig();
+
+const storageDir = config.storage ?? ".justus-storage";
+const cacheDir = config.cache ?? ".justus-cache";
+
+// Debug-log collector: capture the backend's own console output from the very
+// first line of startup into a bounded ring buffer + rotating JSONL, served
+// over /__logs (issue #13). Installed before the runtime/store are built so
+// their construction logs are captured too.
+const logCollector = createLogCollector({
+  dir: cacheDir,
+  // The production runtime injects the real bare fs/path (the module avoids a
+  // top-level bare import so it loads under Node/vitest — see log-collector).
+  fs: fs as unknown as FsLike,
+  path: path as unknown as PathLike,
+});
+logCollector.start();
 
 const runtime = createWorkletRuntime({
   webAssets: config.webAssets,
@@ -37,9 +56,6 @@ function pushChange(change: PhotoChanged) {
   );
 }
 
-const storageDir = config.storage ?? ".justus-storage";
-const cacheDir = config.cache ?? ".justus-cache";
-
 const store: PhotoStore = createPhotoStore({
   storageDir,
   cacheDir,
@@ -64,6 +80,9 @@ registerUploadRoute({
   store,
   uploadsDir: path.join(cacheDir, "uploads"),
 });
+
+// Debug-log surface: pull backend lifecycle logs and ingest external batches.
+registerLogRoutes({ server: runtime.server, collector: logCollector });
 
 if (config.dev && config.inbox) {
   createDevInbox({
