@@ -13,10 +13,12 @@ const BASE_HEADERS = {
  *   GET  /__logs?format=jsonl|text&tail=N&level=  -> captured entries
  *   POST /__logs                                   -> ingest a batch (loopback origin)
  *
- * The loopback server is only reachable from the local device/WebView, not the
- * network. GET is read-only debug output; POST ingests log batches and is
- * gated by the same loopback-origin policy as the rest of the surface so a
- * cross-origin page cannot inject entries.
+ * Both verbs are gated by the same loopback-origin policy as the rest of the
+ * surface (issue #69): a cross-origin page in the WebView must not be able to
+ * read the device's debug logs (folder names, peer keys, sync activity) or
+ * inject entries. "Loopback is local" is NOT sufficient — the WebView can load
+ * other origins, so an unauthenticated same-loopback GET would be exfiltratable
+ * exactly like the pre-#69 `POST /photos` was.
  */
 export function registerLogRoutes(deps: { server: LoopbackServer; collector: LogCollector }): void {
   deps.server.registerRoute("GET", "/__logs", makeGetHandler(deps.collector));
@@ -60,8 +62,20 @@ function readBody(req: {
 
 function makeGetHandler(collector: LogCollector): LoopbackRouteHandler {
   return (req, res) => {
+    const origin = req.headers?.origin;
+    const originStr = typeof origin === "string" ? origin : undefined;
+    const verdict = classifyOrigin(originStr);
+    if (!verdict.allowed) {
+      res.writeHead(403, BASE_HEADERS);
+      res.end(JSON.stringify({ ok: false, error: "cross-origin request forbidden" }));
+      return;
+    }
     const { contentType, body } = collector.query(parseQuery(req.url));
-    res.writeHead(200, { ...BASE_HEADERS, "Content-Type": contentType });
+    res.writeHead(200, {
+      ...BASE_HEADERS,
+      "Content-Type": contentType,
+      ...(verdict.corsOrigin ? { "Access-Control-Allow-Origin": verdict.corsOrigin } : {}),
+    });
     res.end(body);
   };
 }
