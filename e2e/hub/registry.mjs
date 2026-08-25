@@ -19,9 +19,11 @@ import { allocateInstancePorts } from "./ports.mjs";
  * @param {string} opts.storageRoot  parent dir for per-instance storage
  * @param {number} [opts.dhtPort]    DHT port (defaults to basePort - 1)
  * @param {object} [opts.dht]         extra DHT descriptor fields to merge
+ * @param {Set<number>|number[]} [opts.claimed]  ports that must be skipped in
+ *        addition to the DHT port (e.g. ports a live probe found already busy).
  * @returns {{ dht: object, instances: Array<{id:string,port:number,url:string,storageDir:string}> }}
  */
-export function buildRegistry({ basePort, count, storageRoot, dhtPort, dht = {} }) {
+export function buildRegistry({ basePort, count, storageRoot, dhtPort, dht = {}, claimed }) {
   if (!Number.isInteger(count) || count < 1) {
     throw new RangeError(`count must be a positive integer, got ${count}`);
   }
@@ -30,11 +32,12 @@ export function buildRegistry({ basePort, count, storageRoot, dhtPort, dht = {} 
   }
 
   const dhtPortResolved = dhtPort ?? basePort - 1;
-  // The DHT port is reserved so no instance ever collides with it.
+  // The DHT port is always reserved, plus any ports a live probe found busy.
+  const reserved = claimed instanceof Set ? claimed : new Set(claimed ?? []);
   const instancePorts = allocateInstancePorts({
     basePort,
     count,
-    claimed: new Set([dhtPortResolved]),
+    claimed: new Set([dhtPortResolved, ...reserved]),
   });
 
   const instances = instancePorts.map((port, i) => ({
