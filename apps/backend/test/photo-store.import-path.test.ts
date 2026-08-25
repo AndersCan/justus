@@ -7,8 +7,9 @@
  * escape it via `..` segments or symlinks.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync, symlinkSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, symlinkSync, existsSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
 
