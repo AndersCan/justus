@@ -8,6 +8,7 @@
     "dev": "pnpm --parallel --filter './apps/*' run dev",
     "test:e2e": "playwright test",
     "test:e2e-hub": "vitest run --config e2e/hub/vitest.config.ts",
+    "test:e2e-p2p": "playwright test --config playwright.hub.config.ts",
     "test:e2e-hub:plan": "node scripts/e2e-hub.mjs --plan",
     "test:native": "bash scripts/maestro-e2e.sh",
     "prepare": "vp config"

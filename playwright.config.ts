@@ -7,6 +7,9 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // The multi-instance hub specs live under e2e/p2p and are driven by their
+  // own config (playwright.hub.config.ts) — keep them out of the single-instance run.
+  testIgnore: ["**/p2p/**"],
   // Tests share ONE stateful worklet (fresh per run, but order matters) —
   // run serially and keep assertions order-independent.
   fullyParallel: false,
