@@ -49,15 +49,37 @@ Backend dev details:
   pass `bootstrap:127.0.0.1:49737` to worklet instances for deterministic
   local P2P.
 
+### Verify the proof of concept (#20)
+
+The headline POC acceptance criterion — _create a folder, add a photo, the
+browser shows it_ — is wired end-to-end. The backend half is covered by an
+automated round-trip test; the in-browser half is a manual check.
+
+- **Backend round-trip (automated):** `apps/backend` runs
+  `test/photo-store.poc.test.ts`, which drives
+  `createFolder → setActive → addBytes → list()` through the in-memory fake-drive
+  harness and asserts the photo reaches the gallery projection. `pnpm test` in
+  `apps/backend` must be green (currently 83/83).
+- **In-browser (manual):** `pnpm run dev`, open the web app, create a folder,
+  then click **Add a photo** (web) or use the native picker host (Android). The
+  chosen file is POSTed to `POST /photos` (Vite-proxied in dev) or imported from
+  the device cache; the gallery refreshes live via the `photos.changed` push and
+  the new photo appears within ~2s. The readable filename comes from the drive
+  `metadata.name` (the in-memory fake-drive harness falls back to the drive
+  basename).
+- **Scope:** this verifies the single-device path. Cross-device replication is
+  still gated on **ekrooh#28** (bare-runtime hyperswarm Noise handshake on macOS).
+
 ## Status
 
-| Slice                                               | State                                                                                                                                   |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared events package (`@justus/core`)              | ✅                                                                                                                                      |
-| Backend worklet (store, plugin, loopback, dev loop) | ✅ single-device verified (list/add/status/inbox/spool)                                                                                 |
-| Web gallery app                                     | ✅ built + reviewed (runs against the dev backend)                                                                                      |
-| Android host                                        | ✅ scaffolded to the reference pattern (needs AAR creds + SDK to compile)                                                               |
-| P2P sync across devices                             | ⚠️ blocked by **ekrooh#28** — bare-runtime hyperswarm Noise handshakes fail on macOS; on-device (Keet/Agregore) is the production proof |
+| Slice                                                              | State                                                                                                                                   |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared events package (`@justus/core`)                             | ✅                                                                                                                                      |
+| Backend worklet (store, plugin, loopback, dev loop)                | ✅ single-device verified (list/add/status/inbox/spool)                                                                                 |
+| Web gallery app                                                    | ✅ built + reviewed (runs against the dev backend)                                                                                      |
+| POC acceptance (#20): create folder → add photo → gallery shows it | ✅ single-device (backend round-trip + web path verified; in-browser confirmation is a manual step)                                     |
+| Android host                                                       | ✅ scaffolded to the reference pattern (needs AAR creds + SDK to compile)                                                               |
+| P2P sync across devices                                            | ⚠️ blocked by **ekrooh#28** — bare-runtime hyperswarm Noise handshakes fail on macOS; on-device (Keet/Agregore) is the production proof |
 
 See the [wayfinder map](https://github.com/AndersCan/justus/issues/1) for the
 decision history and remaining tickets.
