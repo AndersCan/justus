@@ -72,4 +72,31 @@ describe("#93/#97 add(path) must contain imports to allowed roots", () => {
     expect(res[0]?.code).toBe(PhotoError.FORBIDDEN);
     await store.close();
   });
+
+  it("accepts an import root reached through a symlinked ancestor (issue #129)", async () => {
+    // macOS layout: /tmp -> /private/tmp, /var -> /private/var. The previous
+    // walk started at `/` and flagged the symlinked ancestor, refusing legit
+    // imports. Simulate it: a symlink (symAncestor -> realRoot) whose child is
+    // the configured import root.
+    const realRoot = mkdtempSync(join(tmpdir(), "justus-real-"));
+    const symAncestor = join(
+      tmpdir(),
+      `justus-sym-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    symlinkSync(realRoot, symAncestor);
+    const importRoot = join(symAncestor, "imports");
+    mkdirSync(importRoot, { recursive: true });
+    const deps = makeFakeDeps({
+      server: new FakeLoopbackServer(),
+      cacheDir: importRoot,
+      importRoots: [importRoot],
+    });
+    const store = createPhotoStore(deps);
+    await activeCreator(store);
+    const legit = join(importRoot, "photo.jpg");
+    writeFileSync(legit, new Uint8Array([1, 2, 3, 4]));
+    const res = await store.add(legit);
+    expect(res[0]).toBeNull();
+    await store.close();
+  });
 });

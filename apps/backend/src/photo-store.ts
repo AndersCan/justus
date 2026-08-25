@@ -319,12 +319,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const p = path.resolve(resolved);
     return p === r || p.startsWith(r + path.sep);
   };
-  /** Reject any symlink in the path's components — a link can point outside an
-   * allowed root. Uses lstat so neither the final entry nor an ancestor is
-   * followed; throws on the first symlink (or an unresolvable component). */
-  const assertNoSymlink = (resolved: string): void => {
-    const parts = resolved.split(path.sep).filter(Boolean);
-    let acc: string = path.sep;
+  /**
+   * Contain imports so a symlink cannot *escape* an allowed root. The walk
+   * starts at the matched root boundary — not at `/` — so a symlinked ancestor
+   * of the root (normal on macOS: `/tmp` -> `/private/tmp`, `/var` ->
+   * `/private/var`, or any symlinked mount) is never flagged. A symlink *inside*
+   * the root is only rejected when following it leaves every allowed root.
+   * Uses lstat + readlinkSync (realpathSync is unavailable in bare-fs) so the
+   * link is never followed.
+   */
+  const assertNoSymlink = (resolved: string, root: string): void => {
+    const rootResolved = path.resolve(root);
+    // Walk only the components strictly *inside* the matched root (the root
+    // directory itself is not re-checked).
+    const tail =
+      resolved === rootResolved
+        ? ""
+        : resolved.startsWith(rootResolved + path.sep)
+          ? resolved.slice(rootResolved.length + path.sep.length)
+          : resolved;
+    const parts = tail.split(path.sep).filter(Boolean);
+    let acc: string = rootResolved;
     for (const part of parts) {
       acc = path.join(acc, part);
       let st: ReturnType<typeof fs.lstatSync>;
@@ -333,7 +348,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       } catch {
         throw new Error("unresolvable path component");
       }
-      if (st.isSymbolicLink()) throw new Error("symlink component");
+      if (st.isSymbolicLink()) {
+        // Reject only when following the link would leave every allowed root.
+        const target = fs.readlinkSync(acc);
+        const targetResolved = path.resolve(path.dirname(acc), target);
+        if (!importRoots.some((r) => isWithinRoot(targetResolved, r))) {
+          throw new Error("symlink escapes allowed root");
+        }
+      }
     }
   };
   const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
@@ -944,11 +966,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // symlink walk uses lstat so neither the final entry nor an ancestor is
     // followed. A missing file falls through to NOT_FOUND below.
     const resolved = path.resolve(filePath);
-    if (!importRoots.some((root) => isWithinRoot(resolved, root))) {
+    const matchedRoot = importRoots.find((root) => isWithinRoot(resolved, root));
+    if (!matchedRoot) {
       return err(PhotoError.FORBIDDEN, `Import path escapes allowed roots: ${filePath}`);
     }
     try {
-      assertNoSymlink(resolved);
+      assertNoSymlink(resolved, matchedRoot);
     } catch {
       return err(PhotoError.FORBIDDEN, `Import path contains a symlink: ${filePath}`);
     }
