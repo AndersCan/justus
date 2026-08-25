@@ -8,6 +8,7 @@ import Hyperdrive from "hyperdrive";
 import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
+import { createLogsPlugin } from "./logs-plugin";
 import { createDevInbox } from "./dev-inbox";
 import { registerUploadRoute } from "./upload-route";
 import { createLogCollector } from "./log-collector";
@@ -72,6 +73,7 @@ const store: PhotoStore = createPhotoStore({
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store }));
+runtime.pluginRegistry.register(createLogsPlugin({ collector: logCollector }));
 
 // The real upload route on the worklet's own loopback server — the add path
 // the browser "Pick photo" uses in dev and on the device WebView alike.

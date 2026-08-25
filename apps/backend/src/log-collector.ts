@@ -86,8 +86,12 @@ export interface LogCollector {
     ts?: number;
   }): LogEntry;
   entries(): LogEntry[];
+  /** Bounded, filterable snapshot for the `logs.view` plugin surface. */
+  view(opts?: { tail?: number; level?: LogLevel; sources?: string[] }): LogEntry[];
   query(opts?: LogQuery): { contentType: string; body: string };
   ingestBatch(raw: unknown): IngestResult;
+  /** Admin diagnostic: reset the in-memory ring buffer. Returns entries cleared. */
+  clear(): number;
   installConsoleCapture(): boolean;
   setDir(dir: string): void;
   start(): void;
@@ -95,6 +99,13 @@ export interface LogCollector {
   readonly dropped: number;
   readonly captureInstalled: boolean;
 }
+
+const LEVEL_RANK: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
 
 export function createLogCollector(options: LogCollectorOptions = {}): LogCollector {
   const maxEntries = options.maxEntries ?? 1000;
@@ -171,6 +182,39 @@ export function createLogCollector(options: LogCollectorOptions = {}): LogCollec
 
   function entries(): LogEntry[] {
     return buffer.slice();
+  }
+
+  function view(opts: { tail?: number; level?: LogLevel; sources?: string[] } = {}): LogEntry[] {
+    let rows = buffer;
+    if (opts.level) {
+      const min = LEVEL_RANK[opts.level];
+      rows = rows.filter((e) => LEVEL_RANK[e.level] >= min);
+    }
+    if (opts.sources && opts.sources.length > 0) {
+      const set = new Set(opts.sources);
+      rows = rows.filter((e) => set.has(e.source));
+    }
+    if (typeof opts.tail === "number" && opts.tail >= 0) {
+      rows = rows.slice(Math.max(0, rows.length - opts.tail));
+    }
+    return rows.slice();
+  }
+
+  function clear(): number {
+    const cleared = buffer.length;
+    buffer.length = 0;
+    // A diagnostic reset also truncates the active on-disk file so a fresh
+    // capture starts clean; best-effort, never breaks the caller.
+    if (dir && fs && currentFile) {
+      try {
+        fs.unlinkSync(currentFile);
+      } catch {
+        // ignore — persistence is optional
+      }
+      currentFile = undefined;
+      currentSize = 0;
+    }
+    return cleared;
   }
 
   function query(opts: LogQuery = {}): { contentType: string; body: string } {
@@ -342,8 +386,10 @@ export function createLogCollector(options: LogCollectorOptions = {}): LogCollec
   return {
     append,
     entries,
+    view,
     query,
     ingestBatch,
+    clear,
     installConsoleCapture,
     setDir,
     start,

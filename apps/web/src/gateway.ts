@@ -1,5 +1,5 @@
 import { createPluginBus, createProtocolMessenger, MessageType } from "@ekrooh/bare/core";
-import { photoEvents } from "@justus/core";
+import { photoEvents, logEvents, type LogLevel } from "@justus/core";
 import { getTransport } from "./transport";
 
 export const transport = getTransport();
@@ -29,4 +29,9 @@ export const gateway = {
   requests: () => bus.invoke(photoEvents.photos.requests()),
   respond: (folderId: string, requesterKey: string, approve: boolean) =>
     bus.invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
+  logs: {
+    view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
+      bus.invoke(logEvents.view(opts)),
+    clear: () => bus.invoke(logEvents.clear()),
+  },
 };
