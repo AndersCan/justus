@@ -48,6 +48,10 @@ export class FakeDrive extends Emitter {
   readonly key: Buffer;
   readonly discoveryKey: Buffer;
   private files = new Map<string, Buffer>();
+  /** Mirrors the real hyperdrive `put(path, data, { metadata })` contract:
+   * custom metadata travels alongside the bytes and is surfaced by `list()`
+   * as `entry.value.metadata` (consumed by `deriveGallery`). */
+  private metadata = new Map<string, Record<string, unknown>>();
   /** Test hook: when true, `list()` throws (models an unreachable / not-yet-
    * downloaded peer drive). Lets a scenario assert that dedupe and gallery
    * derivation no longer depend on the drive being reachable at call time
@@ -90,25 +94,38 @@ export class FakeDrive extends Emitter {
     return this.files.get(path) ?? null;
   }
 
-  async put(path: string, data: Buffer): Promise<void> {
+  async put(
+    path: string,
+    data: Buffer,
+    opts?: { metadata?: Record<string, unknown> },
+  ): Promise<void> {
     this.files.set(path, Buffer.from(data));
+    this.metadata.set(path, opts?.metadata ?? {});
     this.emit("update");
   }
 
   async del(path: string): Promise<void> {
     this.files.delete(path);
+    this.metadata.delete(path);
     this.emit("update");
   }
 
   // The real p2p `Drive.list` returns an *async iterable* (consumed with
   // `for await`), not a Promise — model that faithfully so `listPhotosIn` and
   // `drivePhotoKeys` iterate entries instead of silently yielding nothing.
-  async *list(path: string): AsyncIterable<{ key: string; name: string }> {
+  // Each entry carries `value.metadata` (custom metadata set via `put(path,
+  // data, { metadata })`); `deriveGallery` reads it to surface the readable
+  // filename the add path threaded through (v2 seam parity, issue #19).
+  async *list(
+    path: string,
+  ): AsyncIterable<{ key: string; value: { metadata: Record<string, unknown> } }> {
     if (this.unreachable) throw new Error("fake drive unreachable");
     const prefix = path.endsWith("/") ? path : `${path}/`;
     for (const key of this.files.keys()) {
       if (key === path) continue;
-      if (key.startsWith(prefix)) yield { key, name: key.slice(prefix.length) };
+      if (key.startsWith(prefix)) {
+        yield { key, value: { metadata: this.metadata.get(key) ?? {} } };
+      }
     }
   }
 

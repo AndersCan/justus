@@ -58,12 +58,11 @@ describe("#20 POC happy-path: create folder → add photo → gallery shows it",
     expect(shown.id).toBe(added[1]!.id);
     expect(shown.mime).toBe("image/jpeg");
     expect(shown.id).not.toContain("/");
-    // NOTE: the gallery `name` under the in-memory FakeDrive falls back to the
-    // drive basename (`<id>.jpg`); the real hyperdrive carries `metadata.name`
-    // (so the browser shows "beach.jpg"). Filename threading through the add
-    // path is proven above at the `addBytes` return (added[1]!.name === "beach.jpg",
-    // regression #82/#99); please confirm the readable name in the browser hub check.
-    expect(shown.name).toBe(`${added[1]!.id}.jpg`);
+    // The in-memory FakeDrive now carries `metadata.name` (v2 seam parity,
+    // issue #19), so the gallery projection shows the readable filename the
+    // add path threaded through (regression #82/#99) — exactly what the
+    // browser renders over range HTTP in the hub single-tab scenario.
+    expect(shown.name).toBe("beach.jpg");
 
     // 5. The photo lives on the active folder's drive, so it replicates to peers
     // (the p2p half of the proof-of-concept). The folder still reports as the
