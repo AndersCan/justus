@@ -7,6 +7,7 @@
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "pnpm --parallel --filter './apps/*' run dev",
     "test:e2e": "playwright test",
+    "test:e2e-hub": "vitest run --config e2e/hub/vitest.config.ts",
     "test:native": "bash scripts/maestro-e2e.sh",
     "prepare": "vp config"
   },
