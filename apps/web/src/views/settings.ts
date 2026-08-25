@@ -13,6 +13,7 @@ import { $router } from "../router";
 import { useStore } from "../use-store";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
+import { logsPanel } from "./logs";
 
 /** Group a 64-char hex key as "8 groups of 8" — readable, copyable. */
 function groupKey(key: string): string {
@@ -424,6 +425,13 @@ function deviceSection(status: NonNullable<SyncViewModel["status"]>) {
   `;
 }
 
+function advancedLogsSection() {
+  return html`<details class="text-xs text-taupe">
+    <summary class="warm-label cursor-pointer select-none">Advanced</summary>
+    <div class="mt-3">${logsPanel()}</div>
+  </details>`;
+}
+
 function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
   const { state, busy, error, fatal } = syncVm;
   const status = syncVm.status;
@@ -443,7 +451,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
       )}
       ${nameSection(foldersVm)} ${newFolderSection(foldersVm)} ${folderListSection(foldersVm)}
       ${status ? html`${inviteSection(status)} ${enrollSection(status, state, busy)}` : null}
-      ${joinSection(state, busy)} ${status ? deviceSection(status) : null}
+      ${joinSection(state, busy)} ${status ? deviceSection(status) : null} ${advancedLogsSection()}
     </div>
   `;
 }

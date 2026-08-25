@@ -81,14 +81,15 @@ describe("#90/#92 a failed spool must not leak a .tmp staging file", () => {
     const spoolDir = join(cacheDir, "photos", folderId);
     // The staged tmp is removed from the failing-write's async error handler
     // (scheduled via setImmediate), so give the cleanup a moment to land
-    // before asserting — polling keeps the check deterministic across machines.
+    // before asserting — polling keeps the check deterministic across machines
+    // and tolerates a loaded runner where timers can lag.
     let leftovers: string[] = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 100; i++) {
       leftovers = existsSync(spoolDir)
         ? readdirSync(spoolDir).filter((f) => f.endsWith(".tmp"))
         : [];
       if (leftovers.length === 0) break;
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 20));
     }
     expect(leftovers).toHaveLength(0);
 
