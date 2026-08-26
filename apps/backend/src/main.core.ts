@@ -60,6 +60,12 @@ function pushChange(change: PhotoChanged) {
 const store: PhotoStore = createPhotoStore({
   storageDir,
   cacheDir,
+  // The dev inbox (and any picker-configured local import root) writes files
+  // OUTSIDE `cacheDir`, so it must be an allowed import root or `addFromPath`
+  // rejects it as FORBIDDEN (issue #157, introduced by the #118 root
+  // containment). The upload route stages under `cacheDir/uploads`, which is
+  // already covered by the default `[cacheDir]` root.
+  importRoots: config.inbox ? [cacheDir, config.inbox] : [cacheDir],
   server: runtime.server,
   deviceName: `Device-${Math.floor(Math.random() * 100000)}`,
   onChanged: pushChange,
