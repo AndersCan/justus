@@ -138,4 +138,34 @@ describe("log-routes", () => {
     expect(res.status).toBe(403);
     expect(res.body).not.toContain("secret-device-log");
   });
+
+  test("POST /__logs rejects an oversized body (413) without ingesting (issue #155)", async () => {
+    const server = fakeServer();
+    const collector = createLogCollector({ maxBatchBytes: 100, now: () => 1000 });
+    registerLogRoutes({ server: server as never, collector });
+
+    // A body whose UTF-8 byte length exceeds the 100-byte budget.
+    const big = JSON.stringify([{ message: "x".repeat(200) }]);
+    const res = mockRes();
+    server.routes["POST /__logs"](postReq(big), res as never);
+    await tick();
+    expect(res.status).toBe(413);
+    // The oversized body must never reach ingestBatch: no memory retained and
+    // nothing stored. This is the memory-exhaustion DoS fix — the stream is
+    // stopped the moment the byte budget is exceeded.
+    expect(collector.entries()).toHaveLength(0);
+  });
+
+  test("POST /__logs still ingests a body within the budget", async () => {
+    const server = fakeServer();
+    const collector = createLogCollector({ maxBatchBytes: 100, now: () => 1000 });
+    registerLogRoutes({ server: server as never, collector });
+
+    const ok = JSON.stringify([{ source: "web", message: "fits" }]);
+    const res = mockRes();
+    server.routes["POST /__logs"](postReq(ok), res as never);
+    await tick();
+    expect(res.status).toBe(200);
+    expect(collector.entries()[0].message).toBe("fits");
+  });
 });
