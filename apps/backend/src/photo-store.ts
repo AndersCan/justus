@@ -392,6 +392,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   type IndexedPhoto = {
     id: string;
     driveKey: string;
+    /** The folder this photo belongs to. Dedupe is scoped per folder (issue
+     * #156): several folders can share `ownDrive.key` (the identity folder and
+     * any member folder joined on the same device), so keying only on driveKey
+     * made a re-add of identical bytes to a *different* folder wrongly return a
+     * prior folder's spool entry and silently skip writing the bytes. */
+    folderId: string;
     name: string;
     mime: string;
     size: number;
@@ -702,7 +708,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * (sha256, driveKey, id). */
   function indexPhoto(p: IndexedPhoto) {
     const arr = contentIndex.get(p.sha256) ?? [];
-    if (arr.some((e) => e.driveKey === p.driveKey && e.id === p.id)) return;
+    if (arr.some((e) => e.driveKey === p.driveKey && e.id === p.id && e.folderId === p.folderId)) {
+      return;
+    }
     arr.push(p);
     contentIndex.set(p.sha256, arr);
   }
@@ -747,6 +755,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       indexPhoto({
         id: p.id,
         driveKey: p.driveKey,
+        folderId: rt.record.id,
         name: p.name,
         mime: p.mime,
         size: p.size,
@@ -1033,7 +1042,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // #49): that would leave the "added" photo unowned and unremovable for us, so
     // we fall through and write a local copy below.
     const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive.key : ownDrive.key);
-    const ownIdx = contentIndex.get(sha256)?.find((e) => e.driveKey === selfKeyHex);
+    const ownIdx = contentIndex
+      .get(sha256)
+      ?.find((e) => e.driveKey === selfKeyHex && e.folderId === rt.record.id);
     if (ownIdx) {
       // Serve the same spool file the original add wrote, so the re-add's URL
       // matches what `listPhotosIn` derives (issues #81/#83/#87).
@@ -1077,6 +1088,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     indexPhoto({
       id,
       driveKey: selfKey,
+      folderId: rt.record.id,
       name,
       mime,
       size: stat.size,
