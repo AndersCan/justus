@@ -43,20 +43,66 @@ function LOG_LEVELS_INCLUDES(v: string | null): v is LogLevel {
   return v === "debug" || v === "info" || v === "warn" || v === "error";
 }
 
-/** Accumulates the request body into a UTF-8 string without pulling in the
+/** Raised when the request body exceeds the accepted byte budget. Distinct
+ * from a generic 500 so the handler can respond 413 and stop consuming bytes. */
+class BodyTooLargeError extends Error {
+  constructor() {
+    super("request body too large");
+    this.name = "BodyTooLargeError";
+  }
+}
+
+/**
+ * Accumulates the request body into a UTF-8 string without pulling in the
  * bare runtime (mirrors `@ekrooh/bare/runtime`'s `collectRequestBody`, which
- * imports bare-fs/-path/-http1 at the top and cannot load under Node/vitest). */
-function readBody(req: {
-  on: (event: string, cb: (...args: unknown[]) => void) => void;
-}): Promise<string> {
-  return new Promise((resolve) => {
+ * imports bare-fs/-path/-http1 at the top and cannot load under Node/vitest).
+ *
+ * Unlike the bare equivalent, this enforces `maxBytes` *while* streaming: it
+ * stops reading the moment the byte budget is exceeded and destroys the
+ * request, so a hostile client cannot exhaust memory by streaming an enormous
+ * body before the collector's own size check runs (issue #155, memory-exhaustion
+ * DoS). The bound is the collector's `maxBatchBytes`, so the route and the
+ * ingest guard agree.
+ */
+function readBody(
+  req: {
+    on: (event: string, cb: (...args: unknown[]) => void) => void;
+    destroy?: () => void;
+  },
+  maxBytes: number,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
     const decoder = new TextDecoder();
     let body = "";
+    let bytes = 0;
+    let settled = false;
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      try {
+        req.destroy?.();
+      } catch {
+        // ignore — stream teardown is best-effort
+      }
+      reject(err);
+    };
     req.on("data", (chunk) => {
-      body +=
-        typeof chunk === "string" ? chunk : decoder.decode(chunk as Uint8Array, { stream: true });
+      if (settled) return;
+      const buf =
+        typeof chunk === "string" ? new TextEncoder().encode(chunk) : (chunk as Uint8Array);
+      bytes += buf.length;
+      if (bytes > maxBytes) {
+        fail(new BodyTooLargeError());
+        return;
+      }
+      body += typeof chunk === "string" ? chunk : decoder.decode(buf, { stream: true });
     });
-    req.on("end", () => resolve(body + decoder.decode(new Uint8Array(0))));
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+      resolve(body + decoder.decode(new Uint8Array(0)));
+    });
+    req.on("error", (e: unknown) => fail(e instanceof Error ? e : new Error(String(e))));
   });
 }
 
@@ -92,7 +138,7 @@ function makePostHandler(collector: LogCollector): LoopbackRouteHandler {
         return;
       }
       try {
-        const raw = await readBody(req as never);
+        const raw = await readBody(req as never, collector.maxBatchBytes);
         if (!raw) {
           res.writeHead(400, BASE_HEADERS);
           res.end(JSON.stringify({ ok: false, error: "empty body" }));
@@ -111,6 +157,11 @@ function makePostHandler(collector: LogCollector): LoopbackRouteHandler {
         res.writeHead(status, BASE_HEADERS);
         res.end(JSON.stringify({ ok: !result.error || result.accepted > 0, ...result }));
       } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          res.writeHead(413, BASE_HEADERS);
+          res.end(JSON.stringify({ ok: false, error: "request body too large" }));
+          return;
+        }
         const message = e instanceof Error ? e.message : String(e);
         res.writeHead(500, BASE_HEADERS);
         res.end(JSON.stringify({ ok: false, error: message }));

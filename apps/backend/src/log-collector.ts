@@ -98,6 +98,8 @@ export interface LogCollector {
   stop(): void;
   readonly dropped: number;
   readonly captureInstalled: boolean;
+  /** Max POST `/__logs` batch size in bytes (mirrored by the route's DoS guard). */
+  readonly maxBatchBytes: number;
 }
 
 const LEVEL_RANK: Record<LogLevel, number> = {
@@ -140,7 +142,10 @@ export function createLogCollector(options: LogCollectorOptions = {}): LogCollec
     if (!dir || !fs || !pathMod || stopped) return;
     try {
       const line = JSON.stringify(entry) + "\n";
-      const lineBytes = line.length;
+      // Byte length, not code-unit length: appendFileSync writes UTF-8, so
+      // sizing rotation/accounting in code units undercounts multi-byte entries
+      // and makes currentSize drift from the real on-disk byte size (issue #154).
+      const lineBytes = Buffer.byteLength(line, "utf8");
       if (currentFile && currentSize + lineBytes > maxFileBytes) rotate();
       if (!currentFile) {
         currentFile = pathMod.join(dir, `justus-log-${Date.now()}.jsonl`);
@@ -399,6 +404,9 @@ export function createLogCollector(options: LogCollectorOptions = {}): LogCollec
     },
     get captureInstalled() {
       return captureInstalled;
+    },
+    get maxBatchBytes() {
+      return maxBatchBytes;
     },
   };
 }

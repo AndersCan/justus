@@ -154,4 +154,39 @@ describe("log-collector", () => {
     expect(rows).toContain("alpha");
     expect(rows).toContain("gamma");
   });
+
+  test("rotation accounts for UTF-8 byte length, not code units (issue #154)", () => {
+    const fs = memFs();
+    const dir = "/logs";
+    // A multi-byte message: its JSON line is ~N code units but ~3N UTF-8 bytes.
+    // With a cap between the two-entry code-unit total and the two-entry byte
+    // total, code-unit accounting keeps both entries in one file while
+    // byte-accurate accounting rotates after the second entry.
+    const msg = "★".repeat(20);
+    const line = JSON.stringify({ level: "info", source: "backend", message: msg }) + "\n";
+    const codeUnitLen = line.length;
+    const byteLen = Buffer.byteLength(line, "utf8");
+    const cap = codeUnitLen + byteLen; // 2*codeUnitLen <= cap < 2*byteLen
+    // Files are named by Date.now(); pin it to distinct ticks so the two
+    // rotations produce two distinct files (otherwise they collide on one key).
+    const realNow = Date.now;
+    let t = 1000;
+    Date.now = () => (t += 1);
+    try {
+      const c = createLogCollector({
+        dir,
+        fs,
+        path: memPath(),
+        maxFileBytes: cap,
+        now: () => 1000,
+      });
+      c.start();
+      c.append({ source: "backend", message: msg });
+      c.append({ source: "backend", message: msg });
+      // Fixed: the second entry's byte length pushes past the cap -> a 2nd file.
+      expect(fs.files.size).toBe(2);
+    } finally {
+      Date.now = realNow;
+    }
+  });
 });
