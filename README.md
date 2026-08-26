@@ -49,6 +49,30 @@ Backend dev details:
   pass `bootstrap:127.0.0.1:49737` to worklet instances for deterministic
   local P2P.
 
+### System dependencies
+
+The in-browser e2e (`pnpm test:e2e`) boots the **real** Bare worklet, whose
+`rocksdb-native` addon links `libatomic.so.1`. That library is **not** shipped
+by most base images or dev containers, so the worklet fails at startup with an
+opaque native-load error:
+
+```text
+Uncaught AddonError: CANNOT_LOAD: Cannot load addon
+  '.../node_modules/rocksdb-native/prebuilds/linux-arm64/rocksdb-native.bare'
+[cause]: Error: libatomic.so.1: cannot open shared object file
+```
+
+Install it before running e2e (or anything that loads the real worklet) on a
+Debian/Ubuntu host or CI runner:
+
+```bash
+sudo apt-get update && sudo apt-get install -y libatomic1
+```
+
+The e2e server fails fast with this hint if the worklet can't boot for a missing
+system library (`scripts/e2e-server.mjs`). Any CI image that runs `pnpm test:e2e`
+must include `libatomic1` (or use a base image that already provides it).
+
 ### Verify the proof of concept (#20)
 
 The headline POC acceptance criterion — _create a folder, add a photo, the

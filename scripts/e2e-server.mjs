@@ -1,7 +1,8 @@
 import { spawn, execSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { mkdirSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve, join } from "node:path";
+import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { ensurePortFree, isPortInUse, portHeldBy } from "../apps/backend/scripts/port-utils.mjs";
 
@@ -59,6 +60,16 @@ async function main() {
   build("web app", "pnpm --filter @justus/web run build", root);
   build("backend worklet", "pnpm --filter @justus/backend run build", root);
 
+  const stderrLog = [];
+  const stderrTap = new Writable({
+    write(chunk, _enc, cb) {
+      const text = chunk.toString();
+      process.stderr.write(text);
+      stderrLog.push(text);
+      cb();
+    },
+  });
+
   const bare = spawn(
     bareExecutable,
     [
@@ -69,9 +80,18 @@ async function main() {
       `inbox=${inboxDir}`,
       `port=${PORT}`,
     ],
-    { stdio: "inherit" },
+    { stdio: ["inherit", "inherit", stderrTap] },
   );
   bare.on("exit", (code) => {
+    const stderr = stderrLog.join("");
+    if (code !== 0 && /CANNOT_LOAD|cannot open shared object|libatomic/i.test(stderr)) {
+      log(
+        "worklet failed to load a native addon. If you see " +
+          '"libatomic.so.1: cannot open shared object file", install it: ' +
+          "`sudo apt-get install -y libatomic1` (Debian/Ubuntu) and rerun " +
+          "`pnpm test:e2e`. See README → Development → System dependencies.",
+      );
+    }
     log(`worklet exited (code=${code}); shutting down.`);
     process.exit(code ?? 0);
   });
