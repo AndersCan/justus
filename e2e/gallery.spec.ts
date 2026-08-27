@@ -95,7 +95,7 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
   await page.setInputFiles("input[type=file]", {
     name: `picked-${Date.now()}.png`,
     mimeType: "image/png",
-    buffer: Buffer.from(TINY_PNG, "base64"),
+    buffer: Buffer.from(TINY_PNG_B, "base64"),
   });
 
   await expect
@@ -108,6 +108,11 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
  * seed paths, so dedupe tests can isolate their own content). */
 const TINY_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/** A distinct 1x1 PNG (red pixel) used by the picker test so it does not collide
+ * with TINY_PNG, which the dedupe test relies on being novel within a run. */
+const TINY_PNG_B =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
 
 test("adding identical bytes twice is deduped to one entry (#20)", async ({ page }) => {
   await page.goto("/");
