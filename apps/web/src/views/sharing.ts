@@ -11,6 +11,13 @@ function shortPeer(peerId: string): string {
   return `${peerId.slice(0, 6)}…${peerId.slice(-4)}`;
 }
 
+/** Trust-surface signal: a peer that presented a verified signed invite receipt
+ * (GrantRecord.receipt is set) is cryptographically known — not just a key we
+ * typed. Returns the badge copy, or null when the record carries no receipt. */
+export function inviteProvenance(record: GrantRecord): string | null {
+  return record.receipt ? "verified invite" : null;
+}
+
 /** Honest one-line state for a ledger record (share-grant-spec §2.1 / §4). */
 function stateBadge(record: GrantRecord): { copy: string; cls: string } {
   if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-moss" };
@@ -96,6 +103,16 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
             : null
         }
         <span class="text-xs font-semibold ${badge.cls}">${badge.copy}</span>
+        ${
+          inviteProvenance(record)
+            ? html`<span
+                class="text-xs font-semibold text-moss"
+                title="This device presented a verified signed invite receipt."
+                aria-label="Verified invite"
+                >✓ ${inviteProvenance(record)}</span
+              >`
+            : null
+        }
       </div>
     </li>
   `;
