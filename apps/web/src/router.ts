@@ -6,6 +6,7 @@ export const $router = createRouter({
   sharing: "/sharing",
   settings: "/settings",
   requests: "/requests",
+  welcome: "/welcome",
 });
 
 export type AppPage = NonNullable<ReturnType<typeof $router.get>>;
