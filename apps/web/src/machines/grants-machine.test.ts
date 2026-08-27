@@ -20,7 +20,7 @@ vi.mock("../gateway", () => {
     requests: vi.fn(),
     respond: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
-    grants: { view: vi.fn(), grant: vi.fn(), decline: vi.fn(), snooze: vi.fn() },
+    grants: { view: vi.fn(), grant: vi.fn(), decline: vi.fn(), revoke: vi.fn(), snooze: vi.fn() },
   };
   return { gateway: g };
 });
@@ -36,6 +36,9 @@ beforeEach(() => {
   mock.grants.view.mockReset().mockResolvedValue([null, { records: [], due: [] }]);
   mock.grants.grant.mockReset().mockResolvedValue([null, { record: record("p1") }]);
   mock.grants.decline.mockReset().mockResolvedValue([null, { record: record("p1") }]);
+  mock.grants.revoke
+    .mockReset()
+    .mockResolvedValue([null, { record: record("p1", { serveTo: "revoked" }) }]);
   mock.grants.snooze.mockReset().mockResolvedValue([null, { snoozed: 1 }]);
   $grantsRecords.set([]);
   $grantsDue.set([]);
@@ -94,6 +97,19 @@ describe("grants machine", () => {
     await vi.waitFor(() => expect($grantsState.get()).toBe("ok"));
     expect(mock.grants.snooze).toHaveBeenCalledOnce();
     expect($grantsDue.get()).toEqual([]);
+  });
+
+  test("revoke stops sharing and refreshes to the revoked state", async () => {
+    mock.grants.view
+      .mockResolvedValueOnce([null, { records: [record("p1", { serveTo: "granted" })], due: [] }])
+      .mockResolvedValueOnce([null, { records: [record("p1", { serveTo: "revoked" })], due: [] }]);
+    grants.refresh();
+    await vi.waitFor(() => expect($grantsState.get()).toBe("ok"));
+
+    grants.revoke("p1");
+    await vi.waitFor(() => expect($grantsState.get()).toBe("ok"));
+    expect(mock.grants.revoke).toHaveBeenCalledWith("p1");
+    expect($grantsRecords.get()[0].serveTo).toBe("revoked");
   });
 
   test("a view failure surfaces an error without an unhandled rejection", async () => {

@@ -11,7 +11,7 @@ import { bindStateAtoms, runInvoke } from "./actor-utils";
  * re-reads after acting to reflect the new state.
  */
 
-type GrantActionKind = "grant" | "decline" | "snooze";
+type GrantActionKind = "grant" | "decline" | "snooze" | "revoke";
 
 const GRANTS_STATES = ["idle", "refreshing", "ok", "acting", "error"] as const;
 export type GrantsStateName = (typeof GRANTS_STATES)[number];
@@ -129,7 +129,9 @@ const grantsActor = new Actor({
           ? () => gateway.grants.grant(pending.peerId)
           : pending.kind === "decline"
             ? () => gateway.grants.decline(pending.peerId)
-            : () => gateway.grants.snooze();
+            : pending.kind === "revoke"
+              ? () => gateway.grants.revoke(pending.peerId)
+              : () => gateway.grants.snooze();
       return runInvoke(
         signal,
         work,
@@ -163,6 +165,7 @@ export const grants = {
   refresh: () => grantsActor.send(refresh.create()),
   grant: (peerId: string) => grantsActor.send(act.create({ peerId, kind: "grant" })),
   decline: (peerId: string) => grantsActor.send(act.create({ peerId, kind: "decline" })),
+  revoke: (peerId: string) => grantsActor.send(act.create({ peerId, kind: "revoke" })),
   snooze: () => grantsActor.send(act.create({ peerId: "", kind: "snooze" })),
   retry: () => grantsActor.send(retry.create()),
 };

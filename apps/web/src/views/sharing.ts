@@ -66,7 +66,7 @@ function promptCard(view: SharingViewModel, record: GrantRecord) {
   `;
 }
 
-function recordRow(record: GrantRecord) {
+function recordRow(view: SharingViewModel, record: GrantRecord) {
   const badge = stateBadge(record);
   return html`
     <li class="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
@@ -80,7 +80,23 @@ function recordRow(record: GrantRecord) {
             : null
         }
       </div>
-      <span class="shrink-0 text-xs font-semibold ${badge.cls}">${badge.copy}</span>
+      <div class="flex shrink-0 items-center gap-3">
+        ${
+          record.serveTo === "granted"
+            ? html`<button
+                class="text-xs text-taupe underline-offset-2 hover:text-brick hover:underline"
+                ?disabled=${view.acting}
+                @click=${() => {
+                  grants.revoke(record.peerId);
+                  toast(`Stopped sharing with ${shortPeer(record.peerId)}`);
+                }}
+              >
+                stop sharing
+              </button>`
+            : null
+        }
+        <span class="text-xs font-semibold ${badge.cls}">${badge.copy}</span>
+      </div>
     </li>
   `;
 }
@@ -132,7 +148,7 @@ function sharingBody(view: SharingViewModel) {
           view.records.length === 0
             ? html`<p class="text-sm text-cocoa">Just you — invite someone to share.</p>`
             : html`<ul class="warm-card divide-y divide-line px-5 py-1">
-                ${view.records.map((r) => recordRow(r))}
+                ${view.records.map((r) => recordRow(view, r))}
               </ul>`
         }
       </section>
