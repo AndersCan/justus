@@ -14,6 +14,7 @@ import { galleryView } from "./views/gallery";
 import { albumsView } from "./views/albums";
 import { lightboxView } from "./views/lightbox";
 import { requestsView } from "./views/requests";
+import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
 import { startWebLogCapture } from "./log-capture";
@@ -69,7 +70,10 @@ render(
           <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
           <span class="ml-auto">${connectionIndicator()}</span>
           ${useStore($router, (page) => {
-            const link = (name: "gallery" | "albums" | "settings" | "requests", label: string) => {
+            const link = (
+              name: "gallery" | "albums" | "sharing" | "settings" | "requests",
+              label: string,
+            ) => {
               const active = page?.route === name;
               return html`<a
                 class="decoration-line underline-offset-4 hover:text-clay hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30 ${
@@ -81,7 +85,8 @@ render(
               >`;
             };
             return html`${link("gallery", "Gallery")} ${link("albums", "Albums")}
-            ${link("settings", "Folder")} ${link("requests", "Requests")}`;
+            ${link("sharing", "Sharing")} ${link("settings", "Folder")}
+            ${link("requests", "Requests")}`;
           })}
         </nav>
       </header>
@@ -100,6 +105,7 @@ function routeView(page: AppPage | undefined) {
   }
   if (page.route === "gallery") return galleryView();
   if (page.route === "albums") return albumsView();
+  if (page.route === "sharing") return sharingView();
   if (page.route === "requests") return requestsView();
   return settingsView();
 }
