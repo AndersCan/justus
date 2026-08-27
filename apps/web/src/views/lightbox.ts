@@ -20,7 +20,7 @@ export function closeLightbox(): void {
   $lightbox.set(null);
 }
 
-function step(dir: 1 | -1): void {
+export function step(dir: 1 | -1): void {
   const current = $lightbox.get();
   if (!current) return;
   const photos = $photos.get();
@@ -33,12 +33,17 @@ function step(dir: 1 | -1): void {
 // click after touchend on the touched element).
 let suppressClickUntil = 0;
 
-document.addEventListener("keydown", (e) => {
-  if (!$lightbox.get()) return;
-  if (e.key === "Escape") $lightbox.set(null);
-  if (e.key === "ArrowLeft") step(-1);
-  if (e.key === "ArrowRight") step(1);
-});
+// The web unit suite runs in node (no DOM) and must stay import-safe, so only
+// wire the global key handler where a document exists. The handler no-ops when
+// no photo is open.
+if (typeof document !== "undefined") {
+  document.addEventListener("keydown", (e) => {
+    if (!$lightbox.get()) return;
+    if (e.key === "Escape") $lightbox.set(null);
+    if (e.key === "ArrowLeft") step(-1);
+    if (e.key === "ArrowRight") step(1);
+  });
+}
 
 async function removeFromLightbox(photo: Photo) {
   if ($galleryState.get() === "removing") return;
