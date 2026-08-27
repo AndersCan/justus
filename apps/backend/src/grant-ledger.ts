@@ -13,6 +13,7 @@
 
 import type { GrantState, GrantRecord } from "@justus/core";
 export type { GrantState, GrantRecord };
+import { issueInvite, verifyInvite, type InviteCrypto } from "./invite-receipt";
 
 /** Milliseconds per calendar day, used to bucket prompts into "once daily". */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -38,6 +39,15 @@ export interface LedgerStore {
 export type GrantLedgerOptions = {
   store: LedgerStore;
   now?: () => number;
+  /**
+   * Ed25519 signing/verification for invite receipts (issue #30 signed-receipts).
+   * When present, `verifyReceipt` checks the signature and only grants a verified
+   * inviter; a missing or invalid receipt is treated as an unknown holder. When
+   * absent (e.g. a test ledger), the legacy trusting behaviour is kept so existing
+   * callers are unaffected. Production injects a bare-crypto adapter — see
+   * main.core.ts.
+   */
+  crypto?: InviteCrypto;
 };
 
 export class GrantLedger {
@@ -88,17 +98,52 @@ export class GrantLedger {
     return [...this.records.values()];
   }
 
-  /** A verified invite receipt auto-shares the inviter's album (issue #30).
-   * Crypto verification lives in the pairing flow; here the receipt is already
-   * trusted and simply recorded + granted. */
+  /**
+   * Issue a signed invite receipt (issue #30 signed-receipts) for `inviteeId` to
+   * share `albumId`. Returns the serialised receipt to hand to the invitee. Needs
+   * the `crypto` option; throws if it was not configured.
+   */
+  issueInvite(args: { inviteeId: string; albumId: string }): string {
+    if (!this.opts.crypto) {
+      throw new Error("GrantLedger.issueInvite requires crypto to be configured");
+    }
+    return issueInvite(this.opts.crypto, args);
+  }
+
+  /**
+   * Verify a signed invite receipt and auto-share the inviter's album (issue #30).
+   * With `crypto` configured, the receipt's signature is checked against the
+   * inviter's public key carried in the receipt, and the grant is recorded with
+   * `invitedBy` set to the verified inviter. A malformed, mis-addressed, or
+   * failing-signature receipt is treated as an unknown holder — never a silent
+   * grant. Without `crypto` (legacy/test path) the opaque receipt is trusted as
+   * before.
+   */
   async verifyReceipt(peerId: string, opts: { receipt: string }): Promise<GrantRecord> {
+    if (!this.opts.crypto) {
+      return this.grantViaReceipt(peerId, opts.receipt, this.getState(peerId).invitedBy ?? peerId);
+    }
+    const verified = verifyInvite(this.opts.crypto, opts.receipt, peerId);
+    if (!verified.ok) {
+      // Missing or invalid receipt → unknown caller, not a grant.
+      return this.recordUnknownHolder(peerId);
+    }
+    return this.grantViaReceipt(peerId, opts.receipt, verified.inviterId);
+  }
+
+  /** Shared commit + emit for a receipt-backed grant (verified or legacy). */
+  private async grantViaReceipt(
+    peerId: string,
+    receipt: string,
+    invitedBy: string,
+  ): Promise<GrantRecord> {
     const changedAt = this.now();
     const record: GrantRecord = {
       ...this.getState(peerId),
       peerId,
       serveTo: "granted",
-      receipt: opts.receipt,
-      invitedBy: this.getState(peerId).invitedBy ?? peerId,
+      receipt,
+      invitedBy,
       unknownHolderSince: undefined,
       declinedTerminal: false,
       lastChangedAt: changedAt,
