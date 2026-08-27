@@ -13,8 +13,8 @@
   "dependencies": {
     "@ekrooh/bare": "^0.4.0",
     "@justus/core": "workspace:*",
-    "@mantaq/core": "^0.3.0",
-    "@mantaq/sugar": "^0.4.0",
+    "@mantaq/core": "catalog:",
+    "@mantaq/sugar": "catalog:",
     "@nanostores/router": "^1.0.0",
     "lit-html": "^3.3.2",
     "nanostores": "^1.2.0",
