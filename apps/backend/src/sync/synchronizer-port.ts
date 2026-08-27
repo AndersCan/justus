@@ -75,11 +75,18 @@ function normalizePath(filePath: string): string {
 }
 
 /** Create an in-memory synchronizer for tests. Pure Node — no Bare/swarm. */
-export function createFakeSynchronizer(opts: { now?: () => number } = {}): SynchronizerPort & {
+export function createFakeSynchronizer(
+  opts: {
+    now?: () => number;
+    /** Per-topic peers to report (real seam derives these from the swarm). */
+    peers?: PeerReport[];
+  } = {},
+): SynchronizerPort & {
   /** Inspect a drive's stored objects (test helper only). */
   snapshot(keyHex: string): Map<string, { data: Buffer; mtime: number }>;
 } {
   const now = opts.now ?? (() => Date.now());
+  const peers = opts.peers ?? [];
   const drives = new Map<string, Map<string, { data: Buffer; mtime: number }>>();
   const handles = new Map<string, DriveHandle>();
 
@@ -129,7 +136,7 @@ export function createFakeSynchronizer(opts: { now?: () => number } = {}): Synch
         return entry.data.subarray(start, end);
       },
       peers(): PeerReport[] {
-        return [];
+        return peers;
       },
     };
   }

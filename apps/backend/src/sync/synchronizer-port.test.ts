@@ -1,72 +1,44 @@
+import { assertSynchronizerReadParity, PARITY_KEY } from "./parity.js";
 import { createFakeSynchronizer, type PeerReport } from "./synchronizer-port.js";
 import { describe, it, expect } from "vite-plus/test";
 
-const KEY = "aa".repeat(32);
-
 describe("FakeSynchronizer read-path parity", () => {
-  it("returns the written bytes when read after put", async () => {
+  it("validates the shared synchronizer read path", async () => {
     const sync = createFakeSynchronizer({ now: () => 1000 });
-    await sync.put(KEY, { path: "/photos/a.jpg", data: Buffer.from("hello") });
-    const handle = await sync.open(KEY);
-    expect(await handle.read("/photos/a.jpg")).toEqual(Buffer.from("hello"));
+    await assertSynchronizerReadParity(sync);
   });
+});
 
-  it("returns the half-open slice for a ranged read", async () => {
-    const sync = createFakeSynchronizer({ now: () => 1000 });
-    await sync.put(KEY, { path: "blob.bin", data: Buffer.from("0123456789") });
-    const handle = await sync.open(KEY);
-    expect(await handle.readRange("blob.bin", { start: 2, end: 5 })).toEqual(Buffer.from("234"));
-    expect(await handle.readRange("blob.bin", { start: 0, end: 10 })).toEqual(
-      Buffer.from("0123456789"),
-    );
-  });
-
-  it("rejects a ranged read that falls outside the object", async () => {
-    const sync = createFakeSynchronizer({ now: () => 1000 });
-    await sync.put(KEY, { path: "blob.bin", data: Buffer.from("0123") });
-    const handle = await sync.open(KEY);
-    await expect(handle.readRange("blob.bin", { start: 0, end: 99 })).rejects.toThrow();
-    await expect(handle.readRange("blob.bin", { start: 5, end: 2 })).rejects.toThrow();
-  });
-
-  it("returns sorted metadata for entries under a prefix", async () => {
-    const sync = createFakeSynchronizer({ now: () => 1000 });
-    await sync.put(KEY, { path: "/photos/b.jpg", data: Buffer.from("bb"), mtime: 20 });
-    await sync.put(KEY, { path: "/photos/a.jpg", data: Buffer.from("a"), mtime: 10 });
-    await sync.put(KEY, { path: "/meta.json", data: Buffer.from("{}"), mtime: 5 });
-    const handle = await sync.open(KEY);
-    const photos = await handle.list("/photos");
-    expect(photos.map((e) => e.name)).toEqual(["photos/a.jpg", "photos/b.jpg"]);
-    expect(photos[0]).toMatchObject({ size: 1, mtime: 10 });
-  });
-
-  it("reports size and mtime on stat and rejects a missing object", async () => {
-    const sync = createFakeSynchronizer({ now: () => 1000 });
-    await sync.put(KEY, { path: "/x", data: Buffer.from("abcd"), mtime: 42 });
-    const handle = await sync.open(KEY);
-    expect(await handle.stat("/x")).toMatchObject({ name: "x", size: 4, mtime: 42 });
-    await expect(handle.stat("/nope")).rejects.toThrow();
-    await expect(handle.read("/nope")).rejects.toThrow();
-  });
-
+describe("FakeSynchronizer mirror semantics", () => {
   it("returns the same handle on repeated open and reclaims it on close", async () => {
     const sync = createFakeSynchronizer({ now: () => 1 });
-    const first = await sync.open(KEY);
-    const second = await sync.open(KEY);
+    const first = await sync.open(PARITY_KEY);
+    const second = await sync.open(PARITY_KEY);
     expect(first).toBe(second);
-    await sync.close(KEY);
-    await sync.put(KEY, { path: "/after", data: Buffer.from("z") });
-    const third = await sync.open(KEY);
+    await sync.close(PARITY_KEY);
+    await sync.put(PARITY_KEY, { path: "/after", data: Buffer.from("z") });
+    const third = await sync.open(PARITY_KEY);
     expect(third).not.toBe(first);
     expect(await third.read("/after")).toEqual(Buffer.from("z"));
   });
 
-  it("returns no peers for the in-memory fake", async () => {
+  it("returns the per-topic peers it was given", async () => {
+    const peers: PeerReport[] = [
+      { key: "bb".repeat(32), topic: "album-aa".repeat(8) },
+      { key: "cc".repeat(32), topic: "album-bb".repeat(8) },
+    ];
+    const sync = createFakeSynchronizer({ now: () => 1, peers });
+    const handle = await sync.open(PARITY_KEY);
+    expect(handle.peers()).toEqual(peers);
+    // A folder can tell which member drive a connection satisfies by topic.
+    const forAlbum = handle.peers().filter((p) => p.topic.startsWith("album-aa"));
+    expect(forAlbum).toHaveLength(1);
+    expect(forAlbum[0].key).toBe("bb".repeat(32));
+  });
+
+  it("returns an empty peer list when no peers are injected", async () => {
     const sync = createFakeSynchronizer({ now: () => 1 });
-    const handle = await sync.open(KEY);
+    const handle = await sync.open(PARITY_KEY);
     expect(handle.peers()).toEqual([]);
-    // The real seam populates per-topic reports; the shape it must satisfy:
-    const report: PeerReport = { key: KEY, topic: "topic-hex" };
-    expect(report.topic).toBe("topic-hex");
   });
 });
