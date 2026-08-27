@@ -205,6 +205,12 @@ settings:
 
 catalogs:
   default:
+    '@mantaq/core':
+      specifier: ^0.3.0
+      version: 0.3.0
+    '@mantaq/sugar':
+      specifier: ^0.4.0
+      version: 0.4.0
     '@playwright/test':
       specifier: ^1.62.1
       version: 1.62.1
@@ -308,10 +314,10 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@mantaq/core':
-        specifier: ^0.3.0
+        specifier: 'catalog:'
         version: 0.3.0
       '@mantaq/sugar':
-        specifier: ^0.4.0
+        specifier: 'catalog:'
         version: 0.4.0
       '@nanostores/router':
         specifier: ^1.0.0
