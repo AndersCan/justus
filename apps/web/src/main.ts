@@ -17,12 +17,18 @@ import { requestsView } from "./views/requests";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
+import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { startWebLogCapture } from "./log-capture";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
 if (window.location.pathname.endsWith("/index.html")) {
   $router.open("/", true);
+}
+
+// First run: show the "no servers" welcome screen once per install.
+if (!hasSeenWelcome()) {
+  $router.open("/welcome", true);
 }
 
 // Capture web-layer diagnostics (console + page errors) into the shared log
@@ -107,5 +113,6 @@ function routeView(page: AppPage | undefined) {
   if (page.route === "albums") return albumsView();
   if (page.route === "sharing") return sharingView();
   if (page.route === "requests") return requestsView();
+  if (page.route === "welcome") return welcomeView();
   return settingsView();
 }

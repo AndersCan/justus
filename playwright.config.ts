@@ -24,6 +24,9 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:8080",
     trace: "retain-on-failure",
+    // The first-run welcome screen is suppressed in e2e so specs that load "/"
+    // land on the gallery/settings/sharing surfaces they assert.
+    storageState: "e2e/welcome-seen.json",
   },
   webServer: {
     command: "node scripts/e2e-server.mjs",
