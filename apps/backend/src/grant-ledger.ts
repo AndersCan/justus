@@ -28,10 +28,21 @@ export type GrantRecord = {
   /** Set the first time a peer is seen holding our content without a receipt;
    * drives the once-daily unknown-holder prompt. */
   unknownHolderSince?: number;
+  /** The last time the unknown-holder prompt was shown for this peer. Used to
+   * enforce the once-daily cadence (a "Not now" dismisses all peers for the
+   * day, so every batched peer is stamped with the same value). */
+  lastPromptedAt?: number;
   /** Decline is terminal: the prompt never re-shows for this peer. */
   declinedTerminal?: boolean;
   lastChangedAt: number;
 };
+
+/** Milliseconds per calendar day, used to bucket prompts into "once daily". */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayOf(epochMs: number): number {
+  return Math.floor(epochMs / DAY_MS);
+}
 
 export type LedgerEvent =
   | { type: "GRANTED"; peerId: string; at: number }
@@ -188,6 +199,38 @@ export class GrantLedger {
     await this.commit(record);
     this.emit({ type: "UNKNOWN_HOLDER", peerId, at: changedAt });
     return record;
+  }
+
+  /**
+   * Unknown-holder peers whose prompt is due right now (issue #30 §2.2). A peer
+   * is due when it has an `unknownHolderSince` and was either never prompted or
+   * was last prompted on a different calendar day — so the UI shows at most one
+   * card per day for the whole batched set. Declined (terminal) peers are never
+   * returned; `recordUnknownHolder` already refuses to queue them.
+   */
+  dueUnknownHolderPrompts(now: number): GrantRecord[] {
+    const today = dayOf(now);
+    return this.list().filter(
+      (r) =>
+        r.unknownHolderSince != null &&
+        (r.lastPromptedAt == null || dayOf(r.lastPromptedAt) !== today),
+    );
+  }
+
+  /**
+   * "Not now" on the batched prompt card: stamps every currently-due
+   * unknown-holder peer with `now` so the next `dueUnknownHolderPrompts` call
+   * returns an empty set until the next calendar day. Persisted, so a reload
+   * the same day does not re-surface the card. Does not grant, revoke, or
+   * decline anything — the choice stays reversible on a future day.
+   */
+  async snoozeUnknownHolderPrompts(now: number): Promise<void> {
+    const due = this.dueUnknownHolderPrompts(now);
+    if (due.length === 0) return;
+    for (const record of due) {
+      this.records.set(record.peerId, { ...record, lastPromptedAt: now });
+    }
+    await this.opts.store.write([...this.records.values()]);
   }
 
   /** Volatile presence — updated in memory only, not persisted. */

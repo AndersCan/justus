@@ -22,6 +22,8 @@ function clock(): { now: () => number; advance: () => void } {
   return { now: () => time, advance: () => (time += 1) };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 async function freshLedger() {
   const { now, advance } = clock();
   const ledger = new GrantLedger({ store: new MemoryLedgerStore(), now });
@@ -136,5 +138,55 @@ describe("grant-ledger", () => {
     off();
     await ledger.grant("peer-a");
     expect(seen).toEqual([]);
+  });
+});
+
+describe("unknown-holder prompt batching", () => {
+  it("returns a queued unknown holder as due", async () => {
+    const { ledger } = await freshLedger();
+    await ledger.recordUnknownHolder("peer-x");
+    const due = ledger.dueUnknownHolderPrompts(2_000);
+    expect(due.map((r) => r.peerId)).toEqual(["peer-x"]);
+  });
+
+  it("never returns granted, revoked, or declined peers", async () => {
+    const { ledger } = await freshLedger();
+    await ledger.grant("peer-granted");
+    await ledger.revoke("peer-revoked");
+    await ledger.decline("peer-declined");
+    await ledger.recordUnknownHolder("peer-granted");
+    await ledger.recordUnknownHolder("peer-revoked");
+    await ledger.recordUnknownHolder("peer-declined");
+    expect(ledger.dueUnknownHolderPrompts(2_000)).toEqual([]);
+  });
+
+  it("snooze hides all due peers for the rest of the day, then re-shows next day", async () => {
+    const { ledger, advance } = await freshLedger();
+    await ledger.recordUnknownHolder("peer-x");
+    await ledger.recordUnknownHolder("peer-y");
+    // Same-day dismiss.
+    await ledger.snoozeUnknownHolderPrompts(2_000);
+    expect(ledger.dueUnknownHolderPrompts(3_000)).toEqual([]);
+    // Next calendar day re-surface them.
+    advance();
+    expect(
+      ledger
+        .dueUnknownHolderPrompts(2_000 + DAY_MS)
+        .map((r) => r.peerId)
+        .sort(),
+    ).toEqual(["peer-x", "peer-y"]);
+  });
+
+  it("snooze is persisted across reload", async () => {
+    const store = new MemoryLedgerStore();
+    const { now } = clock();
+    const a = new GrantLedger({ store, now });
+    await a.load();
+    await a.recordUnknownHolder("peer-x");
+    await a.snoozeUnknownHolderPrompts(now());
+
+    const b = new GrantLedger({ store, now });
+    await b.load();
+    expect(b.dueUnknownHolderPrompts(now())).toEqual([]);
   });
 });
