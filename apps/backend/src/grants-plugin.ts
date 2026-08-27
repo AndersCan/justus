@@ -5,7 +5,7 @@ import type { GrantLedger } from "./grant-ledger";
 /** The ledger surface the plugin needs (kept narrow so tests stub it). */
 export type GrantLedgerLike = Pick<
   GrantLedger,
-  "list" | "dueUnknownHolderPrompts" | "grant" | "decline" | "snoozeUnknownHolderPrompts"
+  "list" | "dueUnknownHolderPrompts" | "grant" | "decline" | "revoke" | "snoozeUnknownHolderPrompts"
 >;
 
 function errResult(error: unknown): [CoreError, null] {
@@ -40,6 +40,14 @@ export function createGrantsPlugin(deps: { ledger: GrantLedgerLike }) {
       decline: async (args) => {
         try {
           const record = await deps.ledger.decline(args.peerId);
+          return [null, { record }];
+        } catch (e) {
+          return errResult(e);
+        }
+      },
+      revoke: async (args) => {
+        try {
+          const record = await deps.ledger.revoke(args.peerId);
           return [null, { record }];
         } catch (e) {
           return errResult(e);

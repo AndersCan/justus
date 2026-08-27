@@ -56,6 +56,7 @@ class FakeLedger implements GrantLedgerLike {
   duePeers: string[] = ["peer-a", "peer-b"];
   granted: string[] = [];
   declined: string[] = [];
+  revoked: string[] = [];
   snoozed = 0;
 
   list(): GrantRecord[] {
@@ -71,6 +72,10 @@ class FakeLedger implements GrantLedgerLike {
   async decline(peerId: string): Promise<GrantRecord> {
     this.declined.push(peerId);
     return { peerId, serveTo: "declined", lastChangedAt: 0 };
+  }
+  async revoke(peerId: string): Promise<GrantRecord> {
+    this.revoked.push(peerId);
+    return { peerId, serveTo: "revoked", lastChangedAt: 0 };
   }
   async snoozeUnknownHolderPrompts(): Promise<void> {
     this.snoozed += 1;
@@ -88,10 +93,10 @@ function invoke(
 }
 
 describe("createGrantsPlugin", () => {
-  it("exposes the four grant events", () => {
+  it("exposes the five grant events", () => {
     const plugin = createGrantsPlugin({ ledger: new FakeLedger() });
     expect((plugin.events ?? []).sort()).toEqual(
-      ["grants.decline", "grants.grant", "grants.snooze", "grants.view"].sort(),
+      ["grants.decline", "grants.grant", "grants.revoke", "grants.snooze", "grants.view"].sort(),
     );
   });
 
@@ -117,6 +122,15 @@ describe("createGrantsPlugin", () => {
     const plugin = createGrantsPlugin({ ledger });
     await invoke(plugin, "grants.decline", { peerId: "peer-c" });
     expect(ledger.declined).toEqual(["peer-c"]);
+  });
+
+  it("revoke delegates to the ledger", async () => {
+    const ledger = new FakeLedger();
+    const plugin = createGrantsPlugin({ ledger });
+    const [err, res] = await invoke(plugin, "grants.revoke", { peerId: "peer-c" });
+    expect(err).toBeNull();
+    expect((res as { record: GrantRecord }).record.serveTo).toBe("revoked");
+    expect(ledger.revoked).toEqual(["peer-c"]);
   });
 
   it("snooze reports the dismissed count and snoozes the ledger", async () => {

@@ -38,6 +38,7 @@ export const gateway = {
     view: () => bus.invoke(grantEvents.view()),
     grant: (peerId: string) => bus.invoke(grantEvents.grant(peerId)),
     decline: (peerId: string) => bus.invoke(grantEvents.decline(peerId)),
+    revoke: (peerId: string) => bus.invoke(grantEvents.revoke(peerId)),
     snooze: () => bus.invoke(grantEvents.snooze()),
   },
 };

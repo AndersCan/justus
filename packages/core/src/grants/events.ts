@@ -24,6 +24,12 @@ export const grantSpecs = {
     args: {} as { peerId: string },
     result: {} as { record: GrantRecord },
   },
+  revoke: {
+    pluginId: "justus.grants",
+    name: "grants.revoke",
+    args: {} as { peerId: string },
+    result: {} as { record: GrantRecord },
+  },
   snooze: {
     pluginId: "justus.grants",
     name: "grants.snooze",
@@ -53,5 +59,10 @@ export const grantEvents = {
   },
   snooze(): InvokeEnvelope<"grants.snooze", Record<string, never>, { snoozed: number }> {
     return invokeEvent(grantSpecs.snooze, {}, null, 10_000);
+  },
+  revoke(
+    peerId: string,
+  ): InvokeEnvelope<"grants.revoke", { peerId: string }, { record: GrantRecord }> {
+    return invokeEvent(grantSpecs.revoke, { peerId }, null, 10_000);
   },
 };
