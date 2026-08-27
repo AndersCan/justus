@@ -9,6 +9,9 @@ import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
 import { createLogsPlugin } from "./logs-plugin";
+import { GrantLedger } from "./grant-ledger";
+import { createGrantsPlugin } from "./grants-plugin";
+import { createFileLedgerStore } from "./ledger-store";
 import { createDevInbox } from "./dev-inbox";
 import { registerUploadRoute } from "./upload-route";
 import { createLogCollector } from "./log-collector";
@@ -81,6 +84,15 @@ const store: PhotoStore = createPhotoStore({
 runtime.pluginRegistry.register(createPhotosPlugin({ store }));
 runtime.pluginRegistry.register(createLogsPlugin({ collector: logCollector }));
 
+// Per-device grant ledger (issue #30): the local owner's view of who holds
+// their album. Never replicated, so a plain JSON file in `storageDir` is the
+// durable store. Loaded before the runtime starts so the first `view` is
+// accurate.
+const grantLedger = new GrantLedger({
+  store: createFileLedgerStore({ dir: storageDir, fs, path }),
+});
+runtime.pluginRegistry.register(createGrantsPlugin({ ledger: grantLedger }));
+
 // The real upload route on the worklet's own loopback server — the add path
 // the browser "Pick photo" uses in dev and on the device WebView alike.
 registerUploadRoute({
@@ -104,8 +116,9 @@ if (config.dev && config.inbox) {
   });
 }
 
-void store
-  .ready()
+void grantLedger
+  .load()
+  .then(() => store.ready())
   .then(() => runtime.start())
   .then((credentials) => {
     console.log(`[justus] worklet ready at ${credentials.origin}`);
