@@ -1,5 +1,5 @@
 import { createPluginBus, createProtocolMessenger, MessageType } from "@ekrooh/bare/core";
-import { photoEvents, logEvents, type LogLevel } from "@justus/core";
+import { photoEvents, logEvents, grantEvents, type LogLevel } from "@justus/core";
 import { getTransport } from "./transport";
 
 export const transport = getTransport();
@@ -33,5 +33,11 @@ export const gateway = {
     view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
       bus.invoke(logEvents.view(opts)),
     clear: () => bus.invoke(logEvents.clear()),
+  },
+  grants: {
+    view: () => bus.invoke(grantEvents.view()),
+    grant: (peerId: string) => bus.invoke(grantEvents.grant(peerId)),
+    decline: (peerId: string) => bus.invoke(grantEvents.decline(peerId)),
+    snooze: () => bus.invoke(grantEvents.snooze()),
   },
 };
