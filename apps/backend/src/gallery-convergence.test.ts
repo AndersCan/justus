@@ -189,6 +189,21 @@ function assertIngestInvariant(g: DerivedPhoto[]): void {
   }
 }
 
+/**
+ * I2/I4 — tombstone invariants. A `removed[owner:id]` entry must hide that id on
+ * every replica (visibility-independent: the device need not have seen the
+ * photo), and must stay hidden across re-adds of the same id (sticky — keyed by
+ * id, not by content digest, so a re-ingest with new bytes cannot remint it).
+ */
+function assertTombstoneInvariants(g: DerivedPhoto[], removed: Set<string>): void {
+  for (const key of removed) {
+    const sep = key.indexOf(":");
+    const driveKey = key.slice(0, sep);
+    const id = key.slice(sep + 1);
+    expect(g.some((p) => p.driveKey === driveKey && p.id === id)).toBe(false);
+  }
+}
+
 describe("deterministic fork convergence (issue #23, I1/I3/I5/I6)", () => {
   const OWNER_A = "a".repeat(64);
   const OWNER_B = "b".repeat(64);
@@ -229,6 +244,12 @@ describe("deterministic fork convergence (issue #23, I1/I3/I5/I6)", () => {
         const owner = rng() < 0.5 ? OWNER_A : OWNER_B;
         const id = `p${Math.floor(rng() * 8)}`;
         world.remove(owner, id);
+      } else if (roll < 0.7 && world.removed.size > 0) {
+        // I4 fuzz — re-add a previously removed id with NEW bytes; the sticky
+        // tombstone must keep it hidden on every replica regardless of content.
+        const key = [...world.removed][Math.floor(rng() * world.removed.size)]!;
+        const sep = key.indexOf(":");
+        world.ingest(rng, key.slice(0, sep), key.slice(sep + 1), `re-add-${rng()}`);
       } else {
         if (rng() < 0.5) syncStep(a, world, rng);
         else syncStep(b, world, rng);
@@ -251,6 +272,11 @@ describe("deterministic fork convergence (issue #23, I1/I3/I5/I6)", () => {
     assertIngestInvariant(ga);
     assertIngestInvariant(gb);
     assertIngestInvariant(ideal());
+    // I2/I4 — every tombstone is honored on both replicas and the ground truth:
+    // removed ids stay hidden (visibility-independent) and never remint on re-add.
+    assertTombstoneInvariants(ga, world.removed);
+    assertTombstoneInvariants(gb, world.removed);
+    assertTombstoneInvariants(ideal(), world.removed);
     // I6 — replicas converge to the same gallery, equal to the ground-truth ideal.
     expect(norm(ga)).toBe(norm(gb));
     expect(norm(gb)).toBe(norm(ideal()));
@@ -288,5 +314,66 @@ describe("I5 — sha256 ingest dedupe (issue #23)", () => {
     world.ingest(rng, A, "y", "bytes-two");
     const entries = [...world.drives.get(A)!.values()];
     expect(entries[0]!.sha256).not.toBe(entries[1]!.sha256);
+  });
+});
+
+describe("I2 — visibility-independent removal (issue #23)", () => {
+  const OWNER = "a".repeat(64);
+
+  function removedRecord(world: World): Record<string, unknown> {
+    return Object.fromEntries([...world.removed].map((k) => [k, true]));
+  }
+
+  test("a device that copied a photo still hides it once tombstoned", () => {
+    const world = new World([OWNER]);
+    const rng = mulberry32(1);
+    world.ingest(rng, OWNER, "x", "bytes-x");
+    const r = new Replica("R");
+    fullSync(r, world); // R has seen "x"
+    world.remove(OWNER, "x");
+    const g = deriveGallery(scansOf(r.view), removedRecord(world), (k) => `m-${k.slice(0, 4)}`);
+    expect(g.some((p) => p.driveKey === OWNER && p.id === "x")).toBe(false);
+  });
+
+  test("a device that never copied the photo also hides it (tombstone is global)", () => {
+    const world = new World([OWNER]);
+    const rng = mulberry32(1);
+    world.ingest(rng, OWNER, "x", "bytes-x");
+    world.remove(OWNER, "x");
+    const r = new Replica("R"); // never synced
+    const g = deriveGallery(scansOf(r.view), removedRecord(world), (k) => `m-${k.slice(0, 4)}`);
+    expect(g.some((p) => p.driveKey === OWNER && p.id === "x")).toBe(false);
+  });
+});
+
+describe("I4 — sticky tombstones (issue #23)", () => {
+  const OWNER = "a".repeat(64);
+
+  function removedRecord(world: World): Record<string, unknown> {
+    return Object.fromEntries([...world.removed].map((k) => [k, true]));
+  }
+
+  test("re-adding a removed id with new bytes stays hidden", () => {
+    const world = new World([OWNER]);
+    const rng = mulberry32(2);
+    world.ingest(rng, OWNER, "x", "bytes-v1");
+    const r = new Replica("R");
+    fullSync(r, world);
+    world.remove(OWNER, "x");
+    world.ingest(rng, OWNER, "x", "bytes-v2"); // re-add same id, new content
+    fullSync(r, world);
+    const g = deriveGallery(scansOf(r.view), removedRecord(world), (k) => `m-${k.slice(0, 4)}`);
+    expect(g.some((p) => p.driveKey === OWNER && p.id === "x")).toBe(false);
+  });
+
+  test("tombstone survives a full re-sync on a fresh replica", () => {
+    const world = new World([OWNER]);
+    const rng = mulberry32(3);
+    world.ingest(rng, OWNER, "x", "bytes-x");
+    world.remove(OWNER, "x");
+    const fresh = new Replica("F");
+    fullSync(fresh, world); // full copy incl. the stale entry
+    const g = deriveGallery(scansOf(fresh.view), removedRecord(world), (k) => `m-${k.slice(0, 4)}`);
+    expect(g.some((p) => p.driveKey === OWNER && p.id === "x")).toBe(false);
   });
 });
