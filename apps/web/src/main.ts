@@ -18,6 +18,7 @@ import { requestsView } from "./views/requests";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
+import { themeToggle } from "./views/theme-toggle";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { startWebLogCapture } from "./log-capture";
 
@@ -146,13 +147,15 @@ render(
         <nav class="flex flex-col gap-1" aria-label="Main">
           ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
         </nav>
-        <div class="mt-auto px-3">${connectionIndicator()}</div>
+        <div class="mt-auto flex items-center justify-between gap-2 px-3">
+          ${connectionIndicator()} ${themeToggle()}
+        </div>
       </aside>
       <header
         class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
       >
         <span class="text-base font-semibold tracking-tight">Justus</span>
-        ${connectionIndicator()}
+        <span class="flex items-center gap-3">${connectionIndicator()} ${themeToggle()}</span>
       </header>
       <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
         ${useStore($router, (page) => cache(routeView(page)))}
