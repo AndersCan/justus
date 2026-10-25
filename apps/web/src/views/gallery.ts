@@ -87,7 +87,7 @@ async function onFileChosen(file: File | null | undefined) {
 
 type GalleryViewModel = ReturnType<typeof $galleryViewModel.get>;
 
-/** Warm polaroid illustration for the empty state. */
+/** Empty-state illustration for the empty state. */
 function emptyIllustration() {
   return html`<svg
     width="120"
@@ -97,11 +97,11 @@ function emptyIllustration() {
     aria-hidden="true"
     class="mx-auto mb-4"
   >
-    <rect x="26" y="18" width="68" height="84" rx="10" fill="#FFFDF6" stroke="#E2CEB2" />
-    <rect x="34" y="26" width="52" height="44" rx="6" fill="#F3E4CC" />
-    <circle cx="52" cy="40" r="7" fill="#C99A5B" />
-    <path d="M34 64 L48 50 L60 62 L68 54 L86 70 L86 70 L34 70 Z" fill="#B05C2E" />
-    <rect x="42" y="78" width="36" height="5" rx="2.5" fill="#E8D6BA" />
+    <rect x="26" y="18" width="68" height="84" rx="10" class="fill-surface stroke-line" />
+    <rect x="34" y="26" width="52" height="44" rx="6" class="fill-subtle" />
+    <circle cx="52" cy="40" r="7" class="fill-warn" />
+    <path d="M34 64 L48 50 L60 62 L68 54 L86 70 L86 70 L34 70 Z" class="fill-accent" />
+    <rect x="42" y="78" width="36" height="5" rx="2.5" class="fill-line" />
   </svg>`;
 }
 
@@ -111,7 +111,7 @@ async function confirmRemove(photo: Photo) {
     title: `Remove “${photo.name}”?`,
     detail: "It will disappear from every device sharing this folder.",
     confirmLabel: "Remove",
-    tone: "brick",
+    tone: "danger",
   });
   if (!ok) return;
   gallery.remove(photo.id);
@@ -121,7 +121,7 @@ async function confirmRemove(photo: Photo) {
 export function photoTile(photo: Photo) {
   return html`
     <figure
-      class="group relative m-0 cursor-pointer overflow-hidden bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60 focus-visible:ring-inset"
+      class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       style="view-transition-name: ${vtName(photo.id)}"
       role="button"
       tabindex="0"
@@ -142,10 +142,10 @@ export function photoTile(photo: Photo) {
         loading="lazy"
       />
       <figcaption
-        class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/90 via-ink/50 to-transparent px-3 pb-2.5 pt-8"
+        class="pointer-events-none absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-8 [@media(hover:hover)]:block [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-visible:opacity-100"
       >
-        <div class="truncate font-serif text-sm italic text-linen">${photo.name}</div>
-        <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#E9D3B5]">
+        <div class="truncate text-sm font-medium text-white">${photo.name}</div>
+        <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/75">
           <span
             class="inline-block h-2 w-2 shrink-0 rounded-full"
             style="background: ${memberColor(photo.member.key)}"
@@ -156,7 +156,7 @@ export function photoTile(photo: Photo) {
         </div>
       </figcaption>
       <button
-        class="absolute right-2 top-2 flex h-11 min-h-11 w-11 items-center justify-center rounded-full bg-ink/60 text-sm text-linen backdrop-blur-sm transition hover:bg-brick focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+        class="absolute right-1.5 top-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-black/60 text-sm text-white backdrop-blur-sm transition hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 [@media(hover:hover)]:flex [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
         title="Remove ${photo.name}"
         aria-label="Remove ${photo.name}"
         @click=${(e: Event) => {
@@ -186,7 +186,7 @@ export function photoTile(photo: Photo) {
   `;
 }
 
-/** Month-grouped photo tiles: "August 2026" serif rules between runs. */
+/** Month-grouped photo tiles: "August 2026" rules between runs. */
 function groupedPhotos(photos: Photo[], density: Density) {
   const groups: { label: string; photos: Photo[] }[] = [];
   for (const photo of photos) {
@@ -199,14 +199,14 @@ function groupedPhotos(photos: Photo[], density: Density) {
   }
   return groups.map(
     (group) => html`
-      <div class="mt-8 first:mt-0">
-        <h2
-          class="mb-3 flex items-baseline gap-2 border-b border-butter pb-2 font-serif text-lg text-cocoa"
-        >
+      <div class="mt-6 first:mt-0">
+        <h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg">
           <span>${group.label}</span>
-          <span class="font-sans text-xs text-taupe">${group.photos.length}</span>
+          <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
-        <div class="grid ${gridColsFor(density)} gap-0">${group.photos.map(photoTile)}</div>
+        <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
+          ${group.photos.map(photoTile)}
+        </div>
       </div>
     `,
   );
@@ -217,7 +217,7 @@ function densityToggle() {
   return useStore($density, (density) => {
     const next: Density = density === "compact" ? "comfortable" : "compact";
     return html`<button
-      class="warm-ghost"
+      class="ui-btn-ghost"
       title="Toggle grid density"
       aria-label="Toggle gallery grid density (currently ${density})"
       @click=${() => {
@@ -233,19 +233,19 @@ function densityToggle() {
 function presenceStrip() {
   const status = $syncStatus.get();
   if (!status) {
-    return html`<span class="text-sm text-taupe">Looking for your folder…</span>`;
+    return html`<span class="text-sm text-muted">Looking for your folder…</span>`;
   }
   const peers = status.peers;
   const known = status.members.length;
   const online = peers > 0;
   const alone = known <= 1;
-  const dotColor = online ? "bg-moss" : alone ? "bg-caramel" : "bg-honey";
+  const dotColor = online ? "bg-ok" : alone ? "bg-warn" : "bg-warn";
   const dotLabel = online ? "In sync" : alone ? "Ready to share" : "Waiting for devices";
   const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
   const lastSync = $lastSyncAt.get();
   const otherCount = known > 1 ? known - 1 : 0;
   return html`
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-taupe">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
       <span class="inline-flex items-center gap-1.5">
         <span class="h-2 w-2 rounded-full ${dotColor} ${dotPulse}"></span>
         ${dotLabel}
@@ -260,7 +260,7 @@ function presenceStrip() {
       <span class="flex items-center gap-1.5" aria-hidden="true">
         ${status.members.map(
           (m) => html`<span
-            class="inline-block h-3 w-3 rounded-full ring-2 ring-linen"
+            class="inline-block h-3 w-3 rounded-full ring-2 ring-white"
             style="background: ${memberColor(m.key)}"
             title="${m.name}"
           ></span>`,
@@ -281,13 +281,12 @@ const $folderView = computed([$folders, $activeFolderId], (folders, activeId) =>
 function folderContext() {
   return useStore($folderView, ({ active, all }) => {
     if (!active) {
-      return html`<p class="text-sm text-taupe">No folder selected</p>`;
+      return html`<p class="text-sm text-muted">No folder selected</p>`;
     }
     const others = all.filter((f) => f.id !== active.id);
     return html`
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-sm text-taupe">in</span>
-        <span class="truncate font-serif text-xl text-cocoa" title=${active.name}
+        <span class="truncate text-sm font-medium text-fg" title=${active.name}
           >${active.name}</span
         >
         ${
@@ -295,7 +294,7 @@ function folderContext() {
             ? html`<label class="inline-flex items-center">
                 <span class="sr-only">Switch folder</span>
                 <select
-                  class="warm-ghost cursor-pointer"
+                  class="ui-btn-ghost cursor-pointer"
                   aria-label="Switch folder"
                   @change=${(e: Event) => {
                     const id = (e.target as HTMLSelectElement).value;
@@ -320,10 +319,10 @@ function folderContext() {
 function emptyState(view: GalleryViewModel) {
   const canAdd = view.role !== "reader";
   return html`
-    <div class="mt-10 rounded-3xl bg-linen px-6 py-10 text-center ring-1 ring-line">
+    <div class="mt-10 rounded-3xl bg-surface px-6 py-10 text-center ring-1 ring-line">
       ${emptyIllustration()}
-      <h2 class="font-serif text-2xl text-ink">This folder is empty — for now.</h2>
-      <p class="mx-auto mt-2 max-w-sm text-sm text-cocoa">
+      <h2 class="text-xl font-semibold text-fg">This folder is empty — for now.</h2>
+      <p class="mx-auto mt-2 max-w-sm text-sm text-fg">
         ${
           canAdd
             ? "Add your first photo and it will appear on every device you share this folder with."
@@ -333,10 +332,12 @@ function emptyState(view: GalleryViewModel) {
       <div class="mt-5 flex justify-center gap-2">
         ${
           canAdd
-            ? html`<button class="warm-pill" @click=${() => void pickAndAdd()}>Add a photo</button>`
+            ? html`<button class="ui-btn-primary" @click=${() => void pickAndAdd()}>
+                Add a photo
+              </button>`
             : null
         }
-        <a class="warm-ghost inline-flex items-center" href="/settings"
+        <a class="ui-btn-ghost inline-flex items-center" href="/settings"
           >${view.role === "reader" ? "Join a folder" : "Set up another device"}</a
         >
       </div>
@@ -351,7 +352,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
     <div class="space-y-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-2">
-          <h1 class="font-serif text-3xl text-ink">Gallery</h1>
+          <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>
           ${folderContext()} ${presenceStrip()}
         </div>
         <div class="flex shrink-0 flex-wrap gap-2">
@@ -367,16 +368,16 @@ function galleryBody(view: GalleryViewModel, density: Density) {
             }}
           />
           <button
-            class="warm-ghost"
+            class="ui-btn-ghost"
             ?disabled=${busy || state === "loading" || fatal}
             @click=${() => gallery.load()}
           >
-            Check for new photos
+            Refresh
           </button>
           ${useStore(
             $webUploading,
             (uploading) => html`<button
-              class="warm-pill"
+              class="ui-btn-primary"
               ?disabled=${busy || state !== "ready" || uploading}
               @click=${() => void pickAndAdd()}
             >
@@ -399,7 +400,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
                 { length: 8 },
                 () =>
                   html`<div
-                    class="aspect-square animate-pulse bg-butter motion-reduce:animate-none"
+                    class="aspect-square animate-pulse bg-subtle motion-reduce:animate-none"
                   ></div>`,
               )}
             </div>`
@@ -410,8 +411,8 @@ function galleryBody(view: GalleryViewModel, density: Density) {
           ? emptyState(view)
           : html`
               ${groupedPhotos(photos, density)}
-              <footer class="pt-8 text-center font-serif text-sm italic text-taupe">
-                — ${photos.length} photo${photos.length === 1 ? "" : "s"} shared with care —
+              <footer class="pt-6 text-center text-xs text-muted">
+                ${photos.length} photo${photos.length === 1 ? "" : "s"}
               </footer>
             `
       }

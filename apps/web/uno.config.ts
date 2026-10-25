@@ -1,5 +1,11 @@
 import { defineConfig, presetUno } from "unocss";
 
+// Semantic tokens only. Raw values live in index.html as CSS variables (space
+// separated RGB) so light/dark switch with `prefers-color-scheme`. Views use
+// bg-canvas / bg-surface / text-fg / text-muted / accent / danger — never a
+// literal color. Green/amber/red `trust-*` is reserved for connection state.
+const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default defineConfig({
   presets: [presetUno()],
   content: {
@@ -12,43 +18,36 @@ export default defineConfig({
   },
   theme: {
     colors: {
-      paper: "#FAF3E7",
-      linen: "#FFFDF6",
-      butter: "#F3E4CC",
-      line: "#E8D6BA",
-      "line-strong": "#E2CEB2",
-      ink: "#3A2A1D",
-      cocoa: "#5A4533",
-      taupe: "#8A7159",
-      clay: "#B05C2E",
-      "clay-deep": "#9A4E24",
-      caramel: "#C99A5B",
-      moss: "#6E7F45",
-      plum: "#7C5A88",
-      honey: "#C98A2D",
-      brick: "#B3452F",
-      // Trust color language — reserved for connection state only (vision:
-      // "green/amber/red reserved for connection"). The header's p2p indicator
-      // is the sole consumer.
+      canvas: token("canvas"),
+      surface: token("surface"),
+      subtle: token("subtle"),
+      line: token("line"),
+      fg: token("fg"),
+      muted: token("muted"),
+      accent: token("accent"),
+      "accent-strong": token("accent-strong"),
+      danger: token("danger"),
+      ok: token("ok"),
+      warn: token("warn"),
       trust: {
-        green: "#2E8B57",
-        amber: "#C98A2D",
-        red: "#B3452F",
+        green: token("trust-green"),
+        amber: token("trust-amber"),
+        red: token("trust-red"),
       },
-    },
-    fontFamily: {
-      serif: 'ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif',
     },
   },
   shortcuts: {
-    "warm-card":
-      "rounded-2xl bg-linen ring-1 ring-line shadow-[0_1px_2px_rgba(100,60,20,.06),0_6px_16px_rgba(100,60,20,.10)]",
-    "warm-pill":
-      "rounded-full bg-clay px-5 py-2.5 min-h-11 text-sm font-semibold text-linen shadow-[0_4px_12px_rgba(176,92,46,.35)] hover:bg-clay-deep active:translate-y-px disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30",
-    "warm-ghost":
-      "rounded-full border border-line bg-white/70 min-h-11 px-4 py-2.5 text-cocoa hover:bg-butter active:translate-y-px disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30",
-    "warm-input":
-      "rounded-xl border border-line-strong bg-white/80 px-3.5 py-2.5 text-ink placeholder:text-taupe outline-none focus:border-clay focus:ring-2 focus:ring-clay/25",
-    "warm-label": "text-xs font-bold uppercase tracking-widest text-taupe",
+    "ui-card": "rounded-2xl bg-surface ring-1 ring-line",
+    "ui-focus":
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0",
+    "ui-btn":
+      "ui-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50",
+    "ui-btn-primary": "ui-btn bg-accent text-white hover:bg-accent-strong",
+    "ui-btn-ghost": "ui-btn bg-subtle text-fg hover:bg-line",
+    "ui-input":
+      "min-h-11 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/25",
+    "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
+    "ui-chip":
+      "inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-xs text-fg",
   },
 });

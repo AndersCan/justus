@@ -5,17 +5,16 @@ The Android shell for Justus: a WebView app that starts the Bare worklet backend
 and wires the native `vendor.media` pick/capture host plugins (so "Pick photo"
 opens the system picker on device).
 
-Consumes the published **`io.ekrooh:bare-host`** AAR from GitHub Packages
-(Android host library: Bare Kit runtime + framework host classes).
+Consumes the published **`io.github.anderscan.ekrooh:bare-host`** AAR from Maven Central
+(no credentials). Keep its version equal to `@ekrooh/bare` in the JS packages.
 
 ## Layout
 
-- `settings.gradle` — resolves `io.ekrooh:bare-host` from
-  `https://maven.pkg.github.com/AndersCan/ekrooh`.
+- `settings.gradle` — resolves `bare-host` from Maven Central.
 - `app/src/main/nativehelper/` — bundled `libnativehelper.so` shim. The published `bare-host` AAR's
   `libbare-kit.so` `DT_NEED`s `libnativehelper.so` (a private Android platform lib) but never ships nor
   calls into it, so `System.loadLibrary("bare-kit")` fails on install-run without this shim present in
-  the app's jniLibs (**ekrooh#45**). Do not remove it while consuming `bare-host` 0.3.0.
+  the app's jniLibs (**ekrooh#45**). Remove it only once a released AAR is verified without it.
 - `app/build.gradle` — the app module; Gradle tasks run the monorepo builds:
   - `link` — `bare-link --preset android` links the p2p native addons into
     `src/main/addons`
@@ -28,23 +27,17 @@ Consumes the published **`io.ekrooh:bare-host`** AAR from GitHub Packages
 
 ## Prerequisites
 
-Full tool-by-tool list (versions, archives, network endpoints, Docker notes):
-**see [`docs/android-build-dependencies.md`](../../docs/android-build-dependencies.md)**.
+Toolchain: JDK 17+, Android SDK platform 35 + build-tools, NDK 27.2.12479018,
+Gradle 8.9 (wrapper), Node ≥ 22.18, pnpm 11. Native addons ship prebuilt in npm;
+no C toolchain is needed.
 
-- **GitHub Packages credentials** — even for public packages, GitHub Packages
-  Maven requires a token. Put in `~/.gradle/gradle.properties`:
-  `GH_USER=<github username>` and `GH_TOKEN=<PAT with read:packages>`
-  (or export the same names). Tracked as ekrooh#34.
 - **Android SDK** — `local.properties` with `sdk.dir=...` (or `ANDROID_HOME`).
 - **Node/pnpm/vp** on PATH (the Gradle exec tasks run the monorepo builds).
 
 ## Build
 
-The repo doesn't commit a Gradle wrapper. AGP 8.5.2 needs **Gradle 8.7+** — either use a system `gradle` (8.x) or generate a wrapper once:
-
 ```bash
 cd apps/android
-gradle wrapper --gradle-version 8.9
 ./gradlew :app:assembleDebug
 ```
 
@@ -54,15 +47,9 @@ stores the photo in the folder drive and serves it over the loopback server.
 
 > **Device ABI caveat:** verified booting on the **arm64 emulator**. The physical
 > Nexus 7 (`flo`) runs **LineageOS 18.1 (Android 11)** but on a **32-bit-only**
-> userspace (`zygote32`) and cannot run `bare-host` 0.3.0 — it SIGSEGVs in
+> userspace (`zygote32`) and cannot run `bare-host` — it SIGSEGVs in
 > `bare_kit__on_thread_enter` even with the `libnativehelper` shim
 > (ekrooh#46). Use an arm64 emulator/device for on-device testing.
-
-> Note: this host app was scaffolded to the framework's reference pattern but
-> has not been compiled here — the AAR credentials and an Android SDK were not
-> available in the authoring environment. Run `./gradlew :app:assembleDebug`
-> on a machine with the prerequisites to produce the APK, and file any
-> `io.ekrooh:bare-host` API gaps against AndersCan/ekrooh.
 
 ## Maestro tests
 
@@ -80,7 +67,7 @@ AVD if needed, installs the APK, and runs the `.maestro/flows/` suite
 **Prerequisites:** the
 [Maestro CLI](../../docs/android-build-dependencies.md#maestro-cli-dev-only-for-the-native-ui-tests),
 the Android SDK, and the arm64 AVD `Medium_Phone_API_36.1` (the only image that
-runs `bare-host` 0.3.0 — see the ABI caveat above).
+runs `bare-host` — see the ABI caveat above).
 
 **What it exercises:** host boot, worklet + handoff + WebView load, the
 `vendor.media` picker (picking a photo into the folder), and back/exit navigation.

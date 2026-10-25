@@ -1,6 +1,6 @@
 import { html, render } from "lit-html";
 
-/** Tiny warm toast system: `toast("Photo removed")`. Renders a stacked
+/** Tiny toast system: `toast("Photo removed")`. Renders a stacked
  * container in the bottom-left (safe-area aware); toasts fade after ~3s. */
 
 type Toast = { id: number; message: string };
@@ -13,7 +13,7 @@ function ensureHost(): HTMLDivElement {
   if (host) return host;
   host = document.createElement("div");
   host.className =
-    "pointer-events-none fixed bottom-4 left-4 z-50 flex flex-col gap-2 px-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))]";
+    "pointer-events-none fixed bottom-20 left-4 z-50 md:bottom-4 flex flex-col gap-2 px-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))]";
   document.body.appendChild(host);
   return host;
 }
@@ -25,7 +25,7 @@ function paint() {
       ${toasts.map(
         (t) => html`
           <div
-            class="justus-toast pointer-events-auto rounded-2xl bg-ink px-4 py-3 text-sm text-linen shadow-[0_4px_16px_rgba(60,35,10,.25)] ring-1 ring-line-strong"
+            class="justus-toast pointer-events-auto rounded-xl bg-fg px-4 py-3 text-sm text-canvas shadow-lg"
           >
             ${t.message}
           </div>

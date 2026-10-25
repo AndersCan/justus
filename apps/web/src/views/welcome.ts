@@ -33,14 +33,14 @@ export function welcomeView() {
   return html`
     <div class="mx-auto max-w-xl space-y-8 py-6">
       <div class="text-center">
-        <p class="font-serif text-3xl font-bold text-clay">Justus</p>
-        <p class="mt-2 text-cocoa">
+        <p class=" text-3xl font-bold text-accent">Justus</p>
+        <p class="mt-2 text-fg">
           Your photos, passed directly between your devices and people. No server ever holds them.
         </p>
       </div>
 
       <div
-        class="warm-card mx-auto max-w-md p-6 text-center"
+        class="ui-card mx-auto max-w-md p-6 text-center"
         role="img"
         aria-label="Your device passes photos directly to a peer. No cloud relay sits between them."
       >
@@ -48,28 +48,28 @@ export function welcomeView() {
           <span aria-hidden="true">📱</span>
           <span class="inline-flex items-center" aria-hidden="true">
             <span
-              class="h-2.5 w-2.5 rounded-full bg-clay animate-pulse motion-reduce:animate-none"
+              class="h-2.5 w-2.5 rounded-full bg-accent animate-pulse motion-reduce:animate-none"
             ></span>
           </span>
           <span aria-hidden="true">👥</span>
         </div>
-        <p class="mt-3 text-sm text-cocoa">photos move directly between your devices</p>
-        <p class="mt-1 text-xs text-taupe line-through" aria-hidden="true">
+        <p class="mt-3 text-sm text-fg">photos move directly between your devices</p>
+        <p class="mt-1 text-xs text-muted line-through" aria-hidden="true">
           ☁ no server in between
         </p>
       </div>
 
-      <ul class="mx-auto max-w-md space-y-3 text-left text-sm text-cocoa">
+      <ul class="mx-auto max-w-md space-y-3 text-left text-sm text-fg">
         <li><strong>No account.</strong> Nothing to sign up for; nothing to log into.</li>
         <li><strong>Peers hold your data.</strong> Photos live only on devices you choose.</li>
         <li><strong>Works offline.</strong> Devices sync when they see each other.</li>
       </ul>
 
       <div class="flex flex-col items-center gap-3">
-        <button class="warm-pill" type="button" @click=${() => enterApp()}>
+        <button class="ui-btn-primary" type="button" @click=${() => enterApp()}>
           Create your first folder
         </button>
-        <button class="warm-ghost" type="button" @click=${() => enterApp()}>
+        <button class="ui-btn-ghost" type="button" @click=${() => enterApp()}>
           Join someone's folder
         </button>
       </div>

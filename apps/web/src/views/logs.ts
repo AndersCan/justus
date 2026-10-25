@@ -11,13 +11,13 @@ import { toast } from "./toast";
 export function severityClasses(level: LogLevel): string {
   switch (level) {
     case "error":
-      return "border-l-brick text-brick";
+      return "border-l-danger text-danger";
     case "warn":
-      return "border-l-honey text-honey";
+      return "border-l-warn text-warn";
     case "debug":
-      return "border-l-line text-taupe";
+      return "border-l-line text-muted";
     default:
-      return "border-l-moss text-cocoa";
+      return "border-l-ok text-fg";
   }
 }
 
@@ -300,31 +300,31 @@ function logsBody(ctx: {
 }) {
   const { error, loading, paused, updatedAt, level, available, sources, visible, c } = ctx;
   return html`
-    <section class="warm-card p-5">
+    <section class="ui-card p-5">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 class="warm-label">Live logs</h2>
-        <div class="flex items-center gap-2 text-xs text-taupe">
+        <h2 class="ui-label">Live logs</h2>
+        <div class="flex items-center gap-2 text-xs text-muted">
           ${updatedAt ? html`<span>Updated ${new Date(updatedAt).toLocaleTimeString()}</span>` : null}
-          ${loading ? html`<span class="h-2 w-2 animate-pulse rounded-full bg-honey"></span>` : null}
+          ${loading ? html`<span class="h-2 w-2 animate-pulse rounded-full bg-warn"></span>` : null}
           ${
             paused
-              ? html`<button class="warm-ghost" @click=${() => c.setPaused(false)}>
+              ? html`<button class="ui-btn-ghost" @click=${() => c.setPaused(false)}>
                   Resume live
                 </button>`
               : null
           }
         </div>
       </div>
-      <p class="mb-3 text-sm text-cocoa">
+      <p class="mb-3 text-sm text-fg">
         Backend and web diagnostics, streamed from this device. Filter by severity or source; pause
         to read, then copy or download the visible lines.
       </p>
 
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <label class="text-xs text-taupe" for="log-level">Severity</label>
+        <label class="text-xs text-muted" for="log-level">Severity</label>
         <select
           id="log-level"
-          class="warm-input w-auto py-1"
+          class="ui-input w-auto py-1"
           @change=${(e: Event) => {
             const v = (e.target as HTMLSelectElement).value;
             c.setLevel(v as LogLevel | "all");
@@ -337,15 +337,15 @@ function logsBody(ctx: {
           <option value="error" ?selected=${level === "error"}>error</option>
         </select>
 
-        <span class="text-xs text-taupe">Source</span>
+        <span class="text-xs text-muted">Source</span>
         ${
           available.length === 0
-            ? html`<span class="text-xs text-taupe">—</span>`
+            ? html`<span class="text-xs text-muted">—</span>`
             : available.map(
                 (s) => html`
                   <button
                     class="rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      sources.has(s) ? "bg-clay text-white" : "bg-butter text-cocoa"
+                      sources.has(s) ? "bg-accent text-white" : "bg-subtle text-fg"
                     }"
                     @click=${() => c.toggleSource(s)}
                     aria-pressed=${sources.has(s)}
@@ -358,21 +358,21 @@ function logsBody(ctx: {
 
         <span class="ml-auto flex gap-2">
           <button
-            class="warm-ghost"
+            class="ui-btn-ghost"
             @click=${() => void copyAll(visible)}
             ?disabled=${visible.length === 0}
           >
             Copy
           </button>
           <button
-            class="warm-ghost"
+            class="ui-btn-ghost"
             @click=${() => void downloadLogs(level, sources)}
             ?disabled=${visible.length === 0}
           >
             Download
           </button>
           <button
-            class="warm-ghost"
+            class="ui-btn-ghost"
             @click=${() =>
               void c.clear().then((ok) => toast(ok ? "Logs cleared" : "Couldn't clear logs"))}
           >
@@ -381,7 +381,7 @@ function logsBody(ctx: {
         </span>
       </div>
 
-      ${error ? html`<p class="mb-3 text-xs text-brick">Couldn't load logs — ${error}</p>` : null}
+      ${error ? html`<p class="mb-3 text-xs text-danger">Couldn't load logs — ${error}</p>` : null}
 
       <div
         class="max-h-80 overflow-auto rounded-2xl border border-line bg-white/60 p-3 font-mono text-[11px] leading-relaxed"
@@ -391,7 +391,7 @@ function logsBody(ctx: {
       >
         ${
           visible.length === 0
-            ? html`<p class="text-taupe">No log entries yet.</p>`
+            ? html`<p class="text-muted">No log entries yet.</p>`
             : visible
                 .slice()
                 .reverse()

@@ -20,26 +20,26 @@ export function inviteProvenance(record: GrantRecord): string | null {
 
 /** Honest one-line state for a ledger record (share-grant-spec §2.1 / §4). */
 function stateBadge(record: GrantRecord): { copy: string; cls: string } {
-  if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-moss" };
-  if (record.serveTo === "revoked") return { copy: "Sharing stopped", cls: "text-brick" };
-  if (record.serveTo === "declined") return { copy: "Said no", cls: "text-taupe" };
-  if (record.invitedBy) return { copy: "Invited you", cls: "text-cocoa" };
-  if (record.unknownHolderSince != null) return { copy: "Asked to share", cls: "text-taupe" };
-  return { copy: "Not sharing", cls: "text-taupe" };
+  if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-ok" };
+  if (record.serveTo === "revoked") return { copy: "Sharing stopped", cls: "text-danger" };
+  if (record.serveTo === "declined") return { copy: "Said no", cls: "text-muted" };
+  if (record.invitedBy) return { copy: "Invited you", cls: "text-fg" };
+  if (record.unknownHolderSince != null) return { copy: "Asked to share", cls: "text-muted" };
+  return { copy: "Not sharing", cls: "text-muted" };
 }
 
 type SharingViewModel = ReturnType<typeof $grantsViewModel.get>;
 
 function promptCard(view: SharingViewModel, record: GrantRecord) {
   return html`
-    <li class="warm-card flex flex-col gap-3 border-l-4 border-l-honey p-5">
-      <p class="font-serif text-lg text-ink">
+    <li class="ui-card flex flex-col gap-3 border-l-4 border-l-warn p-5">
+      <p class=" text-lg text-fg">
         Someone with your album link joined. Share your photos with them?
       </p>
-      <p class="text-sm text-taupe">Device ${shortPeer(record.peerId)}</p>
+      <p class="text-sm text-muted">Device ${shortPeer(record.peerId)}</p>
       <div class="flex flex-wrap items-center gap-2">
         <button
-          class="warm-ghost font-semibold"
+          class="ui-btn-ghost font-semibold"
           ?disabled=${view.acting}
           @click=${() => {
             grants.snooze();
@@ -49,7 +49,7 @@ function promptCard(view: SharingViewModel, record: GrantRecord) {
           Not now
         </button>
         <button
-          class="warm-pill"
+          class="ui-btn-primary"
           ?disabled=${view.acting}
           @click=${() => {
             grants.grant(record.peerId);
@@ -59,7 +59,7 @@ function promptCard(view: SharingViewModel, record: GrantRecord) {
           Share
         </button>
         <button
-          class="ml-auto text-xs text-taupe underline-offset-2 hover:text-brick hover:underline"
+          class="ml-auto text-xs text-muted underline-offset-2 hover:text-danger hover:underline"
           ?disabled=${view.acting}
           @click=${() => {
             grants.decline(record.peerId);
@@ -78,10 +78,10 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
   return html`
     <li class="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
       <div class="min-w-0">
-        <p class="truncate font-mono text-sm text-ink">${shortPeer(record.peerId)}</p>
+        <p class="truncate font-mono text-sm text-fg">${shortPeer(record.peerId)}</p>
         ${
           record.serveTo === "revoked"
-            ? html`<p class="text-xs text-taupe">
+            ? html`<p class="text-xs text-muted">
                 They keep the photos they already have; they won't get new ones.
               </p>`
             : null
@@ -91,7 +91,7 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
         ${
           record.serveTo === "granted"
             ? html`<button
-                class="text-xs text-taupe underline-offset-2 hover:text-brick hover:underline"
+                class="text-xs text-muted underline-offset-2 hover:text-danger hover:underline"
                 ?disabled=${view.acting}
                 @click=${() => {
                   grants.revoke(record.peerId);
@@ -106,7 +106,7 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
         ${
           inviteProvenance(record)
             ? html`<span
-                class="text-xs font-semibold text-moss"
+                class="text-xs font-semibold text-ok"
                 title="This device presented a verified signed invite receipt."
                 aria-label="Verified invite"
                 >✓ ${inviteProvenance(record)}</span
@@ -123,9 +123,9 @@ function sharingBody(view: SharingViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class="font-serif text-3xl text-ink">Sharing</h1>
+        <h1 class=" text-3xl text-fg">Sharing</h1>
         <button
-          class="warm-ghost"
+          class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "acting"}
           @click=${() => grants.refresh()}
         >
@@ -140,15 +140,15 @@ function sharingBody(view: SharingViewModel) {
       )}
 
       <section class="space-y-3">
-        <h2 class="warm-label">Unknown holder</h2>
+        <h2 class="ui-label">Unknown holder</h2>
         ${
           state === "idle" || (state === "refreshing" && view.dueRecords.length === 0)
-            ? html`<p class="text-taupe">Loading…</p>`
+            ? html`<p class="text-muted">Loading…</p>`
             : view.dueRecords.length === 0
               ? html`
-                  <div class="warm-card p-5 text-center">
-                    <p class="font-serif text-lg text-ink">No prompts right now.</p>
-                    <p class="mt-1 text-sm text-cocoa">
+                  <div class="ui-card p-5 text-center">
+                    <p class=" text-lg text-fg">No prompts right now.</p>
+                    <p class="mt-1 text-sm text-fg">
                       We'll ask once a day if someone shows up holding your album without an invite.
                     </p>
                   </div>
@@ -160,11 +160,11 @@ function sharingBody(view: SharingViewModel) {
       </section>
 
       <section class="space-y-3">
-        <h2 class="warm-label">Who has your album</h2>
+        <h2 class="ui-label">Who has your album</h2>
         ${
           view.records.length === 0
-            ? html`<p class="text-sm text-cocoa">Just you — invite someone to share.</p>`
-            : html`<ul class="warm-card divide-y divide-line px-5 py-1">
+            ? html`<p class="text-sm text-fg">Just you — invite someone to share.</p>`
+            : html`<ul class="ui-card divide-y divide-line px-5 py-1">
                 ${view.records.map((r) => recordRow(view, r))}
               </ul>`
         }

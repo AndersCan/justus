@@ -11,13 +11,13 @@ export function errorBanner(
 ): TemplateResult | null {
   if (!error) return null;
   return html`<div
-    class="rounded-2xl border border-brick/40 bg-brick/10 px-4 py-3 text-sm text-brick"
+    class="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
   >
     ${error}
     ${
       onReload
         ? html`<button
-            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brick/40"
+            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             @click=${onReload}
           >
             Reload app
@@ -27,7 +27,7 @@ export function errorBanner(
     ${
       onRetry
         ? html`<button
-            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brick/40"
+            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             @click=${onRetry}
           >
             Retry
