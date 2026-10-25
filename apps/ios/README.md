@@ -67,8 +67,9 @@ addons/, Resources/      generated, gitignored
 ## Notes / gotchas
 
 - **Local-path dependency on ekrooh.** SPM cannot depend on a subdirectory of a
-  git repo, and ekrooh has no root `Package.swift`, so `BareHost` resolves as a
-  local path (`../../../ekrooh/ios`). `EKROOH_ROOT` overrides the repo location;
+  git repo, `BareHost` currently resolves as a local path (`../../../ekrooh/ios`).
+  ekrooh main now ships a root `Package.swift`; migrate to a versioned git
+  dependency once a release publishes its binary-target checksum. `EKROOH_ROOT` overrides the repo location;
   publishing `BareHost` as a standalone SPM/git dependency would remove this
   coupling (track as an ekrooh distribution question).
 - `bare-link` needs the flat (hoisted) `node_modules` this repo already uses
