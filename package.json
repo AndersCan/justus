@@ -11,7 +11,8 @@
     "test:e2e-p2p": "playwright test --config playwright.hub.config.ts",
     "test:e2e-hub:plan": "node scripts/e2e-hub.mjs --plan",
     "test:native": "bash scripts/maestro-e2e.sh",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

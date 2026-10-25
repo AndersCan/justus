@@ -1,3 +1,4 @@
+import { devPeerPort } from "./utils/peer";
 import {
   createMockTransport,
   createWebSocketTransport,
@@ -18,7 +19,8 @@ export function getTransport(): MessageTransport {
   // transport defaults to the same origin. Browser dev is cross-origin (the
   // Vite dev server), so point at the dev backend explicitly.
   const devUrl =
-    import.meta.env.VITE_BARE_WS_URL ?? (import.meta.env.DEV ? "ws://127.0.0.1:8080" : undefined);
+    import.meta.env.VITE_BARE_WS_URL ??
+    (import.meta.env.DEV ? `ws://127.0.0.1:${devPeerPort()}` : undefined);
   transport = createWebSocketTransport(devUrl ? { url: devUrl } : {});
 
   return transport;
