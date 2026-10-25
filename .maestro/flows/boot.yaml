@@ -6,5 +6,5 @@ androidWebViewHierarchy: devtools
 # ClearState => fresh folder => empty gallery. The empty-state heading is page-unique (the
 # "Gallery" <h1> is also a persistent nav link, so it is NOT proof the gallery rendered).
 - extendedWaitUntil:
-    visible: "This folder is empty — for now."
+    visible: "No photos yet."
     timeout: 60000

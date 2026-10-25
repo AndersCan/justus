@@ -280,10 +280,10 @@ const $folderView = computed([$folders, $activeFolderId], (folders, activeId) =>
 
 function folderContext() {
   return useStore($folderView, ({ active, all }) => {
-    if (!active) {
-      return html`<p class="text-sm text-muted">No folder selected</p>`;
-    }
+    if (!active) return null;
     const others = all.filter((f) => f.id !== active.id);
+    // One folder is just "your photos" — only surface folders once there are several.
+    if (others.length === 0) return null;
     return html`
       <div class="flex flex-wrap items-center gap-2">
         <span class="truncate text-sm font-medium text-fg" title=${active.name}
@@ -321,19 +321,19 @@ function emptyState(view: GalleryViewModel) {
   return html`
     <div class="mt-10 rounded-3xl bg-surface px-6 py-10 text-center ring-1 ring-line">
       ${emptyIllustration()}
-      <h2 class="text-xl font-semibold text-fg">This folder is empty — for now.</h2>
+      <h2 class="text-xl font-semibold text-fg">No photos yet.</h2>
       <p class="mx-auto mt-2 max-w-sm text-sm text-fg">
         ${
           canAdd
-            ? "Add your first photo and it will appear on every device you share this folder with."
-            : "Photos from this folder will appear here as your devices come online."
+            ? "Choose photos to keep here. They stay on your devices and sync only with people you share with."
+            : "Photos will appear here as your devices come online."
         }
       </p>
       <div class="mt-5 flex justify-center gap-2">
         ${
           canAdd
             ? html`<button class="ui-btn-primary" @click=${() => void pickAndAdd()}>
-                Add a photo
+                Add photos
               </button>`
             : null
         }
@@ -381,7 +381,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
               ?disabled=${busy || state !== "ready" || uploading}
               @click=${() => void pickAndAdd()}
             >
-              ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add a photo"}
+              ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add photos"}
             </button>`,
           )}
           ${densityToggle()}

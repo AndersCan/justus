@@ -123,7 +123,7 @@ function sharingBody(view: SharingViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class=" text-3xl text-fg">Sharing</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
         <button
           class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "acting"}
@@ -132,6 +132,15 @@ function sharingBody(view: SharingViewModel) {
           ${state === "refreshing" ? "Refreshing…" : "Refresh"}
         </button>
       </div>
+      <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/settings">
+        <span>
+          <span class="block font-medium text-fg"
+            >Invite people, join a folder, manage devices</span
+          >
+          <span class="text-muted">Your name, share key, folders and linked devices.</span>
+        </span>
+        <span class="text-muted" aria-hidden="true">→</span>
+      </a>
 
       ${errorBanner(
         error,

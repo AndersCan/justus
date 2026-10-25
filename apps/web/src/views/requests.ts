@@ -56,7 +56,7 @@ function requestsBody(view: RequestsViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class=" text-3xl text-fg">Requests</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Requests</h1>
         <button
           class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "responding"}
