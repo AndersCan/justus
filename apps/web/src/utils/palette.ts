@@ -1,6 +1,6 @@
-/** Stable per-device warm colors, derived from a device's drive key. */
+/** Stable per-device colors, derived from a device's drive key. */
 
-const MEMBER_COLORS = ["#B05C2E", "#6E7F45", "#7C5A88", "#C98A2D"] as const;
+const MEMBER_COLORS = ["#E5733F", "#4FA36B", "#8E6FD1", "#D9A33A", "#3F95D9"] as const;
 
 function hashOf(key: string): number {
   let hash = 0;
@@ -10,7 +10,7 @@ function hashOf(key: string): number {
   return Math.abs(hash);
 }
 
-/** Same device always maps to the same warm color. */
+/** Same device always maps to the same color. */
 export function memberColor(key: string): string {
   return MEMBER_COLORS[hashOf(key) % MEMBER_COLORS.length];
 }

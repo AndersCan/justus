@@ -3,7 +3,7 @@
 > Status: proposal (v1) for review. Grounded in `vision.md` +
 > `vision.md.technical.md` and the current web app (`apps/web`: routes
 > gallery `/`, requests `/requests`, settings `/settings`; lit-html views;
-> Mantaq machines for folders/gallery/requests/sync; warm palette in
+> Mantaq machines for folders/gallery/requests/sync; semantic tokens in
 > `uno.config.ts`). Screens not yet built are marked **[future]**; anything
 > that depends on an unresolved product decision is marked **⚠ open**.
 
@@ -45,7 +45,7 @@ Layout (single column, mobile-first):
    - **Peers hold your data.** Photos live only on devices you choose.
    - **Works offline.** Devices sync when they see each other.
 
-4. **One primary action:** `warm-pill` button **"Create your first folder"**
+4. **One primary action:** primary button **"Create your first folder"**
    → onboarding (§2). Secondary link: _"Join someone's folder"_ (paste/scan
    invite).
 
@@ -120,97 +120,28 @@ more than once.
 
 ---
 
-## 3. Color & theme system (lit-html + unocss)
+## 3. Visual system (implemented)
 
-### 3.1 Current state (observed)
+Neutral, photo-first, light and dark via `prefers-color-scheme`. Content (the
+photos) carries the color; chrome stays quiet.
 
-- `uno.config.ts` defines a warm raw palette (`paper, linen, butter, ink,
-cocoa, taupe, clay, caramel, moss, plum, honey, brick…`) + `warm-*`
-  shortcuts, consumed directly in templates (`bg-linen`, `text-cocoa`, …).
-- No dark theme; no semantic layer; `memberColor()` derives stable per-device
-  hues from drive keys.
+- **Tokens** are CSS variables in `apps/web/index.html`, exposed as Uno
+  colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
+  `muted`, `accent`, `accent-strong`, `danger`, `ok`, `warn`. Views use these
+  names only, never literal colors.
+- **Trust colors** (`trust-green/amber/red`) are reserved for connection state.
+  Their only consumer is the connection indicator.
+- **Components** are Uno shortcuts: `ui-card`, `ui-btn`, `ui-btn-primary`,
+  `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
+- **Shell:** left rail at `md+`, bottom tab bar below it, slim top bar on
+  mobile carrying the connection indicator. Primary routes: Photos, Albums,
+  Sharing, Requests, Folder.
+- **Grid:** tight 2px gutters, month headers, captions and remove only on
+  hover for pointer devices. Detail and remove live in the lightbox on touch.
+- Touch targets are at least 44px; motion respects `prefers-reduced-motion`.
 
-### 3.2 Target: three-layer token system
+## 4. Not yet built
 
-```
-Layer 1  primitives   current raw palette (unchanged values)
-Layer 2  semantics    --c-page, --c-surface, --c-line, --c-text,
-                      --c-text-muted, --c-action, --c-action-hover,
-                      --c-ok, --c-warn, --c-danger, --c-focus …
-Layer 3  components   existing warm-* shortcuts, rewritten on Layer 2
-```
-
-Mechanics (unocss-native, no runtime cost):
-
-- Define Layer 2 as CSS custom properties on `:root` and `.dark`.
-- `uno.config.ts` theme colors point at the vars: e.g.
-  `page: "var(--c-page)"` so utilities like `bg-page`/`text-text` resolve per
-  theme automatically.
-- Dark mode via presetUno's class strategy (`dark:` available if needed), but
-  the default path needs **no** `dark:` variants — components keep one set of
-  semantic classes; only the variable values flip under `.dark`.
-- Migration is mechanical and incremental: replace raw usages
-  (`bg-linen → bg-surface`) shortcut by shortcut; raw palette remains valid
-  during migration.
-
-### 3.3 Light & dark values
-
-Same hue family, adjusted for contrast (WCAG AA minimum; body text ≥ 4.5:1):
-
-| Semantic           | Light (current warmth) | Dark                     |
-| ------------------ | ---------------------- | ------------------------ |
-| page               | paper `#FAF3E7`        | deep umber `#201812`     |
-| surface            | linen `#FFFDF6`        | raised umber `#2C2118`   |
-| line / line-strong | `#E8D6BA` / `#E2CEB2`  | `#4A392B` / `#5C4836`    |
-| text               | ink `#3A2A1D`          | paper-warm `#F3E9DA`     |
-| text-muted         | taupe `#8A7159`        | `#B39C82`                |
-| action (brand)     | clay `#B05C2E`         | clay-lightened `#D97A47` |
-| ok                 | moss `#6E7F45`         | `#93AC63`                |
-| warn               | honey `#C98A2D`        | `#E0A94C`                |
-| danger             | brick `#B3452F`        | `#E06A50`                |
-
-(Dark column is a starting point for visual review, not final.)
-
-### 3.4 Trust/privacy color language
-
-Color is a _trust channel_; rules keep it legible:
-
-1. **Connection state owns green/amber/red** (moss/honey/brick):
-   - ● moss = direct peers reachable (p2p healthy)
-   - ● honey = connecting / some peers pending (sync-waiting uses this too)
-   - ● brick = alone/offline with unsynced changes
-     These exact three colors appear **nowhere else** in the app.
-2. **The no-server indicator** (persistent, every screen header):
-   `✕☁ direct · no server` chip in muted moss outline — calm, always-on.
-   It turns honey/brick only to reflect connectivity, never to nag.
-3. **Identity colors** (who is who): the four stable member hues
-   (clay/moss/plum/caramel via `memberColor()`) become avatar rings and
-   name chips. They encode _identity_, never approval/danger.
-4. **Share provenance chips** (per photo, [future] share surface #30/#29):
-   neutral `surface + text-muted` chips listing holding peers ("on: you,
-   Maya"); brick reserved for "revoked but still held somewhere" **⚠ open**
-   (depends on revocation semantics, issues #26/#30).
-5. **Brand clay = actions only** (primary buttons, links). Not used for
-   status — so "what can I do" and "what is happening" never share a color.
-
-### 3.5 Component inventory touched
-
-Existing views migrate onto tokens: `gallery.ts`, `requests.ts`,
-`settings.ts`, `lightbox.ts`, `confirm.ts`, `toast.ts`, `error-banner.ts`;
-shortcuts `warm-card/pill/ghost/input/label` become the component layer.
-New components proposed by this spec: `<connection-chip>` (header),
-`<provenance-chip>`, `<lesson-card>`, `<first-run-diagram>`, folder status
-badges.
-
----
-
-## 4. Follow-up specs (queued, one PR each)
-
-1. **Library/gallery spec** — grid, lightbox, provenance chips, multi-folder
-   switching, offline states.
-2. **Peer/connection spec** — header connection-chip behavior, peers list,
-   pairing/invite screens, audit screen ("Where are my photos?").
-3. **Share/grant spec** — request/approve flows, grant ledger view, receipts,
-   revocation UX (blocked on #30 decisions).
-4. **Settings spec** — identity, folders, training replay, theme toggle,
-   danger zone.
+Tracked as GitHub issues, not specs: grant ledger and receipts UX (#25, #30),
+person identity (`person-identity-spec.md`, #31), the audit screen ("Where are
+my photos?"), people/search, and a manual theme toggle.

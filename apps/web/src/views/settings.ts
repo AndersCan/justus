@@ -68,9 +68,9 @@ type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
 type FoldersViewModel = ReturnType<typeof $foldersViewModel.get>;
 
 function rolePill(role: string) {
-  const dot = role === "creator" ? "bg-clay" : role === "member" ? "bg-moss" : "bg-honey";
+  const dot = role === "creator" ? "bg-accent" : role === "member" ? "bg-ok" : "bg-warn";
   return html`<span
-    class="inline-flex items-center gap-1.5 rounded-full bg-butter px-2.5 py-1 text-xs font-semibold text-cocoa"
+    class="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg"
   >
     <span class="h-2 w-2 rounded-full ${dot}"></span>
     ${role}
@@ -96,9 +96,9 @@ async function shareFolder(folder: FolderSummary) {
 function nameSection(view: FoldersViewModel) {
   const saving = view.state === "renaming";
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-1">Your name</h2>
-      <p class="mb-3 text-sm text-cocoa">
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-1">Your name</h2>
+      <p class="mb-3 text-sm text-fg">
         Shown to others as the member behind the photos you add and the join requests you send.
       </p>
       <form
@@ -111,14 +111,14 @@ function nameSection(view: FoldersViewModel) {
         }}
       >
         <input
-          class="warm-input flex-1"
+          class="ui-input flex-1"
           placeholder="Your name"
           aria-label="Your name"
           value="${view.userName}"
           spellcheck="false"
           autocomplete="name"
         />
-        <button class="warm-pill" type="submit" ?disabled=${saving}>
+        <button class="ui-btn-primary" type="submit" ?disabled=${saving}>
           ${saving ? "Saving…" : "Save"}
         </button>
       </form>
@@ -129,9 +129,9 @@ function nameSection(view: FoldersViewModel) {
 function newFolderSection(view: FoldersViewModel) {
   const busy = view.state === "creating";
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-1">New folder</h2>
-      <p class="mb-3 text-sm text-cocoa">
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-1">New folder</h2>
+      <p class="mb-3 text-sm text-fg">
         Create a fresh folder to share on its own — each folder has its own members and share key.
       </p>
       <form
@@ -147,12 +147,12 @@ function newFolderSection(view: FoldersViewModel) {
         }}
       >
         <input
-          class="warm-input flex-1"
+          class="ui-input flex-1"
           placeholder="Folder name"
           aria-label="Folder name"
           maxlength="60"
         />
-        <button class="warm-pill" type="submit" ?disabled=${busy || view.state !== "ok"}>
+        <button class="ui-btn-primary" type="submit" ?disabled=${busy || view.state !== "ok"}>
           ${busy ? "Creating…" : "Create folder"}
         </button>
       </form>
@@ -163,47 +163,51 @@ function newFolderSection(view: FoldersViewModel) {
 function folderListSection(view: FoldersViewModel) {
   const activeId = view.activeFolderId;
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-3">Your folders</h2>
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-3">Your folders</h2>
       ${
         view.folders.length === 0
-          ? html`<p class="text-sm text-cocoa">No folders yet — create one above.</p>`
+          ? html`<p class="text-sm text-fg">No folders yet — create one above.</p>`
           : html`<ul class="space-y-3">
               ${view.folders.map(
                 (f) => html`
                   <li
                     class="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
-                      f.id === activeId ? "border-clay/40 bg-butter/50" : "border-line bg-white/60"
+                      f.id === activeId
+                        ? "border-accent/40 bg-subtle/50"
+                        : "border-line bg-white/60"
                     }"
                   >
                     <div class="min-w-0">
                       <div class="flex items-center gap-2">
-                        <span class="truncate font-serif text-lg text-ink">${f.name}</span>
+                        <span class="truncate  text-lg text-fg">${f.name}</span>
                         ${rolePill(f.role)}
                         ${
                           f.pending
-                            ? html`<span class="text-xs font-semibold text-honey"
+                            ? html`<span class="text-xs font-semibold text-warn"
                                 >Pending approval</span
                               >`
                             : null
                         }
                         ${
                           f.id === activeId
-                            ? html`<span class="text-xs font-semibold text-clay">Now showing</span>`
+                            ? html`<span class="text-xs font-semibold text-accent"
+                                >Now showing</span
+                              >`
                             : null
                         }
                       </div>
-                      <p class="mt-1 text-xs text-taupe">
+                      <p class="mt-1 text-xs text-muted">
                         ${f.members} member${f.members === 1 ? "" : "s"} · added
                         ${new Date(f.addedAt).toLocaleDateString()}
                       </p>
-                      <div class="mt-2 break-all font-mono text-[10px] leading-relaxed text-taupe">
+                      <div class="mt-2 break-all font-mono text-[10px] leading-relaxed text-muted">
                         ${groupKey(f.shareKey)}
                       </div>
                     </div>
                     <div class="flex shrink-0 flex-wrap gap-2">
                       <button
-                        class="warm-ghost"
+                        class="ui-btn-ghost"
                         aria-label="Share ${f.name}"
                         @click=${() => void shareFolder(f)}
                       >
@@ -212,7 +216,7 @@ function folderListSection(view: FoldersViewModel) {
                       ${
                         f.id !== activeId
                           ? html`<button
-                              class="warm-ghost"
+                              class="ui-btn-ghost"
                               ?disabled=${view.state === "switching"}
                               @click=${() => folders.switchTo(f.id)}
                             >
@@ -237,24 +241,24 @@ function inviteSection(status: NonNullable<SyncViewModel["status"]>) {
       ? "Share the key, then approve the device in the Requests tab to let it add photos. Anyone with the key can also request to join."
       : "Share this key so other devices can request to join this folder too.";
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-1">Share “${f.name}”</h2>
-      <p class="mb-4 text-sm text-cocoa">${intro}</p>
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-1">Share “${f.name}”</h2>
+      <p class="mb-4 text-sm text-fg">${intro}</p>
       <div
-        class="rounded-2xl bg-butter px-4 py-3 text-[11px] leading-relaxed font-mono tracking-widest text-ink"
+        class="rounded-2xl bg-subtle px-4 py-3 text-[11px] leading-relaxed font-mono tracking-widest text-fg"
       >
         ${groupKey(f.shareKey)}
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
         ${useStore(
           $copiedKey,
-          (copied) => html`<button class="warm-pill" @click=${() => void shareFolder(f)}>
+          (copied) => html`<button class="ui-btn-primary" @click=${() => void shareFolder(f)}>
             ${copied === f.shareKey ? "Copied ✓" : "Copy share key"}
           </button>`,
         )}
         ${
           typeof navigator.share === "function"
-            ? html`<button class="warm-ghost" @click=${() => void shareFolder(f)}>Share…</button>`
+            ? html`<button class="ui-btn-ghost" @click=${() => void shareFolder(f)}>Share…</button>`
             : null
         }
       </div>
@@ -264,17 +268,17 @@ function inviteSection(status: NonNullable<SyncViewModel["status"]>) {
 
 function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: string, busy: boolean) {
   if (status.folder.role !== "creator") {
-    return html`<section class="warm-card p-5">
-      <h2 class="warm-label mb-1">Approve a writer</h2>
-      <p class="text-sm text-cocoa">
+    return html`<section class="ui-card p-5">
+      <h2 class="ui-label mb-1">Approve a writer</h2>
+      <p class="text-sm text-fg">
         Only the folder's creator can approve writers — head to Requests.
       </p>
     </section>`;
   }
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-1">Approve a writer</h2>
-      <p class="mb-3 text-sm text-cocoa">
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-1">Approve a writer</h2>
+      <p class="mb-3 text-sm text-fg">
         Paste a device's drive key to add it as a writer directly, or approve pending requests in
         the Requests tab.
       </p>
@@ -289,7 +293,7 @@ function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: stri
         }}
       >
         <input
-          class="warm-input flex-1"
+          class="ui-input flex-1"
           placeholder="device drive key (hex)"
           aria-label="Device drive key"
           data-k
@@ -299,12 +303,14 @@ function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: stri
           autocorrect="off"
         />
         <input
-          class="warm-input w-full sm:w-40"
+          class="ui-input w-full sm:w-40"
           placeholder="device name"
           aria-label="Device name"
           data-n
         />
-        <button class="warm-ghost" type="submit" ?disabled=${busy || state !== "ok"}>Enroll</button>
+        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || state !== "ok"}>
+          Enroll
+        </button>
       </form>
     </section>
   `;
@@ -312,9 +318,9 @@ function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: stri
 
 function joinSection(state: string, busy: boolean) {
   return html`
-    <section class="warm-card p-5">
-      <h2 class="warm-label mb-1">Join a folder</h2>
-      <p class="mb-3 text-sm text-cocoa">
+    <section class="ui-card p-5">
+      <h2 class="ui-label mb-1">Join a folder</h2>
+      <p class="mb-3 text-sm text-fg">
         Paste a share key to request to join someone's folder. The creator approves your request
         before you can add photos.
       </p>
@@ -333,7 +339,7 @@ function joinSection(state: string, busy: boolean) {
         }}
       >
         <input
-          class="warm-input flex-1"
+          class="ui-input flex-1"
           placeholder="64-char hex share key"
           aria-label="Share key"
           spellcheck="false"
@@ -344,7 +350,7 @@ function joinSection(state: string, busy: boolean) {
         />
         <div class="flex gap-2">
           <button
-            class="warm-ghost flex-1"
+            class="ui-btn-ghost flex-1"
             type="button"
             aria-label="Paste from clipboard"
             @click=${(e: Event) => {
@@ -358,7 +364,7 @@ function joinSection(state: string, busy: boolean) {
           ${useStore(
             $joinProgress,
             (joining) => html`<button
-              class="warm-pill flex-1"
+              class="ui-btn-primary flex-1"
               type="submit"
               ?disabled=${busy || state !== "ok" || joining}
             >
@@ -369,22 +375,22 @@ function joinSection(state: string, busy: boolean) {
       </form>
       ${useStore($pasteError, (err) =>
         err
-          ? html`<p class="mt-2 text-xs text-brick">
+          ? html`<p class="mt-2 text-xs text-danger">
               That key doesn't look right — check you copied it whole (64 hex chars).
             </p>`
           : null,
       )}
       ${useStore($joinProgress, (joining) =>
         joining
-          ? html`<p class="mt-3 flex items-center gap-2 text-sm text-cocoa">
+          ? html`<p class="mt-3 flex items-center gap-2 text-sm text-fg">
               <span
-                class="h-2 w-2 animate-pulse rounded-full bg-honey motion-reduce:animate-none"
+                class="h-2 w-2 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
               ></span>
               Connecting to the folder…
             </p>`
           : null,
       )}
-      <p class="mt-3 text-xs text-taupe">
+      <p class="mt-3 text-xs text-muted">
         Joining adds the folder to this device — you can switch between your folders on this page.
       </p>
     </section>
@@ -393,24 +399,24 @@ function joinSection(state: string, busy: boolean) {
 
 function deviceSection(status: NonNullable<SyncViewModel["status"]>) {
   return html`
-    <section class="warm-card p-5">
+    <section class="ui-card p-5">
       <div class="mb-3 flex items-center justify-between">
-        <h2 class="warm-label">Active folder</h2>
+        <h2 class="ui-label">Active folder</h2>
         ${rolePill(status.folder.role)}
       </div>
       <dl class="grid grid-cols-2 gap-y-2 text-sm">
-        <dt class="text-taupe">Folder</dt>
+        <dt class="text-muted">Folder</dt>
         <dd>${status.folder.name}</dd>
-        <dt class="text-taupe">Your name</dt>
+        <dt class="text-muted">Your name</dt>
         <dd>${status.name}</dd>
-        <dt class="text-taupe">Peers</dt>
+        <dt class="text-muted">Peers</dt>
         <dd>${status.peers}</dd>
-        <dt class="text-taupe">Photos</dt>
+        <dt class="text-muted">Photos</dt>
         <dd>${status.photos}</dd>
-        <dt class="text-taupe">Members</dt>
+        <dt class="text-muted">Members</dt>
         <dd>${status.members.length}</dd>
       </dl>
-      <details class="mt-3 text-xs text-taupe">
+      <details class="mt-3 text-xs text-muted">
         <summary class="cursor-pointer select-none">Advanced</summary>
         <dl class="mt-2 space-y-1 break-all font-mono">
           <dt>Drive key</dt>
@@ -426,8 +432,8 @@ function deviceSection(status: NonNullable<SyncViewModel["status"]>) {
 }
 
 function advancedLogsSection() {
-  return html`<details class="text-xs text-taupe">
-    <summary class="warm-label cursor-pointer select-none">Advanced</summary>
+  return html`<details class="text-xs text-muted">
+    <summary class="ui-label cursor-pointer select-none">Advanced</summary>
     <div class="mt-3">${logsPanel()}</div>
   </details>`;
 }
@@ -437,7 +443,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
   const status = syncVm.status;
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class="font-serif text-3xl text-ink">Folder</h1>
+      <h1 class=" text-3xl text-fg">Folder</h1>
 
       ${errorBanner(
         error || foldersVm.error,

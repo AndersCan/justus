@@ -51,7 +51,7 @@ async function removeFromLightbox(photo: Photo) {
     title: `Remove “${photo.name}”?`,
     detail: "It will disappear from every device sharing this folder.",
     confirmLabel: "Remove",
-    tone: "brick",
+    tone: "danger",
   });
   if (!ok) return;
   gallery.remove(photo.id);
@@ -78,7 +78,7 @@ function lightboxBody(photo: Photo) {
   };
   return html`
     <div
-      class="fixed inset-0 z-30 flex touch-pan-y flex-col bg-ink/80 backdrop-blur-sm"
+      class="fixed inset-0 z-30 flex touch-pan-y flex-col bg-black/80 backdrop-blur-sm"
       @click=${() => {
         if (Date.now() < suppressClickUntil) return;
         closeLightbox();
@@ -87,7 +87,7 @@ function lightboxBody(photo: Photo) {
       @touchend=${onTouchEnd}
     >
       <button
-        class="flex h-11 w-11 items-center justify-center rounded-full text-lg text-linen hover:bg-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/80"
+        class="flex h-11 w-11 items-center justify-center rounded-full text-lg text-white hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         style="top: max(0.75rem, env(safe-area-inset-top)); right: 0.75rem"
         aria-label="Close"
         @click=${() => closeLightbox()}
@@ -96,7 +96,7 @@ function lightboxBody(photo: Photo) {
       </button>
 
       <button
-        class="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-linen/90 px-3 py-2 text-ink shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/80 sm:block"
+        class="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
         aria-label="Previous photo"
         @click=${(e: Event) => {
           e.stopPropagation();
@@ -106,7 +106,7 @@ function lightboxBody(photo: Photo) {
         ‹
       </button>
       <button
-        class="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-linen/90 px-3 py-2 text-ink shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/80 sm:block"
+        class="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
         aria-label="Next photo"
         @click=${(e: Event) => {
           e.stopPropagation();
@@ -129,11 +129,11 @@ function lightboxBody(photo: Photo) {
         class="mx-auto w-full max-w-2xl px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         @click=${(e: Event) => e.stopPropagation()}
       >
-        <div class="rounded-2xl bg-linen p-4 shadow-lg ring-1 ring-line">
+        <div class="rounded-2xl bg-surface p-4 shadow-lg ring-1 ring-line">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="truncate font-serif text-lg text-ink">${photo.name}</div>
-              <div class="mt-0.5 flex items-center gap-1.5 text-xs text-taupe">
+              <div class="truncate  text-lg text-fg">${photo.name}</div>
+              <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                 <span
                   class="inline-block h-2.5 w-2.5 rounded-full"
                   style="background: ${memberColor(photo.member.key)}"
@@ -148,7 +148,7 @@ function lightboxBody(photo: Photo) {
             ${useStore(
               $galleryState,
               (state) => html`<button
-                class="warm-ghost !bg-transparent !px-3 !text-brick hover:!bg-brick/10"
+                class="ui-btn-ghost !bg-transparent !px-3 !text-danger hover:!bg-danger/10"
                 ?disabled=${state === "removing"}
                 @click=${() => void removeFromLightbox(photo)}
               >

@@ -47,7 +47,7 @@ function selectableTile(photo: Photo, selected: boolean, onToggle: () => void) {
   return html`
     <button
       type="button"
-      class="group relative m-0 block w-full overflow-hidden bg-ink text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/60 focus-visible:ring-inset"
+      class="group relative m-0 block w-full overflow-hidden bg-black text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       aria-pressed=${selected}
       aria-label="${selected ? "Remove" : "Add"} ${photo.name}"
       @click=${onToggle}
@@ -63,7 +63,7 @@ function selectableTile(photo: Photo, selected: boolean, onToggle: () => void) {
       />
       <span
         class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-sm ${
-          selected ? "bg-clay text-linen" : "bg-ink/60 text-linen backdrop-blur-sm"
+          selected ? "bg-accent text-white" : "bg-black/60 text-white backdrop-blur-sm"
         }"
         aria-hidden="true"
         >${selected ? "✓" : "+"}</span
@@ -75,7 +75,7 @@ function selectableTile(photo: Photo, selected: boolean, onToggle: () => void) {
 /** Tile for a photo already in the album — click removes it. */
 function albumPhotoTile(photo: Photo) {
   return html`
-    <figure class="group relative m-0 overflow-hidden bg-ink">
+    <figure class="group relative m-0 overflow-hidden bg-black">
       <img
         class="aspect-square w-full object-cover"
         src="${photo.url}"
@@ -84,7 +84,7 @@ function albumPhotoTile(photo: Photo) {
         loading="lazy"
       />
       <button
-        class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-ink/60 text-sm text-linen backdrop-blur-sm transition hover:bg-brick focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-linen/60"
+        class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-sm text-white backdrop-blur-sm transition hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         title="Remove ${photo.name} from album"
         aria-label="Remove ${photo.name} from album"
         @click=${() => albums.removePhoto(photo.id)}
@@ -121,7 +121,7 @@ function iconButton(
   return html`
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md text-taupe hover:bg-linen hover:text-clay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40 ${cls}"
+      class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${cls}"
       title="${title}"
       aria-label="${ariaLabel}"
       @click=${onClick}
@@ -209,7 +209,7 @@ function albumRow(
       ? html`
           <li class="flex items-center gap-1">
             <input
-              class="min-w-0 flex-1 rounded-md border border-line bg-linen px-2 py-1.5 text-sm text-cocoa focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+              class="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
               .value=${$renameValue.get()}
               aria-label="Rename album"
               @input=${(e: Event) => $renameValue.set((e.target as HTMLInputElement).value)}
@@ -233,14 +233,14 @@ function albumRow(
               type="button"
               class="flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm ${
                 activeId === album.id
-                  ? "bg-butter font-semibold text-clay"
-                  : "text-cocoa hover:bg-linen"
+                  ? "bg-subtle font-semibold text-accent"
+                  : "text-fg hover:bg-surface"
               }"
               aria-current=${activeId === album.id ? "page" : undefined}
               @click=${() => albums.open(album.id)}
             >
               ${album.name}
-              <span class="ml-1 text-xs text-taupe">${album.photoIds.length}</span>
+              <span class="ml-1 text-xs text-muted">${album.photoIds.length}</span>
             </button>
             ${iconButton(
               "",
@@ -258,7 +258,7 @@ function albumRow(
                   title: `Delete the album “${album.name}”?`,
                   detail: "Photos are not removed from the folder.",
                   confirmLabel: "Delete",
-                  tone: "brick",
+                  tone: "danger",
                 }).then((ok) => {
                   if (ok) albums.remove(album.id);
                 }),
@@ -274,7 +274,7 @@ function albumList() {
     <ul class="flex flex-col gap-1">
       ${useStore($albumsViewModel, (vm) =>
         vm.albums.length === 0
-          ? html`<li class="text-sm text-taupe">No albums yet.</li>`
+          ? html`<li class="text-sm text-muted">No albums yet.</li>`
           : vm.albums.map((album) => albumRow(album, vm.activeId)),
       )}
     </ul>
@@ -284,7 +284,7 @@ function albumList() {
 function albumPanel() {
   return useStore($albumsViewModel, (vm) => {
     if (!vm.active) {
-      return html`<p class="text-sm text-taupe">
+      return html`<p class="text-sm text-muted">
         Pick an album on the left, or create one to start grouping photos.
       </p>`;
     }
@@ -295,10 +295,10 @@ function albumPanel() {
         const remaining = photos.filter((p) => !ids.has(p.id));
         return html`
           <div class="mb-3 flex items-center justify-between">
-            <h2 class="font-serif text-lg text-cocoa">Add photos to “${vm.active!.name}”</h2>
+            <h2 class=" text-lg text-fg">Add photos to “${vm.active!.name}”</h2>
             <button
               type="button"
-              class="rounded-md px-3 py-1.5 text-sm text-clay hover:bg-linen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+              class="rounded-md px-3 py-1.5 text-sm text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
               @click=${() => albums.toggleAddMode()}
             >
               Done
@@ -306,7 +306,7 @@ function albumPanel() {
           </div>
           ${
             remaining.length === 0
-              ? html`<p class="text-sm text-taupe">
+              ? html`<p class="text-sm text-muted">
                   Every photo in this folder is already in the album.
                 </p>`
               : html`<div
@@ -328,13 +328,13 @@ function albumPanel() {
       const inAlbum = photos.filter((p) => ids.has(p.id));
       return html`
         <div class="mb-3 flex items-center justify-between">
-          <h2 class="font-serif text-lg text-cocoa">
+          <h2 class=" text-lg text-fg">
             ${vm.active!.name}
-            <span class="ml-1 font-sans text-sm text-taupe">${inAlbum.length}</span>
+            <span class="ml-1 font-sans text-sm text-muted">${inAlbum.length}</span>
           </h2>
           <button
             type="button"
-            class="rounded-md px-3 py-1.5 text-sm text-clay hover:bg-linen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+            class="rounded-md px-3 py-1.5 text-sm text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             @click=${() => albums.toggleAddMode()}
           >
             Add photos
@@ -342,7 +342,7 @@ function albumPanel() {
         </div>
         ${
           inAlbum.length === 0
-            ? html`<p class="text-sm text-taupe">
+            ? html`<p class="text-sm text-muted">
                 No photos yet — tap “Add photos” to group some from this folder.
               </p>`
             : html`<div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -358,18 +358,18 @@ export function albumsView() {
   return html`
     <section class="grid gap-8 md:grid-cols-[16rem_1fr]">
       <aside>
-        <h1 class="mb-3 font-serif text-2xl text-cocoa">Albums</h1>
+        <h1 class="mb-3  text-2xl text-fg">Albums</h1>
         <form class="mb-4 flex gap-2" @submit=${submitNew}>
           <input
             ${ref(newNameRef)}
-            class="min-w-0 flex-1 rounded-md border border-line bg-linen px-2 py-1.5 text-sm text-cocoa focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+            class="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             placeholder="New album name"
             aria-label="New album name"
             @input=${(e: Event) => $newName.set((e.target as HTMLInputElement).value)}
           />
           <button
             type="submit"
-            class="rounded-md bg-clay px-3 py-1.5 text-sm font-medium text-linen hover:bg-clay/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/40"
+            class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             Add
           </button>

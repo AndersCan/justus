@@ -1,5 +1,6 @@
 import { html, render } from "lit-html";
 import { cache } from "lit-html/directives/cache.js";
+import { unsafeSVG } from "lit-html/directives/unsafe-svg.js";
 import { getPagePath } from "@nanostores/router";
 import "uno.css";
 import { messenger, transport } from "./gateway";
@@ -65,40 +66,103 @@ motionStyle.textContent = `
 document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
+
+type NavRoute = "gallery" | "albums" | "sharing" | "settings" | "requests";
+
+const icon = (paths: string) =>
+  html`<svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    ${unsafeSVG(paths)}
+  </svg>`;
+
+const NAV: { route: NavRoute; label: string; paths: string }[] = [
+  {
+    route: "gallery",
+    label: "Photos",
+    paths:
+      '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>',
+  },
+  {
+    route: "albums",
+    label: "Albums",
+    paths: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M6 3h12M8 6V3"/>',
+  },
+  {
+    route: "sharing",
+    label: "Sharing",
+    paths:
+      '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.7 3 5.6"/>',
+  },
+  {
+    route: "requests",
+    label: "Requests",
+    paths:
+      '<path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/>',
+  },
+  {
+    route: "settings",
+    label: "Folder",
+    paths: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  },
+];
+
+function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: "rail" | "tab") {
+  const active = page?.route === item.route;
+  const base =
+    layout === "rail"
+      ? "ui-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition"
+      : "ui-focus flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition";
+  const tone = active
+    ? layout === "rail"
+      ? "bg-accent/10 text-accent"
+      : "text-accent"
+    : layout === "rail"
+      ? "text-muted hover:bg-subtle hover:text-fg"
+      : "text-muted";
+  return html`<a
+    class="${base} ${tone}"
+    href="${getPagePath($router, item.route)}"
+    aria-current=${active ? "page" : undefined}
+    >${icon(item.paths)}<span>${item.label}</span></a
+  >`;
+}
+
 render(
   html`
-    <div class="min-h-screen bg-paper pb-[max(1.5rem,env(safe-area-inset-bottom))] text-cocoa">
-      <header class="border-b border-line bg-linen">
-        <nav
-          class="mx-auto flex max-w-6xl items-center gap-6 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-sm sm:px-6"
-          aria-label="Main"
-        >
-          <span class="font-serif text-xl font-bold tracking-tight text-clay">Justus</span>
-          <span class="ml-auto">${connectionIndicator()}</span>
-          ${useStore($router, (page) => {
-            const link = (
-              name: "gallery" | "albums" | "sharing" | "settings" | "requests",
-              label: string,
-            ) => {
-              const active = page?.route === name;
-              return html`<a
-                class="decoration-line underline-offset-4 hover:text-clay hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/30 ${
-                  active ? "font-semibold text-clay" : "text-cocoa"
-                }"
-                href="${getPagePath($router, name)}"
-                aria-current=${active ? "page" : undefined}
-                >${label}</a
-              >`;
-            };
-            return html`${link("gallery", "Gallery")} ${link("albums", "Albums")}
-            ${link("sharing", "Sharing")} ${link("settings", "Folder")}
-            ${link("requests", "Requests")}`;
-          })}
+    <div class="min-h-screen bg-canvas text-fg md:pl-60">
+      <aside
+        class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
+      >
+        <span class="px-3 pb-5 text-lg font-semibold tracking-tight">Justus</span>
+        <nav class="flex flex-col gap-1" aria-label="Main">
+          ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
         </nav>
+        <div class="mt-auto px-3">${connectionIndicator()}</div>
+      </aside>
+      <header
+        class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
+      >
+        <span class="text-base font-semibold tracking-tight">Justus</span>
+        ${connectionIndicator()}
       </header>
-      <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
         ${useStore($router, (page) => cache(routeView(page)))}
       </main>
+      <nav
+        class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        aria-label="Main"
+      >
+        ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
+      </nav>
     </div>
     ${lightboxView()}
   `,
@@ -107,7 +171,7 @@ render(
 
 function routeView(page: AppPage | undefined) {
   if (!page) {
-    return html`<p class="text-taupe">We couldn't find that page.</p>`;
+    return html`<p class="text-muted">We couldn't find that page.</p>`;
   }
   if (page.route === "gallery") return galleryView();
   if (page.route === "albums") return albumsView();

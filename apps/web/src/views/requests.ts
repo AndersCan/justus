@@ -20,24 +20,24 @@ function requestRow(view: RequestsViewModel, responderKey: string) {
   const r = view.requests.find((q) => q.requesterKey === responderKey);
   if (!r) return null;
   return html`
-    <li class="warm-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <li class="ui-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p class="font-serif text-lg text-ink">
+        <p class=" text-lg text-fg">
           <span class="font-semibold">“${r.requesterName}”</span> wants to join
           <span class="font-semibold">“${r.folderName}”</span>
         </p>
-        <p class="mt-1 text-sm text-taupe">Wants to add photos to this folder.</p>
+        <p class="mt-1 text-sm text-muted">Wants to add photos to this folder.</p>
       </div>
       <div class="flex shrink-0 gap-2">
         <button
-          class="warm-ghost"
+          class="ui-btn-ghost"
           ?disabled=${view.responding}
           @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
         >
           No
         </button>
         <button
-          class="warm-pill"
+          class="ui-btn-primary"
           ?disabled=${view.responding}
           @click=${() => {
             requests.respond(r.folderId, r.requesterKey, true);
@@ -56,9 +56,9 @@ function requestsBody(view: RequestsViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class="font-serif text-3xl text-ink">Requests</h1>
+        <h1 class=" text-3xl text-fg">Requests</h1>
         <button
-          class="warm-ghost"
+          class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "responding"}
           @click=${() => requests.refresh()}
         >
@@ -73,12 +73,12 @@ function requestsBody(view: RequestsViewModel) {
       )}
       ${
         state === "idle" || (state === "refreshing" && view.requests.length === 0)
-          ? html`<p class="text-taupe">Loading…</p>`
+          ? html`<p class="text-muted">Loading…</p>`
           : view.requests.length === 0
             ? html`
-                <div class="warm-card p-5 text-center">
-                  <p class="font-serif text-lg text-ink">No pending requests.</p>
-                  <p class="mt-1 text-sm text-cocoa">
+                <div class="ui-card p-5 text-center">
+                  <p class=" text-lg text-fg">No pending requests.</p>
+                  <p class="mt-1 text-sm text-fg">
                     When someone wants to join one of your folders, their request shows up here.
                   </p>
                 </div>

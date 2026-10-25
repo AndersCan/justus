@@ -21,10 +21,10 @@ function entry(p: Partial<LogEntry> & { source: string; message: string }): LogE
 
 describe("severityClasses", () => {
   it("maps each level to a distinct color class", () => {
-    expect(severityClasses("error")).toContain("brick");
-    expect(severityClasses("warn")).toContain("honey");
-    expect(severityClasses("debug")).toContain("taupe");
-    expect(severityClasses("info")).toContain("moss");
+    expect(severityClasses("error")).toContain("danger");
+    expect(severityClasses("warn")).toContain("warn");
+    expect(severityClasses("debug")).toContain("muted");
+    expect(severityClasses("info")).toContain("ok");
   });
 });
 
