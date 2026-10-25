@@ -358,7 +358,7 @@ export function albumsView() {
   return html`
     <section class="grid gap-8 md:grid-cols-[16rem_1fr]">
       <aside>
-        <h1 class="mb-3  text-2xl text-fg">Albums</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums</h1>
         <form class="mb-4 flex gap-2" @submit=${submitNew}>
           <input
             ${ref(newNameRef)}

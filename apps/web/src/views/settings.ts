@@ -443,7 +443,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
   const status = syncVm.status;
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class=" text-3xl text-fg">Folder</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Folders &amp; devices</h1>
 
       ${errorBanner(
         error || foldersVm.error,

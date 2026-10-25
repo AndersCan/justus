@@ -109,15 +109,11 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     paths:
       '<path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/>',
   },
-  {
-    route: "settings",
-    label: "Folder",
-    paths: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-  },
 ];
 
 function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: "rail" | "tab") {
-  const active = page?.route === item.route;
+  const active =
+    page?.route === item.route || (item.route === "sharing" && page?.route === "settings");
   const base =
     layout === "rail"
       ? "ui-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition"
