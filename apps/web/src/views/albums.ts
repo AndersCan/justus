@@ -295,7 +295,7 @@ function albumPanel() {
         const remaining = photos.filter((p) => !ids.has(p.id));
         return html`
           <div class="mb-3 flex items-center justify-between">
-            <h2 class=" text-lg text-fg">Add photos to “${vm.active!.name}”</h2>
+            <h2 class=" text-base font-semibold text-fg">Add photos to “${vm.active!.name}”</h2>
             <button
               type="button"
               class="rounded-md px-3 py-1.5 text-sm text-accent hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
@@ -328,7 +328,7 @@ function albumPanel() {
       const inAlbum = photos.filter((p) => ids.has(p.id));
       return html`
         <div class="mb-3 flex items-center justify-between">
-          <h2 class=" text-lg text-fg">
+          <h2 class=" text-base font-semibold text-fg">
             ${vm.active!.name}
             <span class="ml-1 font-sans text-sm text-muted">${inAlbum.length}</span>
           </h2>
@@ -358,7 +358,7 @@ export function albumsView() {
   return html`
     <section class="grid gap-8 md:grid-cols-[16rem_1fr]">
       <aside>
-        <h1 class="mb-3  text-2xl text-fg">Albums</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums</h1>
         <form class="mb-4 flex gap-2" @submit=${submitNew}>
           <input
             ${ref(newNameRef)}

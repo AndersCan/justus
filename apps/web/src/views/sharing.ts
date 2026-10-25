@@ -33,7 +33,7 @@ type SharingViewModel = ReturnType<typeof $grantsViewModel.get>;
 function promptCard(view: SharingViewModel, record: GrantRecord) {
   return html`
     <li class="ui-card flex flex-col gap-3 border-l-4 border-l-warn p-5">
-      <p class=" text-lg text-fg">
+      <p class=" text-base font-semibold text-fg">
         Someone with your album link joined. Share your photos with them?
       </p>
       <p class="text-sm text-muted">Device ${shortPeer(record.peerId)}</p>
@@ -123,7 +123,7 @@ function sharingBody(view: SharingViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class=" text-3xl text-fg">Sharing</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
         <button
           class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "acting"}
@@ -147,7 +147,7 @@ function sharingBody(view: SharingViewModel) {
             : view.dueRecords.length === 0
               ? html`
                   <div class="ui-card p-5 text-center">
-                    <p class=" text-lg text-fg">No prompts right now.</p>
+                    <p class=" text-base font-semibold text-fg">No prompts right now.</p>
                     <p class="mt-1 text-sm text-fg">
                       We'll ask once a day if someone shows up holding your album without an invite.
                     </p>

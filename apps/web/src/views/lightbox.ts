@@ -78,7 +78,7 @@ function lightboxBody(photo: Photo) {
   };
   return html`
     <div
-      class="fixed inset-0 z-30 flex touch-pan-y flex-col bg-black/80 backdrop-blur-sm"
+      class="fixed inset-0 z-30 flex touch-pan-y flex-col bg-black/95 backdrop-blur-md"
       @click=${() => {
         if (Date.now() < suppressClickUntil) return;
         closeLightbox();
@@ -129,10 +129,10 @@ function lightboxBody(photo: Photo) {
         class="mx-auto w-full max-w-2xl px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         @click=${(e: Event) => e.stopPropagation()}
       >
-        <div class="rounded-2xl bg-surface p-4 shadow-lg ring-1 ring-line">
+        <div class="rounded-2xl bg-surface/95 p-4 shadow-lg ring-1 ring-line backdrop-blur">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="truncate  text-lg text-fg">${photo.name}</div>
+              <div class="truncate text-base font-semibold text-fg">${photo.name}</div>
               <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                 <span
                   class="inline-block h-2.5 w-2.5 rounded-full"

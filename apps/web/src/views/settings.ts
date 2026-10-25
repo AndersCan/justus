@@ -180,7 +180,7 @@ function folderListSection(view: FoldersViewModel) {
                   >
                     <div class="min-w-0">
                       <div class="flex items-center gap-2">
-                        <span class="truncate  text-lg text-fg">${f.name}</span>
+                        <span class="truncate text-base font-semibold text-fg">${f.name}</span>
                         ${rolePill(f.role)}
                         ${
                           f.pending
@@ -443,7 +443,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
   const status = syncVm.status;
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class=" text-3xl text-fg">Folder</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Folder</h1>
 
       ${errorBanner(
         error || foldersVm.error,

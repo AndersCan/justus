@@ -22,7 +22,7 @@ function requestRow(view: RequestsViewModel, responderKey: string) {
   return html`
     <li class="ui-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p class=" text-lg text-fg">
+        <p class=" text-base font-semibold text-fg">
           <span class="font-semibold">“${r.requesterName}”</span> wants to join
           <span class="font-semibold">“${r.folderName}”</span>
         </p>
@@ -56,7 +56,7 @@ function requestsBody(view: RequestsViewModel) {
   return html`
     <div class="max-w-2xl space-y-5">
       <div class="flex items-center justify-between">
-        <h1 class=" text-3xl text-fg">Requests</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-fg">Requests</h1>
         <button
           class="ui-btn-ghost"
           ?disabled=${state === "refreshing" || state === "responding"}
@@ -77,7 +77,7 @@ function requestsBody(view: RequestsViewModel) {
           : view.requests.length === 0
             ? html`
                 <div class="ui-card p-5 text-center">
-                  <p class=" text-lg text-fg">No pending requests.</p>
+                  <p class=" text-base font-semibold text-fg">No pending requests.</p>
                   <p class="mt-1 text-sm text-fg">
                     When someone wants to join one of your folders, their request shows up here.
                   </p>

@@ -136,36 +136,43 @@ function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: 
   >`;
 }
 
-render(
-  html`
-    <div class="min-h-screen bg-canvas text-fg md:pl-60">
-      <aside
-        class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
-      >
-        <span class="px-3 pb-5 text-lg font-semibold tracking-tight">Justus</span>
-        <nav class="flex flex-col gap-1" aria-label="Main">
-          ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
-        </nav>
-        <div class="mt-auto px-3">${connectionIndicator()}</div>
-      </aside>
-      <header
-        class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
-      >
-        <span class="text-base font-semibold tracking-tight">Justus</span>
-        ${connectionIndicator()}
-      </header>
-      <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
-        ${useStore($router, (page) => cache(routeView(page)))}
-      </main>
-      <nav
-        class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-        aria-label="Main"
-      >
-        ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
+const shell = () => html`
+  <div class="min-h-screen bg-canvas text-fg md:pl-60">
+    <aside
+      class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
+    >
+      <span class="px-3 pb-5 text-lg font-semibold tracking-tight">Justus</span>
+      <nav class="flex flex-col gap-1" aria-label="Main">
+        ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
       </nav>
-    </div>
-    ${lightboxView()}
-  `,
+      <div class="mt-auto px-3">${connectionIndicator()}</div>
+    </aside>
+    <header
+      class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
+    >
+      <span class="text-base font-semibold tracking-tight">Justus</span>
+      ${connectionIndicator()}
+    </header>
+    <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
+      ${useStore($router, (page) => cache(routeView(page)))}
+    </main>
+    <nav
+      class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      aria-label="Main"
+    >
+      ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
+    </nav>
+  </div>
+  ${lightboxView()}
+`;
+
+// First-run welcome is a full-bleed screen without app chrome.
+render(
+  html`${useStore($router, (page) =>
+    page?.route === "welcome"
+      ? html`<main class="min-h-screen bg-canvas px-4 py-10 text-fg">${welcomeView()}</main>`
+      : shell(),
+  )}`,
   renderRoot!,
 );
 
@@ -177,6 +184,5 @@ function routeView(page: AppPage | undefined) {
   if (page.route === "albums") return albumsView();
   if (page.route === "sharing") return sharingView();
   if (page.route === "requests") return requestsView();
-  if (page.route === "welcome") return welcomeView();
   return settingsView();
 }
