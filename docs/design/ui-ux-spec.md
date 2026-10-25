@@ -138,10 +138,13 @@ photos) carries the color; chrome stays quiet.
   Sharing, Requests, Folder.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
   hover for pointer devices. Detail and remove live in the lightbox on touch.
+- **Theme:** follows the system by default; a header/rail toggle cycles
+  Auto → Light → Dark and persists to `localStorage` (`utils/theme.ts`, applied
+  to `<html data-theme>` before first paint).
 - Touch targets are at least 44px; motion respects `prefers-reduced-motion`.
 
 ## 4. Not yet built
 
 Tracked as GitHub issues, not specs: grant ledger and receipts UX (#25, #30),
 person identity (`person-identity-spec.md`, #31), the audit screen ("Where are
-my photos?"), people/search, and a manual theme toggle.
+my photos?"), people/search.
