@@ -35,14 +35,14 @@ A few strings are ambiguous and must not be used alone to prove which page rende
 
 - **`Gallery`** is BOTH the gallery page `<h1>` AND a persistent header nav link on every page —
   it does not prove the gallery rendered. Use the page-unique empty-state heading,
-  `This folder is empty — for now.`, instead.
-- **`Add a photo`** labels BOTH the header pill and the empty-state "add" button (both call
+  `No photos yet.`, instead.
+- **`Add photos`** labels BOTH the header pill and the empty-state "add" button (both call
   `pickAndAdd()`). Tapping either is fine for triggering the picker, but after canceling the
-  picker, assert the page-unique empty-state heading rather than `Add a photo`.
+  picker, assert the page-unique empty-state heading rather than `Add photos`.
 
 Page-unique anchors:
 
-| Page                           | Unique string                     |
-| ------------------------------ | --------------------------------- |
-| Gallery (empty, fresh install) | `This folder is empty — for now.` |
-| `/settings` (Folder overview)  | `Your folders`                    |
+| Page                           | Unique string    |
+| ------------------------------ | ---------------- |
+| Gallery (empty, fresh install) | `No photos yet.` |
+| `/settings` (Folder overview)  | `Your folders`   |

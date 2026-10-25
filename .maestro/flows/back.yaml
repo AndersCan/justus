@@ -17,5 +17,5 @@ androidWebViewHierarchy: devtools
     notVisible: "Your folders"
     timeout: 15000
 - extendedWaitUntil:
-    visible: "This folder is empty — for now."
+    visible: "No photos yet."
     timeout: 15000
