@@ -15,6 +15,7 @@ catalog:
   "@playwright/test": ^1.62.1
   "@types/node": ^24
   hyperdht: ^6.33.1
+  qrcode-generator: 2.0.4
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vite-plus: 0.2.8

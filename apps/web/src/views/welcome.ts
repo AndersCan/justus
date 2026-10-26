@@ -11,7 +11,7 @@ import {
   INTRO_CARD_COUNT,
   onboarding,
 } from "../machines/onboarding-machine";
-import { sync } from "../machines/sync-machine";
+import { $inviteError, invites } from "../machines/invite-machine";
 import { $router } from "../router";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
@@ -75,8 +75,6 @@ export const INTRO_CARDS: { icon: string; title: string; body: string }[] = [
 $onboardingState.listen((state) => {
   if (state === "choose") markWelcomeSeen();
 });
-
-const KEY_PATTERN = /^[0-9a-f]{64}$/i;
 
 // Creating an album finishes onboarding: head to the gallery once the create
 // lands. Joining navigates from the settings join listener.
@@ -240,23 +238,23 @@ function chooseStep() {
               const input = (e.target as HTMLFormElement).querySelector(
                 "input",
               ) as HTMLInputElement;
-              const key = input.value.trim().replace(/\s+/g, "");
-              if (KEY_PATTERN.test(key)) sync.join(key);
-              else input.setCustomValidity("That invite doesn't look right");
-              input.reportValidity();
+              invites.receive(input.value);
             }}
           >
             <h2 class="ui-label">Join with an invite</h2>
             <input
               class="ui-input"
-              placeholder="Paste an invite key"
-              aria-label="Invite key"
+              placeholder="Paste an invite link or key"
+              aria-label="Invite link or key"
               spellcheck="false"
               autocapitalize="none"
               autocomplete="off"
               autocorrect="off"
-              @input=${(e: Event) => (e.currentTarget as HTMLInputElement).setCustomValidity("")}
+              @input=${() => invites.clearError()}
             />
+            ${useStore($inviteError, (err) =>
+              err ? html`<p class="text-xs text-danger" role="alert">${err}</p>` : null,
+            )}
             <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>
               Join with an invite
             </button>

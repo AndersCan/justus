@@ -152,7 +152,7 @@ test("settings shows creator status and folder list", async ({ page }) => {
   await expect(page.getByRole("listitem").getByText("creator", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your folders" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your name" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Copy share key" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy invite link" })).toBeVisible();
 });
 
 test("tapping a photo opens the lightbox; Escape closes it; remove asks for confirmation", async ({

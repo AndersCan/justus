@@ -1,6 +1,5 @@
 import { html } from "lit-html";
 import { atom } from "nanostores";
-import type { FolderSummary } from "@justus/core";
 import { $foldersViewModel, folders } from "../machines/folders-machine";
 import {
   $syncState,
@@ -13,52 +12,31 @@ import { $router } from "../router";
 import { useStore } from "../use-store";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
+import { groupKey, invitePanel, shareInvite } from "./invite";
+import { invites, $inviteError } from "../machines/invite-machine";
 import { logsPanel } from "./logs";
-
-/** Group a 64-char hex key as "8 groups of 8" — readable, copyable. */
-function groupKey(key: string): string {
-  return key.replace(/(.{8})/g, "$1 ").trim();
-}
-
-async function copyText(value: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function pasteKey(input: HTMLInputElement) {
   try {
-    const text = await navigator.clipboard.readText();
-    const key = text.trim().replace(/\s+/g, "");
-    input.value = key;
-    $pasteError.set(key.length > 0 && !/^[0-9a-f]{64}$/i.test(key));
+    input.value = (await navigator.clipboard.readText()).trim();
+    invites.clearError();
   } catch {
-    $pasteError.set(true);
+    toast("Couldn't read the clipboard. Paste the invite into the box.");
   }
 }
 
-const $copiedKey = atom<string | null>(null);
-const $pasteError = atom(false);
 const $joinProgress = atom(false);
 
 // Navigate to the gallery once a join lands (joining → ok) — the folder's
 // photos then appear without the user hunting for them. When the join turns
-// out to be a *request* (the folder is pending creator approval), stay put
-// and explain instead of navigating.
+// out to be a *request* (the folder is pending Admin approval), the gallery
+// explains that it is waiting.
 let seenJoin: SyncStateName | null = null;
 $syncState.listen((state) => {
   if (seenJoin === "joining" && state === "ok") {
     const pending = $syncStatus.get()?.folder?.pending;
-    if (pending) {
-      toast("Request sent — the creator will approve it from their Requests tab");
-      $router.open("/requests", true);
-    } else {
-      toast("You're in — photos are syncing");
-      $router.open("/", true);
-    }
+    toast(pending ? "Request sent. Waiting for the Admin." : "You're in. Photos are syncing");
+    $router.open("/", true);
   }
   seenJoin = state;
   $joinProgress.set(state === "joining");
@@ -75,22 +53,6 @@ function rolePill(role: string) {
     <span class="h-2 w-2 rounded-full ${dot}"></span>
     ${role}
   </span>`;
-}
-
-async function shareFolder(folder: FolderSummary) {
-  const text = `Join my Justus folder “${folder.name}”: ${folder.shareKey}`;
-  if (typeof navigator.share === "function") {
-    try {
-      await navigator.share({ title: `Justus folder “${folder.name}”`, text });
-      return;
-    } catch {
-      // share dismissed/failed — fall through to copy
-    }
-  }
-  const ok = await copyText(folder.shareKey);
-  $copiedKey.set(ok ? folder.shareKey : null);
-  setTimeout(() => $copiedKey.set(null), 2000);
-  toast(ok ? "Share key copied" : "Couldn't copy — the key is shown above");
 }
 
 function nameSection(view: FoldersViewModel) {
@@ -209,7 +171,7 @@ function folderListSection(view: FoldersViewModel) {
                       <button
                         class="ui-btn-ghost"
                         aria-label="Share ${f.name}"
-                        @click=${() => void shareFolder(f)}
+                        @click=${() => void shareInvite(f, view.userName)}
                       >
                         Share
                       </button>
@@ -230,38 +192,6 @@ function folderListSection(view: FoldersViewModel) {
               )}
             </ul>`
       }
-    </section>
-  `;
-}
-
-function inviteSection(status: NonNullable<SyncViewModel["status"]>) {
-  const f = status.folder;
-  const intro =
-    f.role === "creator"
-      ? "Share the key, then approve the device in the Requests tab to let it add photos. Anyone with the key can also request to join."
-      : "Share this key so other devices can request to join this folder too.";
-  return html`
-    <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Share “${f.name}”</h2>
-      <p class="mb-4 text-sm text-fg">${intro}</p>
-      <div
-        class="rounded-2xl bg-subtle px-4 py-3 text-[11px] leading-relaxed font-mono tracking-widest text-fg"
-      >
-        ${groupKey(f.shareKey)}
-      </div>
-      <div class="mt-3 flex flex-wrap gap-2">
-        ${useStore(
-          $copiedKey,
-          (copied) => html`<button class="ui-btn-primary" @click=${() => void shareFolder(f)}>
-            ${copied === f.shareKey ? "Copied ✓" : "Copy share key"}
-          </button>`,
-        )}
-        ${
-          typeof navigator.share === "function"
-            ? html`<button class="ui-btn-ghost" @click=${() => void shareFolder(f)}>Share…</button>`
-            : null
-        }
-      </div>
     </section>
   `;
 }
@@ -319,34 +249,27 @@ function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: stri
 function joinSection(state: string, busy: boolean) {
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Join a folder</h2>
+      <h2 class="ui-label mb-1">Join with an invite</h2>
       <p class="mb-3 text-sm text-fg">
-        Paste a share key to request to join someone's folder. The creator approves your request
-        before you can add photos.
+        Paste an invite link or key to ask to join someone's album. The Admin approves your request.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          const key = input.value.trim().replace(/\s+/g, "");
-          if (!/^[0-9a-f]{64}$/i.test(key)) {
-            $pasteError.set(true);
-            return;
-          }
-          $pasteError.set(false);
-          sync.join(key);
+          invites.receive(input.value);
         }}
       >
         <input
           class="ui-input flex-1"
-          placeholder="64-char hex share key"
-          aria-label="Share key"
+          placeholder="Paste an invite link or key"
+          aria-label="Invite link or key"
           spellcheck="false"
           autocapitalize="none"
           autocomplete="off"
           autocorrect="off"
-          @input=${() => $pasteError.set(false)}
+          @input=${() => invites.clearError()}
         />
         <div class="flex gap-2">
           <button
@@ -373,12 +296,8 @@ function joinSection(state: string, busy: boolean) {
           )}
         </div>
       </form>
-      ${useStore($pasteError, (err) =>
-        err
-          ? html`<p class="mt-2 text-xs text-danger">
-              That key doesn't look right — check you copied it whole (64 hex chars).
-            </p>`
-          : null,
+      ${useStore($inviteError, (err) =>
+        err ? html`<p class="mt-2 text-xs text-danger" role="alert">${err}</p>` : null,
       )}
       ${useStore($joinProgress, (joining) =>
         joining
@@ -456,7 +375,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
         fatal || foldersVm.fatal ? () => window.location.reload() : undefined,
       )}
       ${nameSection(foldersVm)} ${newFolderSection(foldersVm)} ${folderListSection(foldersVm)}
-      ${status ? html`${inviteSection(status)} ${enrollSection(status, state, busy)}` : null}
+      ${status ? html`${invitePanel(status.folder, status.name)} ${enrollSection(status, state, busy)}` : null}
       ${joinSection(state, busy)} ${status ? deviceSection(status) : null} ${advancedLogsSection()}
     </div>
   `;

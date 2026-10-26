@@ -19,6 +19,7 @@ import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
 import { themeToggle } from "./views/theme-toggle";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
+import { inviteConsentSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
@@ -45,6 +46,7 @@ transport.subscribe((message) => {
   handleMessage(message);
 });
 
+listenForHostInvites();
 gallery.load();
 sync.refresh();
 folders.refresh();
@@ -157,7 +159,7 @@ render(
         ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
       </nav>
     </div>
-    ${lightboxView()}
+    ${lightboxView()} ${inviteConsentSheet()}
   `,
   renderRoot!,
 );

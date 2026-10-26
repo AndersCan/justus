@@ -7,6 +7,7 @@ struct JustusApp: App {
   var body: some Scene {
     WindowGroup {
       ContentView(runtime: appDelegate.runtime)
+        .onOpenURL { url in appDelegate.runtime.openInvite(url.absoluteString) }
     }
   }
 }
