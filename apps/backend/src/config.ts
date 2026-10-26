@@ -1,5 +1,10 @@
 import fs from "bare-fs";
-import { resolveWorkletConfig, type WorkletRuntimeOptions } from "@ekrooh/bare/runtime";
+import {
+  resolveCliConfig,
+  resolveWorkletConfig,
+  type WorkletRuntimeOptions,
+} from "@ekrooh/bare/runtime";
+import { parseHandoffFd } from "./desktop";
 
 /** Global provided by the Bare runtime (also present in bare-kit worklets). */
 declare const Bare: { argv?: string[] } | undefined;
@@ -11,6 +16,8 @@ export type JustusRuntimeOptions = WorkletRuntimeOptions & {
   inbox?: string;
   /** Hyperswarm DHT bootstrap servers (dev/test: point at a local DHT). */
   bootstrap?: string[];
+  /** Desktop host: fd to hand the origin + bootstrap nonce to (not dev). */
+  handoffFd?: number;
 };
 
 function isDirectory(p: unknown): boolean {
@@ -31,6 +38,14 @@ function isDirectory(p: unknown): boolean {
  * produce that combination itself — it derives `deviceMode` from storage).
  */
 export function resolveJustusConfig(): JustusRuntimeOptions {
+  const cliArgv = typeof Bare !== "undefined" && Array.isArray(Bare.argv) ? Bare.argv : [];
+  // The desktop host launches us with `handoff=<fd>` plus labeled tokens
+  // (`auth=on port=0 storage=...`): production semantics, credentials over the
+  // pipe instead of `handoff.json`.
+  const handoffFd = parseHandoffFd(cliArgv);
+  if (handoffFd !== undefined) {
+    return { ...resolveCliConfig(cliArgv), handoffFile: false, handoffFd, dev: false };
+  }
   const device = resolveWorkletConfig();
   // `resolveWorkletConfig()` also parses the CLI labeled tokens (used by the
   // e2e/dev loop), which set `storage` but explicitly `deviceMode:false` — a

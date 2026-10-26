@@ -17,6 +17,9 @@ import { registerUploadRoute } from "./upload-route";
 import { createLogCollector } from "./log-collector";
 import type { FsLike, PathLike } from "./log-collector";
 import { registerLogRoutes } from "./log-routes";
+import { sendHandoff, watchParentDeath } from "./desktop";
+
+declare const Bare: { exit(code?: number): void };
 
 const config = resolveJustusConfig();
 
@@ -42,6 +45,7 @@ const runtime = createWorkletRuntime({
   cache: config.cache,
   auth: config.auth,
   port: config.port,
+  handoffFile: config.handoffFile,
 });
 
 // Backend → web push seam (`createLoopbackPush`, shipped in @ekrooh/bare
@@ -116,12 +120,29 @@ if (config.dev && config.inbox) {
   });
 }
 
+/** Graceful close, bounded so a stuck socket cannot keep a dead app alive. */
+function shutdown(code: number): void {
+  const timer = setTimeout(() => Bare.exit(code), 2_000);
+  runtime.close(() => {
+    clearTimeout(timer);
+    Bare.exit(code);
+  });
+}
+
+if (config.handoffFd !== undefined) void watchParentDeath(() => shutdown(0));
+
 void grantLedger
   .load()
   .then(() => store.ready())
   .then(() => runtime.start())
-  .then((credentials) => {
+  .then(async (credentials) => {
     console.log(`[justus] worklet ready at ${credentials.origin}`);
+    if (config.handoffFd !== undefined) {
+      await sendHandoff(config.handoffFd, credentials, (err) => {
+        console.error(`[desktop] handoff to the host failed: ${err.message}`);
+        shutdown(1);
+      });
+    }
     return store.status();
   })
   .then((status) => {
@@ -132,4 +153,5 @@ void grantLedger
   .catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[justus] startup failed: ${message}`);
+    if (config.handoffFd !== undefined) shutdown(1);
   });

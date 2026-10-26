@@ -54,3 +54,9 @@ apps/android/app/src/main/assets/index.html
 apps/android/app/src/main/assets/assets
 apps/android/app/src/main/assets/main.core.bundle
 apps/android/local.properties
+
+# Desktop host build outputs
+apps/desktop/.zig-cache
+apps/desktop/zig-out
+apps/desktop/zig-pkg
+apps/desktop/dist

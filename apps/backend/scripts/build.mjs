@@ -12,6 +12,7 @@ export const workletExternal = [
   "bare-encoding",
   "bare-fs",
   "bare-path",
+  "bare-pipe",
 ];
 
 export const workletEntry = "src/main.core.ts";

@@ -1,0 +1,11 @@
+{
+  "name": "@justus/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Justus desktop host (macOS, Linux): Zig host + system webview + sidecar bare.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  }
+}

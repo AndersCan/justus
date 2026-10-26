@@ -42,3 +42,72 @@ jobs:
 
       - name: Run test suites
         run: pnpm exec vp run -r test
+
+  desktop-macos:
+    name: desktop (macOS app smoke)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: pnpm
+      # Build-time only; the app needs no runtime. Pinned: std.Io and
+      # std.process still change between Zig releases.
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.0
+      - run: pnpm install --frozen-lockfile
+      - name: Host unit tests
+        run: zig build test
+        working-directory: apps/desktop
+      - name: Build Justus.app
+        run: node apps/desktop/scripts/build.mjs
+      - name: Two instances launch, the webview redeems each nonce, no orphans
+        run: node apps/desktop/scripts/smoke.mjs
+
+  desktop-linux:
+    name: desktop (Linux tarball smoke)
+    # Oldest supported glibc: binaries built here run on newer distros.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: pnpm
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.0
+      - name: Install GTK, WebKitGTK, Xvfb and lsof
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb lsof libatomic1
+      - run: pnpm install --frozen-lockfile
+      - name: Host unit tests
+        run: xvfb-run -a zig build test
+        working-directory: apps/desktop
+      - name: Build the Linux tarball
+        run: node apps/desktop/scripts/build.mjs
+      - name: Two instances launch, the webview redeems each nonce, no orphans
+        run: xvfb-run -a node apps/desktop/scripts/smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: justus-linux-tarball
+          path: apps/desktop/dist/justus-linux-*.tar.gz*
