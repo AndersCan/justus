@@ -4,7 +4,6 @@ export const $router = createRouter({
   gallery: "/",
   sharing: "/sharing",
   settings: "/settings",
-  requests: "/requests",
   welcome: "/welcome",
 });
 

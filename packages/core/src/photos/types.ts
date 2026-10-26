@@ -26,6 +26,13 @@ export type Photo = {
 export type SyncMember = {
   key: string;
   name: string;
+  /** True for the album's Admin (the creator of the folder). */
+  admin: boolean;
+  /** True when this device can reach the member right now. This device always
+   * counts as connected to itself. */
+  connected: boolean;
+  /** Last time the member was reachable (ms epoch); unset if never seen. */
+  lastSeenAt?: number;
 };
 
 /** A call A device's view of one folder it belongs to. A device can hold many
@@ -82,7 +89,7 @@ export type JoinRequest = {
   requestedAt: number;
 };
 
-export type PhotoChangedCause = "add" | "remove" | "enroll" | "request";
+export type PhotoChangedCause = "add" | "remove" | "enroll" | "request" | "presence";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {

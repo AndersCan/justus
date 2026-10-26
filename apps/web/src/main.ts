@@ -13,10 +13,10 @@ import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
-import { requestsView } from "./views/requests";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { connectionIndicator } from "./views/connection";
+import { peopleChip, peopleSheet } from "./views/people";
 import { themeToggle } from "./views/theme-toggle";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { inviteConsentSheet, listenForHostInvites } from "./views/invite";
@@ -69,7 +69,7 @@ document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
 
-type NavRoute = "gallery" | "sharing" | "settings" | "requests";
+type NavRoute = "gallery" | "sharing" | "settings";
 
 const icon = (paths: string) =>
   html`<svg
@@ -98,12 +98,6 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     label: "Sharing",
     paths:
       '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.7 3 5.6"/>',
-  },
-  {
-    route: "requests",
-    label: "Requests",
-    paths:
-      '<path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/>',
   },
 ];
 
@@ -140,14 +134,16 @@ render(
           ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
         </nav>
         <div class="mt-auto flex items-center justify-between gap-2 px-3">
-          ${connectionIndicator()} ${themeToggle()}
+          ${peopleChip()} ${connectionIndicator()} ${themeToggle()}
         </div>
       </aside>
       <header
         class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
       >
         <span class="text-base font-semibold tracking-tight">Justus</span>
-        <span class="flex items-center gap-3">${connectionIndicator()} ${themeToggle()}</span>
+        <span class="flex items-center gap-3"
+          >${peopleChip()} ${connectionIndicator()} ${themeToggle()}</span
+        >
       </header>
       <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
         ${useStore($router, (page) => cache(routeView(page)))}
@@ -159,7 +155,7 @@ render(
         ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
       </nav>
     </div>
-    ${lightboxView()} ${inviteConsentSheet()}
+    ${lightboxView()} ${peopleSheet()} ${inviteConsentSheet()}
   `,
   renderRoot!,
 );
@@ -170,7 +166,6 @@ function routeView(page: AppPage | undefined) {
   }
   if (page.route === "gallery") return galleryView();
   if (page.route === "sharing") return sharingView();
-  if (page.route === "requests") return requestsView();
   if (page.route === "welcome") return welcomeView();
   return settingsView();
 }
