@@ -53,10 +53,16 @@ class MainActivity : AppCompatActivity() {
     @Volatile
     private var pendingCaptureFile: File? = null
 
+    // A justus://join/... link that opened the app before the page loaded;
+    // handed to the web layer as window.__justusInvite at document start.
+    private var pendingInvite: String? = null
+    private var pageLoaded = false
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        pendingInvite = inviteFrom(intent)
 
         // bare-fs cannot read APK assets by path — copy the built web app out
         // of assets/ into the cache dir for the worklet to serve over loopback.
@@ -124,6 +130,27 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        val invite = inviteFrom(intent) ?: return
+        if (pageLoaded) {
+            // The web layer listens for this and shows the join consent sheet.
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('justus:invite',{detail:${JSONObject.quote(invite)}}))",
+                null,
+            )
+        } else {
+            pendingInvite = invite
+        }
+    }
+
+    private fun inviteFrom(intent: android.content.Intent?): String? =
+        if (intent?.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "justus") {
+            intent.dataString
+        } else {
+            null
+        }
+
     /** Polls the worklet's `handoff.json`, injects the session token, loads the
      * page from the loopback origin. */
     private fun waitForHandoffAndLoad() {
@@ -139,10 +166,13 @@ class MainActivity : AppCompatActivity() {
                     val token = json.getString("token")
                     WebViewCompat.addDocumentStartJavaScript(
                         webView,
-                        "window.__ekrooh={token:${JSONObject.quote(token)}};window.BareShell=true;",
+                        "window.__ekrooh={token:${JSONObject.quote(token)}};window.BareShell=true;" +
+                            (pendingInvite?.let { "window.__justusInvite=${JSONObject.quote(it)};" } ?: ""),
                         setOf("http://127.0.0.1:$port"),
                     )
+                    pendingInvite = null
                     webView.loadUrl("$origin/index.html")
+                    pageLoaded = true
                     return
                 } catch (e: Exception) {
                     Log.e("JUSTUS_ANDROID", "Handoff malformed", e)

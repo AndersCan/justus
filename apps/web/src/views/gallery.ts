@@ -21,6 +21,7 @@ import { gridColsFor, readDensity, writeDensity, type Density } from "../utils/g
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
+import { waitingForAdmin } from "./invite";
 import { openLightbox } from "./lightbox";
 
 // "Pick photo" posts the chosen file to the worklet's own `POST /photos`
@@ -354,6 +355,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
   const readyEmpty = photos.length === 0 && state === "ready";
   return html`
     <div class="space-y-6">
+      ${waitingForAdmin()}
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-2">
           <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>

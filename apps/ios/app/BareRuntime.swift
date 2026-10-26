@@ -11,6 +11,9 @@ final class BareRuntime {
   private var coordinator: HostIpcCoordinator?
   private var handoffTask: Task<Void, Never>?
   private var attached = false
+  private weak var webView: WKWebView?
+  private var pendingInvite: String?
+  private var pageLoaded = false
   private var terminated = false
   private let handoffURL: URL
 
@@ -78,6 +81,7 @@ final class BareRuntime {
   func attach(webView: WKWebView) {
     guard let ipc, attached == false else { return }
     attached = true
+    self.webView = webView
 
     let hostPlugins = HostPluginRegistry()
     registerDefaultHostPlugins(hostPlugins)
@@ -116,15 +120,40 @@ final class BareRuntime {
       let payloadJSON =
         (try? JSONSerialization.data(withJSONObject: ["token": token]))
         .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"token\":\"\"}"
+      var bootScript = "window.__ekrooh=" + payloadJSON + ";window.BareShell=true;"
+      if let invite = pendingInvite {
+        bootScript += "window.__justusInvite=" + Self.jsString(invite) + ";"
+        pendingInvite = nil
+      }
       webView.configuration.userContentController.addUserScript(
         WKUserScript(
-          source: "window.__ekrooh=" + payloadJSON + ";window.BareShell=true;",
+          source: bootScript,
           injectionTime: .atDocumentStart,
           forMainFrameOnly: true
         )
       )
       webView.load(URLRequest(url: url))
+      pageLoaded = true
     }
+  }
+
+  /// A justus://join/... link opened the app. Before the page loads it is
+  /// injected at document start; afterwards the web layer gets an event and
+  /// shows the join consent sheet.
+  func openInvite(_ link: String) {
+    guard pageLoaded, let webView else {
+      pendingInvite = link
+      return
+    }
+    webView.evaluateJavaScript(
+      "window.dispatchEvent(new CustomEvent('justus:invite',{detail:" + Self.jsString(link) + "}))"
+    )
+  }
+
+  private static func jsString(_ value: String) -> String {
+    (try? JSONSerialization.data(withJSONObject: [value], options: []))
+      .flatMap { String(data: $0, encoding: .utf8) }
+      .map { String($0.dropFirst().dropLast()) } ?? "\"\""
   }
 
   func terminate() {
