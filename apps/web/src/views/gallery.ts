@@ -47,15 +47,15 @@ const vtName = (id: string) => `photo-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 async function pickAndAdd() {
   if (inNativeShell) {
     const [err, result] = await bus.invoke(mediaEvents.media.pick("image"));
-    if (err || !result?.path) {
+    // The host returns the original display name alongside the path, but the
+    // framework's `MediaResult` type declares neither; read it structurally
+    // so the picked photo keeps its real name in the native shell (#99).
+    const picked = result as unknown as { path?: string; name?: string } | undefined;
+    if (err || !picked?.path) {
       if (err?.message?.toLowerCase().includes("cancelled")) return;
       $galleryError.set("Couldn't open that photo — try another.");
       return;
     }
-    // The host returns the original display name alongside the path, but the
-    // framework's `MediaResult` type predates that field; read it structurally
-    // so the picked photo keeps its real name in the native shell (#99).
-    const picked = result as { path: string; name?: string };
     gallery.add(picked.path, picked.name);
     return;
   }

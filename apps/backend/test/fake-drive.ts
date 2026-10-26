@@ -194,10 +194,15 @@ export class FakeLoopbackServer {
   token(): string {
     return "";
   }
-  async credentials(): Promise<{ origin: string; port: number; token: string }> {
-    return { origin: "http://localhost:0", port: 0, token: "" };
+  async credentials(): Promise<{
+    origin: string;
+    port: number;
+    token: string;
+    bootstrap: string;
+  }> {
+    return { origin: "http://localhost:0", port: 0, token: "", bootstrap: "" };
   }
-  mountDir(_prefix: string, _dirPath: string): void {}
+  mountDir(_prefix: string, _dirPath: string, _opts?: { public?: boolean }): void {}
   onConnection(_handler: unknown): void {}
   registerRoute(_method: string, _path: string, _handler: unknown): void {}
   push(_frame: Uint8Array): boolean {

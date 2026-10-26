@@ -94,7 +94,7 @@ final class BareRuntime {
   }
 
   /// Polls the worklet's `handoff.json` (written once the loopback server is
-  /// up), injects the session token + shell marker, then loads the page.
+  /// up), injects the one-time bootstrap nonce + shell marker, then loads the page.
   private func waitForHandoffAndLoad(webView: WKWebView) {
     handoffTask = Task { @MainActor in
       let deadline = Date().addingTimeInterval(handoffTimeout)
@@ -111,15 +111,15 @@ final class BareRuntime {
         !Task.isCancelled,
         let credentials,
         let origin = credentials["origin"] as? String,
-        let token = credentials["token"] as? String,
+        let bootstrap = credentials["bootstrap"] as? String,
         let url = URL(string: "\(origin)/index.html")
       else {
         BareHostLogger.log("Timed out waiting for worklet handoff")
         return
       }
       let payloadJSON =
-        (try? JSONSerialization.data(withJSONObject: ["token": token]))
-        .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"token\":\"\"}"
+        (try? JSONSerialization.data(withJSONObject: ["bootstrap": bootstrap]))
+        .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
       var bootScript = "window.__ekrooh=" + payloadJSON + ";window.BareShell=true;"
       if let invite = pendingInvite {
         bootScript += "window.__justusInvite=" + Self.jsString(invite) + ";"

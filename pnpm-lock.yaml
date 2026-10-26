@@ -253,8 +253,8 @@ importers:
   apps/backend:
     dependencies:
       '@ekrooh/bare':
-        specifier: ^0.4.0
-        version: 0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+        specifier: ^0.5.0
+        version: 0.5.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       '@justus/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -270,6 +270,9 @@ importers:
       bare-path:
         specifier: ^3.1.1
         version: 3.1.1
+      bare-pipe:
+        specifier: ^4.4.0
+        version: 4.4.0(bare-buffer@3.7.0)
       corestore:
         specifier: ^7.12.0
         version: 7.12.0(bare-buffer@3.7.0)(bare-url@2.5.2)
@@ -308,11 +311,13 @@ importers:
         specifier: 'catalog:'
         version: 0.2.8(@types/node@24.13.3)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)
 
+  apps/desktop: {}
+
   apps/web:
     dependencies:
       '@ekrooh/bare':
-        specifier: ^0.4.0
-        version: 0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+        specifier: ^0.5.0
+        version: 0.5.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       '@justus/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -352,7 +357,7 @@ importers:
     dependencies:
       '@ekrooh/bare':
         specifier: ^0.4.0
-        version: 0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+        version: 0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
 
 packages:
 
@@ -376,6 +381,9 @@ packages:
 
   '@ekrooh/bare@0.4.0':
     resolution: {integrity: sha512-oEmZ1WTU3QHgVLvB6QRY/06PYqEUEBkIhQHOBkbhs8K6YUNE71gyR6xee3NtqaUDhB3LbEbCWzrQSq+wyedFWw==}
+
+  '@ekrooh/bare@0.5.0':
+    resolution: {integrity: sha512-ROCagAX6S8KEl/RQKjuw4ayBKyo1KrhDAbmi1o6w+TqQ+lym+hd/7jSSQbMJXP7y1cuPXcdZbeb7NqJpGvrXUw==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -1637,6 +1645,9 @@ packages:
   bare-hrtime@2.1.1:
     resolution: {integrity: sha512-VMb3tHo05gsnbu3OXTmkDiwTjMlOsbQmKoysKqKEyR09m77TuDrYFbj3Q5GGk10dAKsUHrnXmwCaeJqzVpB5ZA==}
 
+  bare-hrtime@2.1.2:
+    resolution: {integrity: sha512-ePu0axonbewvuUv9TFqjfvnZTaw+mL4JNx1q79dw8T3DIQEjqHs+pXyj92ghepa8K14KLtX3GdUuAVB+faaGDw==}
+
   bare-http-parser@1.1.5:
     resolution: {integrity: sha512-sPaDetLbWRmth04JmuTCvw/hoNdWJvYUJN8n1tYdGW3HM0mMnCvK2f0oIxE6HK7iOq+WlsRzEMg1LT/b0wGbLQ==}
 
@@ -1720,6 +1731,15 @@ packages:
   bare-pipe@4.2.3:
     resolution: {integrity: sha512-MJYji+Vy8cNMAB2fwg1WQAm1hFIOe5ojw5V9EhEa/wEEYpKT8c36WjHBDwgkgAZfUSX6wQcEFX+Q7wN09SgRow==}
     engines: {bare: '>=1.16.0'}
+
+  bare-pipe@4.4.0:
+    resolution: {integrity: sha512-fUOLSyMvXvpOoQq/3VN/bmb/mPsfg6JQllLt3cOWbRMEX9uKvq1hSafdYlu4yb7JYIwA8P/ttdIh0RaOy0fGMg==}
+    engines: {bare: '>=1.16.0'}
+    peerDependencies:
+      bare-buffer: '*'
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
 
   bare-posix@1.0.1:
     resolution: {integrity: sha512-b4quA8dyRVvX0aFIAIiev5zFATHwIUGr42Gmt+CqiBNg/bdsNkrj4bbkeotMOMiljJS4DCME5kywJO/TFwKo1A==}
@@ -1872,6 +1892,17 @@ packages:
 
   bare-ws@3.0.0:
     resolution: {integrity: sha512-q2v0UIQ0cFQBXQMp+0FRaoSk1EoYgOhzO7yio0TqBV6Rkfot97mbBYxb1ssw5faVCisVaFxQYY8113SMLYQBow==}
+    peerDependencies:
+      bare-buffer: '*'
+      bare-url: '*'
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+      bare-url:
+        optional: true
+
+  bare-ws@3.2.0:
+    resolution: {integrity: sha512-9PPJX5JrhuObWZGyhYCrQ1DbhjY1BLVALkZF56r0SYnfyN18ok84yUETcQ377aC2W6w8IqBewjQ1GlovtiXA1Q==}
     peerDependencies:
       bare-buffer: '*'
       bare-url: '*'
@@ -2378,6 +2409,10 @@ packages:
     resolution: {integrity: sha512-Y9iFKhgxT4mS8+uXxThBvvijCUl+ykFtNH++zbVZaE3ih30KyZ7Hz57BSwO6Q5VK08VkF3LiPzao3Xgr4Pi4NA==}
     engines: {bare: '>=1.16.0'}
 
+  rocksdb-native@3.19.1:
+    resolution: {integrity: sha512-/hKYXLxwbPPZZyVSPNtpBjLqok8u44NS3UweTJn4vnxPm5kvPwNYWE/BJP5RJxUY3v6WvKUl7SZSKXHAEryvcA==}
+    engines: {bare: '>=1.16.0'}
+
   safety-catch@1.0.3:
     resolution: {integrity: sha512-Zq+J1TefpoEq/HTUabo0YXX5MNvttjWYODGohgPBO2jfko8Wqx3JYMgE823szDFVamdH5PlpByvfiWScTdSYDA==}
 
@@ -2655,7 +2690,7 @@ snapshots:
 
   '@blazediff/core@1.9.1': {}
 
-  '@ekrooh/bare@0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)':
+  '@ekrooh/bare@0.4.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)':
     dependencies:
       '@mantaq/core': 0.2.0
       '@mantaq/sugar': 0.3.0
@@ -2663,14 +2698,42 @@ snapshots:
       bare-encoding: 1.0.3(bare-buffer@3.7.0)
       bare-env: 3.0.1
       bare-fs: 4.8.0(bare-buffer@3.7.0)
-      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       bare-path: 3.1.1
-      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))
-      bare-ws: 3.0.0(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))
+      bare-ws: 3.0.0(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       fs-native-extensions: 1.5.0(bare-url@2.5.2)
       quickbit-native: 2.4.8(bare-url@2.5.2)
       rabin-native: 2.0.0(bare-url@2.5.2)
       rocksdb-native: 3.17.4(bare-url@2.5.2)
+      simdle-native: 1.3.9(bare-url@2.5.2)
+      sodium-native: 5.1.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
+      udx-native: 1.21.0(bare-url@2.5.2)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - bare-events
+      - bare-pipe
+      - bare-url
+      - react-native-b4a
+
+  '@ekrooh/bare@0.5.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)':
+    dependencies:
+      '@mantaq/core': 0.2.0
+      '@mantaq/sugar': 0.3.0
+      bare-crypto: 1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1)
+      bare-encoding: 1.0.3(bare-buffer@3.7.0)
+      bare-env: 3.0.1
+      bare-fs: 4.8.0(bare-buffer@3.7.0)
+      bare-hrtime: 2.1.2
+      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-path: 3.1.1
+      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))
+      bare-ws: 3.2.0(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      fs-native-extensions: 1.5.0(bare-url@2.5.2)
+      quickbit-native: 2.4.8(bare-url@2.5.2)
+      rabin-native: 2.0.0(bare-url@2.5.2)
+      rocksdb-native: 3.19.1(bare-url@2.5.2)
       simdle-native: 1.3.9(bare-url@2.5.2)
       sodium-native: 5.1.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
       udx-native: 1.21.0(bare-url@2.5.2)
@@ -3301,12 +3364,12 @@ snapshots:
       unplugin-utils: 0.3.2
       vite: '@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)'
 
-  '@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)':
+  '@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)))':
     dependencies:
       '@testing-library/dom': 10.4.1
       '@testing-library/user-event': 14.6.4(@testing-library/dom@10.4.1)
-      '@vitest/browser': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
+      '@vitest/browser': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)))
+      vitest: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -3325,7 +3388,7 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/browser@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)':
+  '@vitest/browser@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)))':
     dependencies:
       '@blazediff/core': 1.9.1
       '@vitest/mocker': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
@@ -3334,7 +3397,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
@@ -3650,14 +3713,16 @@ snapshots:
 
   bare-hrtime@2.1.1: {}
 
+  bare-hrtime@2.1.2: {}
+
   bare-http-parser@1.1.5: {}
 
-  bare-http1@4.5.8(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2):
+  bare-http1@4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2):
     dependencies:
       bare-events: 2.9.1
       bare-http-parser: 1.1.5
       bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
-      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))
+      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))
     optionalDependencies:
       bare-buffer: 3.7.0
       bare-url: 2.5.2
@@ -3666,10 +3731,10 @@ snapshots:
       - bare-pipe
       - react-native-b4a
 
-  bare-https@3.0.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2):
+  bare-https@3.0.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2):
     dependencies:
-      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
-      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))
+      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))
       bare-tls: 3.1.8(bare-buffer@3.7.0)(bare-events@2.9.1)
     transitivePeerDependencies:
       - bare-abort-controller
@@ -3782,6 +3847,16 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
+      - react-native-b4a
+
+  bare-pipe@4.4.0(bare-buffer@3.7.0):
+    dependencies:
+      bare-events: 2.9.1
+      bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
+    optionalDependencies:
+      bare-buffer: 3.7.0
+    transitivePeerDependencies:
+      - bare-abort-controller
       - react-native-b4a
 
   bare-posix@1.0.1: {}
@@ -3930,7 +4005,7 @@ snapshots:
   bare-stdio@1.0.3(bare-buffer@3.7.0):
     dependencies:
       bare-fs: 4.8.0(bare-buffer@3.7.0)
-      bare-pipe: 4.2.3(bare-buffer@3.7.0)
+      bare-pipe: 4.4.0(bare-buffer@3.7.0)
       bare-tty: 5.1.2(bare-buffer@3.7.0)
     transitivePeerDependencies:
       - bare-abort-controller
@@ -3962,9 +4037,9 @@ snapshots:
       bare-env: 3.0.1
       bare-events: 2.9.1
       bare-os: 3.9.3
-      bare-pipe: 4.2.3(bare-buffer@3.7.0)
+      bare-pipe: 4.4.0(bare-buffer@3.7.0)
       bare-structured-clone: 1.6.0
-      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))
+      bare-tcp: 2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))
       bare-url: 2.5.2
     optionalDependencies:
       bare-buffer: 3.7.0
@@ -3979,6 +4054,18 @@ snapshots:
       bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
     optionalDependencies:
       bare-pipe: 4.2.3(bare-buffer@3.7.0)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+
+  bare-tcp@2.5.4(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0)):
+    dependencies:
+      bare-dns: 2.1.4
+      bare-events: 2.9.1
+      bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
+    optionalDependencies:
+      bare-pipe: 4.4.0(bare-buffer@3.7.0)
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -4010,12 +4097,27 @@ snapshots:
     dependencies:
       bare-path: 3.1.1
 
-  bare-ws@3.0.0(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2):
+  bare-ws@3.0.0(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2):
     dependencies:
       bare-crypto: 1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1)
       bare-events: 2.9.1
-      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
-      bare-https: 3.0.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.2.3(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-https: 3.0.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
+    optionalDependencies:
+      bare-buffer: 3.7.0
+      bare-url: 2.5.2
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-pipe
+      - react-native-b4a
+
+  bare-ws@3.2.0(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2):
+    dependencies:
+      bare-crypto: 1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1)
+      bare-events: 2.9.1
+      bare-http1: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+      bare-https: 3.0.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       bare-stream: 2.13.3(bare-buffer@3.7.0)(bare-events@2.9.1)
     optionalDependencies:
       bare-buffer: 3.7.0
@@ -4917,6 +5019,20 @@ snapshots:
       - bare-url
       - react-native-b4a
 
+  rocksdb-native@3.19.1(bare-url@2.5.2):
+    dependencies:
+      compact-encoding: 3.3.0
+      ready-resource: 1.2.0
+      refcounter: 1.0.0
+      require-addon: 1.2.0(bare-url@2.5.2)
+      resolve-reject-promise: 1.1.0
+      signal-promise: 1.0.3
+      streamx: 2.28.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-url
+      - react-native-b4a
+
   safety-catch@1.0.3: {}
 
   same-data@1.0.0: {}
@@ -5157,8 +5273,8 @@ snapshots:
     dependencies:
       '@oxc-project/types': 0.142.0
       '@oxlint/plugins': 1.73.0
-      '@vitest/browser': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)
-      '@vitest/browser-preview': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)
+      '@vitest/browser': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)))
+      '@vitest/browser-preview': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)))
       '@vitest/expect': 4.1.10
       '@vitest/mocker': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.10
@@ -5170,7 +5286,7 @@ snapshots:
       oxfmt: 0.61.0(vite-plus@0.2.8(@types/node@24.13.3)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
       oxlint: 1.76.0(oxlint-tsgolint@7.0.2001)(vite-plus@0.2.8(@types/node@24.13.3)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
       oxlint-tsgolint: 7.0.2001
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10))(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
     optionalDependencies:
       '@voidzero-dev/vite-plus-darwin-arm64': 0.2.8
       '@voidzero-dev/vite-plus-darwin-x64': 0.2.8
@@ -5269,7 +5385,7 @@ snapshots:
       - vite
       - yaml
 
-  vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10))(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.10
       '@vitest/mocker': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
@@ -5293,7 +5409,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.13.3
-      '@vitest/browser-preview': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)
+      '@vitest/browser-preview': 4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))(vitest@4.1.10)
     transitivePeerDependencies:
       - msw
 

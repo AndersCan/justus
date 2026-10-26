@@ -29,7 +29,7 @@ import java.io.File
 /**
  * Justus Android host: starts the Bare worklet (apps/backend bundle), wires
  * the vendor.media pick/capture host plugins, and loads the built web app from
- * the worklet's loopback server (cookie auth via the handoff token).
+ * the worklet's loopback server (cookie auth via the handoff bootstrap nonce).
  */
 class MainActivity : AppCompatActivity() {
     private lateinit var worklet: Worklet
@@ -151,7 +151,7 @@ class MainActivity : AppCompatActivity() {
             null
         }
 
-    /** Polls the worklet's `handoff.json`, injects the session token, loads the
+    /** Polls the worklet's `handoff.json`, injects the one-time bootstrap nonce, loads the
      * page from the loopback origin. */
     private fun waitForHandoffAndLoad() {
         val handoff = File(storageDir, "handoff.json")
@@ -163,10 +163,10 @@ class MainActivity : AppCompatActivity() {
                     val json = JSONObject(text)
                     val origin = json.getString("origin")
                     val port = json.getInt("port")
-                    val token = json.getString("token")
+                    val bootstrap = json.getString("bootstrap")
                     WebViewCompat.addDocumentStartJavaScript(
                         webView,
-                        "window.__ekrooh={token:${JSONObject.quote(token)}};window.BareShell=true;" +
+                        "window.__ekrooh={bootstrap:${JSONObject.quote(bootstrap)}};window.BareShell=true;" +
                             (pendingInvite?.let { "window.__justusInvite=${JSONObject.quote(it)};" } ?: ""),
                         setOf("http://127.0.0.1:$port"),
                     )
