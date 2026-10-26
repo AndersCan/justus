@@ -32,6 +32,8 @@ type SwarmLike = {
   };
   on(event: "connection", handler: (conn: unknown) => void): void;
   connections: Set<unknown>;
+  /** This swarm's noise identity; absent on test fakes. */
+  keyPair?: { publicKey: Buffer };
   destroy(): void | Promise<void>;
 };
 
@@ -190,6 +192,9 @@ export interface PhotoStore {
   setActive(folderId: string): Promise<EitherResult<SyncStatus>>;
   setName(name: string): Promise<EitherResult<{ name: string }>>;
   requests(): Promise<{ requests: JoinRequest[] }>;
+  /** Admin only: take a member out of the album (their copies stay on their
+   * own devices, but the album stops syncing with them). */
+  removeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   respond(
     folderId: string,
     requesterKey: string,
@@ -469,6 +474,102 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  // --- Presence: which members this device can reach right now. -----------
+  const PRESENCE_FILE = path.join(deps.storageDir, "presence.json");
+  /** Live swarm connections per remote noise key (a peer can hold several). */
+  const connectedSwarmKeys = new Map<string, number>();
+  /** Member drive key → that member's swarm key, learned from their `/device.json`. */
+  const memberSwarmKey = new Map<string, string>();
+  const lastSeen = new Map<string, number>(loadLastSeen());
+
+  function loadLastSeen(): [string, number][] {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(PRESENCE_FILE, "utf8"));
+      if (!isTextJSON(parsed)) return [];
+      return Object.entries(parsed).filter((e): e is [string, number] => typeof e[1] === "number");
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLastSeen() {
+    try {
+      fs.writeFileSync(PRESENCE_FILE, JSON.stringify(Object.fromEntries(lastSeen)));
+    } catch (e) {
+      console.error(`[justus] failed to persist presence: ${errMsg(e)}`);
+    }
+  }
+
+  function memberKeyForSwarmKey(swarmKeyHex: string): string | undefined {
+    for (const [member, sk] of memberSwarmKey) if (sk === swarmKeyHex) return member;
+    return undefined;
+  }
+
+  function isMemberConnected(memberKey: string): boolean {
+    const sk = memberSwarmKey.get(memberKey);
+    return sk !== undefined && (connectedSwarmKeys.get(sk) ?? 0) > 0;
+  }
+
+  /** Tell the web layer presence changed; it refreshes status only. */
+  function announcePresence() {
+    const rt = activeRuntime();
+    if (rt) deps.onChanged({ cause: "presence", folderId: rt.record.id });
+  }
+
+  /** Read a member's `/device.json` for its swarm key, bounded so an
+   * unreachable member never stalls the caller. Cached once learned. */
+  async function learnSwarmKey(memberKey: string, drive: Drive): Promise<boolean> {
+    if (memberSwarmKey.has(memberKey)) return false;
+    const text = await Promise.race([
+      getText(drive, DRIVE_PATH_DEVICE),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    if (!text) return false;
+    try {
+      const parsed = JSON.parse(text) as { swarmKey?: unknown };
+      if (typeof parsed.swarmKey === "string" && isHexKey(parsed.swarmKey)) {
+        memberSwarmKey.set(memberKey, parsed.swarmKey);
+        return true;
+      }
+    } catch {
+      // not JSON: leave unresolved
+    }
+    return false;
+  }
+
+  /** Learn swarm keys for every member of every folder we hold. */
+  async function resolveSwarmKeys(): Promise<boolean> {
+    let learned = false;
+    for (const rt of runtimes.values()) {
+      const jobs: Promise<boolean>[] = [];
+      for (const [key, drive] of rt.memberDrives) jobs.push(learnSwarmKey(key, drive));
+      if (rt.record.role !== "creator")
+        jobs.push(learnSwarmKey(rt.record.shareKey, rt.folderDrive));
+      learned = (await Promise.all(jobs)).some(Boolean) || learned;
+    }
+    return learned;
+  }
+
+  function onSwarmConnection(conn: any, swarmKeyHex: string) {
+    connectedSwarmKeys.set(swarmKeyHex, (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1);
+    announcePresence();
+    void resolveSwarmKeys().then((learned) => learned && announcePresence());
+    conn.on("close", () => {
+      const left = (connectedSwarmKeys.get(swarmKeyHex) ?? 1) - 1;
+      if (left > 0) {
+        connectedSwarmKeys.set(swarmKeyHex, left);
+        return;
+      }
+      connectedSwarmKeys.delete(swarmKeyHex);
+      const member = memberKeyForSwarmKey(swarmKeyHex);
+      if (member) {
+        lastSeen.set(member, Date.now());
+        saveLastSeen();
+      }
+      announcePresence();
+    });
+  }
+
   async function readDeviceName(drive: Drive): Promise<string> {
     const text = await getText(drive, DRIVE_PATH_DEVICE);
     let name = "Unknown device";
@@ -483,10 +584,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return name;
   }
 
+  /** The swarm's noise public key. Swarm connections identify a peer by this
+   * key, not by its drive key, so each device publishes it in `/device.json`
+   * and peers use it to tell which member a connection belongs to. */
+  function ownSwarmKey(): string | undefined {
+    const pk = swarm.keyPair?.publicKey;
+    return pk ? hex(pk) : undefined;
+  }
+
+  function deviceJson(name: string): Buffer {
+    return Buffer.from(JSON.stringify({ name, swarmKey: ownSwarmKey() }));
+  }
+
   async function ensureOwnDriveIdentity() {
     const text = await getText(ownDrive, DRIVE_PATH_DEVICE);
-    if (text === null) {
-      await ownDrive.put(DRIVE_PATH_DEVICE, Buffer.from(JSON.stringify({ name: state.name })));
+    // The swarm key is random per boot, so rewrite whenever it differs.
+    if (text === null || !text.includes(`"swarmKey":"${ownSwarmKey()}"`)) {
+      await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
     }
   }
 
@@ -1175,11 +1289,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // then the enrolled members from the registry. Dedupe self in case the
     // registry already lists this device (issue #89) — a member/reader's own key
     // may appear in `registry.members`, but must not be double-counted.
+    const isAdmin = rt.record.role === "creator";
+    const adminKey = rt.record.shareKey;
+    const peer = (key: string, name: string, admin: boolean): SyncMember => {
+      const connected = isMemberConnected(key);
+      const seen = lastSeen.get(key);
+      return { key, name, admin, connected, ...(seen !== undefined ? { lastSeenAt: seen } : {}) };
+    };
     const memberList: SyncMember[] = [
-      { key: selfKey, name: state.name },
+      { key: selfKey, name: state.name, admin: isAdmin, connected: true },
+      // A member sees the Admin too: the registry only lists enrolled writers.
+      ...(!isAdmin && selfKey !== adminKey
+        ? [peer(adminKey, await readDeviceName(rt.folderDrive), true)]
+        : []),
       ...Object.values(registry.members)
-        .filter((m) => m.key !== selfKey)
-        .map((m) => ({ key: m.key, name: m.name })),
+        .filter((m) => m.key !== selfKey && m.key !== adminKey)
+        .map((m) => peer(m.key, m.name, false)),
     ];
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
@@ -1295,6 +1420,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const peerKey = conn.remotePublicKey;
       if (peerKey && Buffer.isBuffer(peerKey)) {
         const peerHex = hex(peerKey);
+        onSwarmConnection(conn, peerHex);
         // Record the peer against every folder whose topic we serve — the
         // request transport reads these peers' `/requests.json` outboxes.
         for (const rt of runtimes.values()) {
@@ -1343,6 +1469,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         social: { peers: new Set() },
       };
       runtimes.set(record.id, rt);
+      if (role === "creator" && !isOwn) {
+        // The swarm key changes every boot; keep this folder drive's copy current.
+        try {
+          await fd.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+        } catch (e) {
+          console.error(`[justus] failed to refresh creator device identity: ${errMsg(e)}`);
+        }
+      }
       await refreshMembersFor(rt);
       watchDrive(fd, record.id, hex(fd.key), record.role === "creator" ? "enroll" : "add");
       if (isOwn) watchDrive(ownDrive, record.id, ownKey, "enroll");
@@ -1677,7 +1811,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // A new creator folder gets a NEW single-writer drive of its own.
       const newDrive = deps.makeDrive(corestore);
       await newDrive.ready();
-      await newDrive.put(DRIVE_PATH_DEVICE, Buffer.from(JSON.stringify({ name: state.name })));
+      await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
       await newDrive.put(
         DRIVE_PATH_FOLDER,
         Buffer.from(JSON.stringify({ version: 1, name: cleanName })),
@@ -1744,15 +1878,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const cleanName = name.trim();
       state.name = cleanName;
       saveState();
-      await ownDrive.put(DRIVE_PATH_DEVICE, Buffer.from(JSON.stringify({ name: cleanName })));
+      await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
       // Update every creator drive's device.json + folder identity to match.
       for (const rt of runtimes.values()) {
         if (rt.record.role === "creator") {
           try {
-            await rt.folderDrive.put(
-              DRIVE_PATH_DEVICE,
-              Buffer.from(JSON.stringify({ name: cleanName })),
-            );
+            await rt.folderDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
           } catch (e) {
             const message = errMsg(e);
             console.error(`[justus] failed to update creator device name: ${message}`);
@@ -1825,6 +1956,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
       await loadMemberDrive(rt, requesterKey, requesterName);
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
+      return ok({ ok: true });
+    },
+
+    async removeMember(folderId, memberKey) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No folder ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
+      if (!isHexKey(memberKey))
+        return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
+      const registry = await readRegistryIn(rt.folderDrive);
+      if (!registry.members[memberKey]) return err(PhotoError.NOT_FOUND, "No such member");
+      delete registry.members[memberKey];
+      await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
+      // Stop loading their drive; a re-filed request must not resurface at once.
+      deniedRequesters.add(memberKey);
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId, memberKey });
       return ok({ ok: true });
     },
 

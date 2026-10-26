@@ -200,17 +200,15 @@ function enrollSection(status: NonNullable<SyncViewModel["status"]>, state: stri
   if (status.folder.role !== "creator") {
     return html`<section class="ui-card p-5">
       <h2 class="ui-label mb-1">Approve a writer</h2>
-      <p class="text-sm text-fg">
-        Only the folder's creator can approve writers — head to Requests.
-      </p>
+      <p class="text-sm text-fg">Only the Admin can approve people. Open People from the header.</p>
     </section>`;
   }
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Approve a writer</h2>
       <p class="mb-3 text-sm text-fg">
-        Paste a device's drive key to add it as a writer directly, or approve pending requests in
-        the Requests tab.
+        Paste a device's drive key to add it as a writer directly, or approve pending requests from
+        People in the header.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"

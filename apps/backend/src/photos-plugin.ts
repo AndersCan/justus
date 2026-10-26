@@ -71,6 +71,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
           return errResult(e);
         }
       },
+      removeMember: async (args) => deps.store.removeMember(args.folderId, args.memberKey),
       respond: async (args) => deps.store.respond(args.folderId, args.requesterKey, args.approve),
     },
   });
