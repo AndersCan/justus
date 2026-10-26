@@ -1,3 +1,4 @@
+import { workletBase } from "./utils/peer";
 /**
  * Web-layer diagnostic capture for justus (issue #14).
  *
@@ -254,5 +255,6 @@ export function installWebLogCapture(options: LogCaptureOptions = {}): LogCaptur
 /** Installs capture at page startup, skipping the mock transport entirely. */
 export function startWebLogCapture(): LogCaptureHandle | null {
   if (isMockTransport()) return null;
-  return installWebLogCapture();
+  // Browser dev with several peers: post to this tab's own worklet.
+  return installWebLogCapture({ path: `${workletBase()}/__logs` });
 }
