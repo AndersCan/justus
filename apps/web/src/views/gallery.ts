@@ -114,7 +114,7 @@ async function confirmRemove(photo: Photo) {
   if ($galleryState.get() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
-    detail: "It will disappear from every device sharing this folder.",
+    detail: "It will disappear from every device sharing this album.",
     confirmLabel: "Remove",
     tone: "danger",
   });
@@ -238,7 +238,7 @@ function densityToggle() {
 function presenceStrip() {
   const status = $syncStatus.get();
   if (!status) {
-    return html`<span class="text-sm text-muted">Looking for your folder…</span>`;
+    return html`<span class="text-sm text-muted">Looking for your album…</span>`;
   }
   const peers = status.peers;
   const known = status.members.length;
@@ -297,10 +297,10 @@ function folderContext() {
         ${
           others.length > 0
             ? html`<label class="inline-flex items-center">
-                <span class="sr-only">Switch folder</span>
+                <span class="sr-only">Switch album</span>
                 <select
                   class="ui-btn-ghost cursor-pointer"
-                  aria-label="Switch folder"
+                  aria-label="Switch album"
                   @change=${(e: Event) => {
                     const id = (e.target as HTMLSelectElement).value;
                     if (id) folders.switchTo(id);
@@ -343,7 +343,7 @@ function emptyState(view: GalleryViewModel) {
             : null
         }
         <a class="ui-btn-ghost inline-flex items-center" href="/settings"
-          >${view.role === "reader" ? "Join a folder" : "Set up another device"}</a
+          >${view.role === "reader" ? "Join an album" : "Set up another device"}</a
         >
       </div>
     </div>

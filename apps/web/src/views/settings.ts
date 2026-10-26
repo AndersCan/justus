@@ -92,9 +92,9 @@ function newFolderSection(view: FoldersViewModel) {
   const busy = view.state === "creating";
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">New folder</h2>
+      <h2 class="ui-label mb-1">New album</h2>
       <p class="mb-3 text-sm text-fg">
-        Create a fresh folder to share on its own — each folder has its own members and share key.
+        Create a fresh album to share on its own. Each album has its own members and invite.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
@@ -110,12 +110,12 @@ function newFolderSection(view: FoldersViewModel) {
       >
         <input
           class="ui-input flex-1"
-          placeholder="Folder name"
-          aria-label="Folder name"
+          placeholder="Album name"
+          aria-label="Album name"
           maxlength="60"
         />
         <button class="ui-btn-primary" type="submit" ?disabled=${busy || view.state !== "ok"}>
-          ${busy ? "Creating…" : "Create folder"}
+          ${busy ? "Creating…" : "Create album"}
         </button>
       </form>
     </section>
@@ -126,10 +126,10 @@ function folderListSection(view: FoldersViewModel) {
   const activeId = view.activeFolderId;
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-3">Your folders</h2>
+      <h2 class="ui-label mb-3">Your albums</h2>
       ${
         view.folders.length === 0
-          ? html`<p class="text-sm text-fg">No folders yet — create one above.</p>`
+          ? html`<p class="text-sm text-fg">No albums yet. Create one above.</p>`
           : html`<ul class="space-y-3">
               ${view.folders.map(
                 (f) => html`
@@ -303,12 +303,12 @@ function joinSection(state: string, busy: boolean) {
               <span
                 class="h-2 w-2 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
               ></span>
-              Connecting to the folder…
+              Connecting to the album…
             </p>`
           : null,
       )}
       <p class="mt-3 text-xs text-muted">
-        Joining adds the folder to this device — you can switch between your folders on this page.
+        Joining adds the album to this device. You can switch between your albums on this page.
       </p>
     </section>
   `;
@@ -318,11 +318,11 @@ function deviceSection(status: NonNullable<SyncViewModel["status"]>) {
   return html`
     <section class="ui-card p-5">
       <div class="mb-3 flex items-center justify-between">
-        <h2 class="ui-label">Active folder</h2>
+        <h2 class="ui-label">Active album</h2>
         ${rolePill(status.folder.role)}
       </div>
       <dl class="grid grid-cols-2 gap-y-2 text-sm">
-        <dt class="text-muted">Folder</dt>
+        <dt class="text-muted">Album</dt>
         <dd>${status.folder.name}</dd>
         <dt class="text-muted">Your name</dt>
         <dd>${status.name}</dd>
@@ -360,7 +360,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
   const status = syncVm.status;
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Folders &amp; devices</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums &amp; devices</h1>
 
       ${errorBanner(
         error || foldersVm.error,

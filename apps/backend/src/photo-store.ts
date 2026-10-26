@@ -1100,7 +1100,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     originalName?: string,
   ): Promise<EitherResult<Photo>> {
     const rt = activeRuntime();
-    if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
+    if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
     if (rt.record.role === "reader") {
       return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
     }
@@ -1558,7 +1558,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async addBytes(name, bytes) {
       await readyPromise;
       const rt = activeRuntime();
-      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
+      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       if (rt.record.role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
       }
@@ -1589,7 +1589,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async remove(id) {
       await readyPromise;
       const rt = activeRuntime();
-      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
+      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       const role = rt.record.role;
       const selfKey = role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
       const selfDrive = role === "creator" ? rt.folderDrive : ownDrive;
@@ -1631,7 +1631,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
       if (key === hex(ownDrive.key))
-        return err(PhotoError.INVALID_KEY, "You already own this folder");
+        return err(PhotoError.INVALID_KEY, "You already own this album");
 
       // Idempotency (issue #47): re-joining a folder we already hold must not
       // mint a second `FolderRecord` with a fresh id — that leaves two folders
@@ -1687,7 +1687,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         folderName = await readFolderNameIn(drive);
       } catch (e) {
         const message = errMsg(e);
-        return err(PhotoError.INVALID_KEY, `Cannot open folder: ${message}`);
+        return err(PhotoError.INVALID_KEY, `Cannot open album: ${message}`);
       }
 
       const ownKey = hex(ownDrive.key);
@@ -1771,7 +1771,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async enroll(key, name) {
       await readyPromise;
       const rt = activeRuntime();
-      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No folder is active");
+      if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can enroll members");
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Drive key must be a 64-char hex key");
@@ -1805,7 +1805,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async createFolder(name) {
       await readyPromise;
       if (!name || typeof name !== "string" || !name.trim()) {
-        return err(PhotoError.NAME_REQUIRED, "Folder name is required");
+        return err(PhotoError.NAME_REQUIRED, "Album name is required");
       }
       const cleanName = name.trim();
       // A new creator folder gets a NEW single-writer drive of its own.
@@ -1849,7 +1849,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async setActive(folderId) {
       await readyPromise;
       const rt = runtimes.get(folderId);
-      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No folder ${folderId}`);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       // Clean up the outgoing active folder's spool + loopback mounts so its
       // bytes never leak into the new active folder's gallery.
       const prev = activeRuntime();
@@ -1921,7 +1921,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async respond(folderId, requesterKey, approve) {
       await readyPromise;
       const rt = runtimes.get(folderId);
-      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No folder ${folderId}`);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can respond to requests");
       if (!isHexKey(requesterKey))
@@ -1962,7 +1962,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async removeMember(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
-      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No folder ${folderId}`);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
       if (!isHexKey(memberKey))

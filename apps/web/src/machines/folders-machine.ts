@@ -130,7 +130,7 @@ const foldersActor = new Actor({
           // failure. Treating null as an error wedged first-run users on the
           // error screen instead of the empty gallery.
           if (!r?.folders) {
-            emit(loadFailed.create({ message: "folders returned no data" }));
+            emit(loadFailed.create({ message: "albums returned no data" }));
             return;
           }
           emit(
@@ -163,7 +163,7 @@ const foldersActor = new Actor({
     m.effect(creating, ({ signal, emit, context }) => {
       const name = context.get().pendingCreate;
       if (!name) {
-        emit(createFailed.create({ message: "no folder name" }));
+        emit(createFailed.create({ message: "no album name" }));
         return;
       }
       return runInvoke(
@@ -172,7 +172,7 @@ const foldersActor = new Actor({
         (result) =>
           result
             ? emit(created.create({ folder: (result as { folder: FolderSummary }).folder }))
-            : emit(createFailed.create({ message: "create returned no folder" })),
+            : emit(createFailed.create({ message: "create returned no album" })),
         (message) => emit(createFailed.create({ message })),
       );
     });
@@ -201,7 +201,7 @@ const foldersActor = new Actor({
     m.effect(switching, ({ signal, emit, context }) => {
       const folderId = context.get().pendingActive;
       if (!folderId) {
-        emit(switchFailed.create({ message: "no folder to switch to" }));
+        emit(switchFailed.create({ message: "no album to switch to" }));
         return;
       }
       return runInvoke(
