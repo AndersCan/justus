@@ -40,14 +40,19 @@ Layout (single column, mobile-first):
    - Animation is subtle (2s loop); it must read as _information_, not
      decoration. Respect `prefers-reduced-motion`.
 
-3. **Three plain-language facts** (the whole privacy model, no scrolling):
-   - **No account.** Nothing to sign up for; nothing to log into.
-   - **Peers hold your data.** Photos live only on devices you choose.
-   - **Works offline.** Devices sync when they see each other.
+3. **Intro cards** (swipeable, skippable, one idea each; replaces the three-bullet list):
+   1. **Share photos with the people you choose.** Family and friends. No account.
+   2. **No server.** Photos travel directly between phones.
+   3. **You pick what to share.** Photos enter through the picker or camera.
+   4. **Albums and invites.** An Admin starts an album and invites people; the Admin approves each join.
+   5. **Photos live on your devices,** not in the cloud. Keep them on at least one device you trust.
+   6. **Connect over WiFi when you can.** Photos move while two members have Justus open. Phones on mobile data can have trouble finding each other; if one of you is on WiFi it usually works.
 
-4. **One primary action:** primary button **"Create your first folder"**
-   → onboarding (§2). Secondary link: _"Join someone's folder"_ (paste/scan
-   invite).
+4. **Profile step** (required, after the cards): display name plus an auto
+   colour/initials avatar. Copy states the name is shared only with albums you
+   join, never a server. Editable later in Settings.
+
+5. **Choose:** primary **"Create an album"**, secondary **"Join with an invite"**.
 
 ### Why this works as a privacy argument
 
@@ -61,9 +66,9 @@ Layout (single column, mobile-first):
 ### Empty states after first-run
 
 - Gallery empty state repeats the diagram in miniature: _"Photos appear here
-  when you add them — they stay on this device until you share the folder."_
-- Requests empty state: _"No pending requests. When someone asks to join a
-  folder, you approve it here — nothing happens without your yes."_
+  when you add them — they stay on this device until you invite someone to the album."_
+- Requests empty state: _"No pending requests. When someone asks to join an
+  album, you approve it here — nothing happens without your yes."_
 
 ---
 
@@ -76,15 +81,15 @@ more than once.
 
 ### 2.1 First-run flow (task-oriented)
 
-1. **Welcome** (§1) →
-2. **Create/join folder** (existing machines: folders-machine).
-   Copy names the concept honestly: a folder is _a shared album that lives on
-   every member's device_.
-3. **Add first photo** → lands in gallery with provenance chip _"only on this
+1. **Intro cards** (§1), skippable.
+2. **Profile** (name required).
+3. **Create an album or join with an invite.**
+4. **Add first photo** → lands in the album with provenance chip _"only on this
    device"_.
-4. **Invite a peer** → shows the invite surface and the lesson _"A folder is
-   empty for others until they join."_
-5. Done → gallery. Total: 4 steps, skippable except folder creation.
+5. **Invite someone** → invite surface (copy link, show QR, paste fallback).
+
+Albums list: the Photos tab shows one album at a time with the album name as a
+switcher (hidden when there is only one). Joining or creating lands in that album.
 
 ### 2.2 The five lessons (in-app training set)
 
@@ -96,29 +101,58 @@ more than once.
 | L4 **Eventual consistency** | first observed cross-peer edit/delete reconciliation | "Devices compare notes when they meet. Last change wins, and the activity log shows what happened."                                                                                        | two timelines converging                |
 | L5 **Who can see what**     | first new member approved                            | "Nils can now see every photo in _Spain 2026_ — past and future ones. Folder membership is all-or-nothing." **⚠ open:** per-photo grants would change this copy; tracked in issue #25/#30. | membership roster                       |
 
-### 2.3 Joining a folder (peer-to-peer invite)
+### 2.3 Joining an album
 
-- Invite = code/QR produced by an existing member (**⚠ open:** transport of
-  the invite itself — in-person QR vs. any-channel link; depends on Ekrooh's
-  pairing story. Spec assumes both: QR primary, copyable code fallback.)
-- Requester sees: folder name, owner identity chip, member count, and the
-  line _"joining means your device will hold a full copy of this folder"_ —
-  consent before storage, not after.
-- Owner approves via existing `requests` view; the approval UI reiterates
-  what the requester gains (L5).
+- Invite = link, QR (in person), or pasted key. All carry the same share key.
+- Requester sees the album name, the Admin's name, and member count, and must
+  confirm: _"Joining means your device holds a copy of this album's photos.
+  Everyone in it can see everything in it, past and future, and can see when
+  you're connected."_
+- After sending, the requester sees _"Waiting for the Admin to approve you."_
+- Admin approves in the album's People sheet (§2.6); the approval repeats the
+  same line from the Admin's side.
+- The Admin's device decides who can join. If it is lost, no one new can be
+  approved; existing members keep their photos. State this plainly in Help.
+  Admin transfer is tracked in a GitHub issue, not designed here.
 
 ### 2.4 Training surfaces
 
-- Lessons render as a dismissible card anchored to the relevant screen region
-  (not centered modals), remembered in local settings.
-- A permanent **"How justus works"** section in Settings replays all five
-  lessons on demand (also the home for the audit affordance below).
-- **Audit affordance** (from technical vision): a single Settings screen —
-  _"Where are my photos?"_ — listing each folder × which peers hold it × last
-  verified contact. This is the proof screen: it enumerates every copy,
-  and its footer states the total count of servers involved: **0**.
+- Intro cards (§1) cover the basics once. Just-in-time lessons L2–L5 still fire
+  at their trigger and are not repeated in the intro. Lessons render as a
+  dismissible card anchored to the relevant region, remembered locally.
+- A permanent **Help** section (own destination, not buried in Settings)
+  replays the intro and lessons, and holds the Q&A (§2.5).
+- **Audit affordance:** _"Where are my photos?"_ lists each album × which peers
+  hold it × last contact, footer: servers involved **0**.
 
----
+### 2.5 Help Q&A
+
+Short answers: Why can't I see Maya's new photos? Why is it stuck on "waiting"?
+Do I need WiFi? What if I lose my phone? What can the Admin see and do?
+
+**WiFi / connection advice** (accurate to the cause): mobile carriers often
+randomise network addresses (NAT), so two devices both on mobile data may fail
+to find each other; one device on WiFi usually fixes it. Sync happens only
+while two members both have Justus open and reachable.
+
+**Failed-connection hint:** after about 30s of trying to reach a member without
+success, the connection indicator shows a calm hint, not a modal: _"Can't reach
+Maya. If you're both on mobile data, ask one of you to switch to WiFi."_ It is
+time-based; the app does not try to detect the network type.
+
+### 2.6 People sheet and presence
+
+- The header shows a chip next to the connection indicator: **"● 3 of 5
+  connected"**. Tapping it opens the album's **People** sheet.
+- Wording is **connected**, never "online": it means "your device can reach
+  them right now". Others show "last seen 2h ago" (`GrantRecord.lastSeenAt`).
+  The sheet explains this in one line. Your own device always counts.
+- Sheet contents: members (name, connected / last seen, "started by" marking
+  the Admin), **Invite**, and for the Admin pending requests and Remove.
+  Pending requests also badge the chip. This replaces the Requests tab.
+- Presence is visible to all members and is disclosed in the join consent.
+- **⚠ needs backend work:** `status.peers` is a swarm-wide connection count; a
+  per-member map built on `GrantRecord.online` is needed.
 
 ## 3. Visual system (implemented)
 
@@ -134,8 +168,8 @@ photos) carries the color; chrome stays quiet.
 - **Components** are Uno shortcuts: `ui-card`, `ui-btn`, `ui-btn-primary`,
   `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
 - **Shell:** left rail at `md+`, bottom tab bar below it, slim top bar on
-  mobile carrying the connection indicator. Primary routes: Photos, Albums,
-  Sharing, Requests, Folder.
+  mobile carrying the connection indicator. Primary routes: Photos, Albums
+  (the shared albums list), Help, Settings. Requests live in the People sheet.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
   hover for pointer devices. Detail and remove live in the lightbox on touch.
 - **Theme:** follows the system by default; a header/rail toggle cycles

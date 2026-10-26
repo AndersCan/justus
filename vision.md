@@ -33,11 +33,11 @@ rank, or remember. The reference for concrete screens is
 - **Timeline is the home view.** A reverse-chronological gallery grid with
   month/year headers and a density toggle - the natural default over a Folder's
   photos. This is the Gallery actor's primary rendering.
-- **Folders are the share unit; albums are local organization.** A Folder is a
-  peer-synced, creator-owned share (see `CONTEXT.md`) - not a user album. On top
-  of a Folder, a user may curate local collections/albums for arrangement. Do not
-  let the two concepts collapse in the UI: the Folder is where photos _live and
-  sync_; albums are how one _person_ groups them.
+- **Albums are the share unit.** An Album (code term: Folder, see `CONTEXT.md`)
+  is a peer-synced share, started by an Admin and held on every member's
+  device. There is no separate local-albums layer. Justus is for sharing with
+  friends and family, not for syncing a whole library between one person's
+  devices: it only holds photos the user deliberately adds.
 - **People & faces, computed on-device.** Facial grouping runs inside the
   backend worklet (no cloud ML, no upload) and maps faces to people/members -
   a privacy-preserving take on Immich's People view that strengthens the "no
