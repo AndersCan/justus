@@ -15,6 +15,8 @@ import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
+import { helpView } from "./views/help";
+import { $reachHint } from "./machines/reach-hint-machine";
 import { connectionIndicator } from "./views/connection";
 import { peopleChip, peopleSheet } from "./views/people";
 import { themeToggle } from "./views/theme-toggle";
@@ -69,7 +71,7 @@ document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
 
-type NavRoute = "gallery" | "sharing" | "settings";
+type NavRoute = "gallery" | "sharing" | "help" | "settings";
 
 const icon = (paths: string) =>
   html`<svg
@@ -98,6 +100,12 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     label: "Sharing",
     paths:
       '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.7 3 5.6"/>',
+  },
+  {
+    route: "help",
+    label: "Help",
+    paths:
+      '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.7-2.5 2.2-2.5 3.8M12 17.2h.01"/>',
   },
 ];
 
@@ -146,6 +154,16 @@ render(
         >
       </header>
       <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
+        ${useStore($reachHint, (hint) =>
+          hint
+            ? html`<p
+                class="mb-4 rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
+                role="status"
+              >
+                ${hint} <a class="underline" href="${getPagePath($router, "help")}">More help</a>
+              </p>`
+            : null,
+        )}
         ${useStore($router, (page) => cache(routeView(page)))}
       </main>
       <nav
@@ -166,6 +184,7 @@ function routeView(page: AppPage | undefined) {
   }
   if (page.route === "gallery") return galleryView();
   if (page.route === "sharing") return sharingView();
+  if (page.route === "help") return helpView();
   if (page.route === "welcome") return welcomeView();
   return settingsView();
 }
