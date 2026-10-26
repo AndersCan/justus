@@ -135,9 +135,9 @@ function sharingBody(view: SharingViewModel) {
       <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/settings">
         <span>
           <span class="block font-medium text-fg"
-            >Invite people, join a folder, manage devices</span
+            >Invite people, join an album, manage devices</span
           >
-          <span class="text-muted">Your name, share key, folders and linked devices.</span>
+          <span class="text-muted">Your name, invite, albums and linked devices.</span>
         </span>
         <span class="text-muted" aria-hidden="true">→</span>
       </a>
