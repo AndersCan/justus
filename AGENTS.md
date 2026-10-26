@@ -51,6 +51,7 @@ layer, Host, Actor). Use those terms exactly.
 | `vp run -r test`                                  | Unit tests (all packages)                                          |
 | `vp run -r build`                                 | Build web, backend, core                                           |
 | `pnpm run dev`                                    | Vite (:5173) + Bare worklet (:8080, `apps/backend/.dev/`, no auth) |
+| `pnpm run dev:peers`                              | Two worklets (:8080/:8081) + local DHT; tabs `?peer=0` / `?peer=1` |
 | `pnpm test:e2e`                                   | Playwright against the real worklet (needs `libatomic1` on Linux)  |
 | `pnpm test:e2e-hub` / `test:e2e-p2p`              | Multi-peer hub / p2p suites                                        |
 | `pnpm test:native`                                | Maestro on an Android emulator (needs SDK + AVD; not in CI gate)   |

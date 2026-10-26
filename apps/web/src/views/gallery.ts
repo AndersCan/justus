@@ -15,6 +15,7 @@ import { $syncStatus } from "../machines/sync-machine";
 import { $activeFolderId, $folders, folders } from "../machines/folders-machine";
 import { useStore } from "../use-store";
 import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
+import { workletBase } from "../utils/peer";
 import { memberColor } from "../utils/palette";
 import { gridColsFor, readDensity, writeDensity, type Density } from "../utils/gallery-density";
 import { errorBanner } from "./error-banner";
@@ -64,11 +65,14 @@ async function onFileChosen(file: File | null | undefined) {
   if (!file || $webUploading.get()) return;
   $webUploading.set(true);
   try {
-    const response = await fetch(`/photos?filename=${encodeURIComponent(file.name)}`, {
-      method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
+    const response = await fetch(
+      `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      },
+    );
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as {
         error?: string;

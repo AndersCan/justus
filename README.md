@@ -34,6 +34,11 @@ vp check              # format + lint + typecheck
 pnpm run dev          # runs apps/web (Vite :5173) + apps/backend (bare :8080) concurrently
 ```
 
+Two peers locally: `pnpm run dev:peers` boots two independent worklets (ports
+8080/8081, storage `apps/backend/.dev/` and `.dev/peer-1/`) on one local DHT.
+Open http://localhost:5173/?peer=0 and http://localhost:5173/?peer=1 in two
+tabs; each tab sticks to its peer (sessionStorage). Use `JUSTUS_PEERS=3` for more.
+
 Backend dev details:
 
 - The worklet runs under the `bare` CLI with persistent storage under
