@@ -8,6 +8,10 @@ class UseStoreDirective extends AsyncDirective {
   #viewTransition = false;
   #activeTransition: ViewTransition | undefined;
   #pendingUpdate: (() => void) | undefined;
+  /** Bumped on every resubscribe. A view transition runs its update a frame
+   * later; by then this part may render another store (the router reuses one
+   * directive instance across routes), so a stale update must not land. */
+  #generation = 0;
 
   render<Value, Selected>(
     store: ReadableAtom<Value>,
@@ -32,8 +36,11 @@ class UseStoreDirective extends AsyncDirective {
     const store = this.#store;
     if (!store) return;
     const select = this.#select;
+    const generation = this.#generation;
     this.#unsub = store.listen((value) => {
-      const update = () => this.setValue(select ? select(value) : value);
+      const update = () => {
+        if (generation === this.#generation) this.setValue(select ? select(value) : value);
+      };
       this.#runTransition(update);
     });
   }
@@ -72,6 +79,7 @@ class UseStoreDirective extends AsyncDirective {
   }
 
   #cleanup(): void {
+    this.#generation++;
     this.#pendingUpdate = undefined;
     this.#unsub?.();
     this.#unsub = undefined;

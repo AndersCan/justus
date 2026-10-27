@@ -88,8 +88,10 @@ more than once.
    device"_.
 5. **Invite someone** → invite surface (copy link, show QR, paste fallback).
 
-Albums list: the Photos tab shows one album at a time with the album name as a
-switcher (hidden when there is only one). Joining or creating lands in that album.
+Albums: a user creates and joins as many albums as they like, each with its own
+people and invite. The Albums tab lists them all with New album and Join; the
+Photos tab shows one album at a time, headed by its name, with a switcher when
+there are several. Joining or creating lands in that album.
 
 ### 2.2 The five lessons (in-app training set)
 
@@ -169,7 +171,8 @@ photos) carries the color; chrome stays quiet.
   `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
 - **Shell:** left rail at `md+`, bottom tab bar below it, slim top bar on
   mobile carrying the connection indicator. Primary routes: Photos, Albums
-  (the shared albums list), Help, Settings. Requests live in the People sheet.
+  (the shared albums list), Sharing, Help; Settings opens from Sharing.
+  Requests live in the People sheet.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
   hover for pointer devices. Detail and remove live in the lightbox on touch.
 - **Theme:** follows the system by default; a header/rail toggle cycles

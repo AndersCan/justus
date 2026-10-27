@@ -144,13 +144,12 @@ test("adding identical bytes twice is deduped to one entry (#20)", async ({ page
   expect(await page.locator("figure img").count()).toBe(before + 1);
 });
 
-test("settings shows creator status and folder list", async ({ page }) => {
+test("settings shows creator status for the active album", async ({ page }) => {
   await page.goto("/settings");
   const activeFolder = page.getByRole("heading", { name: "Active album" });
   await expect(activeFolder).toBeVisible({ timeout: 20_000 });
   await expect(activeFolder.locator("xpath=following-sibling::span")).toContainText("creator");
-  await expect(page.getByRole("listitem").getByText("creator", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Your albums" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Your albums/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your name" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy invite link" })).toBeVisible();
 });
