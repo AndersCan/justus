@@ -77,7 +77,7 @@ $onboardingState.listen((state) => {
 });
 
 // Creating an album finishes onboarding: head to the gallery once the create
-// lands. Joining navigates from the settings join listener.
+// lands. Joining navigates from the albums join listener.
 let prevFoldersState = $foldersState.get();
 $foldersState.listen((state) => {
   if (

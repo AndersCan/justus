@@ -13,6 +13,7 @@ import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
+import { albumsView } from "./views/albums";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
@@ -71,7 +72,7 @@ document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
 
-type NavRoute = "gallery" | "sharing" | "help" | "settings";
+type NavRoute = "gallery" | "albums" | "sharing" | "help" | "settings";
 
 const icon = (paths: string) =>
   html`<svg
@@ -94,6 +95,12 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     label: "Photos",
     paths:
       '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>',
+  },
+  {
+    route: "albums",
+    label: "Albums",
+    paths:
+      '<rect x="7" y="7" width="14" height="14" rx="2.5"/><path d="M17 3H6a3 3 0 0 0-3 3v11"/><path d="m21 17-4-4-6 6"/>',
   },
   {
     route: "sharing",
@@ -183,6 +190,7 @@ function routeView(page: AppPage | undefined) {
     return html`<p class="text-muted">We couldn't find that page.</p>`;
   }
   if (page.route === "gallery") return galleryView();
+  if (page.route === "albums") return albumsView();
   if (page.route === "sharing") return sharingView();
   if (page.route === "help") return helpView();
   if (page.route === "welcome") return welcomeView();

@@ -34,7 +34,7 @@ function promptCard(view: SharingViewModel, record: GrantRecord) {
   return html`
     <li class="ui-card flex flex-col gap-3 border-l-4 border-l-warn p-5">
       <p class=" text-lg text-fg">
-        Someone with your album link joined. Share your photos with them?
+        Someone with one of your album links joined. Share your photos with them?
       </p>
       <p class="text-sm text-muted">Device ${shortPeer(record.peerId)}</p>
       <div class="flex flex-wrap items-center gap-2">
@@ -134,10 +134,8 @@ function sharingBody(view: SharingViewModel) {
       </div>
       <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/settings">
         <span>
-          <span class="block font-medium text-fg"
-            >Invite people, join an album, manage devices</span
-          >
-          <span class="text-muted">Your name, invite, albums and linked devices.</span>
+          <span class="block font-medium text-fg">Invite people, manage devices</span>
+          <span class="text-muted">Your name, this album's invite and linked devices.</span>
         </span>
         <span class="text-muted" aria-hidden="true">→</span>
       </a>
@@ -158,7 +156,8 @@ function sharingBody(view: SharingViewModel) {
                   <div class="ui-card p-5 text-center">
                     <p class=" text-lg text-fg">No prompts right now.</p>
                     <p class="mt-1 text-sm text-fg">
-                      We'll ask once a day if someone shows up holding your album without an invite.
+                      We'll ask once a day if someone shows up holding one of your albums without an
+                      invite.
                     </p>
                   </div>
                 `
@@ -169,7 +168,7 @@ function sharingBody(view: SharingViewModel) {
       </section>
 
       <section class="space-y-3">
-        <h2 class="ui-label">Who has your album</h2>
+        <h2 class="ui-label">Who you share with</h2>
         ${
           view.records.length === 0
             ? html`<p class="text-sm text-fg">Just you — invite someone to share.</p>`

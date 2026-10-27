@@ -275,47 +275,49 @@ function presenceStrip() {
   `;
 }
 
-/** Active-folder anchor for the Gallery home view (G1): names the folder the
- * gallery is currently showing and offers an in-context switch when more than
- * one folder exists. Reads the same folder atoms the Folder tab uses; web-only. */
+/** Active-folder anchor for the Gallery home view: the heading names the
+ * album being shown, with an in-place switch when there are several and a way
+ * to every album (create, join) from the Albums tab. */
 const $folderView = computed([$folders, $activeFolderId], (folders, activeId) => ({
   active: folders.find((f) => f.id === activeId) ?? null,
   all: folders,
 }));
 
-function folderContext() {
+function albumHeading() {
   return useStore($folderView, ({ active, all }) => {
-    if (!active) return null;
-    const others = all.filter((f) => f.id !== active.id);
-    // One folder is just "your photos" — only surface folders once there are several.
-    if (others.length === 0) return null;
+    const title = html`<h1 class="truncate text-2xl font-semibold tracking-tight text-fg">
+      ${active?.name ?? "Photos"}
+    </h1>`;
     return html`
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="truncate text-sm font-medium text-fg" title=${active.name}
-          >${active.name}</span
-        >
+      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        ${title}
         ${
-          others.length > 0
+          active && all.length > 1
             ? html`<label class="inline-flex items-center">
                 <span class="sr-only">Switch album</span>
                 <select
                   class="ui-btn-ghost cursor-pointer"
                   aria-label="Switch album"
                   @change=${(e: Event) => {
-                    const id = (e.target as HTMLSelectElement).value;
+                    const select = e.target as HTMLSelectElement;
+                    const id = select.value;
+                    select.value = "";
                     if (id) folders.switchTo(id);
                   }}
                 >
-                  ${all.map(
-                    (f) =>
-                      html`<option value=${f.id} ?selected=${f.id === active.id}>
-                        ${f.name}
-                      </option>`,
-                  )}
+                  <option value="" selected disabled>Switch album</option>
+                  ${all
+                    .filter((f) => f.id !== active.id)
+                    .map((f) => html`<option value=${f.id}>${f.name}</option>`)}
                 </select>
               </label>`
             : null
         }
+        <a
+          class="text-sm text-muted underline-offset-2 hover:text-fg hover:underline"
+          href="/albums"
+          >${all.length > 1 ? `All ${all.length} albums` : "New album"}</a
+        >
       </div>
     `;
   });
@@ -342,9 +344,13 @@ function emptyState(view: GalleryViewModel) {
               </button>`
             : null
         }
-        <a class="ui-btn-ghost inline-flex items-center" href="/settings"
-          >${view.role === "reader" ? "Join an album" : "Set up another device"}</a
-        >
+        ${
+          view.role === "reader"
+            ? html`<a class="ui-btn-ghost inline-flex items-center" href="/albums">Your albums</a>`
+            : html`<a class="ui-btn-ghost inline-flex items-center" href="/settings"
+                >Set up another device</a
+              >`
+        }
       </div>
     </div>
   `;
@@ -357,10 +363,7 @@ function galleryBody(view: GalleryViewModel, density: Density) {
     <div class="space-y-6">
       ${waitingForAdmin()}
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="space-y-2">
-          <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>
-          ${folderContext()} ${presenceStrip()}
-        </div>
+        <div class="min-w-0 space-y-2">${albumHeading()} ${presenceStrip()}</div>
         <div class="flex shrink-0 flex-wrap gap-2">
           <input
             ${ref(fileInputRef)}

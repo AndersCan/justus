@@ -20,6 +20,7 @@ type CorestoreLike = {
   ready(): Promise<void>;
   replicate(conn: unknown): void;
   close(): Promise<void>;
+  namespace(name: string): CorestoreLike;
 };
 
 type SwarmLike = {
@@ -1808,8 +1809,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.NAME_REQUIRED, "Album name is required");
       }
       const cleanName = name.trim();
-      // A new creator folder gets a NEW single-writer drive of its own.
-      const newDrive = deps.makeDrive(corestore);
+      const folderId = newId(deps.crypto);
+      // A new creator folder gets a NEW single-writer drive of its own. A
+      // keyless drive is its corestore's default core, so it needs its own
+      // namespace: on the root corestore it would be the device's own drive.
+      const newDrive = deps.makeDrive(corestore.namespace(`folder/${folderId}`));
       await newDrive.ready();
       await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
       await newDrive.put(
@@ -1817,7 +1821,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         Buffer.from(JSON.stringify({ version: 1, name: cleanName })),
       );
 
-      const folderId = newId(deps.crypto);
       const rt: FolderRuntime = {
         record: {
           id: folderId,
