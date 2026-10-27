@@ -43,6 +43,41 @@ jobs:
       - name: Run test suites
         run: pnpm exec vp run -r test
 
+  e2e:
+    name: e2e (Playwright, real worklet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: pnpm
+      # The bare runtime links libatomic on Linux.
+      - run: sudo apt-get update && sudo apt-get install -y libatomic1
+      - run: pnpm install --frozen-lockfile
+      # --with-deps installs the apt libraries Chromium needs.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      # scripts/e2e-server.mjs builds web + backend, then boots the worklet
+      # serving the built app same-origin on :8080, as on device.
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 14
+
   desktop-macos:
     name: desktop (macOS app smoke)
     runs-on: macos-latest
