@@ -103,6 +103,8 @@ layer, Host, Actor). Use those terms exactly.
 - **Don't** touch the `<!--VITE PLUS START/END-->` block.
 - **Don't** add handoff notes, session logs or plans to the repo. State belongs
   in code, tests, `CONTEXT.md`, ADRs, or a GitHub issue.
+- **Don't** add attribution to commits or PRs: no `Co-Authored-By` trailer, no
+  "Generated with Claude Code" line.
 
 ## Agent skills
 

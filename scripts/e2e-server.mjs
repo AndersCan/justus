@@ -23,7 +23,9 @@ const cacheDir = join(e2eDir, "cache");
 const inboxDir = join(e2eDir, "inbox");
 const webDist = join(root, "apps/web/dist");
 const workletBundle = join(root, "apps/backend/dist/main.core.gen.js");
-const PORT = 8080;
+// Not the dev port (8080): a leftover dev tab reconnects to whatever worklet
+// holds 8080 and steals the single protocol socket from the test page.
+const PORT = 8090;
 
 function log(message) {
   console.log(`[justus:e2e] ${message}`);

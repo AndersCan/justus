@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 /**
  * E2e against the REAL stack: `scripts/e2e-server.mjs` boots the Bare worklet
  * (fresh storage → 3 seeded photos) serving the built web app same-origin on
- * 127.0.0.1:8080 — the same flow a device runs.
+ * 127.0.0.1:8090 — the same flow a device runs.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -22,7 +22,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:8080",
+    baseURL: "http://127.0.0.1:8090",
     trace: "retain-on-failure",
     // The first-run welcome screen is suppressed in e2e so specs that load "/"
     // land on the gallery/settings/sharing surfaces they assert.
@@ -30,7 +30,7 @@ export default defineConfig({
   },
   webServer: {
     command: "node scripts/e2e-server.mjs",
-    url: "http://127.0.0.1:8080/index.html",
+    url: "http://127.0.0.1:8090/index.html",
     reuseExistingServer: false,
     timeout: 90_000,
   },

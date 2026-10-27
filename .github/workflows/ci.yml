@@ -68,7 +68,7 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       # scripts/e2e-server.mjs builds web + backend, then boots the worklet
-      # serving the built app same-origin on :8080, as on device.
+      # serving the built app same-origin on :8090, as on device.
       - name: Run Playwright tests
         run: pnpm test:e2e
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
