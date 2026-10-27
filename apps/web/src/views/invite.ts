@@ -169,8 +169,9 @@ export function waitingForAdmin() {
             class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
           ></span>
           <p class="text-sm text-fg">
-            <span class="font-semibold">Waiting for the Admin to approve you.</span>
-            Photos appear once they say yes and you’re both connected.
+            <span class="font-semibold">Waiting for the Admin to let you in.</span>
+            The Admin is the person who started this album. They need to open Justus on their phone
+            to approve you, so you may want to remind them.
           </p>
         </div>`
       : null,
