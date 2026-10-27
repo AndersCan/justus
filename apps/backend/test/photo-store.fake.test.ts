@@ -479,3 +479,28 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
     await Promise.all(devices.map((d) => d.store.close()));
   });
 });
+
+describe("createFolder gives each new album a drive of its own", () => {
+  it("never reuses the device's own drive or another album's", async () => {
+    // Default fakes: a keyless drive is its corestore namespace's default core,
+    // as with real Hyperdrive, so a shared corestore would hand back one drive.
+    const deps = makeFakeDeps();
+    mkdirSync(deps.cacheDir, { recursive: true });
+    const store = createPhotoStore(deps);
+    await store.ready();
+    const { folders: before } = await store.folders();
+
+    const a = await store.createFolder("A");
+    const b = await store.createFolder("B");
+    expect(a[0]).toBeNull();
+    expect(b[0]).toBeNull();
+    const keys = [
+      ...before.map((f) => f.shareKey),
+      (a[1] as { folder: { shareKey: string } }).folder.shareKey,
+      (b[1] as { folder: { shareKey: string } }).folder.shareKey,
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+
+    await store.close();
+  });
+});

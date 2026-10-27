@@ -153,9 +153,17 @@ export class FakeDrive extends Emitter {
   }
 }
 
+let corestoreCounter = 0;
+
 /** In-memory Corestore. The same instance is reused across `makeDrive` calls
- * so drive identity is stable for the lifetime of one store. */
+ * so drive identity is stable for the lifetime of one store. Like the real
+ * one, a keyless drive is the store's (or namespace's) default core: two
+ * keyless drives on the same namespace are the same drive. */
 export class FakeCorestore {
+  constructor(readonly path = `corestore-${corestoreCounter++}`) {}
+  namespace(name: string): FakeCorestore {
+    return new FakeCorestore(`${this.path}/${name}`);
+  }
   async ready(): Promise<void> {}
   replicate(_conn: unknown): void {}
   async close(): Promise<void> {}
@@ -214,8 +222,6 @@ export class FakeLoopbackServer {
   }
 }
 
-let seedCounter = 0;
-
 /** Drives are cached by their canonical key so re-opening a drive (by key, or
  * as a device's own drive) returns the SAME instance — its contents then
  * persist across the open/reopen cycle (modelling p2p replication). This is
@@ -242,8 +248,8 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
     crypto: nodeCrypto as unknown as typeof import("bare-crypto"),
     makeCorestore: () => corestore,
     makeSwarm: () => new FakeSwarm(),
-    makeDrive: (_cs: unknown, key?: Buffer) => {
-      const seed = key ? key.toString("hex") : `seed-${seedCounter++}`;
+    makeDrive: (cs: unknown, key?: Buffer) => {
+      const seed = key ? key.toString("hex") : `${(cs as FakeCorestore).path}/db`;
       const drive = new FakeDrive(seed);
       const id = drive.key.toString("hex");
       const cached = driveCache.get(id);
