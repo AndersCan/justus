@@ -45,7 +45,7 @@ final class BareRuntime {
     try? FileManager.default.removeItem(at: handoffURL)
 
     // The web app ships in the app bundle (Resources/WebAssets) and is served
-    // by the worklet's loopback server; the storage dir holds the port/token
+    // by the worklet's loopback server; the storage dir holds the origin/bootstrap
     // handoff file.
     guard
       let webAssetsURL = Bundle.main.url(

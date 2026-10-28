@@ -53,6 +53,7 @@ apps/android/app/src/main/addons
 apps/android/app/src/main/assets/index.html
 apps/android/app/src/main/assets/assets
 apps/android/app/src/main/assets/main.core.bundle
+apps/android/app/src/main/assets/theme-boot.js
 apps/android/local.properties
 
 # Desktop host build outputs
