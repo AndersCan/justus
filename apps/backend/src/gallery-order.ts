@@ -1,3 +1,4 @@
+import { TAKEN_AT_RE } from "./exif-date";
 import type { Photo } from "@justus/core";
 import { guessMime } from "./mime";
 
@@ -57,6 +58,7 @@ export interface DerivedPhoto {
   mime: string;
   size: number;
   addedAt: number;
+  takenAt?: string;
   sha256?: string;
   /** Resolved display name for the owning member drive. */
   memberName: string;
@@ -121,6 +123,10 @@ export function deriveGallery(
         size: typeof entry.value?.size === "number" ? entry.value.size : 0,
         addedAt: typeof meta.addedAt === "number" ? meta.addedAt : 0,
         ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
+        // Metadata comes from other members' drives: surface only a well-formed date.
+        ...(typeof meta.takenAt === "string" && TAKEN_AT_RE.test(meta.takenAt)
+          ? { takenAt: meta.takenAt }
+          : {}),
         memberName,
       });
     }

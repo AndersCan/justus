@@ -1,8 +1,12 @@
 import { html } from "lit-html";
+import { computed } from "nanostores";
 import type { GrantRecord } from "@justus/core";
+import { $requests } from "../machines/requests-machine";
 import { useStore } from "../use-store";
 import { $grantsViewModel, grants } from "../machines/grants-machine";
+import { albumsPanel, joinPanel } from "./albums";
 import { errorBanner } from "./error-banner";
+import { tabs } from "./tabs";
 import { toast } from "./toast";
 
 /** Short, copy-stable label for a device key — never the full peer id. */
@@ -118,75 +122,97 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
   `;
 }
 
-function sharingBody(view: SharingViewModel) {
+function devicesBody(view: SharingViewModel) {
   const { state, error, fatal } = view;
   return html`
-    <div class="max-w-2xl space-y-5">
-      <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
-        <button
-          class="ui-btn-ghost"
-          ?disabled=${state === "refreshing" || state === "acting"}
-          @click=${() => grants.refresh()}
-        >
-          ${state === "refreshing" ? "Refreshing…" : "Refresh"}
-        </button>
-      </div>
-      <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/albums">
-        <span>
-          <span class="block font-medium text-fg">Invite people, manage members</span>
-          <span class="text-muted">Open an album to invite people and approve requests.</span>
-        </span>
-        <span class="text-muted" aria-hidden="true">→</span>
-      </a>
-
-      ${errorBanner(
-        error,
-        state === "error" && !fatal ? () => grants.retry() : undefined,
-        fatal ? () => window.location.reload() : undefined,
-      )}
-
-      <section class="space-y-3">
-        <h2 class="ui-label">Unknown holder</h2>
-        ${
-          state === "idle" || (state === "refreshing" && view.dueRecords.length === 0)
-            ? html`<p class="text-muted">Loading…</p>`
-            : view.dueRecords.length === 0
-              ? html`
-                  <div class="ui-card p-5 text-center">
-                    <p class=" text-lg text-fg">No prompts right now.</p>
-                    <p class="mt-1 text-sm text-fg">
-                      We'll ask once a day if someone shows up holding one of your albums without an
-                      invite.
-                    </p>
-                  </div>
-                `
-              : html`<ul class="space-y-3">
-                  ${view.dueRecords.map((r) => promptCard(view, r))}
-                </ul>`
-        }
-      </section>
-
-      <section class="space-y-3">
-        <h2 class="ui-label">Who you share with</h2>
-        ${
-          view.records.length === 0
-            ? html`<p class="text-sm text-fg">Just you — invite someone to share.</p>`
-            : html`<ul class="ui-card divide-y divide-line px-5 py-1">
-                ${view.records.map((r) => recordRow(view, r))}
-              </ul>`
-        }
-      </section>
+    <div class="flex items-start justify-between gap-3">
+      <p class="text-sm text-muted">
+        Devices that hold one of your albums, and whether your device sends them photos.
+      </p>
+      <button
+        class="ui-btn-ghost shrink-0"
+        ?disabled=${state === "refreshing" || state === "acting"}
+        @click=${() => grants.refresh()}
+      >
+        ${state === "refreshing" ? "Refreshing…" : "Refresh"}
+      </button>
     </div>
+
+    ${errorBanner(
+      error,
+      state === "error" && !fatal ? () => grants.retry() : undefined,
+      fatal ? () => window.location.reload() : undefined,
+    )}
+
+    <section class="space-y-3">
+      <h2 class="ui-label">Unknown holder</h2>
+      ${
+        state === "idle" || (state === "refreshing" && view.dueRecords.length === 0)
+          ? html`<p class="text-muted">Loading…</p>`
+          : view.dueRecords.length === 0
+            ? html`
+                <div class="ui-card p-5 text-center">
+                  <p class=" text-lg text-fg">No prompts right now.</p>
+                  <p class="mt-1 text-sm text-fg">
+                    We'll ask once a day if someone shows up holding one of your albums without an
+                    invite.
+                  </p>
+                </div>
+              `
+            : html`<ul class="space-y-3">
+                ${view.dueRecords.map((r) => promptCard(view, r))}
+              </ul>`
+      }
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="ui-label">Who you share with</h2>
+      ${
+        view.records.length === 0
+          ? html`<p class="text-sm text-fg">Just you — invite someone to share.</p>`
+          : html`<ul class="ui-card divide-y divide-line px-5 py-1">
+              ${view.records.map((r) => recordRow(view, r))}
+            </ul>`
+      }
+    </section>
   `;
 }
 
 let started = false;
 
-export function sharingView() {
+function devicesPanel() {
   if (!started) {
     started = true;
     grants.refresh();
   }
-  return useStore($grantsViewModel, (vm) => sharingBody(vm));
+  return useStore($grantsViewModel, (vm) => devicesBody(vm));
+}
+
+export type SharingTab = "albums" | "join" | "devices";
+
+const $sharingTabs = computed([$requests, $grantsViewModel], (reqs, grantsVm) => ({
+  requests: reqs.length,
+  prompts: grantsVm.dueRecords.length,
+}));
+
+/** Albums & sharing: manage albums, join with an invite, and see which
+ * devices you share with — one page, three tabs. */
+export function sharingView(tab: SharingTab) {
+  return html`
+    <div class="max-w-2xl space-y-5">
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums & sharing</h1>
+      ${useStore($sharingTabs, (counts) =>
+        tabs(
+          "Albums and sharing",
+          [
+            { id: "albums", label: "Albums", href: "/sharing", badge: counts.requests },
+            { id: "join", label: "Join an album", href: "/join" },
+            { id: "devices", label: "Devices", href: "/devices", badge: counts.prompts },
+          ],
+          tab,
+        ),
+      )}
+      ${tab === "albums" ? albumsPanel() : tab === "join" ? joinPanel() : devicesPanel()}
+    </div>
+  `;
 }

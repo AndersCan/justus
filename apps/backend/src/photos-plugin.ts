@@ -18,9 +18,9 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
   return definePlugin("justus.photos", photoSpecs, {
     capabilities: ["photos"],
     invoke: {
-      list: async () => {
+      list: async (args) => {
         try {
-          const photos = await deps.store.list();
+          const photos = await deps.store.list({ all: args?.all === true });
           return [null, { photos }];
         } catch (e) {
           return errResult(e);
@@ -30,7 +30,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
         // Two add flows share one invoke: a host-picked file already on disk
         // (`path`), or bytes uploaded in-band as the invoke payload from the
         // browser multi-file picker (`name` + payload).
-        if (args.path) return deps.store.add(args.path, args.name);
+        if (args.path) return deps.store.add(args.path, args.name, args.folderId);
         const payload = context?.payload;
         if (payload && payload.byteLength > 0) {
           if (payload.byteLength > MAX_INBAND_ADD_BYTES) {
@@ -40,11 +40,11 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
             typeof args.name === "string" && args.name.trim()
               ? args.name
               : `photo-${Date.now()}.jpg`;
-          return deps.store.addBytes(name, payload);
+          return deps.store.addBytes(name, payload, args.folderId);
         }
         return errResult(new Error("photos.add needs a path or file bytes"));
       },
-      remove: async (args) => deps.store.remove(args.id),
+      remove: async (args) => deps.store.remove(args.id, args.folderId),
       join: async (args) => deps.store.join(args.key),
       enroll: async (args) => deps.store.enroll(args.key, args.name),
       status: async () => {

@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import type { PhotoStoreDeps } from "../src/photo-store.ts";
+import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
@@ -259,4 +259,24 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
     },
     ...overrides,
   } as PhotoStoreDeps;
+}
+
+/** Makes `joiner` a Member of the Admin's album the way the app does: the
+ * joiner asks with its drive for that album (a pending reader), the Admin
+ * approves that key, and joining again picks up the approval. Returns the
+ * joiner's member key (its drive key in that album). */
+export async function joinAsMember(
+  admin: PhotoStore,
+  folderId: string,
+  joiner: PhotoStore,
+  shareKey: string,
+): Promise<string> {
+  const asked = await joiner.join(shareKey);
+  if (asked[0]) throw asked[0];
+  const pending = (await joiner.folders()).folders.find((f) => f.shareKey === shareKey)!;
+  const approved = await admin.respond(folderId, pending.driveKey, true);
+  if (approved[0]) throw approved[0];
+  const joined = await joiner.join(shareKey);
+  if (joined[0]) throw joined[0];
+  return pending.driveKey;
 }

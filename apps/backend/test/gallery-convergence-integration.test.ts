@@ -21,7 +21,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createHash } from "node:crypto";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { canonicalGalleryOrder, type CanonicalOrderKey } from "../src/gallery-order.ts";
-import { makeFakeDeps, FakeDrive } from "./fake-drive.ts";
+import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -85,17 +85,13 @@ describe("#23 integration lane — two devices converge through the real seam", 
 
     await creator.store.ready();
     await member.store.ready();
-    const memberKey = hexKey(member.ownDrive().key);
 
-    // Creator makes a folder and pre-enrols the member (no p2p in the fake).
+    // Creator makes a folder and enrols the member.
     const created = await creator.store.createFolder("Trip");
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
     const folderKey = created[1]!.folder.shareKey;
-    await creator.store.respond(folderId, memberKey, true);
-
-    const mj = await member.store.join(folderKey);
-    expect(mj[0]).toBeNull();
+    const memberKey = await joinAsMember(creator.store, folderId, member.store, folderKey);
     const memberFolder = (await member.store.folders()).folders.find(
       (f) => f.shareKey === folderKey,
     )!;

@@ -41,6 +41,14 @@ export const $galleryViewModel = computed(
   }),
 );
 
+/** Photo ids are only unique within an album; the list spans all of them. */
+export function samePhoto(
+  a: { id: string; folderId?: string },
+  b: { id: string; folderId?: string },
+): boolean {
+  return a.id === b.id && a.folderId === b.folderId;
+}
+
 const booting = state("booting")();
 const loading = state("loading")();
 const ready = state("ready")();
@@ -51,17 +59,17 @@ const removing = state("removing")();
 const load = event("LOAD")();
 const loaded = event("LOADED")<{ photos: Photo[] }>();
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-const add = event("ADD")<{ path: string; name?: string }>();
+const add = event("ADD")<{ path: string; name?: string; folderId?: string }>();
 const added = event("ADDED")<{ photo: Photo }>();
 const addFailed = event("ADD_FAILED")<{ message: string }>();
-const remove = event("REMOVE")<{ id: string }>();
-const removed = event("REMOVED")<{ id: string }>();
+const remove = event("REMOVE")<{ id: string; folderId?: string }>();
+const removed = event("REMOVED")<{ id: string; folderId?: string }>();
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type GalleryContext = {
-  pendingAdd: { path: string; name?: string } | null;
-  pendingRemove: string | null;
+  pendingAdd: { path: string; name?: string; folderId?: string } | null;
+  pendingRemove: { id: string; folderId?: string } | null;
 };
 
 const galleryActor = new Actor({
@@ -124,7 +132,7 @@ const galleryActor = new Actor({
     m.on(ready, add, (e, opts) => {
       $galleryError.set(null);
       opts.context.set({
-        pendingAdd: { path: e.payload.path, name: e.payload.name },
+        pendingAdd: { ...e.payload },
         pendingRemove: null,
       });
       return { state: adding };
@@ -138,7 +146,7 @@ const galleryActor = new Actor({
       }
       return runInvoke(
         signal,
-        () => gateway.add(path, pending.name),
+        () => gateway.add(path, pending.name, pending.folderId),
         (result) =>
           result
             ? emit(added.create({ photo: result as Photo }))
@@ -148,7 +156,8 @@ const galleryActor = new Actor({
     });
     m.on(adding, added, (e, opts) => {
       $galleryError.set(null);
-      $photos.set([e.payload.photo, ...$photos.get().filter((p) => p.id !== e.payload.photo.id)]);
+      const photo = e.payload.photo;
+      $photos.set([photo, ...$photos.get().filter((p) => !samePhoto(p, photo))]);
       opts.context.set({ pendingAdd: null, pendingRemove: null });
       return { state: ready };
     });
@@ -160,25 +169,25 @@ const galleryActor = new Actor({
 
     m.on(ready, remove, (e, opts) => {
       $galleryError.set(null);
-      opts.context.set({ pendingRemove: e.payload.id, pendingAdd: null });
+      opts.context.set({ pendingRemove: { ...e.payload }, pendingAdd: null });
       return { state: removing };
     });
     m.effect(removing, ({ signal, emit, context }) => {
-      const id = context.get().pendingRemove;
-      if (!id) {
+      const pending = context.get().pendingRemove;
+      if (!pending) {
         emit(removeFailed.create({ message: "no pending photo to remove" }));
         return;
       }
       return runInvoke(
         signal,
-        () => gateway.remove(id),
-        () => emit(removed.create({ id })),
+        () => gateway.remove(pending.id, pending.folderId),
+        () => emit(removed.create(pending)),
         (message) => emit(removeFailed.create({ message })),
       );
     });
     m.on(removing, removed, (e, opts) => {
       $galleryError.set(null);
-      $photos.set($photos.get().filter((p) => p.id !== e.payload.id));
+      $photos.set($photos.get().filter((p) => !samePhoto(p, e.payload)));
       opts.context.set({ pendingAdd: null, pendingRemove: null });
       return { state: ready };
     });
@@ -201,7 +210,8 @@ const { state: stateName } = bindStateAtoms({
 export const gallery = {
   state: stateName,
   load: () => galleryActor.send(load.create()),
-  add: (path: string, name?: string) => galleryActor.send(add.create({ path, name })),
-  remove: (id: string) => galleryActor.send(remove.create({ id })),
+  add: (path: string, name?: string, folderId?: string) =>
+    galleryActor.send(add.create({ path, name, folderId })),
+  remove: (id: string, folderId?: string) => galleryActor.send(remove.create({ id, folderId })),
   retry: () => galleryActor.send(retry.create()),
 };

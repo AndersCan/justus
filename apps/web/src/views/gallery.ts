@@ -2,7 +2,7 @@ import { html } from "lit-html";
 import { createRef, ref } from "lit-html/directives/ref.js";
 import { atom, computed } from "nanostores";
 import { mediaEvents } from "@ekrooh/bare/plugins/media/events";
-import type { Photo } from "@justus/core";
+import type { FolderSummary, Photo, SyncStatus } from "@justus/core";
 import { bus } from "../gateway";
 import {
   $galleryError,
@@ -12,19 +12,33 @@ import {
   gallery,
 } from "../machines/gallery-machine";
 import { $syncStatus } from "../machines/sync-machine";
-import { $activeFolderId, $folders, folders } from "../machines/folders-machine";
+import { $activeFolderId, $folders } from "../machines/folders-machine";
+import { $requests } from "../machines/requests-machine";
 import { useStore } from "../use-store";
-import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
+import { formatRelative } from "../utils/time";
+import { $photoSort } from "../utils/photo-sort";
 import { workletBase } from "../utils/peer";
 import { memberColor } from "../utils/palette";
-import { gridColsFor, readDensity, writeDensity, type Density } from "../utils/gallery-density";
+import { $density, gridColsFor, type Density } from "../utils/gallery-density";
+import {
+  addTargets,
+  albumCards,
+  groupPhotos,
+  photosInScope,
+  sortPhotos,
+  type AlbumCard,
+  type PhotoScope,
+  type PhotoSort,
+} from "../utils/photo-scope";
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
+import { chooseAlbum } from "./choose-album";
 import { toast } from "./toast";
 import { waitingForAdmin } from "./invite";
 import { openLightbox } from "./lightbox";
+import { tabs } from "./tabs";
 
-// "Pick photo" posts the chosen file to the worklet's own `POST /photos`
+// "Add photos" posts the chosen file to the worklet's own `POST /photos`
 // route (same-origin in the WebView, Vite-proxied in dev). In the native
 // shell (Android/iOS WebView) the file input is dead — those hosts have no
 // onShowFileChooser — so there we always use the host picker (`media.pick`),
@@ -34,17 +48,32 @@ const inNativeShell =
   typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
 /** Web-only: a browser upload is in flight (it bypasses the gallery machine,
  * so `busy` doesn't cover it). Guards against double-pick and drives the
- * Pick button's disabled state. */
+ * Add button's disabled state. */
 const $webUploading = atom(false);
-
-/** Gallery grid density — comfortable (default) or compact. Persisted. */
-const $density = atom<Density>(readDensity());
+/** The album the next browser upload goes to; unset means the active album. */
+let uploadTarget: string | undefined;
 
 /** CSS <custom-ident> for the view-transition-name: unique per photo so the
  * grid reshuffles (Bramus-style) when photos are added/removed. */
-const vtName = (id: string) => `photo-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+const vtName = (photo: Photo) =>
+  `photo-${`${photo.folderId ?? ""}-${photo.id}`.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
-async function pickAndAdd() {
+/** Where "Add photos" puts the photo: the album being viewed, the only album
+ * that takes photos, or the one the user picks. Null when cancelled. */
+async function resolveAddTarget(scope: PhotoScope): Promise<string | null> {
+  if (scope.kind === "album") return scope.id;
+  const targets = addTargets($folders.get());
+  if (targets.length === 0) {
+    toast("Create or join an album first");
+    return null;
+  }
+  if (targets.length === 1) return targets[0].id;
+  return chooseAlbum(targets, $activeFolderId.get());
+}
+
+async function pickAndAdd(scope: PhotoScope) {
+  const folderId = await resolveAddTarget(scope);
+  if (!folderId) return;
   if (inNativeShell) {
     const [err, result] = await bus.invoke(mediaEvents.media.pick("image"));
     // The host returns the original display name alongside the path, but the
@@ -56,18 +85,22 @@ async function pickAndAdd() {
       $galleryError.set("Couldn't open that photo — try another.");
       return;
     }
-    gallery.add(picked.path, picked.name);
+    gallery.add(picked.path, picked.name, folderId);
     return;
   }
+  uploadTarget = folderId;
   fileInputRef.value?.click();
 }
 
 async function onFileChosen(file: File | null | undefined) {
+  const folderId = uploadTarget;
+  uploadTarget = undefined;
   if (!file || $webUploading.get()) return;
   $webUploading.set(true);
   try {
+    const folder = folderId ? `&folder=${encodeURIComponent(folderId)}` : "";
     const response = await fetch(
-      `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}`,
+      `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}${folder}`,
       {
         method: "POST",
         headers: { "Content-Type": file.type || "application/octet-stream" },
@@ -90,7 +123,30 @@ async function onFileChosen(file: File | null | undefined) {
   }
 }
 
-type GalleryViewModel = ReturnType<typeof $galleryViewModel.get>;
+/** Everything the Photos page reads, as one plain value. */
+const $photosPage = computed(
+  [
+    $galleryViewModel,
+    $folders,
+    $syncStatus,
+    $lastSyncAt,
+    $density,
+    $photoSort,
+    $webUploading,
+    $requests,
+  ],
+  (gallery, folders, status, lastSync, density, sort, uploading, requests) => ({
+    ...gallery,
+    folders,
+    status,
+    lastSync,
+    density,
+    sort,
+    uploading,
+    requests,
+  }),
+);
+type PhotosPage = ReturnType<typeof $photosPage.get>;
 
 /** Empty-state illustration for the empty state. */
 function emptyIllustration() {
@@ -119,23 +175,25 @@ async function confirmRemove(photo: Photo) {
     tone: "danger",
   });
   if (!ok) return;
-  gallery.remove(photo.id);
+  gallery.remove(photo.id, photo.folderId);
   toast(`Removed “${photo.name}”`);
 }
 
-export function photoTile(photo: Photo) {
+/** One grid tile. `within` is the grid it sits in (the lightbox steps through
+ * it). */
+function photoTile(photo: Photo, within: Photo[]) {
   return html`
     <figure
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
-      style="view-transition-name: ${vtName(photo.id)}"
+      style="view-transition-name: ${vtName(photo)}"
       role="button"
       tabindex="0"
       aria-label="View ${photo.name}"
-      @click=${() => openLightbox(photo)}
+      @click=${() => openLightbox(photo, within)}
       @keydown=${(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openLightbox(photo);
+          openLightbox(photo, within);
         }
       }}
     >
@@ -146,20 +204,6 @@ export function photoTile(photo: Photo) {
         referrerpolicy="no-referrer"
         loading="lazy"
       />
-      <figcaption
-        class="pointer-events-none absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-8 [@media(hover:hover)]:block [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-visible:opacity-100"
-      >
-        <div class="truncate text-sm font-medium text-white">${photo.name}</div>
-        <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/75">
-          <span
-            class="inline-block h-2 w-2 shrink-0 rounded-full"
-            style="background: ${memberColor(photo.member.key)}"
-          ></span>
-          <span class="truncate">${photo.member.name}</span>
-          <span>·</span>
-          <span>${formatRelative(photo.addedAt)}</span>
-        </div>
-      </figcaption>
       <button
         class="absolute right-1.5 top-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-black/60 text-sm text-white backdrop-blur-sm transition hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 [@media(hover:hover)]:flex [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
         title="Remove ${photo.name}"
@@ -191,18 +235,39 @@ export function photoTile(photo: Photo) {
   `;
 }
 
-/** Month-grouped photo tiles: "August 2026" rules between runs. */
-function groupedPhotos(photos: Photo[], density: Density) {
-  const groups: { label: string; photos: Photo[] }[] = [];
-  for (const photo of photos) {
-    const last = groups[groups.length - 1];
-    if (last && sameMonth(photo.addedAt, last.photos[last.photos.length - 1].addedAt)) {
-      last.photos.push(photo);
-    } else {
-      groups.push({ label: formatMonthGroup(photo.addedAt), photos: [photo] });
-    }
-  }
-  return groups.map(
+/** Switch between the real timeline (date taken) and the Justus one (date
+ * added). A radio group: it changes how the grid below is ordered. */
+function sortControl(sort: PhotoSort) {
+  const option = (value: PhotoSort, label: string) => {
+    const on = sort === value;
+    return html`<button
+      class="ui-focus min-h-8 rounded-md px-3 text-xs font-medium transition ${
+        on ? "bg-surface text-fg shadow-sm ring-1 ring-line" : "text-muted hover:text-fg"
+      }"
+      role="radio"
+      aria-checked=${on ? "true" : "false"}
+      @click=${() => $photoSort.set(value)}
+    >
+      ${label}
+    </button>`;
+  };
+  return html`<div class="flex items-center justify-end gap-2">
+    <span class="text-xs text-muted" id="photo-sort-label">Sort by</span>
+    <div
+      class="inline-flex gap-0.5 rounded-lg bg-subtle p-0.5"
+      role="radiogroup"
+      aria-labelledby="photo-sort-label"
+    >
+      ${option("added", "Date added")} ${option("taken", "Date taken")}
+    </div>
+  </div>`;
+}
+
+/** The timeline, newest first: by date added ("Recently added", then months)
+ * or by date taken (months). */
+function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
+  const ordered = sortPhotos(photos, sort);
+  return groupPhotos(ordered, sort).map(
     (group) => html`
       <div class="mt-6 first:mt-0">
         <h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg">
@@ -210,56 +275,29 @@ function groupedPhotos(photos: Photo[], density: Density) {
           <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
         <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
-          ${group.photos.map(photoTile)}
+          ${group.photos.map((p) => photoTile(p, ordered))}
         </div>
       </div>
     `,
   );
 }
 
-/** Toggle between the comfortable and compact gallery grids. */
-function densityToggle() {
-  return useStore($density, (density) => {
-    const next: Density = density === "compact" ? "comfortable" : "compact";
-    return html`<button
-      class="ui-btn-ghost"
-      title="Toggle grid density"
-      aria-label="Toggle gallery grid density (currently ${density})"
-      @click=${() => {
-        $density.set(next);
-        writeDensity(next);
-      }}
-    >
-      ${density === "compact" ? "Comfortable" : "Compact"}
-    </button>`;
-  });
-}
-
-function presenceStrip() {
-  const status = $syncStatus.get();
-  if (!status) {
-    return html`<span class="text-sm text-muted">Looking for your album…</span>`;
-  }
-  const peers = status.peers;
-  const known = status.members.length;
-  const online = peers > 0;
-  const alone = known <= 1;
-  const dotColor = online ? "bg-ok" : alone ? "bg-warn" : "bg-warn";
+function presenceStrip(status: SyncStatus, lastSync: number | null) {
+  const online = status.peers > 0;
+  const alone = status.members.length <= 1;
   const dotLabel = online ? "In sync" : alone ? "Ready to share" : "Waiting for devices";
   const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
-  const lastSync = $lastSyncAt.get();
-  const otherCount = known > 1 ? known - 1 : 0;
+  const others = status.members.length - 1;
   return html`
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
       <span class="inline-flex items-center gap-1.5">
-        <span class="h-2 w-2 rounded-full ${dotColor} ${dotPulse}"></span>
+        <span class="h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-warn"} ${dotPulse}"></span>
         ${dotLabel}
       </span>
-      <span>${status.photos} photo${status.photos === 1 ? "" : "s"}</span>
       ${
-        otherCount > 0
-          ? html`<span>shared with ${otherCount} other${otherCount === 1 ? "" : "s"}</span>`
-          : null
+        others > 0
+          ? html`<span>shared with ${others} other${others === 1 ? "" : "s"}</span>`
+          : html`<span>only you so far</span>`
       }
       ${lastSync ? html`<span class="text-xs">synced ${formatRelative(lastSync)}</span>` : null}
       <span class="flex items-center gap-1.5" aria-hidden="true">
@@ -275,164 +313,274 @@ function presenceStrip() {
   `;
 }
 
-/** Active-folder anchor for the Gallery home view: the heading names the
- * album being shown, with an in-place switch when there are several and a way
- * to every album (create, join) from the Albums tab. */
-const $folderView = computed([$folders, $activeFolderId], (folders, activeId) => ({
-  active: folders.find((f) => f.id === activeId) ?? null,
-  all: folders,
-}));
-
-function albumHeading() {
-  return useStore($folderView, ({ active, all }) => {
-    const title = html`<h1 class="truncate text-2xl font-semibold tracking-tight text-fg">
-      ${active?.name ?? "Photos"}
-    </h1>`;
-    return html`
-      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        ${title}
-        ${
-          active && all.length > 1
-            ? html`<label class="inline-flex items-center">
-                <span class="sr-only">Switch album</span>
-                <select
-                  class="ui-btn-ghost cursor-pointer"
-                  aria-label="Switch album"
-                  @change=${(e: Event) => {
-                    const select = e.target as HTMLSelectElement;
-                    const id = select.value;
-                    select.value = "";
-                    if (id) folders.switchTo(id);
-                  }}
-                >
-                  <option value="" selected disabled>Switch album</option>
-                  ${all
-                    .filter((f) => f.id !== active.id)
-                    .map((f) => html`<option value=${f.id}>${f.name}</option>`)}
-                </select>
-              </label>`
-            : null
-        }
-        <a
-          class="text-sm text-muted underline-offset-2 hover:text-fg hover:underline"
-          href="/albums"
-          >${all.length > 1 ? `All ${all.length} albums` : "New album"}</a
-        >
-      </div>
-    `;
-  });
-}
-
-function emptyState(view: GalleryViewModel) {
-  const canAdd = view.role !== "reader";
+function emptyState(title: string, body: string, actions: unknown) {
   return html`
-    <div class="mt-10 rounded-3xl bg-surface px-6 py-10 text-center ring-1 ring-line">
+    <div class="mt-4 rounded-3xl bg-surface px-6 py-10 text-center ring-1 ring-line">
       ${emptyIllustration()}
-      <h2 class="text-xl font-semibold text-fg">No photos yet.</h2>
-      <p class="mx-auto mt-2 max-w-sm text-sm text-fg">
-        ${
-          canAdd
-            ? "Choose photos to keep here. They stay on your devices and sync only with people you share with."
-            : "Photos will appear here as your devices come online."
-        }
-      </p>
-      <div class="mt-5 flex justify-center gap-2">
-        ${
-          canAdd
-            ? html`<button class="ui-btn-primary" @click=${() => void pickAndAdd()}>
-                Add photos
-              </button>`
-            : null
-        }
-        ${
-          view.role === "reader"
-            ? html`<a class="ui-btn-ghost inline-flex items-center" href="/albums">Your albums</a>`
-            : html`<a class="ui-btn-ghost inline-flex items-center" href="/settings"
-                >Set up another device</a
-              >`
-        }
-      </div>
+      <h2 class="text-xl font-semibold text-fg">${title}</h2>
+      <p class="mx-auto mt-2 max-w-sm text-sm text-fg">${body}</p>
+      <div class="mt-5 flex flex-wrap justify-center gap-2">${actions}</div>
     </div>
   `;
 }
 
-function galleryBody(view: GalleryViewModel, density: Density) {
-  const { state, busy, error, fatal, photos } = view;
-  const readyEmpty = photos.length === 0 && state === "ready";
-  return html`
-    <div class="space-y-6">
-      ${waitingForAdmin()}
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0 space-y-2">${albumHeading()} ${presenceStrip()}</div>
-        <div class="flex shrink-0 flex-wrap gap-2">
-          <input
-            ${ref(fileInputRef)}
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change=${(e: Event) => {
-              const input = e.target as HTMLInputElement;
-              void onFileChosen(input.files?.[0]);
-              input.value = "";
-            }}
-          />
-          <button
-            class="ui-btn-ghost"
-            ?disabled=${busy || state === "loading" || fatal}
-            @click=${() => gallery.load()}
-          >
-            Refresh
-          </button>
-          ${useStore(
-            $webUploading,
-            (uploading) => html`<button
-              class="ui-btn-primary"
-              ?disabled=${busy || state !== "ready" || uploading}
-              @click=${() => void pickAndAdd()}
-            >
-              ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add photos"}
-            </button>`,
-          )}
-          ${densityToggle()}
-        </div>
-      </div>
+function addButton(page: PhotosPage, scope: PhotoScope, label = "Add photos") {
+  return html`<button
+    class="ui-btn-primary"
+    ?disabled=${page.busy || page.state !== "ready" || page.uploading}
+    @click=${() => void pickAndAdd(scope)}
+  >
+    ${(page.busy && page.state === "adding") || page.uploading ? "Adding…" : label}
+  </button>`;
+}
 
+function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSummary | null) {
+  const canAdd = addTargets(album ? [album] : page.folders).length > 0;
+  const add = canAdd ? addButton(page, scope) : null;
+  if (scope.kind === "album") {
+    return emptyState(
+      "No photos in this album yet.",
+      canAdd
+        ? "Add the first one. Everyone in the album gets it on their devices."
+        : "Photos appear here as members add them and your device syncs.",
+      add,
+    );
+  }
+  if (scope.kind === "mine") {
+    return emptyState(
+      "You haven't added any photos yet.",
+      "Photos you add to any album show up here.",
+      add,
+    );
+  }
+  if (page.folders.length === 0) {
+    return emptyState(
+      "No photos yet.",
+      "Start an album for a trip, a family or a group, or join a friend's with their invite.",
+      html`<a class="ui-btn-primary inline-flex items-center" href="/sharing">Start an album</a>
+        <a class="ui-btn-ghost inline-flex items-center" href="/join">Join with invite</a>`,
+    );
+  }
+  return emptyState(
+    "No photos yet.",
+    "Choose photos to keep here. They stay on your devices and sync only with the people in each album.",
+    add,
+  );
+}
+
+type PhotoTab = PhotoScope["kind"];
+
+function photoTabs(active: PhotoTab) {
+  return tabs(
+    "Show photos",
+    [
+      { id: "all", label: "All", href: "/" },
+      { id: "mine", label: "Added by me", href: "/mine" },
+      { id: "album", label: "Albums", href: "/albums" },
+    ],
+    active,
+  );
+}
+
+/** Title, actions and tabs. `scope` is where "Add photos" puts photos. */
+function pageHeader(page: PhotosPage, scope: PhotoScope, active: PhotoTab = scope.kind) {
+  return html`
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>
+      <div class="flex shrink-0 gap-2">
+        <input
+          ${ref(fileInputRef)}
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change=${(e: Event) => {
+            const input = e.target as HTMLInputElement;
+            void onFileChosen(input.files?.[0]);
+            input.value = "";
+          }}
+        />
+        <button
+          class="ui-btn-ghost"
+          ?disabled=${page.busy || page.state === "loading" || page.fatal}
+          @click=${() => gallery.load()}
+        >
+          Refresh
+        </button>
+        ${addButton(page, scope)}
+      </div>
+    </div>
+    ${photoTabs(active)}
+  `;
+}
+
+function albumHeader(page: PhotosPage, album: FolderSummary) {
+  const status = page.status?.folder.id === album.id ? page.status : null;
+  const waiting =
+    album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id).length : 0;
+  return html`
+    <div class="space-y-2">
+      <a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg">${album.name}</h2>
+        <a
+          class="ui-btn-ghost inline-flex shrink-0 items-center gap-1.5"
+          href="/sharing/${album.id}"
+        >
+          Invite & members
+          ${
+            waiting > 0
+              ? html`<span
+                  class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-white"
+                  aria-label="${waiting} waiting for approval"
+                  >${waiting}</span
+                >`
+              : null
+          }
+        </a>
+      </div>
+      ${status ? presenceStrip(status, page.lastSync) : null}
+    </div>
+  `;
+}
+
+function loadingGrid() {
+  return html`<div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    ${Array.from(
+      { length: 8 },
+      () =>
+        html`<div class="aspect-square animate-pulse bg-subtle motion-reduce:animate-none"></div>`,
+    )}
+  </div>`;
+}
+
+function photosBody(page: PhotosPage, scope: PhotoScope) {
+  const { state, error, fatal } = page;
+  const album =
+    scope.kind === "album" ? (page.folders.find((f) => f.id === scope.id) ?? null) : null;
+  const photos = photosInScope(page.photos, scope);
+  const loading = (state === "loading" || state === "booting") && page.photos.length === 0;
+  return html`
+    <div class="space-y-5">
+      ${pageHeader(page, scope)} ${waitingForAdmin()}
+      ${
+        scope.kind === "album"
+          ? album
+            ? albumHeader(page, album)
+            : html`<a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
+                <p class="text-muted">
+                  ${page.folders.length === 0 ? "Loading…" : "This album isn't on this device."}
+                </p>`
+          : null
+      }
       ${errorBanner(
         error,
         state === "error" && !fatal ? () => gallery.retry() : undefined,
         fatal ? () => window.location.reload() : undefined,
       )}
       ${
-        state === "loading" && photos.length === 0
-          ? html`<div class="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              ${Array.from(
-                { length: 8 },
-                () =>
-                  html`<div
-                    class="aspect-square animate-pulse bg-subtle motion-reduce:animate-none"
-                  ></div>`,
-              )}
-            </div>`
-          : null
-      }
-      ${
-        readyEmpty
-          ? emptyState(view)
-          : html`
-              ${groupedPhotos(photos, density)}
-              <footer class="pt-6 text-center text-xs text-muted">
-                ${photos.length} photo${photos.length === 1 ? "" : "s"}
-              </footer>
-            `
+        loading
+          ? loadingGrid()
+          : scope.kind === "album" && !album
+            ? null
+            : photos.length === 0
+              ? scopeEmptyState(page, scope, album)
+              : html`
+                  ${sortControl(page.sort)} ${photoTimeline(photos, page.sort, page.density)}
+                  <footer class="pt-6 text-center text-xs text-muted">
+                    ${photos.length} photo${photos.length === 1 ? "" : "s"}
+                  </footer>
+                `
       }
     </div>
   `;
 }
 
-export function galleryView() {
-  return useStore(
-    $galleryViewModel,
-    (vm) => useStore($density, (density) => galleryBody(vm, density)),
-    true,
-  );
+/** The Photos page for one scope: every photo, only yours, or one album. */
+export function galleryView(scope: PhotoScope) {
+  return useStore($photosPage, (page) => photosBody(page, scope), true);
+}
+
+function albumCard(card: AlbumCard, waiting: number) {
+  const { folder, cover, count } = card;
+  return html`<li>
+    <a
+      class="ui-focus group block rounded-2xl"
+      href="/albums/${folder.id}"
+      aria-label="${folder.name}, ${count} photo${count === 1 ? "" : "s"}"
+    >
+      <div class="relative aspect-square overflow-hidden rounded-2xl bg-subtle ring-1 ring-line">
+        ${
+          cover
+            ? html`<img
+                class="h-full w-full object-cover transition duration-200 group-hover:brightness-90"
+                src="${cover.url}"
+                alt=""
+                referrerpolicy="no-referrer"
+                loading="lazy"
+              />`
+            : html`<div class="flex h-full items-center justify-center text-3xl text-muted">
+                <span aria-hidden="true">＋</span>
+              </div>`
+        }
+        ${
+          waiting > 0
+            ? html`<span
+                class="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white"
+                >${waiting} waiting</span
+              >`
+            : null
+        }
+      </div>
+      <p class="mt-2 truncate text-sm font-medium text-fg">${folder.name}</p>
+      <p class="truncate text-xs text-muted">
+        ${count} photo${count === 1 ? "" : "s"}
+        ${
+          folder.pending
+            ? html` · <span class="font-semibold text-warn">Waiting for the Admin</span>`
+            : html` · ${folder.members} member${folder.members === 1 ? "" : "s"}`
+        }
+      </p>
+    </a>
+  </li>`;
+}
+
+function albumGridBody(page: PhotosPage) {
+  const scope: PhotoScope = { kind: "all" };
+  const cards = albumCards(page.folders, page.photos);
+  return html`
+    <div class="space-y-5">
+      ${pageHeader(page, scope, "album")}
+      ${
+        cards.length === 0
+          ? scopeEmptyState(page, scope, null)
+          : html`<ul
+              class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+              aria-label="Albums"
+            >
+              ${cards.map((card) =>
+                albumCard(
+                  card,
+                  card.folder.role === "creator"
+                    ? page.requests.filter((r) => r.folderId === card.folder.id).length
+                    : 0,
+                ),
+              )}
+              <li>
+                <a
+                  class="ui-focus flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line text-sm text-muted hover:border-accent hover:text-accent"
+                  href="/sharing"
+                >
+                  <span class="text-2xl" aria-hidden="true">＋</span>
+                  New album
+                </a>
+              </li>
+            </ul>`
+      }
+    </div>
+  `;
+}
+
+/** Photos → Albums: one cover card per album; tap one to see its photos. */
+export function albumGridView() {
+  return useStore($photosPage, (page) => albumGridBody(page));
 }

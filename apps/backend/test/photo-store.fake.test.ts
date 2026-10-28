@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeDrive, makeFakeDeps } from "./fake-drive.ts";
+import { FakeDrive, joinAsMember, makeFakeDeps } from "./fake-drive.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -43,8 +43,10 @@ function driveFor(drives: FakeDrive[], shareKey: string): FakeDrive {
   return found;
 }
 
-describe("#46 setActive must drop the previous folder's update watcher", () => {
-  it("stops firing onChanged for an inactive folder's drive", async () => {
+// #46 originally silenced inactive folders. Every album now stays live so the
+// Photos page can show all of them, so an inactive album must keep reporting.
+describe("#46 switching albums keeps every album live", () => {
+  it("keeps firing onChanged for an inactive folder's drive", async () => {
     const { store, drives, changes } = buildStore();
     await store.ready();
 
@@ -60,8 +62,6 @@ describe("#46 setActive must drop the previous folder's update watcher", () => {
     const aDrive = driveFor(drives, aKey);
     const bDrive = driveFor(drives, bKey);
 
-    // Make A active again: setActive unmounts the previously-active (B) folder,
-    // which must remove B's `drive.on("update")` watcher.
     await store.setActive(aId);
 
     // A is active and still watched → its updates reach onChanged.
@@ -70,11 +70,11 @@ describe("#46 setActive must drop the previous folder's update watcher", () => {
     await sleep(500);
     expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
 
-    // B is inactive → replication to B's drive must NOT fire onChanged for B.
+    // B is inactive but still live → replication to B reaches onChanged too.
     const beforeB = changes.length;
     bDrive.emitUpdate();
     await sleep(500);
-    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(true);
 
     await store.close();
   });
@@ -208,28 +208,19 @@ describe("#49 a member re-adding another member's bytes must own its own copy", 
     await creator.store.ready();
     await alice.store.ready();
     await bob.store.ready();
-    const aliceKey = hexKey(alice.ownDrive().key);
-    const bobKey = hexKey(bob.ownDrive().key);
 
-    // Creator makes a folder and pre-enrols both members. The fake has no p2p
-    // peers, so we enrol directly via respond() (it only needs the member key).
+    // Creator makes a folder and enrols both members.
     const created = await creator.store.createFolder("Family");
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
     const folderKey = created[1]!.folder.shareKey;
-    await creator.store.respond(folderId, aliceKey, true);
-    await creator.store.respond(folderId, bobKey, true);
+    const aliceKey = await joinAsMember(creator.store, folderId, alice.store, folderKey);
+    const bobKey = await joinAsMember(creator.store, folderId, bob.store, folderKey);
 
-    // Both join as members (the registry now lists them as enrolled). setup()
-    // also auto-creates a "My Photos" creator folder, so target Family by key.
-    const aj = await alice.store.join(folderKey);
-    expect(aj[0]).toBeNull();
     const aliceFamily = (await alice.store.folders()).folders.find(
       (f) => f.shareKey === folderKey,
     )!;
     expect(aliceFamily.role).toBe("member");
-    const bj = await bob.store.join(folderKey);
-    expect(bj[0]).toBeNull();
     const bobFamily = (await bob.store.folders()).folders.find((f) => f.shareKey === folderKey)!;
     expect(bobFamily.role).toBe("member");
 
@@ -268,7 +259,6 @@ describe("#52 an approved join must upgrade reader → member in-session", () =>
 
     await creator.store.ready();
     await bob.store.ready();
-    const bobKey = hexKey(bob.ownDrive().key);
 
     const created = await creator.store.createFolder("Trip");
     expect(created[0]).toBeNull();
@@ -281,6 +271,9 @@ describe("#52 an approved join must upgrade reader → member in-session", () =>
     const bobFolder = (await bob.store.folders()).folders.find((f) => f.shareKey === folderKey)!;
     expect(bobFolder.role).toBe("reader");
     expect(bobFolder.pending).toBe(true);
+    // Bob asked with his drive for this album, not his identity drive (#195).
+    const bobKey = bobFolder.driveKey;
+    expect(bobKey).not.toBe(hexKey(bob.ownDrive().key));
 
     // An unapproved reader cannot add photos.
     const earlyAdd = await bob.store.addBytes("early.jpg", new Uint8Array([1, 2, 3]));
@@ -313,6 +306,7 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
   it("does not write a duplicate when the owner's drive is briefly offline", async () => {
     const { store, drives } = buildStore();
     await store.ready();
+    await store.createFolder("Mine");
 
     const photo = new Uint8Array([9, 8, 7, 6, 5, 4]);
 
@@ -324,7 +318,7 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
     // Simulate this device's own drive going unreachable right before a re-add
     // (a flaky peer / not-yet-replicated block). A live full-gallery scan would
     // now skip it and miss the existing copy.
-    const own = drives[0];
+    const own = driveFor(drives, (await store.status()).folder.shareKey);
     own.unreachable = true;
 
     // Re-adding the same bytes must dedupe in-session via the content index,
@@ -370,7 +364,7 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
       const beforeB = changes.length;
       bDrive.emitUpdate();
       await sleep(500);
-      expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+      expect(changes.slice(beforeB).filter((c) => c.folderId === bId)).toHaveLength(1);
       await store.close();
     });
   });
@@ -384,9 +378,6 @@ describe("#89 folder/status member metadata must be consistent across roles", ()
     await alice.store.ready();
     await bob.store.ready();
     await reader.store.ready();
-    const aliceKey = hexKey(alice.ownDrive().key);
-    const bobKey = hexKey(bob.ownDrive().key);
-    const readerKey = hexKey(reader.ownDrive().key);
 
     const created = await creator.store.createFolder("Fam");
     expect(created[0]).toBeNull();
@@ -394,12 +385,12 @@ describe("#89 folder/status member metadata must be consistent across roles", ()
     const folderKey = created[1]!.folder.shareKey;
 
     // Creator enrols Alice and Bob; Reader stays a pending reader.
-    await creator.store.respond(folderId, aliceKey, true);
-    await creator.store.respond(folderId, bobKey, true);
-
-    expect((await alice.store.join(folderKey))[0]).toBeNull();
-    expect((await bob.store.join(folderKey))[0]).toBeNull();
+    const aliceKey = await joinAsMember(creator.store, folderId, alice.store, folderKey);
+    await joinAsMember(creator.store, folderId, bob.store, folderKey);
     expect((await reader.store.join(folderKey))[0]).toBeNull();
+    const readerKey = (await reader.store.folders()).folders.find(
+      (f) => f.shareKey === folderKey,
+    )!.driveKey;
 
     // Let the folder's watch handlers settle their async member-drive refreshes
     // (the same microtask gap #52 waits out) before asserting on derived counts.
@@ -430,10 +421,8 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
     await creator.store.ready();
     await alice.store.ready();
     await bob.store.ready();
-    const aliceKey = hexKey(alice.ownDrive().key);
-    const bobKey = hexKey(bob.ownDrive().key);
 
-    // Creator makes a folder and pre-enrols Alice + Bob. Alice joins as a member,
+    // Creator makes a folder and enrols Bob + Alice. Alice joins as a member,
     // so her Family runtime opens Bob's drive into `rt.memberDrives` and arms a
     // watcher on it (issue #89 path). The fake shares drives by key, so the
     // instance Alice watches is the same one `cache.get(bobKey)` returns below.
@@ -441,10 +430,8 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
     const folderKey = created[1]!.folder.shareKey;
-    await creator.store.respond(folderId, aliceKey, true);
-    await creator.store.respond(folderId, bobKey, true);
-    const aj = await alice.store.join(folderKey);
-    expect(aj[0]).toBeNull();
+    const bobKey = await joinAsMember(creator.store, folderId, bob.store, folderKey);
+    await joinAsMember(creator.store, folderId, alice.store, folderKey);
     const aliceFamily = (await alice.store.folders()).folders.find(
       (f) => f.shareKey === folderKey,
     )!;

@@ -1,3 +1,5 @@
+import { atom } from "nanostores";
+
 export type Density = "comfortable" | "compact";
 
 const STORAGE_KEY = "justus:gallery-density";
@@ -28,3 +30,6 @@ export function writeDensity(density: Density): void {
     // storage unavailable (private mode / non-browser) — ignore
   }
 }
+
+/** Shared by the gallery grid and the Settings picker. */
+export const $density = atom<Density>(readDensity());

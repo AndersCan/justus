@@ -7,16 +7,15 @@
  * missing from the member folder's gallery.
  *
  * The fix scopes the content index by `folderId`, so a re-add is only deduped
- * within the SAME folder.
+ * within the SAME folder. Since #195 the two folders no longer share a drive at
+ * all; the test still guards the per-folder scoping.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps, FakeDrive } from "./fake-drive.ts";
-
-const hexKey = (b: Buffer): string => b.toString("hex");
+import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
 
 /** Mirrors the multi-device harness in photo-store.fake.test.ts: N in-memory
  * stores that share ONE drive registry, so a drive opened by key resolves to the
@@ -56,27 +55,23 @@ function buildDevices(names: string[]) {
 }
 
 describe("#156 content dedupe must be scoped per folder", () => {
-  it("does not drop identical bytes re-added to a member folder that shares ownDrive.key", async () => {
+  it("does not drop identical bytes re-added to a member folder", async () => {
     const { devices } = buildDevices(["X", "Y"]);
     const [x, y] = devices;
 
     await x.store.ready();
     await y.store.ready();
-    const xKey = hexKey(x.ownDrive().key);
 
-    // Y creates a folder and enrols X as a member.
+    // X starts its own folder; Y creates a folder and enrols X as a member, so
+    // X now holds BOTH a creator folder AND a member folder.
+    await x.store.createFolder("Mine");
     const created = await y.store.createFolder("FolderY");
     expect(created[0]).toBeNull();
     const folderYId = created[1]!.folder.id;
     const folderKey = created[1]!.folder.shareKey;
-    await y.store.respond(folderYId, xKey, true);
-
-    // X joins FolderY as a member, so X now holds BOTH its identity creator
-    // folder (folderDrive === ownDrive) AND a member folder (selfDrive === ownDrive).
-    const joined = await x.store.join(folderKey);
-    expect(joined[0]).toBeNull();
+    await joinAsMember(y.store, folderYId, x.store, folderKey);
     const xFolders = (await x.store.folders()).folders;
-    const myPhotos = xFolders.find((f) => f.name === "My Photos")!;
+    const myPhotos = xFolders.find((f) => f.name === "Mine")!;
     const memberFolder = xFolders.find((f) => f.shareKey === folderKey)!;
     expect(myPhotos.role).toBe("creator");
     expect(memberFolder.role).toBe("member");
@@ -94,7 +89,7 @@ describe("#156 content dedupe must be scoped per folder", () => {
     const famAdd = await x.store.addBytes("theirs.jpg", bytes);
     expect(famAdd[0]).toBeNull();
     // Regression guard: the member-folder add must NOT be deduped against the
-    // identity folder (they share ownDrive.key). Before the fix this URL pointed
+    // identity folder. Before the fix this URL pointed
     // at myPhotos.id and the bytes were never written to the member folder.
     expect((famAdd[1] as { url: string }).url).toContain(memberFolder.id);
     expect((famAdd[1] as { url: string }).url).not.toContain(myPhotos.id);

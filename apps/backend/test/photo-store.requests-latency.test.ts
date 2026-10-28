@@ -92,11 +92,10 @@ describe("#88 requests() must not multiply per-peer latency across unreachable p
     const { requests } = await store.requests();
     const elapsed = Date.now() - start;
 
-    // The store has two creator folders (the auto-created "My Photos" plus the
-    // one we made), and `requests()` reads each sequentially. Within a folder the
+    // The store has one creator folder (the one we made). Within a folder the
     // peer opens are now concurrent, so:
-    //   fixed   ≈ creatorFolders × timeoutMs              ≈ 2 × 50 = 100ms
-    //   buggy   ≈ creatorFolders × peerCount × timeoutMs  ≈ 2 × 5 × 50 = 500ms
+    //   fixed   ≈ creatorFolders × timeoutMs              ≈ 1 × 50 = 50ms
+    //   buggy   ≈ creatorFolders × peerCount × timeoutMs  ≈ 1 × 5 × 50 = 250ms
     // Assert well under the buggy floor to prove concurrency.
     expect(elapsed).toBeLessThan(timeoutMs * 4);
 

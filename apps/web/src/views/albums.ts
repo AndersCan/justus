@@ -2,6 +2,8 @@ import { html } from "lit-html";
 import { atom } from "nanostores";
 import type { FolderSummary } from "@justus/core";
 import {
+  $activeFolderId,
+  $folders,
   $foldersError,
   $foldersState,
   $foldersViewModel,
@@ -48,81 +50,69 @@ $syncState.listen((state) => {
   seenSync = state;
 });
 
-// Navigate to the gallery once a join lands (joining → ok) — the album's
-// photos then appear without the user hunting for them. When the join turns
-// out to be a *request* (the album is pending Admin approval), the gallery
-// explains that it is waiting.
+// Open the album in Photos once a join lands (joining → ok) — its photos then
+// appear without the user hunting for them. When the join turns out to be a
+// *request* (pending Admin approval), the album page explains that it waits.
 let seenJoin: SyncStateName | null = null;
 $syncState.listen((state) => {
   if (seenJoin === "joining" && state === "ok") {
-    const pending = $syncStatus.get()?.folder?.pending;
-    toast(pending ? "Request sent. Waiting for the Admin." : "You're in. Photos are syncing");
-    $router.open("/", true);
+    const folder = $syncStatus.get()?.folder;
+    toast(
+      folder?.pending ? "Request sent. Waiting for the Admin." : "You're in. Photos are syncing",
+    );
+    $router.open(folder ? `/albums/${folder.id}` : "/", true);
   }
   seenJoin = state;
   $joinProgress.set(state === "joining");
 });
 
-// A new album opens in the Photos tab once the create lands; a failed create
-// stays here with its error.
+// A new album opens in Photos (ready for its first photos) once the create
+// lands; a failed create stays here with its error.
 let prevFoldersState = $foldersState.get();
 $foldersState.listen((state) => {
   if (
     prevFoldersState === "creating" &&
     state === "ok" &&
     !$foldersError.get() &&
-    $router.get()?.route === "albums"
+    $router.get()?.route === "sharing"
   ) {
-    $router.open("/");
+    const id = $activeFolderId.get();
+    $router.open(id ? `/albums/${id}` : "/albums");
   }
   prevFoldersState = state;
+});
+
+/** Pages about one album (its photos, its people) make it the active album,
+ * so presence, invite and requests describe the album on screen. */
+function followRouteAlbum() {
+  const page = $router.get();
+  const id = page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
+  if (!id || id === $activeFolderId.get() || $foldersState.get() !== "ok") return;
+  if ($folders.get().some((f) => f.id === id)) folders.switchTo(id);
+}
+$foldersState.listen(followRouteAlbum);
+
+// The album page is the people sheet's home: open/close its machine with the
+// route, and keep the join-request inbox fresh on the sharing pages.
+$router.listen((page, old) => {
+  if (page?.route === "album") people.open();
+  else if (old?.route === "album") people.close();
+  if (page?.route === "album" || page?.route === "sharing") requests.refresh();
+  followRouteAlbum();
 });
 
 type FoldersViewModel = ReturnType<typeof $foldersViewModel.get>;
 type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
 
-/** Open an album in the Photos tab. */
-function openAlbum(view: FoldersViewModel, folder: FolderSummary) {
-  if (folder.id !== view.activeFolderId) folders.switchTo(folder.id);
-  $router.open("/");
-}
-
-/** Open an album's people, requests and invite page. */
-function manageAlbum(view: FoldersViewModel, folder: FolderSummary) {
-  if (folder.id !== view.activeFolderId) folders.switchTo(folder.id);
-  $router.open(`/albums/${folder.id}`);
-}
-
-// The album page is the people sheet's new home: open/close its machine with
-// the route, and keep the join-request inbox fresh on both album pages.
-$router.listen((page, old) => {
-  if (page?.route === "album") people.open();
-  else if (old?.route === "album") people.close();
-  if (page?.route === "album" || page?.route === "albums") requests.refresh();
-});
-
-function albumRow(view: FoldersViewModel, folder: FolderSummary) {
-  const active = folder.id === view.activeFolderId;
+function albumRow(folder: FolderSummary) {
   return html`
-    <li
-      class="flex items-center gap-3 rounded-2xl border p-4 ${
-        active ? "border-accent/40 bg-subtle/50" : "border-line"
-      }"
-    >
-      <button
-        class="ui-focus min-w-0 flex-1 text-left"
-        ?disabled=${view.state === "switching"}
-        aria-label="Open ${folder.name}"
-        @click=${() => openAlbum(view, folder)}
+    <li class="flex items-center gap-3 rounded-2xl border border-line p-4">
+      <a
+        class="ui-focus min-w-0 flex-1"
+        href="/sharing/${folder.id}"
+        aria-label="Manage ${folder.name}"
       >
-        <span class="flex items-center gap-2">
-          <span class="truncate text-lg font-medium text-fg">${folder.name}</span>
-          ${
-            active
-              ? html`<span class="shrink-0 text-xs font-semibold text-accent">Showing</span>`
-              : null
-          }
-        </span>
+        <span class="block truncate text-lg font-medium text-fg">${folder.name}</span>
         <span class="mt-0.5 block text-xs text-muted">
           ${roleLabel(folder.role)} · ${folder.members} member${folder.members === 1 ? "" : "s"}
           ${
@@ -131,7 +121,7 @@ function albumRow(view: FoldersViewModel, folder: FolderSummary) {
               : null
           }
         </span>
-      </button>
+      </a>
       ${useStore($requests, (reqs) => {
         const waiting =
           folder.role === "creator" ? reqs.filter((r) => r.folderId === folder.id).length : 0;
@@ -143,13 +133,13 @@ function albumRow(view: FoldersViewModel, folder: FolderSummary) {
             >`
           : null;
       })}
-      <button
-        class="ui-btn-ghost shrink-0"
-        aria-label="Manage ${folder.name}"
-        @click=${() => manageAlbum(view, folder)}
+      <a
+        class="ui-btn-ghost inline-flex shrink-0 items-center"
+        href="/albums/${folder.id}"
+        aria-label="Photos in ${folder.name}"
+        >Photos</a
       >
-        Manage
-      </button>
+      <span class="text-muted" aria-hidden="true">›</span>
     </li>
   `;
 }
@@ -161,11 +151,13 @@ function albumList(view: FoldersViewModel) {
   if (view.folders.length === 0) {
     return html`<div class="ui-card p-5 text-center">
       <p class="text-lg text-fg">No albums yet.</p>
-      <p class="mt-1 text-sm text-fg">Create one below, or join a friend's with their invite.</p>
+      <p class="mt-1 text-sm text-fg">
+        Start one below, or <a class="underline" href="/join">join a friend's</a> with their invite.
+      </p>
     </div>`;
   }
   return html`<ul class="space-y-3" aria-label="Your albums">
-    ${view.folders.map((f) => albumRow(view, f))}
+    ${view.folders.map((f) => albumRow(f))}
   </ul>`;
 }
 
@@ -174,9 +166,7 @@ function newAlbumSection(view: FoldersViewModel) {
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">New album</h2>
-      <p class="mb-3 text-sm text-fg">
-        Each album has its own people and its own invite. Start one per trip, family or group.
-      </p>
+      <p class="mb-3 text-sm text-fg">Start one per trip, family or group.</p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
@@ -270,22 +260,28 @@ function joinSection(state: string, busy: boolean) {
   `;
 }
 
-function albumsBody(view: FoldersViewModel, syncVm: SyncViewModel) {
-  return html`
-    <div class="max-w-2xl space-y-5">
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums</h1>
+/** Sharing → Albums: every album with its people, plus starting a new one. */
+export function albumsPanel() {
+  return useStore(
+    $foldersViewModel,
+    (view) => html`
       ${errorBanner(
         view.error,
         view.state === "error" && !view.fatal ? () => folders.retry() : undefined,
         view.fatal ? () => window.location.reload() : undefined,
       )}
-      ${albumList(view)} ${newAlbumSection(view)} ${joinSection(syncVm.state, syncVm.busy)}
-    </div>
-  `;
+      <p class="text-sm text-muted">
+        Each album has its own people and its own invite. Open one to invite people or approve
+        requests.
+      </p>
+      ${albumList(view)} ${newAlbumSection(view)}
+    `,
+  );
 }
 
-export function albumsView() {
-  return useStore($foldersViewModel, (view) =>
-    useStore($syncViewModel, (syncVm) => albumsBody(view, syncVm)),
+/** Sharing → Join: paste an invite to ask into someone's album. */
+export function joinPanel() {
+  return useStore($syncViewModel, (syncVm: SyncViewModel) =>
+    joinSection(syncVm.state, syncVm.busy),
   );
 }

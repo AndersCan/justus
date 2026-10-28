@@ -53,6 +53,8 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
       }
       const query = new URL(req.url ?? "/", "http://localhost").searchParams;
       const name = sanitizeName(query.get("filename"));
+      // Optional target album; the store falls back to the active one.
+      const folderId = query.get("folder") ?? undefined;
       // Unique subdir per upload so the persisted file's basename is the
       // original file name (the store uses it as the photo's display name)
       // without two concurrent same-name uploads colliding.
@@ -80,7 +82,7 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
           send(400, { ok: false, error: "empty upload" });
           return;
         }
-        const [err, photo] = await deps.store.add(filePath);
+        const [err, photo] = await deps.store.add(filePath, undefined, folderId);
         if (err) {
           send(500, { ok: false, error: err.message });
           return;
