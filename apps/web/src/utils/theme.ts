@@ -1,12 +1,6 @@
 export type Theme = "system" | "light" | "dark";
 
 const STORAGE_KEY = "justus:theme";
-const ORDER: Theme[] = ["system", "light", "dark"];
-
-/** Next theme in the system → light → dark cycle. */
-export function nextTheme(theme: Theme): Theme {
-  return ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
-}
 
 export function readTheme(): Theme {
   try {

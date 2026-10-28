@@ -33,7 +33,7 @@ const request = (folderId: string): JoinRequest => ({
 describe("buildPeople", () => {
   it("counts connected members and writes the chip text", () => {
     const p = buildPeople(status("member"), [], NOW);
-    expect(p.chip).toBe("2 of 3 connected");
+    expect(p.chip).toBe("1 of 2 connected");
     expect(p.connectedCount).toBe(2);
   });
 
@@ -52,7 +52,7 @@ describe("buildPeople", () => {
   });
 
   it("handles no status", () => {
-    expect(buildPeople(null, [], NOW).chip).toBe("0 of 0 connected");
+    expect(buildPeople(null, [], NOW).chip).toBe("Just you");
   });
 });
 

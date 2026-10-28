@@ -132,10 +132,10 @@ function sharingBody(view: SharingViewModel) {
           ${state === "refreshing" ? "Refreshing…" : "Refresh"}
         </button>
       </div>
-      <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/settings">
+      <a class="ui-card flex items-center justify-between gap-3 p-4 text-sm" href="/albums">
         <span>
-          <span class="block font-medium text-fg">Invite people, manage devices</span>
-          <span class="text-muted">Your name, this album's invite and linked devices.</span>
+          <span class="block font-medium text-fg">Invite people, manage members</span>
+          <span class="text-muted">Open an album to invite people and approve requests.</span>
         </span>
         <span class="text-muted" aria-hidden="true">→</span>
       </a>

@@ -14,10 +14,11 @@ import {
   type SyncStateName,
 } from "../machines/sync-machine";
 import { invites, $inviteError } from "../machines/invite-machine";
+import { $requests, requests } from "../machines/requests-machine";
+import { people } from "../machines/people-machine";
 import { $router } from "../router";
 import { useStore } from "../use-store";
 import { errorBanner } from "./error-banner";
-import { shareInvite } from "./invite";
 import { toast } from "./toast";
 
 /** User-facing role words (CONTEXT.md "User-facing words"). */
@@ -37,6 +38,15 @@ async function pasteKey(input: HTMLInputElement) {
 }
 
 const $joinProgress = atom(false);
+
+// Refresh the request inbox when the album state turns over (a join or an
+// approval can change pending requests). Push-driven refreshes are handled in
+// handle-message.
+let seenSync: SyncStateName | null = null;
+$syncState.listen((state) => {
+  if (seenSync && state !== seenSync) requests.refresh();
+  seenSync = state;
+});
 
 // Navigate to the gallery once a join lands (joining → ok) — the album's
 // photos then appear without the user hunting for them. When the join turns
@@ -77,6 +87,20 @@ function openAlbum(view: FoldersViewModel, folder: FolderSummary) {
   $router.open("/");
 }
 
+/** Open an album's people, requests and invite page. */
+function manageAlbum(view: FoldersViewModel, folder: FolderSummary) {
+  if (folder.id !== view.activeFolderId) folders.switchTo(folder.id);
+  $router.open(`/albums/${folder.id}`);
+}
+
+// The album page is the people sheet's new home: open/close its machine with
+// the route, and keep the join-request inbox fresh on both album pages.
+$router.listen((page, old) => {
+  if (page?.route === "album") people.open();
+  else if (old?.route === "album") people.close();
+  if (page?.route === "album" || page?.route === "albums") requests.refresh();
+});
+
 function albumRow(view: FoldersViewModel, folder: FolderSummary) {
   const active = folder.id === view.activeFolderId;
   return html`
@@ -108,12 +132,23 @@ function albumRow(view: FoldersViewModel, folder: FolderSummary) {
           }
         </span>
       </button>
+      ${useStore($requests, (reqs) => {
+        const waiting =
+          folder.role === "creator" ? reqs.filter((r) => r.folderId === folder.id).length : 0;
+        return waiting > 0
+          ? html`<span
+              class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white"
+              aria-label="${waiting} waiting for approval"
+              >${waiting}</span
+            >`
+          : null;
+      })}
       <button
         class="ui-btn-ghost shrink-0"
-        aria-label="Invite people to ${folder.name}"
-        @click=${() => void shareInvite(folder, view.userName)}
+        aria-label="Manage ${folder.name}"
+        @click=${() => manageAlbum(view, folder)}
       >
-        Invite
+        Manage
       </button>
     </li>
   `;

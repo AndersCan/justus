@@ -30,6 +30,11 @@ export function presenceLabel(
   return m.lastSeenAt ? `last seen ${formatRelative(m.lastSeenAt, now)}` : "not seen yet";
 }
 
+/** Chip text counts the others only: you are always connected to yourself. */
+function chipText(others: number, connected: number): string {
+  return others > 0 ? `${connected} of ${others} connected` : "Just you";
+}
+
 /** View-model for the People sheet and the header chip. The first member the
  * backend reports is this device, which always counts as connected. */
 export function buildPeople(
@@ -55,7 +60,7 @@ export function buildPeople(
     people,
     connectedCount,
     total: members.length,
-    chip: `${connectedCount} of ${members.length} connected`,
+    chip: chipText(members.length - 1, connectedCount - 1),
     requests: isAdmin ? requests.filter((r) => r.folderId === folderId) : [],
   };
 }

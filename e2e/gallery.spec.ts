@@ -144,13 +144,25 @@ test("adding identical bytes twice is deduped to one entry (#20)", async ({ page
   expect(await page.locator("figure img").count()).toBe(before + 1);
 });
 
-test("settings shows creator status for the active album", async ({ page }) => {
+test("settings has profile and appearance, and no album tools", async ({ page }) => {
   await page.goto("/settings");
-  const activeFolder = page.getByRole("heading", { name: "Active album" });
-  await expect(activeFolder).toBeVisible({ timeout: 20_000 });
-  await expect(activeFolder.locator("xpath=following-sibling::span")).toContainText("creator");
-  await expect(page.getByRole("link", { name: /Your albums/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Your name" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Dark" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Your albums/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Active album" })).toHaveCount(0);
+});
+
+test("an album page shows members and keeps the invite behind a confirmation", async ({ page }) => {
+  await page.goto("/albums");
+  await page
+    .getByRole("button", { name: /^Manage / })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Copy invite link" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show invite…" }).click();
+  await page.getByRole("button", { name: "Show invite", exact: true }).click();
   await expect(page.getByRole("button", { name: "Copy invite link" })).toBeVisible();
 });
 

@@ -1,47 +1,40 @@
 import { html } from "lit-html";
 import { atom } from "nanostores";
 import { useStore } from "../use-store";
-import { nextTheme, readTheme, writeTheme, type Theme } from "../utils/theme";
+import { readTheme, writeTheme, type Theme } from "../utils/theme";
 
 const $theme = atom<Theme>(readTheme());
 
-const LABEL: Record<Theme, string> = { system: "Auto", light: "Light", dark: "Dark" };
+const OPTIONS: { value: Theme; label: string; hint: string }[] = [
+  { value: "system", label: "Auto", hint: "Follows your device" },
+  { value: "light", label: "Light", hint: "Always light" },
+  { value: "dark", label: "Dark", hint: "Always dark" },
+];
 
-const ICON: Record<Theme, string> = {
-  system: "M4 5h16v11H4zM9 20h6M12 16v4",
-  light:
-    "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
-  dark: "M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z",
-};
-
-/** Cycles system → light → dark. Persists via `writeTheme`. */
-export function themeToggle() {
+/** Auto / Light / Dark choice. Persists via `writeTheme`. */
+export function themeSetting() {
   return useStore(
     $theme,
-    (theme) => html`<button
-      class="ui-btn-ghost !min-h-9 !gap-1.5 !px-2.5 !py-1.5 text-xs"
-      title="Theme: ${LABEL[theme]} (click to change)"
-      aria-label="Theme: ${LABEL[theme]}. Change theme"
-      @click=${() => {
-        const next = nextTheme(theme);
-        writeTheme(next);
-        $theme.set(next);
-      }}
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d=${ICON[theme]} />
-      </svg>
-      ${LABEL[theme]}
-    </button>`,
+    (theme) => html`<div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
+      ${OPTIONS.map(
+        (o) => html`<button
+          type="button"
+          role="radio"
+          aria-checked=${o.value === theme ? "true" : "false"}
+          title=${o.hint}
+          class="ui-focus rounded-xl px-3 py-2.5 text-sm font-medium ring-1 transition ${
+            o.value === theme
+              ? "bg-accent/10 text-accent ring-accent"
+              : "bg-subtle text-fg ring-line hover:bg-line"
+          }"
+          @click=${() => {
+            writeTheme(o.value);
+            $theme.set(o.value);
+          }}
+        >
+          ${o.label}
+        </button>`,
+      )}
+    </div>`,
   );
 }

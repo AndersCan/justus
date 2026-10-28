@@ -13,14 +13,12 @@ import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
+import { albumView } from "./views/album";
 import { albumsView } from "./views/albums";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
 import { $reachHint } from "./machines/reach-hint-machine";
-import { connectionIndicator } from "./views/connection";
-import { peopleChip, peopleSheet } from "./views/people";
-import { themeToggle } from "./views/theme-toggle";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { inviteConsentSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
@@ -114,11 +112,16 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     paths:
       '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.7-2.5 2.2-2.5 3.8M12 17.2h.01"/>',
   },
+  {
+    route: "settings",
+    label: "Settings",
+    paths:
+      '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  },
 ];
 
 function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: "rail" | "tab") {
-  const active =
-    page?.route === item.route || (item.route === "sharing" && page?.route === "settings");
+  const active = page?.route === item.route || (item.route === "albums" && page?.route === "album");
   const base =
     layout === "rail"
       ? "ui-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition"
@@ -148,17 +151,11 @@ render(
         <nav class="flex flex-col gap-1" aria-label="Main">
           ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
         </nav>
-        <div class="mt-auto flex items-center justify-between gap-2 px-3">
-          ${peopleChip()} ${connectionIndicator()} ${themeToggle()}
-        </div>
       </aside>
       <header
         class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
       >
         <span class="text-base font-semibold tracking-tight">Justus</span>
-        <span class="flex items-center gap-3"
-          >${peopleChip()} ${connectionIndicator()} ${themeToggle()}</span
-        >
       </header>
       <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
         ${useStore($reachHint, (hint) =>
@@ -180,7 +177,7 @@ render(
         ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
       </nav>
     </div>
-    ${lightboxView()} ${peopleSheet()} ${inviteConsentSheet()}
+    ${lightboxView()} ${inviteConsentSheet()}
   `,
   renderRoot!,
 );
@@ -191,6 +188,7 @@ function routeView(page: AppPage | undefined) {
   }
   if (page.route === "gallery") return galleryView();
   if (page.route === "albums") return albumsView();
+  if (page.route === "album") return albumView(page.params.id);
   if (page.route === "sharing") return sharingView();
   if (page.route === "help") return helpView();
   if (page.route === "welcome") return welcomeView();
