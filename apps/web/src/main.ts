@@ -2,6 +2,7 @@ import { html, render } from "lit-html";
 import { cache } from "lit-html/directives/cache.js";
 import { unsafeSVG } from "lit-html/directives/unsafe-svg.js";
 import { getPagePath } from "@nanostores/router";
+import { computed } from "nanostores";
 import "uno.css";
 import { messenger, transport } from "./gateway";
 import { handleMessage } from "./handle-message";
@@ -11,11 +12,11 @@ import { requests } from "./machines/requests-machine";
 import { sync } from "./machines/sync-machine";
 import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
-import { galleryView } from "./views/gallery";
+import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
-import { albumsView } from "./views/albums";
 import { sharingView } from "./views/sharing";
+import { $requests } from "./machines/requests-machine";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
 import { $reachHint } from "./machines/reach-hint-machine";
@@ -70,7 +71,17 @@ document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
 
-type NavRoute = "gallery" | "albums" | "sharing" | "help" | "settings";
+type NavRoute = "gallery" | "sharing" | "help" | "settings";
+
+/** Sub-pages that light up their section's nav item. */
+const NAV_SECTION: Partial<Record<AppPage["route"], NavRoute>> = {
+  mine: "gallery",
+  photoAlbums: "gallery",
+  photoAlbum: "gallery",
+  sharingJoin: "sharing",
+  sharingDevices: "sharing",
+  album: "sharing",
+};
 
 const icon = (paths: string) =>
   html`<svg
@@ -95,12 +106,6 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
       '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>',
   },
   {
-    route: "albums",
-    label: "Albums",
-    paths:
-      '<rect x="7" y="7" width="14" height="14" rx="2.5"/><path d="M17 3H6a3 3 0 0 0-3 3v11"/><path d="m21 17-4-4-6 6"/>',
-  },
-  {
     route: "sharing",
     label: "Sharing",
     paths:
@@ -120,8 +125,15 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
   },
 ];
 
-function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: "rail" | "tab") {
-  const active = page?.route === item.route || (item.route === "albums" && page?.route === "album");
+function navLink(
+  page: AppPage | undefined,
+  item: (typeof NAV)[number],
+  layout: "rail" | "tab",
+  waiting: number,
+) {
+  const section = page ? (NAV_SECTION[page.route] ?? page.route) : undefined;
+  const active = section === item.route;
+  const badge = item.route === "sharing" && waiting > 0 ? waiting : 0;
   const base =
     layout === "rail"
       ? "ui-focus flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition"
@@ -137,8 +149,26 @@ function navLink(page: AppPage | undefined, item: (typeof NAV)[number], layout: 
     class="${base} ${tone}"
     href="${getPagePath($router, item.route)}"
     aria-current=${active ? "page" : undefined}
-    >${icon(item.paths)}<span>${item.label}</span></a
+    ><span class="relative inline-flex"
+      >${icon(item.paths)}${
+        badge
+          ? html`<span
+              class="absolute -right-2 -top-1 rounded-full bg-accent px-1 text-[10px] font-semibold leading-4 text-white"
+              aria-label="${badge} waiting for approval"
+              >${badge}</span
+            >`
+          : null
+      }</span
+    ><span>${item.label}</span></a
   >`;
+}
+
+const $nav = computed([$router, $requests], (page, reqs) => ({ page, waiting: reqs.length }));
+
+function navLinks(layout: "rail" | "tab") {
+  return useStore($nav, ({ page, waiting }) =>
+    NAV.map((item) => navLink(page, item, layout, waiting)),
+  );
 }
 
 render(
@@ -148,9 +178,7 @@ render(
         class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
       >
         <span class="px-3 pb-5 text-lg font-semibold tracking-tight">Justus</span>
-        <nav class="flex flex-col gap-1" aria-label="Main">
-          ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "rail")))}
-        </nav>
+        <nav class="flex flex-col gap-1" aria-label="Main">${navLinks("rail")}</nav>
       </aside>
       <header
         class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
@@ -174,7 +202,7 @@ render(
         class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         aria-label="Main"
       >
-        ${useStore($router, (page) => NAV.map((item) => navLink(page, item, "tab")))}
+        ${navLinks("tab")}
       </nav>
     </div>
     ${lightboxView()} ${inviteConsentSheet()}
@@ -186,10 +214,14 @@ function routeView(page: AppPage | undefined) {
   if (!page) {
     return html`<p class="text-muted">We couldn't find that page.</p>`;
   }
-  if (page.route === "gallery") return galleryView();
-  if (page.route === "albums") return albumsView();
+  if (page.route === "gallery") return galleryView({ kind: "all" });
+  if (page.route === "mine") return galleryView({ kind: "mine" });
+  if (page.route === "photoAlbums") return albumGridView();
+  if (page.route === "photoAlbum") return galleryView({ kind: "album", id: page.params.id });
   if (page.route === "album") return albumView(page.params.id);
-  if (page.route === "sharing") return sharingView();
+  if (page.route === "sharing") return sharingView("albums");
+  if (page.route === "sharingJoin") return sharingView("join");
+  if (page.route === "sharingDevices") return sharingView("devices");
   if (page.route === "help") return helpView();
   if (page.route === "welcome") return welcomeView();
   return settingsView();

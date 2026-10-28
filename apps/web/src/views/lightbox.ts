@@ -1,9 +1,10 @@
 import { html } from "lit-html";
 import { atom } from "nanostores";
 import type { Photo } from "@justus/core";
-import { $galleryState, $photos, gallery } from "../machines/gallery-machine";
+import { $galleryState, $photos, gallery, samePhoto } from "../machines/gallery-machine";
 import { useStore } from "../use-store";
 import { formatFullDate, formatRelative } from "../utils/time";
+import { takenTime } from "../utils/photo-scope";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
@@ -11,20 +12,25 @@ import { toast } from "./toast";
 /** Full-screen photo detail. UI-only state — the machines stay untouched. */
 
 export const $lightbox = atom<Photo | null>(null);
+/** The photos the lightbox steps through: the grid it was opened from (one
+ * album, or only yours), else every photo. */
+let sequence: Photo[] | null = null;
 
-export function openLightbox(photo: Photo): void {
+export function openLightbox(photo: Photo, within?: Photo[]): void {
+  sequence = within ?? null;
   $lightbox.set(photo);
 }
 
 export function closeLightbox(): void {
+  sequence = null;
   $lightbox.set(null);
 }
 
 export function step(dir: 1 | -1): void {
   const current = $lightbox.get();
   if (!current) return;
-  const photos = $photos.get();
-  const i = photos.findIndex((p) => p.id === current.id);
+  const photos = sequence ?? $photos.get();
+  const i = photos.findIndex((p) => samePhoto(p, current));
   if (i === -1) return;
   $lightbox.set(photos[(i + dir + photos.length) % photos.length]);
 }
@@ -54,8 +60,8 @@ async function removeFromLightbox(photo: Photo) {
     tone: "danger",
   });
   if (!ok) return;
-  gallery.remove(photo.id);
-  $lightbox.set(null);
+  gallery.remove(photo.id, photo.folderId);
+  closeLightbox();
   toast(`Removed “${photo.name}”`);
 }
 
@@ -141,9 +147,16 @@ function lightboxBody(photo: Photo) {
                 <span class="truncate">${photo.member.name}</span>
                 <span>·</span>
                 <span title="${formatFullDate(photo.addedAt)}"
-                  >${formatRelative(photo.addedAt)}</span
+                  >added ${formatRelative(photo.addedAt)}</span
                 >
               </div>
+              ${
+                photo.takenAt
+                  ? html`<div class="mt-0.5 text-xs text-muted">
+                      Taken ${formatFullDate(takenTime(photo))}
+                    </div>`
+                  : null
+              }
             </div>
             ${useStore(
               $galleryState,

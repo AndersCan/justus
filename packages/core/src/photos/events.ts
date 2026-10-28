@@ -14,7 +14,8 @@ export const photoSpecs = {
   list: {
     pluginId: "justus.photos",
     name: "photos.list",
-    args: {} as Record<string, never>,
+    // `all`: every album's photos, newest first, instead of the active album's.
+    args: {} as { all?: boolean },
     result: {} as { photos: Photo[] },
   },
   add: {
@@ -22,14 +23,15 @@ export const photoSpecs = {
     name: "photos.add",
     // Either `path` (a file the host picked, already on disk) or `name`
     // (the original file name when the bytes travel in-band as the invoke
-    // payload). The plugin picks whichever the caller provided.
-    args: {} as { path?: string; name?: string },
+    // payload). The plugin picks whichever the caller provided. `folderId`
+    // targets an album; without it the photo goes to the active album.
+    args: {} as { path?: string; name?: string; folderId?: string },
     result: {} as Photo,
   },
   remove: {
     pluginId: "justus.photos",
     name: "photos.remove",
-    args: {} as { id: string },
+    args: {} as { id: string; folderId?: string },
     result: {} as { id: string },
   },
   join: {
@@ -105,16 +107,17 @@ export const photoSpecs = {
 
 export const photoEvents = {
   photos: {
-    list(): InvokeEnvelope<"photos.list", Record<string, never>, { photos: Photo[] }> {
-      return invokeEvent(photoSpecs.list, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    list(all?: boolean): InvokeEnvelope<"photos.list", { all?: boolean }, { photos: Photo[] }> {
+      return invokeEvent(photoSpecs.list, all ? { all } : {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
     add(
       path: string,
       name?: string,
-    ): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
+      folderId?: string,
+    ): InvokeEnvelope<"photos.add", { path?: string; name?: string; folderId?: string }, Photo> {
       return invokeEvent(
         photoSpecs.add,
-        name ? { path, name } : { path },
+        { path, ...(name ? { name } : {}), ...(folderId ? { folderId } : {}) },
         null,
         PHOTOS_ADD_TIMEOUT_MS,
       );
@@ -124,11 +127,25 @@ export const photoEvents = {
     addFile(
       name: string,
       bytes: Uint8Array | ArrayBuffer,
-    ): InvokeEnvelope<"photos.add", { path?: string; name?: string }, Photo> {
-      return invokeEvent(photoSpecs.add, { name }, bytes, PHOTOS_ADD_TIMEOUT_MS);
+      folderId?: string,
+    ): InvokeEnvelope<"photos.add", { path?: string; name?: string; folderId?: string }, Photo> {
+      return invokeEvent(
+        photoSpecs.add,
+        { name, ...(folderId ? { folderId } : {}) },
+        bytes,
+        PHOTOS_ADD_TIMEOUT_MS,
+      );
     },
-    remove(id: string): InvokeEnvelope<"photos.remove", { id: string }, { id: string }> {
-      return invokeEvent(photoSpecs.remove, { id }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    remove(
+      id: string,
+      folderId?: string,
+    ): InvokeEnvelope<"photos.remove", { id: string; folderId?: string }, { id: string }> {
+      return invokeEvent(
+        photoSpecs.remove,
+        folderId ? { id, folderId } : { id },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
     join(key: string): InvokeEnvelope<"photos.join", { key: string }, SyncStatus> {
       return invokeEvent(photoSpecs.join, { key }, null, PHOTOS_JOIN_TIMEOUT_MS);

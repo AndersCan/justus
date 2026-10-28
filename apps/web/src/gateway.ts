@@ -13,12 +13,14 @@ export const bus = createPluginBus(messenger);
 /** The plugin-invoke shell the mantaq actors drive. Every call returns the
  * framework's `Either` tuple `[error, result]`. */
 export const gateway = {
-  list: () => bus.invoke(photoEvents.photos.list()),
-  add: (path: string, name?: string) => bus.invoke(photoEvents.photos.add(path, name)),
+  /** Every album's photos, newest first. */
+  list: () => bus.invoke(photoEvents.photos.list(true)),
+  add: (path: string, name?: string, folderId?: string) =>
+    bus.invoke(photoEvents.photos.add(path, name, folderId)),
   /** Adds a photo from bytes picked in the browser (multi-file upload). */
   addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
     bus.invoke(photoEvents.photos.addFile(name, bytes)),
-  remove: (id: string) => bus.invoke(photoEvents.photos.remove(id)),
+  remove: (id: string, folderId?: string) => bus.invoke(photoEvents.photos.remove(id, folderId)),
   join: (key: string) => bus.invoke(photoEvents.photos.join(key)),
   enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),
   status: () => bus.invoke(photoEvents.photos.status()),

@@ -1,5 +1,6 @@
 import Hyperswarm from "hyperswarm";
-import { deriveGallery, type DriveScan } from "./gallery-order";
+import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
+import { readTakenAt } from "./exif-date";
 import { pumpStream, type PumpWriter } from "./pump";
 import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
@@ -121,6 +122,7 @@ type PhotoMeta = {
   name: string;
   mime: string;
   sha256?: string;
+  takenAt?: string;
 };
 
 /**
@@ -180,11 +182,13 @@ export type PhotoStoreDeps = {
 
 export interface PhotoStore {
   ready(): Promise<void>;
-  list(): Promise<Photo[]>;
-  add(path: string, name?: string): Promise<EitherResult<Photo>>;
+  /** The active album's photos, or with `all` every album's, newest first. */
+  list(opts?: { all?: boolean }): Promise<Photo[]>;
+  /** `folderId` targets an album; without it the active album. */
+  add(path: string, name?: string, folderId?: string): Promise<EitherResult<Photo>>;
   /** Adds a photo from in-band bytes (browser multi-file picker). */
-  addBytes(name: string, bytes: Uint8Array): Promise<EitherResult<Photo>>;
-  remove(id: string): Promise<EitherResult<{ id: string }>>;
+  addBytes(name: string, bytes: Uint8Array, folderId?: string): Promise<EitherResult<Photo>>;
+  remove(id: string, folderId?: string): Promise<EitherResult<{ id: string }>>;
   join(key: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
   status(): Promise<SyncStatus>;
@@ -649,7 +653,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       hex(rt.folderDrive.key),
       rt.record.role === "creator" ? "enroll" : "add",
     );
-    if (rt.selfDrive) watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
+    // A creator's own drive *is* the folder drive; watching it twice would
+    // push every change twice.
+    if (rt.selfDrive && rt.selfDrive !== rt.folderDrive) {
+      watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
+    }
     for (const [key, drive] of rt.memberDrives) {
       watchDrive(drive, rt.record.id, key, "add");
     }
@@ -752,6 +760,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   function activeRuntime(): FolderRuntime | null {
     const id = activeFolderId();
     return id ? (runtimes.get(id) ?? null) : null;
+  }
+
+  /** The named album's runtime, or the active one when no id is given. */
+  function runtimeFor(folderId?: string): FolderRuntime | null {
+    return folderId ? (runtimes.get(folderId) ?? null) : activeRuntime();
   }
 
   /** Spool dir for a folder (per-folder so switching active never serves stale
@@ -1030,6 +1043,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         addedAt: d.addedAt,
         member: { key: d.driveKey, name: d.memberName },
         ...(d.sha256 ? { sha256: d.sha256 } : {}),
+        ...(d.takenAt ? { takenAt: d.takenAt } : {}),
+        folderId: rt.record.id,
+        mine: d.driveKey === selfKey,
       });
     }
     return photos;
@@ -1099,8 +1115,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function addFromPath(
     filePath: string,
     originalName?: string,
+    folderId?: string,
   ): Promise<EitherResult<Photo>> {
-    const rt = activeRuntime();
+    const rt = runtimeFor(folderId);
     if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
     if (rt.record.role === "reader") {
       return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
@@ -1183,11 +1200,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         addedAt: ownIdx.addedAt,
         member: { key: ownIdx.driveKey, name: state.name },
         ...(ownIdx.sha256 ? { sha256: ownIdx.sha256 } : {}),
+        folderId: rt.record.id,
+        mine: true,
       });
     }
     const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-    const metadata: PhotoMeta = { addedAt: Date.now(), name, mime, sha256 };
+    const takenAt = readTakenAt(bytes);
+    const metadata: PhotoMeta = {
+      addedAt: Date.now(),
+      name,
+      mime,
+      sha256,
+      ...(takenAt ? { takenAt } : {}),
+    };
     // A creator writes to the folder's own drive; a member writes to its own
     // drive (still within the same folder's derived view).
     const targetDrive = rt.record.role === "creator" ? rt.folderDrive : ownDrive;
@@ -1235,7 +1261,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       mime,
       size: stat.size,
       addedAt: metadata.addedAt,
+      ...(takenAt ? { takenAt } : {}),
       member: { key: selfKey, name: state.name },
+      folderId: rt.record.id,
+      mine: true,
     });
   }
 
@@ -1538,27 +1567,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return readyPromise;
     },
 
-    async list() {
+    async list(opts) {
       await readyPromise;
-      const rt = activeRuntime();
-      return rt ? listPhotosIn(rt) : [];
+      if (!opts?.all) {
+        const rt = activeRuntime();
+        return rt ? listPhotosIn(rt) : [];
+      }
+      const photos: Photo[] = [];
+      for (const record of state.folders) {
+        const rt = runtimes.get(record.id);
+        if (rt) photos.push(...(await listPhotosIn(rt)));
+      }
+      return photos.sort(compareGalleryOrder);
     },
 
-    async add(filePath, name) {
+    async add(filePath, name, folderId) {
       await readyPromise;
       // Thread the picker's original display name through (#99); without it the
       // stored photo would be named after the host's temp staging file rather
       // than the user's file. `addFromPath` falls back to the basename when
       // `name` is absent, so the old behaviour is preserved for nameless adds.
-      return addFromPath(filePath, name);
+      return addFromPath(filePath, name, folderId);
     },
 
     /** Adds a photo from bytes uploaded in-band (browser multi-file picker):
      * stages the bytes to a temp file so the path-based flow stays the single
      * source of truth, then imports it. */
-    async addBytes(name, bytes) {
+    async addBytes(name, bytes, folderId) {
       await readyPromise;
-      const rt = activeRuntime();
+      const rt = runtimeFor(folderId);
       if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       if (rt.record.role === "reader") {
         return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
@@ -1577,7 +1614,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // Thread the real upload filename through (#82); the staged temp file is
         // named `upload-<id>`, so without this the stored photo would be named
         // after the temp file rather than the user's file.
-        return await addFromPath(staged, safeName);
+        return await addFromPath(staged, safeName, rt.record.id);
       } finally {
         try {
           fs.unlinkSync(staged);
@@ -1587,9 +1624,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     },
 
-    async remove(id) {
+    async remove(id, folderId) {
       await readyPromise;
-      const rt = activeRuntime();
+      const rt = runtimeFor(folderId);
       if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       const role = rt.record.role;
       const selfKey = role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
@@ -1853,12 +1890,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       const rt = runtimes.get(folderId);
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
-      // Clean up the outgoing active folder's spool + loopback mounts so its
-      // bytes never leak into the new active folder's gallery.
-      const prev = activeRuntime();
-      if (prev && prev !== rt) {
-        await unmountRuntime(prev);
-      }
+      // Every album stays live (synced and mounted) so the Photos page can
+      // show all of them at once; mounts and spools are per album, so nothing
+      // leaks between them. Switching only changes which album status describes.
       state.activeFolderId = folderId;
       saveState();
       // Issue #86/#91/#96: switching away from this folder ran `unmountRuntime`,

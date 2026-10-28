@@ -16,11 +16,21 @@ export type Photo = {
   name: string;
   mime: string;
   size: number;
+  /** When it was added to Justus (ms epoch) — the "date added" timeline. */
   addedAt: number;
+  /** When it was taken, from the photo's EXIF: camera wall-clock time
+   * `YYYY-MM-DDTHH:MM:SS`, plus `±HH:MM` when the camera recorded its offset.
+   * Unset when the file carries no capture date. */
+  takenAt?: string;
   member: PhotoMember;
   /** sha256 of the original bytes (ingest dedupe). Optional: entries stored
    * before this field existed don't carry it. */
   sha256?: string;
+  /** The folder (album) this photo belongs to. Set by every list, so a
+   * cross-album list can be filtered and acted on per album. */
+  folderId?: string;
+  /** True when this device added the photo (it lives on our own drive). */
+  mine?: boolean;
 };
 
 export type SyncMember = {

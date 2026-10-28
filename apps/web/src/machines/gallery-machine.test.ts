@@ -72,10 +72,25 @@ describe("gallery machine", () => {
     gallery.add("/tmp/beach.jpg", "beach.jpg");
     await vi.waitFor(() => expect($photos.get().map((p) => p.id)).toContain("p1"));
 
-    gallery.remove("p1");
+    gallery.remove("p1", "f1");
     await vi.waitFor(() => expect($photos.get().map((p) => p.id)).not.toContain("p1"));
 
+    expect(mock.remove).toHaveBeenCalledWith("p1", "f1");
     expect($galleryState.get()).toBe("ready");
+  });
+
+  test("remove only drops the photo from its own album", async () => {
+    mock.list.mockResolvedValue([
+      null,
+      { photos: [photo("p1"), { ...photo("p1"), folderId: "f2" }] },
+    ]);
+    gallery.load();
+    await vi.waitFor(() => expect($photos.get()).toHaveLength(2));
+
+    gallery.remove("p1", "f1");
+    await vi.waitFor(() => expect($photos.get()).toHaveLength(1));
+
+    expect($photos.get()[0]).toMatchObject({ id: "p1", folderId: "f2" });
   });
 
   test("a load failure surfaces the error state", async () => {

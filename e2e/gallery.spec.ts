@@ -154,9 +154,9 @@ test("settings has profile and appearance, and no album tools", async ({ page })
 });
 
 test("an album page shows members and keeps the invite behind a confirmation", async ({ page }) => {
-  await page.goto("/albums");
+  await page.goto("/sharing");
   await page
-    .getByRole("button", { name: /^Manage / })
+    .getByRole("link", { name: /^Manage / })
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });

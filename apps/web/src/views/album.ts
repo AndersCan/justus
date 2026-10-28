@@ -210,7 +210,9 @@ function detailsSection(status: Status) {
 
 function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncViewModel.get>) {
   const { status, state, busy, error, fatal } = syncVm;
-  const back = html`<a class="text-sm text-muted hover:text-fg" href="/albums">← Albums</a>`;
+  const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing"
+    >← Albums & sharing</a
+  >`;
   if (!status || status.folder.id !== id) {
     return html`<div class="max-w-2xl space-y-4">
       ${back}
@@ -234,6 +236,9 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
         ${roleLabel(status.folder.role)}
       </span>
     </div>
+    <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
+      >See photos in this album</a
+    >
     ${errorBanner(
       error,
       state === "error" && !fatal ? () => sync.retry() : undefined,

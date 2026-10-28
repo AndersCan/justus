@@ -12,11 +12,11 @@ test("sharing view shows honest empty states, no console errors", async ({ page 
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
 
-  await page.goto("/sharing");
+  await page.goto("/devices");
 
   // The heading renders once the grants machine has loaded (not wedged on a
   // spinner).
-  await expect(page.getByRole("heading", { name: "Sharing" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Albums & sharing" })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -30,7 +30,7 @@ test("sharing view shows honest empty states, no console errors", async ({ page 
 });
 
 test("refreshing the sharing view keeps the honest empty states", async ({ page }) => {
-  await page.goto("/sharing");
+  await page.goto("/devices");
   const refresh = page.getByRole("button", { name: "Refresh" });
   await expect(refresh).toBeVisible({ timeout: 20_000 });
 

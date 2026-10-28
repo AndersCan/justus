@@ -43,8 +43,10 @@ function driveFor(drives: FakeDrive[], shareKey: string): FakeDrive {
   return found;
 }
 
-describe("#46 setActive must drop the previous folder's update watcher", () => {
-  it("stops firing onChanged for an inactive folder's drive", async () => {
+// #46 originally silenced inactive folders. Every album now stays live so the
+// Photos page can show all of them, so an inactive album must keep reporting.
+describe("#46 switching albums keeps every album live", () => {
+  it("keeps firing onChanged for an inactive folder's drive", async () => {
     const { store, drives, changes } = buildStore();
     await store.ready();
 
@@ -60,8 +62,6 @@ describe("#46 setActive must drop the previous folder's update watcher", () => {
     const aDrive = driveFor(drives, aKey);
     const bDrive = driveFor(drives, bKey);
 
-    // Make A active again: setActive unmounts the previously-active (B) folder,
-    // which must remove B's `drive.on("update")` watcher.
     await store.setActive(aId);
 
     // A is active and still watched → its updates reach onChanged.
@@ -70,11 +70,11 @@ describe("#46 setActive must drop the previous folder's update watcher", () => {
     await sleep(500);
     expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
 
-    // B is inactive → replication to B's drive must NOT fire onChanged for B.
+    // B is inactive but still live → replication to B reaches onChanged too.
     const beforeB = changes.length;
     bDrive.emitUpdate();
     await sleep(500);
-    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+    expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(true);
 
     await store.close();
   });
@@ -370,7 +370,7 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
       const beforeB = changes.length;
       bDrive.emitUpdate();
       await sleep(500);
-      expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(false);
+      expect(changes.slice(beforeB).filter((c) => c.folderId === bId)).toHaveLength(1);
       await store.close();
     });
   });

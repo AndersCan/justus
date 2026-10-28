@@ -1,42 +1,50 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * A user keeps several albums, each with its own people and invite. The Albums
- * tab lists them; creating one opens it in Photos, and the Photos heading then
- * offers a switch between them. Switches back so later specs see the seed album.
+ * Photos is where you look; Sharing is where you manage. An album created in
+ * Sharing opens in Photos, the All tab keeps showing every photo, and the
+ * Albums tab narrows the grid to one album. Ends on the seed album so later
+ * specs add photos there.
  */
-test("albums tab lists albums; a new album opens in Photos and can be switched", async ({
+test("a new album opens in Photos; All shows every photo; Albums narrows to one", async ({
   page,
 }) => {
   // Settle on the gallery first, then navigate in-app (one socket for the test).
   await page.goto("/");
   await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  const total = await page.locator("figure img").count();
+
   await page
     .getByRole("navigation", { name: "Main" })
     .first()
-    .getByRole("link", { name: "Albums" })
+    .getByRole("link", { name: "Sharing" })
     .click();
-  await expect(page.getByRole("heading", { name: "Albums", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Albums & sharing" })).toBeVisible();
   const list = page.getByRole("list", { name: "Your albums" });
   await expect(list.getByRole("listitem")).toHaveCount(1, { timeout: 20_000 });
   await expect(list.getByText(/Admin · 1 member/)).toBeVisible();
-  const seedName = (await list.getByRole("listitem").locator("span.truncate").innerText()).trim();
+  const seedName = (await list.locator('a[aria-label^="Manage "] span').first().innerText()).trim();
 
   await page.getByLabel("Album name").fill("Trip 2026");
   await page.getByRole("button", { name: "Create album" }).click();
 
-  await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { level: 1, name: "Trip 2026" })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByRole("link", { name: "All 2 albums" })).toBeVisible();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
+  // The e2e worklet seeds sample photos into every new album.
+  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  const inTrip = await page.locator("figure img").count();
 
-  await page.getByLabel("Switch album").selectOption({ label: seedName });
-  await expect(page.getByRole("heading", { level: 1, name: seedName })).toBeVisible({
-    timeout: 20_000,
-  });
+  const views = page.getByRole("navigation", { name: "Show photos" });
+  await views.getByRole("link", { name: "All", exact: true }).click();
+  await expect(page.locator("figure img")).toHaveCount(total + inTrip, { timeout: 20_000 });
+
+  await views.getByRole("link", { name: "Added by me" }).click();
   await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
 
-  await page.getByRole("link", { name: "All 2 albums" }).click();
-  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await views.getByRole("link", { name: "Albums" }).click();
+  const albums = page.getByRole("list", { name: "Albums" });
+  await expect(albums.getByRole("link", { name: `Trip 2026, ${inTrip} photos` })).toBeVisible();
+  await albums.getByRole("link", { name: new RegExp(`^${seedName}, `) }).click();
+  await expect(page.getByRole("heading", { name: seedName })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("figure img")).toHaveCount(total, { timeout: 20_000 });
 });
