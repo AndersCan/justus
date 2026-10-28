@@ -12,7 +12,7 @@ struct ContentView: View {
 }
 
 /// Full-screen WKWebView. The page is served by the worklet's loopback HTTP
-/// server (URL loaded after the port/token handoff in `BareRuntime`).
+/// server (URL loaded after the origin/bootstrap handoff in `BareRuntime`).
 struct BareWebView: UIViewRepresentable {
   let runtime: BareRuntime
 

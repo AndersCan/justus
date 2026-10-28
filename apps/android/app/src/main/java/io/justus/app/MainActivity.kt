@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var worklet: Worklet
     private lateinit var ipc: IPC
     private lateinit var webView: WebView
+    private val webViewClient = BareWebViewClient()
     private val hostPlugins = HostPluginRegistry()
     private lateinit var storageDir: File
     private lateinit var webappDir: File
@@ -100,7 +101,11 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        webView.webViewClient = BareWebViewClient()
+        // The page is served over loopback HTTP; it never needs file:// or
+        // content:// access, so a hostile document cannot reach them either.
+        webView.settings.allowFileAccess = false
+        webView.settings.allowContentAccess = false
+        webView.webViewClient = webViewClient
 
         // Maestro drives WebView content via Chrome DevTools; only meaningful in debug.
         if (BuildConfig.DEBUG) {
@@ -171,6 +176,8 @@ class MainActivity : AppCompatActivity() {
                         setOf("http://127.0.0.1:$port"),
                     )
                     pendingInvite = null
+                    // Confine the WebView to this origin before the first load.
+                    webViewClient.allowedOrigin = "http://127.0.0.1:$port"
                     webView.loadUrl("$origin/index.html")
                     pageLoaded = true
                     return

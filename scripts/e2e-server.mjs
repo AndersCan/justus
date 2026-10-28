@@ -66,6 +66,7 @@ async function main() {
     bareExecutable,
     [
       workletBundle,
+      "mode=dev",
       `webassets=${webDist}`,
       `storage=${storageDir}`,
       `cache=${cacheDir}`,

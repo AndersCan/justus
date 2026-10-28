@@ -45,6 +45,7 @@ describe("buildOrchestratorPlan", () => {
     expect(new Set(ports).size).toBe(3); // no collisions
 
     for (const w of plan.plan.worklets) {
+      expect(w.args).toContain("mode=dev");
       expect(w.args).toContain(`port=${w.port}`);
       expect(w.args).toContain(`storage=${w.storageDir}`);
       expect(w.args).toContain(`bootstrap=${plan.registry.dht.bootstrap}`);

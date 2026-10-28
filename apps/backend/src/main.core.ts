@@ -43,8 +43,11 @@ const runtime = createWorkletRuntime({
   webAssets: config.webAssets,
   storage: config.storage,
   cache: config.cache,
+  deviceMode: config.deviceMode,
   auth: config.auth,
+  host: config.host,
   port: config.port,
+  allowedOrigins: config.allowedOrigins,
   handoffFile: config.handoffFile,
 });
 

@@ -34,7 +34,7 @@ layer, Host, Actor). Use those terms exactly.
 - **Keep ekrooh versions in lockstep.** `@ekrooh/bare` (JS, `apps/web` +
   `apps/backend`) and the `bare-host` AAR (`apps/android/app/build.gradle`) track
   the same release. Bump both together, run `vp check` + tests, then do app work.
-  Currently **0.5.0**.
+  Currently **0.6.0**.
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
 - **All app state is a mantaq actor.** Each actor's change handler writes
   module-scope nanostore atoms; views read computed view-models through

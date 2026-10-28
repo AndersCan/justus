@@ -39,6 +39,10 @@ for (const peer of peers) {
 }
 
 const outFile = join(devDir, "main.core.gen.js");
+/** `mode=dev` selects ekrooh's dev backend (auth off); without it the worklet
+ * keeps the device defaults. The dev backend still refuses page origins it was
+ * not told about, so allow the Vite dev server (pinned in apps/web). */
+const DEV_ARGS = ["mode=dev", "origin=http://localhost:5173", "origin=http://127.0.0.1:5173"];
 
 let bareProcesses = [];
 let dhtProcess = null;
@@ -89,6 +93,7 @@ async function startBare() {
   for (const peer of peers) {
     const args = [
       outFile,
+      ...DEV_ARGS,
       `storage=${peer.storage}`,
       `cache=${peer.cache}`,
       `inbox=${peer.inbox}`,

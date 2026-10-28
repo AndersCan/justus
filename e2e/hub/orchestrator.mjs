@@ -123,11 +123,12 @@ export function buildOrchestratorPlan(opts = {}) {
     storageDir: inst.storageDir,
     bootstrap,
     // Mirrors apps/backend/scripts/e2e-server.mjs: the Bare worklet takes
-    // key=value args (config.ts reads `webassets=`/`storage=`/`cache=`/
-    // `inbox=`/`port=`/`bootstrap=`). Each instance gets its own storage so
+    // key=value args (`mode=dev` selects ekrooh's dev backend; config.ts reads
+    // `webassets=`/`storage=`/`cache=`/`inbox=`/`port=`/`bootstrap=`). Each instance gets its own storage so
     // every browser tab is backed by a distinct bare instance.
     args: [
       workletBundle,
+      "mode=dev",
       `webassets=${webDist}`,
       `storage=${inst.storageDir}`,
       `cache=${resolve(inst.storageDir, "cache")}`,
