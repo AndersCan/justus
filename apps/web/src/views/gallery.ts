@@ -17,7 +17,7 @@ import { useStore } from "../use-store";
 import { formatMonthGroup, formatRelative, sameMonth } from "../utils/time";
 import { workletBase } from "../utils/peer";
 import { memberColor } from "../utils/palette";
-import { gridColsFor, readDensity, writeDensity, type Density } from "../utils/gallery-density";
+import { $density, gridColsFor, type Density } from "../utils/gallery-density";
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
@@ -36,9 +36,6 @@ const inNativeShell =
  * so `busy` doesn't cover it). Guards against double-pick and drives the
  * Pick button's disabled state. */
 const $webUploading = atom(false);
-
-/** Gallery grid density — comfortable (default) or compact. Persisted. */
-const $density = atom<Density>(readDensity());
 
 /** CSS <custom-ident> for the view-transition-name: unique per photo so the
  * grid reshuffles (Bramus-style) when photos are added/removed. */
@@ -217,24 +214,6 @@ function groupedPhotos(photos: Photo[], density: Density) {
   );
 }
 
-/** Toggle between the comfortable and compact gallery grids. */
-function densityToggle() {
-  return useStore($density, (density) => {
-    const next: Density = density === "compact" ? "comfortable" : "compact";
-    return html`<button
-      class="ui-btn-ghost"
-      title="Toggle grid density"
-      aria-label="Toggle gallery grid density (currently ${density})"
-      @click=${() => {
-        $density.set(next);
-        writeDensity(next);
-      }}
-    >
-      ${density === "compact" ? "Comfortable" : "Compact"}
-    </button>`;
-  });
-}
-
 function presenceStrip() {
   const status = $syncStatus.get();
   if (!status) {
@@ -393,7 +372,6 @@ function galleryBody(view: GalleryViewModel, density: Density) {
               ${busy && state === "adding" ? "Adding…" : uploading ? "Adding…" : "Add photos"}
             </button>`,
           )}
-          ${densityToggle()}
         </div>
       </div>
 

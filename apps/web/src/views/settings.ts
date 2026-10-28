@@ -10,7 +10,7 @@ import {
 import { avatarBadge } from "./avatar";
 import { errorBanner } from "./error-banner";
 import { logsPanel } from "./logs";
-import { themeSetting } from "./theme-toggle";
+import { densitySetting, themeSetting } from "./theme-toggle";
 import { toast } from "./toast";
 
 type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
@@ -90,6 +90,8 @@ function appearanceSection() {
     <section class="ui-card p-5">
       <h2 class="ui-label mb-3">Appearance</h2>
       ${themeSetting()}
+      <h3 class="ui-label mb-3 mt-5">Photo grid</h3>
+      ${densitySetting()}
     </section>
   `;
 }
