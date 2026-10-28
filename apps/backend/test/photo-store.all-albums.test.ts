@@ -6,11 +6,9 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps, FakeDrive } from "./fake-drive.ts";
+import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const hexKey = (b: Buffer): string => b.toString("hex");
 
 /** Mirrors the multi-device harness in photo-store.fake.test.ts: N in-memory
  * stores that share ONE drive registry, so a drive opened by key resolves to the
@@ -60,8 +58,7 @@ describe("photos across albums", () => {
     // and adds a photo.
     const created = await x.store.createFolder("Wedding 2026");
     const wedding = created[1]!.folder;
-    await x.store.respond(wedding.id, hexKey(y.ownDrive().key), true);
-    await y.store.join(wedding.shareKey);
+    await joinAsMember(x.store, wedding.id, y.store, wedding.shareKey);
     const yWedding = (await y.store.folders()).folders.find(
       (f) => f.shareKey === wedding.shareKey,
     )!;

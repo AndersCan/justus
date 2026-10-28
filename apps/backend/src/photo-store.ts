@@ -297,8 +297,9 @@ type FolderRuntime = {
    * folder.json + the creator's own photos. */
   folderDrive: Drive;
   /** The drive THIS device writes photos to inside this folder. For a creator
-   * folder this is `folderDrive` itself; for a joined member it is the device's
-   * own drive; empty/absent for pure readers. */
+   * folder this is `folderDrive` itself; for a joined folder it is a drive of
+   * its own, made for this album alone (#195), which only takes photos once
+   * the Admin has enrolled it. Never the device's identity drive. */
   selfDrive: Drive;
   /** Registered writer drives other than this device, opened read-only. */
   memberDrives: Map<string, Drive>;
@@ -375,8 +376,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const stateFile = path.join(deps.storageDir, STATE_FILE);
 
   let state: PersistedState = loadState();
-  /** The device's single identity drive: `/device.json`, and the drive a joined
-   * member writes its photos to. Also the drive of the FIRST creator folder. */
+  /** The device's identity drive: `/device.json` and the join-request outbox.
+   * It holds no photos: every album has a drive of its own, so a photo only
+   * ever reaches the people in the album it was added to (#195). (Installs from
+   * before #195 may still use it as the "My Photos" album drive.) */
   let ownDrive: Drive;
   const runtimes = new Map<string, FolderRuntime>();
   /** Requester keys the creator denied this session. Denials write no durable
@@ -403,10 +406,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     id: string;
     driveKey: string;
     /** The folder this photo belongs to. Dedupe is scoped per folder (issue
-     * #156): several folders can share `ownDrive.key` (the identity folder and
-     * any member folder joined on the same device), so keying only on driveKey
-     * made a re-add of identical bytes to a *different* folder wrongly return a
-     * prior folder's spool entry and silently skip writing the bytes. */
+     * #156): a re-add of identical bytes to a *different* folder must write
+     * them there, never return a prior folder's spool entry. */
     folderId: string;
     name: string;
     mime: string;
@@ -788,10 +789,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return keys;
   }
 
+  /** Key of the drive this device writes to in `rt` (see `selfDrive`). */
+  function selfKeyOf(rt: FolderRuntime): string {
+    return hex(rt.selfDrive.key);
+  }
+
+  function isEnrolled(registry: RegistryFile, key: string): boolean {
+    return Object.values(registry.members).some((m) => m.key === key);
+  }
+
+  /** This device's drive inside the album with `shareKey` (#195). One per
+   * album, on its own namespace, so the same share key always reopens the
+   * same drive and a photo added here never shows up in another album. It is
+   * served on its own topic so the Admin and members can open it by key. */
+  async function openSelfDrive(shareKey: string): Promise<Drive> {
+    const drive = deps.makeDrive(corestore.namespace(`member/${shareKey}`));
+    await drive.ready();
+    // Presence reads the swarm key from here, and it changes every boot.
+    await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+    await joinTopic(drive.discoveryKey);
+    return drive;
+  }
+
   async function loadMemberDrive(rt: FolderRuntime, keyHex: string, name?: string) {
     if (rt.memberDrives.has(keyHex)) return;
-    const selfKey = rt.record.role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
-    if (keyHex === selfKey) return;
+    if (keyHex === selfKeyOf(rt)) return;
     try {
       const drive = await openDriveWithTopic(keyHex, { server: false });
       rt.memberDrives.set(keyHex, drive);
@@ -809,9 +831,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       key: m.key,
       name: m.name,
     }));
-    const selfKey = rt.record.role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
     const live = new Set(entries.map((e) => e.key));
-    live.add(selfKey);
+    live.add(selfKeyOf(rt));
     for (const [key, drive] of rt.memberDrives) {
       if (live.has(key)) continue;
       rt.memberDrives.delete(key);
@@ -858,12 +879,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function seedContentIndex(rt: FolderRuntime) {
     const role = rt.record.role;
     const drives: Drive[] = [];
-    if (role === "creator" || role === "member") {
-      drives.push(role === "creator" ? rt.folderDrive : ownDrive);
-    }
-    if (role === "reader" || role === "member") {
-      drives.push(rt.folderDrive);
-    }
+    if (role === "creator" || role === "member") drives.push(rt.selfDrive);
+    if (role === "reader" || role === "member") drives.push(rt.folderDrive);
     for (const d of rt.memberDrives.values()) drives.push(d);
     const scans: DriveScan[] = [];
     for (const d of drives) {
@@ -902,15 +919,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
     if (rt.record.role !== "reader") return false;
     const registry = await readRegistryIn(rt.folderDrive);
-    const ownKey = hex(ownDrive.key);
-    const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
-    if (!enrolled) return false;
+    const selfKey = selfKeyOf(rt);
+    if (!isEnrolled(registry, selfKey)) return false;
     rt.record.role = "member";
     rt.record.pending = false;
-    rt.record.driveKey = ownKey;
-    rt.selfDrive = ownDrive;
+    rt.record.driveKey = selfKey;
     await refreshMembersFor(rt);
-    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: ownKey });
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
     return true;
   }
 
@@ -959,12 +974,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const removed = await readRemovedIn(rt.folderDrive);
     const role = rt.record.role;
     const creatorKey = hex(rt.folderDrive.key);
-    const selfKey = role === "creator" ? creatorKey : hex(ownDrive.key);
+    const selfKey = selfKeyOf(rt);
 
     // drivesToScan collects every drive whose /photos dir makes up the derived
     // gallery for this folder + role:
     //  - creator: its own drive (== the folder drive) of creator photos.
-    //  - member: its own drive (photos it added) + the creator drive + writers.
+    //  - member: its drive in this album (photos it added) + the creator drive
+    //    + writers.
     //  - reader: the creator drive + writers (read-only view).
     const drivesToScan: Array<{ key: string; drive: Drive }> = [];
     const seen = new Set<string>();
@@ -978,9 +994,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     };
 
-    if (role === "creator" || role === "member") {
-      addScan(selfKey, role === "creator" ? rt.folderDrive : ownDrive);
-    }
+    if (role === "creator" || role === "member") addScan(selfKey, rt.selfDrive);
     if (role === "reader" || role === "member") {
       addScan(creatorKey, rt.folderDrive);
     }
@@ -1173,7 +1187,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // matching sha256 on *another* member's drive must NOT be adopted (issue
     // #49): that would leave the "added" photo unowned and unremovable for us, so
     // we fall through and write a local copy below.
-    const selfKeyHex = hex(rt.record.role === "creator" ? rt.folderDrive.key : ownDrive.key);
+    const selfKeyHex = selfKeyOf(rt);
     const ownIdx = contentIndex
       .get(sha256)
       ?.find((e) => e.driveKey === selfKeyHex && e.folderId === rt.record.id);
@@ -1214,10 +1228,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       sha256,
       ...(takenAt ? { takenAt } : {}),
     };
-    // A creator writes to the folder's own drive; a member writes to its own
-    // drive (still within the same folder's derived view).
-    const targetDrive = rt.record.role === "creator" ? rt.folderDrive : ownDrive;
-    const selfKey = hex(targetDrive.key);
+    // A creator writes to the folder's own drive; a member writes to its drive
+    // for this album only (#195), never one another album also reads.
+    const targetDrive = rt.selfDrive;
+    const selfKey = selfKeyHex;
     try {
       await targetDrive.put(drivePath, bytes, { metadata });
     } catch (e) {
@@ -1270,8 +1284,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function toSummary(rt: FolderRuntime): FolderSummary {
     const role = rt.record.role;
-    const driveKey =
-      role === "creator" ? hex(rt.folderDrive.key) : role === "member" ? hex(ownDrive.key) : "";
+    // A pending reader reports the drive it asked to be enrolled with.
+    const driveKey = role !== "reader" || rt.record.pending ? selfKeyOf(rt) : "";
     // The member drives `refreshMembersFor` opened are exactly the other
     // enrolled members' drives (self is skipped in `loadMemberDrive`). For a
     // reader the same set is the writers it can see — so derive the count from
@@ -1314,7 +1328,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       };
     }
     const registry = await readRegistryIn(rt.folderDrive);
-    const selfKey = rt.record.role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
+    const selfKey = selfKeyOf(rt);
     // Every role reports a self-consistent member set: the local device first,
     // then the enrolled members from the registry. Dedupe self in case the
     // registry already lists this device (issue #89) — a member/reader's own key
@@ -1341,7 +1355,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return {
       folder: toSummary(rt),
       name: state.name,
-      driveKey: role === "creator" ? selfKey : role === "member" ? selfKey : "",
+      driveKey: role === "reader" ? "" : selfKey,
       discoveryKey: hex(ownDrive.discoveryKey),
       peers: swarm.connections.size,
       photos,
@@ -1460,38 +1474,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
     await joinTopic(ownDrive.discoveryKey);
 
-    const ownKey = hex(ownDrive.key);
-
-    // Reopen every persisted folder so their drives stay warm. A folder whose
-    // share key equals our own drive is our own creator folder (the device's
-    // identity drive — the first folder). Others are remote join targets.
+    // Reopen every persisted folder so their drives stay warm.
     for (const record of state.folders) {
-      const isOwn = record.shareKey === ownKey;
-      const fd = isOwn ? ownDrive : await openDriveWithTopic(record.shareKey, { server: false });
-      const registry = await readRegistryIn(fd);
-      const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
-      // A folder this device created is persisted with role "creator"; after a
-      // restart the identity-drive shortcut (`isOwn`) only fires for the single
-      // identity drive, so a 2nd+ creator folder would otherwise be recomputed
-      // from the live registry (which doesn't list the creator as a member) and
-      // downgrade to "reader" (issue #42). Trust the persisted creator role so
-      // every creator folder re-opens as a creator.
-      const role: Role =
-        record.role === "creator" ? "creator" : isOwn ? "creator" : enrolled ? "member" : "reader";
+      // A folder this device created is persisted with role "creator"; the live
+      // registry doesn't list the creator as a member, so recomputing the role
+      // from it would downgrade a creator folder to "reader" (issue #42). Trust
+      // the persisted creator role.
+      const isCreator = record.role === "creator";
+      let fd: Drive;
+      if (isCreator) {
+        // Our own album drive: local, so no remote-open timeout; serve its topic
+        // so invitees can find it.
+        fd = deps.makeDrive(corestore, Buffer.from(record.shareKey, "hex"));
+        await fd.ready();
+        await joinTopic(fd.discoveryKey, { server: true });
+      } else {
+        fd = await openDriveWithTopic(record.shareKey, { server: false });
+      }
+      const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey);
+      const selfKey = hex(selfDrive.key);
+      const enrolled = !isCreator && isEnrolled(await readRegistryIn(fd), selfKey);
+      const role: Role = isCreator ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
       // (reader) folders like the one created at join() time.
-      const pending =
-        record.role === "creator" ? false : enrolled ? false : Boolean(record.pending);
+      const pending = role === "reader" && Boolean(record.pending);
       const rt: FolderRuntime = {
-        record: {
-          ...record,
-          role,
-          driveKey: record.role === "creator" ? hex(fd.key) : enrolled ? ownKey : "",
-          pending,
-        },
+        record: { ...record, role, driveKey: role === "reader" ? "" : selfKey, pending },
         folderDrive: fd,
-        selfDrive: role === "reader" ? null : ownDrive,
+        selfDrive,
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
@@ -1499,7 +1510,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         social: { peers: new Set() },
       };
       runtimes.set(record.id, rt);
-      if (role === "creator" && !isOwn) {
+      if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
         try {
           await fd.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
@@ -1508,49 +1519,86 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
       }
       await refreshMembersFor(rt);
-      watchDrive(fd, record.id, hex(fd.key), record.role === "creator" ? "enroll" : "add");
-      if (isOwn) watchDrive(ownDrive, record.id, ownKey, "enroll");
+      watchDrive(fd, record.id, hex(fd.key), isCreator ? "enroll" : "add");
     }
 
-    // No folders yet (fresh install) → create the device's first creator folder
-    // from its identity drive, mirroring the previous single-folder behaviour.
+    // No folders yet (fresh install) → start the device's first album. Like
+    // every album it gets a drive of its own, never the identity drive.
     if (state.folders.length === 0) {
-      const folderId = newId(deps.crypto);
-      const folderDrive = ownDrive;
-      const rt: FolderRuntime = {
-        record: {
-          id: folderId,
-          name: "My Photos",
-          role: "creator",
-          shareKey: ownKey,
-          driveKey: ownKey,
-          createdAt: Date.now(),
-        },
-        folderDrive,
-        selfDrive: ownDrive,
-        memberDrives: new Map(),
-        memberNameCache: new Map(),
-        mounted: new Set(),
-        watcherRemoves: new Set(),
-        social: { peers: new Set() },
-      };
-      runtimes.set(folderId, rt);
-      state.folders.push(rt.record);
-      state.activeFolderId = folderId;
-      saveState();
-      await folderDrive.put(
-        DRIVE_PATH_FOLDER,
-        Buffer.from(JSON.stringify({ version: 1, name: rt.record.name })),
-      );
-      await refreshMembersFor(rt);
-      watchDrive(ownDrive, folderId, ownKey, "enroll");
-      if (deps.seedOnEmpty) await seedSamplePhotos(ownDrive);
+      await startFolder("My Photos");
     } else if (state.activeFolderId === null) {
       // Restore an active pointer if the persisted one didn't survive.
-      const ownFolder = state.folders.find((f) => f.shareKey === ownKey) ?? state.folders[0];
+      const ownFolder = state.folders.find((f) => f.role === "creator") ?? state.folders[0];
       state.activeFolderId = ownFolder.id;
       saveState();
     }
+  }
+
+  /** Starts a new album this device is the creator of, on a NEW single-writer
+   * drive of its own, and makes it active. */
+  async function startFolder(name: string): Promise<FolderRuntime> {
+    const folderId = newId(deps.crypto);
+    // A keyless drive is its corestore's default core, so it needs its own
+    // namespace: on the root corestore it would be the device's own drive.
+    const newDrive = deps.makeDrive(corestore.namespace(`folder/${folderId}`));
+    await newDrive.ready();
+    await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+    await newDrive.put(DRIVE_PATH_FOLDER, Buffer.from(JSON.stringify({ version: 1, name })));
+
+    const rt: FolderRuntime = {
+      record: {
+        id: folderId,
+        name,
+        role: "creator",
+        shareKey: hex(newDrive.key),
+        driveKey: hex(newDrive.key),
+        createdAt: Date.now(),
+      },
+      folderDrive: newDrive,
+      selfDrive: newDrive,
+      memberDrives: new Map(),
+      memberNameCache: new Map(),
+      mounted: new Set(),
+      watcherRemoves: new Set(),
+      social: { peers: new Set() },
+    };
+    runtimes.set(folderId, rt);
+    state.folders.push(rt.record);
+    state.activeFolderId = folderId;
+    saveState();
+    await joinTopic(newDrive.discoveryKey, { server: true });
+    watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
+    if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
+    return rt;
+  }
+
+  /** Files (or re-files) this device's request to be enrolled in `rt`'s album
+   * with its drive for that album, on the identity drive's outbox, and serves
+   * that outbox on the album's topic so the Admin (`requests()`) can read it. */
+  async function fileJoinRequest(rt: FolderRuntime, folderName: string) {
+    rt.record.pending = true;
+    let requests: RequestsFile = { version: 1, requests: {} };
+    const existingText = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+    if (existingText) {
+      try {
+        const raw = JSON.parse(existingText) as { version?: unknown; requests?: unknown };
+        if (raw.version === 1 && isTextJSON(raw.requests)) {
+          requests = { version: 1, requests: raw.requests as RequestsFile["requests"] };
+        }
+      } catch {
+        // start fresh
+      }
+    }
+    const shareKey = rt.record.shareKey;
+    requests.requests[shareKey] = {
+      requesterKey: selfKeyOf(rt),
+      requesterName: state.name,
+      shareKey,
+      folderName,
+      requestedAt: Date.now(),
+    };
+    await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(requests)));
+    await announceOwnDriveOnTopic(rt.folderDrive.discoveryKey, "folder");
   }
 
   return {
@@ -1629,8 +1677,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const rt = runtimeFor(folderId);
       if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
       const role = rt.record.role;
-      const selfKey = role === "creator" ? hex(rt.folderDrive.key) : hex(ownDrive.key);
-      const selfDrive = role === "creator" ? rt.folderDrive : ownDrive;
+      const selfKey = selfKeyOf(rt);
+      const selfDrive = rt.selfDrive;
       // Own photo → delete from own drive.
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
@@ -1668,7 +1716,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async join(key) {
       await readyPromise;
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
-      if (key === hex(ownDrive.key))
+      if (
+        key === hex(ownDrive.key) ||
+        state.folders.some((f) => f.role === "creator" && f.shareKey === key)
+      )
         return err(PhotoError.INVALID_KEY, "You already own this album");
 
       // Idempotency (issue #47): re-joining a folder we already hold must not
@@ -1683,20 +1734,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           // the persisted record so the device's own view stays consistent.
           try {
             const fd = await openDriveWithTopic(key, { server: false });
-            const registryForRole = await readRegistryIn(fd);
-            const ownKey = hex(ownDrive.key);
-            const enrolled = Object.values(registryForRole.members).some((m) => m.key === ownKey);
-            const role: Role =
-              existing.role === "creator" ? "creator" : enrolled ? "member" : "reader";
+            const selfDrive = await openSelfDrive(key);
+            const selfKey = hex(selfDrive.key);
+            const enrolled = isEnrolled(await readRegistryIn(fd), selfKey);
+            const role: Role = enrolled ? "member" : "reader";
             rt = {
               record: {
                 ...existing,
                 role,
-                driveKey: role === "reader" ? "" : ownKey,
+                driveKey: role === "reader" ? "" : selfKey,
                 pending: role === "reader" ? Boolean(existing.pending) : false,
               },
               folderDrive: fd,
-              selfDrive: role === "reader" ? null : ownDrive,
+              selfDrive,
               memberDrives: new Map(),
               memberNameCache: new Map(),
               mounted: new Set(),
@@ -1709,6 +1759,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           } catch {
             return ok(await computeStatus());
           }
+        }
+        // Still not enrolled: maybe the Admin approved since, else ask again.
+        // A membership from before #195 was enrolled with the identity drive,
+        // so it lands here and re-requests with this album's own drive.
+        if (rt.record.role === "reader" && !(await upgradePendingRole(rt))) {
+          await fileJoinRequest(rt, rt.record.name);
+          existing.pending = true;
+          saveState();
+          deps.onChanged({ cause: "request", folderId: rt.record.id });
         }
         return ok(await computeStatus());
       }
@@ -1728,8 +1787,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.INVALID_KEY, `Cannot open album: ${message}`);
       }
 
-      const ownKey = hex(ownDrive.key);
-      const enrolled = Object.values(registry.members).some((m) => m.key === ownKey);
+      // The drive this device will add photos to in this album, and the key the
+      // Admin enrolls (#195).
+      const selfDrive = await openSelfDrive(key);
+      const selfKey = hex(selfDrive.key);
+      const enrolled = isEnrolled(registry, selfKey);
       const role: Role = enrolled ? "member" : "reader";
       const folderId = newId(deps.crypto);
 
@@ -1739,11 +1801,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           name: folderName || "Joined folder",
           role,
           shareKey: key,
-          driveKey: enrolled ? ownKey : "",
+          driveKey: enrolled ? selfKey : "",
           createdAt: Date.now(),
         },
         folderDrive: drive,
-        selfDrive: role === "reader" ? null : ownDrive,
+        selfDrive,
         memberDrives: new Map(),
         memberNameCache: new Map(),
         mounted: new Set(),
@@ -1753,32 +1815,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       runtimes.set(folderId, rt);
 
       if (!enrolled) {
-        // Not yet a member → file a JOIN REQUEST on this device's own drive
-        // (single-writer — always writable) and announce that drive on the
-        // folder's topic so its creator (`requests()`) can read it.
-        // The request outbox is keyed by share key.
-        rt.record.pending = true;
-        let requests: RequestsFile = { version: 1, requests: {} };
-        const existingText = await getText(ownDrive, DRIVE_PATH_REQUESTS);
-        if (existingText) {
-          try {
-            const raw = JSON.parse(existingText) as { version?: unknown; requests?: unknown };
-            if (raw.version === 1 && isTextJSON(raw.requests)) {
-              requests = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-            }
-          } catch {
-            // start fresh
-          }
-        }
-        requests.requests[key] = {
-          requesterKey: ownKey,
-          requesterName: state.name,
-          shareKey: key,
-          folderName: folderName,
-          requestedAt: Date.now(),
-        };
-        await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(requests)));
-        await announceOwnDriveOnTopic(drive.discoveryKey, "folder");
+        // Not yet a member → file a JOIN REQUEST the creator can read.
+        await fileJoinRequest(rt, folderName);
 
         // This device becomes a (read-only) reader of the requested folder —
         // the gallery shows it as pending until the creator approves.
@@ -1845,44 +1883,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!name || typeof name !== "string" || !name.trim()) {
         return err(PhotoError.NAME_REQUIRED, "Album name is required");
       }
-      const cleanName = name.trim();
-      const folderId = newId(deps.crypto);
-      // A new creator folder gets a NEW single-writer drive of its own. A
-      // keyless drive is its corestore's default core, so it needs its own
-      // namespace: on the root corestore it would be the device's own drive.
-      const newDrive = deps.makeDrive(corestore.namespace(`folder/${folderId}`));
-      await newDrive.ready();
-      await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-      await newDrive.put(
-        DRIVE_PATH_FOLDER,
-        Buffer.from(JSON.stringify({ version: 1, name: cleanName })),
-      );
-
-      const rt: FolderRuntime = {
-        record: {
-          id: folderId,
-          name: cleanName,
-          role: "creator",
-          shareKey: hex(newDrive.key),
-          driveKey: hex(newDrive.key),
-          createdAt: Date.now(),
-        },
-        folderDrive: newDrive,
-        selfDrive: newDrive,
-        memberDrives: new Map(),
-        memberNameCache: new Map(),
-        mounted: new Set(),
-        watcherRemoves: new Set(),
-        social: { peers: new Set() },
-      };
-      runtimes.set(folderId, rt);
-      state.folders.push(rt.record);
-      state.activeFolderId = folderId;
-      saveState();
-      await joinTopic(newDrive.discoveryKey, { server: true });
-      watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
-      if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
-      deps.onChanged({ cause: "enroll", folderId });
+      const rt = await startFolder(name.trim());
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id });
       return ok({ folder: toSummary(rt) });
     },
 
@@ -1916,15 +1918,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       state.name = cleanName;
       saveState();
       await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
-      // Update every creator drive's device.json + folder identity to match.
+      // Update the device.json on each drive this device writes in an album
+      // (creator drives and per-album member drives) to match.
       for (const rt of runtimes.values()) {
-        if (rt.record.role === "creator") {
-          try {
-            await rt.folderDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
-          } catch (e) {
-            const message = errMsg(e);
-            console.error(`[justus] failed to update creator device name: ${message}`);
-          }
+        try {
+          await rt.selfDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
+        } catch (e) {
+          const message = errMsg(e);
+          console.error(`[justus] failed to update device name: ${message}`);
         }
       }
       deps.onChanged({ cause: "enroll", folderId: activeFolderId() ?? undefined });

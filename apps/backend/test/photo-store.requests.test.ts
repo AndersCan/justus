@@ -53,8 +53,9 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     await requester.store.ready();
     await requester2.store.ready();
 
-    const requesterKey = requesterOwn[0].key.toString("hex");
-    const requester2Key = requester2Own[0].key.toString("hex");
+    // The swarm announces each requester by the drive holding its outbox.
+    const requesterPeer = requesterOwn[0].key.toString("hex");
+    const requester2Peer = requester2Own[0].key.toString("hex");
 
     // Creator makes a folder; requesters file join requests.
     const created = await creator.store.createFolder("Trip");
@@ -72,12 +73,18 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
         remotePublicKey: Buffer.from(key, "hex"),
         on: () => {},
       });
-    announce(requesterKey);
-    announce(requester2Key);
+    announce(requesterPeer);
+    announce(requester2Peer);
 
-    // Before any response, both requests are pending.
+    // Before any response, both requests are pending. Each asks to be enrolled
+    // with its drive for this album, not the identity drive (#195).
     const pending = await creator.store.requests();
     expect(pending.requests.length).toBe(2);
+    const keyOf = (name: string) =>
+      pending.requests.find((r) => r.requesterName === name)!.requesterKey;
+    const requesterKey = keyOf("Requester");
+    const requester2Key = keyOf("Requester2");
+    expect(requesterKey).not.toBe(requesterPeer);
 
     // Approve the first requester.
     expect((await creator.store.respond(folderId, requesterKey, true))[0]).toBeNull();
@@ -92,7 +99,7 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     // Even after the denied requester re-files (re-join rewrites the outbox),
     // the denial is remembered for the session.
     expect((await requester2.store.join(folderKey))[0]).toBeNull();
-    announce(requester2Key);
+    announce(requester2Peer);
     expect((await creator.store.requests()).requests.length).toBe(0);
 
     await creator.store.close();

@@ -13,7 +13,7 @@ The peer-to-peer share unit: the creator's drive (holding the membership registr
 _Avoid_: drive, collection
 
 **Member**:
-A device enrolled in a folder with its own drive it can add photos to. Enrollment is creator-mediated: the creator records the member's drive key in the registry. A Person above Member is proposed in `docs/design/person-identity-spec.md`.
+A device enrolled in a folder with its own drive it can add photos to. That drive belongs to this one folder: a device has a separate drive in every folder it joins, never shared with another folder or with its identity. Enrollment is creator-mediated: the creator records the member's drive key in the registry. A Person above Member is proposed in `docs/design/person-identity-spec.md`.
 _Avoid_: device, user, peer, writer
 
 **Reader**:

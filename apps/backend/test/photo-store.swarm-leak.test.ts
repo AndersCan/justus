@@ -11,7 +11,8 @@
  *      handles it held.
  *
  * This test counts live joins and asserts they stay bounded by the number of
- * distinct topics (1 identity + 1 per joined folder) and reach 0 on `close()`.
+ * distinct topics (identity + "My Photos" + 2 per joined folder: its drive and
+ * this device's own drive in it, #195) and reach 0 on `close()`.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
@@ -78,34 +79,33 @@ describe("#95 swarm joins must not leak", () => {
     await c3.store.ready();
     await reader.store.ready();
 
-    // ownDrive is joined once at setup.
-    expect(reader.swarm.activeJoins).toBe(1);
+    // ownDrive and the "My Photos" album drive are joined once at setup.
+    expect(reader.swarm.activeJoins).toBe(2);
 
     const f1 = (await c1.store.createFolder("F1"))[1]!.folder.shareKey;
     const f2 = (await c2.store.createFolder("F2"))[1]!.folder.shareKey;
     const f3 = (await c3.store.createFolder("F3"))[1]!.folder.shareKey;
 
-    // Joining a folder opens that folder's drive (1 join). The reader also
-    // announces its own-drive topic — idempotent, so it must NOT add a join.
+    // Joining a folder opens that folder's drive and serves this device's own
+    // drive in it (2 joins). The reader also announces its request on the
+    // folder topic — idempotent, so it must NOT add a join.
     const r1 = await reader.store.join(f1);
     expect(r1[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(2); // ownDrive + F1
+    expect(reader.swarm.activeJoins).toBe(4); // + F1 + own drive in F1
 
     const r2 = await reader.store.join(f2);
     expect(r2[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(3); // + F2
+    expect(reader.swarm.activeJoins).toBe(6); // + F2 pair
 
     const r3 = await reader.store.join(f3);
     expect(r3[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(4); // + F3
+    expect(reader.swarm.activeJoins).toBe(8); // + F3 pair
 
-    // Bounded: 1 identity + 3 folder drives. Without the fix each `join`
-    // re-announced ownDrive, so this would be 1 + 2*3 = 7 (and climbing).
-
-    // Re-joining an already-held folder (#47) must not add a join.
+    // Re-joining an already-held folder (#47) re-files the request but must
+    // not add a join.
     const r1again = await reader.store.join(f1);
     expect(r1again[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(4);
+    expect(reader.swarm.activeJoins).toBe(8);
 
     // close() must release every join, including the identity join.
     await reader.store.close();
