@@ -62,15 +62,16 @@ describe("#156 content dedupe must be scoped per folder", () => {
     await x.store.ready();
     await y.store.ready();
 
-    // Y creates a folder and enrols X as a member, so X now holds BOTH its
-    // "My Photos" creator folder AND a member folder.
+    // X starts its own folder; Y creates a folder and enrols X as a member, so
+    // X now holds BOTH a creator folder AND a member folder.
+    await x.store.createFolder("Mine");
     const created = await y.store.createFolder("FolderY");
     expect(created[0]).toBeNull();
     const folderYId = created[1]!.folder.id;
     const folderKey = created[1]!.folder.shareKey;
     await joinAsMember(y.store, folderYId, x.store, folderKey);
     const xFolders = (await x.store.folders()).folders;
-    const myPhotos = xFolders.find((f) => f.name === "My Photos")!;
+    const myPhotos = xFolders.find((f) => f.name === "Mine")!;
     const memberFolder = xFolders.find((f) => f.shareKey === folderKey)!;
     expect(myPhotos.role).toBe("creator");
     expect(memberFolder.role).toBe("member");

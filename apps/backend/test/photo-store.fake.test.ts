@@ -209,8 +209,7 @@ describe("#49 a member re-adding another member's bytes must own its own copy", 
     await alice.store.ready();
     await bob.store.ready();
 
-    // Creator makes a folder and enrols both members. setup() also
-    // auto-creates a "My Photos" creator folder, so target Family by key.
+    // Creator makes a folder and enrols both members.
     const created = await creator.store.createFolder("Family");
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
@@ -307,6 +306,7 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
   it("does not write a duplicate when the owner's drive is briefly offline", async () => {
     const { store, drives } = buildStore();
     await store.ready();
+    await store.createFolder("Mine");
 
     const photo = new Uint8Array([9, 8, 7, 6, 5, 4]);
 

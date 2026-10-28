@@ -11,8 +11,8 @@
  *      handles it held.
  *
  * This test counts live joins and asserts they stay bounded by the number of
- * distinct topics (identity + "My Photos" + 2 per joined folder: its drive and
- * this device's own drive in it, #195) and reach 0 on `close()`.
+ * distinct topics (identity + 2 per joined folder: its drive and this
+ * device's own drive in it, #195) and reach 0 on `close()`.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
@@ -79,8 +79,8 @@ describe("#95 swarm joins must not leak", () => {
     await c3.store.ready();
     await reader.store.ready();
 
-    // ownDrive and the "My Photos" album drive are joined once at setup.
-    expect(reader.swarm.activeJoins).toBe(2);
+    // ownDrive is joined once at setup; a fresh install has no albums.
+    expect(reader.swarm.activeJoins).toBe(1);
 
     const f1 = (await c1.store.createFolder("F1"))[1]!.folder.shareKey;
     const f2 = (await c2.store.createFolder("F2"))[1]!.folder.shareKey;
@@ -91,21 +91,21 @@ describe("#95 swarm joins must not leak", () => {
     // folder topic — idempotent, so it must NOT add a join.
     const r1 = await reader.store.join(f1);
     expect(r1[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(4); // + F1 + own drive in F1
+    expect(reader.swarm.activeJoins).toBe(3); // + F1 + own drive in F1
 
     const r2 = await reader.store.join(f2);
     expect(r2[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(6); // + F2 pair
+    expect(reader.swarm.activeJoins).toBe(5); // + F2 pair
 
     const r3 = await reader.store.join(f3);
     expect(r3[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(8); // + F3 pair
+    expect(reader.swarm.activeJoins).toBe(7); // + F3 pair
 
     // Re-joining an already-held folder (#47) re-files the request but must
     // not add a join.
     const r1again = await reader.store.join(f1);
     expect(r1again[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(8);
+    expect(reader.swarm.activeJoins).toBe(7);
 
     // close() must release every join, including the identity join.
     await reader.store.close();

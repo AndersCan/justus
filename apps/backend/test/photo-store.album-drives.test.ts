@@ -1,8 +1,9 @@
 /**
  * Issue #195: every album is a drive of its own. A device used to write its
- * "My Photos" album and every album it joined as a Member to ONE drive (its
- * identity drive), and albums read photos by scanning drives, so a photo added
- * to one album leaked to the members of every other album.
+ * auto-created "My Photos" album and every album it joined as a Member to ONE
+ * drive (its identity drive), and albums read photos by scanning drives, so a
+ * photo added to one album leaked to the members of every other album. A
+ * fresh install now has no album at all: photos only live in albums.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
@@ -26,7 +27,12 @@ describe("#195 each album is its own drive", () => {
     const [x, y, z] = [device("X"), device("Y"), device("Z")];
     await Promise.all([x.store.ready(), y.store.ready(), z.store.ready()]);
 
-    // Y starts Wedding, Z starts Trip; X is a Member of both.
+    // A fresh install has no album to add photos to.
+    expect((await x.store.folders()).folders).toEqual([]);
+    expect((await x.store.addBytes("lost.jpg", new Uint8Array([0])))[0]).not.toBeNull();
+
+    // X starts Cats; Y starts Wedding, Z starts Trip; X is a Member of both.
+    const cats = (await x.store.createFolder("Cats"))[1]!.folder;
     const wedding = (await y.store.createFolder("Wedding 2026"))[1]!.folder;
     const trip = (await z.store.createFolder("Trip"))[1]!.folder;
     const inWedding = await joinAsMember(y.store, wedding.id, x.store, wedding.shareKey);
@@ -36,12 +42,11 @@ describe("#195 each album is its own drive", () => {
     expect(new Set([inWedding, inTrip, xIdentity]).size).toBe(3);
 
     const xFolders = (await x.store.folders()).folders;
-    const myPhotos = xFolders.find((f) => f.name === "My Photos")!;
     const xWedding = xFolders.find((f) => f.shareKey === wedding.shareKey)!;
-    expect(myPhotos.shareKey).not.toBe(xIdentity);
+    expect(cats.shareKey).not.toBe(xIdentity);
 
     const bytes = (n: number) => new Uint8Array([n, n + 1, n + 2]);
-    expect((await x.store.addBytes("cat.jpg", bytes(1), myPhotos.id))[0]).toBeNull();
+    expect((await x.store.addBytes("cat.jpg", bytes(1), cats.id))[0]).toBeNull();
     expect((await x.store.addBytes("vows.jpg", bytes(2), xWedding.id))[0]).toBeNull();
 
     // The Admins see only what was added to their album.
@@ -52,7 +57,7 @@ describe("#195 each album is its own drive", () => {
     const all = await x.store.list({ all: true });
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
     expect([...all].sort(byName).map((p) => [p.name, p.folderId])).toEqual([
-      ["cat.jpg", myPhotos.id],
+      ["cat.jpg", cats.id],
       ["vows.jpg", xWedding.id],
     ]);
 

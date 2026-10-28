@@ -54,8 +54,9 @@ describe("photos across albums", () => {
     await x.store.ready();
     await y.store.ready();
 
-    // X starts "Wedding 2026" next to its own "My Photos"; Y joins as a member
-    // and adds a photo.
+    // X starts "Wedding 2026" and "Cats"; Y joins Wedding as a member and adds
+    // a photo.
+    const cats = (await x.store.createFolder("Cats"))[1]!.folder;
     const created = await x.store.createFolder("Wedding 2026");
     const wedding = created[1]!.folder;
     await joinAsMember(x.store, wedding.id, y.store, wedding.shareKey);
@@ -66,20 +67,19 @@ describe("photos across albums", () => {
     expect(theirs[0]).toBeNull();
     // Let the creator's async member-drive refresh open Y's drive.
     await sleep(600);
-    const myPhotos = (await x.store.folders()).folders.find((f) => f.name === "My Photos")!;
 
     // X adds to both albums by id, whichever one is active.
-    await x.store.setActive(myPhotos.id);
+    await x.store.setActive(cats.id);
     const toWedding = await x.store.addBytes("cake.jpg", new Uint8Array([4, 5, 6]), wedding.id);
-    const toMine = await x.store.addBytes("cat.jpg", new Uint8Array([7, 8, 9]), myPhotos.id);
+    const toMine = await x.store.addBytes("cat.jpg", new Uint8Array([7, 8, 9]), cats.id);
     expect(toWedding[1]).toMatchObject({ folderId: wedding.id, mine: true });
-    expect(toMine[1]).toMatchObject({ folderId: myPhotos.id, mine: true });
+    expect(toMine[1]).toMatchObject({ folderId: cats.id, mine: true });
 
     const all = await x.store.list({ all: true });
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
     expect([...all].sort(byName).map((p) => [p.name, p.folderId, p.mine])).toEqual([
       ["cake.jpg", wedding.id, true],
-      ["cat.jpg", myPhotos.id, true],
+      ["cat.jpg", cats.id, true],
       ["vows.jpg", wedding.id, false],
     ]);
     const times = all.map((p) => p.addedAt);

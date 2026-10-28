@@ -157,7 +157,8 @@ export type PhotoStoreDeps = {
   deviceName: string;
   /** Push a backend → web `photos.changed` dispatch. */
   onChanged: (change: PhotoChanged) => void;
-  /** Seed sample photos on an empty drive (dev only). */
+  /** Dev only: a fresh install starts a "Sample photos" album, and every new
+   * album gets sample photos. */
   seedOnEmpty: boolean;
   /** Hyperswarm DHT bootstrap servers (dev/test: local DHT node). */
   bootstrap?: string[];
@@ -1522,10 +1523,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watchDrive(fd, record.id, hex(fd.key), isCreator ? "enroll" : "add");
     }
 
-    // No folders yet (fresh install) → start the device's first album. Like
-    // every album it gets a drive of its own, never the identity drive.
+    // A fresh install has no albums: photos only exist inside an album the user
+    // starts or joins. Dev builds start one with sample photos to look at.
     if (state.folders.length === 0) {
-      await startFolder("My Photos");
+      if (deps.seedOnEmpty) await startFolder("Sample photos");
     } else if (state.activeFolderId === null) {
       // Restore an active pointer if the persisted one didn't survive.
       const ownFolder = state.folders.find((f) => f.role === "creator") ?? state.folders[0];
