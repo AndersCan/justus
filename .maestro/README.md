@@ -1,7 +1,7 @@
 # Maestro flows for Justus
 
 Mobile-UI (Maestro) flows for the Justus Android app. Justus is a WebView app
-(applicationId/namespace `io.justus.app`): MainActivity loads the built web layer from a
+(applicationId `no.cankode.justus`, namespace `io.justus.app`): MainActivity loads the built web layer from a
 Bare worklet's loopback server via a WebView, and the web layer renders lit-html UI.
 
 ## What these flows cover

@@ -1,0 +1,91 @@
+name: release-android
+
+# Builds the signed Play bundle with fastlane and uploads it to the internal
+# track. Runbook: docs/release-android.md
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "versionName shown in Play (e.g. 0.2.0)"
+        required: true
+      upload:
+        description: "Upload to Play internal track (off for the first, manual upload)"
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: play
+    defaults:
+      run:
+        working-directory: apps/android
+    env:
+      VERSION_NAME: ${{ inputs.version_name || github.ref_name }}
+      JUSTUS_UPLOAD_STORE_FILE: ${{ github.workspace }}/../upload.jks
+      JUSTUS_UPLOAD_STORE_PASSWORD: ${{ secrets.JUSTUS_UPLOAD_STORE_PASSWORD }}
+      JUSTUS_UPLOAD_KEY_ALIAS: ${{ secrets.JUSTUS_UPLOAD_KEY_ALIAS }}
+      JUSTUS_UPLOAD_KEY_PASSWORD: ${{ secrets.JUSTUS_UPLOAD_KEY_PASSWORD }}
+      SUPPLY_JSON_KEY: ${{ github.workspace }}/../play-service-account.json
+      # Set to "draft" (environment variable) until the app is first published.
+      PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/android
+      - name: Install Android SDK platform + NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-36" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - run: pnpm install --frozen-lockfile
+      - name: Gate on check + unit tests
+        run: pnpm exec vp check && pnpm exec vp run -r test
+      - name: Write upload keystore and Play key
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.JUSTUS_UPLOAD_KEYSTORE_BASE64 }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$JUSTUS_UPLOAD_STORE_FILE"
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$SUPPLY_JSON_KEY"
+      - name: Build and upload to internal track
+        if: ${{ inputs.upload != false }}
+        run: bundle exec fastlane internal version_name:"$VERSION_NAME"
+      # First release: Play's API can't see the app yet, so build only and
+      # upload the artifact by hand. versionCode 1 is fine for that one.
+      - name: Build only
+        if: ${{ inputs.upload == false }}
+        run: bundle exec fastlane build version_code:1 version_name:"$VERSION_NAME"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: justus-android-aab
+          path: apps/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

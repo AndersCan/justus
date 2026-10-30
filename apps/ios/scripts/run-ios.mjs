@@ -22,7 +22,7 @@ const root = path.resolve(scriptDir, "../../..");
 const iosDir = path.join(root, "apps/ios");
 const project = path.join(iosDir, "justus.xcodeproj");
 const scheme = "justus";
-const bundleId = "io.justus.app";
+const bundleId = "no.cankode.justus";
 const derivedDataPath = path.join(iosDir, "build/DerivedData");
 const app = path.join(derivedDataPath, "Build/Products/Debug-iphonesimulator/Justus.app");
 

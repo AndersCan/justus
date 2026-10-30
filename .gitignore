@@ -61,3 +61,10 @@ apps/desktop/.zig-cache
 apps/desktop/zig-out
 apps/desktop/zig-pkg
 apps/desktop/dist
+apps/android/keystore.properties
+*.jks
+*.keystore
+apps/android/fastlane/report.xml
+apps/android/fastlane/README.md
+apps/android/.bundle
+apps/android/vendor/bundle

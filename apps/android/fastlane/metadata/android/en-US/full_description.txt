@@ -1,0 +1,23 @@
+Justus is a photo sharing app with no server in the middle.
+
+Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. Justus works peer to peer: your photos go straight from your phone to the phones of the people in your album, and only to them. Nobody else can see them, including us.
+
+ALBUMS FOR THE PEOPLE YOU CHOOSE
+• Start an album and invite friends or family.
+• You approve everyone who asks to join, and you can remove members.
+• Everyone in the album sees all of its photos, including older ones.
+• Add photos from your gallery or take them with the camera.
+
+PRIVACY YOU CAN SEE
+• No account, no sign-up, no cloud storage.
+• Photos are stored on the phones in the album, nowhere else.
+• Connections between phones are encrypted.
+• The People tab shows who is connected right now and when everyone else was last seen.
+• No ads, no tracking, no analytics.
+
+GOOD TO KNOW
+• Photos travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you are both online.
+• Two phones on mobile data sometimes can't find each other. Switching one of them to WiFi usually helps.
+• Your photos live on your devices, so a photo is safe as long as at least one phone in the album has synced it.
+
+Justus is for sharing with friends and family. It holds only the photos you deliberately add, not your whole library.

@@ -5,7 +5,7 @@ plugins {
 
 android {
   namespace = "io.justus.app"
-  compileSdk = 35
+  compileSdk = 36
   ndkVersion = "27.2.12479018"
 
   buildFeatures {
@@ -13,11 +13,41 @@ android {
   }
 
   defaultConfig {
-    applicationId = "io.justus.app"
+    applicationId = "no.cankode.justus"
     minSdk = 29
-    targetSdk = 35
-    versionCode = 1
-    versionName = "0.1.0"
+    targetSdk = 36
+    // Play rejects a versionCode it has seen before. fastlane passes the next one;
+    // local builds stay at 1. See docs/release-android.md.
+    versionCode = (System.getenv("JUSTUS_VERSION_CODE") ?: "1").toInteger()
+    versionName = System.getenv("JUSTUS_VERSION_NAME") ?: "0.1.0"
+  }
+
+  // Upload key for Play App Signing. Read from apps/android/keystore.properties
+  // (gitignored) or JUSTUS_UPLOAD_* env vars in CI. Without either,
+  // bundleRelease still builds but the bundle is unsigned and Play rejects it.
+  def keystoreProps = new Properties()
+  def keystoreFile = rootProject.file("keystore.properties")
+  if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+  def signingValue = { String prop, String env -> keystoreProps.getProperty(prop) ?: System.getenv(env) }
+  def uploadStore = signingValue("storeFile", "JUSTUS_UPLOAD_STORE_FILE")
+
+  signingConfigs {
+    if (uploadStore) {
+      upload {
+        storeFile = rootProject.file(uploadStore)
+        storePassword = signingValue("storePassword", "JUSTUS_UPLOAD_STORE_PASSWORD")
+        keyAlias = signingValue("keyAlias", "JUSTUS_UPLOAD_KEY_ALIAS")
+        keyPassword = signingValue("keyPassword", "JUSTUS_UPLOAD_KEY_PASSWORD")
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      // No R8: the worklet is JS, and the JNI/bare-kit surface has no keep rules yet.
+      minifyEnabled = false
+      if (uploadStore) signingConfig = signingConfigs.upload
+    }
   }
 
   compileOptions {

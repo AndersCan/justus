@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <!-- Play feature graphic source. Render: node apps/android/scripts/render-store-art.mjs -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B78F5"/>
+      <stop offset="1" stop-color="#2E44C4"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E4E9FF"/>
+      <stop offset="1" stop-color="#C9D3FC"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0B1450" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="photo"><rect x="-82" y="-100" width="164" height="150" rx="10"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bg)"/>
+
+  <!-- The icon's two photos, same geometry as icon.svg -->
+  <g transform="translate(14 6)">
+    <g transform="translate(206 246) rotate(-11)" filter="url(#shadow)">
+      <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF" opacity="0.55"/>
+    </g>
+    <g transform="translate(298 268) rotate(8)" filter="url(#shadow)">
+      <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF"/>
+      <g clip-path="url(#photo)">
+        <rect x="-82" y="-100" width="164" height="150" fill="url(#sky)"/>
+        <circle cx="40" cy="-58" r="18" fill="#FFC857"/>
+        <path d="M-90 50 L-38 -22 L-6 18 L22 -8 L90 50 Z" fill="#4361EE"/>
+        <path d="M-90 50 L-38 -22 L-22 -2 L-50 50 Z" fill="#304CD6"/>
+      </g>
+    </g>
+  </g>
+
+  <g font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" fill="#FFFFFF">
+    <text x="470" y="232" font-size="88" font-weight="700" letter-spacing="-2">Justus</text>
+    <text x="473" y="290" font-size="34" font-weight="500" opacity="0.95">Photo sharing with no server</text>
+    <text x="474" y="334" font-size="23" font-weight="400" opacity="0.75">Phone to phone. Only the people you choose.</text>
+  </g>
+</svg>

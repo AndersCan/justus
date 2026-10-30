@@ -1,0 +1,88 @@
+# Android release lanes. Runbook: docs/release-android.md
+# Run from apps/android: `bundle exec fastlane <lane>` (or `fastlane <lane>`).
+default_platform(:android)
+
+AAB = "app/build/outputs/bundle/release/app-release.aab"
+TRACKS = %w[internal alpha beta production].freeze
+
+platform :android do
+  desc "Next versionCode: one above the highest code on any Play track"
+  private_lane :next_version_code do
+    codes = TRACKS.flat_map do |track|
+      google_play_track_version_codes(track: track)
+    rescue StandardError
+      [] # track has no releases yet
+    end
+    (codes.max || 0) + 1
+  end
+
+  desc "Build the signed bundle. Options: version_code, version_name"
+  lane :build do |options|
+    ENV["JUSTUS_VERSION_CODE"] = options[:version_code].to_s if options[:version_code]
+    ENV["JUSTUS_VERSION_NAME"] = options[:version_name] if options[:version_name]
+    gradle(task: "bundle", build_type: "Release", project_dir: ".")
+    sh("jarsigner", "-verify", File.expand_path("../#{AAB}", __dir__)) do |status, result|
+      UI.user_error!("#{AAB} is unsigned: set the JUSTUS_UPLOAD_* keystore") unless status.success? && result.include?("jar verified")
+    end
+  end
+
+  desc "Build and upload to the internal track. Options: version_name"
+  lane :internal do |options|
+    build(version_code: next_version_code, version_name: options[:version_name])
+    upload_to_play_store(
+      track: "internal",
+      aab: AAB,
+      skip_upload_apk: true, # ignore stray debug APKs from earlier builds
+      # Play only accepts drafts until the app has been reviewed and published once.
+      release_status: ENV.fetch("PLAY_RELEASE_STATUS", "completed"),
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Upload the store listing (text, icon, screenshots) from fastlane/metadata (no build)"
+  lane :listing do
+    # supply looks up a release even when changelogs are skipped, and a blank
+    # version_code slips through its empty-check (supply/uploader.rb:90). Point
+    # it at the newest internal build; nothing about that release changes.
+    upload_to_play_store(
+      track: "internal",
+      version_code: google_play_track_version_codes(track: "internal").max,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_changelogs: true
+    )
+  end
+
+  desc "Promote the latest build. Options: from (internal), to (production), rollout (0.1)"
+  lane :promote do |options|
+    to = options[:to] || "production"
+    upload_to_play_store(
+      track: options[:from] || "internal",
+      track_promote_to: to,
+      rollout: to == "production" ? (options[:rollout] || "0.1").to_s : nil,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Raise the staged production rollout. Options: rollout (e.g. 0.5, 1)"
+  lane :rollout do |options|
+    upload_to_play_store(
+      track: "production",
+      rollout: options[:rollout].to_s,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

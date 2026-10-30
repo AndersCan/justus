@@ -1,6 +1,6 @@
 # apps/ios — Justus iOS host
 
-Native iOS shell for Justus (bundle ID `io.justus.app`): the Bare worklet, the
+Native iOS shell for Justus (bundle ID `no.cankode.justus`): the Bare worklet, the
 IPC host bridge, the `vendor.media` pick/capture plugins, and a full-screen
 `WKWebView` whose page is served by the worklet's loopback HTTP server with
 cookie auth — the same architecture as `apps/android` (`MainActivity.kt`).

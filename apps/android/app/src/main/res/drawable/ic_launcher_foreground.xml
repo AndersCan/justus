@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Scaled into the adaptive-icon safe zone (66 of 108dp). -->
+    <group android:pivotX="256" android:pivotY="256" android:scaleX="0.72" android:scaleY="0.72">
+        <group android:translateX="206" android:translateY="246" android:rotation="-11">
+            <path android:fillColor="#FFFFFF" android:fillAlpha="0.55" android:pathData="M-80,-118 H80 A20,20 0 0 1 100,-98 V98 A20,20 0 0 1 80,118 H-80 A20,20 0 0 1 -100,98 V-98 A20,20 0 0 1 -80,-118 Z" />
+        </group>
+        <group android:translateX="298" android:translateY="268" android:rotation="8">
+            <path android:fillColor="#FFFFFF" android:pathData="M-80,-118 H80 A20,20 0 0 1 100,-98 V98 A20,20 0 0 1 80,118 H-80 A20,20 0 0 1 -100,98 V-98 A20,20 0 0 1 -80,-118 Z" />
+            <group>
+                <clip-path android:pathData="M-72,-100 H72 A10,10 0 0 1 82,-90 V40 A10,10 0 0 1 72,50 H-72 A10,10 0 0 1 -82,40 V-90 A10,10 0 0 1 -72,-100 Z" />
+                <path android:pathData="M-82,-100 H82 V50 H-82 Z">
+                    <aapt:attr name="android:fillColor">
+                        <gradient
+                            android:type="linear"
+                            android:startX="0" android:startY="-100"
+                            android:endX="0" android:endY="50"
+                            android:startColor="#E4E9FF"
+                            android:endColor="#C9D3FC" />
+                    </aapt:attr>
+                </path>
+                <path android:fillColor="#FFC857" android:pathData="M22,-58 A18,18 0 1 0 58,-58 A18,18 0 1 0 22,-58 Z" />
+                <path android:fillColor="#4361EE" android:pathData="M-90,50 L-38,-22 L-6,18 L22,-8 L90,50 Z" />
+                <path android:fillColor="#304CD6" android:pathData="M-90,50 L-38,-22 L-22,-2 L-50,50 Z" />
+            </group>
+        </group>
+    </group>
+</vector>

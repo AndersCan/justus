@@ -1,7 +1,7 @@
 flows:
   - "flows/*.yaml"
 testOutputDir: .maestro/out
-appId: io.justus.app
+appId: no.cankode.justus
 platform:
   android:
     disableAnimations: true

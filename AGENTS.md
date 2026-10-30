@@ -56,6 +56,7 @@ layer, Host, Actor). Use those terms exactly.
 | `pnpm test:e2e-hub` / `test:e2e-p2p`              | Multi-peer hub / p2p suites                                        |
 | `pnpm test:native`                                | Maestro on an Android emulator (needs SDK + AVD; not in CI gate)   |
 | `cd apps/android && ./gradlew :app:assembleDebug` | Android APK (see `apps/android/README.md`)                         |
+| `cd apps/android && ./gradlew :app:bundleRelease` | Signed Play bundle; release runbook in `docs/release-android.md`   |
 | `node apps/desktop/scripts/build.mjs`             | Desktop app (needs zig 0.17; Linux: GTK3 + WebKitGTK 4.1 dev libs) |
 
 ## Repo map

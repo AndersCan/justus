@@ -122,7 +122,7 @@ function generateProjectYml() {
   const addonsBlock = addons;
   return `name: justus
 options:
-  bundleIdPrefix: io.justus
+  bundleIdPrefix: no.cankode
   deploymentTarget:
     iOS: "14.0"
   createIntermediateGroups: true
@@ -155,7 +155,7 @@ targets:
 ${addonsBlock}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.justus.app
+        PRODUCT_BUNDLE_IDENTIFIER: no.cankode.justus
         INFOPLIST_FILE: app/Info.plist
         SWIFT_VERSION: "5.0"
         # The prebuilt BareKit.xcframework (and the bare-link addons) provide

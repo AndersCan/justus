@@ -51,6 +51,9 @@ stores the photo in the folder drive and serves it over the loopback server.
 > `bare_kit__on_thread_enter` even with the `libnativehelper` shim
 > (ekrooh#46). Use an arm64 emulator/device for on-device testing.
 
+For a signed Play Store bundle (`:app:bundleRelease`) and the fastlane release
+flow, see [`docs/release-android.md`](../../docs/release-android.md).
+
 ## Maestro tests
 
 Native/device UI tests for the host app, run with Maestro against an Android

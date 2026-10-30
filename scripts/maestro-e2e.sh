@@ -192,8 +192,8 @@ if ! maestro --device "$SERIAL" test "$FLOWS_DIR"; then
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
   {
-    "$ADB" -s "$SERIAL" shell "run-as io.justus.app sh -c 'cat cache/bare/*.log 2>/dev/null || true'" 2>/dev/null \
-      && "$ADB" -s "$SERIAL" shell "run-as io.justus.app sh -c 'ls -la cache/bare/ 2>/dev/null || true'" 2>/dev/null
+    "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'cat cache/bare/*.log 2>/dev/null || true'" 2>/dev/null \
+      && "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'ls -la cache/bare/ 2>/dev/null || true'" 2>/dev/null
   } >"$worklet_file" 2>/dev/null || true
 
   echo

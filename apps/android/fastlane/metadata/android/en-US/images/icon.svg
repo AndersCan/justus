@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Play store icon source. Render: node apps/android/scripts/render-store-art.mjs -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B78F5"/>
+      <stop offset="1" stop-color="#2E44C4"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E4E9FF"/>
+      <stop offset="1" stop-color="#C9D3FC"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0B1450" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="photo"><rect x="-82" y="-100" width="164" height="150" rx="10"/></clipPath>
+  </defs>
+
+  <!-- Full bleed: Play applies its own rounded mask. -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Back photo, the one your friend holds -->
+  <g transform="translate(206 246) rotate(-11)" filter="url(#shadow)">
+    <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+
+  <!-- Front photo -->
+  <g transform="translate(298 268) rotate(8)" filter="url(#shadow)">
+    <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF"/>
+    <g clip-path="url(#photo)">
+      <rect x="-82" y="-100" width="164" height="150" fill="url(#sky)"/>
+      <circle cx="40" cy="-58" r="18" fill="#FFC857"/>
+      <path d="M-90 50 L-38 -22 L-6 18 L22 -8 L90 50 Z" fill="#4361EE"/>
+      <path d="M-90 50 L-38 -22 L-22 -2 L-50 50 Z" fill="#304CD6"/>
+    </g>
+  </g>
+</svg>
