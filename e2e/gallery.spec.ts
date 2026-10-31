@@ -153,6 +153,30 @@ test("settings has profile and appearance, and no album tools", async ({ page })
   await expect(page.getByRole("heading", { name: "Active album" })).toHaveCount(0);
 });
 
+test("the Compact grid setting shrinks the photo tiles", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const nav = page.getByRole("navigation", { name: "Main" }).last();
+  // Navigate in-app (no reload), the way a user switches tabs.
+  const tileWidth = async () => {
+    await nav.getByRole("link", { name: "Photos" }).click();
+    const tile = page.locator("figure").first();
+    await expect(tile).toBeVisible({ timeout: 20_000 });
+    return (await tile.boundingBox())!.width;
+  };
+  const pick = async (label: string) => {
+    await nav.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("radio", { name: label }).click();
+    await expect(page.getByRole("radio", { name: label })).toHaveAttribute("aria-checked", "true");
+  };
+
+  await page.goto("/");
+  await pick("Comfortable");
+  const comfortable = await tileWidth();
+  await pick("Compact");
+  const compact = await tileWidth();
+  expect(compact).toBeLessThan(comfortable * 0.8);
+});
+
 test("an album page shows members and keeps the invite behind a confirmation", async ({ page }) => {
   await page.goto("/sharing");
   await page
