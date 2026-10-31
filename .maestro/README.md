@@ -1,48 +1,38 @@
 # Maestro flows for Justus
 
 Mobile-UI (Maestro) flows for the Justus Android app. Justus is a WebView app
-(applicationId `no.cankode.justus`, namespace `io.justus.app`): MainActivity loads the built web layer from a
-Bare worklet's loopback server via a WebView, and the web layer renders lit-html UI.
+(applicationId `no.cankode.justus`, namespace `io.justus.app`): MainActivity loads the built web
+layer from a Bare worklet's loopback server via a WebView, and the web layer renders lit-html UI.
 
-## What these flows cover
+Run locally with `pnpm test:native` (`scripts/maestro-e2e.sh`). The release workflow
+(`.github/workflows/release-android.yml`) runs the same script on an x86_64 API 36 emulator before
+the Play upload. Emulators cannot reach peers, so flows are single-device only.
 
-- **boot.yaml** — native host boot: worklet + handoff + WebView load, ending on the fresh-install
-  empty gallery.
-- **pick.yaml** — the host-plugin system photo picker opens (via `pickAndAdd()`), then cancel
-  (`back`) returns to the gallery.
-- **back.yaml** — navigate to `/settings` and back, then verify clean exit by asserting the web
-  layer is gone and the gallery re-renders.
+## What the flow covers
 
-## `androidWebViewHierarchy: devtools`
+**first-run.yaml** is one fresh-install pass: intro → name → create album → the new, empty album
+(proves the worklet starts inside the APK and answers the WebView), then "Add photos to M" opens
+the system photo picker (web → worklet → host invoke → native picker), and cancelling returns to
+the album.
+It is one flow on purpose: every check needs onboarding first, and onboarding is the slow part.
 
-Every top-level flow sets:
+## Keeping it fast
 
-```yaml
-androidWebViewHierarchy: devtools
-```
+Maestro types slowly on Android, so inputs are one character. Taps set
+`waitToSettleTimeoutMs: 500`, because the next step already waits for its own screen.
 
-**at the top of the file, before the `---` separator.**
+## Reading the WebView
 
-This is required because Justus's UI lives inside a WebView. On Android API 33+ the WebView's
-DOM is invisible to Maestro's native accessibility tree, so web content has to be read through
-the WebView debugging protocol instead (`mobile-dev-inc/Maestro#1126`). Without this, all
-web-content assertions would fail. Note the app must also have WebView debugging enabled (a
-separate Kotlin change in `MainActivity.kt`).
+On API 36 the WebView's text is in the native accessibility tree, so flows use Maestro's default
+hierarchy. Do not set `androidWebViewHierarchy: devtools`: with it, assertions on web text time
+out even though the text is on screen.
 
 ## Page-unique strings
 
-A few strings are ambiguous and must not be used alone to prove which page rendered:
-
-- **`Gallery`** is BOTH the gallery page `<h1>` AND a persistent header nav link on every page —
-  it does not prove the gallery rendered. Use the page-unique empty-state heading,
-  `No photos yet.`, instead.
-- **`Add photos`** labels BOTH the header pill and the empty-state "add" button (both call
-  `startAdd()`). With no albums yet it first opens the "Start an album" sheet; after canceling
-  the picker, assert a page-unique empty-state heading rather than `Add photos`.
-
-Page-unique anchors:
-
-| Page                           | Unique string    |
-| ------------------------------ | ---------------- |
-| Gallery (empty, fresh install) | `No photos yet.` |
-| `/settings` (Folder overview)  | `Your folders`   |
+- **`Photos`** is the gallery heading, a nav tab, AND the system picker's toolbar title. Assert
+  the picker by its `Collections` tab: the privacy note is missing when the library is empty, as
+  on a fresh CI emulator.
+- An empty system picker says `No photos yet`. After closing the picker, assert `Collections` is
+  gone before checking the album.
+- Adding happens only inside an album: its button is `Add photos to <album name>`.
+- An empty album says `No photos in this album yet.`

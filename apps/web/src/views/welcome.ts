@@ -1,5 +1,6 @@
 import { html } from "lit-html";
 import {
+  $activeFolderId,
   $foldersError,
   $foldersState,
   $foldersViewModel,
@@ -77,8 +78,9 @@ $onboardingState.listen((state) => {
   if (state === "choose") markWelcomeSeen();
 });
 
-// Creating an album finishes onboarding: head to the gallery once the create
-// lands. Joining navigates from the albums join listener.
+// Creating an album finishes onboarding: open it once the create lands, so the
+// first thing on screen is where photos go. Joining navigates from the albums
+// join listener.
 let prevFoldersState = $foldersState.get();
 $foldersState.listen((state) => {
   if (
@@ -87,7 +89,8 @@ $foldersState.listen((state) => {
     !$foldersError.get() &&
     $router.get()?.route === "welcome"
   ) {
-    $router.open("/", true);
+    const id = $activeFolderId.get();
+    $router.open(id ? `/albums/${id}` : "/", true);
   }
   prevFoldersState = state;
 });

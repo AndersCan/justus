@@ -1,22 +1,23 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { deflateSync } from "node:zlib";
 
 type FilePayload = { name: string; mimeType: string; buffer: Buffer };
 
 /**
- * Picks files with the Photos page's hidden file input, then answers the
- * "Add … to which album?" sheet with its first (suggested) album when it
- * appears: from the All tab it asks whenever more than one album takes
- * photos, which depends on what earlier specs created.
+ * Opens the first album from Photos' Albums tab, where photos are added (All
+ * has no "Add photos"), and waits for its photos. Resolves its name.
  */
+export async function openAlbum(page: Page): Promise<string> {
+  await page.goto("/albums");
+  await page.getByRole("list", { name: "Albums" }).getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/);
+  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  return (await page.getByRole("heading", { level: 2 }).first().innerText()).trim();
+}
+
+/** Picks files with the open album's hidden file input. */
 export async function pickPhotos(page: Page, files: FilePayload | FilePayload[]) {
   await page.setInputFiles("input[type=file]", files);
-  const sheet = page.getByRole("dialog", { name: /to which album\?$/ });
-  const asked = await sheet.waitFor({ timeout: 2_000 }).then(
-    () => true,
-    () => false,
-  );
-  if (asked) await sheet.getByRole("listitem").first().getByRole("button").click();
 }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {

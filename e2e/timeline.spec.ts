@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { pickPhotos } from "./add-photos.js";
+import { openAlbum, pickPhotos } from "./add-photos.js";
 
 /** A minimal decodable 1x1 baseline JPEG. */
 const BASE_JPEG = Buffer.from(
@@ -32,8 +32,7 @@ function jpegTakenIn1998(): Buffer {
 }
 
 test("photos sort by date added or by the date taken in their EXIF", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  await openAlbum(page);
   const before = await page.locator("figure img").count();
 
   await pickPhotos(page, {

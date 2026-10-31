@@ -1,0 +1,51 @@
+appId: no.cankode.justus
+---
+# One fresh-install pass. Boot is proven by onboarding (the name and album both go through the
+# worklet); the picker step proves web → worklet → host invoke → native picker.
+- launchApp:
+    clearState: true
+# Fresh install => the intro. Inputs are one character (Maestro types slowly on Android), and taps
+# cap the settle wait: each step below waits for its own next screen anyway.
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 60000
+- tapOn:
+    text: "Skip"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Your name"
+    waitToSettleTimeoutMs: 500
+- inputText: "M"
+# Submit with Enter, not "Continue": the keyboard can cover the button.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Start sharing"
+    timeout: 20000
+- tapOn:
+    text: "Album name"
+    waitToSettleTimeoutMs: 500
+- inputText: "M"
+- pressKey: Enter
+# The first album opens itself; its add button names it and goes straight to the system picker.
+- extendedWaitUntil:
+    visible: "No photos in this album yet."
+    timeout: 20000
+- tapOn:
+    text: "Add photos to M"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+# The picker is a NATIVE surface. Its toolbar says "Photos" (also our gallery heading), and an empty
+# library (fresh CI emulator) shows "No photos yet". Its "Collections" tab is
+# there either way and is not in our UI (verified on API 36).
+- extendedWaitUntil:
+    visible: "Collections"
+    timeout: 15000
+- back
+# Prove the picker closed before trusting the album check.
+- extendedWaitUntil:
+    notVisible: "Collections"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "No photos in this album yet."
+    timeout: 15000

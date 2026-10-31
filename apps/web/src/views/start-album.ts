@@ -6,8 +6,8 @@ import {
   folders,
 } from "../machines/folders-machine";
 
-/** "Start an album" sheet, for "Add photos" when there is nowhere to put
- * them yet, and for "New album" in Photos. Resolves the new album's name, or
+/** "Start an album" sheet, for "New album" and "Start an album" in Photos.
+ * Resolves the new album's name, or
  * null on Cancel / Escape / backdrop tap. Same overlay pattern as
  * `confirmAction`. */
 function askAlbumName(detail: string, confirmLabel: string): Promise<string | null> {
@@ -96,7 +96,7 @@ function createAlbum(name: string): Promise<string | null> {
 /** Asks for a name and creates the album. Resolves its id, or null. */
 export async function startAlbum(
   detail: string,
-  confirmLabel = "Create and add photos",
+  confirmLabel = "Create album",
 ): Promise<string | null> {
   const name = await askAlbumName(detail, confirmLabel);
   if (!name) return null;

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { pickPhotos } from "./add-photos.js";
+import { openAlbum, pickPhotos } from "./add-photos.js";
 
 /** A real, decodable 64x64 JPEG — dropped into the dev inbox to test the
  * inbox → photos.add → push → live-gallery path. */
@@ -84,8 +84,7 @@ test("dropping a file into the dev inbox adds it to the gallery live", async ({ 
 test("picking a photo in the browser uploads it to the worklet route and adds it live", async ({
   page,
 }) => {
-  await page.goto("/");
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  await openAlbum(page);
   const before = await page.locator("figure img").count();
 
   // The gallery's Pick button is a hidden file input; setting files exercises
@@ -116,8 +115,7 @@ const TINY_PNG_B =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
 
 test("adding identical bytes twice is deduped to one entry (#20)", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  await openAlbum(page);
   const before = await page.locator("figure img").count();
 
   const uploadOnce = () =>

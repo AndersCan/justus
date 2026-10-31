@@ -1,10 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { pickPhotos, pngOf, runColour } from "./add-photos.js";
+import { openAlbum, pickPhotos, pngOf, runColour } from "./add-photos.js";
 
 /**
- * Adding many photos at once: one pick, one album question, then a batch the
- * gallery adds one by one with progress and a single summary. Runs after
- * albums.spec, so the All tab has two albums and asks which one.
+ * Adding many photos at once: one pick inside an album, then a batch the
+ * gallery adds one by one with progress and a single summary.
  */
 
 const png = (name: string, salt: number) => ({
@@ -14,25 +13,15 @@ const png = (name: string, salt: number) => ({
 });
 
 async function settle(page: Page) {
-  await page.goto("/");
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
-  return page.locator("figure img").count();
+  const album = await openAlbum(page);
+  return { album, before: await page.locator("figure img").count() };
 }
 
-test("picking several photos adds them all after one album question", async ({ page }) => {
-  const before = await settle(page);
+test("picking several photos adds them all to the album on screen", async ({ page }) => {
+  const { album, before } = await settle(page);
 
-  await page.setInputFiles("input[type=file]", [
-    png("batch-1.png", 1),
-    png("batch-2.png", 2),
-    png("batch-3.png", 3),
-  ]);
-  const sheet = page.getByRole("dialog", { name: "Add 3 photos to which album?" });
-  await expect(sheet).toBeVisible();
-  const album = (
-    await sheet.getByRole("button").first().locator("span").first().innerText()
-  ).trim();
-  await sheet.getByRole("button").first().click();
+  await pickPhotos(page, [png("batch-1.png", 1), png("batch-2.png", 2), png("batch-3.png", 3)]);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await expect(page.getByText(`Added 3 photos to ${album}`)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("figure img")).toHaveCount(before + 3, { timeout: 20_000 });
@@ -45,7 +34,7 @@ test("picking several photos adds them all after one album question", async ({ p
 });
 
 test("one photo that fails doesn't stop the rest, and can be retried", async ({ page }) => {
-  const before = await settle(page);
+  const { before } = await settle(page);
 
   // An empty file is refused by the upload route; the good one still lands.
   await pickPhotos(page, [
@@ -69,14 +58,7 @@ test("one photo that fails doesn't stop the rest, and can be retried", async ({ 
 });
 
 test("dropping photos onto an album adds them there without asking", async ({ page }) => {
-  await settle(page);
-  const albums = page.getByRole("navigation", { name: "Show photos" });
-  await albums.getByRole("link", { name: "Albums" }).click();
-  await page.getByRole("list", { name: "Albums" }).getByRole("link").first().click();
-  await expect(page).toHaveURL(/\/albums\/[^/]+$/);
-  const name = (await page.getByRole("heading", { level: 2 }).first().innerText()).trim();
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
-  const before = await page.locator("figure img").count();
+  const { album: name, before } = await settle(page);
 
   const bytes = [...pngOf(...runColour(5))];
   const transfer = await page.evaluateHandle((data) => {

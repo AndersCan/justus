@@ -1,55 +1,22 @@
 import type { FolderSummary } from "@justus/core";
-import { addTargets, type PhotoScope } from "./photo-scope";
 
-/** Where "Add photos" can put photos from the current view, decided before
- * the picker opens so a dead end never costs the user a pick. */
+/** Whether the album on screen can take photos, decided before the picker
+ * opens so a dead end never costs the user a pick. Photos are only ever
+ * added from inside an album, so where they go is never a guess. */
 export type AddPlan =
-  /** One album takes them: the one on screen, or the only one that can. */
+  /** The album takes them. */
   | { kind: "direct"; folderId: string }
-  /** Several albums can: ask which once the photos are picked. */
-  | { kind: "choose"; albums: FolderSummary[] }
-  /** No albums yet: start one first. */
-  | { kind: "none" }
-  /** Every album here is view-only (the user is a Reader / Viewer). */
-  | { kind: "viewer"; album: FolderSummary | null }
-  /** The album on screen is still waiting for the Admin's approval. */
+  /** The user can view the album but not add to it (Reader / Viewer). */
+  | { kind: "viewer"; album: FolderSummary }
+  /** The user is still waiting for the Admin's approval. */
   | { kind: "pending"; album: FolderSummary };
 
-export function planAdd(scope: PhotoScope, folders: FolderSummary[]): AddPlan {
-  if (scope.kind === "album") {
-    const album = folders.find((f) => f.id === scope.id);
-    if (!album) return { kind: "direct", folderId: scope.id };
-    if (album.pending) return { kind: "pending", album };
-    if (album.role === "reader") return { kind: "viewer", album };
-    return { kind: "direct", folderId: album.id };
-  }
-  if (folders.length === 0) return { kind: "none" };
-  const targets = addTargets(folders);
-  if (targets.length === 0) {
-    const pending = folders.find((f) => f.pending);
-    return pending ? { kind: "pending", album: pending } : { kind: "viewer", album: null };
-  }
-  if (targets.length === 1) return { kind: "direct", folderId: targets[0].id };
-  return { kind: "choose", albums: targets };
-}
-
-const LAST_ALBUM_KEY = "justus:last-add-album";
-
-/** The album photos were last added to, offered first in the chooser. */
-export function lastAddAlbum(): string | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage.getItem(LAST_ALBUM_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function rememberAddAlbum(folderId: string): void {
-  try {
-    if (typeof localStorage !== "undefined") localStorage.setItem(LAST_ALBUM_KEY, folderId);
-  } catch {
-    // storage unavailable: the chooser falls back to the active album
-  }
+export function planAdd(folderId: string, folders: FolderSummary[]): AddPlan {
+  const album = folders.find((f) => f.id === folderId);
+  if (!album) return { kind: "direct", folderId };
+  if (album.pending) return { kind: "pending", album };
+  if (album.role === "reader") return { kind: "viewer", album };
+  return { kind: "direct", folderId: album.id };
 }
 
 /** Only images can be added; drops and pastes may carry anything. */

@@ -7,46 +7,14 @@ const album = (id: string, extra: Partial<FolderSummary> = {}) =>
 
 describe("planAdd", () => {
   test("the album on screen takes the photos", () => {
-    expect(planAdd({ kind: "album", id: "a" }, [album("a"), album("b")])).toEqual({
-      kind: "direct",
-      folderId: "a",
-    });
+    expect(planAdd("a", [album("a"), album("b")])).toEqual({ kind: "direct", folderId: "a" });
   });
 
   test("a Viewer's album and a pending join cannot take photos", () => {
     const viewer = album("a", { role: "reader" });
-    expect(planAdd({ kind: "album", id: "a" }, [viewer])).toEqual({
-      kind: "viewer",
-      album: viewer,
-    });
+    expect(planAdd("a", [viewer])).toEqual({ kind: "viewer", album: viewer });
     const pending = album("p", { pending: true });
-    expect(planAdd({ kind: "album", id: "p" }, [pending])).toEqual({
-      kind: "pending",
-      album: pending,
-    });
-  });
-
-  test("with no albums the user starts one", () => {
-    expect(planAdd({ kind: "all" }, [])).toEqual({ kind: "none" });
-  });
-
-  test("the only album that takes photos is used without asking", () => {
-    expect(planAdd({ kind: "all" }, [album("r", { role: "reader" }), album("m")])).toEqual({
-      kind: "direct",
-      folderId: "m",
-    });
-  });
-
-  test("several albums: ask after picking", () => {
-    const plan = planAdd({ kind: "mine" }, [album("a"), album("b", { role: "creator" })]);
-    expect(plan.kind).toBe("choose");
-  });
-
-  test("only view-only albums: say so", () => {
-    expect(planAdd({ kind: "all" }, [album("r", { role: "reader" })])).toEqual({
-      kind: "viewer",
-      album: null,
-    });
+    expect(planAdd("p", [pending])).toEqual({ kind: "pending", album: pending });
   });
 });
 
