@@ -1,9 +1,12 @@
 import { html, render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 
-/** "Add to which album?" sheet. Resolves the chosen album's id, or null on
- * Cancel / Escape / backdrop tap. Same overlay pattern as `confirmAction`. */
-export function chooseAlbum(albums: FolderSummary[], suggestedId: string | null) {
+/** "Add N photos to which album?" sheet, shown after the photos are picked.
+ * Resolves the chosen album's id, or null on Cancel / Escape / backdrop tap.
+ * Same overlay pattern as `confirmAction`. */
+export function chooseAlbum(albums: FolderSummary[], suggestedId: string | null, count = 1) {
+  const what = count === 1 ? "this photo" : `${count} photos`;
+  const title = `Add ${what} to which album?`;
   return new Promise<string | null>((resolve) => {
     const host = document.createElement("div");
     document.body.appendChild(host);
@@ -34,11 +37,13 @@ export function chooseAlbum(albums: FolderSummary[], suggestedId: string | null)
             class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Add to which album?"
+            aria-label=${title}
             @click=${(e: Event) => e.stopPropagation()}
           >
-            <h3 class="text-base font-semibold text-fg">Add to which album?</h3>
-            <p class="mt-1 text-sm text-muted">Everyone in that album will see the photo.</p>
+            <h3 class="text-base font-semibold text-fg">${title}</h3>
+            <p class="mt-1 text-sm text-muted">
+              Everyone in that album will see ${count === 1 ? "it" : "them"}.
+            </p>
             <ul class="mt-4 max-h-72 space-y-1.5 overflow-y-auto">
               ${ordered.map(
                 (album) => html`<li>

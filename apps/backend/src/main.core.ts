@@ -9,6 +9,7 @@ import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
 import { createLogsPlugin } from "./logs-plugin";
+import { createMediaPluginStub } from "./media-plugin";
 import { GrantLedger } from "./grant-ledger";
 import { createGrantsPlugin } from "./grants-plugin";
 import { createFileLedgerStore } from "./ledger-store";
@@ -90,6 +91,7 @@ const store: PhotoStore = createPhotoStore({
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store }));
 runtime.pluginRegistry.register(createLogsPlugin({ collector: logCollector }));
+runtime.pluginRegistry.register(createMediaPluginStub());
 
 // Per-device grant ledger (issue #30): the local owner's view of who holds
 // their album. Never replicated, so a plain JSON file in `storageDir` is the

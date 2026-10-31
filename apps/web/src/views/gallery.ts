@@ -1,15 +1,17 @@
 import { html } from "lit-html";
 import { createRef, ref } from "lit-html/directives/ref.js";
 import { atom, computed } from "nanostores";
-import { mediaEvents } from "@ekrooh/bare/plugins/media/events";
 import type { FolderSummary, Photo, SyncStatus } from "@justus/core";
-import { bus } from "../gateway";
+import { gateway } from "../gateway";
 import {
-  $galleryError,
+  $addBatch,
   $galleryState,
   $galleryViewModel,
   $lastSyncAt,
   gallery,
+  sourceName,
+  type AddBatch,
+  type AddSource,
 } from "../machines/gallery-machine";
 import { $syncStatus } from "../machines/sync-machine";
 import { $activeFolderId, $folders } from "../machines/folders-machine";
@@ -17,7 +19,7 @@ import { $requests } from "../machines/requests-machine";
 import { useStore } from "../use-store";
 import { formatRelative } from "../utils/time";
 import { $photoSort } from "../utils/photo-sort";
-import { workletBase } from "../utils/peer";
+import { $router } from "../router";
 import { memberColor } from "../utils/palette";
 import { $density, gridColsFor, type Density } from "../utils/gallery-density";
 import {
@@ -33,95 +35,222 @@ import {
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
 import { chooseAlbum } from "./choose-album";
+import { startAlbum } from "./start-album";
+import {
+  batchSummary,
+  imageFiles,
+  lastAddAlbum,
+  planAdd,
+  rememberAddAlbum,
+  type AddPlan,
+} from "../utils/add-photos";
 import { toast } from "./toast";
 import { waitingForAdmin } from "./invite";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
 
-// "Add photos" posts the chosen file to the worklet's own `POST /photos`
-// route (same-origin in the WebView, Vite-proxied in dev). In the native
-// shell (Android/iOS WebView) the file input is dead — those hosts have no
-// onShowFileChooser — so there we always use the host picker (`media.pick`),
-// which the shell implements.
+// Adding photos: work out where they can go (before any picker opens, so a
+// dead end never costs a pick), pick one or many, ask which album only when
+// several could take them, then hand the batch to the gallery actor, which
+// adds them one by one with progress in `$addBatch`.
+//
+// In the native shell (Android/iOS WebView) the file input is dead (those
+// hosts have no onShowFileChooser), so the host picks (`justus.media`) and
+// stages the files where the worklet can import them. In a browser the
+// chosen files are posted to the worklet's `POST /photos` route.
 const fileInputRef = createRef<HTMLInputElement>();
 const inNativeShell =
   typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
-/** Web-only: a browser upload is in flight (it bypasses the gallery machine,
- * so `busy` doesn't cover it). Guards against double-pick and drives the
- * Add button's disabled state. */
-const $webUploading = atom(false);
-/** The album the next browser upload goes to; unset means the active album. */
-let uploadTarget: string | undefined;
+/** The plan the browser file picker was opened with (it may have started an
+ * album first); a change without one (e.g. e2e) plans from the page. */
+let webPlan: AddPlan | null = null;
+/** Photos are being dragged over the page (browser/desktop only). */
+const $dropActive = atom(false);
+/** How the running batch was picked, for the "Take another" follow-up. */
+let batchVia: "library" | "camera" = "library";
 
 /** CSS <custom-ident> for the view-transition-name: unique per photo so the
  * grid reshuffles (Bramus-style) when photos are added/removed. */
 const vtName = (photo: Photo) =>
   `photo-${`${photo.folderId ?? ""}-${photo.id}`.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
-/** Where "Add photos" puts the photo: the album being viewed, the only album
- * that takes photos, or the one the user picks. Null when cancelled. */
-async function resolveAddTarget(scope: PhotoScope): Promise<string | null> {
-  if (scope.kind === "album") return scope.id;
-  const targets = addTargets($folders.get());
-  if (targets.length === 0) {
-    toast("Create or join an album first");
+const albumName = (folderId?: string) =>
+  $folders.get().find((f) => f.id === folderId)?.name ?? "the album";
+
+/** Resolves where photos can go from `scope`, starting an album first when
+ * there is none. Null when there is nowhere (and the user has been told). */
+async function readyPlan(scope: PhotoScope): Promise<AddPlan | null> {
+  const plan = planAdd(scope, $folders.get());
+  if (plan.kind === "none" || plan.kind === "viewer") {
+    const detail =
+      plan.kind === "none"
+        ? "Photos live in albums. Name your first one; you can invite people later."
+        : plan.album
+          ? `You can view “${plan.album.name}” but not add to it. Start your own album for your photos.`
+          : "You can view your albums but not add to them. Start your own album for your photos.";
+    const id = await startAlbum(detail);
+    if (!id) return null;
+    $router.open(`/albums/${id}`);
+    return { kind: "direct", folderId: id };
+  }
+  if (plan.kind === "pending") {
+    toast(`“${plan.album.name}” is waiting for the Admin to let you in`);
     return null;
   }
-  if (targets.length === 1) return targets[0].id;
-  return chooseAlbum(targets, $activeFolderId.get());
+  return plan;
 }
 
-async function pickAndAdd(scope: PhotoScope) {
-  const folderId = await resolveAddTarget(scope);
-  if (!folderId) return;
-  if (inNativeShell) {
-    const [err, result] = await bus.invoke(mediaEvents.media.pick("image"));
-    // The host returns the original display name alongside the path, but the
-    // framework's `MediaResult` type declares neither; read it structurally
-    // so the picked photo keeps its real name in the native shell (#99).
-    const picked = result as unknown as { path?: string; name?: string } | undefined;
-    if (err || !picked?.path) {
-      if (err?.message?.toLowerCase().includes("cancelled")) return;
-      $galleryError.set("Couldn't open that photo — try another.");
-      return;
-    }
-    gallery.add(picked.path, picked.name, folderId);
+/** Picked photos → the album they go to → the gallery actor's batch. */
+async function addPicked(plan: AddPlan, sources: AddSource[], via: "library" | "camera") {
+  if (sources.length === 0) return;
+  if ($addBatch.get()?.running) {
+    toast("Still adding the last photos. Try again in a moment");
     return;
   }
-  uploadTarget = folderId;
+  let folderId: string | null = null;
+  if (plan.kind === "direct") folderId = plan.folderId;
+  else if (plan.kind === "choose") {
+    folderId = await chooseAlbum(
+      plan.albums,
+      lastAddAlbum() ?? $activeFolderId.get(),
+      sources.length,
+    );
+  }
+  if (!folderId) return;
+  rememberAddAlbum(folderId);
+  batchVia = via;
+  gallery.addMany(sources, folderId);
+}
+
+const cancelled = (err: unknown) =>
+  err instanceof Error && err.message.toLowerCase().includes("cancelled");
+
+/** The native picker (many at once) or camera; null when cancelled. */
+async function pickNative(via: "library" | "camera"): Promise<AddSource[] | null> {
+  if (via === "camera") {
+    const [err, shot] = await gateway.media.capture();
+    if (err || !shot?.path) {
+      if (!cancelled(err)) toast("Couldn't use the camera. Try again?");
+      return null;
+    }
+    return [{ kind: "path", path: shot.path, name: shot.name }];
+  }
+  const [err, result] = await gateway.media.pickMany();
+  if (err || !result?.items?.length) {
+    if (!cancelled(err)) toast("Couldn't open your photos. Try again?");
+    return null;
+  }
+  return result.items.map((item) => ({ kind: "path", path: item.path, name: item.name }));
+}
+
+async function startAdd(scope: PhotoScope, via: "library" | "camera" = "library") {
+  const plan = await readyPlan(scope);
+  if (!plan) return;
+  if (inNativeShell) {
+    const sources = await pickNative(via);
+    if (sources) await addPicked(plan, sources, via);
+    return;
+  }
+  webPlan = plan;
   fileInputRef.value?.click();
 }
 
-async function onFileChosen(file: File | null | undefined) {
-  const folderId = uploadTarget;
-  uploadTarget = undefined;
-  if (!file || $webUploading.get()) return;
-  $webUploading.set(true);
-  try {
-    const folder = folderId ? `&folder=${encodeURIComponent(folderId)}` : "";
-    const response = await fetch(
-      `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}${folder}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      },
-    );
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      throw new Error(body?.error ?? `HTTP ${response.status}`);
-    }
-    // The add pushes photos.changed — the gallery refreshes live.
-    toast(`Added “${file.name}”`);
-  } catch {
-    $galleryError.set(`That photo didn't make it. Try again?`);
-    toast("That photo didn't make it — try another");
-  } finally {
-    $webUploading.set(false);
-  }
+function onFilesChosen(scope: PhotoScope, files: FileList | null) {
+  const plan = webPlan ?? planAdd(scope, $folders.get());
+  webPlan = null;
+  const sources = imageFiles(files).map((file): AddSource => ({ kind: "file", file }));
+  void addPicked(plan, sources, "library");
 }
+
+/** Drag-and-drop and paste (browser/desktop): same batch path as the picker. */
+async function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefined) {
+  const images = imageFiles(files);
+  if (images.length === 0) {
+    toast("Only photos can be added");
+    return;
+  }
+  const plan = await readyPlan(scope);
+  if (!plan) return;
+  await addPicked(
+    plan,
+    images.map((file) => ({ kind: "file", file })),
+    "library",
+  );
+}
+
+const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
+let dragDepth = 0;
+function dropHandlers(scope: PhotoScope) {
+  if (inNativeShell) return { enter: null, over: null, leave: null, drop: null };
+  return {
+    enter: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragDepth += 1;
+      $dropActive.set(true);
+    },
+    over: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    },
+    leave: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) $dropActive.set(false);
+    },
+    drop: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      $dropActive.set(false);
+      void addDropped(scope, e.dataTransfer?.files);
+    },
+  };
+}
+
+/** The Photos page in view, as an add scope (null elsewhere). */
+function routeScope(): PhotoScope | null {
+  const page = $router.get();
+  if (!page) return null;
+  if (page.route === "gallery" || page.route === "photoAlbums") return { kind: "all" };
+  if (page.route === "mine") return { kind: "mine" };
+  if (page.route === "photoAlbum") return { kind: "album", id: page.params.id };
+  return null;
+}
+
+// Paste a copied image on a Photos page to add it.
+if (typeof document !== "undefined" && !inNativeShell) {
+  document.addEventListener("paste", (e) => {
+    const scope = routeScope();
+    const target = e.target as HTMLElement | null;
+    if (!scope || target?.closest("input, textarea, [contenteditable]")) return;
+    const files = imageFiles(e.clipboardData?.files);
+    if (files.length === 0) return;
+    e.preventDefault();
+    void addDropped(scope, files);
+  });
+}
+
+// When a batch ends cleanly, say what happened and clear it; one with
+// failures stays on the page (with Retry) until dismissed.
+$addBatch.listen((batch, previous) => {
+  if (!previous?.running || !batch || batch.running) return;
+  if (batch.failed.length > 0) return;
+  const camera = batchVia === "camera";
+  const scope = routeScope();
+  toast(
+    batchSummary(batch, albumName(batch.folderId)),
+    camera && scope && batch.folderId
+      ? {
+          action: {
+            label: "Take another",
+            run: () => void startAdd({ kind: "album", id: batch.folderId as string }, "camera"),
+          },
+        }
+      : {},
+  );
+  gallery.dismissBatch();
+});
 
 /** Everything the Photos page reads, as one plain value. */
 const $photosPage = computed(
@@ -132,17 +261,19 @@ const $photosPage = computed(
     $lastSyncAt,
     $density,
     $photoSort,
-    $webUploading,
+    $addBatch,
+    $dropActive,
     $requests,
   ],
-  (gallery, folders, status, lastSync, density, sort, uploading, requests) => ({
+  (gallery, folders, status, lastSync, density, sort, batch, dropActive, requests) => ({
     ...gallery,
     folders,
     status,
     lastSync,
     density,
     sort,
-    uploading,
+    batch,
+    dropActive,
     requests,
   }),
 );
@@ -325,13 +456,107 @@ function emptyState(title: string, body: string, actions: unknown) {
 }
 
 function addButton(page: PhotosPage, scope: PhotoScope, label = "Add photos") {
+  const running = page.batch?.running ?? false;
   return html`<button
     class="ui-btn-primary"
-    ?disabled=${page.busy || page.state !== "ready" || page.uploading}
-    @click=${() => void pickAndAdd(scope)}
+    ?disabled=${page.busy || page.state !== "ready" || running}
+    @click=${() => void startAdd(scope)}
   >
-    ${(page.busy && page.state === "adding") || page.uploading ? "Adding…" : label}
+    ${running && page.batch ? `Adding ${page.batch.done + 1}/${page.batch.total}…` : label}
   </button>`;
+}
+
+/** Native shell only: snap a photo straight into the album. */
+function cameraButton(page: PhotosPage, scope: PhotoScope) {
+  if (!inNativeShell) return null;
+  return html`<button
+    class="ui-btn-ghost inline-flex items-center"
+    aria-label="Take photo"
+    title="Take photo"
+    ?disabled=${page.busy || page.state !== "ready" || (page.batch?.running ?? false)}
+    @click=${() => void startAdd(scope, "camera")}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path
+        d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
+      />
+      <circle cx="12" cy="13" r="3" />
+    </svg>
+  </button>`;
+}
+
+/** Progress of an add batch, then its failures (with Retry) if any. */
+function batchStrip(batch: AddBatch | null) {
+  if (!batch) return null;
+  const album = albumName(batch.folderId);
+  if (batch.running) {
+    const shown = Math.min(batch.done + 1, batch.total);
+    return html`<div class="rounded-2xl bg-surface p-4 ring-1 ring-line" role="status">
+      <p class="text-sm text-fg">
+        Adding ${batch.total === 1 ? "a photo" : `${shown} of ${batch.total}`} to
+        <span class="font-medium">${album}</span>…
+      </p>
+      <div
+        class="mt-2 h-1.5 overflow-hidden rounded-full bg-subtle"
+        role="progressbar"
+        aria-label="Adding photos"
+        aria-valuemin="0"
+        aria-valuemax=${batch.total}
+        aria-valuenow=${batch.done}
+      >
+        <div
+          class="h-full rounded-full bg-accent transition-all duration-300"
+          style="width: ${Math.round((batch.done / batch.total) * 100)}%"
+        ></div>
+      </div>
+    </div>`;
+  }
+  if (batch.failed.length === 0) return null;
+  const names = batch.failed.map((f) => sourceName(f.source)).filter(Boolean);
+  return html`<div
+    class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface p-4 ring-1 ring-danger/40"
+    role="alert"
+  >
+    <div class="min-w-0">
+      <p class="text-sm font-medium text-fg">${batchSummary(batch, album)}</p>
+      ${
+        names.length
+          ? html`<p class="mt-0.5 truncate text-xs text-muted">${names.join(", ")}</p>`
+          : null
+      }
+    </div>
+    <div class="flex shrink-0 gap-2">
+      <button class="ui-btn-ghost" @click=${() => gallery.dismissBatch()}>Dismiss</button>
+      <button class="ui-btn-primary" @click=${() => gallery.retryFailed()}>Retry</button>
+    </div>
+  </div>`;
+}
+
+/** Shown over the page while photos are dragged onto it. */
+function dropOverlay(page: PhotosPage, scope: PhotoScope) {
+  if (!page.dropActive) return null;
+  const plan = planAdd(scope, page.folders);
+  const where = plan.kind === "direct" ? ` to ${albumName(plan.folderId)}` : "";
+  return html`<div
+    class="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-accent/10 p-6"
+  >
+    <div
+      class="rounded-3xl border-2 border-dashed border-accent bg-surface px-8 py-6 text-center text-fg shadow-xl"
+    >
+      <p class="text-lg font-semibold">Drop to add${where}</p>
+      <p class="mt-1 text-sm text-muted">Photos stay on your devices and the album's.</p>
+    </div>
+  </div>`;
 }
 
 function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSummary | null) {
@@ -392,10 +617,11 @@ function pageHeader(page: PhotosPage, scope: PhotoScope, active: PhotoTab = scop
           ${ref(fileInputRef)}
           type="file"
           accept="image/*"
+          multiple
           class="hidden"
           @change=${(e: Event) => {
             const input = e.target as HTMLInputElement;
-            void onFileChosen(input.files?.[0]);
+            onFilesChosen(scope, input.files);
             input.value = "";
           }}
         />
@@ -406,10 +632,10 @@ function pageHeader(page: PhotosPage, scope: PhotoScope, active: PhotoTab = scop
         >
           Refresh
         </button>
-        ${addButton(page, scope)}
+        ${cameraButton(page, scope)} ${addButton(page, scope)}
       </div>
     </div>
-    ${photoTabs(active)}
+    ${photoTabs(active)} ${batchStrip(page.batch)}
   `;
 }
 
@@ -459,9 +685,16 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
     scope.kind === "album" ? (page.folders.find((f) => f.id === scope.id) ?? null) : null;
   const photos = photosInScope(page.photos, scope);
   const loading = (state === "loading" || state === "booting") && page.photos.length === 0;
+  const drop = dropHandlers(scope);
   return html`
-    <div class="space-y-5">
-      ${pageHeader(page, scope)} ${waitingForAdmin()}
+    <div
+      class="space-y-5"
+      @dragenter=${drop.enter}
+      @dragover=${drop.over}
+      @dragleave=${drop.leave}
+      @drop=${drop.drop}
+    >
+      ${dropOverlay(page, scope)} ${pageHeader(page, scope)} ${waitingForAdmin()}
       ${
         scope.kind === "album"
           ? album
@@ -547,9 +780,16 @@ function albumCard(card: AlbumCard, waiting: number) {
 function albumGridBody(page: PhotosPage) {
   const scope: PhotoScope = { kind: "all" };
   const cards = albumCards(page.folders, page.photos);
+  const drop = dropHandlers(scope);
   return html`
-    <div class="space-y-5">
-      ${pageHeader(page, scope, "album")}
+    <div
+      class="space-y-5"
+      @dragenter=${drop.enter}
+      @dragover=${drop.over}
+      @dragleave=${drop.leave}
+      @drop=${drop.drop}
+    >
+      ${dropOverlay(page, scope)} ${pageHeader(page, scope, "album")}
       ${
         cards.length === 0
           ? scopeEmptyState(page, scope, null)

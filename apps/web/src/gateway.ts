@@ -1,6 +1,13 @@
 import { createPluginBus, createProtocolMessenger, MessageType } from "@ekrooh/bare/core";
-import { photoEvents, logEvents, grantEvents, type LogLevel } from "@justus/core";
+import {
+  photoEvents,
+  logEvents,
+  grantEvents,
+  justusMediaEvents,
+  type LogLevel,
+} from "@justus/core";
 import { getTransport } from "./transport";
+import { workletBase } from "./utils/peer";
 
 export const transport = getTransport();
 
@@ -20,6 +27,33 @@ export const gateway = {
   /** Adds a photo from bytes picked in the browser (multi-file upload). */
   addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
     bus.invoke(photoEvents.photos.addFile(name, bytes)),
+  /** Posts a browser-picked file to the worklet's `POST /photos` route
+   * (same-origin in the WebView, Vite-proxied in dev). Same `Either` shape as
+   * an invoke; the route answers with the stored (or deduped) photo's id. */
+  upload: async (
+    file: File,
+    folderId?: string,
+  ): Promise<[Error | null, { id?: string } | null]> => {
+    const folder = folderId ? `&folder=${encodeURIComponent(folderId)}` : "";
+    try {
+      const response = await fetch(
+        `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}${folder}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        id?: string;
+        error?: string;
+      } | null;
+      if (!response.ok) return [new Error(body?.error ?? `HTTP ${response.status}`), null];
+      return [null, { id: body?.id }];
+    } catch (e) {
+      return [e instanceof Error ? e : new Error(String(e)), null];
+    }
+  },
   remove: (id: string, folderId?: string) => bus.invoke(photoEvents.photos.remove(id, folderId)),
   join: (key: string) => bus.invoke(photoEvents.photos.join(key)),
   enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),
@@ -33,6 +67,11 @@ export const gateway = {
     bus.invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
   removeMember: (folderId: string, memberKey: string) =>
     bus.invoke(photoEvents.photos.removeMember(folderId, memberKey)),
+  /** Native-host pick/capture (`justus.media`): staged file paths. */
+  media: {
+    pickMany: () => bus.invoke(justusMediaEvents.media.pickMany()),
+    capture: () => bus.invoke(justusMediaEvents.media.capture()),
+  },
   logs: {
     view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
       bus.invoke(logEvents.view(opts)),

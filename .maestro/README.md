@@ -37,8 +37,8 @@ A few strings are ambiguous and must not be used alone to prove which page rende
   it does not prove the gallery rendered. Use the page-unique empty-state heading,
   `No photos yet.`, instead.
 - **`Add photos`** labels BOTH the header pill and the empty-state "add" button (both call
-  `pickAndAdd()`). Tapping either is fine for triggering the picker, but after canceling the
-  picker, assert the page-unique empty-state heading rather than `Add photos`.
+  `startAdd()`). With no albums yet it first opens the "Start an album" sheet; after canceling
+  the picker, assert a page-unique empty-state heading rather than `Add photos`.
 
 Page-unique anchors:
 

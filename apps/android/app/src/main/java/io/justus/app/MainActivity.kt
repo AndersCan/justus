@@ -24,11 +24,14 @@ import to.holepunch.bare.android.HostPluginRegistry
 import to.holepunch.bare.android.registerDefaultHostPlugins
 import to.holepunch.bare.kit.IPC
 import to.holepunch.bare.kit.Worklet
+import org.json.JSONArray
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.Executors
 
 /**
  * Justus Android host: starts the Bare worklet (apps/backend bundle), wires
- * the vendor.media pick/capture host plugins, and loads the built web app from
+ * the vendor.media and justus.media pick/capture host plugins, and loads the built web app from
  * the worklet's loopback server (cookie auth via the handoff bootstrap nonce).
  */
 class MainActivity : AppCompatActivity() {
@@ -47,12 +50,23 @@ class MainActivity : AppCompatActivity() {
         if (BuildConfig.DEBUG) 90_000L else 15_000L
 
     private lateinit var pickLauncher: ActivityResultLauncher<PickVisualMediaRequest>
+    private lateinit var pickManyLauncher: ActivityResultLauncher<PickVisualMediaRequest>
     private lateinit var imageCaptureLauncher: ActivityResultLauncher<Uri>
     private lateinit var videoCaptureLauncher: ActivityResultLauncher<Uri>
     @Volatile
     private var pendingMedia: ((HostPluginRegistry.HostInvokeOutcome) -> Unit)? = null
     @Volatile
     private var pendingCaptureFile: File? = null
+    @Volatile
+    private var pendingCaptureName = false
+
+    /** Picked/captured files are staged here: inside the worklet's storage dir,
+     * which (with no third argv dir) is also its cache dir and therefore an
+     * allowed `photos.add` import root (#93/#97). Cleared on every launch. */
+    private lateinit var importsDir: File
+
+    /** Copies picked files off the main thread (a batch can be many MB). */
+    private val stagingExecutor = Executors.newSingleThreadExecutor()
 
     // A justus://join/... link that opened the app before the page loaded;
     // handed to the web layer as window.__justusInvite at document start.
@@ -68,6 +82,9 @@ class MainActivity : AppCompatActivity() {
         // bare-fs cannot read APK assets by path — copy the built web app out
         // of assets/ into the cache dir for the worklet to serve over loopback.
         storageDir = File(cacheDir, "bare").apply { mkdirs() }
+        importsDir = File(storageDir, "imports")
+        importsDir.deleteRecursively()
+        importsDir.mkdirs()
         webappDir = File(cacheDir, "webapp")
         copyWebAssets(webappDir)
 
@@ -233,6 +250,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stagingExecutor.shutdown()
         mainHandler.removeCallbacksAndMessages(null)
         if (::ipc.isInitialized) ipc.close()
         if (::worklet.isInitialized) worklet.terminate()
@@ -253,20 +271,55 @@ class MainActivity : AppCompatActivity() {
                 )
                 return@registerForActivityResult
             }
-            val staged = copyUriToCache(uri)
-            if (staged == null) {
-                respond(
-                    HostPluginRegistry.HostInvokeOutcome.Fail(
-                        ErrorCodes.HOST_ERROR,
-                        "Failed to copy picked media",
-                    ),
-                )
-            } else {
-                val json = JSONObject().put("path", staged.path)
-                if (staged.name != null) json.put("name", staged.name)
-                respond(HostPluginRegistry.HostInvokeOutcome.Ok(json))
+            stagingExecutor.execute {
+                // Answer on the main thread, where the picker callback started.
+                val reply = { o: HostPluginRegistry.HostInvokeOutcome -> mainHandler.post { respond(o) } }
+                val staged = copyUriToCache(uri)
+                if (staged == null) {
+                    reply(
+                        HostPluginRegistry.HostInvokeOutcome.Fail(
+                            ErrorCodes.HOST_ERROR,
+                            "Failed to copy picked media",
+                        ),
+                    )
+                } else {
+                    reply(HostPluginRegistry.HostInvokeOutcome.Ok(staged.toJson()))
+                }
             }
         }
+        // justus.media pickMany: the system picker in multi-select mode. Each
+        // URI is staged in turn; any that fail to copy are dropped, and the
+        // invoke only fails when nothing could be staged.
+        pickManyLauncher =
+            registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PICK)) { uris ->
+                val respond = pendingMedia ?: return@registerForActivityResult
+                pendingMedia = null
+                if (uris.isEmpty()) {
+                    respond(
+                        HostPluginRegistry.HostInvokeOutcome.Fail(
+                            ErrorCodes.HOST_ERROR,
+                            "Media pick cancelled",
+                        ),
+                    )
+                    return@registerForActivityResult
+                }
+                stagingExecutor.execute {
+                    // Answer on the main thread, where the picker callback started.
+                    val reply = { o: HostPluginRegistry.HostInvokeOutcome -> mainHandler.post { respond(o) } }
+                    val items = JSONArray()
+                    for (uri in uris) copyUriToCache(uri)?.let { items.put(it.toJson()) }
+                    if (items.length() == 0) {
+                        reply(
+                            HostPluginRegistry.HostInvokeOutcome.Fail(
+                                ErrorCodes.HOST_ERROR,
+                                "Failed to copy picked media",
+                            ),
+                        )
+                    } else {
+                        reply(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("items", items)))
+                    }
+                }
+            }
         imageCaptureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
             finishCapture(ok)
         }
@@ -287,15 +340,34 @@ class MainActivity : AppCompatActivity() {
             mainHandler.post { pickLauncher.launch(PickVisualMediaRequest(selector)) }
         }
         registry.register("vendor.media", "media.capture") { args, _, respond ->
-            val kind = args?.optString("kind") ?: "image"
+            launchCapture(args?.optString("kind") ?: "image", respond, named = false)
+        }
+        registry.register("justus.media", "media.pickMany") { _, _, respond ->
             pendingMedia = respond
-            val ext = if (kind == "video") ".mp4" else ".jpg"
-            val file = File(cacheDir, "capture-${System.currentTimeMillis()}$ext")
-            pendingCaptureFile = file
-            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-            mainHandler.post {
-                if (kind == "video") videoCaptureLauncher.launch(uri) else imageCaptureLauncher.launch(uri)
-            }
+            val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            mainHandler.post { pickManyLauncher.launch(request) }
+        }
+        registry.register("justus.media", "media.capture") { args, _, respond ->
+            launchCapture(args?.optString("kind") ?: "image", respond, named = true)
+        }
+    }
+
+    /** Opens the camera, writing straight into the imports dir. `named` adds
+     * a dated display name (justus.media) so the photo isn't called
+     * `capture-<millis>.jpg`. */
+    private fun launchCapture(
+        kind: String,
+        respond: (HostPluginRegistry.HostInvokeOutcome) -> Unit,
+        named: Boolean,
+    ) {
+        pendingMedia = respond
+        pendingCaptureName = named
+        val ext = if (kind == "video") ".mp4" else ".jpg"
+        val file = File(importsDir, "capture-${System.currentTimeMillis()}$ext")
+        pendingCaptureFile = file
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        mainHandler.post {
+            if (kind == "video") videoCaptureLauncher.launch(uri) else imageCaptureLauncher.launch(uri)
         }
     }
 
@@ -305,7 +377,13 @@ class MainActivity : AppCompatActivity() {
         val file = pendingCaptureFile ?: return
         pendingCaptureFile = null
         if (success && file.exists() && file.length() > 0L) {
-            respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("path", file.absolutePath)))
+            val json = JSONObject().put("path", file.absolutePath)
+            if (pendingCaptureName) {
+                val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                    .format(java.util.Date())
+                json.put("name", "IMG_$stamp.${file.extension}")
+            }
+            respond(HostPluginRegistry.HostInvokeOutcome.Ok(json))
         } else {
             respond(
                 HostPluginRegistry.HostInvokeOutcome.Fail(
@@ -318,7 +396,9 @@ class MainActivity : AppCompatActivity() {
 
     /** Copies a picker content:// URI into the app cache so the worklet can
      * serve it from the filesystem. */
-    private data class StagedMedia(val path: String, val name: String?)
+    private data class StagedMedia(val path: String, val name: String?) {
+        fun toJson(): JSONObject = JSONObject().put("path", path).apply { if (name != null) put("name", name) }
+    }
 
     private fun copyUriToCache(uri: Uri): StagedMedia? {
         return try {
@@ -332,7 +412,8 @@ class MainActivity : AppCompatActivity() {
                     val sub = mime.substringAfter("/", "")
                     if (sub.isNotEmpty() && !sub.contains('*')) ".$sub" else null
                 } ?: ".bin"
-            val dest = File(cacheDir, "media-${System.currentTimeMillis()}$ext")
+            // A UUID, not a timestamp: a batch stages many files per millisecond.
+            val dest = File(importsDir, "media-${UUID.randomUUID()}$ext")
             val copied =
                 contentResolver.openInputStream(uri)?.use { input ->
                     dest.outputStream().use { output -> input.copyTo(output) }
@@ -354,5 +435,10 @@ class MainActivity : AppCompatActivity() {
             Log.e("JUSTUS_ANDROID", "Failed to copy picked media", e)
             null
         }
+    }
+
+    private companion object {
+        /** Mirrors `MAX_PICK` in packages/core/src/media/events.ts. */
+        const val MAX_PICK = 50
     }
 }

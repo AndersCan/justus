@@ -3,12 +3,18 @@ androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
-# On an empty folder "Add photos" is BOTH the header pill and the empty-state button; both call
-# pickAndAdd() so tapping either is fine.
+# A fresh install has no albums, so "Add photos" (the header pill) first asks for one: name it,
+# then the picker opens for the new album (startAdd() → readyPlan() → startAlbum()).
 - extendedWaitUntil:
     visible: "Add photos"
     timeout: 60000
 - tapOn: "Add photos"
+- extendedWaitUntil:
+    visible: "Start an album"
+    timeout: 15000
+- tapOn: "Album name, e.g. Summer 2026"
+- inputText: "Maestro"
+- tapOn: "Create and add photos"
 # The system photo picker is a NATIVE surface. Its toolbar title on API 36 is "Photos" (a Photo
 # Picker security note "Justus will only have access to the photos you select" and the photo
 # thumbnails are below it). The exact node label is OS-version dependent (plan's bring-up item) —
@@ -17,8 +23,8 @@ androidWebViewHierarchy: devtools
     visible: "Photos"
     timeout: 15000
 - back
-# Return to the gallery: assert the page-unique empty-state heading (not "Add photos", which is
-# ambiguous), allowing settle time.
+# Cancelling the picker lands on the new, empty album: assert its page-unique empty-state
+# heading (not "Add photos", which is ambiguous), allowing settle time.
 - extendedWaitUntil:
-    visible: "No photos yet."
+    visible: "No photos in this album yet."
     timeout: 15000

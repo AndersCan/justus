@@ -55,6 +55,12 @@ final class BareRuntime {
     try? FileManager.default.createDirectory(
       at: bareCacheDir, withIntermediateDirectories: true
     )
+    // Stage picks inside the worklet's cache dir (an allowed import root),
+    // cleared each launch: once added, a staged copy is no longer needed.
+    let importsDir = bareCacheDir.appendingPathComponent("imports", isDirectory: true)
+    try? FileManager.default.removeItem(at: importsDir)
+    try? FileManager.default.createDirectory(at: importsDir, withIntermediateDirectories: true)
+    MediaHostPlugins.stagingDir = importsDir
     // A previous run may have left a handoff file pointing at a dead ephemeral
     // port; remove it so polling never loads a stale origin.
     try? FileManager.default.removeItem(at: handoffURL)

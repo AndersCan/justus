@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pickPhotos } from "./add-photos.js";
 
 /** A real, decodable 64x64 JPEG — dropped into the dev inbox to test the
  * inbox → photos.add → push → live-gallery path. */
@@ -92,7 +93,7 @@ test("picking a photo in the browser uploads it to the worklet route and adds it
   // real chosen file (same-origin, exactly like the WebView on device).
   // Distinct bytes from the inbox test above: since #20's sha256 ingest
   // dedupe, identical content no longer grows the gallery twice.
-  await page.setInputFiles("input[type=file]", {
+  await pickPhotos(page, {
     name: `picked-${Date.now()}.png`,
     mimeType: "image/png",
     buffer: Buffer.from(TINY_PNG_B, "base64"),
@@ -122,7 +123,7 @@ test("adding identical bytes twice is deduped to one entry (#20)", async ({ page
   const uploadOnce = () =>
     Promise.all([
       page.waitForResponse((r) => r.url().includes("/photos") && r.request().method() === "POST"),
-      page.setInputFiles("input[type=file]", {
+      pickPhotos(page, {
         name: "dedupe-probe.png",
         mimeType: "image/png",
         buffer: Buffer.from(TINY_PNG, "base64"),
