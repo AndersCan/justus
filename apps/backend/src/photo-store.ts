@@ -1485,9 +1485,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       let fd: Drive;
       if (isCreator) {
         // Our own album drive: local, so no remote-open timeout; serve its topic
-        // so invitees can find it.
-        fd = deps.makeDrive(corestore, Buffer.from(record.shareKey, "hex"));
-        await fd.ready();
+        // so invitees can find it. An album created before #195 *is* the device
+        // identity drive; a second Hyperdrive on the same key never becomes
+        // ready, so reuse the open one.
+        if (record.shareKey === hex(ownDrive.key)) {
+          fd = ownDrive;
+        } else {
+          fd = deps.makeDrive(corestore, Buffer.from(record.shareKey, "hex"));
+          await fd.ready();
+        }
         await joinTopic(fd.discoveryKey, { server: true });
       } else {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
