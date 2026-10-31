@@ -43,13 +43,19 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
   toast((await copyText(link)) ? "Invite link copied" : "Couldn't copy the invite");
 }
 
-const $copied = atom<"link" | null>(null);
+const $copied = atom(false);
+const $qrShownFor = atom<string | null>(null);
 
-async function copy(kind: "link", value: string) {
+async function copy(value: string) {
   const ok = await copyText(value);
-  $copied.set(ok ? kind : null);
-  setTimeout(() => $copied.set(null), 2000);
-  if (!ok) toast("Couldn't copy. The invite is shown on screen.");
+  $copied.set(ok);
+  setTimeout(() => $copied.set(false), 2000);
+  if (!ok) toast("Couldn't copy the invite link");
+}
+
+/** Hide the QR again when the album page is left, so it isn't on screen later. */
+export function hideInviteQr() {
+  $qrShownFor.set(null);
 }
 
 function qrCode(link: string) {
@@ -65,45 +71,59 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** Invite surface: copyable link and a QR for in person. The raw share key
- * lives under the album page's Advanced section. */
+/** Invite surface: one tap sends the link (share sheet, or copy where there is
+ * none). The link itself is never drawn; the QR, for someone standing next to
+ * you, only after a tap. The raw share key lives under Advanced. */
 export function invitePanel(folder: FolderSummary, myName: string) {
   const link = inviteLinkFor(folder, myName);
+  const canShare = typeof navigator.share === "function";
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Invite to “${folder.name}”</h2>
+      <h2 class="ui-label mb-1">Invite people</h2>
       <p class="mb-4 text-sm text-fg">
-        Anyone with this link can see every photo in the album, so send it only to people you want
-        in.
-        ${
-          folder.role === "creator"
-            ? "You choose who can add their own photos."
-            : "The Admin chooses who can add their own photos."
-        }
+        Send the link to people you want in “${folder.name}”. Anyone with it can see every photo, so
+        don't post it in public.
       </p>
-      <div class="flex flex-wrap gap-2">
-        ${useStore(
-          $copied,
-          (copied) => html`
-            <button class="ui-btn-primary" @click=${() => void copy("link", link)}>
-              ${copied === "link" ? "Copied ✓" : "Copy invite link"}
-            </button>
-            ${
-              typeof navigator.share === "function"
-                ? html`<button
-                    class="ui-btn-ghost"
+      ${useStore(
+        $copied,
+        (copied) => html`<div class="flex flex-wrap gap-2">
+          ${
+            canShare
+              ? html`<button
+                    class="ui-btn-primary"
                     @click=${() => void shareInvite(folder, myName)}
                   >
-                    Share…
+                    Send invite link
+                  </button>
+                  <button class="ui-btn-ghost" @click=${() => void copy(link)}>
+                    ${copied ? "Copied ✓" : "Copy link"}
                   </button>`
-                : null
-            }
-          `,
-        )}
-      </div>
-      <div class="mt-4">${qrCode(link)}</div>
-      <p class="mt-2 text-center text-xs text-muted">
-        Together? They can scan this with their phone's camera.
+              : html`<button class="ui-btn-primary" @click=${() => void copy(link)}>
+                  ${copied ? "Copied ✓" : "Copy invite link"}
+                </button>`
+          }
+        </div>`,
+      )}
+      ${useStore($qrShownFor, (shown) =>
+        shown === folder.id
+          ? html`<div class="mt-4">${qrCode(link)}</div>
+              <p class="mt-2 text-center text-xs text-muted">
+                They scan this with their phone's camera.
+              </p>`
+          : html`<button
+              class="mt-3 text-sm text-muted underline underline-offset-2 hover:text-fg"
+              @click=${() => $qrShownFor.set(folder.id)}
+            >
+              With them now? Show a QR code
+            </button>`,
+      )}
+      <p class="mt-4 text-xs text-muted">
+        They can see the photos right away.
+        ${
+          folder.role === "creator"
+            ? "You choose who can add their own photos: their request shows up here."
+            : "The Admin chooses who can add their own photos."
+        }
       </p>
     </section>
   `;

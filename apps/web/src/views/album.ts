@@ -1,5 +1,4 @@
 import { html } from "lit-html";
-import { atom } from "nanostores";
 import { folders } from "../machines/folders-machine";
 import { $peopleViewModel, people } from "../machines/people-machine";
 import { requests } from "../machines/requests-machine";
@@ -11,17 +10,14 @@ import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
-import { invitePanel } from "./invite";
+import { hideInviteQr, invitePanel } from "./invite";
 import { toast } from "./toast";
 
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
 type Status = NonNullable<ReturnType<typeof $syncViewModel.get>["status"]>;
 
-/** The invite (link + QR) is only drawn after a deliberate tap, under a line
- * saying who it lets in, and is hidden again whenever the page is left. */
-const $inviteShownFor = atom<string | null>(null);
 $router.listen((page) => {
-  if (page?.route !== "album") $inviteShownFor.set(null);
+  if (page?.route !== "album") hideInviteQr();
 });
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
@@ -113,24 +109,6 @@ function membersSection(vm: PeopleVm) {
     <ul class="divide-y divide-line">
       ${vm.people.map((p) => memberRow(vm, p))}
     </ul>
-  </section>`;
-}
-
-function inviteSection(status: Status) {
-  const folder = status.folder;
-  return html`<section class="ui-card p-5">
-    <h2 class="ui-label mb-1">Invite people</h2>
-    ${useStore($inviteShownFor, (shown) =>
-      shown === folder.id
-        ? html`<div class="-mx-5 -mb-5 mt-3">${invitePanel(folder, status.name)}</div>`
-        : html`<p class="mb-3 text-sm text-fg">
-              Anyone with the invite link can see every photo in “${folder.name}”. Send it only to
-              people you want in, and never post it in public.
-            </p>
-            <button class="ui-btn-ghost" @click=${() => $inviteShownFor.set(folder.id)}>
-              Show invite link
-            </button>`,
-    )}
   </section>`;
 }
 
@@ -307,7 +285,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       state === "error" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
-    ${requestsSection(vm)} ${membersSection(vm)} ${inviteSection(status)}
+    ${requestsSection(vm)} ${invitePanel(status.folder, status.name)} ${membersSection(vm)}
     ${advancedSection(status, state, busy)}
   </div>`;
 }

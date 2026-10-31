@@ -176,19 +176,20 @@ test("the Compact grid setting shrinks the photo tiles", async ({ page }) => {
   expect(compact).toBeLessThan(comfortable * 0.8);
 });
 
-test("an album page shows members and keeps the invite behind a deliberate tap", async ({
-  page,
-}) => {
+test("an album page offers the invite at once and keeps the QR behind a tap", async ({ page }) => {
   await page.goto("/sharing");
   await page
     .getByRole("link", { name: /^Invite & members of / })
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "Copy invite link" })).toHaveCount(0);
-  await expect(page.getByText(/Anyone with the invite link can see every photo/)).toBeVisible();
-  await page.getByRole("button", { name: "Show invite link" }).click();
-  await expect(page.getByRole("button", { name: "Copy invite link" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }),
+  ).toBeVisible();
+  await expect(page.getByText(/Anyone with it can see every photo/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "QR code for the invite" })).toHaveCount(0);
+  await page.getByRole("button", { name: "With them now? Show a QR code" }).click();
+  await expect(page.getByRole("img", { name: "QR code for the invite" })).toBeVisible();
 });
 
 test("tapping a photo opens the lightbox; Escape closes it; remove asks for confirmation", async ({

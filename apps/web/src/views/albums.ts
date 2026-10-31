@@ -280,8 +280,7 @@ export function albumsPanel() {
         view.fatal ? () => window.location.reload() : undefined,
       )}
       <p class="text-sm text-muted">
-        Each album has its own people and its own invite link. Open one to invite someone or to let
-        people add photos.
+        Tap an album to invite people or see who's in it. Each album has its own invite link.
       </p>
       ${albumList(view)} ${newAlbumSection(view)}
     `,
