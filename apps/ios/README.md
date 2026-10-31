@@ -4,14 +4,13 @@ Native iOS shell for Justus (bundle ID `no.cankode.justus`): the Bare worklet, t
 IPC host bridge, the `vendor.media` pick/capture plugins, and a full-screen
 `WKWebView` whose page is served by the worklet's loopback HTTP server with
 cookie auth — the same architecture as `apps/android` (`MainActivity.kt`).
-Consumes, read-only, the ekrooh framework's iOS host library:
+Consumes, read-only, the ekrooh framework's iOS host:
 
-- **`BareHost`** — the Swift host package at `../ekrooh/ios` (SPM, local-path
-  dependency via xcodegen; the ekrooh repo is a sibling checked out at `..`).
-- **`BareKit.xcframework`** — the prebuilt runtime at
-  `../ekrooh/prebuilds/ios` (gitignored in ekrooh; fetch with `npm run
-prebuilds` from the ekrooh repo).
-- **Native addon xcframeworks** — produced locally by `bare-link --preset ios`
+- **`BareHost` + `BareKit`**: the Swift package at the root of
+  `https://github.com/AndersCan/ekrooh`, pinned by xcodegen to the exact tag
+  matching the installed `@ekrooh/bare` (lockstep). SwiftPM fetches it,
+  including the `BareKit.xcframework` binary target; no sibling checkout needed.
+- **Native addon xcframeworks**: produced locally by `bare-link --preset ios`
   from `apps/backend`'s dependency graph (bare-* + the p2p stack: rocksdb/
   sodium/udx/quickbit/rabin/simdle/fs-native-extensions).
 
@@ -21,33 +20,57 @@ handoff timeout (slow cold simulator boots).
 ## Prerequisites
 
 - Xcode (>= 15) with an iOS simulator, and `xcodegen` (`brew install xcodegen`).
-- The ekrooh repo checked out as a sibling (`../ekrooh`; override with
-  `EKROOH_ROOT`), with `prebuilds/ios/BareKit.xcframework` fetched once:
-  `cd ../ekrooh && npm install && npm run prebuilds`.
+- Network access on the first build (SwiftPM fetches the ekrooh package).
 
-## Build & run
+## Build & run (simulator)
 
 From the repo root:
 
 ```bash
-pnpm run build:ios   # backend bundle + web assets + native addons + xcodeproj
-pnpm run ios         # pick simulator (first booted iPhone), build, install, launch
-```
-
-`pnpm run build:ios` regenerates `apps/ios/project.yml` + `justus.xcodeproj`
-via xcodegen, so the embedded addon list always matches what `bare-link`
-emitted for `apps/backend`'s resolved dependency versions (xcodegen cannot glob
-framework dependencies). Targets:
-
-```bash
+node apps/ios/scripts/build-ios.mjs   # backend bundle + web assets + native addons + xcodeproj
+node apps/ios/scripts/run-ios.mjs     # pick simulator (first booted iPhone), build, install, launch
 node apps/ios/scripts/run-ios.mjs --udid <UDID>   # specific simulator
-xcodebuild -project apps/ios/justus.xcodeproj -scheme justus \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
+
+`build-ios.mjs` regenerates `apps/ios/project.yml` + `justus.xcodeproj` via
+xcodegen, so the embedded addon list always matches what `bare-link` emitted
+for `apps/backend`'s resolved dependency versions (xcodegen cannot glob
+framework dependencies). Simulator builds need no signing team.
+
+## Physical device
+
+1. Pair the device (unlock, tap **Trust**), add your Apple ID in Xcode
+   (**Settings → Accounts**), and enable **Developer Mode** on the device
+   (**Settings → Privacy & Security**).
+2. Generate the project with your team. A personal team cannot claim
+   `no.cankode.justus`, so give it your own bundle ID:
+
+   ```bash
+   DEVELOPMENT_TEAM=XXXXXXXXXX JUSTUS_BUNDLE_ID=com.you.justus \
+     node apps/ios/scripts/build-ios.mjs
+   ```
+
+3. Build, install and launch:
+
+   ```bash
+   xcodebuild -project apps/ios/justus.xcodeproj -scheme justus \
+     -destination 'id=<device UDID>' -derivedDataPath apps/ios/build/dd \
+     -allowProvisioningUpdates build
+   xcrun devicectl device install app --device <UDID> \
+     apps/ios/build/dd/Build/Products/Debug-iphoneos/Justus.app
+   xcrun devicectl device process launch --device <UDID> <bundle id>
+   ```
+
+   On first launch, trust the developer under **Settings → General → VPN &
+   Device Management**. Free-team installs expire after 7 days.
+
+The iOS Simulator shares the Mac's network stack (unlike the Android
+emulator), so a simulator and a physical device can P2P each other.
 
 The worklet is a debug boot with auth off until the loopback handoff
 (`handoff.json` in the app's Documents/bare); the gallery is served at the
-origin it advertises. Simulator builds need no signing team.
+origin it advertises. The host deletes `handoff.json` after the one page load
+(the bootstrap is single-use) and excludes `Documents/bare` from backups.
 
 ## Layout
 
@@ -66,17 +89,11 @@ addons/, Resources/      generated, gitignored
 
 ## Notes / gotchas
 
-- **Local-path dependency on ekrooh.** SPM cannot depend on a subdirectory of a
-  git repo, `BareHost` currently resolves as a local path (`../../../ekrooh/ios`).
-  ekrooh main now ships a root `Package.swift`; migrate to a versioned git
-  dependency once a release publishes its binary-target checksum. `EKROOH_ROOT` overrides the repo location;
-  publishing `BareHost` as a standalone SPM/git dependency would remove this
-  coupling (track as an ekrooh distribution question).
 - `bare-link` needs the flat (hoisted) `node_modules` this repo already uses
   (`nodeLinker: hoisted`), and the p2p native addons must stay in
   `apps/backend`'s `dependencies` (not `devDependencies`) or they silently stop
   being linked.
 - `Resources/main.core.bundle`, `Resources/WebAssets/`, `addons/`, build output
   and the generated `justus.xcodeproj` are gitignored — never commit them.
-- The iOS JSON ecosystem versions (`bare-kit-swift`) differ from Android's
-  (`bare-host` AAR); both track the ekrooh release tag.
+- The iOS host (ekrooh SPM tag, derived from `@ekrooh/bare`) and Android's
+  `bare-host` AAR both track the same ekrooh release.

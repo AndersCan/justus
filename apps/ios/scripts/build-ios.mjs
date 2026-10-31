@@ -12,27 +12,19 @@
  * glob framework dependencies).
  *
  * Usage:
- *   pnpm run build:ios          (from the repo root)
+ *   node apps/ios/scripts/build-ios.mjs
+ *   DEVELOPMENT_TEAM=XXXXXXXXXX JUSTUS_BUNDLE_ID=com.you.justus node apps/ios/scripts/build-ios.mjs
  *
  * Requires:
  *   - the Bare Kit native addons for the p2p stack — `apps/backend`'s
  *     dependencies must include them (corestore/hyperdrive/hyperswarm pull the
  *     native addons; keep them in `dependencies`, not `devDependencies`)
- *   - the ekrooh repo as a sibling (`../ekrooh`) holding `ios/` (BareHost SPM
- *     package) and `prebuilds/ios/BareKit.xcframework` (fetched by `npm run
- *     prebuilds`); override with `EKROOH_ROOT=/path/to/ekrooh`
+ *   - network access for SwiftPM to fetch BareHost + BareKit from the ekrooh
+ *     `v<@ekrooh/bare version>` tag (no sibling ekrooh checkout needed)
  *   - `xcodegen` on PATH
  */
 import { execFileSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,25 +35,19 @@ const addonsDir = path.join(iosDir, "addons");
 const resourcesDir = path.join(iosDir, "Resources");
 const webAssetsDir = path.join(resourcesDir, "WebAssets");
 
-const ekroohRoot = path.resolve(process.env.EKROOH_ROOT ?? path.join(root, "../ekrooh"));
-const bareKitXcframework = path.join(ekroohRoot, "prebuilds/ios/BareKit.xcframework");
-const bareHostDir = path.join(ekroohRoot, "ios");
+// BareHost (and the BareKit runtime it bundles as a SwiftPM binary target) is
+// fetched from the ekrooh git tag matching the installed @ekrooh/bare, so the
+// native host and the JS framework stay in lockstep.
+const ekroohVersion = JSON.parse(
+  readFileSync(path.join(root, "node_modules/@ekrooh/bare/package.json"), "utf8"),
+).version;
+
+// Optional: sign for a physical device (`DEVELOPMENT_TEAM=XXXXXXXXXX`), and a
+// bundle ID override for personal teams that cannot claim `no.cankode.justus`.
+const developmentTeam = process.env.DEVELOPMENT_TEAM;
+const bundleId = process.env.JUSTUS_BUNDLE_ID ?? "no.cankode.justus";
 
 const run = (cmd, args, cwd = root) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
-
-for (const [label, p] of [
-  ["BareKit.xcframework (prebuilds)", bareKitXcframework],
-  ["BareHost SPM package (ekrooh/ios)", bareHostDir],
-]) {
-  if (!existsSync(p)) {
-    console.error(`Missing ${label} at ${p}.`);
-    console.error(
-      "The ekrooh repo must sit at ../ekrooh (or point EKROOH_ROOT at it), with " +
-        "`npm run prebuilds` run once to fetch prebuilds/ios/BareKit.xcframework.",
-    );
-    process.exit(1);
-  }
-}
 
 console.log("Building the worklet bundle (apps/backend)...");
 run("pnpm", ["--filter", "@justus/backend", "run", "build"]);
@@ -99,7 +85,9 @@ writeFileSync(path.join(iosDir, "project.yml"), generateProjectYml());
 
 run("xcodegen", ["generate"], iosDir);
 
-console.log("Done. Run on a simulator with `pnpm run ios` (boots, builds, installs, launches).");
+console.log(
+  "Done. Run on a simulator with `node apps/ios/scripts/run-ios.mjs` (boots, builds, installs, launches).",
+);
 
 /** Everything the xcodeproj needs, freshly resolved so addon version bumps in
  * apps/backend's dependency graph cannot silently break the app build. */
@@ -110,15 +98,6 @@ function generateProjectYml() {
     .map((f) => `      - framework: addons/${f}\n        embed: true`)
     .join("\n");
 
-  // Pin the same bare-kit-swift SPM revision the BareHost package depends on.
-  const packageSwift = readFileSync(path.join(bareHostDir, "Package.swift"), "utf8");
-  const revision = packageSwift.match(/revision: "([0-9a-f]{40})"/)?.[1];
-  if (!revision) {
-    console.error("Could not parse bare-kit-swift revision from ekrooh/ios/Package.swift");
-    process.exit(1);
-  }
-
-  const pathTo = (absolute) => path.relative(iosDir, absolute);
   const addonsBlock = addons;
   return `name: justus
 options:
@@ -127,11 +106,12 @@ options:
     iOS: "14.0"
   createIntermediateGroups: true
 packages:
+  # The ekrooh root package exports both BareHost and BareKit (Worklet/IPC);
+  # xcodegen links every library product, and SwiftPM embeds the binary
+  # BareKit.framework.
   BareHost:
-    path: ${pathTo(bareHostDir)}
-  BareKit:
-    url: https://github.com/holepunchto/bare-kit-swift
-    revision: ${revision}
+    url: https://github.com/AndersCan/ekrooh
+    exactVersion: ${ekroohVersion}
 targets:
   Justus:
     type: application
@@ -146,30 +126,27 @@ targets:
         buildPhase: resources
     dependencies:
       - package: BareHost
-      - package: BareKit
-      - framework: ${pathTo(bareKitXcframework)}
-        embed: true
       # Native addons produced by \`bare-link --preset ios\` (gitignored; see
       # apps/ios/scripts/build-ios.mjs). Keep in sync with that output; the
       # script rewrites this file so the list always matches.
 ${addonsBlock}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: no.cankode.justus
+        PRODUCT_BUNDLE_IDENTIFIER: ${bundleId}
         INFOPLIST_FILE: app/Info.plist
         SWIFT_VERSION: "5.0"
-        # The prebuilt BareKit.xcframework (and the bare-link addons) provide
-        # the BareKit module/headers; both the app and the SPM BareKitBridge
-        # target need them on the framework search path (mirrors the reference
-        # app's build settings).
+        # The bare-link addons sit on the framework search path.
         FRAMEWORK_SEARCH_PATHS:
           - "$(inherited)"
-          - ${pathTo(path.dirname(bareKitXcframework))}
           - addons
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/Frameworks"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1,2"${
+          developmentTeam
+            ? `\n        DEVELOPMENT_TEAM: ${developmentTeam}\n        CODE_SIGN_STYLE: Automatic`
+            : ""
+        }
 schemes:
   justus:
     build:

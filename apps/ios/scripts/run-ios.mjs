@@ -5,10 +5,10 @@
  * build, install, launch.
  *
  * Usage:
- *   pnpm run ios [-- --udid <UDID>]   (from the repo root)
+ *   node apps/ios/scripts/run-ios.mjs [--udid <UDID>]
  *   node apps/ios/scripts/run-ios.mjs --udid <UDID>
  *
- * Requires `pnpm run build:ios` to have produced apps/ios/justus.xcodeproj +
+ * Requires `node apps/ios/scripts/build-ios.mjs` to have produced apps/ios/justus.xcodeproj +
  * Resources (the run script builds the app target, not the asset pipeline).
  * Simulator builds need no code-signing team.
  */
@@ -22,7 +22,7 @@ const root = path.resolve(scriptDir, "../../..");
 const iosDir = path.join(root, "apps/ios");
 const project = path.join(iosDir, "justus.xcodeproj");
 const scheme = "justus";
-const bundleId = "no.cankode.justus";
+const bundleId = process.env.JUSTUS_BUNDLE_ID ?? "no.cankode.justus";
 const derivedDataPath = path.join(iosDir, "build/DerivedData");
 const app = path.join(derivedDataPath, "Build/Products/Debug-iphonesimulator/Justus.app");
 
@@ -30,7 +30,7 @@ const udidArg = process.argv.indexOf("--udid");
 const udid = udidArg !== -1 ? process.argv[udidArg + 1] : undefined;
 
 if (!existsSync(project)) {
-  console.error("Missing justus.xcodeproj. Run `pnpm run build:ios` first.");
+  console.error("Missing justus.xcodeproj. Run `node apps/ios/scripts/build-ios.mjs` first.");
   process.exit(1);
 }
 
