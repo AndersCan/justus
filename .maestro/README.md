@@ -29,10 +29,9 @@ out even though the text is on screen.
 
 ## Page-unique strings
 
-- **`Photos`** is the gallery heading, a nav tab, AND the system picker's toolbar title. Assert
-  the picker by its `Collections` tab: the privacy note is missing when the library is empty, as
-  on a fresh CI emulator.
-- An empty system picker says `No photos yet`. After closing the picker, assert `Collections` is
-  gone before checking the album.
+- **`Photos`** is the gallery heading, a nav tab, AND the system picker's toolbar title. The
+  picker's other labels differ by picker version (`Collections` exists only in the Play-updated
+  one, not on the `google_apis` CI image). Prove the picker by our page being covered
+  (`notVisible` on our own text), then visible again after `back`.
 - Adding happens only inside an album: its button is `Add photos to <album name>`.
 - An empty album says `No photos in this album yet.`

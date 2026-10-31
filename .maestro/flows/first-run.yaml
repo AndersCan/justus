@@ -35,17 +35,13 @@ appId: no.cankode.justus
     text: "Add photos to M"
     retryTapIfNoChange: false
     waitToSettleTimeoutMs: 500
-# The picker is a NATIVE surface. Its toolbar says "Photos" (also our gallery heading), and an empty
-# library (fresh CI emulator) shows "No photos yet". Its "Collections" tab is
-# there either way and is not in our UI (verified on API 36).
+# The picker is a NATIVE surface whose labels differ by picker version (the Play-updated one has
+# a "Collections" tab, the google_apis CI image's does not), and its "Photos" title is also our
+# heading. So prove it by our album page being covered, then back again once it closes.
 - extendedWaitUntil:
-    visible: "Collections"
+    notVisible: "No photos in this album yet."
     timeout: 15000
 - back
-# Prove the picker closed before trusting the album check.
-- extendedWaitUntil:
-    notVisible: "Collections"
-    timeout: 15000
 - extendedWaitUntil:
     visible: "No photos in this album yet."
     timeout: 15000
