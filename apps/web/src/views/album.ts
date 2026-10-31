@@ -186,9 +186,61 @@ function enrollSection(status: Status, state: string, busy: boolean) {
   `;
 }
 
-function detailsSection(status: Status) {
+// A hypercore key is a read capability: whoever holds it can download and
+// read that drive. The discovery key is a hash of it, only good for finding
+// peers on the network.
+function keyRow(name: string, value: string, about: string, secret = false) {
+  return html`<div class="space-y-1">
+    <dt class="text-sm text-fg">${name}</dt>
+    <dd class="text-sm">${about}</dd>
+    ${
+      secret && value
+        ? secretValue(name, value)
+        : html`<dd class="break-all font-mono">${value || "—"}</dd>`
+    }
+  </div>`;
+}
+
+const eyeIcon = (off: boolean, cls: string) => html`<svg
+  class=${cls}
+  width="16"
+  height="16"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+  <circle cx="12" cy="12" r="3" />
+  ${off ? html`<path d="M3 3l18 18" />` : ""}
+</svg>`;
+
+// Hidden until asked, so the key isn't on screen for a screenshot or an
+// onlooker. One checkbox toggle drives it via `group-has-[:checked]:`, not
+// app state.
+function secretValue(name: string, value: string) {
+  return html`<dd class="group flex items-start gap-2">
+    <span class="min-w-0 flex-1 font-mono group-has-[:checked]:hidden">••••••••••••••••</span>
+    <span class="hidden min-w-0 flex-1 break-all font-mono group-has-[:checked]:block"
+      >${value}</span
+    >
+    <label
+      class="inline-flex shrink-0 cursor-pointer items-center rounded-md p-1 text-fg hover:bg-subtle has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
+    >
+      <input type="checkbox" class="sr-only" aria-label="Show ${name.toLowerCase()}" />
+      ${eyeIcon(true, "group-has-[:checked]:hidden")}
+      ${eyeIcon(false, "hidden group-has-[:checked]:block")}
+    </label>
+  </dd>`;
+}
+
+function advancedSection(status: Status) {
+  const driveKey = status.folder.driveKey || status.driveKey;
   return html`<details class="text-xs text-muted">
-    <summary class="ui-label cursor-pointer select-none">Details</summary>
+    <summary class="ui-label cursor-pointer select-none">Advanced</summary>
     <dl class="mt-3 grid grid-cols-2 gap-y-2 text-sm">
       <dt class="text-muted">Peers reachable</dt>
       <dd>${status.peers}</dd>
@@ -197,13 +249,33 @@ function detailsSection(status: Status) {
       <dt class="text-muted">Members</dt>
       <dd>${status.members.length}</dd>
     </dl>
-    <dl class="mt-3 space-y-1 break-all font-mono">
-      <dt>Drive key</dt>
-      <dd>${status.folder.driveKey || status.driveKey}</dd>
-      <dt>Discovery key</dt>
-      <dd>${status.discoveryKey}</dd>
-      <dt>Share key</dt>
-      <dd>${status.folder.shareKey}</dd>
+    <p class="mt-4 text-sm text-fg">
+      Technical keys for troubleshooting. Do not share them unless you know what you are doing.
+    </p>
+    <dl class="mt-3 space-y-4">
+      ${keyRow(
+        "Discovery key",
+        status.discoveryKey,
+        "A one-way fingerprint of your drive key that devices use to find each other. It opens no photos, though someone holding it could see which network addresses are syncing this album.",
+      )}
+    </dl>
+    <h3 class="mt-5 text-sm font-semibold text-danger">Secret</h3>
+    <p class="mt-1 text-sm">
+      Anyone with one of these can see the photos, and they can't be changed.
+    </p>
+    <dl class="mt-3 space-y-4">
+      ${keyRow(
+        "Share key",
+        status.folder.shareKey,
+        "The album's invite. It opens the whole album: every member's photos and the member list.",
+        true,
+      )}
+      ${keyRow(
+        "Your drive key",
+        driveKey,
+        "Where this device keeps the photos it added to this album. The Admin needs it to enroll you as a member.",
+        true,
+      )}
     </dl>
   </details>`;
 }
@@ -245,7 +317,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       fatal ? () => window.location.reload() : undefined,
     )}
     ${requestsSection(vm)} ${membersSection(vm)} ${inviteSection(status)}
-    ${enrollSection(status, state, busy)} ${detailsSection(status)}
+    ${enrollSection(status, state, busy)} ${advancedSection(status)}
   </div>`;
 }
 

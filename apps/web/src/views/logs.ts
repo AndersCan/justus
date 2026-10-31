@@ -384,7 +384,7 @@ function logsBody(ctx: {
       ${error ? html`<p class="mb-3 text-xs text-danger">Couldn't load logs — ${error}</p>` : null}
 
       <div
-        class="max-h-80 overflow-auto rounded-2xl border border-line bg-white/60 p-3 font-mono text-[11px] leading-relaxed"
+        class="max-h-80 overflow-auto rounded-2xl border border-line p-3 font-mono text-[11px] leading-relaxed"
         @scroll=${() => {
           if (!c.$paused.get()) c.setPaused(true);
         }}
