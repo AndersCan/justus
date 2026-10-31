@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webview)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         // The page is served over loopback HTTP; it never needs file:// or
         // content:// access, so a hostile document cannot reach them either.
         webView.settings.allowFileAccess = false
