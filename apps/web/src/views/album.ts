@@ -6,6 +6,7 @@ import { requests } from "../machines/requests-machine";
 import { $syncViewModel, sync } from "../machines/sync-machine";
 import { $router } from "../router";
 import { useStore } from "../use-store";
+import { friendlyError } from "../utils/friendly-error";
 import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
@@ -16,8 +17,8 @@ import { toast } from "./toast";
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
 type Status = NonNullable<ReturnType<typeof $syncViewModel.get>["status"]>;
 
-/** The invite (link + QR) is only drawn after a deliberate confirmation, and
- * is hidden again whenever the page is left. */
+/** The invite (link + QR) is only drawn after a deliberate tap, under a line
+ * saying who it lets in, and is hidden again whenever the page is left. */
 const $inviteShownFor = atom<string | null>(null);
 $router.listen((page) => {
   if (page?.route !== "album") $inviteShownFor.set(null);
@@ -48,7 +49,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
               const ok = await confirmAction({
                 title: `Remove ${p.name}?`,
                 detail:
-                  "They stop syncing with this album. Photos already on their devices stay there.",
+                  "They can no longer add photos. They keep what they already have, and can still see new photos if they kept the invite link. To shut someone out, start a new album.",
                 confirmLabel: "Remove",
                 tone: "danger",
               });
@@ -65,11 +66,11 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
 function requestRow(r: PeopleVm["requests"][number]) {
   return html`<li class="rounded-xl bg-subtle p-3">
     <p class="text-sm text-fg">
-      <span class="font-semibold">${r.requesterName}</span> wants to join
+      <span class="font-semibold">${r.requesterName}</span> wants to add photos
     </p>
     <p class="mt-1 text-xs text-muted">
-      Approving means they can see everything in this album, past and future, and can see when
-      you’re connected.
+      They already have the invite link, so they can see the album. Approving lets them add their
+      own photos too.
     </p>
     <div class="mt-2 flex gap-2">
       <button
@@ -82,10 +83,10 @@ function requestRow(r: PeopleVm["requests"][number]) {
         class="ui-btn-primary"
         @click=${() => {
           requests.respond(r.folderId, r.requesterKey, true);
-          toast(`${r.requesterName} is in`);
+          toast(`${r.requesterName} can now add photos`);
         }}
       >
-        Approve
+        Let them add
       </button>
     </div>
   </li>`;
@@ -94,7 +95,7 @@ function requestRow(r: PeopleVm["requests"][number]) {
 function requestsSection(vm: PeopleVm) {
   if (vm.requests.length === 0) return null;
   return html`<section class="ui-card border-l-4 border-l-warn p-5">
-    <h2 class="ui-label mb-3">Waiting for your approval</h2>
+    <h2 class="ui-label mb-3">Asking to add photos</h2>
     <ul class="space-y-2">
       ${vm.requests.map((r) => requestRow(r))}
     </ul>
@@ -105,9 +106,10 @@ function membersSection(vm: PeopleVm) {
   return html`<section class="ui-card p-5">
     <h2 class="ui-label">Members</h2>
     <p class="mb-2 mt-1 text-xs text-muted">
-      Connected means your device can reach them right now. Everyone in the album can see this.
+      Connected means they have Justus open and your phone can reach them right now. Everyone in the
+      album sees this list.
     </p>
-    ${vm.error ? html`<p class="mb-2 text-xs text-danger" role="alert">${vm.error}</p>` : null}
+    ${vm.error ? html`<p class="mb-2 text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
     <ul class="divide-y divide-line">
       ${vm.people.map((p) => memberRow(vm, p))}
     </ul>
@@ -122,35 +124,25 @@ function inviteSection(status: Status) {
       shown === folder.id
         ? html`<div class="-mx-5 -mb-5 mt-3">${invitePanel(folder, status.name)}</div>`
         : html`<p class="mb-3 text-sm text-fg">
-              Show the invite link and QR code for “${folder.name}”.
+              Anyone with the invite link can see every photo in “${folder.name}”. Send it only to
+              people you want in, and never post it in public.
             </p>
-            <button
-              class="ui-btn-ghost"
-              @click=${async () => {
-                const ok = await confirmAction({
-                  title: `Invite people to “${folder.name}”?`,
-                  detail:
-                    "Anyone who gets the link or QR code can ask to join, and the Admin must approve each person. Share it only with people you trust, and not in public places.",
-                  confirmLabel: "Show invite",
-                  tone: "accent",
-                });
-                if (ok) $inviteShownFor.set(folder.id);
-              }}
-            >
-              Show invite…
+            <button class="ui-btn-ghost" @click=${() => $inviteShownFor.set(folder.id)}>
+              Show invite link
             </button>`,
     )}
   </section>`;
 }
 
+/** Enrolling by raw drive key: a troubleshooting path, so it lives under
+ * Advanced; everyday approval goes through the requests above. */
 function enrollSection(status: Status, state: string, busy: boolean) {
   if (status.folder.role !== "creator") return null;
   return html`
-    <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Approve a writer</h2>
-      <p class="mb-3 text-sm text-fg">
-        Paste a device's drive key to add it as a writer directly, or approve pending requests
-        above.
+    <section class="mt-5">
+      <h3 class="text-sm font-semibold text-fg">Add a member by drive key</h3>
+      <p class="mb-3 mt-1 text-sm">
+        Paste a device's drive key and a name to let it add photos without a request.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
@@ -237,7 +229,7 @@ function secretValue(name: string, value: string) {
   </dd>`;
 }
 
-function advancedSection(status: Status) {
+function advancedSection(status: Status, state: string, busy: boolean) {
   const driveKey = status.folder.driveKey || status.driveKey;
   return html`<details class="text-xs text-muted">
     <summary class="ui-label cursor-pointer select-none">Advanced</summary>
@@ -277,14 +269,13 @@ function advancedSection(status: Status) {
         true,
       )}
     </dl>
+    ${enrollSection(status, state, busy)}
   </details>`;
 }
 
 function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncViewModel.get>) {
   const { status, state, busy, error, fatal } = syncVm;
-  const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing"
-    >← Albums & sharing</a
-  >`;
+  const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
   if (!status || status.folder.id !== id) {
     return html`<div class="max-w-2xl space-y-4">
       ${back}
@@ -305,7 +296,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
         ${status.folder.name}
       </h1>
       <span class="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
-        ${roleLabel(status.folder.role)}
+        ${roleLabel(status.folder.role, status.folder.pending)}
       </span>
     </div>
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
@@ -317,7 +308,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       fatal ? () => window.location.reload() : undefined,
     )}
     ${requestsSection(vm)} ${membersSection(vm)} ${inviteSection(status)}
-    ${enrollSection(status, state, busy)} ${advancedSection(status)}
+    ${advancedSection(status, state, busy)}
   </div>`;
 }
 

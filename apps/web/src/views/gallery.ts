@@ -77,6 +77,15 @@ const vtName = (photo: Photo) =>
 const albumName = (folderId?: string) =>
   $folders.get().find((f) => f.id === folderId)?.name ?? "the album";
 
+/** "New album" from Photos: name it in a sheet, then open it, ready for photos. */
+async function newAlbum() {
+  const id = await startAlbum(
+    "Start one per trip, family or group. You can invite people next.",
+    "Create album",
+  );
+  if (id) $router.open(`/albums/${id}`);
+}
+
 /** Resolves where photos can go from `scope`, starting an album first when
  * there is none. Null when there is nowhere (and the user has been told). */
 async function readyPlan(scope: PhotoScope): Promise<AddPlan | null> {
@@ -94,7 +103,7 @@ async function readyPlan(scope: PhotoScope): Promise<AddPlan | null> {
     return { kind: "direct", folderId: id };
   }
   if (plan.kind === "pending") {
-    toast(`“${plan.album.name}” is waiting for the Admin to let you in`);
+    toast(`You can add photos to “${plan.album.name}” once the Admin approves you`);
     return null;
   }
   return plan;
@@ -301,7 +310,7 @@ async function confirmRemove(photo: Photo) {
   if ($galleryState.get() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
-    detail: "It will disappear from every device sharing this album.",
+    detail: "It will disappear from everyone's phone in this album.",
     confirmLabel: "Remove",
     tone: "danger",
   });
@@ -414,23 +423,27 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
 }
 
 function presenceStrip(status: SyncStatus, lastSync: number | null) {
-  const online = status.peers > 0;
   const alone = status.members.length <= 1;
-  const dotLabel = online ? "In sync" : alone ? "Ready to share" : "Waiting for devices";
-  const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
   const others = status.members.length - 1;
+  // Members first, self at index 0 (always "connected" to itself).
+  const connected = status.members.slice(1).filter((m) => m.connected).length;
+  // `peers` counts any swarm connection (not only members), so presence is
+  // read from the member list.
+  const online = connected > 0;
+  const dotLabel = online
+    ? `${connected} connected now`
+    : alone
+      ? "Only you so far. Invite someone to share"
+      : "Nobody connected right now";
+  const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
   return html`
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
       <span class="inline-flex items-center gap-1.5">
         <span class="h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-warn"} ${dotPulse}"></span>
         ${dotLabel}
       </span>
-      ${
-        others > 0
-          ? html`<span>shared with ${others} other${others === 1 ? "" : "s"}</span>`
-          : html`<span>only you so far</span>`
-      }
-      ${lastSync ? html`<span class="text-xs">synced ${formatRelative(lastSync)}</span>` : null}
+      ${others > 0 ? html`<span>shared with ${others} other${others === 1 ? "" : "s"}</span>` : null}
+      ${lastSync ? html`<span class="text-xs">updated ${formatRelative(lastSync)}</span>` : null}
       <span class="flex items-center gap-1.5" aria-hidden="true">
         ${status.members.map(
           (m) => html`<span
@@ -554,7 +567,7 @@ function dropOverlay(page: PhotosPage, scope: PhotoScope) {
       class="rounded-3xl border-2 border-dashed border-accent bg-surface px-8 py-6 text-center text-fg shadow-xl"
     >
       <p class="text-lg font-semibold">Drop to add${where}</p>
-      <p class="mt-1 text-sm text-muted">Photos stay on your devices and the album's.</p>
+      <p class="mt-1 text-sm text-muted">Only the people in the album will get them.</p>
     </div>
   </div>`;
 }
@@ -566,8 +579,8 @@ function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSumma
     return emptyState(
       "No photos in this album yet.",
       canAdd
-        ? "Add the first one. Everyone in the album gets it on their devices."
-        : "Photos appear here as members add them and your device syncs.",
+        ? "Add the first one. Everyone in the album will get it."
+        : "Photos show up here when people in the album add them and have Justus open.",
       add,
     );
   }
@@ -581,14 +594,14 @@ function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSumma
   if (page.folders.length === 0) {
     return emptyState(
       "No photos yet.",
-      "Start an album for a trip, a family or a group, or join a friend's with their invite.",
-      html`<a class="ui-btn-primary inline-flex items-center" href="/sharing">Start an album</a>
-        <a class="ui-btn-ghost inline-flex items-center" href="/join">Join with invite</a>`,
+      "Start an album for a trip, a family or a group, or join someone's with their invite link.",
+      html`<button class="ui-btn-primary" @click=${() => void newAlbum()}>Start an album</button>
+        <a class="ui-btn-ghost inline-flex items-center" href="/join">Join with an invite link</a>`,
     );
   }
   return emptyState(
     "No photos yet.",
-    "Choose photos to keep here. They stay on your devices and sync only with the people in each album.",
+    "Add photos to an album. Only the people in that album get them, straight from your phone.",
     add,
   );
 }
@@ -701,7 +714,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
             ? albumHeader(page, album)
             : html`<a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
                 <p class="text-muted">
-                  ${page.folders.length === 0 ? "Loading…" : "This album isn't on this device."}
+                  ${page.folders.length === 0 ? "Loading…" : "This album isn't on this phone."}
                 </p>`
           : null
       }
@@ -769,7 +782,7 @@ function albumCard(card: AlbumCard, waiting: number) {
         ${count} photo${count === 1 ? "" : "s"}
         ${
           folder.pending
-            ? html` · <span class="font-semibold text-warn">Waiting for the Admin</span>`
+            ? html` · <span class="font-semibold text-warn">Waiting for approval</span>`
             : html` · ${folder.members} member${folder.members === 1 ? "" : "s"}`
         }
       </p>
@@ -806,13 +819,13 @@ function albumGridBody(page: PhotosPage) {
                 ),
               )}
               <li>
-                <a
-                  class="ui-focus flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line text-sm text-muted hover:border-accent hover:text-accent"
-                  href="/sharing"
+                <button
+                  class="ui-focus flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line text-sm text-muted hover:border-accent hover:text-accent"
+                  @click=${() => void newAlbum()}
                 >
                   <span class="text-2xl" aria-hidden="true">＋</span>
                   New album
-                </a>
+                </button>
               </li>
             </ul>`
       }

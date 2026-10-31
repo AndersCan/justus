@@ -1,5 +1,4 @@
 import { html } from "lit-html";
-import { computed } from "nanostores";
 import type { GrantRecord } from "@justus/core";
 import { $requests } from "../machines/requests-machine";
 import { useStore } from "../use-store";
@@ -191,24 +190,21 @@ function devicesPanel() {
 
 export type SharingTab = "albums" | "join" | "devices";
 
-const $sharingTabs = computed([$requests, $grantsViewModel], (reqs, grantsVm) => ({
-  requests: reqs.length,
-  prompts: grantsVm.dueRecords.length,
-}));
-
-/** Albums & sharing: manage albums, join with an invite, and see which
- * devices you share with — one page, three tabs. */
+/** Sharing: your albums' people and invites, and joining with an invite link.
+ * The Devices ledger (`/devices`) is reachable by URL but not linked: choosing
+ * who receives photos isn't enforced yet, so asking users about it would only
+ * confuse them. Link it again once grants are live. */
 export function sharingView(tab: SharingTab) {
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Albums & sharing</h1>
-      ${useStore($sharingTabs, (counts) =>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
+      ${useStore($requests, (reqs) =>
         tabs(
-          "Albums and sharing",
+          "Sharing",
           [
-            { id: "albums", label: "Albums", href: "/sharing", badge: counts.requests },
+            { id: "albums", label: "Your albums", href: "/sharing", badge: reqs.length },
             { id: "join", label: "Join an album", href: "/join" },
-            { id: "devices", label: "Devices", href: "/devices", badge: counts.prompts },
+            ...(tab === "devices" ? [{ id: "devices", label: "Devices", href: "/devices" }] : []),
           ],
           tab,
         ),

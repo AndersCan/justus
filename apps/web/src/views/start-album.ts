@@ -7,9 +7,10 @@ import {
 } from "../machines/folders-machine";
 
 /** "Start an album" sheet, for "Add photos" when there is nowhere to put
- * them yet. Resolves the new album's name, or null on Cancel / Escape /
- * backdrop tap. Same overlay pattern as `confirmAction`. */
-function askAlbumName(detail: string): Promise<string | null> {
+ * them yet, and for "New album" in Photos. Resolves the new album's name, or
+ * null on Cancel / Escape / backdrop tap. Same overlay pattern as
+ * `confirmAction`. */
+function askAlbumName(detail: string, confirmLabel: string): Promise<string | null> {
   return new Promise((resolve) => {
     const host = document.createElement("div");
     document.body.appendChild(host);
@@ -56,7 +57,7 @@ function askAlbumName(detail: string): Promise<string | null> {
             />
             <div class="mt-4 flex justify-end gap-2">
               <button class="ui-btn-ghost" type="button" @click=${() => close(null)}>Cancel</button>
-              <button class="ui-btn-primary" type="submit">Create and add photos</button>
+              <button class="ui-btn-primary" type="submit">${confirmLabel}</button>
             </div>
           </form>
         </div>
@@ -93,8 +94,11 @@ function createAlbum(name: string): Promise<string | null> {
 }
 
 /** Asks for a name and creates the album. Resolves its id, or null. */
-export async function startAlbum(detail: string): Promise<string | null> {
-  const name = await askAlbumName(detail);
+export async function startAlbum(
+  detail: string,
+  confirmLabel = "Create and add photos",
+): Promise<string | null> {
+  const name = await askAlbumName(detail, confirmLabel);
   if (!name) return null;
   return createAlbum(name);
 }

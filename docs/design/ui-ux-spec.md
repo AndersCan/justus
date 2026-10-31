@@ -44,7 +44,7 @@ Layout (single column, mobile-first):
    1. **Share photos with the people you choose.** Family and friends. No account.
    2. **No server.** Photos travel directly between phones.
    3. **You pick what to share.** Photos enter through the picker or camera.
-   4. **Albums and invites.** An Admin starts an album and invites people; the Admin approves each join.
+   4. **Albums and invites.** An Admin starts an album and sends its invite link. Anyone with the link can see the photos; the Admin approves who can add their own.
    5. **Photos live on your devices,** not in the cloud. Keep them on at least one device you trust.
    6. **Connect over WiFi when you can.** Photos move while two members have Justus open. Phones on mobile data can have trouble finding each other; if one of you is on WiFi it usually works.
 
@@ -52,7 +52,7 @@ Layout (single column, mobile-first):
    colour/initials avatar. Copy states the name is shared only with albums you
    join, never a server. Editable later in Settings.
 
-5. **Choose:** primary **"Create an album"**, secondary **"Join with an invite"**.
+5. **Choose:** primary **"Create an album"**, secondary **"Join with an invite link"**.
 
 ### Why this works as a privacy argument
 
@@ -67,8 +67,8 @@ Layout (single column, mobile-first):
 
 - Gallery empty state repeats the diagram in miniature: _"Photos appear here
   when you add them — they stay on this device until you invite someone to the album."_
-- Requests empty state: _"No pending requests. When someone asks to join an
-  album, you approve it here — nothing happens without your yes."_
+- Requests empty state: _"No pending requests. When someone with the invite
+  link asks to add photos, you approve it here."_
 
 ---
 
@@ -95,25 +95,25 @@ there are several. Joining or creating lands in that album.
 
 ### 2.2 The five lessons (in-app training set)
 
-| #                           | Trigger                                              | Lesson (copy sketch)                                                                                                                                                                       | Visual                                  |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
-| L1 **No server**            | end of Welcome                                       | "There is no website behind justus. Your photos move device-to-device. If this app vanished tomorrow, your photos would not."                                                              | crossed-out-cloud motif                 |
-| L2 **Peers hold your data** | first successful share to a peer                     | "Maya's device now holds this photo too. Anyone with the folder can see everything in it — share accordingly."                                                                             | folder card with peer avatars appearing |
-| L3 **Offline-first**        | first offline capture / sync-pending state           | "You're offline — fine. Your photo is saved here and marked ⏳ _waiting_. It travels next time you're near a peer who has the folder."                                                     | sync-pending chip animating to ✓        |
-| L4 **Eventual consistency** | first observed cross-peer edit/delete reconciliation | "Devices compare notes when they meet. Last change wins, and the activity log shows what happened."                                                                                        | two timelines converging                |
-| L5 **Who can see what**     | first new member approved                            | "Nils can now see every photo in _Spain 2026_ — past and future ones. Folder membership is all-or-nothing." **⚠ open:** per-photo grants would change this copy; tracked in issue #25/#30. | membership roster                       |
+| #                           | Trigger                                              | Lesson (copy sketch)                                                                                                                                                                                  | Visual                                  |
+| --------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| L1 **No server**            | end of Welcome                                       | "There is no website behind justus. Your photos move device-to-device. If this app vanished tomorrow, your photos would not."                                                                         | crossed-out-cloud motif                 |
+| L2 **Peers hold your data** | first successful share to a peer                     | "Maya's device now holds this photo too. Anyone with the folder can see everything in it — share accordingly."                                                                                        | folder card with peer avatars appearing |
+| L3 **Offline-first**        | first offline capture / sync-pending state           | "You're offline — fine. Your photo is saved here and marked ⏳ _waiting_. It travels next time you're near a peer who has the folder."                                                                | sync-pending chip animating to ✓        |
+| L4 **Eventual consistency** | first observed cross-peer edit/delete reconciliation | "Devices compare notes when they meet. Last change wins, and the activity log shows what happened."                                                                                                   | two timelines converging                |
+| L5 **Who can see what**     | first new member approved                            | "Nils can now add photos to _Spain 2026_. Like everyone with the invite link, Nils sees every photo, past and future." **⚠ open:** per-photo grants would change this copy; tracked in issue #25/#30. | membership roster                       |
 
 ### 2.3 Joining an album
 
 - Invite = link, QR (in person), or pasted key. All carry the same share key.
 - Requester sees the album name, the Admin's name, and member count, and must
-  confirm: _"Joining means your device holds a copy of this album's photos.
-  Everyone in it can see everything in it, past and future, and can see when
-  you're connected."_
-- After sending, the requester sees _"Waiting for the Admin to approve you."_
-- Admin approves in the album's People sheet (§2.6); the approval repeats the
-  same line from the Admin's side.
-- The Admin's device decides who can join. If it is lost, no one new can be
+  confirm: _"You'll see every photo in this album, old and new, and a copy is
+  kept on this phone. People in the album can see when you have Justus open."_
+  The invite alone grants viewing; approval is only needed to add photos.
+- After joining, the requester sees _"You can look, but not add photos yet."_
+  naming the Admin who needs to approve.
+- Admin approves in the album's People sheet (§2.6) with "Let them add".
+- The Admin's device decides who can add photos. If it is lost, no one new can be
   approved; existing members keep their photos. State this plainly in Help.
   Admin transfer is tracked in a GitHub issue, not designed here.
 

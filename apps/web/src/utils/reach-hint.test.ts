@@ -36,6 +36,6 @@ describe("reachHintText", () => {
     expect(reachHintText("Maya")).toBe(
       "Can't reach Maya. If you're both on mobile data, ask one of you to switch to WiFi.",
     );
-    expect(reachHintText("")).toMatch(/^Can't reach anyone yet\./);
+    expect(reachHintText("")).toMatch(/^Can't reach anyone in this album yet\./);
   });
 });

@@ -16,7 +16,7 @@ test("sharing view shows honest empty states, no console errors", async ({ page 
 
   // The heading renders once the grants machine has loaded (not wedged on a
   // spinner).
-  await expect(page.getByRole("heading", { name: "Albums & sharing" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible({
     timeout: 20_000,
   });
 

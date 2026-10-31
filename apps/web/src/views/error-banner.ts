@@ -1,4 +1,5 @@
 import { html, type TemplateResult } from "lit-html";
+import { friendlyError } from "../utils/friendly-error";
 
 /** Error banner shared by the gallery and sync views; shows a retry button
  * when the view is in its recoverable error state (pass a handler then), and
@@ -12,8 +13,10 @@ export function errorBanner(
   if (!error) return null;
   return html`<div
     class="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+    role="alert"
+    title=${error}
   >
-    ${error}
+    ${friendlyError(error)}
     ${
       onReload
         ? html`<button

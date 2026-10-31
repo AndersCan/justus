@@ -17,6 +17,6 @@ export function unreachableMember(status: SyncStatus | null): string | null {
 }
 
 export function reachHintText(name: string): string {
-  const who = name || "anyone yet";
-  return `Can't reach ${who}. If you're both on mobile data, ask one of you to switch to WiFi.`;
+  if (!name) return "Can't reach anyone in this album yet. If you're on mobile data, try WiFi.";
+  return `Can't reach ${name}. If you're both on mobile data, ask one of you to switch to WiFi.`;
 }

@@ -8,11 +8,6 @@ import { buildInvite } from "../utils/invite";
 import { qrPath } from "../utils/qr";
 import { toast } from "./toast";
 
-/** Group a 64-char hex key as "8 groups of 8" — readable, copyable. */
-export function groupKey(key: string): string {
-  return key.replace(/(.{8})/g, "$1 ").trim();
-}
-
 export async function copyText(value: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
@@ -48,9 +43,9 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
   toast((await copyText(link)) ? "Invite link copied" : "Couldn't copy the invite");
 }
 
-const $copied = atom<"link" | "key" | null>(null);
+const $copied = atom<"link" | null>(null);
 
-async function copy(kind: "link" | "key", value: string) {
+async function copy(kind: "link", value: string) {
   const ok = await copyText(value);
   $copied.set(ok ? kind : null);
   setTimeout(() => $copied.set(null), 2000);
@@ -70,17 +65,20 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** Invite surface: copyable link, QR for in person, and the raw key. */
+/** Invite surface: copyable link and a QR for in person. The raw share key
+ * lives under the album page's Advanced section. */
 export function invitePanel(folder: FolderSummary, myName: string) {
   const link = inviteLinkFor(folder, myName);
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite to “${folder.name}”</h2>
       <p class="mb-4 text-sm text-fg">
+        Anyone with this link can see every photo in the album, so send it only to people you want
+        in.
         ${
           folder.role === "creator"
-            ? "Send the link or show the QR. You approve each person who asks to join."
-            : "Anyone you invite asks to join, and the Admin approves them."
+            ? "You choose who can add their own photos."
+            : "The Admin chooses who can add their own photos."
         }
       </p>
       <div class="flex flex-wrap gap-2">
@@ -100,19 +98,13 @@ export function invitePanel(folder: FolderSummary, myName: string) {
                   </button>`
                 : null
             }
-            <button class="ui-btn-ghost" @click=${() => void copy("key", folder.shareKey)}>
-              ${copied === "key" ? "Copied ✓" : "Copy key"}
-            </button>
           `,
         )}
       </div>
       <div class="mt-4">${qrCode(link)}</div>
-      <p class="mt-2 text-center text-xs text-muted">Scan in person, or paste the key instead.</p>
-      <div
-        class="mt-3 rounded-2xl bg-subtle px-4 py-3 font-mono text-[11px] leading-relaxed tracking-widest text-fg"
-      >
-        ${groupKey(folder.shareKey)}
-      </div>
+      <p class="mt-2 text-center text-xs text-muted">
+        Together? They can scan this with their phone's camera.
+      </p>
     </section>
   `;
 }
@@ -122,7 +114,6 @@ export function invitePanel(folder: FolderSummary, myName: string) {
 export function inviteConsentSheet() {
   return useStore($inviteViewModel, ({ invite }) => {
     if (!invite) return null;
-    const who = invite.admin ? `${invite.admin}’s` : "this";
     const title = invite.name ? `Join “${invite.name}”?` : "Join this album?";
     const meta = [
       invite.admin ? `Admin: ${invite.admin}` : null,
@@ -143,13 +134,15 @@ export function inviteConsentSheet() {
           <h3 class="break-words text-base font-semibold text-fg">${title}</h3>
           ${meta.length > 0 ? html`<p class="mt-1 text-xs text-muted">${meta.join(" · ")}</p>` : null}
           <p class="mt-3 text-sm text-fg">
-            Joining means your device holds a copy of ${who} album’s photos. Everyone in it can see
-            everything in it, past and future, and can see when you’re connected.
+            You’ll see every photo in this album, old and new, and a copy is kept on this phone.
+            People in the album can see when you have Justus open.
           </p>
-          <p class="mt-2 text-sm text-muted">The Admin has to approve you before you’re in.</p>
+          <p class="mt-2 text-sm text-muted">
+            To add your own photos, ${invite.admin ?? "the Admin"} needs to approve you.
+          </p>
           <div class="mt-4 flex justify-end gap-2">
             <button class="ui-btn-ghost" @click=${() => invites.cancel()}>Cancel</button>
-            <button class="ui-btn-primary" @click=${() => invites.confirm()}>Ask to join</button>
+            <button class="ui-btn-primary" @click=${() => invites.confirm()}>Join album</button>
           </div>
         </div>
       </div>
@@ -157,10 +150,18 @@ export function inviteConsentSheet() {
   });
 }
 
-/** Shown on an album this device asked to join and the Admin hasn't approved. */
+/** Who to name when waiting on the Admin: their name once known, else the role. */
+export function adminName(status: { members: { admin: boolean; name: string }[] } | null): string {
+  const name = status?.members.find((m) => m.admin)?.name;
+  return name && name !== "Unknown device" ? name : "the Admin";
+}
+
+/** Shown on an album this device joined and the Admin hasn't approved yet:
+ * it can already see the photos, but not add any. */
 export function waitingForAdmin() {
-  return useStore($syncStatus, (status) =>
-    status?.folder?.pending
+  return useStore($syncStatus, (status) => {
+    const admin = adminName(status);
+    return status?.folder?.pending
       ? html`<div
           class="ui-card flex items-center gap-3 border-l-4 border-l-warn p-4"
           role="status"
@@ -169,13 +170,13 @@ export function waitingForAdmin() {
             class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
           ></span>
           <p class="text-sm text-fg">
-            <span class="font-semibold">Waiting for the Admin to let you in.</span>
-            The Admin is the person who started this album. They need to open Justus on their phone
-            to approve you, so you may want to remind them.
+            <span class="font-semibold">You can look, but not add photos yet.</span>
+            ${admin === "the Admin" ? "The Admin, who started this album," : admin} needs to open
+            Justus to approve you, so you may want to remind them.
           </p>
         </div>`
-      : null,
-  );
+      : null;
+  });
 }
 
 /** Invites that reach the app from outside: a link opened by the host at cold

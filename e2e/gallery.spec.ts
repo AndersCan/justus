@@ -178,16 +178,18 @@ test("the Compact grid setting shrinks the photo tiles", async ({ page }) => {
   expect(compact).toBeLessThan(comfortable * 0.8);
 });
 
-test("an album page shows members and keeps the invite behind a confirmation", async ({ page }) => {
+test("an album page shows members and keeps the invite behind a deliberate tap", async ({
+  page,
+}) => {
   await page.goto("/sharing");
   await page
-    .getByRole("link", { name: /^Manage / })
+    .getByRole("link", { name: /^Invite & members of / })
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Copy invite link" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show invite…" }).click();
-  await page.getByRole("button", { name: "Show invite", exact: true }).click();
+  await expect(page.getByText(/Anyone with the invite link can see every photo/)).toBeVisible();
+  await page.getByRole("button", { name: "Show invite link" }).click();
   await expect(page.getByRole("button", { name: "Copy invite link" })).toBeVisible();
 });
 

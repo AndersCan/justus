@@ -20,11 +20,14 @@ import { $requests, requests } from "../machines/requests-machine";
 import { people } from "../machines/people-machine";
 import { $router } from "../router";
 import { useStore } from "../use-store";
+import { friendlyError } from "../utils/friendly-error";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
 
-/** User-facing role words (CONTEXT.md "User-facing words"). */
-export function roleLabel(role: FolderSummary["role"]): string {
+/** User-facing role words (CONTEXT.md "User-facing words"). A pending join is
+ * a Reader in code, but to the user it is a request still waiting. */
+export function roleLabel(role: FolderSummary["role"], pending = false): string {
+  if (pending) return "Waiting for approval";
   if (role === "creator") return "Admin";
   if (role === "member") return "Member";
   return "Viewer";
@@ -35,7 +38,7 @@ async function pasteKey(input: HTMLInputElement) {
     input.value = (await navigator.clipboard.readText()).trim();
     invites.clearError();
   } catch {
-    toast("Couldn't read the clipboard. Paste the invite into the box.");
+    toast("Couldn't read the clipboard. Paste the invite link into the box.");
   }
 }
 
@@ -58,7 +61,9 @@ $syncState.listen((state) => {
   if (seenJoin === "joining" && state === "ok") {
     const folder = $syncStatus.get()?.folder;
     toast(
-      folder?.pending ? "Request sent. Waiting for the Admin." : "You're in. Photos are syncing",
+      folder?.pending
+        ? "You're in. You can add photos once the Admin approves you"
+        : "You're in. Photos are on their way",
     );
     $router.open(folder ? `/albums/${folder.id}` : "/", true);
   }
@@ -104,23 +109,25 @@ $router.listen((page, old) => {
 type FoldersViewModel = ReturnType<typeof $foldersViewModel.get>;
 type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
 
+/** "Admin · 3 members", one text node so it reads (and matches) as one line. */
+function roleAndCount(folder: FolderSummary): string {
+  const count = `${folder.members} member${folder.members === 1 ? "" : "s"}`;
+  return `${roleLabel(folder.role, folder.pending)} · ${count}`;
+}
+
 function albumRow(folder: FolderSummary) {
   return html`
     <li class="flex items-center gap-3 rounded-2xl border border-line p-4">
       <a
         class="ui-focus min-w-0 flex-1"
         href="/sharing/${folder.id}"
-        aria-label="Manage ${folder.name}"
+        aria-label="Invite & members of ${folder.name}"
       >
         <span class="block truncate text-lg font-medium text-fg">${folder.name}</span>
-        <span class="mt-0.5 block text-xs text-muted">
-          ${roleLabel(folder.role)} · ${folder.members} member${folder.members === 1 ? "" : "s"}
-          ${
-            folder.pending
-              ? html` · <span class="font-semibold text-warn">Waiting for the Admin</span>`
-              : null
-          }
-        </span>
+        <span
+          class="mt-0.5 block text-xs ${folder.pending ? "font-semibold text-warn" : "text-muted"}"
+          >${roleAndCount(folder)}</span
+        >
       </a>
       ${useStore($requests, (reqs) => {
         const waiting =
@@ -196,9 +203,9 @@ function newAlbumSection(view: FoldersViewModel) {
 function joinSection(state: string, busy: boolean) {
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Join with an invite</h2>
+      <h2 class="ui-label mb-1">Join with an invite link</h2>
       <p class="mb-3 text-sm text-fg">
-        Paste an invite link or key to ask to join someone's album. The Admin approves your request.
+        Got an invite link from someone? Paste it here to see their album.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
@@ -210,8 +217,8 @@ function joinSection(state: string, busy: boolean) {
       >
         <input
           class="ui-input flex-1"
-          placeholder="Paste an invite link or key"
-          aria-label="Invite link or key"
+          placeholder="Paste the invite link"
+          aria-label="Invite link"
           spellcheck="false"
           autocapitalize="none"
           autocomplete="off"
@@ -244,7 +251,9 @@ function joinSection(state: string, busy: boolean) {
         </div>
       </form>
       ${useStore($inviteError, (err) =>
-        err ? html`<p class="mt-2 text-xs text-danger" role="alert">${err}</p>` : null,
+        err
+          ? html`<p class="mt-2 text-xs text-danger" role="alert">${friendlyError(err)}</p>`
+          : null,
       )}
       ${useStore($joinProgress, (joining) =>
         joining
@@ -252,7 +261,7 @@ function joinSection(state: string, busy: boolean) {
               <span
                 class="h-2 w-2 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
               ></span>
-              Connecting to the album…
+              Finding the album… This works best while the person who invited you has Justus open.
             </p>`
           : null,
       )}
@@ -260,7 +269,7 @@ function joinSection(state: string, busy: boolean) {
   `;
 }
 
-/** Sharing → Albums: every album with its people, plus starting a new one. */
+/** Sharing → Your albums: every album with its people, plus starting a new one. */
 export function albumsPanel() {
   return useStore(
     $foldersViewModel,
@@ -271,8 +280,8 @@ export function albumsPanel() {
         view.fatal ? () => window.location.reload() : undefined,
       )}
       <p class="text-sm text-muted">
-        Each album has its own people and its own invite. Open one to invite people or approve
-        requests.
+        Each album has its own people and its own invite link. Open one to invite someone or to let
+        people add photos.
       </p>
       ${albumList(view)} ${newAlbumSection(view)}
     `,

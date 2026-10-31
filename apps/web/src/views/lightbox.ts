@@ -55,7 +55,7 @@ async function removeFromLightbox(photo: Photo) {
   if ($galleryState.get() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
-    detail: "It will disappear from every device sharing this album.",
+    detail: "It will disappear from everyone's phone in this album.",
     confirmLabel: "Remove",
     tone: "danger",
   });

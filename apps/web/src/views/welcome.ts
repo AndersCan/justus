@@ -15,6 +15,7 @@ import { $inviteError, invites } from "../machines/invite-machine";
 import { $router } from "../router";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
+import { friendlyError } from "../utils/friendly-error";
 
 const SEEN_KEY = "justus:welcome-seen";
 
@@ -47,27 +48,27 @@ export const INTRO_CARDS: { icon: string; title: string; body: string }[] = [
   {
     icon: "🚫☁",
     title: "No server",
-    body: "Photos are only stored on you and your friends phones.",
+    body: "Photos are kept only on your phone and the phones of the people you share with.",
   },
   {
     icon: "📷",
     title: "You pick what to share",
-    body: "Photos enter through the picker or the camera, never automatically.",
+    body: "Only the photos you choose or take in Justus are shared. Nothing is added by itself.",
   },
   {
     icon: "✉️",
-    title: "Albums and invites",
-    body: "An Admin starts an album and invites people. The Admin approves each join.",
+    title: "Albums and invite links",
+    body: "Start an album and send its invite link. Anyone with the link can see the photos, so send it only to people you want in. You decide who can add their own.",
   },
   {
     icon: "📱",
-    title: "Photos live on your devices",
-    body: "Not in the cloud. Keep them on at least one device you trust.",
+    title: "No cloud copy",
+    body: "If a photo is only on a phone that gets lost, it is gone. Once someone else in the album has received it, it is much safer.",
   },
   {
     icon: "📶",
-    title: "Connect over WiFi when you can",
-    body: "Photos move while two members have Justus open. Phones on mobile data can have trouble finding each other; if one of you is on WiFi it usually works.",
+    title: "Use WiFi when you can",
+    body: "Photos arrive while you and the others have Justus open. Two phones on mobile data can have trouble reaching each other; WiFi on one of them usually fixes it.",
   },
 ];
 
@@ -182,7 +183,7 @@ function profileStep(vm: ReturnType<typeof $onboardingViewModel.get>) {
       <p class="text-xs text-muted">
         Your colour and initials come from your name. Edit it later in Settings.
       </p>
-      ${vm.error ? html`<p class="text-xs text-danger" role="alert">${vm.error}</p>` : null}
+      ${vm.error ? html`<p class="text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
       <div class="flex justify-between gap-3">
         <button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>Back</button>
         <button class="ui-btn-primary" type="submit" ?disabled=${vm.saving}>
@@ -222,7 +223,7 @@ function chooseStep() {
             <button class="ui-btn-primary w-full" type="submit" ?disabled=${busy}>
               ${vm.state === "creating" ? "Creating…" : "Create an album"}
             </button>
-            ${vm.error ? html`<p class="text-xs text-danger" role="alert">${vm.error}</p>` : null}
+            ${vm.error ? html`<p class="text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
           <form
             class="ui-card space-y-3 p-5"
@@ -234,11 +235,11 @@ function chooseStep() {
               invites.receive(input.value);
             }}
           >
-            <h2 class="ui-label">Join with an invite</h2>
+            <h2 class="ui-label">Join with an invite link</h2>
             <input
               class="ui-input"
-              placeholder="Paste an invite link or key"
-              aria-label="Invite link or key"
+              placeholder="Paste the invite link"
+              aria-label="Invite link"
               spellcheck="false"
               autocapitalize="none"
               autocomplete="off"
@@ -246,11 +247,11 @@ function chooseStep() {
               @input=${() => invites.clearError()}
             />
             ${useStore($inviteError, (err) =>
-              err ? html`<p class="text-xs text-danger" role="alert">${err}</p>` : null,
+              err
+                ? html`<p class="text-xs text-danger" role="alert">${friendlyError(err)}</p>`
+                : null,
             )}
-            <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>
-              Join with an invite
-            </button>
+            <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>Join album</button>
           </form>
         `;
       })}

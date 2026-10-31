@@ -19,11 +19,13 @@ test("a new album opens in Photos; All shows every photo; Albums narrows to one"
     .first()
     .getByRole("link", { name: "Sharing" })
     .click();
-  await expect(page.getByRole("heading", { name: "Albums & sharing" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible();
   const list = page.getByRole("list", { name: "Your albums" });
   await expect(list.getByRole("listitem")).toHaveCount(1, { timeout: 20_000 });
   await expect(list.getByText(/Admin · 1 member/)).toBeVisible();
-  const seedName = (await list.locator('a[aria-label^="Manage "] span').first().innerText()).trim();
+  const seedName = (
+    await list.locator('a[aria-label^="Invite & members of "] span').first().innerText()
+  ).trim();
 
   await page.getByLabel("Album name").fill("Trip 2026");
   await page.getByRole("button", { name: "Create album" }).click();
@@ -47,4 +49,15 @@ test("a new album opens in Photos; All shows every photo; Albums narrows to one"
   await albums.getByRole("link", { name: new RegExp(`^${seedName}, `) }).click();
   await expect(page.getByRole("heading", { name: seedName })).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("figure img")).toHaveCount(total, { timeout: 20_000 });
+});
+
+test("New album in Photos names the album in place and opens it", async ({ page }) => {
+  await page.goto("/albums");
+  await page.getByRole("button", { name: "New album" }).click();
+  const sheet = page.getByRole("dialog", { name: "Start an album" });
+  await sheet.getByLabel("Album name").fill("Garden");
+  await sheet.getByRole("button", { name: "Create album" }).click();
+
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Garden" })).toBeVisible({ timeout: 20_000 });
 });

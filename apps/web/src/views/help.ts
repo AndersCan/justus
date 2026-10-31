@@ -6,14 +6,14 @@ const QA: { q: string; a: string[] }[] = [
     a: [
       "Justus is a photo sharing app that shares files peer to peer.",
       "What is peer to peer? Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. With peer to peer, there is no server in the middle. Your photos go straight from your phone to the phones of the people you share the album with.",
-      "That means no company, including us, ever gets a copy of your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you are both online.",
+      "That means no company, including us, ever gets a copy of your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you both have Justus open.",
     ],
   },
   {
     q: "Why don't I see my friend's new photos?",
     a: [
-      "Photos only travel while both phones have Justus open and can reach each other. If your friend's phone is off or Justus is closed, their new photos will show up the next time you are both online.",
-      "To check, open the People tab. It shows who is connected right now and when everyone else was last seen.",
+      "Photos only travel while both phones have Justus open and can reach each other. If your friend's phone is off or Justus is closed, their new photos will show up the next time you both have Justus open.",
+      "To check, open the album and tap Invite & members. It shows who is connected right now and when everyone else was last seen.",
     ],
   },
   {
@@ -26,16 +26,16 @@ const QA: { q: string; a: string[] }[] = [
   {
     q: "What if I lose my phone?",
     a: [
-      "Your photos are stored on the phones in the album, not in the cloud. A phone only has the photos it has synced, so a photo is safe if at least one other phone has synced it. Photos that only existed on the lost phone are gone.",
-      "On a new phone, ask to join the album again with a new invite.",
-      "If the lost phone belonged to the Admin, nobody new can be approved. Everyone already in the album keeps their photos and keeps syncing. Passing the Admin role to someone else isn't possible yet.",
+      "Your photos are stored on the phones in the album, not in the cloud. A phone only has the photos it has received, so a photo is safe once at least one other phone has received it. Photos that only existed on the lost phone are gone.",
+      "On a new phone, join the album again with its invite link.",
+      "If the lost phone belonged to the Admin, nobody new can be approved. Everyone already in the album keeps their photos and keeps getting new ones. Passing the Admin role to someone else isn't possible yet.",
     ],
   },
   {
     q: "Who can see an album?",
     a: [
-      "Anyone who has the album's invite can see its photos, even before the Admin approves them. Approval is what lets someone add photos. So send the invite only to the people you want in the album, and don't post it anywhere public.",
-      "Removing someone stops them adding photos. If they kept the invite, they can still see new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
+      "Anyone who has the album's invite link can see its photos, even before the Admin approves them. Approval is what lets someone add photos. So send the invite link only to the people you want in the album, and don't post it anywhere public.",
+      "Removing someone stops them adding photos. If they kept the invite link, they can still see new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
     ],
   },
   {
