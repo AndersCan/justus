@@ -127,7 +127,8 @@ function devicesBody(view: SharingViewModel) {
   return html`
     <div class="flex items-start justify-between gap-3">
       <p class="text-sm text-muted">
-        Devices that hold one of your albums, and whether your device sends them photos.
+        Devices that hold one of your albums. Choosing who gets your photos isn't active yet: today
+        every device with an album's invite receives its photos.
       </p>
       <button
         class="ui-btn-ghost shrink-0"

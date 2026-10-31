@@ -5,8 +5,8 @@ const QA: { q: string; a: string[] }[] = [
     q: "What is Justus?",
     a: [
       "Justus is a photo sharing app that shares files peer to peer.",
-      "What is peer to peer? Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. With peer to peer, there is no server in the middle. Your photos go straight from your phone to the phones of the people in your album, and only them.",
-      "That means nobody else, including us, can see your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you are both online.",
+      "What is peer to peer? Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. With peer to peer, there is no server in the middle. Your photos go straight from your phone to the phones of the people you share the album with.",
+      "That means no company, including us, ever gets a copy of your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you are both online.",
     ],
   },
   {
@@ -32,10 +32,17 @@ const QA: { q: string; a: string[] }[] = [
     ],
   },
   {
+    q: "Who can see an album?",
+    a: [
+      "Anyone who has the album's invite can see its photos, even before the Admin approves them. Approval is what lets someone add photos. So send the invite only to the people you want in the album, and don't post it anywhere public.",
+      "Removing someone stops them adding photos. If they kept the invite, they can still see new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
+    ],
+  },
+  {
     q: "What can the Admin see and do?",
     a: [
-      "The Admin is the person who started the album. They approve everyone who wants to join, and they can remove members.",
-      "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected. Nobody outside the album can see anything, because there is no server in between.",
+      "The Admin is the person who started the album. They approve who can add photos, and they can remove members.",
+      "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
     ],
   },
 ];

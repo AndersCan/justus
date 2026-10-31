@@ -57,7 +57,7 @@ A mantaq state machine that owns a slice of app state. All state in Justus is mo
 _Avoid_: reducer, store, controller
 
 **Encryption**:
-Photos are encrypted at rest and in transit by the storage layer, and access is keyed by the share key. Not zero-knowledge: any member holding the share key can read any photo.
+Photos are encrypted in transit (Hyperswarm's Noise connections). At rest they are not encrypted by Justus: the corestore and the photo spool in the cache dir are plain files, protected only by the OS (Android and iOS encrypt app storage; desktops only with FileVault/LUKS). Access is keyed by the share key: anyone holding it can read every photo, approved or not, and removal does not revoke it.
 _Avoid_: e2e encrypted (misleading), end-to-end encrypted
 
 ## User-facing words
@@ -70,7 +70,7 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Cannot touch others' photos.     |
 | Member           | **Member**                     | Can add photos.                                                                          |
 | Reader           | **Viewer**                     | Can only look.                                                                           |
-| Share key        | **Invite**                     | Delivered as copyable link, QR, or pasted key. Joining still needs Admin approval.       |
+| Share key        | **Invite**                     | Copyable link, QR, or pasted key. Grants viewing at once; approval is needed to add.     |
 | Registry         | _(hidden)_                     |                                                                                          |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join. |
 | Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                       |
