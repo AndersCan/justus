@@ -112,7 +112,7 @@ jobs:
           echo "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$JUSTUS_UPLOAD_STORE_FILE"
           printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$SUPPLY_JSON_KEY"
       - name: Build and upload to internal track
-        if: ${{ inputs.upload != false }}
+        if: ${{ github.event_name == 'push' || inputs.upload }}
         env:
           JUSTUS_UPLOAD_STORE_PASSWORD: ${{ secrets.JUSTUS_UPLOAD_STORE_PASSWORD }}
           JUSTUS_UPLOAD_KEY_ALIAS: ${{ secrets.JUSTUS_UPLOAD_KEY_ALIAS }}
@@ -121,7 +121,7 @@ jobs:
       # First release: Play's API can't see the app yet, so build only and
       # upload the artifact by hand. versionCode 1 is fine for that one.
       - name: Build only
-        if: ${{ inputs.upload == false }}
+        if: ${{ github.event_name != 'push' && !inputs.upload }}
         env:
           JUSTUS_UPLOAD_STORE_PASSWORD: ${{ secrets.JUSTUS_UPLOAD_STORE_PASSWORD }}
           JUSTUS_UPLOAD_KEY_ALIAS: ${{ secrets.JUSTUS_UPLOAD_KEY_ALIAS }}
