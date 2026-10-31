@@ -163,8 +163,10 @@ a build. The first bundle must go through the Play Console UI.
 ## Part B: every release
 
 1. **Gate locally.** `vp check`, `vp run -r test`, and `pnpm test:native`
-   (Maestro on the arm64 AVD). CI doesn't run device tests, and release builds
-   differ from debug: no WebView debugging, 15 s handoff deadline instead of 90 s.
+   (Maestro on the arm64 AVD). The release workflow repeats all three (Maestro
+   on an x86_64 emulator) before uploading, but on the debug APK: release
+   builds differ (no WebView debugging, 15 s handoff deadline instead of 90 s),
+   so step 3 still matters.
 2. **Build and upload:** push tag `vX.Y.Z`, or run the workflow with
    `version_name`. CI runs `fastlane internal`, which:
    - sets `versionCode` to one above the highest code on any Play track, so a

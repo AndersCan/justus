@@ -87,7 +87,7 @@ echo "▶ Resolving target device..."
 
 "$ADB" start-server >/dev/null 2>&1 || true
 
-declare -a ATTACHED
+ATTACHED=()
 while IFS=$'\t' read -r serial state; do
   [[ -z "$serial" ]] && continue
   [[ "$serial" == "List of devices attached" ]] && continue
@@ -112,7 +112,7 @@ if [[ -n "${1:-}" ]]; then
   echo "Using explicitly requested serial: $SERIAL"
 else
   booted_serials=()
-  for d in "${ATTACHED[@]}"; do
+  for d in ${ATTACHED[@]+"${ATTACHED[@]}"}; do
     serial="${d%%:*}"
     state="${d##*:}"
     if [[ "$state" == "device" && "$serial" == emulator-* ]]; then
@@ -168,7 +168,10 @@ fi
 # ----------------------------------------------------------------------------
 echo
 echo "▶ Installing APK on $SERIAL..."
-if ! "$ADB" -s "$SERIAL" install -r "$REPO_ROOT/$APK"; then
+# Uninstall first: every flow clears state anyway, and `install -r` needs room
+# for two copies of the ~120 MB APK, which small AVD data partitions lack.
+"$ADB" -s "$SERIAL" uninstall no.cankode.justus >/dev/null 2>&1 || true
+if ! "$ADB" -s "$SERIAL" install "$REPO_ROOT/$APK"; then
   echo "ERROR: APK install failed on $SERIAL." >&2
   exit 1
 fi

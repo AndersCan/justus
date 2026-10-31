@@ -25,7 +25,7 @@ permissions:
 jobs:
   bundle:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     environment: play
     defaults:
       run:
@@ -68,6 +68,42 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Gate on check + unit tests
         run: pnpm exec vp check && pnpm exec vp run -r test
+      # Device gate: the debug APK on an x86_64 emulator, running .maestro/flows
+      # (boot + native photo picker). Runs before any signing material exists.
+      - name: Enable KVM
+        working-directory: .
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install Maestro
+        working-directory: .
+        env:
+          MAESTRO_VERSION: "2.8.0"
+          MAESTRO_SHA256: b3e561161904fb391875ca5834d5b22cf0b01c052dd1b408ad83e30d8f8951b3
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-$MAESTRO_VERSION/maestro.zip"
+          echo "$MAESTRO_SHA256  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+      - name: Gate on Maestro device flows
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/maestro-e2e.sh emulator-5554
+      - name: Upload Maestro diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: maestro-out
+          path: .maestro/out
+          retention-days: 14
       - name: Write upload keystore and Play key
         env:
           UPLOAD_KEYSTORE_BASE64: ${{ secrets.JUSTUS_UPLOAD_KEYSTORE_BASE64 }}
