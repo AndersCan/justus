@@ -267,6 +267,22 @@ type StreamSource = {
  * device-storage use. Mirrors the upload cap in the upload route. */
 const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
 
+/** Cap on a small JSON record read off a drive (`/members.json`,
+ * `/requests.json`, `/device.json`, ...). Any member, or any peer on an album
+ * topic for `/requests.json`, controls these bytes; without a cap one file can
+ * exhaust the worklet's memory. 1 MiB holds thousands of members. */
+const MAX_PEER_JSON_BYTES = 1024 * 1024;
+
+/** Longest display name or album name taken from a peer's drive. */
+const MAX_PEER_NAME = 80;
+
+/** A name read off a peer's drive: trimmed and clipped, else `fallback`. */
+function peerName(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const clean = value.trim().slice(0, MAX_PEER_NAME);
+  return clean || fallback;
+}
+
 /** Pumps a source stream into a file, resolving with the byte count. Pass
  * `maxBytes` to fail (and abort) once the stream exceeds it.
  *
@@ -340,7 +356,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * Uses lstat + readlinkSync (realpathSync is unavailable in bare-fs) so the
    * link is never followed.
    */
-  const assertNoSymlink = (resolved: string, root: string): void => {
+  const assertNoSymlink = (resolved: string, root: string, hops = 0): void => {
+    // A symlink target is itself walked (below), so a chain a -> b -> /etc or
+    // a -> dir/x with dir -> /elsewhere cannot leave the roots one hop at a
+    // time. 40 matches the kernel's ELOOP limit.
+    if (hops > 40) throw new Error("too many symlinks");
     const rootResolved = path.resolve(root);
     // Walk only the components strictly *inside* the matched root (the root
     // directory itself is not re-checked).
@@ -364,9 +384,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // Reject only when following the link would leave every allowed root.
         const target = fs.readlinkSync(acc);
         const targetResolved = path.resolve(path.dirname(acc), target);
-        if (!importRoots.some((r) => isWithinRoot(targetResolved, r))) {
+        const targetRoot = importRoots.find((r) => isWithinRoot(targetResolved, r));
+        if (!targetRoot) {
           throw new Error("symlink escapes allowed root");
         }
+        assertNoSymlink(targetResolved, targetRoot, hops + 1);
       }
     }
   };
@@ -471,10 +493,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Reads a small text record, or null when missing, unreadable, or larger
+   * than {@link MAX_PEER_JSON_BYTES}. The size is checked on the entry before
+   * the blob downloads, and again on the bytes (drives without `entry`). */
   async function getText(drive: Drive, drivePath: string): Promise<string | null> {
     try {
+      if (typeof drive.entry === "function") {
+        const node = await drive.entry(drivePath);
+        const size = node?.value?.blob?.byteLength;
+        if (typeof size === "number" && size > MAX_PEER_JSON_BYTES) return null;
+      }
       const value = await drive.get(drivePath);
       if (value === null || value === undefined) return null;
+      if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
       return new TextDecoder().decode(value as Uint8Array);
     } catch {
       return null;
@@ -583,7 +614,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (text) {
       try {
         const parsed = JSON.parse(text) as { name?: unknown };
-        if (typeof parsed.name === "string") name = parsed.name;
+        name = peerName(parsed.name, name);
       } catch {
         // non-JSON — fall through
       }
@@ -745,7 +776,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (text === null) return "";
     try {
       const parsed = JSON.parse(text) as { version?: unknown; name?: unknown };
-      if (parsed.version === 1 && typeof parsed.name === "string") return parsed.name;
+      if (parsed.version === 1) return peerName(parsed.name, "");
     } catch {
       // malformed
     }
@@ -926,6 +957,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.record.pending = false;
     rt.record.driveKey = selfKey;
     await refreshMembersFor(rt);
+    await pruneJoinRequests();
     deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
     return true;
   }
@@ -1429,15 +1461,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return [];
         }
         const out: JoinRequest[] = [];
-        for (const req of Object.values(parsed.requests)) {
+        // Every field is the requester's own claim: check shapes, never trust them.
+        for (const raw of Object.values(parsed.requests) as unknown[]) {
+          if (!isTextJSON(raw)) continue;
+          const req = raw as Record<string, unknown>;
           if (req.shareKey !== shareKey) continue;
+          if (typeof req.requesterKey !== "string" || !isHexKey(req.requesterKey)) continue;
           out.push({
-            requesterKey: req.requesterKey,
-            requesterName: req.requesterName || "Unknown device",
+            requesterKey: req.requesterKey.toLowerCase(),
+            requesterName: peerName(req.requesterName, "Unknown device"),
             folderId: rt.record.id,
-            folderName: req.folderName || rt.record.name,
+            folderName: peerName(req.folderName, rt.record.name),
             shareKey,
-            requestedAt: req.requestedAt,
+            requestedAt:
+              typeof req.requestedAt === "number" && Number.isFinite(req.requestedAt)
+                ? req.requestedAt
+                : 0,
           });
         }
         return out;
@@ -1528,6 +1567,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await refreshMembersFor(rt);
       watchDrive(fd, record.id, hex(fd.key), isCreator ? "enroll" : "add");
     }
+    await pruneJoinRequests();
 
     // A fresh install has no albums: photos only exist inside an album the user
     // starts or joins. Dev builds start one with sample photos to look at.
@@ -1577,6 +1617,42 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
     if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
     return rt;
+  }
+
+  /** Drops every outbox entry that is no longer a pending request. The outbox
+   * is keyed by share key and lives on the identity drive, which every holder
+   * of a pre-#195 album can read (its share key *is* the identity drive key),
+   * so a stale entry hands them read access to another album. */
+  async function pruneJoinRequests(): Promise<void> {
+    const text = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+    if (!text) return;
+    let raw: { version?: unknown; requests?: unknown };
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      raw = {};
+    }
+    const entries = raw.version === 1 && isTextJSON(raw.requests) ? raw.requests : {};
+    // The live runtime knows best; an album that failed to open this boot keeps
+    // its persisted pending flag rather than losing its request.
+    const pending = new Set(
+      state.folders
+        .filter((f) => {
+          const live = runtimes.get(f.id)?.record ?? f;
+          return live.role === "reader" && Boolean(live.pending);
+        })
+        .map((f) => f.shareKey),
+    );
+    const kept = Object.fromEntries(Object.entries(entries).filter(([key]) => pending.has(key)));
+    if (raw.version === 1 && Object.keys(kept).length === Object.keys(entries).length) return;
+    try {
+      await ownDrive.put(
+        DRIVE_PATH_REQUESTS,
+        Buffer.from(JSON.stringify({ version: 1, requests: kept })),
+      );
+    } catch (e) {
+      console.error(`[justus] failed to prune join requests: ${errMsg(e)}`);
+    }
   }
 
   /** Files (or re-files) this device's request to be enrolled in `rt`'s album

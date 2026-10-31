@@ -73,6 +73,33 @@ describe("#93/#97 add(path) must contain imports to allowed roots", () => {
     await store.close();
   });
 
+  it("rejects a symlink chain whose first hop stays inside the root", async () => {
+    const { store, deps } = buildStore();
+    await activeCreator(store);
+    const outside = join(deps.cacheDir, "..", "outside.jpg");
+    writeFileSync(outside, new Uint8Array([7, 7, 7]));
+    // a -> b (inside the root), b -> outside.jpg: checking only the first hop
+    // passes, and the read then follows the whole chain out of the root.
+    symlinkSync(outside, join(deps.cacheDir, "b"));
+    symlinkSync(join(deps.cacheDir, "b"), join(deps.cacheDir, "a"));
+    const res = await store.add(join(deps.cacheDir, "a"));
+    expect(res[0]?.code).toBe(PhotoError.FORBIDDEN);
+    await store.close();
+  });
+
+  it("rejects a link into the root whose target passes through an escaping link", async () => {
+    const { store, deps } = buildStore();
+    await activeCreator(store);
+    mkdirSync(join(deps.cacheDir, "..", "elsewhere"), { recursive: true });
+    writeFileSync(join(deps.cacheDir, "..", "elsewhere", "x.jpg"), new Uint8Array([7]));
+    // dir -> ../elsewhere (escapes); a -> dir/x.jpg (target string is inside).
+    symlinkSync(join(deps.cacheDir, "..", "elsewhere"), join(deps.cacheDir, "dir"));
+    symlinkSync(join(deps.cacheDir, "dir", "x.jpg"), join(deps.cacheDir, "a"));
+    const res = await store.add(join(deps.cacheDir, "a"));
+    expect(res[0]?.code).toBe(PhotoError.FORBIDDEN);
+    await store.close();
+  });
+
   it("accepts an import root reached through a symlinked ancestor (issue #129)", async () => {
     // macOS layout: /tmp -> /private/tmp, /var -> /private/var. The previous
     // walk started at `/` and flagged the symlinked ancestor, refusing legit

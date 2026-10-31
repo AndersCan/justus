@@ -44,8 +44,9 @@ export type GrantLedgerOptions = {
    * When present, `verifyReceipt` checks the signature and only grants a verified
    * inviter; a missing or invalid receipt is treated as an unknown holder. When
    * absent (e.g. a test ledger), the legacy trusting behaviour is kept so existing
-   * callers are unaffected. Production injects a bare-crypto adapter — see
-   * main.core.ts.
+   * callers are unaffected. Production does not inject one yet (main.core.ts),
+   * and nothing calls `verifyReceipt`: wire the adapter before calling it, or
+   * every receipt is trusted.
    */
   crypto?: InviteCrypto;
 };
