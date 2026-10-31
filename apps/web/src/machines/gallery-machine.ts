@@ -99,8 +99,8 @@ const retry = event("RETRY")();
 type GalleryContext = {
   pendingAdd: { sources: AddSource[]; folderId?: string } | null;
   pendingRemove: { id: string; folderId?: string } | null;
-  /** A `photos.changed` push arrived mid-batch (LOAD is not taken while
-   * adding): reload once the batch ends so nothing is missed. */
+  /** A `photos.changed` push arrived mid-batch or mid-load: reload once the
+   * batch or the in-flight list ends, so nothing is missed. */
   reloadAfterAdd: boolean;
 };
 
@@ -163,21 +163,25 @@ const galleryActor = new Actor({
     m.on(loading, loaded, (e, opts) => {
       $photos.set(e.payload.photos);
       $galleryError.set(null);
+      // Photos picked while the list was loading start adding now.
+      if (opts.context.get().pendingAdd) return { state: adding };
+      // A push during the load may name photos this list predates.
+      const again = opts.context.get().reloadAfterAdd;
       opts.context.set(idleContext());
-      return { state: ready };
+      return { state: again ? loading : ready };
     });
     m.on(loading, loadFailed, (e, opts) => {
       $galleryError.set(e.payload.message);
+      if (opts.context.get().pendingAdd) return { state: adding };
       opts.context.set(idleContext());
       return { state: error };
     });
 
-    const startBatch = (
+    const queueBatch = (
       sources: AddSource[],
       folderId: string | undefined,
       opts: { context: { set(c: GalleryContext): void } },
     ) => {
-      $galleryError.set(null);
       $addBatch.set({
         folderId,
         total: sources.length,
@@ -188,9 +192,27 @@ const galleryActor = new Actor({
         running: true,
       });
       opts.context.set({ ...idleContext(), pendingAdd: { sources, folderId } });
+    };
+    const startBatch = (
+      sources: AddSource[],
+      folderId: string | undefined,
+      opts: { context: { set(c: GalleryContext): void } },
+    ) => {
+      $galleryError.set(null);
+      queueBatch(sources, folderId, opts);
       return { state: adding };
     };
     m.on(ready, addMany, (e, opts) => startBatch(e.payload.sources, e.payload.folderId, opts));
+    // A `photos.changed` push reloads the list often (every sync). Photos
+    // picked meanwhile must not be dropped: queue them, shown as adding, and
+    // start once the list is in.
+    for (const at of [booting, loading]) {
+      m.on(at, addMany, (e, opts) => {
+        if (opts.context.get().pendingAdd) return {};
+        queueBatch(e.payload.sources, e.payload.folderId, opts);
+        return {};
+      });
+    }
     m.on(ready, retryFailed, (_e, opts) => {
       const last = $addBatch.get();
       if (!last || last.running || last.failed.length === 0) return {};
@@ -256,6 +278,10 @@ const galleryActor = new Actor({
     });
     m.on(adding, itemFailed, (e) => {
       tally((b) => ({ failed: [...b.failed, e.payload] }));
+      return {};
+    });
+    m.on(loading, load, (_e, opts) => {
+      opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
       return {};
     });
     m.on(adding, load, (_e, opts) => {

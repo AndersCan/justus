@@ -59,6 +59,44 @@ describe("gallery machine", () => {
     expect($photos.get()[0]).toMatchObject({ id: "p1", name: "beach.jpg" });
   });
 
+  test("photos picked while the list is reloading are added once it lands", async () => {
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("ready"));
+    let land!: () => void;
+    mock.list.mockImplementationOnce(
+      () => new Promise((resolve) => (land = () => resolve([null, { photos: [] }]))),
+    );
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("loading"));
+
+    gallery.add("/tmp/beach.jpg", "beach.jpg");
+    expect($addBatch.get()?.running).toBe(true);
+    land();
+
+    await vi.waitFor(() => expect($photos.get().map((p) => p.id)).toContain("p1"));
+    await vi.waitFor(() => expect($addBatch.get()?.running).toBe(false));
+    expect($addBatch.get()?.added).toBe(1);
+  });
+
+  test("a push during a reload loads the list once more", async () => {
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("ready"));
+    let land!: () => void;
+    mock.list
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (land = () => resolve([null, { photos: [] }]))),
+      )
+      .mockResolvedValueOnce([null, { photos: [photo("p9")] }]);
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("loading"));
+
+    gallery.load();
+    land();
+
+    await vi.waitFor(() => expect($photos.get().map((p) => p.id)).toEqual(["p9"]));
+    expect($galleryState.get()).toBe("ready");
+  });
+
   test("an add failure is recorded on the batch and returns to ready (no unhandled rejection)", async () => {
     mock.add.mockResolvedValue([new Error("upload rejected"), null]);
     gallery.load();
