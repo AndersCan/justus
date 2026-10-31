@@ -42,12 +42,12 @@ export const INTRO_CARDS: { icon: string; title: string; body: string }[] = [
   {
     icon: "👥",
     title: "Share photos with the people you choose",
-    body: "Family and friends. No account.",
+    body: "Family and friends. No account needed.",
   },
   {
     icon: "🚫☁",
     title: "No server",
-    body: "Photos travel directly between phones.",
+    body: "Photos are only stored on you and your friends phones.",
   },
   {
     icon: "📷",
@@ -166,7 +166,7 @@ function profileStep(vm: ReturnType<typeof $onboardingViewModel.get>) {
         Your name is shared only with the albums you join. It never goes to a server.
       </p>
       <div class="flex items-center gap-4">
-        <span data-avatar>${avatar(vm.userName)}</span>
+        <span data-avatar>${avatar(vm.draftName)}</span>
         <input
           class="ui-input flex-1"
           placeholder="Your name"
@@ -175,15 +175,8 @@ function profileStep(vm: ReturnType<typeof $onboardingViewModel.get>) {
           required
           autocomplete="name"
           spellcheck="false"
-          value="${vm.userName}"
-          @input=${(e: Event) => {
-            const el = e.currentTarget as HTMLInputElement;
-            const holder = el.closest("form")?.querySelector("[data-avatar] span") as HTMLElement;
-            if (holder) {
-              holder.textContent = initialsOf(el.value);
-              holder.style.background = avatarColor(el.value);
-            }
-          }}
+          value="${vm.draftName}"
+          @input=${(e: Event) => onboarding.editName((e.currentTarget as HTMLInputElement).value)}
         />
       </div>
       <p class="text-xs text-muted">

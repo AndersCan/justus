@@ -20,10 +20,13 @@ export const $introCard = atom(0);
 export const $onboardingState = atom<OnboardingStateName>("cards");
 export const $onboardingError = atom<string | null>(null);
 export const $onboardingFatal = atom(false);
+/** The name as typed on the profile step, before it is saved; null until the
+ * first keystroke. Drives the live avatar preview. */
+export const $nameDraft = atom<string | null>(null);
 
 export const $onboardingViewModel = computed(
-  [$introCard, $onboardingState, $onboardingError, $onboardingFatal, $userName],
-  (card, state, error, fatal, userName) => ({
+  [$introCard, $onboardingState, $onboardingError, $onboardingFatal, $userName, $nameDraft],
+  (card, state, error, fatal, userName, nameDraft) => ({
     card,
     cardCount: INTRO_CARD_COUNT,
     state,
@@ -31,6 +34,7 @@ export const $onboardingViewModel = computed(
     error,
     fatal,
     userName,
+    draftName: nameDraft ?? userName,
   }),
 );
 
@@ -42,6 +46,7 @@ const choose = state("choose")();
 const next = event("NEXT")();
 const back = event("BACK")();
 const skip = event("SKIP")();
+const editName = event("EDIT_NAME")<{ name: string }>();
 const saveProfile = event("SAVE_PROFILE")<{ name: string }>();
 const saved = event("SAVED")<{ name: string }>();
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
@@ -49,7 +54,7 @@ const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 type OnboardingContext = { pendingName: string | null };
 
 const onboardingActor = new Actor({
-  inputs: [next, back, skip, saveProfile],
+  inputs: [next, back, skip, editName, saveProfile],
   internal: [saved, saveFailed],
   outputs: [],
   states: [cards, profile, saving, choose],
@@ -72,6 +77,10 @@ const onboardingActor = new Actor({
     m.on(profile, back, () => {
       $introCard.set(INTRO_CARD_COUNT - 1);
       return { state: cards };
+    });
+    m.on(profile, editName, (e) => {
+      $nameDraft.set(e.payload.name);
+      return { state: profile };
     });
     m.on(profile, saveProfile, (e, opts) => {
       $onboardingError.set(null);
@@ -117,5 +126,6 @@ export const onboarding = {
   next: () => onboardingActor.send(next.create()),
   back: () => onboardingActor.send(back.create()),
   skip: () => onboardingActor.send(skip.create()),
+  editName: (name: string) => onboardingActor.send(editName.create({ name })),
   saveProfile: (name: string) => onboardingActor.send(saveProfile.create({ name })),
 };

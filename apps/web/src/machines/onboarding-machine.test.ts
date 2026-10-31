@@ -3,6 +3,7 @@ import {
   $introCard,
   $onboardingError,
   $onboardingState,
+  $onboardingViewModel,
   INTRO_CARD_COUNT,
   onboarding,
 } from "./onboarding-machine";
@@ -36,6 +37,13 @@ describe("onboarding machine", () => {
     expect($onboardingState.get()).toBe("cards");
     expect($introCard.get()).toBe(INTRO_CARD_COUNT - 1);
     onboarding.skip();
+    expect($onboardingState.get()).toBe("profile");
+  });
+
+  test("typing on the profile step updates the draft the preview reads", () => {
+    expect($onboardingViewModel.get().draftName).toBe("");
+    onboarding.editName("Maya Lin");
+    expect($onboardingViewModel.get().draftName).toBe("Maya Lin");
     expect($onboardingState.get()).toBe("profile");
   });
 
