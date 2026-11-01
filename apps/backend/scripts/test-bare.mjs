@@ -29,8 +29,8 @@ let child;
 try {
   await build({
     ...base,
-    // hyperdht/testnet is test-only, so it is not in the worklet's list.
-    external: [...base.external, "hyperdht"],
+    // hyperdht/testnet and the bare-http1 client are test-only, so they are not in the worklet's list.
+    external: [...base.external, "hyperdht", "bare-http1"],
     logLevel: "warning",
   });
   const extra = process.argv.slice(2);

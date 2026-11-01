@@ -70,9 +70,11 @@ export function createLazyMedia(server: LoopbackServer, fs: FileSystem): LazyMed
             on(event: "error", cb: (e: Error) => void): void;
             pipe(dest: unknown): void;
           };
-          stream.on("error", (e) =>
-            console.error(`[justus] read of ${route} failed: ${e.message}`),
-          );
+          stream.on("error", (e) => {
+            // The client went away (the grid cancels loads as it scrolls): expected.
+            if ((e as { code?: string }).code === "PREMATURE_CLOSE") return;
+            console.error(`[justus] read of ${route} failed: ${e.message}`);
+          });
           stream.pipe(res);
         })();
       });

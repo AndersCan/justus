@@ -292,6 +292,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
+      bare-http1:
+        specifier: ^4.5.8
+        version: 4.5.8(bare-buffer@3.7.0)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       bare-link:
         specifier: ^3.3.0
         version: 3.3.0(bare-buffer@3.7.0)(bare-events@2.9.1)

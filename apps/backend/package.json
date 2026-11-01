@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "bare-http1": "^4.5.8",
     "bare-link": "^3.3.0",
     "bare-pack": "^2.2.1",
     "bare-runtime": "^1.28.0",
