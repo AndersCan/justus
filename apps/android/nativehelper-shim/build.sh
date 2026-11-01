@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuilds the libnativehelper.so shim (WORKAROUND(ekrooh#45)) into app/src/main/nativehelper.
+# Rebuilds the libnativehelper.so shim (UNUSED: ekrooh#45 is fixed, delete this directory) into app/src/main/nativehelper.
 # 16 KB page alignment is required by Google Play for 64-bit libraries.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"

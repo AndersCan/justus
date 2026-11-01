@@ -11,10 +11,9 @@ Consumes the published **`io.github.anderscan.ekrooh:bare-host`** AAR from Maven
 ## Layout
 
 - `settings.gradle` — resolves `bare-host` from Maven Central.
-- `app/src/main/nativehelper/` — bundled `libnativehelper.so` shim. The published `bare-host` AAR's
-  `libbare-kit.so` `DT_NEED`s `libnativehelper.so` (a private Android platform lib) but never ships nor
-  calls into it, so `System.loadLibrary("bare-kit")` fails on install-run without this shim present in
-  the app's jniLibs (WORKAROUND(ekrooh#45)). Remove it only once a released AAR is verified without it.
+- `app/src/main/nativehelper/`, `nativehelper-shim/` — the old `libnativehelper.so` shim, **unused**:
+  the `bare-host` AAR ships the library since 0.5.0 (ekrooh#45 fixed). The APK built without it passed
+  the Maestro suite on 2026-11-01. Delete both directories.
 - `app/build.gradle` — the app module; Gradle tasks run the monorepo builds:
   - `link` — `bare-link --preset android` links the p2p native addons into
     `src/main/addons`
