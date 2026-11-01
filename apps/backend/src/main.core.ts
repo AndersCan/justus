@@ -22,7 +22,7 @@ import { sendHandoff, watchParentDeath } from "./desktop";
 
 declare const Bare: { exit(code?: number): void };
 
-// Workaround for AndersCan/ekrooh#268: @ekrooh/bare 0.6.0 builds request ids
+// WORKAROUND(ekrooh#268): @ekrooh/bare 0.6.0 builds request ids
 // with globalThis.crypto.getRandomValues, which Bare lacks, so every host
 // invoke (photo picker, camera) throws before it is sent. Remove once fixed.
 if (!globalThis.crypto) {
