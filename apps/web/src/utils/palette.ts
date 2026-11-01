@@ -1,6 +1,7 @@
 /** Stable per-device colors, derived from a device's drive key. */
 
-const MEMBER_COLORS = ["#E5733F", "#4FA36B", "#8E6FD1", "#D9A33A", "#3F95D9"] as const;
+// Kept clear of the brand indigo and coral.
+const MEMBER_COLORS = ["#C2457A", "#3A8A4C", "#2F7DB8", "#A8700F", "#5E6B80"] as const;
 
 function hashOf(key: string): number {
   let hash = 0;

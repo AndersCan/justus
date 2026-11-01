@@ -23,6 +23,7 @@ import { $reachHint } from "./machines/reach-hint-machine";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { inviteConsentSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
+import { wordmark } from "./views/wordmark";
 
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
@@ -140,7 +141,7 @@ function navLink(
       : "ui-focus flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition";
   const tone = active
     ? layout === "rail"
-      ? "bg-accent/10 text-accent"
+      ? "bg-accent-soft text-accent"
       : "text-accent"
     : layout === "rail"
       ? "text-muted hover:bg-subtle hover:text-fg"
@@ -153,7 +154,7 @@ function navLink(
       >${icon(item.paths)}${
         badge
           ? html`<span
-              class="absolute -right-2 -top-1 rounded-full bg-accent px-1 text-[10px] font-semibold leading-4 text-white"
+              class="absolute -right-2 -top-1 rounded-full bg-accent px-1 text-[10px] font-semibold leading-4 text-on-fill"
               aria-label="${badge} waiting for approval"
               >${badge}</span
             >`
@@ -177,15 +178,18 @@ render(
       <aside
         class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
       >
-        <span class="px-3 pb-5 text-lg font-semibold tracking-tight">Justus</span>
+        <span class="px-3 pb-5">${wordmark("h-8 w-auto")}</span>
         <nav class="flex flex-col gap-1" aria-label="Main">${navLinks("rail")}</nav>
       </aside>
-      <header
-        class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur md:hidden"
+      <!-- No mobile app bar: the bottom tabs carry navigation. This strip only
+           keeps scrolled content out from under the status bar. -->
+      <div
+        class="fixed inset-x-0 top-0 z-10 h-[env(safe-area-inset-top)] bg-canvas md:hidden"
+        aria-hidden="true"
+      ></div>
+      <main
+        class="mx-auto max-w-6xl px-4 pb-28 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6 md:pb-10 md:pt-6"
       >
-        <span class="text-base font-semibold tracking-tight">Justus</span>
-      </header>
-      <main class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10">
         ${useStore($reachHint, (hint) =>
           hint
             ? html`<p

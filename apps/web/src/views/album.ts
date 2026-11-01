@@ -39,7 +39,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
     ${
       vm.isAdmin && !p.you && !p.admin
         ? html`<button
-            class="text-xs text-muted underline-offset-2 hover:text-danger hover:underline"
+            class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
             ?disabled=${vm.removing}
             @click=${async () => {
               const ok = await confirmAction({
@@ -105,7 +105,7 @@ function membersSection(vm: PeopleVm) {
       Connected means they have Justus open and your phone can reach them right now. Everyone in the
       album sees this list.
     </p>
-    ${vm.error ? html`<p class="mb-2 text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
+    ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
     <ul class="divide-y divide-line">
       ${vm.people.map((p) => memberRow(vm, p))}
     </ul>
@@ -229,7 +229,7 @@ function advancedSection(status: Status, state: string, busy: boolean) {
         "A one-way fingerprint of your drive key that devices use to find each other. It opens no photos, though someone holding it could see which network addresses are syncing this album.",
       )}
     </dl>
-    <h3 class="mt-5 text-sm font-semibold text-danger">Secret</h3>
+    <h3 class="mt-5 text-sm font-semibold text-danger-fg">Secret</h3>
     <p class="mt-1 text-sm">
       Anyone with one of these can see the photos, and they can't be changed.
     </p>

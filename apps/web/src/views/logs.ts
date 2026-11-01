@@ -11,9 +11,9 @@ import { toast } from "./toast";
 export function severityClasses(level: LogLevel): string {
   switch (level) {
     case "error":
-      return "border-l-danger text-danger";
+      return "border-l-danger text-danger-fg";
     case "warn":
-      return "border-l-warn text-warn";
+      return "border-l-warn text-warn-fg";
     case "debug":
       return "border-l-line text-muted";
     default:
@@ -345,7 +345,7 @@ function logsBody(ctx: {
                 (s) => html`
                   <button
                     class="rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      sources.has(s) ? "bg-accent text-white" : "bg-subtle text-fg"
+                      sources.has(s) ? "bg-accent-soft text-accent" : "bg-subtle text-fg"
                     }"
                     @click=${() => c.toggleSource(s)}
                     aria-pressed=${sources.has(s)}
@@ -381,7 +381,7 @@ function logsBody(ctx: {
         </span>
       </div>
 
-      ${error ? html`<p class="mb-3 text-xs text-danger">Couldn't load logs — ${error}</p>` : null}
+      ${error ? html`<p class="mb-3 text-xs text-danger-fg">Couldn't load logs — ${error}</p>` : null}
 
       <div
         class="max-h-80 overflow-auto rounded-2xl border border-line p-3 font-mono text-[11px] leading-relaxed"

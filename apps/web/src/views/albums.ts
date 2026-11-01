@@ -125,7 +125,7 @@ function albumRow(folder: FolderSummary) {
       >
         <span class="block truncate text-lg font-medium text-fg">${folder.name}</span>
         <span
-          class="mt-0.5 block text-xs ${folder.pending ? "font-semibold text-warn" : "text-muted"}"
+          class="mt-0.5 block text-xs ${folder.pending ? "font-semibold text-warn-fg" : "text-muted"}"
           >${roleAndCount(folder)}</span
         >
       </a>
@@ -134,7 +134,7 @@ function albumRow(folder: FolderSummary) {
           folder.role === "creator" ? reqs.filter((r) => r.folderId === folder.id).length : 0;
         return waiting > 0
           ? html`<span
-              class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white"
+              class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
               aria-label="${waiting} waiting for approval"
               >${waiting}</span
             >`
@@ -252,7 +252,7 @@ function joinSection(state: string, busy: boolean) {
       </form>
       ${useStore($inviteError, (err) =>
         err
-          ? html`<p class="mt-2 text-xs text-danger" role="alert">${friendlyError(err)}</p>`
+          ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${friendlyError(err)}</p>`
           : null,
       )}
       ${useStore($joinProgress, (joining) =>

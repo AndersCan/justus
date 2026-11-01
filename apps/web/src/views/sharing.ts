@@ -23,8 +23,8 @@ export function inviteProvenance(record: GrantRecord): string | null {
 
 /** Honest one-line state for a ledger record (share-grant-spec §2.1 / §4). */
 function stateBadge(record: GrantRecord): { copy: string; cls: string } {
-  if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-ok" };
-  if (record.serveTo === "revoked") return { copy: "Sharing stopped", cls: "text-danger" };
+  if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-ok-fg" };
+  if (record.serveTo === "revoked") return { copy: "Sharing stopped", cls: "text-danger-fg" };
   if (record.serveTo === "declined") return { copy: "Said no", cls: "text-muted" };
   if (record.invitedBy) return { copy: "Invited you", cls: "text-fg" };
   if (record.unknownHolderSince != null) return { copy: "Asked to share", cls: "text-muted" };
@@ -62,7 +62,7 @@ function promptCard(view: SharingViewModel, record: GrantRecord) {
           Share
         </button>
         <button
-          class="ml-auto text-xs text-muted underline-offset-2 hover:text-danger hover:underline"
+          class="ml-auto text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
           ?disabled=${view.acting}
           @click=${() => {
             grants.decline(record.peerId);
@@ -94,7 +94,7 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
         ${
           record.serveTo === "granted"
             ? html`<button
-                class="text-xs text-muted underline-offset-2 hover:text-danger hover:underline"
+                class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
                 ?disabled=${view.acting}
                 @click=${() => {
                   grants.revoke(record.peerId);
@@ -109,7 +109,7 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
         ${
           inviteProvenance(record)
             ? html`<span
-                class="text-xs font-semibold text-ok"
+                class="text-xs font-semibold text-ok-fg"
                 title="This device presented a verified signed invite receipt."
                 aria-label="Verified invite"
                 >✓ ${inviteProvenance(record)}</span
