@@ -75,7 +75,7 @@ function emptyReplica(options: { key: string; writable: boolean }): Replica {
 /** Remote changes surface after the writer's call has returned, like a replicated append. */
 function notifyLater(replica: Replica): void {
   setImmediate(() => {
-    for (const listener of [...replica.listeners]) {
+    for (const listener of replica.listeners) {
       if (replica.listeners.has(listener)) listener();
     }
   });
@@ -143,7 +143,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     if (!replica.writable) throw new Error("Drive is not writable");
     change();
     replica.length++;
-    for (const listener of [...replica.listeners]) listener();
+    for (const listener of replica.listeners) listener();
     replicateKey({ hub, key });
   }
 
@@ -234,7 +234,7 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
 
   function closeEntry(entry: Entry, key: string): void {
     entry.closed = true;
-    for (const unsubscribe of [...entry.unsubscribers]) unsubscribe();
+    for (const unsubscribe of entry.unsubscribers) unsubscribe();
     entries.delete(key);
   }
 
@@ -282,7 +282,7 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
     },
     async close() {
       closed = true;
-      for (const [key, entry] of [...entries]) closeEntry(entry, key);
+      for (const [key, entry] of entries) closeEntry(entry, key);
     },
   };
 }
