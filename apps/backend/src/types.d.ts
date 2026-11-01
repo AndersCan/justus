@@ -15,3 +15,17 @@ declare module "hyperswarm" {
   const Hyperswarm: any;
   export default Hyperswarm;
 }
+
+declare module "protomux" {
+  const Protomux: any;
+  export default Protomux;
+}
+
+declare module "compact-encoding" {
+  const c: any;
+  export default c;
+}
+declare module "hyperdht/testnet" {
+  const createTestnet: any;
+  export default createTestnet;
+}

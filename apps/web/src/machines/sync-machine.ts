@@ -48,7 +48,7 @@ const error = state("error")();
 const refresh = event("REFRESH")();
 const status = event("STATUS")<{ status: SyncStatus }>();
 const statusFailed = event("STATUS_FAILED")<{ message: string }>();
-const join = event("JOIN")<{ key: string }>();
+const join = event("JOIN")<{ key: string; name?: string }>();
 const joined = event("JOINED")<{ status: SyncStatus }>();
 const joinFailed = event("JOIN_FAILED")<{ message: string }>();
 const enroll = event("ENROLL")<{ key: string; name: string }>();
@@ -57,7 +57,7 @@ const enrollFailed = event("ENROLL_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type SyncContext = {
-  pendingJoin: string | null;
+  pendingJoin: { key: string; name?: string } | null;
   pendingEnroll: { key: string; name: string } | null;
 };
 
@@ -116,18 +116,21 @@ const syncActor = new Actor({
     m.on(ok, join, (e, opts) => {
       $syncError.set(null);
       $pendingJoin.set(false);
-      opts.context.set({ pendingJoin: e.payload.key, pendingEnroll: null });
+      opts.context.set({
+        pendingJoin: { key: e.payload.key, name: e.payload.name },
+        pendingEnroll: null,
+      });
       return { state: joining };
     });
     m.effect(joining, ({ signal, emit, context }) => {
-      const key = context.get().pendingJoin;
-      if (!key) {
+      const pending = context.get().pendingJoin;
+      if (!pending) {
         emit(joinFailed.create({ message: "no pending join key" }));
         return;
       }
       return runInvoke(
         signal,
-        () => gateway.join(key),
+        () => gateway.join(pending.key, pending.name),
         (result) =>
           result
             ? emit(joined.create({ status: result as SyncStatus }))
@@ -197,7 +200,7 @@ const { state: stateName } = bindStateAtoms({
 export const sync = {
   state: stateName,
   refresh: () => syncActor.send(refresh.create()),
-  join: (key: string) => syncActor.send(join.create({ key })),
+  join: (key: string, name?: string) => syncActor.send(join.create({ key, name })),
   enroll: (key: string, name: string) => syncActor.send(enroll.create({ key, name })),
   retry: () => syncActor.send(retry.create()),
 };

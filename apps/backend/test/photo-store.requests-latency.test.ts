@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeDrive, FakeSwarm, makeFakeDeps } from "./fake-drive.ts";
+import { FakeDrive, FakeSwarm, fakeConnection, makeFakeDeps } from "./fake-drive.ts";
 
 describe("#88 requests() must not multiply per-peer latency across unreachable peers", () => {
   it("reads peer request outboxes concurrently, not sequentially", async () => {
@@ -79,13 +79,10 @@ describe("#88 requests() must not multiply per-peer latency across unreachable p
     );
 
     // Simulate N peers connecting. The swarm "connection" handler records each
-    // peer against every creator folder's social.peers set.
+    // identity drive the peer greets us with.
     const allPeers = [reachablePeer, ...unreachablePeers];
     for (const p of allPeers) {
-      swarm!.emit("connection", {
-        remotePublicKey: Buffer.from(p, "hex"),
-        on() {},
-      });
+      swarm!.emit("connection", fakeConnection(Buffer.from(p, "hex")));
     }
 
     const start = Date.now();

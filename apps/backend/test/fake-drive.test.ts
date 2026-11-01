@@ -57,16 +57,14 @@ describe("FakeDrive", () => {
     expect(after).toHaveLength(0);
   });
 
-  it("fires update handlers on put/del (used by #46 watcher tests)", () => {
+  it("signals changes on its index core, never on the drive (like Hyperdrive)", async () => {
     const drive = new FakeDrive("seed-c");
     const seen: string[] = [];
-    drive.on("update", () => seen.push("update"));
+    drive.on("update", () => seen.push("drive"));
+    drive.core.on("append", () => seen.push("append"));
+    await drive.put("/a", Buffer.from("a"));
     drive.emitUpdate();
-    expect(seen).toEqual(["update"]);
-    drive.removeListener("update", () => seen.push("x"));
-    drive.emitUpdate();
-    // Handler still registered until removed by the store's teardown.
-    expect(seen).toEqual(["update", "update"]);
+    expect(seen).toEqual(["append", "append"]);
   });
 
   it("provides a no-op stream + close", async () => {

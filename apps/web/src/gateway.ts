@@ -64,7 +64,7 @@ export const gateway = {
     }
   },
   remove: (id: string, folderId?: string) => bus.invoke(photoEvents.photos.remove(id, folderId)),
-  join: (key: string) => bus.invoke(photoEvents.photos.join(key)),
+  join: (key: string, name?: string) => bus.invoke(photoEvents.photos.join(key, name)),
   enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),
   status: () => bus.invoke(photoEvents.photos.status()),
   folders: () => bus.invoke(photoEvents.photos.folders()),

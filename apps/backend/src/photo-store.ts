@@ -7,6 +7,8 @@ import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
+import { onDriveChange } from "./drive-change";
+import { greetPeer } from "./peer-identity";
 
 /**
  * Dependency-injection seam. `photo-store.ts` used to import the full p2p
@@ -193,6 +195,9 @@ export type PhotoStoreDeps = {
    * (e.g. when reading a peer's join-request outbox in `requests()`). Defaults
    * to 45_000. Test seams lower it so latency regressions surface quickly. */
   driveOpenTimeoutMs?: number;
+  /** Exchanges identity drive keys with the peer on a swarm connection.
+   * Defaults to {@link greetPeer} (a protomux channel); test fakes swap it. */
+  greetPeer?: typeof greetPeer;
 };
 
 export interface PhotoStore {
@@ -210,7 +215,9 @@ export interface PhotoStore {
   /** Adds a photo from in-band bytes (browser multi-file picker). */
   addBytes(name: string, bytes: Uint8Array, folderId?: string): Promise<EitherResult<Photo>>;
   remove(id: string, folderId?: string): Promise<EitherResult<{ id: string }>>;
-  join(key: string): Promise<EitherResult<SyncStatus>>;
+  /** `nameHint` is the album name from the invite, used until the Admin's
+   * `/folder.json` replicates in. */
+  join(key: string, nameHint?: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
   status(): Promise<SyncStatus>;
   folders(): Promise<{ folders: FolderSummary[]; activeFolderId: string }>;
@@ -238,6 +245,8 @@ const DRIVE_PATH_MEMBERS = "/members.json";
 const DRIVE_PATH_REMOVED = "/removed.json";
 const DRIVE_PATH_FOLDER = "/folder.json";
 const DRIVE_PATH_REQUESTS = "/requests.json";
+/** Album name shown until the Admin's `/folder.json` replicates in. */
+const JOINED_PLACEHOLDER_NAME = "Joined folder";
 const STATE_FILE = "justus.json";
 
 function newId(c: typeof import("bare-crypto")): string {
@@ -346,14 +355,9 @@ type FolderRuntime = {
   memberNameCache: Map<string, string>;
   /** Loopback routes served for this folder's photos (see `lazyMedia`). */
   mounted: Set<string>;
-  /** `remove` closures for this folder's `drive.on("update")` watchers, drained
+  /** `remove` closures for this folder's `onDriveChange` watchers, drained
    * on unmount/close so inactive folders stop firing `onChanged` (#46). */
   watcherRemoves: Set<() => void>;
-  social: {
-    /** Peers seen on this folder's topic since we joined it. Keys are the raw
-     * `remotePublicKey` hex from swarm connections. */
-    peers: Set<string>;
-  };
 };
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
@@ -434,6 +438,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * requester would otherwise re-surface in `requests()` every time it re-files
    * a join request (issue #85). We remember denials in-memory for the session. */
   const deniedRequesters = new Set<string>();
+  /** Identity drive keys of peers we have connected to this session, as they
+   * told us over the identity channel. An Admin reads join requests off these
+   * drives' `/requests.json` outboxes. */
+  const peerIdentities = new Set<string>();
+  /** Each peer's identity drive, opened once and kept: Hyperdrive takes its
+   * core exclusively, so a second open of the same key waits for the first to
+   * close. Watched so a request that replicates in refreshes the inbox. */
+  const peerOutboxes = new Map<string, Promise<Drive>>();
   // Swarm topic joins keyed by discoveryKey hex (issue #95). A Map (not an
   // array) lets us make `joinTopic` idempotent — the same topic always returns
   // the same handle — and lets `leaveTopic` reclaim a handle on unmount so a
@@ -682,14 +694,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           // unhandled rejection that crashes the process.
           void upgradePendingRole(rt).catch(() => {});
         }
+        // The Admin's drive changed (or first replicated in after we joined
+        // with only the invite's name): take the album name from it.
+        if (rt && drive === rt.folderDrive) void refreshAlbumName(rt).catch(() => {});
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
         deps.onChanged({ cause, folderId, memberKey: label });
       }, 400);
     };
-    drive.on("update", handler);
+    const off = onDriveChange(drive, handler);
     const remove = () => {
-      drive.removeListener("update", handler);
+      off();
       if (timer) clearTimeout(timer);
     };
     const rt = runtimes.get(folderId);
@@ -756,15 +771,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const drive = deps.makeDrive(corestore, Buffer.from(keyHex, "hex"));
     const topic = drive.discoveryKey;
     await joinTopic(topic, opts);
-    await Promise.race([
-      drive.ready(),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("timeout opening remote drive")),
-          deps.driveOpenTimeoutMs ?? 45_000,
+    try {
+      await Promise.race([
+        drive.ready(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("timeout opening remote drive")),
+            deps.driveOpenTimeoutMs ?? 45_000,
+          ),
         ),
-      ),
-    ]);
+      ]);
+    } catch (e) {
+      // A Hyperdrive holds its core exclusively: an abandoned one would make
+      // every later open of this key wait forever.
+      void Promise.resolve(drive.close?.()).catch(() => {});
+      throw e;
+    }
     return drive;
   }
 
@@ -794,6 +816,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // malformed
     }
     return {};
+  }
+
+  /** An album we joined is named by its Admin's `/folder.json`; until that
+   * replicates in we show the invite's name (or a placeholder). */
+  async function refreshAlbumName(rt: FolderRuntime) {
+    if (rt.record.role === "creator") return;
+    const name = await readFolderNameIn(rt.folderDrive);
+    if (!name || name === rt.record.name) return;
+    rt.record.name = name;
+    const persisted = state.folders.find((f) => f.id === rt.record.id);
+    if (persisted) persisted.name = name;
+    saveState();
+    deps.onChanged({ cause: "add", folderId: rt.record.id });
   }
 
   async function readFolderNameIn(drive: Drive): Promise<string> {
@@ -1508,25 +1543,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * Read pending join-request outboxes off requester drives announced on a
    * creator folder's topic.
    *
-   * Join-request transport (dev/e2e-testable; see below):
+   * Join-request transport:
    *  - A requester that can't enroll writes `/requests.json` (keyed by the
-   *    target share key) onto its OWN single-writer drive, then announces that
-   *    drive on the target folder's topic as a server (`{ server: true }`).
-   *  - This device (the folder's creator), serving the same topic, sees the
-   *    requester's connection and records its `remotePublicKey`. `requests()`
-   *    takes those recorded peer keys, opens each as a drive read-only and
-   *    reads `/requests.json`, keeping the entries whose share key matches.
-   *
-   * Honesty about ekrooh#41: the on-device (Android bare-kit) worklet cannot
-   * open a peer's drive (`timeout opening remote drive`), so the CREATOR-side
-   * read here only works when the creator can open the requester's drive —
-   * true in the LOCAL-DHT multi-worklet desktop stack (bare↔node and
-   * desktop↔desktop replication work), but blocked on-device until #41 is
-   * fixed. requester→creator: one device CANNOT reach a folder it doesn't
-   * know, and a peer's drive can only be read if the requester's announced
-   * drive key resolves (here: the connection's `remotePublicKey`). Where the
-   * swarm peer identity differs from the announced drive key this read misses
-   * the request — a known platform limitation, see ekrooh#41.
+   *    target share key) onto its identity drive, then joins the album's topic
+   *    as a server so the Admin's device connects to it.
+   *  - On every connection both sides send their identity drive key over the
+   *    identity channel (`peer-identity.ts`); the swarm's own `remotePublicKey`
+   *    is a per-boot noise key, not a drive, so it cannot name the outbox.
+   *  - `requests()` opens each identity drive learned this session read-only
+   *    and keeps the outbox entries whose share key matches this album.
    */
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
     const shareKey = rt.record.shareKey;
@@ -1534,51 +1559,79 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // becomes ready (unreachable) is bounded by `openDriveWithTopic`'s timeout
     // *per drive* — running the opens in parallel keeps total latency at ~one
     // timeout rather than N timeouts summed across unreachable peers (issue #88).
-    const tasks = [...rt.social.peers]
-      .filter(isHexKey)
-      .map(async (peerKeyHex): Promise<JoinRequest[]> => {
-        let peerDrive: Drive;
-        try {
-          peerDrive = await openDriveWithTopic(peerKeyHex, { server: false });
-        } catch (e) {
-          console.error(
-            `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
-          );
-          return [];
-        }
-        const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
-        if (text === null) return [];
-        let parsed: RequestsFile;
-        try {
-          const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
-          if (raw.version !== 1 || !isTextJSON(raw.requests)) return [];
-          parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-        } catch {
-          return [];
-        }
-        const out: JoinRequest[] = [];
-        // Every field is the requester's own claim: check shapes, never trust them.
-        for (const raw of Object.values(parsed.requests) as unknown[]) {
-          if (!isTextJSON(raw)) continue;
-          const req = raw as Record<string, unknown>;
-          if (req.shareKey !== shareKey) continue;
-          if (typeof req.requesterKey !== "string" || !isHexKey(req.requesterKey)) continue;
-          out.push({
-            requesterKey: req.requesterKey.toLowerCase(),
-            requesterName: peerName(req.requesterName, "Unknown device"),
-            folderId: rt.record.id,
-            folderName: peerName(req.folderName, rt.record.name),
-            shareKey,
-            requestedAt:
-              typeof req.requestedAt === "number" && Number.isFinite(req.requestedAt)
-                ? req.requestedAt
-                : 0,
-          });
-        }
-        return out;
-      });
+    const tasks = [...peerIdentities].map(async (peerKeyHex): Promise<JoinRequest[]> => {
+      let peerDrive: Drive;
+      try {
+        peerDrive = await openPeerOutbox(peerKeyHex);
+      } catch (e) {
+        console.error(
+          `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
+        );
+        return [];
+      }
+      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
+      if (text === null) return [];
+      let parsed: RequestsFile;
+      try {
+        const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
+        if (raw.version !== 1 || !isTextJSON(raw.requests)) return [];
+        parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
+      } catch {
+        return [];
+      }
+      const out: JoinRequest[] = [];
+      // Every field is the requester's own claim: check shapes, never trust them.
+      for (const raw of Object.values(parsed.requests) as unknown[]) {
+        if (!isTextJSON(raw)) continue;
+        const req = raw as Record<string, unknown>;
+        if (req.shareKey !== shareKey) continue;
+        if (typeof req.requesterKey !== "string" || !isHexKey(req.requesterKey)) continue;
+        out.push({
+          requesterKey: req.requesterKey.toLowerCase(),
+          requesterName: peerName(req.requesterName, "Unknown device"),
+          folderId: rt.record.id,
+          folderName: peerName(req.folderName, rt.record.name),
+          shareKey,
+          requestedAt:
+            typeof req.requestedAt === "number" && Number.isFinite(req.requestedAt)
+              ? req.requestedAt
+              : 0,
+        });
+      }
+      return out;
+    });
     const settled = await Promise.allSettled(tasks);
     return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  }
+
+  function announceRequestInbox() {
+    for (const rt of runtimes.values()) {
+      if (rt.record.role === "creator")
+        deps.onChanged({ cause: "request", folderId: rt.record.id });
+    }
+  }
+
+  function openPeerOutbox(keyHex: string): Promise<Drive> {
+    let opening = peerOutboxes.get(keyHex);
+    if (!opening) {
+      opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
+        onDriveChange(drive, announceRequestInbox);
+        return drive;
+      });
+      // Unreachable this time: let a later `requests()` try again.
+      opening.catch(() => peerOutboxes.delete(keyHex));
+      peerOutboxes.set(keyHex, opening);
+    }
+    return opening;
+  }
+
+  /** A peer told us its identity drive. An Admin may have a join request
+   * waiting there: tell the web layer to refresh its request inbox. */
+  function onPeerIdentity(key: Uint8Array) {
+    const keyHex = hex(Buffer.from(key));
+    if (!isHexKey(keyHex) || keyHex === hex(ownDrive.key) || peerIdentities.has(keyHex)) return;
+    peerIdentities.add(keyHex);
+    announceRequestInbox();
   }
 
   async function setup(): Promise<void> {
@@ -1598,14 +1651,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         console.error(`[justus] replicate failed: ${message}`);
       }
       const peerKey = conn.remotePublicKey;
-      if (peerKey && Buffer.isBuffer(peerKey)) {
-        const peerHex = hex(peerKey);
-        onSwarmConnection(conn, peerHex);
-        // Record the peer against every folder whose topic we serve — the
-        // request transport reads these peers' `/requests.json` outboxes.
-        for (const rt of runtimes.values()) {
-          if (rt.record.role === "creator") rt.social.peers.add(peerHex);
-        }
+      if (peerKey && Buffer.isBuffer(peerKey)) onSwarmConnection(conn, hex(peerKey));
+      try {
+        (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, onPeerIdentity);
+      } catch (e) {
+        console.error(`[justus] identity greeting failed: ${errMsg(e)}`);
       }
     });
     await joinTopic(ownDrive.discoveryKey);
@@ -1649,9 +1699,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberNameCache: new Map(),
         mounted: new Set(),
         watcherRemoves: new Set(),
-        social: { peers: new Set() },
       };
       runtimes.set(record.id, rt);
+      if (!isCreator) void refreshAlbumName(rt).catch(() => {});
       if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
         try {
@@ -1703,7 +1753,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       memberNameCache: new Map(),
       mounted: new Set(),
       watcherRemoves: new Set(),
-      social: { peers: new Set() },
     };
     runtimes.set(folderId, rt);
     state.folders.push(rt.record);
@@ -1909,7 +1958,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return err(PhotoError.NOT_FOUND, `No photo ${id}`);
     },
 
-    async join(key) {
+    async join(key, nameHint) {
       await readyPromise;
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
       if (
@@ -1947,11 +1996,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               memberNameCache: new Map(),
               mounted: new Set(),
               watcherRemoves: new Set(),
-              social: { peers: new Set() },
             };
             runtimes.set(existing.id, rt);
             await refreshMembersFor(rt);
             watchDrive(fd, rt.record.id, hex(fd.key), "add");
+            // The Admin's drive may have replicated in while we joined, before the
+            // watcher existed: catch up on its name now.
+            void refreshAlbumName(rt).catch(() => {});
           } catch {
             return ok(await computeStatus());
           }
@@ -1994,7 +2045,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const rt: FolderRuntime = {
         record: {
           id: folderId,
-          name: folderName || "Joined folder",
+          name: folderName || peerName(nameHint, JOINED_PLACEHOLDER_NAME),
           role,
           shareKey: key,
           driveKey: enrolled ? selfKey : "",
@@ -2006,7 +2057,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         memberNameCache: new Map(),
         mounted: new Set(),
         watcherRemoves: new Set(),
-        social: { peers: new Set() },
       };
       runtimes.set(folderId, rt);
 
@@ -2016,7 +2066,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
         // This device becomes a (read-only) reader of the requested folder —
         // the gallery shows it as pending until the creator approves.
-        rt.social.peers.clear(); // readers don't read others' request outboxes
         state.folders.push(rt.record);
         state.activeFolderId = folderId;
         saveState();
@@ -2025,17 +2074,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // the creator's approval that flips this device reader → member — reach
         // this store in-session (issue #52).
         watchDrive(drive, folderId, hex(drive.key), "add");
+        // The Admin's drive may have replicated in while we joined, before the
+        // watcher existed: catch up on its name now.
+        void refreshAlbumName(rt).catch(() => {});
         deps.onChanged({ cause: "request", folderId });
         return ok(await computeStatus());
       }
 
       // Already enrolled → member; make it active.
-      rt.social.peers.clear();
       state.folders.push(rt.record);
       state.activeFolderId = folderId;
       saveState();
       await refreshMembersFor(rt);
       watchDrive(drive, folderId, hex(drive.key), "add");
+      // The Admin's drive may have replicated in while we joined, before the
+      // watcher existed: catch up on its name now.
+      void refreshAlbumName(rt).catch(() => {});
       deps.onChanged({ cause: "enroll", folderId });
       return ok(await computeStatus());
     },

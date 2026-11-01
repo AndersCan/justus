@@ -47,6 +47,9 @@ class Emitter {
 export class FakeDrive extends Emitter {
   readonly key: Buffer;
   readonly discoveryKey: Buffer;
+  /** The index core. Like real Hyperdrive, changes surface only here, as
+   * `"append"`: the drive itself emits no `"update"` event. */
+  readonly core = new Emitter();
   private files = new Map<string, Buffer>();
   /** Mirrors the real hyperdrive `put(path, data, { metadata })` contract:
    * custom metadata travels alongside the bytes and is surfaced by `list()`
@@ -101,13 +104,13 @@ export class FakeDrive extends Emitter {
   ): Promise<void> {
     this.files.set(path, Buffer.from(data));
     this.metadata.set(path, opts?.metadata ?? {});
-    this.emit("update");
+    this.core.emit("append");
   }
 
   async del(path: string): Promise<void> {
     this.files.delete(path);
     this.metadata.delete(path);
-    this.emit("update");
+    this.core.emit("append");
   }
 
   // The real p2p `Drive.list` returns an *async iterable* (consumed with
@@ -133,9 +136,9 @@ export class FakeDrive extends Emitter {
     return Readable.from(this.files.get(path) ?? Buffer.alloc(0));
   }
 
-  /** Test helper — fire the drive's `update` handlers (simulates replication). */
+  /** Test helper — fire the index core's `append` handlers (simulates replication). */
   emitUpdate(): void {
-    this.emit("update");
+    this.core.emit("append");
   }
 
   /** Test helper — inspect the in-memory contents. */
@@ -276,6 +279,12 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
     crypto: nodeCrypto as unknown as typeof import("bare-crypto"),
     makeCorestore: () => corestore,
     makeSwarm: () => new FakeSwarm(),
+    // Real devices send their identity drive key over a protomux channel; a
+    // fake connection carries it as `identityKey` (see `fakeConnection`).
+    greetPeer: (conn: unknown, _own: Uint8Array, onIdentity: (key: Uint8Array) => void) => {
+      const id = (conn as { identityKey?: Buffer }).identityKey;
+      if (id) onIdentity(id);
+    },
     makeDrive: (cs: unknown, key?: Buffer) => {
       const seed = key ? key.toString("hex") : `${(cs as FakeCorestore).path}/db`;
       const drive = new FakeDrive(seed);
@@ -307,4 +316,15 @@ export async function joinAsMember(
   const joined = await joiner.join(shareKey);
   if (joined[0]) throw joined[0];
   return pending.driveKey;
+}
+
+/** A fake swarm connection from the device whose identity drive is
+ * `identityKey`. Like a real one, its `remotePublicKey` is a separate per-boot
+ * noise key, never a drive key. */
+export function fakeConnection(identityKey: Buffer) {
+  return {
+    remotePublicKey: nodeCrypto.randomBytes(32),
+    identityKey,
+    on: () => {},
+  };
 }

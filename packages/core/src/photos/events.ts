@@ -50,7 +50,9 @@ export const photoSpecs = {
   join: {
     pluginId: "justus.photos",
     name: "photos.join",
-    args: {} as { key: string },
+    /** `name` is the album name from the invite: shown until the Admin's own
+     * record replicates in. */
+    args: {} as { key: string; name?: string },
     result: {} as SyncStatus,
   },
   enroll: {
@@ -161,8 +163,16 @@ export const photoEvents = {
         PHOTOS_SHORT_TIMEOUT_MS,
       );
     },
-    join(key: string): InvokeEnvelope<"photos.join", { key: string }, SyncStatus> {
-      return invokeEvent(photoSpecs.join, { key }, null, PHOTOS_JOIN_TIMEOUT_MS);
+    join(
+      key: string,
+      name?: string,
+    ): InvokeEnvelope<"photos.join", { key: string; name?: string }, SyncStatus> {
+      return invokeEvent(
+        photoSpecs.join,
+        name ? { key, name } : { key },
+        null,
+        PHOTOS_JOIN_TIMEOUT_MS,
+      );
     },
     enroll(
       key: string,

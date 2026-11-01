@@ -53,7 +53,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
         return errResult(new Error("photos.add needs a path or file bytes"));
       },
       remove: async (args) => deps.store.remove(args.id, args.folderId),
-      join: async (args) => deps.store.join(args.key),
+      join: async (args) => deps.store.join(args.key, args.name),
       enroll: async (args) => deps.store.enroll(args.key, args.name),
       status: async () => {
         try {

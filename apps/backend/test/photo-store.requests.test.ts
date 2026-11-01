@@ -14,7 +14,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeSwarm, makeFakeDeps } from "./fake-drive.ts";
+import { FakeSwarm, fakeConnection, makeFakeDeps } from "./fake-drive.ts";
 import type { FakeDrive } from "./fake-drive.ts";
 
 /** Build a store on the in-memory harness, recording its keyless (identity)
@@ -53,7 +53,7 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     await requester.store.ready();
     await requester2.store.ready();
 
-    // The swarm announces each requester by the drive holding its outbox.
+    // Each requester tells the creator its identity drive, which holds its outbox.
     const requesterPeer = requesterOwn[0].key.toString("hex");
     const requester2Peer = requester2Own[0].key.toString("hex");
 
@@ -66,13 +66,10 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     expect((await requester.store.join(folderKey))[0]).toBeNull();
     expect((await requester2.store.join(folderKey))[0]).toBeNull();
 
-    // The swarm announces each requester to the creator (populates
-    // `rt.social.peers`, which `requests()` reads).
+    // Each requester connects and greets the creator with its identity drive
+    // (which `requests()` reads).
     const announce = (key: string) =>
-      creatorSwarm.emit("connection", {
-        remotePublicKey: Buffer.from(key, "hex"),
-        on: () => {},
-      });
+      creatorSwarm.emit("connection", fakeConnection(Buffer.from(key, "hex")));
     announce(requesterPeer);
     announce(requester2Peer);
 

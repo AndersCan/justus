@@ -9,7 +9,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeSwarm, makeFakeDeps } from "./fake-drive.ts";
+import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
 import type { FakeDrive } from "./fake-drive.ts";
 
 function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {
@@ -41,7 +41,7 @@ async function scenario() {
   const shareKey = created[1]!.folder.shareKey;
   expect((await requester.join(shareKey))[0]).toBeNull();
   const outbox = requesterOwn[0];
-  swarm.emit("connection", { remotePublicKey: outbox.key, on: () => {} });
+  swarm.emit("connection", fakeConnection(outbox.key));
   const close = async () => {
     await creator.close();
     await requester.close();

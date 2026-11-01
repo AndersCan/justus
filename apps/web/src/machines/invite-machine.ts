@@ -52,7 +52,7 @@ const inviteActor = new Actor({
     }
     m.on(reviewing, confirm, () => {
       const invite = $invite.get();
-      if (invite) sync.join(invite.key);
+      if (invite) sync.join(invite.key, invite.name);
       $invite.set(null);
       return { state: idle };
     });

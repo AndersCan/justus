@@ -20,7 +20,7 @@ describe("invite machine", () => {
     expect($invite.get()).toMatchObject({ key: KEY, name: "Trip", admin: "Maya", members: 2 });
     expect(joinMock).not.toHaveBeenCalled();
     invites.confirm();
-    expect(joinMock).toHaveBeenCalledWith(KEY);
+    expect(joinMock).toHaveBeenCalledWith(KEY, "Trip");
     expect($inviteState.get()).toBe("idle");
     expect($invite.get()).toBeNull();
   });
