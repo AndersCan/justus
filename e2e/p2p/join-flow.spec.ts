@@ -14,17 +14,11 @@ import { pngOf, runColour } from "../add-photos.js";
 const ALBUM = "Hub trip";
 const PHOTO = "hub-join.png";
 
-// FIXME(#200): A never sees B's request. With the 3-node local DHT, B finds A on
-// the album topic and completes the handshake (B logs `conn.open` to A's noise
-// key), but A never registers a connection and B's stream fails with
-// "connection timed out" ~13s later; /__state then shows 0 connections on both.
-// Single-process real-swarm suites (Node and Bare) pass the same flow, so the
-// fault is in the two-process setup (announced addresses / holepunch on
-// loopback?) or a real bug two separate devices also hit. On failure the
-// fixture attaches each instance's /__state and /__logs.
-test.fixme("B joins A's album by invite, A approves, B sees the photo", async ({
-  instancePages,
-}) => {
+// The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
+// album creator cannot NAT-sample enough nodes, aborts the joiner's holepunch,
+// and the joiner times out. On failure the fixture attaches each instance's
+// /__state and /__logs.
+test("B joins A's album by invite, A approves, B sees the photo", async ({ instancePages }) => {
   test.setTimeout(150_000);
   const [a, b] = instancePages;
   // Skip the first-run intro on both instances.
