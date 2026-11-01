@@ -1,4 +1,5 @@
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
+import type { Files } from "./ports/files";
 
 /** Where a served photo's bytes come from: `open` makes sure they are on disk
  * (spooling them off the member's drive on first use) and returns the file. */
@@ -7,7 +8,7 @@ export type MediaSource = {
   open(): Promise<string>;
 };
 
-type FileSystem = Pick<typeof import("bare-fs"), "statSync" | "createReadStream">;
+type FileSystem = Pick<Files, "statSync" | "createReadStream">;
 
 export type LazyMedia = {
   /** Serve `route` from `source`. Nothing is fetched until the route is loaded. */

@@ -1,12 +1,17 @@
-import fs from "bare-fs";
-import path from "bare-path";
+import type { Files, Paths } from "./ports/files";
 
 /**
  * Dev-only watched inbox: a file dropped into `inboxDir` is imported as a
  * photo (dev loop stand-in for the native picker, which has no host in dev).
  * Polls to avoid bare-fs watcher quirks; never errors.
  */
-export function createDevInbox(deps: { inboxDir: string; onFile: (filePath: string) => void }) {
+export function createDevInbox(deps: {
+  inboxDir: string;
+  fs: Files;
+  path: Paths;
+  onFile: (filePath: string) => void;
+}) {
+  const { fs, path } = deps;
   let closed = false;
   const seen = new Set<string>();
 
