@@ -1,0 +1,35 @@
+import { describe, expect, it } from "vite-plus/test";
+import fixture from "../../fixtures/backend-payloads.json";
+import { checkPhotoChanged, checkPhotoResult, photoResultSchemas } from "./contract";
+import { photoSpecs } from "./events";
+
+describe("photo contract", () => {
+  it("has a result schema for every invoke spec (and none for the push)", () => {
+    const invokes = Object.values(photoSpecs)
+      .map((spec) => spec.name)
+      .filter((name) => name !== photoSpecs.changed.name);
+    expect(Object.keys(photoResultSchemas).sort()).toEqual(invokes.sort());
+  });
+
+  it("accepts the real backend fixture", () => {
+    for (const [name, samples] of Object.entries(fixture.results)) {
+      for (const sample of samples) expect(checkPhotoResult(name, sample)).toBeNull();
+    }
+    for (const push of fixture.pushes) expect(checkPhotoChanged(push)).toBeNull();
+  });
+
+  it("names the offending field", () => {
+    expect(checkPhotoResult("photos.list", { photos: [{ id: "a" }] })).toBe(
+      "photos.list contract violation: result.photos[0].url: missing required field",
+    );
+    expect(checkPhotoResult("photos.folders", { folders: [], activeFolderId: null })).toContain(
+      "result.activeFolderId: expected string, got null",
+    );
+    expect(checkPhotoChanged({ cause: "rename" })).toContain("args.cause: expected one of");
+    expect(checkPhotoChanged("nope")).toContain("args: expected object, got string");
+  });
+
+  it("ignores unknown extra fields", () => {
+    expect(checkPhotoResult("photos.setName", { name: "x", extra: 1 })).toBeNull();
+  });
+});

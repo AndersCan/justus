@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { createLogCollector, type ConsoleLike, type FsLike, type LogEntry } from "./log-collector";
 
 /** In-memory fs implementing the FsLike surface, for fast persistence tests. */

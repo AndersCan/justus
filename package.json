@@ -6,7 +6,10 @@
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "pnpm --parallel --filter './apps/*' run dev",
+    "check:issue-refs": "node scripts/check-issue-refs.mjs",
+    "test": "vp test run scripts",
     "test:e2e": "playwright test",
+    "test:bare": "pnpm --filter @justus/backend run test:bare",
     "test:e2e-hub": "vitest run --config e2e/hub/vitest.config.ts",
     "test:e2e-p2p": "playwright test --config playwright.hub.config.ts",
     "test:e2e-hub:plan": "node scripts/e2e-hub.mjs --plan",

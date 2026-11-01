@@ -134,7 +134,8 @@ export function buildOrchestratorPlan(opts = {}) {
       `cache=${resolve(inst.storageDir, "cache")}`,
       `inbox=${resolve(inst.storageDir, "inbox")}`,
       `port=${inst.port}`,
-      `bootstrap=${bootstrap}`,
+      // Hyperswarm wants host:port, not the registry's http:// URL (which never connects).
+      `bootstrap=127.0.0.1:${o.dhtPort}`,
     ],
   }));
 

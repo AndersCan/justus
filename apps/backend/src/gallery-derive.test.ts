@@ -12,7 +12,10 @@ function entry(
 } {
   return {
     key: `/photos/${id}.jpg`,
-    value: { size: 1, metadata: { addedAt: 0, name: id, mime: "image/jpeg", ...meta } },
+    value: {
+      blob: { byteLength: 1 },
+      metadata: { addedAt: 0, name: id, mime: "image/jpeg", ...meta },
+    },
   };
 }
 
@@ -80,7 +83,7 @@ describe("deriveGallery invariants (issue #23)", () => {
   test("metadata fallbacks: missing addedAt → 0, name → basename, sha256 passthrough", () => {
     const raw = {
       key: "/photos/legacy",
-      value: { size: 5, metadata: { sha256: "abc" } },
+      value: { blob: { byteLength: 5 }, metadata: { sha256: "abc" } },
     };
     const out = deriveGallery([{ key: kA, entries: [raw as never] }], {}, NAME);
     expect(out[0]).toMatchObject({
@@ -97,7 +100,7 @@ describe("deriveGallery invariants (issue #23)", () => {
   test("mime fallback mirrors the host table, case-insensitively", () => {
     const raw = (id: string): { key: string; value: Record<string, unknown> } => ({
       key: `/photos/${id}`,
-      value: { size: 1, metadata: {} },
+      value: { blob: { byteLength: 1 }, metadata: {} },
     });
     const out = deriveGallery(
       [
@@ -122,7 +125,9 @@ describe("deriveGallery invariants (issue #23)", () => {
       [
         {
           key: kA,
-          entries: [{ key: "/photos/a.jpg", value: { size: 1, metadata: { addedAt: 0 } } }],
+          entries: [
+            { key: "/photos/a.jpg", value: { blob: { byteLength: 1 }, metadata: { addedAt: 0 } } },
+          ],
         },
       ],
       {},

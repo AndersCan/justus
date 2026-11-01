@@ -202,7 +202,7 @@ full gate, and only then cut a store release.
 | Play: _"Package not found"_ / 403                                     | First upload not done (A6), or the service account lacks permissions (A7).                |
 | Play: _"signed with the wrong key"_                                   | The bundle wasn't signed with the registered upload key. Check the keystore secret.       |
 | Play: target API level error                                          | Bump `compileSdk`/`targetSdk` in `apps/android/app/build.gradle` (A2).                    |
-| App crashes on launch in release only                                 | `libnativehelper` shim missing (ekrooh#45), or a 32-bit device (ekrooh#46).               |
+| App crashes on launch in release only                                 | A missing native library in the AAR, or a 32-bit device (ekrooh#46).                      |
 
 ## Local release build
 

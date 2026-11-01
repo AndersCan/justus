@@ -1,4 +1,5 @@
 import { build } from "esbuild";
+import { pathToFileURL } from "node:url";
 
 /** Packages that must resolve at runtime from node_modules under the Bare
  * runtime: the framework, the p2p stack (+ native addons), and the bare-*
@@ -30,4 +31,7 @@ export function workletBuildOptions(entry = workletEntry, outfile = workletOutfi
   };
 }
 
-await build(workletBuildOptions());
+// Importers (dev.mjs, test-bare.mjs) only want the options, not a build.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await build(workletBuildOptions());
+}

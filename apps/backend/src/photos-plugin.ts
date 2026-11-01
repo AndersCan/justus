@@ -1,5 +1,5 @@
 import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
-import { photoSpecs } from "@justus/core";
+import { checkPhotoResult, photoSpecs } from "@justus/core";
 import type { PhotoStore } from "./photo-store";
 
 // Mirror the upload route's cap (upload-route.ts MAX_UPLOAD_BYTES): the in-band
@@ -13,11 +13,38 @@ function errResult(error: unknown): [CoreError, null] {
   return [new CoreError("PLUGIN_ERROR", message), null];
 }
 
+/** Wraps an invoke handler so its result is checked against the shared
+ * backend/web contract (`@justus/core` contract.ts). A violation becomes a
+ * PLUGIN_ERROR naming the field, so drift fails loudly where it starts.
+ * Off in production (`checkContract` unset): walking every photo of a large
+ * `list` on every call is not free on a phone, and the web layer validates
+ * on receipt anyway. Dev mode and tests turn it on. */
+function checked<A extends unknown[]>(
+  name: string,
+  on: boolean | undefined,
+  fn: (...a: A) => unknown,
+) {
+  if (!on) return fn;
+  return async (...a: A) => {
+    const out = (await fn(...a)) as [unknown, unknown];
+    if (out[0]) return out;
+    const message = checkPhotoResult(name, out[1]);
+    return message ? errResult(new Error(message)) : out;
+  };
+}
+
 /** The `justus.photos` plugin — the worklet surface the web layer calls. */
-export function createPhotosPlugin(deps: { store: PhotoStore }) {
+export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: boolean }) {
+  const wrap = <T extends Record<string, (...a: never[]) => unknown>>(handlers: T): T =>
+    Object.fromEntries(
+      Object.entries(handlers).map(([key, fn]) => [
+        key,
+        checked(`photos.${key}`, deps.checkContract, fn as never),
+      ]),
+    ) as T;
   return definePlugin("justus.photos", photoSpecs, {
     capabilities: ["photos"],
-    invoke: {
+    invoke: wrap({
       list: async (args) => {
         try {
           const photos = await deps.store.list({ all: args?.all === true });
@@ -81,6 +108,6 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
       },
       removeMember: async (args) => deps.store.removeMember(args.folderId, args.memberKey),
       respond: async (args) => deps.store.respond(args.folderId, args.requesterKey, args.approve),
-    },
+    }),
   });
 }

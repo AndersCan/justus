@@ -1,4 +1,9 @@
-import { createPluginBus, createProtocolMessenger, MessageType } from "@ekrooh/bare/core";
+import {
+  createPluginBus,
+  createProtocolMessenger,
+  MessageType,
+  type InvokeEnvelope,
+} from "@ekrooh/bare/core";
 import {
   photoEvents,
   logEvents,
@@ -7,6 +12,7 @@ import {
   type AddExtras,
   type LogLevel,
 } from "@justus/core";
+import { guardResult } from "./contract-guard";
 import { getTransport } from "./transport";
 import { workletBase } from "./utils/peer";
 import { encodePhoto } from "./utils/encode-photo";
@@ -19,16 +25,22 @@ export const messenger = createProtocolMessenger((request, payload) => {
 
 export const bus = createPluginBus(messenger);
 
+/** `bus.invoke` with every `justus.photos` result checked against the shared
+ * backend/web contract (see `contract-guard.ts`). */
+async function invoke<R>(envelope: InvokeEnvelope<string, Record<string, unknown>, R>) {
+  return guardResult(envelope, await bus.invoke(envelope));
+}
+
 /** The plugin-invoke shell the mantaq actors drive. Every call returns the
  * framework's `Either` tuple `[error, result]`. */
 export const gateway = {
   /** Every album's photos, newest first. */
-  list: () => bus.invoke(photoEvents.photos.list(true)),
+  list: () => invoke(photoEvents.photos.list(true)),
   add: (path: string, name?: string, folderId?: string, extras?: AddExtras) =>
-    bus.invoke(photoEvents.photos.add(path, name, folderId, extras)),
+    invoke(photoEvents.photos.add(path, name, folderId, extras)),
   /** Adds a photo from bytes picked in the browser (multi-file upload). */
   addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
-    bus.invoke(photoEvents.photos.addFile(name, bytes)),
+    invoke(photoEvents.photos.addFile(name, bytes)),
   /** Encodes a browser-picked file into the copies an album shares and posts
    * them to the worklet's `POST /photos` route (same-origin in the WebView,
    * Vite-proxied in dev): the thumbnail, then the display copy, in one body.
@@ -63,34 +75,34 @@ export const gateway = {
       return [e instanceof Error ? e : new Error(String(e)), null];
     }
   },
-  remove: (id: string, folderId?: string) => bus.invoke(photoEvents.photos.remove(id, folderId)),
-  join: (key: string, name?: string) => bus.invoke(photoEvents.photos.join(key, name)),
-  enroll: (key: string, name: string) => bus.invoke(photoEvents.photos.enroll(key, name)),
-  status: () => bus.invoke(photoEvents.photos.status()),
-  folders: () => bus.invoke(photoEvents.photos.folders()),
-  createFolder: (name: string) => bus.invoke(photoEvents.photos.createFolder(name)),
-  setActive: (folderId: string) => bus.invoke(photoEvents.photos.setActive(folderId)),
-  setName: (name: string) => bus.invoke(photoEvents.photos.setName(name)),
-  requests: () => bus.invoke(photoEvents.photos.requests()),
+  remove: (id: string, folderId?: string) => invoke(photoEvents.photos.remove(id, folderId)),
+  join: (key: string, name?: string) => invoke(photoEvents.photos.join(key, name)),
+  enroll: (key: string, name: string) => invoke(photoEvents.photos.enroll(key, name)),
+  status: () => invoke(photoEvents.photos.status()),
+  folders: () => invoke(photoEvents.photos.folders()),
+  createFolder: (name: string) => invoke(photoEvents.photos.createFolder(name)),
+  setActive: (folderId: string) => invoke(photoEvents.photos.setActive(folderId)),
+  setName: (name: string) => invoke(photoEvents.photos.setName(name)),
+  requests: () => invoke(photoEvents.photos.requests()),
   respond: (folderId: string, requesterKey: string, approve: boolean) =>
-    bus.invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
+    invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
   removeMember: (folderId: string, memberKey: string) =>
-    bus.invoke(photoEvents.photos.removeMember(folderId, memberKey)),
+    invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */
   media: {
-    pickMany: () => bus.invoke(justusMediaEvents.media.pickMany()),
-    capture: () => bus.invoke(justusMediaEvents.media.capture()),
+    pickMany: () => invoke(justusMediaEvents.media.pickMany()),
+    capture: () => invoke(justusMediaEvents.media.capture()),
   },
   logs: {
     view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
-      bus.invoke(logEvents.view(opts)),
-    clear: () => bus.invoke(logEvents.clear()),
+      invoke(logEvents.view(opts)),
+    clear: () => invoke(logEvents.clear()),
   },
   grants: {
-    view: () => bus.invoke(grantEvents.view()),
-    grant: (peerId: string) => bus.invoke(grantEvents.grant(peerId)),
-    decline: (peerId: string) => bus.invoke(grantEvents.decline(peerId)),
-    revoke: (peerId: string) => bus.invoke(grantEvents.revoke(peerId)),
-    snooze: () => bus.invoke(grantEvents.snooze()),
+    view: () => invoke(grantEvents.view()),
+    grant: (peerId: string) => invoke(grantEvents.grant(peerId)),
+    decline: (peerId: string) => invoke(grantEvents.decline(peerId)),
+    revoke: (peerId: string) => invoke(grantEvents.revoke(peerId)),
+    snooze: () => invoke(grantEvents.snooze()),
   },
 };

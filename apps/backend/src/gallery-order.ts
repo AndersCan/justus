@@ -122,7 +122,9 @@ export function deriveGallery(
         ext,
         name: typeof meta.name === "string" ? meta.name : base,
         mime: typeof meta.mime === "string" ? meta.mime : guessMime(ext),
-        size: typeof entry.value?.size === "number" ? entry.value.size : 0,
+        // Hyperdrive keeps the length on the blob pointer; there is no
+        // `value.size` (#200: assuming one made every size 0).
+        size: blobByteLength(entry.value),
         addedAt: typeof meta.addedAt === "number" ? meta.addedAt : 0,
         ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
         // Metadata comes from other members' drives: surface only a well-formed date.
@@ -145,4 +147,10 @@ function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
     { addedAt: a.addedAt, memberKey: a.driveKey, id: a.id },
     { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
   );
+}
+
+/** A Hyperdrive entry's content length: `value.blob.byteLength`, 0 if absent. */
+function blobByteLength(value: Record<string, unknown> | undefined): number {
+  const blob = value?.blob as { byteLength?: unknown } | null | undefined;
+  return typeof blob?.byteLength === "number" ? blob.byteLength : 0;
 }

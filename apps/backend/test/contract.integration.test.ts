@@ -1,0 +1,156 @@
+/**
+ * Backend -> web contract, proven with REAL backend output (two devices on a
+ * real swarm, driven through the real `justus.photos` plugin).
+ *
+ * Every invoke result and `photos.changed` push the scenario produces must pass
+ * the `@justus/core` validators, and its (canonicalised) shape must be covered
+ * by the checked-in fixture `packages/core/fixtures/backend-payloads.json`,
+ * which the web tests replay through the machines. A backend shape change
+ * therefore fails here until the fixture is regenerated and the web consumers
+ * are exercised against the new shape:
+ *
+ *   JUSTUS_UPDATE_FIXTURES=1 vp test run apps/backend/test/contract.integration.test.ts
+ */
+import { afterEach, describe, expect, it } from "vite-plus/test";
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { checkPhotoChanged, checkPhotoResult, photoResultSchemas } from "../src/contract.ts";
+import { createPhotosPlugin } from "../src/photos-plugin.ts";
+import type { PhotoStore } from "../src/photo-store.ts";
+import { eventually, realNet } from "./real-peers.ts";
+
+const FIXTURE = fileURLToPath(
+  new URL("../../../packages/core/fixtures/backend-payloads.json", import.meta.url),
+);
+
+const cleanups: Array<() => Promise<void> | void> = [];
+afterEach(async () => {
+  for (const c of cleanups.splice(0).reverse()) await c();
+});
+
+type Captured = Record<string, unknown[]>;
+
+/** Stable stand-ins for values that differ per run, so a fixture is diffable. */
+function canonicalise(value: unknown, seen: Map<string, string>): unknown {
+  if (typeof value === "string") {
+    return value.replace(/[0-9a-f]{64}/g, (m) => {
+      if (!seen.has(m)) seen.set(m, (seen.size + 1).toString(16).padStart(2, "0").repeat(32));
+      return seen.get(m)!;
+    });
+  }
+  if (typeof value === "number") return value > 1e11 ? 1_700_000_000_000 : value;
+  if (Array.isArray(value)) return value.map((v) => canonicalise(v, seen));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, canonicalise(v, seen)]));
+  }
+  return value;
+}
+
+/** `path:type` lines; array indices collapse so list length is irrelevant. */
+function shapeOf(value: unknown, path = "$", out = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    out.add(`${path}:array`);
+    for (const v of value) shapeOf(v, `${path}[]`, out);
+  } else if (value && typeof value === "object") {
+    out.add(`${path}:object`);
+    for (const [k, v] of Object.entries(value)) shapeOf(v, `${path}.${k}`, out);
+  } else out.add(`${path}:${value === null ? "null" : typeof value}`);
+  return out;
+}
+
+describe("backend -> web contract, from real backend output", () => {
+  it("every payload passes the core validators and matches the checked-in fixture", async () => {
+    const net = await realNet();
+    cleanups.push(() => net.destroy());
+    const admin = await net.peer("Phone");
+    const joiner = await net.peer("Desktop");
+
+    const captured: Captured = {};
+    const plugin = (store: PhotoStore) => {
+      const bare = createPhotosPlugin({ store, checkContract: true }).runtimes!.bare!;
+      return async (name: string, args: Record<string, unknown> = {}, payload?: Uint8Array) => {
+        const [err, result] = (await bare.invoke!(name, args, { payload } as never)) as [
+          Error | null,
+          unknown,
+        ];
+        // The plugin already asserts (checkContract): surface its message.
+        expect(err?.message ?? null, name).toBeNull();
+        expect(checkPhotoResult(name, result), name).toBeNull();
+        (captured[name] ??= []).push(result);
+        return result as any;
+      };
+    };
+    const a = plugin(admin.store);
+    const b = plugin(joiner.store);
+
+    // A fresh device: no folders, and an empty (not null) active id.
+    await a("photos.folders");
+    const { folder } = await a("photos.createFolder", { name: "Contract" });
+    await a("photos.setActive", { folderId: folder.id });
+    await a("photos.setName", { name: "Phone" });
+    const photo = await a(
+      "photos.add",
+      { name: "a.jpg", folderId: folder.id },
+      new Uint8Array([211, 2, 3]),
+    );
+    await a("photos.list", { all: true });
+    await a("photos.status");
+    await a("photos.folders");
+
+    await b("photos.join", { key: folder.shareKey, name: "From invite" });
+    await eventually(
+      () => b("photos.list"),
+      (l: any) => l.photos.length === 1,
+      "the Admin's photo on the joiner",
+    );
+    await b("photos.status");
+    await b("photos.folders");
+    const { requests } = await eventually(
+      () => a("photos.requests"),
+      (r: any) => r.requests.length === 1,
+      "the join request on the Admin",
+    );
+    await a("photos.respond", {
+      folderId: folder.id,
+      requesterKey: requests[0].requesterKey,
+      approve: true,
+    });
+    await eventually(
+      () => b("photos.folders"),
+      (r: any) => r.folders[0]?.role === "member" && !r.folders[0]?.pending,
+      "the joiner's upgrade to member",
+    );
+    await a("photos.status");
+    await a("photos.remove", { id: photo.id, folderId: folder.id });
+    await a("photos.removeMember", { folderId: folder.id, memberKey: requests[0].requesterKey });
+
+    // Every result the web reads was exercised, except the legacy direct enroll.
+    const untested = Object.keys(photoResultSchemas).filter((n) => !captured[n]);
+    expect(untested).toEqual(["photos.enroll"]);
+
+    const pushes = [...admin.changes, ...joiner.changes];
+    expect(pushes.length).toBeGreaterThan(0);
+    for (const p of pushes) expect(checkPhotoChanged(p), JSON.stringify(p)).toBeNull();
+
+    const fresh = canonicalise({ results: captured, pushes }, new Map()) as {
+      results: Captured;
+      pushes: unknown[];
+    };
+
+    if (process.env.JUSTUS_UPDATE_FIXTURES) {
+      // One push per distinct cause is enough for the web replay.
+      const byCause = new Map<unknown, unknown>();
+      for (const p of fresh.pushes) byCause.set((p as { cause: string }).cause, p);
+      const out = { results: fresh.results, pushes: [...byCause.values()] };
+      writeFileSync(FIXTURE, JSON.stringify(out, null, 2) + "\n");
+      return;
+    }
+
+    const have = shapeOf(JSON.parse(readFileSync(FIXTURE, "utf8")));
+    const missing = [...shapeOf(fresh)].filter((line) => !have.has(line));
+    expect(
+      missing,
+      "backend output has fields the web fixture lacks: regenerate with JUSTUS_UPDATE_FIXTURES=1 and check the web consumers",
+    ).toEqual([]);
+  }, 90_000);
+});

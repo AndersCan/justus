@@ -23,10 +23,7 @@ import { createPhotoStore } from "../src/photo-store.ts";
 import { canonicalGalleryOrder, type CanonicalOrderKey } from "../src/gallery-order.ts";
 import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
-const hexKey = (b: Buffer): string => b.toString("hex");
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 

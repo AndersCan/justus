@@ -65,7 +65,7 @@ const albumIn = async (store: PhotoStore, shareKey: string) =>
 
 describe("p2p join over a real swarm", () => {
   it("joiner sees the album, Admin sees the request, approval lands in-session", async () => {
-    const testnet = await createTestnet(3);
+    const testnet = await createTestnet(5);
     cleanups.push(() => testnet.destroy());
 
     const admin = device("Phone", testnet.bootstrap);

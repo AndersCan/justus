@@ -61,7 +61,8 @@ function canonical(r: { inviterId: string; inviteeId: string; albumId: string })
     inviteeId: r.inviteeId,
     albumId: r.albumId,
   });
-  return new TextEncoder().encode(payload);
+  // Buffer, not TextEncoder: Bare has no global TextEncoder (#200).
+  return Buffer.from(payload, "utf8");
 }
 
 /**

@@ -1,5 +1,5 @@
 import { createLoopbackPush, createWorkletRuntime } from "@ekrooh/bare/runtime";
-import { photoSpecs, type PhotoChanged } from "@justus/core";
+import { checkPhotoChanged, photoSpecs, type PhotoChanged } from "@justus/core";
 import fs from "bare-fs";
 import path from "bare-path";
 import crypto from "bare-crypto";
@@ -22,7 +22,7 @@ import { sendHandoff, watchParentDeath } from "./desktop";
 
 declare const Bare: { exit(code?: number): void };
 
-// Workaround for AndersCan/ekrooh#268: @ekrooh/bare 0.6.0 builds request ids
+// WORKAROUND(ekrooh#268): @ekrooh/bare 0.6.0 builds request ids
 // with globalThis.crypto.getRandomValues, which Bare lacks, so every host
 // invoke (photo picker, camera) throws before it is sent. Remove once fixed.
 if (!globalThis.crypto) {
@@ -64,6 +64,11 @@ const runtime = createWorkletRuntime({
 const push = createLoopbackPush(runtime.server, runtime.protocol);
 
 function pushChange(change: PhotoChanged) {
+  // Dev only (same cost reasoning as `checkContract` in photos-plugin.ts).
+  if (config.dev) {
+    const violation = checkPhotoChanged(change);
+    if (violation) console.error(violation);
+  }
   push(
     {
       type: "DISPATCH",
@@ -96,7 +101,7 @@ const store: PhotoStore = createPhotoStore({
   makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
 });
 
-runtime.pluginRegistry.register(createPhotosPlugin({ store }));
+runtime.pluginRegistry.register(createPhotosPlugin({ store, checkContract: config.dev }));
 runtime.pluginRegistry.register(createLogsPlugin({ collector: logCollector }));
 runtime.pluginRegistry.register(createMediaPluginStub());
 
@@ -118,7 +123,11 @@ registerUploadRoute({
 });
 
 // Debug-log surface: pull backend lifecycle logs and ingest external batches.
-registerLogRoutes({ server: runtime.server, collector: logCollector });
+registerLogRoutes({
+  server: runtime.server,
+  collector: logCollector,
+  debugState: () => store.debugState(),
+});
 
 if (config.dev && config.inbox) {
   createDevInbox({
