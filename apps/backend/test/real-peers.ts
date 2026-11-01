@@ -17,12 +17,15 @@ import { createPhotoStore, type PhotoStore, type PhotoStoreDeps } from "../src/p
 export type PhotoChanged = Parameters<PhotoStoreDeps["onChanged"]>[0];
 export type SyncStatus = Awaited<ReturnType<PhotoStore["status"]>>;
 import { makeFakeDeps } from "./fake-drive.ts";
+import { formatP2pEvent, type P2pEvent } from "../src/p2p-log.ts";
 
 export type Peer = {
   name: string;
   storageDir: string;
   store: PhotoStore;
   changes: PhotoChanged[];
+  /** Every structured p2p event this device logged (`src/p2p-log.ts`). */
+  events: P2pEvent[];
   /** Closes the store, keeping its storage (a device going offline). */
   stop(): Promise<void>;
 };
@@ -43,6 +46,7 @@ export async function realNet(): Promise<Net> {
     const dir = storageDir ?? mkdtempSync(join(tmpdir(), `justus-real-${name}-`));
     if (!storageDir) dirs.push(dir);
     const changes: PhotoChanged[] = [];
+    const events: P2pEvent[] = [];
     const deps = makeFakeDeps({
       storageDir: dir,
       cacheDir: join(dir, "cache"),
@@ -54,6 +58,11 @@ export async function realNet(): Promise<Net> {
       // The real protomux greeting, not the harness fake.
       greetPeer: undefined,
       driveOpenTimeoutMs: 10_000,
+      // Capture events per peer; P2P_LOG=1 also prints them, tagged by device.
+      log: (e: P2pEvent) => {
+        events.push(e);
+        if (process.env.P2P_LOG) console.log(`${name} ${formatP2pEvent(e)}`);
+      },
     });
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
@@ -64,6 +73,7 @@ export async function realNet(): Promise<Net> {
       storageDir: dir,
       store,
       changes,
+      events,
       async stop() {
         if (stopped) return;
         stopped = true;

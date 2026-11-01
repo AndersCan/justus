@@ -38,6 +38,27 @@ describe("p2p flows over a real swarm", () => {
       );
       expect(seen.map((p) => p.name).sort()).toEqual(["a.jpg", "b.jpg"]);
       expect(admin.changes.some((c) => c.cause === "add")).toBe(true);
+
+      // The same flow must be diagnosable from logs alone (#200): a connection,
+      // the identity exchange and the drive change each left an event.
+      const opened = admin.events.filter((e) => e.event === "conn.open");
+      expect(opened.length).toBeGreaterThan(0);
+      const conn = opened[0].fields.conn;
+      expect(conn).toEqual(expect.any(Number));
+      const identity = admin.events.find(
+        (e) => e.event === "identity.learned" && e.fields.new === true,
+      );
+      expect(identity?.fields.conn).toEqual(expect.any(Number));
+      expect(identity?.fields.identity).toMatch(/^[0-9a-f]{8}$/);
+      expect(
+        admin.events.some((e) => e.event === "drive.change" && Number(e.fields.length) > 0),
+      ).toBe(true);
+      expect(admin.events.some((e) => e.event === "drive.open.ready")).toBe(true);
+      // The state dump names the live connection and its learned identity.
+      const dump = admin.store.debugState() as {
+        connections: { conn: number; identityKey: string | null }[];
+      };
+      expect(dump.connections.some((c) => c.identityKey !== null)).toBe(true);
     },
     T,
   );
