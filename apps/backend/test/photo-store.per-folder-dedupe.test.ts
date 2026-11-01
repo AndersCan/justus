@@ -11,9 +11,7 @@
  * all; the test still guards the per-folder scoping.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
 

@@ -11,9 +11,6 @@ Consumes the published **`io.github.anderscan.ekrooh:bare-host`** AAR from Maven
 ## Layout
 
 - `settings.gradle` — resolves `bare-host` from Maven Central.
-- `app/src/main/nativehelper/`, `nativehelper-shim/` — the old `libnativehelper.so` shim, **unused**:
-  the `bare-host` AAR ships the library since 0.5.0 (ekrooh#45 fixed). The APK built without it passed
-  the Maestro suite on 2026-11-01. Delete both directories.
 - `app/build.gradle` — the app module; Gradle tasks run the monorepo builds:
   - `link` — `bare-link --preset android` links the p2p native addons into
     `src/main/addons`
@@ -47,8 +44,7 @@ stores the photo in the folder drive and serves it over the loopback server.
 > **Device ABI caveat:** verified booting on the **arm64 emulator**. The physical
 > Nexus 7 (`flo`) runs **LineageOS 18.1 (Android 11)** but on a **32-bit-only**
 > userspace (`zygote32`) and cannot run `bare-host` — it SIGSEGVs in
-> `bare_kit__on_thread_enter` even with the `libnativehelper` shim
-> (ekrooh#46). Use an arm64 emulator/device for on-device testing.
+> `bare_kit__on_thread_enter` (ekrooh#46). Use an arm64 emulator/device for on-device testing.
 
 For a signed Play Store bundle (`:app:bundleRelease`) and the fastlane release
 flow, see [`docs/release-android.md`](../../docs/release-android.md).

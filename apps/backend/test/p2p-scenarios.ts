@@ -130,7 +130,11 @@ export const scenarios: Scenario[] = [
         (l) => l.some((p) => p.name === "b.jpg"),
         "the Member's photo on the Admin",
       );
-      t.eq(seen.map((p) => p.name).sort(), ["a.jpg", "b.jpg"], "Admin's photos");
+      t.eq(
+        seen.map((p) => p.name).sort((a, b) => a.localeCompare(b)),
+        ["a.jpg", "b.jpg"],
+        "Admin's photos",
+      );
       // Sizes come from the real Hyperdrive entry shape, on both sides.
       t.eq(
         seen.find((p) => p.name === "b.jpg")?.size,

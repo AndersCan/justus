@@ -217,7 +217,7 @@ describe("unknown-holder prompt batching", () => {
       ledger
         .dueUnknownHolderPrompts(2_000 + DAY_MS)
         .map((r) => r.peerId)
-        .sort(),
+        .sort((a, b) => a.localeCompare(b)),
     ).toEqual(["peer-x", "peer-y"]);
   });
 

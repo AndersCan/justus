@@ -1,4 +1,4 @@
-import { CoreError, definePlugin, type PluginContext } from "@ekrooh/bare/core";
+import { CoreError, definePlugin } from "@ekrooh/bare/core";
 import { logSpecs } from "@justus/core";
 import type { LogCollector } from "./log-collector";
 

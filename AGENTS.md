@@ -95,8 +95,8 @@ layer, Host, Actor). Use those terms exactly.
   backend record, surfaced in the summary, and sent in the push.
 - **Refresh the request inbox on every `photos.changed` push** and on join/respond.
 - **Seed/imported images must be real decodable files** (e2e asserts `naturalWidth > 0`).
-- **`libnativehelper.so` ships in the bare-host AAR** (ekrooh#45 fixed). The old shim
-  under `apps/android/app/src/main/nativehelper/` and `nativehelper-shim/` is unused; delete it.
+- **`libnativehelper.so` ships in the bare-host AAR** (ekrooh#45 fixed, since 0.5.0); the
+  app no longer carries its own shim.
 - Emulators cannot P2P each other (NAT). Use a desktop worklet or a physical device.
 
 ## Do / don't

@@ -27,7 +27,7 @@ import { createRequire } from "node:module";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildOrchestratorPlan, parseArgs, REPO_ROOT } from "../e2e/hub/orchestrator.mjs";
+import { buildOrchestratorPlan, parseArgs } from "../e2e/hub/orchestrator.mjs";
 import { isPortInUse, portHeldBy, ensurePortFree } from "../apps/backend/scripts/port-utils.mjs";
 
 const require = createRequire(import.meta.url);
