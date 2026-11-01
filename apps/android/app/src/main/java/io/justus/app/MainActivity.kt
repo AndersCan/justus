@@ -439,8 +439,11 @@ class MainActivity : AppCompatActivity() {
             // so only the picker (which copies the original bytes) needs this.
             val ext =
                 contentResolver.getType(uri)?.let { mime ->
-                    val sub = mime.substringAfter("/", "")
-                    if (sub.isNotEmpty() && !sub.contains('*')) ".$sub" else null
+                    // The MIME comes from the provider, so it is untrusted: keep
+                    // only a plain alphanumeric subtype so it can never alter
+                    // the destination path.
+                    val sub = mime.substringAfter("/", "").lowercase()
+                    if (sub.matches(Regex("[a-z0-9]+"))) ".$sub" else null
                 } ?: ".bin"
             // A UUID, not a timestamp: a batch stages many files per millisecond.
             val dest = File(importsDir, "media-${UUID.randomUUID()}$ext")
