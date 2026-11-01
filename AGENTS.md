@@ -41,6 +41,9 @@ layer, Host, Actor). Use those terms exactly.
   `useStore`. Never `.get()` an atom inside a template (no re-render).
 - **No server, ever.** Nothing in the architecture may route photos or metadata
   through a service we operate. Privacy must stay legible in the UI.
+- **Mark every workaround or known limitation** with `WORKAROUND(ekrooh#N): why`
+  or `LIMITATION(#N): why` (`#N` = this repo). `pnpm check:issue-refs` fails CI
+  when the named issue is closed: remove the workaround or re-file the issue.
 
 ## Commands
 
@@ -93,7 +96,7 @@ layer, Host, Actor). Use those terms exactly.
 - **Refresh the request inbox on every `photos.changed` push** and on join/respond.
 - **Seed/imported images must be real decodable files** (e2e asserts `naturalWidth > 0`).
 - **The `libnativehelper.so` shim under `apps/android/app/src/main/nativehelper/`**
-  works around ekrooh#45. Remove it only once a released AAR is verified without it.
+  is a WORKAROUND(ekrooh#45). Remove it only once a released AAR is verified without it.
 - Emulators cannot P2P each other (NAT). Use a desktop worklet or a physical device.
 
 ## Do / don't
