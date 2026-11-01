@@ -21,7 +21,7 @@ const builtin = @import("builtin");
 const posix = std.posix;
 
 // webview/webview C API (core/include/webview/api.h). Declared by hand: the
-// surface we use is ten functions.
+// surface we use is a handful of functions.
 const Webview = ?*anyopaque;
 const DispatchFn = *const fn (Webview, ?*anyopaque) callconv(.c) void;
 extern fn webview_create(debug: c_int, window: ?*anyopaque) Webview;
@@ -34,6 +34,12 @@ extern fn webview_set_size(w: Webview, width: c_int, height: c_int, hints: c_int
 extern fn webview_set_html(w: Webview, html: [*:0]const u8) c_int;
 extern fn webview_init(w: Webview, js: [*:0]const u8) c_int;
 extern fn webview_navigate(w: Webview, url: [*:0]const u8) c_int;
+extern fn webview_get_window(w: Webview) ?*anyopaque;
+
+// GTK (Linux only): the window icon comes from the window, not a bundle.
+const gtk = struct {
+    extern fn gtk_window_set_icon_from_file(window: *anyopaque, filename: [*:0]const u8, err: ?*anyopaque) c_int;
+};
 
 const handoff_timeout_ms = 20_000;
 const handoff_max_bytes = 4096;
@@ -88,6 +94,11 @@ fn run(init: std.process.Init) !u8 {
     const w = webview_create(@intFromBool(opts.debug), null) orelse return error.WebviewCreateFailed;
     defer _ = webview_destroy(w);
     _ = webview_set_title(w, "Justus");
+    if (builtin.os.tag == .linux) {
+        // Best effort: a missing icon leaves GTK's default, nothing more.
+        const icon = try std.fs.path.joinZ(arena, &.{ opts.resources, "justus.png" });
+        if (webview_get_window(w)) |window| _ = gtk.gtk_window_set_icon_from_file(window, icon, null);
+    }
     _ = webview_set_size(w, 1024, 720, 0);
     _ = webview_set_html(w, starting_html);
 
@@ -414,7 +425,8 @@ fn bootstrapScript(a: std.mem.Allocator, handoff: Handoff) ![:0]const u8 {
 
 const page_style =
     \\<style>
-    \\:root { color-scheme: light dark; }
+    \\:root { color-scheme: light dark; background: #F6F5FA; color: #14121F; }
+    \\@media (prefers-color-scheme: dark) { :root { background: #0F0D1A; color: #F2F0FA; } }
     \\body { font: 15px -apple-system, system-ui, sans-serif; margin: 0; height: 100vh;
     \\  display: flex; flex-direction: column; align-items: center; justify-content: center; }
     \\p { max-width: 36em; text-align: center; opacity: .75; }
