@@ -130,11 +130,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Hub harness tests
         run: pnpm test:e2e-hub
-      # KNOWN BROKEN: scripts/e2e-hub.mjs waits for the local DHT with a TCP
-      # probe (port-utils isPortInUse) but the DHT is UDP-only, so the hub
-      # never reports ready. Non-blocking until that is fixed.
       - name: Playwright across real worklets
-        continue-on-error: true
         run: pnpm test:e2e-p2p
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() }}

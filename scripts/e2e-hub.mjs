@@ -66,6 +66,26 @@ async function waitForPort(port, timeoutMs) {
   return false;
 }
 
+/** Resolves true once local-dht.mjs prints that it is bound, false on exit or
+ * timeout. The DHT is UDP-only, so a TCP port probe never sees it, and a UDP
+ * probe that binds the port would race the DHT for it (#200). */
+function waitForDhtReady(child, timeoutMs) {
+  return new Promise((resolveReady) => {
+    let buffered = "";
+    const done = (ok) => {
+      clearTimeout(timer);
+      resolveReady(ok);
+    };
+    const timer = setTimeout(() => done(false), timeoutMs);
+    child.stdout.on("data", (chunk) => {
+      process.stdout.write(chunk);
+      buffered += chunk;
+      if (/local DHT bootstrap bound to/.test(buffered)) done(true);
+    });
+    child.once("exit", () => done(false));
+  });
+}
+
 function buildStack() {
   log("building web app + backend worklet...");
   execSync("pnpm --filter @justus/web run build", { cwd: repoRoot, stdio: "inherit" });
@@ -112,10 +132,12 @@ async function main() {
 
   // Spawn the DHT first.
   const children = new Map();
-  const dht = spawn(plan.plan.dht.command, plan.plan.dht.args, { stdio: "inherit" });
+  const dht = spawn(plan.plan.dht.command, plan.plan.dht.args, {
+    stdio: ["ignore", "pipe", "inherit"],
+  });
   children.set("dht", dht);
   log(`launched DHT (pid=${dht.pid ?? "unknown"}) on ${plan.plan.dht.bootstrap}`);
-  if (!(await waitForPort(opts.dhtPort, 15_000))) {
+  if (!(await waitForDhtReady(dht, 15_000))) {
     log(`ERROR: DHT did not bind port ${opts.dhtPort} within 15s.`);
     await shutdown(children, plan);
     process.exit(1);

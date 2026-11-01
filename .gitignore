@@ -69,3 +69,4 @@ apps/android/fastlane/report.xml
 apps/android/fastlane/README.md
 apps/android/.bundle
 apps/android/vendor/bundle
+.dev-e2e-hub
