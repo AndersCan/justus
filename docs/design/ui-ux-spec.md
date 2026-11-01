@@ -161,16 +161,21 @@ time-based; the app does not try to detect the network type.
 Neutral, photo-first, light and dark via `prefers-color-scheme`. Content (the
 photos) carries the color; chrome stays quiet.
 
+- **Brand:** indigo `#4B3FD6` (dark mode `#8B7CF6`) is the accent; coral
+  `#FF8A5B` appears only as the dot in the just·us wordmark (`views/wordmark.ts`,
+  sources in `assets/brand/`), one per screen. Coral is never text.
 - **Tokens** are CSS variables in `apps/web/index.html`, exposed as Uno
   colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
-  `muted`, `accent`, `accent-strong`, `danger`, `ok`, `warn`. Views use these
-  names only, never literal colors.
+  `muted`, `accent`, `accent-strong`, `accent-soft` (selected items, chips),
+  `on-fill` (text on a solid accent/danger fill), `brand`, `danger`, `ok`,
+  `warn`, and `danger-fg`/`ok-fg`/`warn-fg` for status text (the fill shades
+  are under 4.5:1 on white). Views use these names only, never literal colors.
 - **Trust colors** (`trust-green/amber/red`) are reserved for connection state.
   Their only consumer is the connection indicator.
 - **Components** are Uno shortcuts: `ui-card`, `ui-btn`, `ui-btn-primary`,
   `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
-- **Shell:** left rail at `md+`, bottom tab bar below it, slim top bar on
-  mobile carrying the connection indicator. Primary routes: Photos, Albums
+- **Shell:** left rail at `md+` with the wordmark, bottom tab bar below it.
+  No top bar on mobile; a canvas-colored strip covers the status-bar inset. Primary routes: Photos, Albums
   (the shared albums list), Sharing, Help; Settings opens from Sharing.
   Requests live in the People sheet.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
