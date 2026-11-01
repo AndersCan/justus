@@ -161,7 +161,7 @@ function lightboxBody(photo: Photo) {
             ${useStore(
               $galleryState,
               (state) => html`<button
-                class="ui-btn-ghost !bg-transparent !px-3 !text-danger hover:!bg-danger/10"
+                class="ui-btn-ghost !bg-transparent !px-3 !text-danger-fg hover:!bg-danger/10"
                 ?disabled=${state === "removing"}
                 @click=${() => void removeFromLightbox(photo)}
               >

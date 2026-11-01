@@ -12,7 +12,7 @@ export function errorBanner(
 ): TemplateResult | null {
   if (!error) return null;
   return html`<div
-    class="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+    class="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger-fg"
     role="alert"
     title=${error}
   >

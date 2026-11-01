@@ -30,7 +30,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
     document.addEventListener("keydown", onKey);
     const toneClass =
       options.tone === "danger"
-        ? "ui-btn bg-danger text-white hover:bg-danger/90"
+        ? "ui-btn bg-danger-fg text-on-fill hover:bg-danger-fg/90"
         : "ui-btn-primary";
     render(
       html`

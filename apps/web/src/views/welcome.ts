@@ -17,6 +17,7 @@ import { $router } from "../router";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
+import { wordmark } from "./wordmark";
 
 const SEEN_KEY = "justus:welcome-seen";
 
@@ -186,7 +187,7 @@ function profileStep(vm: ReturnType<typeof $onboardingViewModel.get>) {
       <p class="text-xs text-muted">
         Your colour and initials come from your name. Edit it later in Settings.
       </p>
-      ${vm.error ? html`<p class="text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
+      ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
       <div class="flex justify-between gap-3">
         <button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>Back</button>
         <button class="ui-btn-primary" type="submit" ?disabled=${vm.saving}>
@@ -226,7 +227,7 @@ function chooseStep() {
             <button class="ui-btn-primary w-full" type="submit" ?disabled=${busy}>
               ${vm.state === "creating" ? "Creating…" : "Create an album"}
             </button>
-            ${vm.error ? html`<p class="text-xs text-danger" role="alert">${friendlyError(vm.error)}</p>` : null}
+            ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
           <form
             class="ui-card space-y-3 p-5"
@@ -251,7 +252,7 @@ function chooseStep() {
             />
             ${useStore($inviteError, (err) =>
               err
-                ? html`<p class="text-xs text-danger" role="alert">${friendlyError(err)}</p>`
+                ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(err)}</p>`
                 : null,
             )}
             <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>Join album</button>
@@ -265,10 +266,10 @@ function chooseStep() {
 export function welcomeView() {
   return html`
     <div class="mx-auto max-w-xl space-y-6 py-6">
-      <p class="text-center text-3xl font-bold text-accent">Justus</p>
+      <h1 class="flex justify-center">${wordmark("h-14 w-auto", true)}</h1>
       ${useStore($onboardingViewModel, (vm) => {
         if (vm.fatal) {
-          return html`<p class="text-center text-sm text-danger" role="alert">
+          return html`<p class="text-center text-sm text-danger-fg" role="alert">
             Something went wrong. Reload the app to continue.
           </p>`;
         }

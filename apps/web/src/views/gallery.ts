@@ -684,7 +684,7 @@ function albumHeader(page: PhotosPage, album: FolderSummary) {
           ${
             waiting > 0
               ? html`<span
-                  class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-white"
+                  class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-on-fill"
                   aria-label="${waiting} waiting for approval"
                   >${waiting}</span
                 >`
@@ -786,7 +786,7 @@ function albumCard(card: AlbumCard, waiting: number) {
         ${
           waiting > 0
             ? html`<span
-                class="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-white"
+                class="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
                 >${waiting} waiting</span
               >`
             : null
@@ -797,7 +797,7 @@ function albumCard(card: AlbumCard, waiting: number) {
         ${count} photo${count === 1 ? "" : "s"}
         ${
           folder.pending
-            ? html` · <span class="font-semibold text-warn">Waiting for approval</span>`
+            ? html` · <span class="font-semibold text-warn-fg">Waiting for approval</span>`
             : html` · ${folder.members} member${folder.members === 1 ? "" : "s"}`
         }
       </p>
