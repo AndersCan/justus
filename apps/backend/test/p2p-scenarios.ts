@@ -131,6 +131,12 @@ export const scenarios: Scenario[] = [
         "the Member's photo on the Admin",
       );
       t.eq(seen.map((p) => p.name).sort(), ["a.jpg", "b.jpg"], "Admin's photos");
+      // Sizes come from the real Hyperdrive entry shape, on both sides.
+      t.eq(
+        seen.find((p) => p.name === "b.jpg")?.size,
+        3,
+        "the Member's photo size as listed on the Admin",
+      );
       t.ok(
         admin.changes.some((c) => c.cause === "add"),
         "Admin was pushed an add",

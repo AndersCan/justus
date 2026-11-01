@@ -97,7 +97,7 @@ describe("deriveGallery canonical order matches I3 spec (issue #55)", () => {
       key,
       entries: ids.map(([id, addedAt]) => ({
         key: `photos/${id}.jpg`,
-        value: { size: 1, metadata: { addedAt, name: id, mime: "image/jpeg" } },
+        value: { blob: { byteLength: 1 }, metadata: { addedAt, name: id, mime: "image/jpeg" } },
       })),
     };
   }

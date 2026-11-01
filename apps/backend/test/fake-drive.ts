@@ -119,15 +119,18 @@ export class FakeDrive extends Emitter {
   // Each entry carries `value.metadata` (custom metadata set via `put(path,
   // data, { metadata })`); `deriveGallery` reads it to surface the readable
   // filename the add path threaded through (v2 seam parity, issue #19).
-  async *list(
-    path: string,
-  ): AsyncIterable<{ key: string; value: { metadata: Record<string, unknown> } }> {
+  async *list(path: string): AsyncIterable<{
+    key: string;
+    value: { blob: { byteLength: number }; metadata: Record<string, unknown> };
+  }> {
     if (this.unreachable) throw new Error("fake drive unreachable");
     const prefix = path.endsWith("/") ? path : `${path}/`;
     for (const key of this.files.keys()) {
       if (key === path) continue;
       if (key.startsWith(prefix)) {
-        yield { key, value: { metadata: this.metadata.get(key) ?? {} } };
+        // Same shape as Hyperdrive: the length lives on the blob pointer.
+        const byteLength = this.files.get(key)?.length ?? 0;
+        yield { key, value: { blob: { byteLength }, metadata: this.metadata.get(key) ?? {} } };
       }
     }
   }
