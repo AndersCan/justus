@@ -95,10 +95,12 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
   /** Hyperdrive.getDriveKey opens an exclusive session, which waits forever on a drive that is already open; a plain session reads the same key. */
   async function driveKey(store: any): Promise<string> {
     const core = store.get({ name: "db" });
-    await core.ready();
-    const key = toHex(core.key);
-    await core.close();
-    return key;
+    try {
+      await core.ready();
+      return toHex(core.key);
+    } finally {
+      await core.close();
+    }
   }
 
   function track(raw: any): Entry {
@@ -113,7 +115,8 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
       const store = namespace ? corestore.namespace(namespace) : corestore;
       const key = await driveKey(store);
       return acquire(key, async () => {
-        const raw = new Hyperdrive(store);
+        /** Closing a Hyperdrive closes the store it was built on: give it a session of its own, never the root. */
+        const raw = new Hyperdrive(namespace ? store : store.session());
         await raw.ready();
         return track(raw);
       });
@@ -141,7 +144,7 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
   };
 
   async function openRemote(key: string, timeoutMs: number): Promise<Entry> {
-    const raw = new Hyperdrive(corestore, Buffer.from(key, "hex"));
+    const raw = new Hyperdrive(corestore.session(), Buffer.from(key, "hex"));
     const startedAt = Date.now();
     log("drive.open.start", { drive: short(key), topic: short(raw.discoveryKey) });
     let timer: ReturnType<typeof setTimeout> | undefined;

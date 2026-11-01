@@ -155,7 +155,7 @@ export const cases: DriveCase[] = [
   {
     name: "D6 open is shared per key: concurrent and repeated opens work, release is ref-counted",
     async run(world, t) {
-      const { a, b, own } = await pair(world, t);
+      const { a, b, own, remote } = await pair(world, t);
       await own.put("/a", bytes("hi"));
       const [one, two] = await Promise.all([
         openOk(b.store, own.key, 10_000, t),
@@ -175,6 +175,7 @@ export const cases: DriveCase[] = [
       }
       await b.store.release(one);
       await b.store.release(two);
+      await b.store.release(remote);
       t.eq(await three.readSmall("/a", 10), "hi", "last handle still reads");
       await b.store.release(three);
       const again = await openOk(b.store, own.key, 10_000, t);
@@ -191,7 +192,34 @@ export const cases: DriveCase[] = [
     },
   },
   {
-    /** Hyperdrive 13.3.3 opens the header with { wait: false }, so ready() never waits for a peer: an unserved key opens at once, empty, and fills in once a peer that has it connects. The timeout only guards a ready() that really stalls (the fake injects one). */
+    name: "D6b releasing every handle on a node leaves the store usable",
+    async run(world, t) {
+      const { b, own, remote } = await pair(world, t);
+      await own.put("/a", bytes("hi"));
+      const identity = await b.store.openOwn();
+      const folder = await b.store.openOwn("folder/y");
+      await b.store.release(remote);
+      await b.store.release(identity);
+      await b.store.release(folder);
+      const fresh = await b.store.openOwn("folder/z");
+      await fresh.put("/b", bytes("ok"));
+      t.eq(await fresh.readSmall("/b", 10), "ok", "new own drive reads and writes");
+      const again = await openOk(b.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => again.readSmall("/a", 10),
+          (v) => v === "hi",
+          "reopen",
+        ),
+        "hi",
+        "remote drive reopens",
+      );
+      const reopenedIdentity = await b.store.openOwn();
+      t.eq(reopenedIdentity.key, identity.key, "identity key is stable");
+    },
+  },
+  {
+    /** Hyperdrive 13.3.3 opens the header with { wait: false }, so ready() never waits for a peer: an unserved key opens at once, empty, and fills in once a peer that has it connects. The timeout only guards a ready() that really stalls. */
     name: "D7 open of an unserved key resolves promptly and empty, then fills in once the owner connects",
     async run(world, t) {
       const a = await world.node();
