@@ -106,15 +106,13 @@ function scansOf(drives: Map<string, Map<string, Entry>>): DriveScan[] {
     scans.push({
       key: ownerKey,
       entries: [...entries].map(([localId, e]) => ({
-        key: `/photos/${localId}.jpg`,
-        value: {
-          size: e.size,
-          metadata: {
-            addedAt: e.addedAt,
-            name: e.name,
-            mime: e.mime,
-            sha256: e.sha256,
-          },
+        path: `/photos/${localId}.jpg`,
+        size: e.size,
+        metadata: {
+          addedAt: e.addedAt,
+          name: e.name,
+          mime: e.mime,
+          sha256: e.sha256,
         },
       })),
     });

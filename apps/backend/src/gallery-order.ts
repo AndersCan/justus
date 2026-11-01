@@ -1,6 +1,7 @@
 import { TAKEN_AT_RE } from "@justus/core";
 import type { Photo } from "@justus/core";
 import { guessMime } from "./mime";
+import type { DriveEntry } from "./ports/drive-store";
 
 /**
  * I3 canonical gallery order: (addedAt desc, memberKey asc, id asc).
@@ -45,8 +46,8 @@ export function compareGalleryOrder(a: Photo, b: Photo): number {
 export interface DriveScan {
   /** Hex key of the drive that owns these entries (tombstone scope). */
   key: string;
-  /** Raw hyperdrive entries under `photos/` (key + value with metadata). */
-  entries: Array<{ key: string; value: Record<string, unknown> }>;
+  /** Entries under `photos/`. */
+  entries: DriveEntry[];
 }
 
 /** A derived gallery entry before host effects (mounting, URL building). */
@@ -96,7 +97,7 @@ export function deriveGallery(
       paths = new Map();
       byKey.set(scan.key, paths);
     }
-    for (const entry of scan.entries) paths.set(entry.key, entry);
+    for (const entry of scan.entries) paths.set(entry.path, entry);
   }
   const out: DerivedPhoto[] = [];
   for (const [key, paths] of byKey) {
@@ -106,13 +107,13 @@ export function deriveGallery(
       // leading slash before dropping the prefix so the derived id never carries
       // a spurious `/` — otherwise `remove()`'s key match (which uses the
       // slash-free `drivePhotoKeys`) fails for every photo (issue #50).
-      const stripped = entry.key.startsWith("/") ? entry.key.slice(1) : entry.key;
+      const stripped = entry.path.startsWith("/") ? entry.path.slice(1) : entry.path;
       const base = stripped.slice("photos/".length);
       const extMatch = PHOTO_BASE_RE.exec(base);
       if (!extMatch) continue;
       const id = extMatch[1]!;
       const ext = extMatch[2] ?? "";
-      const meta = (entry.value?.metadata ?? {}) as Record<string, unknown>;
+      const meta = entry.metadata;
       // I2/I4: tombstones apply over the registry snapshot, never gated on
       // this device having "seen" the photo first.
       if (removed[`${key}:${id}`]) continue;
@@ -122,9 +123,7 @@ export function deriveGallery(
         ext,
         name: typeof meta.name === "string" ? meta.name : base,
         mime: typeof meta.mime === "string" ? meta.mime : guessMime(ext),
-        // Hyperdrive keeps the length on the blob pointer; there is no
-        // `value.size` (#200: assuming one made every size 0).
-        size: blobByteLength(entry.value),
+        size: entry.size,
         addedAt: typeof meta.addedAt === "number" ? meta.addedAt : 0,
         ...(typeof meta.sha256 === "string" ? { sha256: meta.sha256 } : {}),
         // Metadata comes from other members' drives: surface only a well-formed date.
@@ -147,10 +146,4 @@ function byDerivedOrder(a: DerivedPhoto, b: DerivedPhoto): number {
     { addedAt: a.addedAt, memberKey: a.driveKey, id: a.id },
     { addedAt: b.addedAt, memberKey: b.driveKey, id: b.id },
   );
-}
-
-/** A Hyperdrive entry's content length: `value.blob.byteLength`, 0 if absent. */
-function blobByteLength(value: Record<string, unknown> | undefined): number {
-  const blob = value?.blob as { byteLength?: unknown } | null | undefined;
-  return typeof blob?.byteLength === "number" ? blob.byteLength : 0;
 }

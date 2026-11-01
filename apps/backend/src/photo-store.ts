@@ -9,6 +9,8 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./peer-identity";
+import { toDriveEntry } from "./adapters/hyper-drive-store";
+import type { DriveEntry } from "./ports/drive-store";
 import {
   isEnrolled,
   isHexKey,
@@ -1074,9 +1076,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const scans: DriveScan[] = [];
     for (const d of drives) {
       try {
-        const entries: DriveScan["entries"] = [];
+        const entries: DriveEntry[] = [];
         const list = d.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) entries.push(entry as never);
+        for await (const entry of list) entries.push(toDriveEntry(entry));
         scans.push({ key: hex(d.key), entries });
       } catch (e) {
         // Unreachable drive — its entries are already indexed; skip, don't evict.
@@ -1195,9 +1197,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const scans: DriveScan[] = [];
     for (const { key, drive } of drivesToScan) {
       try {
-        const entries: DriveScan["entries"] = [];
+        const entries: DriveEntry[] = [];
         const list = drive.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) entries.push(entry as never);
+        for await (const entry of list) entries.push(toDriveEntry(entry));
         scans.push({ key, entries });
       } catch (e) {
         // Drive not downloaded yet — skip.
