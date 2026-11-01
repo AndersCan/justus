@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { canonicalGalleryOrder, compareGalleryOrder, deriveGallery } from "./gallery-order";
+import type { DriveEntry } from "./ports/drive-store";
 import type { Photo } from "@justus/core";
 
 function photo(id: string, addedAt: number, memberKey: string): Photo {
@@ -91,13 +92,14 @@ describe("deriveGallery canonical order matches I3 spec (issue #55)", () => {
     ids: Array<[string, number]>,
   ): {
     key: string;
-    entries: Array<{ key: string; value: Record<string, unknown> }>;
+    entries: DriveEntry[];
   } {
     return {
       key,
       entries: ids.map(([id, addedAt]) => ({
-        key: `photos/${id}.jpg`,
-        value: { blob: { byteLength: 1 }, metadata: { addedAt, name: id, mime: "image/jpeg" } },
+        path: `photos/${id}.jpg`,
+        size: 1,
+        metadata: { addedAt, name: id, mime: "image/jpeg" },
       })),
     };
   }

@@ -18,6 +18,15 @@ function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
 }
 
+/** Maps a raw Hyperdrive list entry to the port's `DriveEntry`. */
+export function toDriveEntry(e: any): DriveEntry {
+  return {
+    path: e.key,
+    size: e.value?.blob?.byteLength ?? 0,
+    metadata: e.value?.metadata ?? {},
+  };
+}
+
 function wrap(raw: any): Drive {
   return {
     key: toHex(raw.key),
@@ -43,11 +52,7 @@ function wrap(raw: any): Drive {
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
       for await (const e of raw.list(dir)) {
-        yield {
-          path: e.key,
-          size: e.value?.blob?.byteLength ?? 0,
-          metadata: e.value?.metadata ?? {},
-        };
+        yield toDriveEntry(e);
       }
     },
     createReadStream(path) {

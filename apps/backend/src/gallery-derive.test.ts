@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { deriveGallery, type DriveScan } from "./gallery-order";
+import type { DriveEntry } from "./ports/drive-store";
 
 const NAME = () => "device";
 
@@ -7,15 +8,14 @@ function entry(
   id: string,
   meta: Record<string, unknown> = {},
 ): {
-  key: string;
-  value: Record<string, unknown>;
+  path: string;
+  size: number;
+  metadata: Record<string, unknown>;
 } {
   return {
-    key: `/photos/${id}.jpg`,
-    value: {
-      blob: { byteLength: 1 },
-      metadata: { addedAt: 0, name: id, mime: "image/jpeg", ...meta },
-    },
+    path: `/photos/${id}.jpg`,
+    size: 1,
+    metadata: { addedAt: 0, name: id, mime: "image/jpeg", ...meta },
   };
 }
 
@@ -82,10 +82,11 @@ describe("deriveGallery invariants (issue #23)", () => {
 
   test("metadata fallbacks: missing addedAt → 0, name → basename, sha256 passthrough", () => {
     const raw = {
-      key: "/photos/legacy",
-      value: { blob: { byteLength: 5 }, metadata: { sha256: "abc" } },
+      path: "/photos/legacy",
+      size: 5,
+      metadata: { sha256: "abc" },
     };
-    const out = deriveGallery([{ key: kA, entries: [raw as never] }], {}, NAME);
+    const out = deriveGallery([{ key: kA, entries: [raw] }], {}, NAME);
     expect(out[0]).toMatchObject({
       id: "legacy",
       ext: "",
@@ -98,9 +99,10 @@ describe("deriveGallery invariants (issue #23)", () => {
   });
 
   test("mime fallback mirrors the host table, case-insensitively", () => {
-    const raw = (id: string): { key: string; value: Record<string, unknown> } => ({
-      key: `/photos/${id}`,
-      value: { blob: { byteLength: 1 }, metadata: {} },
+    const raw = (id: string): DriveEntry => ({
+      path: `/photos/${id}`,
+      size: 1,
+      metadata: {},
     });
     const out = deriveGallery(
       [
@@ -125,9 +127,7 @@ describe("deriveGallery invariants (issue #23)", () => {
       [
         {
           key: kA,
-          entries: [
-            { key: "/photos/a.jpg", value: { blob: { byteLength: 1 }, metadata: { addedAt: 0 } } },
-          ],
+          entries: [{ path: "/photos/a.jpg", size: 1, metadata: { addedAt: 0 } }],
         },
       ],
       {},
