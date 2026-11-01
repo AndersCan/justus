@@ -28,7 +28,7 @@ export {
 } from "./p2p-scenarios.ts";
 
 export async function realNet(): Promise<Net> {
-  const testnet = await createTestnet(3);
+  const testnet = await createTestnet(5);
   const dirs: string[] = [];
   const live = new Set<Peer>();
 

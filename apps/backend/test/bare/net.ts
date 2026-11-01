@@ -34,7 +34,7 @@ const stubServer = {
 } as unknown as PhotoStoreDeps["server"];
 
 export async function bareNet(root: string): Promise<Net> {
-  const testnet = await createTestnet(3);
+  const testnet = await createTestnet(5);
   const live = new Set<Peer>();
   let n = 0;
 
