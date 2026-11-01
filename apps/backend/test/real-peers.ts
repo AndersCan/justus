@@ -132,10 +132,12 @@ export async function realDriveWorlds(): Promise<{
             );
           },
           async disconnect() {
+            if (me.swarm) connected--;
             await me.swarm?.destroy();
             me.swarm = undefined;
           },
           async restart() {
+            if (me.swarm) connected--;
             await me.swarm?.destroy();
             me.swarm = undefined;
             await me.store.close();
