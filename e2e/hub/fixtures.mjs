@@ -31,7 +31,7 @@ export const test = base.extend({
    * loopback URL. Close all contexts in `finally` so instances don't leak
    * across tests. Use for cross-instance / p2p sync assertions.
    */
-  instancePages: async ({ browser, hubRegistry }, use) => {
+  instancePages: async ({ browser, hubRegistry }, use, testInfo) => {
     /** @type {import('@playwright/test').BrowserContext[]} */
     const contexts = [];
     /** @type {import('@playwright/test').Page[]} */
@@ -44,6 +44,22 @@ export const test = base.extend({
         pages.push(page);
       }
       await use(pages);
+      // A failed run attaches each instance's live p2p state and logs, so the
+      // failure can be diagnosed headless from the report alone (#200).
+      if (testInfo.status !== testInfo.expectedStatus) {
+        for (const [i, page] of pages.entries()) {
+          for (const route of ["/__state", "/__logs"]) {
+            const body = await page
+              .evaluate((r) => fetch(r).then((res) => res.text()), route)
+              .catch((e) => `fetch ${route} failed: ${e}`);
+            await testInfo.attach(`instance-${i + 1}${route.replace("/", "-")}.json`, {
+              body,
+              contentType: "application/json",
+            });
+            if (route === "/__state") console.log(`instance-${i + 1} ${route}: ${body}`);
+          }
+        }
+      }
     } finally {
       await Promise.all(contexts.map((c) => c.close().catch(() => {})));
     }

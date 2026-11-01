@@ -36,6 +36,6 @@ export default defineConfig({
   // ("two versions of @playwright/test" / "test() in async describe"). Keep the
   // root project out of vitest discovery so the e2e suite stays Playwright-only.
   test: {
-    exclude: ["**/node_modules/**", "**/.git/**", "**/e2e/**"],
+    exclude: ["**/node_modules/**", "**/.git/**", "**/e2e/**", "**/.claude/**"],
   },
 });

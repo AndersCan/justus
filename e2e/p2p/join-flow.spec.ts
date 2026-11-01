@@ -14,15 +14,14 @@ import { pngOf, runColour } from "../add-photos.js";
 const ALBUM = "Hub trip";
 const PHOTO = "hub-join.png";
 
-// FIXME: stuck at "A: the request shows up in the UI". B joins through the UI and its
-// album page shows "shared with 1 other", but A never lists B as a peer ("Peers
-// reachable 0", Members 1) nor shows the request within 60s, even after reloading
-// A's page. Not yet known whether A's backend misses the request or the swarm link
-// is one-way; the same flow passes over a real swarm in p2p-flows.integration.test.ts.
-// Two harness findings while getting here: the registry's `http://host:port`
-// bootstrap is not a valid Hyperswarm bootstrap (workers need `host:port`), and a
-// lone `HyperDHT.bootstrapper` never connects two local peers (needs the 3-node
-// testnet, as in realNet).
+// FIXME(#200): A never sees B's request. With the 3-node local DHT, B finds A on
+// the album topic and completes the handshake (B logs `conn.open` to A's noise
+// key), but A never registers a connection and B's stream fails with
+// "connection timed out" ~13s later; /__state then shows 0 connections on both.
+// Single-process real-swarm suites (Node and Bare) pass the same flow, so the
+// fault is in the two-process setup (announced addresses / holepunch on
+// loopback?) or a real bug two separate devices also hit. On failure the
+// fixture attaches each instance's /__state and /__logs.
 test.fixme("B joins A's album by invite, A approves, B sees the photo", async ({
   instancePages,
 }) => {
