@@ -9,6 +9,22 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./peer-identity";
+import {
+  isEnrolled,
+  isHexKey,
+  isTextJSON,
+  parseDeviceName,
+  parseDeviceSwarmKey,
+  parseFolderName,
+  parseJoinRequests,
+  parseRegistry,
+  parseRemoved,
+  parseRequestsFile,
+  peerName,
+  type RegistryFile,
+  type RemovedFile,
+  type RequestsFile,
+} from "./membership/records";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 
 /**
@@ -114,16 +130,6 @@ type FolderRecord = {
   createdAt: number;
 };
 
-type RegistryFile = {
-  version: 1;
-  members: Record<string, { key: string; name: string; addedAt: number }>;
-};
-
-type RemovedFile = {
-  version: 1;
-  removed: Record<string, { memberKey: string; removedAt: number }>;
-};
-
 type PhotoMeta = {
   addedAt: number;
   name: string;
@@ -142,24 +148,6 @@ export type AddOptions = {
   original?: string;
   sha256?: string;
   takenAt?: string;
-};
-
-/**
- * Join-request outbox on the REQUESTER's own single-writer drive, keyed by the
- * target folder's share key. `requests()` on the creator side reads this.
- */
-type RequestsFile = {
-  version: 1;
-  requests: Record<
-    string,
-    {
-      requesterKey: string;
-      requesterName: string;
-      shareKey: string;
-      folderName: string;
-      requestedAt: number;
-    }
-  >;
 };
 
 export type PhotoStoreDeps = {
@@ -266,10 +254,6 @@ function hex(buffer: Buffer): string {
   return buffer.toString("hex");
 }
 
-function isHexKey(key: string): boolean {
-  return /^[0-9a-f]{64}$/i.test(key);
-}
-
 /** Decodes standard base64 to bytes. Purpose-built rather than
  * `Buffer.from(s, "base64")` because the bare runtime (ekrooh 0.4.0) rejects
  * otherwise-valid base64 with `Invalid input` at that call site. Portable and
@@ -295,10 +279,6 @@ function base64ToBytes(input: string): Uint8Array {
   return Uint8Array.from(out);
 }
 
-function isTextJSON(value: unknown): value is { [k: string]: unknown } {
-  return typeof value === "object" && value !== null;
-}
-
 type StreamSource = {
   on(event: "data" | "end" | "error", listener: (...args: any[]) => void): unknown;
 };
@@ -313,16 +293,6 @@ const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
  * topic for `/requests.json`, controls these bytes; without a cap one file can
  * exhaust the worklet's memory. 1 MiB holds thousands of members. */
 const MAX_PEER_JSON_BYTES = 1024 * 1024;
-
-/** Longest display name or album name taken from a peer's drive. */
-const MAX_PEER_NAME = 80;
-
-/** A name read off a peer's drive: trimmed and clipped, else `fallback`. */
-function peerName(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback;
-  const clean = value.trim().slice(0, MAX_PEER_NAME);
-  return clean || fallback;
-}
 
 /** Pumps a source stream into a file, resolving with the byte count. Pass
  * `maxBytes` to fail (and abort) once the stream exceeds it.
@@ -635,23 +605,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
     ]);
     if (!text) return false;
-    try {
-      const parsed = JSON.parse(text) as { swarmKey?: unknown };
-      if (typeof parsed.swarmKey === "string" && isHexKey(parsed.swarmKey)) {
-        if (memberSwarmKey.get(memberKey) === parsed.swarmKey) return false;
-        const prev = memberSwarmKey.get(memberKey);
-        memberSwarmKey.set(memberKey, parsed.swarmKey);
-        log(prev && prev !== parsed.swarmKey ? "swarmkey.changed" : "swarmkey.learned", {
-          member: short(memberKey),
-          swarmkey: short(parsed.swarmKey),
-          from: short(prev),
-        });
-        return true;
-      }
-    } catch {
-      // not JSON: leave unresolved
-    }
-    return false;
+    const swarmKey = parseDeviceSwarmKey(text);
+    if (swarmKey === undefined) return false;
+    const prev = memberSwarmKey.get(memberKey);
+    if (prev === swarmKey) return false;
+    memberSwarmKey.set(memberKey, swarmKey);
+    log(prev && prev !== swarmKey ? "swarmkey.changed" : "swarmkey.learned", {
+      member: short(memberKey),
+      swarmkey: short(swarmKey),
+      from: short(prev),
+    });
+    return true;
   }
 
   /** Learn swarm keys for every member of every folder we hold. */
@@ -713,17 +677,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readDeviceName(drive: Drive): Promise<string> {
-    const text = await getText(drive, DRIVE_PATH_DEVICE);
-    let name = "Unknown device";
-    if (text) {
-      try {
-        const parsed = JSON.parse(text) as { name?: unknown };
-        name = peerName(parsed.name, name);
-      } catch {
-        // non-JSON — fall through
-      }
-    }
-    return name;
+    return parseDeviceName(await getText(drive, DRIVE_PATH_DEVICE));
   }
 
   /** The swarm's noise public key. Swarm connections identify a peer by this
@@ -961,31 +915,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readRegistryIn(drive: Drive): Promise<RegistryFile> {
-    const text = await getText(drive, DRIVE_PATH_MEMBERS);
-    if (text === null) return { version: 1, members: {} };
-    try {
-      const parsed = JSON.parse(text) as { version?: unknown; members?: unknown };
-      if (parsed.version === 1 && isTextJSON(parsed.members)) {
-        return { version: 1, members: parsed.members as RegistryFile["members"] };
-      }
-    } catch {
-      // malformed
-    }
-    return { version: 1, members: {} };
+    return parseRegistry(await getText(drive, DRIVE_PATH_MEMBERS));
   }
 
   async function readRemovedIn(drive: Drive): Promise<RemovedFile["removed"]> {
-    const text = await getText(drive, DRIVE_PATH_REMOVED);
-    if (text === null) return {};
-    try {
-      const parsed = JSON.parse(text) as { version?: unknown; removed?: unknown };
-      if (parsed.version === 1 && isTextJSON(parsed.removed)) {
-        return parsed.removed as RemovedFile["removed"];
-      }
-    } catch {
-      // malformed
-    }
-    return {};
+    return parseRemoved(await getText(drive, DRIVE_PATH_REMOVED));
   }
 
   /** An album we joined is named by its Admin's `/folder.json`; until that
@@ -1007,15 +941,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readFolderNameIn(drive: Drive): Promise<string> {
-    const text = await getText(drive, DRIVE_PATH_FOLDER);
-    if (text === null) return "";
-    try {
-      const parsed = JSON.parse(text) as { version?: unknown; name?: unknown };
-      if (parsed.version === 1) return peerName(parsed.name, "");
-    } catch {
-      // malformed
-    }
-    return "";
+    return parseFolderName(await getText(drive, DRIVE_PATH_FOLDER));
   }
 
   function activeFolderId(): string | null {
@@ -1059,10 +985,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Key of the drive this device writes to in `rt` (see `selfDrive`). */
   function selfKeyOf(rt: FolderRuntime): string {
     return hex(rt.selfDrive.key);
-  }
-
-  function isEnrolled(registry: RegistryFile, key: string): boolean {
-    return Object.values(registry.members).some((m) => m.key === key);
   }
 
   /** This device's drive inside the album with `shareKey` (#195). One per
@@ -1749,34 +1671,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
       if (text === null) return [];
-      let parsed: RequestsFile;
-      try {
-        const raw = JSON.parse(text) as { version?: unknown; requests?: unknown };
-        if (raw.version !== 1 || !isTextJSON(raw.requests)) return [];
-        parsed = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-      } catch {
-        return [];
-      }
-      const out: JoinRequest[] = [];
-      // Every field is the requester's own claim: check shapes, never trust them.
-      for (const raw of Object.values(parsed.requests) as unknown[]) {
-        if (!isTextJSON(raw)) continue;
-        const req = raw as Record<string, unknown>;
-        if (req.shareKey !== shareKey) continue;
-        if (typeof req.requesterKey !== "string" || !isHexKey(req.requesterKey)) continue;
-        out.push({
-          requesterKey: req.requesterKey.toLowerCase(),
-          requesterName: peerName(req.requesterName, "Unknown device"),
-          folderId: rt.record.id,
-          folderName: peerName(req.folderName, rt.record.name),
-          shareKey,
-          requestedAt:
-            typeof req.requestedAt === "number" && Number.isFinite(req.requestedAt)
-              ? req.requestedAt
-              : 0,
-        });
-      }
-      return out;
+      return parseJoinRequests(text, {
+        shareKey,
+        folderId: rt.record.id,
+        folderName: rt.record.name,
+      });
     });
     const settled = await Promise.allSettled(tasks);
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
@@ -1978,13 +1877,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function pruneJoinRequests(): Promise<void> {
     const text = await getText(ownDrive, DRIVE_PATH_REQUESTS);
     if (!text) return;
-    let raw: { version?: unknown; requests?: unknown };
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      raw = {};
-    }
-    const entries = raw.version === 1 && isTextJSON(raw.requests) ? raw.requests : {};
+    const file = parseRequestsFile(text);
+    const entries = file?.requests ?? {};
     // The live runtime knows best; an album that failed to open this boot keeps
     // its persisted pending flag rather than losing its request.
     const pending = new Set(
@@ -1996,7 +1890,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         .map((f) => f.shareKey),
     );
     const kept = Object.fromEntries(Object.entries(entries).filter(([key]) => pending.has(key)));
-    if (raw.version === 1 && Object.keys(kept).length === Object.keys(entries).length) return;
+    if (file && Object.keys(kept).length === Object.keys(entries).length) return;
     try {
       await ownDrive.put(
         DRIVE_PATH_REQUESTS,
@@ -2012,18 +1906,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * that outbox on the album's topic so the Admin (`requests()`) can read it. */
   async function fileJoinRequest(rt: FolderRuntime, folderName: string) {
     rt.record.pending = true;
-    let requests: RequestsFile = { version: 1, requests: {} };
     const existingText = await getText(ownDrive, DRIVE_PATH_REQUESTS);
-    if (existingText) {
-      try {
-        const raw = JSON.parse(existingText) as { version?: unknown; requests?: unknown };
-        if (raw.version === 1 && isTextJSON(raw.requests)) {
-          requests = { version: 1, requests: raw.requests as RequestsFile["requests"] };
-        }
-      } catch {
-        // start fresh
-      }
-    }
+    const requests: RequestsFile = (existingText && parseRequestsFile(existingText)) || {
+      version: 1,
+      requests: {},
+    };
     const shareKey = rt.record.shareKey;
     requests.requests[shareKey] = {
       requesterKey: selfKeyOf(rt),
