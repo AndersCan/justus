@@ -65,7 +65,15 @@ export function createLazyMedia(server: LoopbackServer, fs: FileSystem): LazyMed
             // A photo's route names fixed bytes (a new photo gets a new id).
             "Cache-Control": "private, max-age=31536000, immutable",
           });
-          (fs.createReadStream(file) as unknown as { pipe(dest: unknown): void }).pipe(res);
+          // A client abort destroys the pipe; unhandled, PREMATURE_CLOSE crashes the backend.
+          const stream = fs.createReadStream(file) as unknown as {
+            on(event: "error", cb: (e: Error) => void): void;
+            pipe(dest: unknown): void;
+          };
+          stream.on("error", (e) =>
+            console.error(`[justus] read of ${route} failed: ${e.message}`),
+          );
+          stream.pipe(res);
         })();
       });
     },
