@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
 import type { PhotoStoreDeps } from "../src/photo-store.ts";
 
 /** An `fs` whose `createWriteStream` opens the file but fails the first write,
@@ -49,9 +49,11 @@ describe("#90/#92 a failed spool must not leak a .tmp staging file", () => {
 
     // Wrap the fake deps so the read stream yields a byte (so the failing
     // writer actually performs a write) while keeping drive identity stable.
+    const server = new FakeLoopbackServer();
     const base = makeFakeDeps({
       storageDir: dir,
       cacheDir,
+      server,
       fs: failingWriteFs(),
       seedOnEmpty: false,
     }) as PhotoStoreDeps & { makeDrive: (cs: unknown, key?: Buffer) => any };
@@ -71,12 +73,13 @@ describe("#90/#92 a failed spool must not leak a .tmp staging file", () => {
     await store.setActive(folderId);
 
     // The add itself succeeds (bytes land on the drive); only the cache spool
-    // fails under the failing fs. `list()` then re-spools and fails again — in
-    // both cases the staging tmp must be cleaned up.
+    // fails under the failing fs, when the photo is loaded — and the staging
+    // tmp must be cleaned up.
     const added = await store.addBytes("sunset.jpg", new Uint8Array([1, 2, 3, 4, 5]));
     expect(added[0]).toBeNull();
-    const listed = await store.list();
-    expect(listed).toHaveLength(0); // every spool failed
+    const [listed] = await store.list();
+    const loaded = await server.getForTest(new URL(listed!.url).pathname);
+    expect(loaded.status).toBe(502); // the spool failed
 
     const spoolDir = join(cacheDir, "photos", folderId);
     // The staged tmp is removed from the failing-write's async error handler

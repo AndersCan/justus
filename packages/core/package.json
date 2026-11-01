@@ -10,6 +10,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "vp test run"
+  },
   "dependencies": {
     "@ekrooh/bare": "^0.6.0"
   }

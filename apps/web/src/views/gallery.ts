@@ -112,14 +112,14 @@ async function pickNative(via: "library" | "camera"): Promise<AddSource[] | null
       if (!cancelled(err)) toast("Couldn't use the camera. Try again?");
       return null;
     }
-    return [{ kind: "path", path: shot.path, name: shot.name }];
+    return [{ kind: "path", ...shot }];
   }
   const [err, result] = await gateway.media.pickMany();
   if (err || !result?.items?.length) {
     if (!cancelled(err)) toast("Couldn't open your photos. Try again?");
     return null;
   }
-  return result.items.map((item) => ({ kind: "path", path: item.path, name: item.name }));
+  return result.items.map((item) => ({ kind: "path", ...item }));
 }
 
 async function startAdd(albumId: string, via: "library" | "camera" = "library") {
@@ -308,7 +308,7 @@ function photoTile(photo: Photo, within: Photo[]) {
     >
       <img
         class="aspect-square w-full object-cover transition duration-200 group-hover:brightness-90"
-        src="${photo.url}"
+        src="${photo.thumbUrl ?? photo.url}"
         alt="${photo.name}"
         referrerpolicy="no-referrer"
         loading="lazy"
@@ -774,7 +774,7 @@ function albumCard(card: AlbumCard, waiting: number) {
           cover
             ? html`<img
                 class="h-full w-full object-cover transition duration-200 group-hover:brightness-90"
-                src="${cover.url}"
+                src="${cover.thumbUrl ?? cover.url}"
                 alt=""
                 referrerpolicy="no-referrer"
                 loading="lazy"

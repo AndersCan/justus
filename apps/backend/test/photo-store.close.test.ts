@@ -30,21 +30,22 @@ describe("#101 close() must unmount routes and remove spool dirs", () => {
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
 
-    // Add a photo and pull the gallery so a loopback route is mounted and the
-    // spool dir is populated.
+    // Add a photo, pull the gallery and load it, so a loopback route serves it
+    // and the spool dir is populated.
     const add = await store.addBytes("beach.jpg", new Uint8Array([1, 2, 3, 4]));
     expect(add[0]).toBeNull();
-    await store.list();
+    const [photo] = await store.list();
+    const route = new URL(photo!.url).pathname;
+    expect((await server.getForTest(route)).status).toBe(200);
 
-    // Sanity: something is actually mounted + spooled before we shut down.
-    expect(server.routesForTest().size).toBeGreaterThan(0);
+    // Sanity: something is actually served + spooled before we shut down.
     const spoolDir = join(cacheDir, "photos", folderId);
     expect(existsSync(spoolDir)).toBe(true);
 
     await store.close();
 
-    // The bug: mounts and spool dirs survived close().
-    expect(server.routesForTest().size).toBe(0);
+    // The bug: routes and spool dirs survived close().
+    expect((await server.getForTest(route)).status).toBe(404);
     expect(existsSync(spoolDir)).toBe(false);
   });
 });

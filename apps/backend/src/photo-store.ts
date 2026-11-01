@@ -1,6 +1,7 @@
 import Hyperswarm from "hyperswarm";
 import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
-import { readTakenAt } from "./exif-date";
+import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
+import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
 import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
@@ -65,6 +66,7 @@ export const PhotoError = {
   NO_ACTIVE_FOLDER: "justus.photos/no-active-folder",
   NOT_PENDING: "justus.photos/not-pending",
   FORBIDDEN: "justus.photos/import-path-forbidden",
+  UNSUPPORTED_FORMAT: "justus.photos/unsupported-format",
 } as const;
 
 /** Any drive handle (the p2p packages ship no types). */
@@ -121,6 +123,18 @@ type PhotoMeta = {
   addedAt: number;
   name: string;
   mime: string;
+  sha256?: string;
+  takenAt?: string;
+  /** The photo has a thumbnail at `/thumbs/<id>.jpg`; unset for photos added
+   * before thumbnails existed. */
+  thumb?: true;
+};
+
+/** The copies an add brings besides the display copy (see `AddExtras` in
+ * `@justus/core`): paths the host staged, or a hash/date the Web layer read. */
+export type AddOptions = {
+  thumb?: string;
+  original?: string;
   sha256?: string;
   takenAt?: string;
 };
@@ -185,8 +199,14 @@ export interface PhotoStore {
   ready(): Promise<void>;
   /** The active album's photos, or with `all` every album's, newest first. */
   list(opts?: { all?: boolean }): Promise<Photo[]>;
-  /** `folderId` targets an album; without it the active album. */
-  add(path: string, name?: string, folderId?: string): Promise<EitherResult<Photo>>;
+  /** `folderId` targets an album; without it the active album. `path` is the
+   * display copy when `opts.thumb` is given, else a file shared as it is. */
+  add(
+    path: string,
+    name?: string,
+    folderId?: string,
+    opts?: AddOptions,
+  ): Promise<EitherResult<Photo>>;
   /** Adds a photo from in-band bytes (browser multi-file picker). */
   addBytes(name: string, bytes: Uint8Array, folderId?: string): Promise<EitherResult<Photo>>;
   remove(id: string, folderId?: string): Promise<EitherResult<{ id: string }>>;
@@ -210,6 +230,9 @@ export interface PhotoStore {
 }
 
 const DRIVE_PATH_PHOTOS = "/photos";
+/** Thumbnails, one per photo, at `/thumbs/<id>.jpg`. Kept out of `/photos` so
+ * the gallery derivation never mistakes one for a photo. */
+const DRIVE_PATH_THUMBS = "/thumbs";
 const DRIVE_PATH_DEVICE = "/device.json";
 const DRIVE_PATH_MEMBERS = "/members.json";
 const DRIVE_PATH_REMOVED = "/removed.json";
@@ -321,7 +344,7 @@ type FolderRuntime = {
   /** Registered writer drives other than this device, opened read-only. */
   memberDrives: Map<string, Drive>;
   memberNameCache: Map<string, string>;
-  /** Loopback mount routes served for this folder's photos. */
+  /** Loopback routes served for this folder's photos (see `lazyMedia`). */
   mounted: Set<string>;
   /** `remove` closures for this folder's `drive.on("update")` watchers, drained
    * on unmount/close so inactive folders stop firing `onChanged` (#46). */
@@ -392,6 +415,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
   };
+  const lazyMedia = createLazyMedia(deps.server, fs);
   const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
   const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
     deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
@@ -441,6 +465,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
      * a re-add of the same bytes is served from the content index (issues
      * #81/#83/#87). */
     ext: string;
+    hasThumb?: true;
   };
   const contentIndex = new Map<string, IndexedPhoto[]>();
 
@@ -939,6 +964,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         addedAt: p.addedAt,
         sha256: p.sha256,
         ext: p.ext,
+        ...(p.hasThumb ? { hasThumb: true as const } : {}),
       });
     }
   }
@@ -971,14 +997,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     rt.watcherRemoves.clear();
-    for (const route of rt.mounted) {
-      try {
-        deps.server.unmount(route);
-      } catch (e) {
-        const message = errMsg(e);
-        console.error(`[justus] unmount failed for ${route}: ${message}`);
-      }
-    }
+    for (const route of rt.mounted) lazyMedia.drop(route);
     rt.mounted.clear();
     // Issue #95: tear down this folder's member-drive swarm joins (and close
     // the drives) on unmount so a folder switch or re-enroll doesn't leak one
@@ -1065,25 +1084,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const d of deriveGallery(scans, removed, (k) => memberNames.get(k) ?? "Unknown device")) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
-      // `d.id`/`d.ext` derive from untrusted drive photo keys, so the spool
-      // name must be filesystem-safe — never interpolate them raw (issue #71).
-      const spoolName = spoolNameFor(d.driveKey, d.id, d.ext);
-      const mount = `/photos/${rt.record.id}/${spoolName}`;
-      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
-      try {
-        await spoolToFile(drive, `${DRIVE_PATH_PHOTOS}/${d.id}${d.ext}`, spoolPath);
-        if (!rt.mounted.has(mount)) {
-          deps.server.mount(mount, spoolPath);
-          rt.mounted.add(mount);
-        }
-      } catch (e) {
-        const message = errMsg(e);
-        console.error(`[justus] spool failed for ${d.id}${d.ext}: ${message}`);
-        continue;
-      }
       photos.push({
         id: d.id,
-        url: `${await deps.server.origin()}${mount}`,
+        ...(await servePhoto(rt, drive, d.driveKey, d)),
         name: d.name,
         mime: d.mime,
         size: d.size,
@@ -1096,6 +1099,65 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
     }
     return photos;
+  }
+
+  /**
+   * Serve a photo's display copy and thumbnail on the loopback server. Nothing
+   * is downloaded here: each route spools its bytes off the drive the first
+   * time the Web layer loads it (see `lazy-media.ts`).
+   */
+  async function servePhoto(
+    rt: FolderRuntime,
+    drive: Drive,
+    driveKey: string,
+    p: { id: string; ext: string; mime: string; hasThumb?: true },
+  ): Promise<{ url: string; thumbUrl?: string }> {
+    const origin = await deps.server.origin();
+    const serve = (drivePath: string, spoolName: string, mime: string) => {
+      // `p.id`/`p.ext` derive from untrusted drive photo keys, so the spool
+      // name must be filesystem-safe — never interpolate them raw (issue #71).
+      const route = `/photos/${rt.record.id}/${spoolName}`;
+      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
+      lazyMedia.serve(route, {
+        mime,
+        open: async () => {
+          await spoolToFile(drive, drivePath, spoolPath);
+          return spoolPath;
+        },
+      });
+      rt.mounted.add(route);
+      return `${origin}${route}`;
+    };
+    const url = serve(
+      `${DRIVE_PATH_PHOTOS}/${p.id}${p.ext}`,
+      spoolNameFor(driveKey, p.id, p.ext),
+      p.mime,
+    );
+    if (!p.hasThumb) return { url };
+    const thumbUrl = serve(
+      `${DRIVE_PATH_THUMBS}/${p.id}${RENDITION_EXT}`,
+      spoolNameFor(driveKey, p.id, `thumb${RENDITION_EXT}`),
+      "image/jpeg",
+    );
+    return { url, thumbUrl };
+  }
+
+  /** Stop serving a photo that left the album, and drop its cached bytes. */
+  function forgetPhoto(rt: FolderRuntime, driveKey: string, id: string, ext: string) {
+    const names = [
+      spoolNameFor(driveKey, id, ext),
+      spoolNameFor(driveKey, id, `thumb${RENDITION_EXT}`),
+    ];
+    for (const name of names) {
+      const route = `/photos/${rt.record.id}/${name}`;
+      lazyMedia.drop(route);
+      rt.mounted.delete(route);
+      try {
+        fs.rmSync(path.join(spoolDirFor(rt.record.id), name), { force: true });
+      } catch {
+        // never spooled
+      }
+    }
   }
 
   async function spoolToFile(drive: Drive, drivePath: string, spoolPath: string) {
@@ -1159,22 +1221,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     console.log("[justus] seeded sample photos");
   }
 
-  async function addFromPath(
+  /** Contain an import path and read it (#93/#97). Normalize `..`/relative
+   * segments (path.resolve) and reject anything that escapes an allowed root
+   * (the native picker copies selections into `cacheDir`), then reject any
+   * symlink component (which could point outside the root). The symlink walk
+   * uses lstat so neither the final entry nor an ancestor is followed. Every
+   * check runs before any bytes are read. */
+  function readImport(
     filePath: string,
-    originalName?: string,
-    folderId?: string,
-  ): Promise<EitherResult<Photo>> {
-    const rt = runtimeFor(folderId);
-    if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
-    if (rt.record.role === "reader") {
-      return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
-    }
-    // #93/#97: contain the import path before reading any bytes. Normalize
-    // `..`/relative segments (path.resolve) and reject anything that escapes an
-    // allowed root (the native picker copies selections into `cacheDir`), then
-    // reject any symlink component (which could point outside the root). The
-    // symlink walk uses lstat so neither the final entry nor an ancestor is
-    // followed. A missing file falls through to NOT_FOUND below.
+  ):
+    | [CoreError, null]
+    | [null, { resolved: string; bytes: import("bare-buffer").Buffer; size: number }] {
     const resolved = path.resolve(filePath);
     const matchedRoot = importRoots.find((root) => isWithinRoot(resolved, root));
     if (!matchedRoot) {
@@ -1194,25 +1251,73 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!stat.isFile()) {
       return err(PhotoError.NOT_FOUND, `Not a file: ${filePath}`);
     }
-    let bytes: import("bare-buffer").Buffer;
     try {
-      bytes = fs.readFileSync(resolved) as unknown as import("bare-buffer").Buffer;
+      const bytes = fs.readFileSync(resolved) as unknown as import("bare-buffer").Buffer;
+      return [null, { resolved, bytes, size: stat.size }];
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.HOST_ERROR, `Failed to read file: ${message}`);
+    }
+  }
+
+  /** Lowercased extension of a file name; `"."` alone counts as none. */
+  const extOf = (name: string) => path.extname(name).toLowerCase().replace(/^\.$/, "");
+
+  async function addFromPath(
+    filePath: string,
+    originalName?: string,
+    folderId?: string,
+    opts: AddOptions = {},
+  ): Promise<EitherResult<Photo>> {
+    const rt = runtimeFor(folderId);
+    if (!rt) return err(PhotoError.NO_ACTIVE_FOLDER, "No album is active");
+    if (rt.record.role === "reader") {
+      return err(PhotoError.NOT_A_MEMBER, "Readers cannot add photos");
+    }
+    const [displayErr, display] = readImport(filePath);
+    if (displayErr) return [displayErr, null];
+    // With a thumbnail, `filePath` is a display copy the adding device made
+    // (2560 px JPEG) and the original stays on that device. Without
+    // one, the file is shared as it is (older hosts, tests).
+    let thumb: import("bare-buffer").Buffer | null = null;
+    let source = display.bytes;
+    if (opts.thumb) {
+      const [thumbErr, t] = readImport(opts.thumb);
+      if (thumbErr) return [thumbErr, null];
+      const displayExt = extOf(display.resolved);
+      const thumbExt = extOf(t.resolved);
+      if (displayExt !== RENDITION_EXT || thumbExt !== RENDITION_EXT) {
+        return err(
+          PhotoError.UNSUPPORTED_FORMAT,
+          `Not a shareable copy: ${displayExt} / ${thumbExt}`,
+        );
+      }
+      thumb = t.bytes;
+      if (opts.original) {
+        const [originalErr, original] = readImport(opts.original);
+        if (originalErr) return [originalErr, null];
+        source = original.bytes;
+      }
     }
     // The original filename travels in via `originalName` (e.g. the real name
     // of an in-band `addBytes` upload, which is otherwise lost because the bytes
     // are staged to a transient `upload-<id>` file — issue #82). Fall back to
     // the staged file's basename only when no name was supplied (the
     // host-picked `add(path)` flow, where basename is the real name).
+    // The name stays the one the user knows (IMG_1234.HEIC) even when the
+    // shared copy is a JPEG: `mime` says what the bytes are.
     const name =
-      originalName && originalName.trim() ? originalName.trim() : path.basename(resolved);
-    const ext = path.extname(name).toLowerCase().replace(/^\.$/, "");
+      originalName && originalName.trim() ? originalName.trim() : path.basename(display.resolved);
+    const ext = thumb ? extOf(display.resolved) : extOf(name);
     const mime = guessMime(ext);
-    // Content dedupe (#20): the same bytes must not create a second entry.
-    // bare-crypto's HashAlgorithm spells it "sha-256" at the type level.
-    const sha256 = crypto.createHash("sha-256").update(bytes).digest("hex");
+    // Content dedupe (#20): the same bytes must not create a second entry. The
+    // hash is of the original, so re-picking a photo dedupes even though its
+    // shared copy is re-encoded. A Web layer that encoded the copies itself
+    // sends the original's hash along. bare-crypto's HashAlgorithm spells it
+    // "sha-256" at the type level.
+    const sha256 = isSha256Hex(opts.sha256)
+      ? opts.sha256
+      : crypto.createHash("sha-256").update(source).digest("hex");
     // Reachability-independent content dedupe (issue #43): consult the
     // in-session content index instead of re-scanning every drive (which silently
     // skips unreachable peers and would let a re-add of our own bytes slip
@@ -1220,27 +1325,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // matching sha256 on *another* member's drive must NOT be adopted (issue
     // #49): that would leave the "added" photo unowned and unremovable for us, so
     // we fall through and write a local copy below.
-    const selfKeyHex = selfKeyOf(rt);
+    const selfKey = selfKeyOf(rt);
+    // A creator writes to the folder's own drive; a member writes to its drive
+    // for this album only (#195), never one another album also reads.
+    const targetDrive = rt.selfDrive;
     const ownIdx = contentIndex
       .get(sha256)
-      ?.find((e) => e.driveKey === selfKeyHex && e.folderId === rt.record.id);
+      ?.find((e) => e.driveKey === selfKey && e.folderId === rt.record.id);
     if (ownIdx) {
-      // Serve the same spool file the original add wrote, so the re-add's URL
-      // matches what `listPhotosIn` derives (issues #81/#83/#87).
-      const spoolName = spoolNameFor(ownIdx.driveKey, ownIdx.id, ownIdx.ext);
-      const mount = `/photos/${rt.record.id}/${spoolName}`;
-      const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
-      if (!rt.mounted.has(mount)) {
-        try {
-          deps.server.mount(mount, spoolPath);
-          rt.mounted.add(mount);
-        } catch {
-          // mount is best-effort
-        }
-      }
+      // Serve the same route the original add did, so the re-add's URL matches
+      // what `listPhotosIn` derives (issues #81/#83/#87).
       return ok({
         id: ownIdx.id,
-        url: `${await deps.server.origin()}${mount}`,
+        ...(await servePhoto(rt, targetDrive, selfKey, {
+          id: ownIdx.id,
+          ext: ownIdx.ext,
+          mime: ownIdx.mime,
+          ...(ownIdx.hasThumb ? { hasThumb: true as const } : {}),
+        })),
         name: ownIdx.name,
         mime: ownIdx.mime,
         size: ownIdx.size,
@@ -1253,20 +1355,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const id = newId(deps.crypto);
     const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
-    const takenAt = readTakenAt(bytes);
+    // Re-encoding drops EXIF, so the date comes from the original: as the host
+    // read it (it can parse HEIC), else from the bytes we hold.
+    const takenAt =
+      typeof opts.takenAt === "string" && TAKEN_AT_RE.test(opts.takenAt)
+        ? opts.takenAt
+        : readTakenAt(source);
     const metadata: PhotoMeta = {
       addedAt: Date.now(),
       name,
       mime,
       sha256,
       ...(takenAt ? { takenAt } : {}),
+      ...(thumb ? { thumb: true as const } : {}),
     };
-    // A creator writes to the folder's own drive; a member writes to its drive
-    // for this album only (#195), never one another album also reads.
-    const targetDrive = rt.selfDrive;
-    const selfKey = selfKeyHex;
     try {
-      await targetDrive.put(drivePath, bytes, { metadata });
+      // The thumbnail goes first, so a peer that sees the photo can show it.
+      if (thumb) await targetDrive.put(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`, thumb);
+      await targetDrive.put(drivePath, display.bytes, { metadata });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
@@ -1279,34 +1385,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       folderId: rt.record.id,
       name,
       mime,
-      size: stat.size,
+      size: display.size,
       addedAt: metadata.addedAt,
       sha256,
       ext,
+      ...(thumb ? { hasThumb: true as const } : {}),
     });
-    // Spool under the same name `listPhotosIn` derives (#71/#73), so an added
-    // photo is served from one spool file and its add-URL matches its list-URL
-    // (issues #81/#83/#87). The legacy `selfKey.slice(0,12)-id` name diverged
-    // from `spoolNameFor`, orphaning the spool file and returning a stale URL.
-    const spoolName = spoolNameFor(selfKey, id, ext);
-    const spoolPath = path.join(spoolDirFor(rt.record.id), spoolName);
-    try {
-      await spoolToFile(targetDrive, drivePath, spoolPath);
-    } catch {
-      // spool failure is non-fatal — the drive has the bytes
-    }
-    const mount = `/photos/${rt.record.id}/${spoolName}`;
-    if (!rt.mounted.has(mount)) {
-      deps.server.mount(mount, spoolPath);
-      rt.mounted.add(mount);
-    }
     deps.onChanged({ cause: "add", folderId: rt.record.id, memberKey: selfKey });
     return ok({
       id,
-      url: `${await deps.server.origin()}${mount}`,
+      ...(await servePhoto(rt, targetDrive, selfKey, {
+        id,
+        ext,
+        mime,
+        ...(thumb ? { hasThumb: true as const } : {}),
+      })),
       name,
       mime,
-      size: stat.size,
+      size: display.size,
       addedAt: metadata.addedAt,
       ...(takenAt ? { takenAt } : {}),
       member: { key: selfKey, name: state.name },
@@ -1712,13 +1808,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return photos.sort(compareGalleryOrder);
     },
 
-    async add(filePath, name, folderId) {
+    async add(filePath, name, folderId, opts) {
       await readyPromise;
       // Thread the picker's original display name through (#99); without it the
       // stored photo would be named after the host's temp staging file rather
       // than the user's file. `addFromPath` falls back to the basename when
       // `name` is absent, so the old behaviour is preserved for nameless adds.
-      return addFromPath(filePath, name, folderId);
+      const result = await addFromPath(filePath, name, folderId, opts);
+      // The host staged the original and its copies for this add alone; once
+      // the album holds the photo they are dead weight in the cache. A failed
+      // add keeps them, so Retry can use them again.
+      if (!result[0] && opts?.original) {
+        for (const staged of [opts.original, filePath, opts.thumb]) {
+          if (!staged || !importRoots.some((r) => isWithinRoot(path.resolve(staged), r))) continue;
+          try {
+            fs.unlinkSync(path.resolve(staged));
+          } catch {
+            // already gone
+          }
+        }
+      }
+      return result;
     },
 
     /** Adds a photo from bytes uploaded in-band (browser multi-file picker):
@@ -1766,6 +1876,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
           await selfDrive.del(`${DRIVE_PATH_PHOTOS}/${base}`);
+          await selfDrive.del(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`);
+          forgetPhoto(rt, selfKey, id, base.slice(id.length));
           pruneIndex(id, selfKey);
           deps.onChanged({ cause: "remove", folderId: rt.record.id, memberKey: selfKey });
           return ok({ id });
@@ -1779,6 +1891,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           for (const base of await drivePhotoKeys(drive)) {
             if (base.startsWith(`${id}.`) || base === id) {
               removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
+              forgetPhoto(rt, key, id, base.slice(id.length));
               pruneIndex(id, key);
               tombstoned = true;
             }

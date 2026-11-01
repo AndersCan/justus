@@ -2,7 +2,8 @@ import fs from "bare-fs";
 import path from "bare-path";
 import type { LoopbackRouteHandler, LoopbackServer } from "@ekrooh/bare/runtime";
 import { pumpToFile } from "./photo-store";
-import type { PhotoStore } from "./photo-store";
+import type { AddOptions, PhotoStore } from "./photo-store";
+import { RENDITION_EXT } from "@justus/core";
 import { classifyOrigin } from "./cors";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -55,6 +56,11 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
       const name = sanitizeName(query.get("filename"));
       // Optional target album; the store falls back to the active one.
       const folderId = query.get("folder") ?? undefined;
+      // The Web layer encodes the shared copies itself and posts the thumbnail
+      // then the display copy as one body, both JPEG: `thumb` is the
+      // thumbnail's byte length. `name`/`sha256`/`takenAt` describe the
+      // original, which never leaves the page.
+      const thumbBytes = Number(query.get("thumb") ?? "0");
       // Unique subdir per upload so the persisted file's basename is the
       // original file name (the store uses it as the photo's display name)
       // without two concurrent same-name uploads colliding.
@@ -82,7 +88,25 @@ function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
           send(400, { ok: false, error: "empty upload" });
           return;
         }
-        const [err, photo] = await deps.store.add(filePath, undefined, folderId);
+        let opts: AddOptions | undefined;
+        let displayName: string | undefined;
+        if (thumbBytes > 0) {
+          if (!Number.isInteger(thumbBytes) || thumbBytes >= bytes) {
+            send(400, { ok: false, error: "bad thumbnail" });
+            return;
+          }
+          const body = fs.readFileSync(filePath) as unknown as Uint8Array;
+          const thumbPath = `${filePath}.thumb${RENDITION_EXT}`;
+          fs.writeFileSync(thumbPath, body.subarray(0, thumbBytes));
+          fs.writeFileSync(filePath, body.subarray(thumbBytes));
+          displayName = query.get("name")?.slice(0, 255) || undefined;
+          opts = {
+            thumb: thumbPath,
+            sha256: query.get("sha256") ?? undefined,
+            takenAt: query.get("takenAt") ?? undefined,
+          };
+        }
+        const [err, photo] = await deps.store.add(filePath, displayName, folderId, opts);
         if (err) {
           send(500, { ok: false, error: err.message });
           return;

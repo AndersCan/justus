@@ -17,7 +17,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { join } from "node:path";
-import { Readable } from "node:stream";
+import { Readable, Writable } from "node:stream";
 import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
 
 function sha256Hex(input: string): string {
@@ -129,8 +129,8 @@ export class FakeDrive extends Emitter {
     }
   }
 
-  createReadStream(_path: string): Readable {
-    return Readable.from(Buffer.alloc(0));
+  createReadStream(path: string): Readable {
+    return Readable.from(this.files.get(path) ?? Buffer.alloc(0));
   }
 
   /** Test helper — fire the drive's `update` handlers (simulates replication). */
@@ -212,7 +212,35 @@ export class FakeLoopbackServer {
   }
   mountDir(_prefix: string, _dirPath: string, _opts?: { public?: boolean }): void {}
   onConnection(_handler: unknown): void {}
-  registerRoute(_method: string, _path: string, _handler: unknown): void {}
+  private handlers = new Map<string, (req: unknown, res: unknown) => void>();
+  registerRoute(method: string, path: string, handler: unknown): void {
+    this.handlers.set(`${method} ${path}`, handler as (req: unknown, res: unknown) => void);
+    this.routes.set(path, `${method} route`);
+  }
+  /** Load a registered GET route the way the WebView would. */
+  async getForTest(
+    path: string,
+  ): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+    const handler = this.handlers.get(`GET ${path}`);
+    if (!handler) return { status: 404, headers: {}, body: Buffer.alloc(0) };
+    const chunks: Buffer[] = [];
+    let status = 0;
+    let headers: Record<string, string> = {};
+    const res = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(Buffer.from(chunk));
+        cb();
+      },
+    }) as Writable & { writeHead(s: number, h: Record<string, string>): void };
+    res.writeHead = (s, h) => {
+      status = s;
+      headers = h;
+    };
+    const done = new Promise<void>((resolve) => res.on("finish", () => resolve()));
+    handler({ method: "GET", url: path, headers: {} }, res);
+    await done;
+    return { status, headers, body: Buffer.concat(chunks) };
+  }
   push(_frame: Uint8Array): boolean {
     return false;
   }

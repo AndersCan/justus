@@ -4,10 +4,12 @@ import {
   logEvents,
   grantEvents,
   justusMediaEvents,
+  type AddExtras,
   type LogLevel,
 } from "@justus/core";
 import { getTransport } from "./transport";
 import { workletBase } from "./utils/peer";
+import { encodePhoto } from "./utils/encode-photo";
 
 export const transport = getTransport();
 
@@ -22,28 +24,35 @@ export const bus = createPluginBus(messenger);
 export const gateway = {
   /** Every album's photos, newest first. */
   list: () => bus.invoke(photoEvents.photos.list(true)),
-  add: (path: string, name?: string, folderId?: string) =>
-    bus.invoke(photoEvents.photos.add(path, name, folderId)),
+  add: (path: string, name?: string, folderId?: string, extras?: AddExtras) =>
+    bus.invoke(photoEvents.photos.add(path, name, folderId, extras)),
   /** Adds a photo from bytes picked in the browser (multi-file upload). */
   addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
     bus.invoke(photoEvents.photos.addFile(name, bytes)),
-  /** Posts a browser-picked file to the worklet's `POST /photos` route
-   * (same-origin in the WebView, Vite-proxied in dev). Same `Either` shape as
-   * an invoke; the route answers with the stored (or deduped) photo's id. */
+  /** Encodes a browser-picked file into the copies an album shares and posts
+   * them to the worklet's `POST /photos` route (same-origin in the WebView,
+   * Vite-proxied in dev): the thumbnail, then the display copy, in one body.
+   * The original stays in the page. Same `Either` shape as an invoke; the
+   * route answers with the stored (or deduped) photo's id. */
   upload: async (
     file: File,
     folderId?: string,
   ): Promise<[Error | null, { id?: string } | null]> => {
-    const folder = folderId ? `&folder=${encodeURIComponent(folderId)}` : "";
     try {
-      const response = await fetch(
-        `${workletBase()}/photos?filename=${encodeURIComponent(file.name)}${folder}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        },
-      );
+      const photo = await encodePhoto(file);
+      const query = new URLSearchParams({
+        filename: photo.filename,
+        name: file.name,
+        thumb: String(photo.thumb.size),
+        ...(folderId ? { folder: folderId } : {}),
+        ...(photo.sha256 ? { sha256: photo.sha256 } : {}),
+        ...(photo.takenAt ? { takenAt: photo.takenAt } : {}),
+      });
+      const response = await fetch(`${workletBase()}/photos?${query}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: new Blob([photo.thumb, photo.display]),
+      });
       const body = (await response.json().catch(() => null)) as {
         id?: string;
         error?: string;

@@ -1,6 +1,6 @@
 import { Actor, RealClock, event, state } from "@mantaq/core";
 import { atom, computed } from "nanostores";
-import type { Photo } from "@justus/core";
+import type { Photo, PickedMedia } from "@justus/core";
 import { gateway } from "../gateway";
 import { $syncStatus } from "./sync-machine";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
@@ -25,11 +25,10 @@ export const $galleryFatal = atom(false);
 /** Set on every backend `photos.changed` push — feeds the "last synced" hint. */
 export const $lastSyncAt = atom<number | null>(null);
 
-/** One photo to add: a file the native host staged (`path`), or a file the
- * browser picked (bytes posted to the worklet's upload route). */
-export type AddSource =
-  | { kind: "path"; path: string; name?: string }
-  | { kind: "file"; file: File };
+/** One photo to add: a file the native host staged (`path`, with the shared
+ * copies it made, see `PickedMedia`), or a file the browser picked (encoded
+ * and posted to the worklet's upload route). */
+export type AddSource = ({ kind: "path" } & PickedMedia) | { kind: "file"; file: File };
 
 export const sourceName = (source: AddSource): string =>
   source.kind === "file" ? source.file.name : (source.name ?? source.path.split("/").pop() ?? "");
@@ -113,9 +112,12 @@ const idleContext = (): GalleryContext => ({
 /** Adds one photo. A browser upload answers with only an id; the push it
  * triggers brings the full photo in on the reload after the batch. */
 function addOne(source: AddSource, folderId?: string): Promise<[unknown, unknown]> {
-  return source.kind === "path"
-    ? gateway.add(source.path, source.name, folderId)
-    : gateway.upload(source.file, folderId);
+  if (source.kind === "file") return gateway.upload(source.file, folderId);
+  const { path, name, thumb, original, takenAt } = source;
+  const extras = Object.fromEntries(
+    Object.entries({ thumb, original, takenAt }).filter(([, v]) => v !== undefined),
+  );
+  return gateway.add(path, name, folderId, extras);
 }
 
 const galleryActor = new Actor({

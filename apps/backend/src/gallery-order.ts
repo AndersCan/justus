@@ -1,4 +1,4 @@
-import { TAKEN_AT_RE } from "./exif-date";
+import { TAKEN_AT_RE } from "@justus/core";
 import type { Photo } from "@justus/core";
 import { guessMime } from "./mime";
 
@@ -60,6 +60,8 @@ export interface DerivedPhoto {
   addedAt: number;
   takenAt?: string;
   sha256?: string;
+  /** The photo has a thumbnail at `/thumbs/<id>.jpg`. */
+  hasThumb?: true;
   /** Resolved display name for the owning member drive. */
   memberName: string;
 }
@@ -127,6 +129,7 @@ export function deriveGallery(
         ...(typeof meta.takenAt === "string" && TAKEN_AT_RE.test(meta.takenAt)
           ? { takenAt: meta.takenAt }
           : {}),
+        ...(meta.thumb === true ? { hasThumb: true as const } : {}),
         memberName,
       });
     }
