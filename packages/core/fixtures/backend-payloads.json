@@ -1,0 +1,381 @@
+{
+  "results": {
+    "photos.folders": [
+      {
+        "folders": [],
+        "activeFolderId": ""
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wf-40191ceb",
+            "name": "Contract",
+            "role": "creator",
+            "pending": false,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "members": 1,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wf-40191ceb"
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wx-56507098",
+            "name": "Contract",
+            "role": "reader",
+            "pending": true,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "members": 0,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wx-56507098"
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wx-56507098",
+            "name": "Contract",
+            "role": "reader",
+            "pending": true,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "members": 0,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wx-56507098"
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wx-56507098",
+            "name": "Contract",
+            "role": "reader",
+            "pending": true,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "members": 0,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wx-56507098"
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wx-56507098",
+            "name": "Contract",
+            "role": "reader",
+            "pending": true,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "members": 0,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wx-56507098"
+      },
+      {
+        "folders": [
+          {
+            "id": "mvxt90wx-56507098",
+            "name": "Contract",
+            "role": "member",
+            "pending": false,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "members": 1,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mvxt90wx-56507098"
+      }
+    ],
+    "photos.createFolder": [
+      {
+        "folder": {
+          "id": "mvxt90wf-40191ceb",
+          "name": "Contract",
+          "role": "creator",
+          "pending": false,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "members": 1,
+          "addedAt": 1700000000000
+        }
+      }
+    ],
+    "photos.setActive": [
+      {
+        "folder": {
+          "id": "mvxt90wf-40191ceb",
+          "name": "Contract",
+          "role": "creator",
+          "pending": false,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "members": 1,
+          "addedAt": 1700000000000
+        },
+        "name": "Phone",
+        "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "peers": 0,
+        "photos": 0,
+        "members": [
+          {
+            "key": "0101010101010101010101010101010101010101010101010101010101010101",
+            "name": "Phone",
+            "admin": true,
+            "connected": true
+          }
+        ]
+      }
+    ],
+    "photos.setName": [
+      {
+        "name": "Phone"
+      }
+    ],
+    "photos.add": [
+      {
+        "id": "mvxt90wl-f82d97f4",
+        "url": "http://localhost:0/photos/mvxt90wf-40191ceb/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+        "name": "a.jpg",
+        "mime": "image/jpeg",
+        "size": 3,
+        "addedAt": 1700000000000,
+        "member": {
+          "key": "0101010101010101010101010101010101010101010101010101010101010101",
+          "name": "Phone"
+        },
+        "folderId": "mvxt90wf-40191ceb",
+        "mine": true
+      }
+    ],
+    "photos.list": [
+      {
+        "photos": [
+          {
+            "id": "mvxt90wl-f82d97f4",
+            "url": "http://localhost:0/photos/mvxt90wf-40191ceb/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+            "name": "a.jpg",
+            "mime": "image/jpeg",
+            "size": 0,
+            "addedAt": 1700000000000,
+            "member": {
+              "key": "0101010101010101010101010101010101010101010101010101010101010101",
+              "name": "Phone"
+            },
+            "sha256": "0404040404040404040404040404040404040404040404040404040404040404",
+            "folderId": "mvxt90wf-40191ceb",
+            "mine": true
+          }
+        ]
+      },
+      {
+        "photos": [
+          {
+            "id": "mvxt90wl-f82d97f4",
+            "url": "http://localhost:0/photos/mvxt90wx-56507098/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+            "name": "a.jpg",
+            "mime": "image/jpeg",
+            "size": 0,
+            "addedAt": 1700000000000,
+            "member": {
+              "key": "0101010101010101010101010101010101010101010101010101010101010101",
+              "name": "Phone"
+            },
+            "sha256": "0404040404040404040404040404040404040404040404040404040404040404",
+            "folderId": "mvxt90wx-56507098",
+            "mine": false
+          }
+        ]
+      }
+    ],
+    "photos.status": [
+      {
+        "folder": {
+          "id": "mvxt90wf-40191ceb",
+          "name": "Contract",
+          "role": "creator",
+          "pending": false,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "members": 1,
+          "addedAt": 1700000000000
+        },
+        "name": "Phone",
+        "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "peers": 0,
+        "photos": 1,
+        "members": [
+          {
+            "key": "0101010101010101010101010101010101010101010101010101010101010101",
+            "name": "Phone",
+            "admin": true,
+            "connected": true
+          }
+        ]
+      },
+      {
+        "folder": {
+          "id": "mvxt90wx-56507098",
+          "name": "Contract",
+          "role": "reader",
+          "pending": true,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+          "members": 0,
+          "addedAt": 1700000000000
+        },
+        "name": "Desktop",
+        "driveKey": "",
+        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
+        "peers": 1,
+        "photos": 1,
+        "members": [
+          {
+            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "name": "Desktop",
+            "admin": false,
+            "connected": true
+          },
+          {
+            "key": "0101010101010101010101010101010101010101010101010101010101010101",
+            "name": "Phone",
+            "admin": true,
+            "connected": false
+          }
+        ]
+      },
+      {
+        "folder": {
+          "id": "mvxt90wf-40191ceb",
+          "name": "Contract",
+          "role": "creator",
+          "pending": false,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "members": 2,
+          "addedAt": 1700000000000
+        },
+        "name": "Phone",
+        "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "peers": 1,
+        "photos": 1,
+        "members": [
+          {
+            "key": "0101010101010101010101010101010101010101010101010101010101010101",
+            "name": "Phone",
+            "admin": true,
+            "connected": true
+          },
+          {
+            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "name": "Desktop",
+            "admin": false,
+            "connected": false
+          }
+        ]
+      }
+    ],
+    "photos.join": [
+      {
+        "folder": {
+          "id": "mvxt90wx-56507098",
+          "name": "Contract",
+          "role": "reader",
+          "pending": true,
+          "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+          "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+          "members": 0,
+          "addedAt": 1700000000000
+        },
+        "name": "Desktop",
+        "driveKey": "",
+        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
+        "peers": 1,
+        "photos": 1,
+        "members": [
+          {
+            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "name": "Desktop",
+            "admin": false,
+            "connected": true
+          },
+          {
+            "key": "0101010101010101010101010101010101010101010101010101010101010101",
+            "name": "Phone",
+            "admin": true,
+            "connected": false
+          }
+        ]
+      }
+    ],
+    "photos.requests": [
+      {
+        "requests": []
+      },
+      {
+        "requests": [
+          {
+            "requesterKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "requesterName": "Desktop",
+            "folderId": "mvxt90wf-40191ceb",
+            "folderName": "Contract",
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "requestedAt": 1700000000000
+          }
+        ]
+      }
+    ],
+    "photos.respond": [
+      {
+        "ok": true
+      }
+    ],
+    "photos.remove": [
+      {
+        "id": "mvxt90wl-f82d97f4"
+      }
+    ],
+    "photos.removeMember": [
+      {
+        "ok": true
+      }
+    ]
+  },
+  "pushes": [
+    {
+      "cause": "enroll",
+      "folderId": "mvxt90wx-56507098",
+      "memberKey": "0202020202020202020202020202020202020202020202020202020202020202"
+    },
+    {
+      "cause": "add",
+      "folderId": "mvxt90wx-56507098",
+      "memberKey": "0101010101010101010101010101010101010101010101010101010101010101"
+    },
+    {
+      "cause": "presence",
+      "folderId": "mvxt90wf-40191ceb"
+    },
+    {
+      "cause": "request",
+      "folderId": "mvxt90wx-56507098"
+    },
+    {
+      "cause": "remove",
+      "folderId": "mvxt90wf-40191ceb",
+      "memberKey": "0101010101010101010101010101010101010101010101010101010101010101"
+    }
+  ]
+}

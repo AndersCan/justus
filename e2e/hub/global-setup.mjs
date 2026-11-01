@@ -22,7 +22,14 @@ const HUB_SCRIPT = resolve(repoRoot, "scripts", "e2e-hub.mjs");
 
 export default async function globalSetup() {
   const count = Number(process.env.JUSTUS_HUB_COUNT || 2);
-  const child = spawn("node", [HUB_SCRIPT, "--count", String(count)], { stdio: "inherit" });
+  // Ports are overridable so concurrent runs (other checkouts, CI shards) don't collide.
+  const ports = [
+    ...(process.env.JUSTUS_HUB_DHT_PORT ? ["--dht-port", process.env.JUSTUS_HUB_DHT_PORT] : []),
+    ...(process.env.JUSTUS_HUB_BASE_PORT ? ["--base-port", process.env.JUSTUS_HUB_BASE_PORT] : []),
+  ];
+  const child = spawn("node", [HUB_SCRIPT, "--count", String(count), ...ports], {
+    stdio: "inherit",
+  });
 
   const path = registryPath();
   try {

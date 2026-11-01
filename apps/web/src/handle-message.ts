@@ -1,5 +1,6 @@
 import type { WireMessage } from "@ekrooh/bare/core";
 import { photoSpecs } from "@justus/core";
+import { guardPush } from "./contract-guard";
 import { folders } from "./machines/folders-machine";
 import { $lastSyncAt, gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
@@ -17,6 +18,8 @@ export function handleMessage(msg: WireMessage) {
   const h = msg.header;
   const changed = photoSpecs.changed;
   if (h.type === "DISPATCH" && h.pluginId === changed.pluginId && h.event === changed.name) {
+    // A malformed push is reported by field, not acted on.
+    if (!guardPush(h.args)) return;
     // A presence change only moves the member list; skip the heavy reloads.
     if (changeCause(h) === "presence") {
       sync.refresh();

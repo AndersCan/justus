@@ -48,7 +48,7 @@ describe("buildOrchestratorPlan", () => {
       expect(w.args).toContain("mode=dev");
       expect(w.args).toContain(`port=${w.port}`);
       expect(w.args).toContain(`storage=${w.storageDir}`);
-      expect(w.args).toContain(`bootstrap=${plan.registry.dht.bootstrap}`);
+      expect(w.args).toContain(`bootstrap=127.0.0.1:${plan.registry.dht.port}`);
       expect(w.args[0]).toMatch(/apps\/backend\/dist\/main\.core\.gen\.js$/);
       expect(w.runtime).toBe("bare");
     }
