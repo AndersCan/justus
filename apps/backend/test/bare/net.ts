@@ -20,7 +20,10 @@ import {
   type HyperDriveStore,
 } from "../../src/adapters/hyper-drive-store.ts";
 import { createPhotoStore, type PhotoStoreDeps } from "../../src/photo-store.ts";
+import { createHyperPeerNetwork } from "../../src/adapters/hyper-peer-network.ts";
+import type { PeerEvent } from "../../src/ports/peer-network.ts";
 import type { DriveWorld } from "../contracts/drive-store.contract.ts";
+import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
 import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
 import type { P2pEvent } from "../../src/p2p-log.ts";
 
@@ -159,6 +162,68 @@ export async function bareWorld(root: string): Promise<{
           await n.swarm?.destroy();
           await n.store.close();
         }
+      },
+    };
+  }
+
+  return {
+    world() {
+      const w = world();
+      worlds.push(w);
+      return w;
+    },
+    async destroy() {
+      for (const w of worlds) await w.close();
+      await testnet.destroy();
+    },
+  };
+}
+
+/**
+ * Bare twin of `realPeerWorlds` in `../real-peers.ts`: real PeerNetworks on one
+ * in-process `hyperdht/testnet`. Each `world()` is its own set of nodes and topics.
+ */
+export async function barePeerWorlds(): Promise<{
+  world(): PeerWorld;
+  destroy(): Promise<void>;
+}> {
+  const testnet = await createTestnet(3);
+  const worlds: PeerWorld[] = [];
+
+  function world(): PeerWorld {
+    const nodes: PeerNode[] = [];
+    return {
+      async node() {
+        const identityKey = Buffer.from(crypto.randomBytes(32)).toString("hex");
+        const events: PeerEvent[] = [];
+        const build = () => {
+          const network = createHyperPeerNetwork({
+            bootstrap: testnet.bootstrap,
+            replicate: () => {},
+            log: () => {},
+          });
+          network.start(identityKey, (e: PeerEvent) => events.push(e));
+          return network;
+        };
+        let network = build();
+        const node: PeerNode = {
+          get network() {
+            return network;
+          },
+          identityKey,
+          events,
+          async restart() {
+            await network.close();
+            network = build();
+            return network;
+          },
+        };
+        nodes.push(node);
+        return node;
+      },
+      topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
+      async close() {
+        for (const n of nodes) await n.network.close();
       },
     };
   }
