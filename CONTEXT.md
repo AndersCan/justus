@@ -52,6 +52,14 @@ _Avoid_: frontend, client, app
 The native shell (Android/iOS) that starts the backend, owns system APIs (camera, picker), and injects the session token.
 _Avoid_: launcher, wrapper
 
+**Peer key**:
+The noise public key of a device's swarm connection. It is random and changes every boot, and it is never a drive key. Presence uses it to tell which member a connection belongs to; the member publishes it in `/device.json`.
+_Avoid_: device key, identity key, node id
+
+**Identity drive**:
+The device's own keyless drive. It holds `/device.json` and the join-request outbox, and no photos. Peers learn its key over the identity greeting on each connection, so an Admin can read the requests a device filed.
+_Avoid_: own drive, profile drive
+
 **Actor**:
 A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; each actor's change handler writes module-scope nanostore atoms, and the UI reads them reactively via computed view-models.
 _Avoid_: reducer, store, controller
