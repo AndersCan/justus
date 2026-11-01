@@ -3,8 +3,9 @@
  * Started by `scripts/test-bare.mjs` as `bare <bundle> dir=<scratch> [only=<substr>]`.
  * Exits non-zero if any scenario fails.
  */
-import { bareNet, bareWorld } from "./net.ts";
+import { bareNet, barePeerWorlds, bareWorld } from "./net.ts";
 import { cases } from "../contracts/drive-store.contract.ts";
+import { cases as peerCases } from "../contracts/peer-network.contract.ts";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
 
 declare const Bare: { argv: string[]; exit(code?: number): never };
@@ -74,5 +75,35 @@ for (const c of cases) {
   }
 }
 await Promise.race([worlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
+const peerWorlds = await barePeerWorlds();
+for (const c of peerCases) {
+  if (only && !c.name.includes(only)) continue;
+  const started = Date.now();
+  const world = peerWorlds.world();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      c.run(world, makeCheck()),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`case timed out after ${CASE_TIMEOUT_MS}ms`)),
+          CASE_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    console.log(`ok   peer-network: ${c.name} (${Date.now() - started}ms)`);
+  } catch (e) {
+    failed++;
+    console.log(
+      `FAIL peer-network: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
+  } finally {
+    clearTimeout(timer);
+    await Promise.race([world.close(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
+  }
+}
+await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
+  () => {},
+);
 console.log(failed ? `${failed} scenario(s) or case(s) failed` : "all scenarios passed");
 Bare.exit(failed ? 1 : 0);
