@@ -105,8 +105,8 @@ function readBody(
   maxBytes: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const decoder = new TextDecoder();
-    let body = "";
+    // Buffer, not TextDecoder/TextEncoder: Bare has neither global (#200).
+    const chunks: Uint8Array[] = [];
     let bytes = 0;
     let settled = false;
     const fail = (err: Error) => {
@@ -121,19 +121,18 @@ function readBody(
     };
     req.on("data", (chunk) => {
       if (settled) return;
-      const buf =
-        typeof chunk === "string" ? new TextEncoder().encode(chunk) : (chunk as Uint8Array);
+      const buf = typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Uint8Array);
       bytes += buf.length;
       if (bytes > maxBytes) {
         fail(new BodyTooLargeError());
         return;
       }
-      body += typeof chunk === "string" ? chunk : decoder.decode(buf, { stream: true });
+      chunks.push(buf);
     });
     req.on("end", () => {
       if (settled) return;
       settled = true;
-      resolve(body + decoder.decode(new Uint8Array(0)));
+      resolve(Buffer.concat(chunks).toString("utf8"));
     });
     req.on("error", (e: unknown) => fail(e instanceof Error ? e : new Error(String(e))));
   });

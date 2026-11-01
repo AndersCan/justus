@@ -9,6 +9,22 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
+    // The backend runs in Bare, which lacks these Web globals (#200: a
+    // `new TextDecoder()` made every peer record read as missing on devices).
+    overrides: [
+      {
+        files: ["apps/backend/src/**/*.ts"],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            { name: "TextDecoder", message: "Bare has no TextDecoder: use Buffer.toString." },
+            { name: "TextEncoder", message: "Bare has no TextEncoder: use Buffer.from." },
+            { name: "atob", message: "Bare has no atob: use base64ToBytes." },
+            { name: "btoa", message: "Bare has no btoa." },
+          ],
+        },
+      },
+    ],
   },
   run: {
     cache: true,
