@@ -15,8 +15,13 @@ import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
+import {
+  createHyperDriveStore,
+  type HyperDriveStore,
+} from "../../src/adapters/hyper-drive-store.ts";
 import { createPhotoStore, type PhotoStoreDeps } from "../../src/photo-store.ts";
-import type { Net, Peer, PhotoChanged } from "../p2p-scenarios.ts";
+import type { DriveWorld } from "../contracts/drive-store.contract.ts";
+import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
 import type { P2pEvent } from "../../src/p2p-log.ts";
 
 /** Stand-in for the loopback server: the store only mounts routes on it. */
@@ -84,6 +89,88 @@ export async function bareNet(root: string): Promise<Net> {
     peer,
     async destroy() {
       for (const p of Array.from(live)) await p.stop();
+      await testnet.destroy();
+    },
+  };
+}
+
+/**
+ * Bare twin of `realDriveWorlds` in `../real-peers.ts`: real DriveStores on one
+ * in-process `hyperdht/testnet`. Each `world()` is its own mesh.
+ */
+export async function bareWorld(root: string): Promise<{
+  world(): DriveWorld;
+  destroy(): Promise<void>;
+}> {
+  const testnet = await createTestnet(3);
+  const worlds: DriveWorld[] = [];
+  let dirs = 0;
+
+  function world(): DriveWorld {
+    const topic: Uint8Array = crypto.randomBytes(32);
+    const nodes: Array<{ swarm?: any; store: HyperDriveStore }> = [];
+    let connected = 0;
+
+    return {
+      async node() {
+        const dir = path.join(root, `drive-${dirs++}`, "corestore");
+        fs.mkdirSync(dir, { recursive: true });
+        const me: { swarm?: any; store: HyperDriveStore } = {
+          store: createHyperDriveStore(dir),
+        };
+        nodes.push(me);
+        await me.store.ready();
+        return {
+          get store() {
+            return me.store;
+          },
+          async connect() {
+            const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap as never });
+            me.swarm = swarm;
+            swarm.on("connection", (conn: any) => {
+              me.store.replicate(conn);
+              conn.on("error", () => {});
+            });
+            await swarm.join(topic, { server: true, client: true }).flushed();
+            const peers = connected++;
+            await eventually(
+              async () => swarm.connections.size,
+              (n) => n >= peers,
+              "mesh connected",
+              10_000,
+            );
+          },
+          async disconnect() {
+            await me.swarm?.destroy();
+            me.swarm = undefined;
+          },
+          async restart() {
+            await me.swarm?.destroy();
+            me.swarm = undefined;
+            await me.store.close();
+            me.store = createHyperDriveStore(dir);
+            await me.store.ready();
+            return me.store;
+          },
+        };
+      },
+      async close() {
+        for (const n of nodes) {
+          await n.swarm?.destroy();
+          await n.store.close();
+        }
+      },
+    };
+  }
+
+  return {
+    world() {
+      const w = world();
+      worlds.push(w);
+      return w;
+    },
+    async destroy() {
+      for (const w of worlds) await w.close();
       await testnet.destroy();
     },
   };
