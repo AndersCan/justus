@@ -1,21 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Themed icon: alpha only, the same J and dot in one color. The 1024 source tile maps onto the
+     visible 72 of 108dp (viewport 1536, offset 256); the glyph then stays
+     inside the 66dp safe zone. Store icon: fastlane/metadata/.../images/icon.svg -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
-    <!-- Themed icon: alpha only, so the photo is drawn as a frame with the mountain inside. -->
-    <group android:pivotX="256" android:pivotY="256" android:scaleX="0.72" android:scaleY="0.72">
-        <group android:translateX="206" android:translateY="246" android:rotation="-11">
-            <path android:fillColor="#000000" android:fillAlpha="0.45" android:pathData="M-80,-118 H80 A20,20 0 0 1 100,-98 V98 A20,20 0 0 1 80,118 H-80 A20,20 0 0 1 -100,98 V-98 A20,20 0 0 1 -80,-118 Z" />
-        </group>
-        <group android:translateX="298" android:translateY="268" android:rotation="8">
-            <path android:fillColor="#000000" android:fillType="evenOdd" android:pathData="M-80,-118 H80 A20,20 0 0 1 100,-98 V98 A20,20 0 0 1 80,118 H-80 A20,20 0 0 1 -100,98 V-98 A20,20 0 0 1 -80,-118 Z M-72,-100 H72 A10,10 0 0 1 82,-90 V40 A10,10 0 0 1 72,50 H-72 A10,10 0 0 1 -82,40 V-90 A10,10 0 0 1 -72,-100 Z" />
-            <group>
-                <clip-path android:pathData="M-72,-100 H72 A10,10 0 0 1 82,-90 V40 A10,10 0 0 1 72,50 H-72 A10,10 0 0 1 -82,40 V-90 A10,10 0 0 1 -72,-100 Z" />
-                <path android:fillColor="#000000" android:pathData="M22,-58 A18,18 0 1 0 58,-58 A18,18 0 1 0 22,-58 Z" />
-                <path android:fillColor="#000000" android:pathData="M-90,50 L-38,-22 L-6,18 L22,-8 L90,50 Z" />
-            </group>
-        </group>
+    android:viewportWidth="1536"
+    android:viewportHeight="1536">
+    <group android:translateX="256" android:translateY="256">
+        <path
+            android:pathData="M625.8,341.3 V637.2 Q625.8,819.2 443.7,819.2 Q352.7,819.2 307.2,750.9"
+            android:strokeColor="#000000"
+            android:strokeWidth="102.4"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path android:fillColor="#000000" android:pathData="M557.5,182 A68.3,68.3 0 1 0 694.1,182 A68.3,68.3 0 1 0 557.5,182 Z" />
     </group>
 </vector>
