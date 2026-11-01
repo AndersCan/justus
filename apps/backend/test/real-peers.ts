@@ -5,20 +5,20 @@
  * on how the p2p libraries actually behave (#200): a fake would encode our
  * assumptions instead of checking them. The Bare twin is `test/bare/net.ts`.
  */
+import { createHyperDriveStore, type HyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
+import type { P2pEvent } from "../src/p2p-log.ts";
+import { createPhotoStore } from "../src/photo-store.ts";
+import type { DriveWorld } from "./contracts/drive-store.contract.ts";
+import { makeFakeDeps } from "./fake-drive.ts";
+import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
+import Corestore from "corestore";
+import createTestnet from "hyperdht/testnet";
+import Hyperdrive from "hyperdrive";
+import Hyperswarm from "hyperswarm";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
-import Hyperswarm from "hyperswarm";
-import createTestnet from "hyperdht/testnet";
-import { createHyperDriveStore, type HyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
-import type { DriveWorld } from "./contracts/drive-store.contract.ts";
-import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
-import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
-import type { P2pEvent } from "../src/p2p-log.ts";
 
 export {
   albumIn,
@@ -127,6 +127,10 @@ export async function realDriveWorlds(): Promise<{
               "mesh connected",
               10_000,
             );
+          },
+          async disconnect() {
+            await me.swarm?.destroy();
+            me.swarm = undefined;
           },
           async restart() {
             await me.swarm?.destroy();

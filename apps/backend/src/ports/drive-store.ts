@@ -29,7 +29,7 @@ export type Drive = {
   del(path: string): Promise<void>;
   list(dir: string): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
-  /** Fires on a local write and on a replicated append or truncate. Returns an unsubscribe. */
+  /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
   onChange(cb: () => void): () => void;
   stats(): { length: number; peers: number };
 };
@@ -40,7 +40,10 @@ export type DriveStore = {
   ready(): Promise<void>;
   /** Keyless (identity) drive, or the drive of a namespace such as `folder/<id>` or `member/<shareKey>`. */
   openOwn(namespace?: string): Promise<Drive>;
-  /** Opens a drive by key; an error value when it is not ready within `timeoutMs`. */
+  /**
+   * Opens a drive by key; an error value when it is not ready within `timeoutMs`.
+   * An unserved remote key opens empty (hyperdrive 13.3.3) rather than giving an error.
+   */
   open(key: string, opts: { timeoutMs: number }): Promise<OpenResult<Drive>>;
   /** Drops one reference; the drive really closes at zero. */
   release(drive: Drive): Promise<void>;

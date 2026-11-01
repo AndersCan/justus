@@ -1,7 +1,7 @@
-import Corestore from "corestore";
 import { short, type P2pLog } from "../p2p-log";
-import Hyperdrive from "hyperdrive";
 import type { Drive, DriveEntry, DriveStore } from "../ports/drive-store";
+import Corestore from "corestore";
+import Hyperdrive from "hyperdrive";
 
 type Entry = { raw: any; drive: Drive; refs: number };
 
@@ -70,16 +70,8 @@ function wrap(raw: any): Drive {
 
 export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): HyperDriveStore {
   const corestore = new Corestore(dir);
-  const byKey = new Map<string, Entry>();
-  const opening = new Map<string, Promise<Entry>>();
-  const ownOpening = new Map<string, Promise<Entry>>();
-  const ownKeys = new Map<string, string>();
-
-  function track(raw: any): Entry {
-    const entry: Entry = { raw, drive: wrap(raw), refs: 0 };
-    byKey.set(entry.drive.key, entry);
-    return entry;
-  }
+  /** The one cache: every open, own or remote, goes through the drive's key. A second Hyperdrive on a held core waits forever. */
+  const byKey = new Map<string, Promise<Entry>>();
 
   async function closeEntry(entry: Entry): Promise<void> {
     byKey.delete(entry.drive.key);
@@ -88,23 +80,29 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
     });
   }
 
-  async function shared(
-    pending: Map<string, Promise<Entry>>,
-    id: string,
-    make: () => Promise<Entry>,
-  ): Promise<Drive> {
-    let p = pending.get(id);
-    if (!p) {
-      p = make();
-      pending.set(id, p);
-      p.then(
-        () => pending.delete(id),
-        () => pending.delete(id),
-      );
+  async function acquire(key: string, make: () => Promise<Entry>): Promise<Drive> {
+    let pending = byKey.get(key);
+    if (!pending) {
+      pending = make();
+      byKey.set(key, pending);
+      pending.catch(() => byKey.delete(key));
     }
-    const entry = await p;
+    const entry = await pending;
     entry.refs++;
     return entry.drive;
+  }
+
+  /** Hyperdrive.getDriveKey opens an exclusive session, which waits forever on a drive that is already open; a plain session reads the same key. */
+  async function driveKey(store: any): Promise<string> {
+    const core = store.get({ name: "db" });
+    await core.ready();
+    const key = toHex(core.key);
+    await core.close();
+    return key;
+  }
+
+  function track(raw: any): Entry {
+    return { raw, drive: wrap(raw), refs: 0 };
   }
 
   return {
@@ -112,41 +110,32 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
     ready: () => corestore.ready(),
     async openOwn(namespace) {
       await corestore.ready();
-      const id = namespace ?? "";
-      const known = ownKeys.get(id);
-      const held = known === undefined ? undefined : byKey.get(known);
-      if (held) {
-        held.refs++;
-        return held.drive;
-      }
-      return shared(ownOpening, id, async () => {
-        const raw = new Hyperdrive(namespace ? corestore.namespace(namespace) : corestore);
+      const store = namespace ? corestore.namespace(namespace) : corestore;
+      const key = await driveKey(store);
+      return acquire(key, async () => {
+        const raw = new Hyperdrive(store);
         await raw.ready();
-        const entry = track(raw);
-        ownKeys.set(id, entry.drive.key);
-        return entry;
+        return track(raw);
       });
     },
     async open(key, { timeoutMs }) {
-      const held = byKey.get(key);
-      if (held) {
-        held.refs++;
-        return [null, held.drive];
-      }
       try {
-        return [null, await shared(opening, key, () => openRemote(key, timeoutMs))];
+        return [null, await acquire(key, () => openRemote(key, timeoutMs))];
       } catch (e: unknown) {
         return [e instanceof Error ? e : new Error(String(e)), null];
       }
     },
     async release(drive) {
-      const entry = byKey.get(drive.key);
-      if (!entry) return;
+      const entry = await byKey.get(drive.key);
+      if (!entry || entry.drive !== drive) return;
       entry.refs--;
       if (entry.refs <= 0) await closeEntry(entry);
     },
     async close() {
-      for (const entry of Array.from(byKey.values())) await closeEntry(entry);
+      const entries = await Promise.all(
+        Array.from(byKey.values(), (p) => p.catch(() => undefined)),
+      );
+      for (const entry of entries) if (entry) await closeEntry(entry);
       await corestore.close();
     },
   };

@@ -13,6 +13,8 @@ export type DriveNode = {
   readonly store: DriveStore;
   /** Joins this node to the world's network so it replicates with the other connected nodes. */
   connect(): Promise<void>;
+  /** Drops this node off the network; its store keeps working locally. */
+  disconnect(): Promise<void>;
   /** Closes the store and opens a new one on the same storage. */
   restart(): Promise<DriveStore>;
 };
@@ -231,6 +233,61 @@ export const cases: DriveCase[] = [
       t.eq((await store.openOwn("folder/x")).key, folder.key, "folder key");
       t.eq((await store.openOwn("member/y")).key, member.key, "member key");
       t.eq((await store.openOwn()).key, identity.key, "identity key");
+    },
+  },
+  {
+    name: "D8b open(key) then openOwn(namespace) after a restart share one handle, in either order and concurrently",
+    async run(world, t) {
+      const node = await world.node();
+      const first = await node.store.openOwn("folder/x");
+      await first.put("/a", bytes("hi"));
+      let store = await node.restart();
+      const viaKey = await openOk(store, first.key, 1_000, t);
+      const own = await store.openOwn("folder/x");
+      t.eq(own.key, first.key, "same key");
+      t.eq(await own.readSmall("/a", 10), "hi", "reads after open then openOwn");
+      store = await node.restart();
+      const [keyed, owned] = await Promise.all([
+        openOk(store, first.key, 1_000, t),
+        store.openOwn("folder/x"),
+      ]);
+      t.eq(await keyed.readSmall("/a", 10), "hi", "concurrent open reads");
+      t.eq(await owned.readSmall("/a", 10), "hi", "concurrent openOwn reads");
+      t.ok(viaKey.key === first.key, "first handle key");
+    },
+  },
+  {
+    name: "D8c releasing a stale handle leaves the reopened drive open",
+    async run(world, t) {
+      const { store } = await world.node();
+      const stale = await store.openOwn("folder/x");
+      await stale.put("/a", bytes("hi"));
+      await store.release(stale);
+      const fresh = await store.openOwn("folder/x");
+      await store.release(stale);
+      t.eq(await fresh.readSmall("/a", 10), "hi", "fresh handle still reads");
+    },
+  },
+  {
+    name: "D9b readSmall over the bound returns undefined without downloading the blob",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/big", bytes("x".repeat(100)));
+      await eventually(
+        async () => {
+          const found = [];
+          for await (const entry of remote.list("/")) found.push(entry.path);
+          return found;
+        },
+        (paths) => paths.includes("/big"),
+        "entry replicated",
+      );
+      await a.disconnect();
+      const outcome = await Promise.race([
+        remote.readSmall("/big", 10),
+        sleep(2_000).then(() => "hung"),
+      ]);
+      t.eq(outcome, undefined, "answered from the entry size alone");
     },
   },
   {

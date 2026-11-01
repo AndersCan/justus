@@ -1,7 +1,7 @@
 import { cases } from "./contracts/drive-store.contract.ts";
-import { afterAll, beforeAll, describe, it } from "vite-plus/test";
 import { makeCheck } from "./p2p-scenarios.ts";
 import { realDriveWorlds } from "./real-peers.ts";
+import { afterAll, beforeAll, describe, it } from "vite-plus/test";
 
 describe("real", () => {
   let worlds: Awaited<ReturnType<typeof realDriveWorlds>>;
