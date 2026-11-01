@@ -551,7 +551,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const value = await drive.get(drivePath);
       if (value === null || value === undefined) return null;
       if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
-      return new TextDecoder().decode(value as Uint8Array);
+      // Not `new TextDecoder()`: Bare has no global TextDecoder, so it threw
+      // ReferenceError into the catch below and every peer record read as
+      // missing on a device (join requests never arrived). Found by
+      // `pnpm test:bare` (#200).
+      return Buffer.from(value as Uint8Array).toString("utf8");
     } catch {
       return null;
     }
