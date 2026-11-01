@@ -6,6 +6,9 @@
 import { bareNet, barePeerWorlds, bareWorld } from "./net.ts";
 import { cases } from "../contracts/drive-store.contract.ts";
 import { cases as peerCases } from "../contracts/peer-network.contract.ts";
+import { cases as filesCases } from "../contracts/files.contract.ts";
+import { createBareFiles } from "../../src/adapters/bare-files.ts";
+import bareFs from "bare-fs";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
 
 declare const Bare: { argv: string[]; exit(code?: number): never };
@@ -72,6 +75,25 @@ for (const c of cases) {
     );
   } finally {
     clearTimeout(timer);
+  }
+}
+const files = createBareFiles();
+for (const c of filesCases) {
+  if (only && !c.name.includes(only)) continue;
+  const started = Date.now();
+  const dir = `${root}/files-${filesCases.indexOf(c)}`;
+  files.fs.mkdirSync(dir, { recursive: true });
+  try {
+    await c.run(
+      { ...files, dir, symlink: (target, link) => bareFs.symlinkSync(target, link) },
+      makeCheck(),
+    );
+    console.log(`ok   files: ${c.name} (${Date.now() - started}ms)`);
+  } catch (e) {
+    failed++;
+    console.log(
+      `FAIL files: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
   }
 }
 await Promise.race([worlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});

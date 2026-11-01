@@ -1,10 +1,9 @@
-import fs from "bare-fs";
-import path from "bare-path";
 import type { LoopbackRouteHandler, LoopbackServer } from "@ekrooh/bare/runtime";
 import { pumpToFile } from "./photo-store";
 import type { AddOptions, PhotoStore } from "./photo-store";
 import { RENDITION_EXT } from "@justus/core";
 import { classifyOrigin } from "./cors";
+import type { Files, Paths } from "./ports/files";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
@@ -22,6 +21,8 @@ export type UploadRouteDeps = {
   store: PhotoStore;
   /** Temp dir for received uploads (e.g. `<cache>/uploads`). */
   uploadsDir: string;
+  fs: Files;
+  path: Paths;
 };
 
 /**
@@ -33,11 +34,12 @@ export type UploadRouteDeps = {
  * Node upload server + inbox indirection.
  */
 export function registerUploadRoute(deps: UploadRouteDeps): void {
-  fs.mkdirSync(deps.uploadsDir, { recursive: true });
+  deps.fs.mkdirSync(deps.uploadsDir, { recursive: true });
   deps.server.registerRoute("POST", "/photos", handleUpload(deps));
 }
 
 function handleUpload(deps: UploadRouteDeps): LoopbackRouteHandler {
+  const { fs, path } = deps;
   return (req, res) => {
     void (async () => {
       // Enforce the loopback origin policy (issue #69): only a same-origin

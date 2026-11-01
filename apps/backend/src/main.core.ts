@@ -13,6 +13,7 @@ import { createMediaPluginStub } from "./media-plugin";
 import { GrantLedger } from "./grant-ledger";
 import { createGrantsPlugin } from "./grants-plugin";
 import { createFileLedgerStore } from "./ledger-store";
+import { createBareFiles } from "./adapters/bare-files";
 import { createDevInbox } from "./dev-inbox";
 import { registerUploadRoute } from "./upload-route";
 import { createLogCollector } from "./log-collector";
@@ -121,6 +122,7 @@ registerUploadRoute({
   server: runtime.server,
   store,
   uploadsDir: path.join(cacheDir, "uploads"),
+  ...createBareFiles(),
 });
 
 // Debug-log surface: pull backend lifecycle logs and ingest external batches.
@@ -133,6 +135,7 @@ registerLogRoutes({
 if (config.dev && config.inbox) {
   createDevInbox({
     inboxDir: config.inbox,
+    ...createBareFiles(),
     onFile: (filePath) => {
       void (async () => {
         const [err] = await store.add(filePath);

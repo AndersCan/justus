@@ -3,6 +3,7 @@ import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-or
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
 import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
+import type { Files, Paths } from "./ports/files";
 import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
@@ -173,9 +174,9 @@ export type PhotoStoreDeps = {
   bootstrap?: string[];
   /** Filesystem access. Injected so the store loads under Node/vitest without
    * the Bare runtime; production passes `bare-fs`. */
-  fs: typeof import("bare-fs");
+  fs: Files;
   /** Path helpers. Injected; production passes `bare-path`. */
-  path: typeof import("bare-path");
+  path: Paths;
   /** Crypto helpers. Injected; production passes `bare-crypto`. */
   crypto: typeof import("bare-crypto");
   /** Builds the Corestore for a storage directory (no Node equivalent). */
@@ -307,7 +308,7 @@ export function pumpToFile(
   source: StreamSource,
   destPath: string,
   maxBytes: number | undefined,
-  fs: typeof import("bare-fs"),
+  fs: Files,
 ): Promise<number> {
   return pumpStream(source, {
     createWriter: () => fs.createWriteStream(destPath) as unknown as PumpWriter,
