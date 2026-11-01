@@ -12,6 +12,7 @@ const BASE_HEADERS = {
  * server (issue #13):
  *   GET  /__logs?format=jsonl|text&tail=N&level=  -> captured entries
  *   POST /__logs                                   -> ingest a batch (loopback origin)
+ *   GET  /__state                                  -> p2p state snapshot (same gate)
  *
  * Both verbs are gated by the same loopback-origin policy as the rest of the
  * surface (issue #69): a cross-origin page in the WebView must not be able to
@@ -20,9 +21,41 @@ const BASE_HEADERS = {
  * other origins, so an unauthenticated same-loopback GET would be exfiltratable
  * exactly like the pre-#69 `POST /photos` was.
  */
-export function registerLogRoutes(deps: { server: LoopbackServer; collector: LogCollector }): void {
+export function registerLogRoutes(deps: {
+  server: LoopbackServer;
+  collector: LogCollector;
+  /** Live p2p state snapshot, served at `GET /__state` (#200). */
+  debugState?: () => unknown;
+}): void {
   deps.server.registerRoute("GET", "/__logs", makeGetHandler(deps.collector));
   deps.server.registerRoute("POST", "/__logs", makePostHandler(deps.collector));
+  const debugState = deps.debugState;
+  if (debugState) deps.server.registerRoute("GET", "/__state", makeStateHandler(debugState));
+}
+
+/** `GET /__state`: same loopback-origin gate as `/__logs`, since the snapshot
+ * carries peer keys and folder ids. */
+function makeStateHandler(debugState: () => unknown): LoopbackRouteHandler {
+  return (req, res) => {
+    const origin = req.headers?.origin;
+    const verdict = classifyOrigin(typeof origin === "string" ? origin : undefined);
+    if (!verdict.allowed) {
+      res.writeHead(403, BASE_HEADERS);
+      res.end(JSON.stringify({ ok: false, error: "cross-origin request forbidden" }));
+      return;
+    }
+    try {
+      const body = JSON.stringify(debugState(), null, 2);
+      res.writeHead(200, {
+        ...BASE_HEADERS,
+        ...(verdict.corsOrigin ? { "Access-Control-Allow-Origin": verdict.corsOrigin } : {}),
+      });
+      res.end(body);
+    } catch (e) {
+      res.writeHead(500, BASE_HEADERS);
+      res.end(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
 }
 
 function parseQuery(url: string | undefined): LogQuery {

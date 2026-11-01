@@ -9,6 +9,7 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./peer-identity";
+import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 
 /**
  * Dependency-injection seam. `photo-store.ts` used to import the full p2p
@@ -200,6 +201,9 @@ export type PhotoStoreDeps = {
   /** Exchanges identity drive keys with the peer on a swarm connection.
    * Defaults to {@link greetPeer} (a protomux channel); test fakes swap it. */
   greetPeer?: typeof greetPeer;
+  /** Receives structured p2p boundary events (see `p2p-log.ts`). Defaults to a
+   * console line per event; tests inject a sink to assert on them. */
+  log?: P2pLogSink;
 };
 
 export interface PhotoStore {
@@ -235,6 +239,9 @@ export interface PhotoStore {
     requesterKey: string,
     approve: boolean,
   ): Promise<EitherResult<{ ok: boolean }>>;
+  /** JSON snapshot of live p2p state (connections, topics, drives, folders),
+   * served at `/__state` so a field bug can be diagnosed without probes. */
+  debugState(): Record<string, unknown>;
   close(): Promise<void>;
 }
 
@@ -458,6 +465,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Later joins of a topic that upgraded it to serving; left with it. */
   const extraJoins = new Map<string, Array<{ destroy(): void | Promise<void> }>>();
   const rediscoverTimers = new Set<ReturnType<typeof setTimeout>>();
+  const log = createP2pLog(deps.log);
+  /** Per-store monotonic id naming a swarm connection in log lines. */
+  let connSeq = 0;
+  const conns = new Map<
+    number,
+    { noiseKey?: string; identityKey?: string; openedAt: number; initiator?: boolean }
+  >();
+  /** Resolved peer-outbox drives (the map above holds promises). */
+  const peerOutboxDrives = new Map<string, Drive>();
   let closed = false;
   let readyPromise: Promise<void> | null = null;
 
@@ -552,7 +568,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (value === null || value === undefined) return null;
       if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
       return new TextDecoder().decode(value as Uint8Array);
-    } catch {
+    } catch (e) {
+      log("error", {
+        where: "drive.read",
+        drive: short(drive.key),
+        path: drivePath,
+        err: errText(e),
+      });
       return null;
     }
   }
@@ -613,7 +635,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const parsed = JSON.parse(text) as { swarmKey?: unknown };
       if (typeof parsed.swarmKey === "string" && isHexKey(parsed.swarmKey)) {
         if (memberSwarmKey.get(memberKey) === parsed.swarmKey) return false;
+        const prev = memberSwarmKey.get(memberKey);
         memberSwarmKey.set(memberKey, parsed.swarmKey);
+        log(prev && prev !== parsed.swarmKey ? "swarmkey.changed" : "swarmkey.learned", {
+          member: short(memberKey),
+          swarmkey: short(parsed.swarmKey),
+          from: short(prev),
+        });
         return true;
       }
     } catch {
@@ -646,7 +674,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function onSwarmConnection(conn: any, swarmKeyHex: string) {
-    connectedSwarmKeys.set(swarmKeyHex, (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1);
+    const now = (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1;
+    connectedSwarmKeys.set(swarmKeyHex, now);
+    if (now === 1) {
+      log("presence.change", {
+        swarmkey: short(swarmKeyHex),
+        member: short(memberKeyForSwarmKey(swarmKeyHex)),
+        state: "up",
+        conns: now,
+      });
+    }
     announcePresence();
     refreshPresence();
     conn.on("close", () => {
@@ -657,6 +694,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       connectedSwarmKeys.delete(swarmKeyHex);
       const member = memberKeyForSwarmKey(swarmKeyHex);
+      log("presence.change", {
+        swarmkey: short(swarmKeyHex),
+        member: short(member),
+        state: "down",
+        conns: 0,
+      });
       if (member) {
         lastSeen.set(member, Date.now());
         saveLastSeen();
@@ -702,6 +745,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   function watchDrive(drive: Drive, folderId: string, label: string, cause: PhotoChangedCause) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
+      log("drive.change", {
+        drive: short(drive.key),
+        length: drive.core?.length,
+        folder: short(folderId),
+      });
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         const rt = runtimes.get(folderId);
@@ -712,11 +760,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           // Best-effort background upgrade; never block the watcher. Guard the
           // promise so a rejection (e.g. registry read failing) can't become an
           // unhandled rejection that crashes the process.
-          void upgradePendingRole(rt).catch(() => {});
+          void upgradePendingRole(rt).catch((e) =>
+            log("error", { where: "upgradePendingRole", folder: short(folderId), err: errText(e) }),
+          );
         }
         // The Admin's drive changed (or first replicated in after we joined
         // with only the invite's name): take the album name from it.
-        if (rt && drive === rt.folderDrive) void refreshAlbumName(rt).catch(() => {});
+        if (rt && drive === rt.folderDrive) {
+          void refreshAlbumName(rt).catch((e) =>
+            log("error", { where: "refreshAlbumName", folder: short(folderId), err: errText(e) }),
+          );
+        }
         refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
@@ -768,13 +822,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const handle = swarm.join(topic, opts);
     if (opts?.server !== false) servedTopics.add(key);
     if (existing) {
+      log("topic.upgrade", { topic: short(key) });
       extraJoins.set(key, [...(extraJoins.get(key) ?? []), handle]);
       return existing;
     }
     joins.set(key, handle);
+    log("topic.join", { topic: short(key), served: opts?.server !== false });
     // Fire-and-forget: never block setup on DHT bootstrap — the app must
     // boot and serve the gallery even when the swarm is unreachable.
-    void handle.flushed?.().catch(() => {});
+    const joinedAt = Date.now();
+    void handle
+      .flushed?.()
+      .then(() => log("topic.flushed", { topic: short(key), ms: Date.now() - joinedAt }))
+      .catch((e) => log("error", { where: "topic.flushed", topic: short(key), err: errText(e) }));
     return handle;
   }
 
@@ -785,11 +845,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!handle) return;
     joins.delete(keyHex);
     servedTopics.delete(keyHex);
+    log("topic.leave", { topic: short(keyHex) });
     for (const extra of extraJoins.get(keyHex) ?? []) {
       try {
-        void Promise.resolve(extra.destroy?.()).catch(() => {});
+        void Promise.resolve(extra.destroy?.()).catch(logLeave(keyHex));
       } catch {
-        // already destroyed
+        // already destroyed (sync throw on teardown): expected, quiet
       }
     }
     extraJoins.delete(keyHex);
@@ -798,10 +859,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // `destroy` may return a promise; swallow a rejection so leaving a topic
       // can't raise an unhandled rejection. A sync throw (already destroyed) is
       // already caught by the surrounding try/catch.
-      if (d instanceof Promise) d.catch(() => {});
+      if (d instanceof Promise) d.catch(logLeave(keyHex));
     } catch {
-      // already destroyed
+      // already destroyed (sync throw on teardown): expected, quiet
     }
+  }
+
+  function logLeave(keyHex: string) {
+    return (e: unknown) =>
+      log("error", { where: "topic.leave", topic: short(keyHex), err: errText(e) });
   }
 
   /** Backoff for {@link rediscover}: about two minutes in all, after which
@@ -825,12 +891,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const tick = () => {
       rediscoverTimers.delete(timer);
       if (closed || hasPeer() || !joins.has(key) || drive.closed) return;
+      log("rediscover.attempt", {
+        drive: short(drive.key),
+        topic: short(key),
+        n: attempt + 1,
+        peers: drive.core?.peers?.length,
+      });
       try {
-        void Promise.resolve(swarm.status?.(topic)?.refresh()).catch(() => {});
+        void Promise.resolve(swarm.status?.(topic)?.refresh()).catch((e) =>
+          log("error", { where: "rediscover.refresh", topic: short(key), err: errText(e) }),
+        );
       } catch {
-        // discovery gone
+        // discovery gone (topic left meanwhile): expected, quiet
       }
-      if (++attempt >= REDISCOVER_MS.length) return;
+      if (++attempt >= REDISCOVER_MS.length) {
+        log("rediscover.giveup", { drive: short(drive.key), topic: short(key) });
+        return;
+      }
       timer = setTimeout(tick, REDISCOVER_MS[attempt]);
       rediscoverTimers.add(timer);
     };
@@ -843,6 +920,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function openDriveWithTopic(keyHex: string, opts?: { server?: boolean }): Promise<Drive> {
     const drive = deps.makeDrive(corestore, Buffer.from(keyHex, "hex"));
     const topic = drive.discoveryKey;
+    const startedAt = Date.now();
+    log("drive.open.start", { drive: short(keyHex), topic: short(topic) });
     await joinTopic(topic, opts);
     try {
       await Promise.race([
@@ -855,11 +934,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ),
       ]);
     } catch (e) {
+      log("drive.open.timeout", {
+        drive: short(keyHex),
+        ms: Date.now() - startedAt,
+        err: errText(e),
+        conns: swarm.connections.size,
+      });
       // A Hyperdrive holds its core exclusively: an abandoned one would make
       // every later open of this key wait forever.
-      void Promise.resolve(drive.close?.()).catch(() => {});
+      void Promise.resolve(drive.close?.()).catch((e2) =>
+        log("error", { where: "drive.close", drive: short(keyHex), err: errText(e2) }),
+      );
       throw e;
     }
+    log("drive.open.ready", {
+      drive: short(keyHex),
+      ms: Date.now() - startedAt,
+      peers: drive.core?.peers?.length,
+    });
     rediscover(topic, drive);
     return drive;
   }
@@ -894,6 +986,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** An album we joined is named by its Admin's `/folder.json`; until that
    * replicates in we show the invite's name (or a placeholder). */
+  function nameErr(rt: FolderRuntime) {
+    return (e: unknown) =>
+      log("error", { where: "refreshAlbumName", folder: short(rt.record.id), err: errText(e) });
+  }
+
   async function refreshAlbumName(rt: FolderRuntime) {
     if (rt.record.role === "creator") return;
     const name = await readFolderNameIn(rt.folderDrive);
@@ -1006,7 +1103,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       try {
         await drive.close();
       } catch {
-        // already closed
+        // already closed (teardown): expected, quiet
       }
     }
     for (const entry of entries) {
@@ -1055,8 +1152,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const list = d.list(DRIVE_PATH_PHOTOS);
         for await (const entry of list) entries.push(entry as never);
         scans.push({ key: hex(d.key), entries });
-      } catch {
+      } catch (e) {
         // Unreachable drive — its entries are already indexed; skip, don't evict.
+        log("error", { where: "drive.scan", drive: short(d.key), err: errText(e) });
         continue;
       }
     }
@@ -1118,7 +1216,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       try {
         await drive.close();
       } catch {
-        // already closed
+        // already closed (teardown): expected, quiet
       }
     }
     rt.memberDrives.clear();
@@ -1175,8 +1273,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const list = drive.list(DRIVE_PATH_PHOTOS);
         for await (const entry of list) entries.push(entry as never);
         scans.push({ key, entries });
-      } catch {
+      } catch (e) {
         // Drive not downloaded yet — skip.
+        log("error", { where: "drive.scan", drive: short(key), err: errText(e) });
         continue;
       }
     }
@@ -1627,6 +1726,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    *  - `requests()` opens each identity drive learned this session read-only
    *    and keeps the outbox entries whose share key matches this album.
    */
+  const lastRequestCount = new Map<string, number>();
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
     const shareKey = rt.record.shareKey;
     // Open every peer's request outbox concurrently. A peer whose drive never
@@ -1675,7 +1775,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return out;
     });
     const settled = await Promise.allSettled(tasks);
-    return settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    // Logged on change only: the web layer polls this on every push.
+    if (lastRequestCount.get(rt.record.id) !== found.length) {
+      lastRequestCount.set(rt.record.id, found.length);
+      log("requests.found", {
+        folder: short(rt.record.id),
+        count: found.length,
+        peers: peerIdentities.size,
+      });
+    }
+    return found;
   }
 
   function announceRequestInbox() {
@@ -1689,6 +1799,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     let opening = peerOutboxes.get(keyHex);
     if (!opening) {
       opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
+        peerOutboxDrives.set(keyHex, drive);
         onDriveChange(drive, announceRequestInbox);
         return drive;
       });
@@ -1701,9 +1812,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** A peer told us its identity drive. An Admin may have a join request
    * waiting there: tell the web layer to refresh its request inbox. */
-  function onPeerIdentity(key: Uint8Array) {
+  function onPeerIdentity(key: Uint8Array, connId?: number) {
     const keyHex = hex(Buffer.from(key));
-    if (!isHexKey(keyHex) || keyHex === hex(ownDrive.key) || peerIdentities.has(keyHex)) return;
+    if (!isHexKey(keyHex)) return;
+    const isNew = !peerIdentities.has(keyHex) && keyHex !== hex(ownDrive.key);
+    log("identity.learned", { conn: connId, identity: short(keyHex), new: isNew });
+    const c = connId === undefined ? undefined : conns.get(connId);
+    if (c) c.identityKey = keyHex;
+    if (!isNew) return;
     peerIdentities.add(keyHex);
     announceRequestInbox();
   }
@@ -1717,7 +1833,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Swarm: seed our own identity drive; replicate everything over each conn.
     // Registered before any topic join so early connections replicate too.
     swarm.on("connection", (conn: any) => {
-      conn.on("error", () => {});
+      const connId = ++connSeq;
+      const noiseKey = Buffer.isBuffer(conn.remotePublicKey)
+        ? hex(conn.remotePublicKey)
+        : undefined;
+      const openedAt = Date.now();
+      conns.set(connId, { noiseKey, openedAt, initiator: conn.isInitiator });
+      log("conn.open", { conn: connId, noise: short(noiseKey), initiator: conn.isInitiator });
+      conn.on("error", (e: unknown) =>
+        log("conn.error", { conn: connId, noise: short(noiseKey), err: errText(e) }),
+      );
+      conn.on("close", () => {
+        conns.delete(connId);
+        log("conn.close", { conn: connId, noise: short(noiseKey), ms: Date.now() - openedAt });
+      });
       try {
         corestore.replicate(conn);
       } catch (e) {
@@ -1727,7 +1856,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const peerKey = conn.remotePublicKey;
       if (peerKey && Buffer.isBuffer(peerKey)) onSwarmConnection(conn, hex(peerKey));
       try {
-        (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, onPeerIdentity);
+        (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, (key) => onPeerIdentity(key, connId));
       } catch (e) {
         console.error(`[justus] identity greeting failed: ${errMsg(e)}`);
       }
@@ -1775,7 +1904,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         watcherRemoves: new Set(),
       };
       runtimes.set(record.id, rt);
-      if (!isCreator) void refreshAlbumName(rt).catch(() => {});
+      if (!isCreator) void refreshAlbumName(rt).catch(nameErr(rt));
       if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
         try {
@@ -2076,8 +2205,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             watchDrive(fd, rt.record.id, hex(fd.key), "add");
             // The Admin's drive may have replicated in while we joined, before the
             // watcher existed: catch up on its name now.
-            void refreshAlbumName(rt).catch(() => {});
-          } catch {
+            void refreshAlbumName(rt).catch(nameErr(rt));
+          } catch (e) {
+            log("error", { where: "join.reopen", folder: short(existing.id), err: errText(e) });
             return ok(await computeStatus());
           }
         }
@@ -2150,7 +2280,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         watchDrive(drive, folderId, hex(drive.key), "add");
         // The Admin's drive may have replicated in while we joined, before the
         // watcher existed: catch up on its name now.
-        void refreshAlbumName(rt).catch(() => {});
+        void refreshAlbumName(rt).catch(nameErr(rt));
         deps.onChanged({ cause: "request", folderId });
         return ok(await computeStatus());
       }
@@ -2163,7 +2293,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watchDrive(drive, folderId, hex(drive.key), "add");
       // The Admin's drive may have replicated in while we joined, before the
       // watcher existed: catch up on its name now.
-      void refreshAlbumName(rt).catch(() => {});
+      void refreshAlbumName(rt).catch(nameErr(rt));
       deps.onChanged({ cause: "enroll", folderId });
       return ok(await computeStatus());
     },
@@ -2338,6 +2468,65 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await refreshMembersFor(rt);
       deps.onChanged({ cause: "enroll", folderId, memberKey });
       return ok({ ok: true });
+    },
+
+    debugState() {
+      const driveInfo = (drive: Drive) => ({
+        key: hex(drive.key),
+        length: drive.core?.length ?? null,
+        peers: Array.isArray(drive.core?.peers) ? drive.core.peers.length : null,
+      });
+      return {
+        now: Date.now(),
+        swarmKey: ownSwarmKey() ?? null,
+        identityDrive: ownDrive ? hex(ownDrive.key) : null,
+        swarmConnections: swarm.connections.size,
+        connections: [...conns].map(([conn, c]) => ({
+          conn,
+          noiseKey: c.noiseKey ?? null,
+          identityKey: c.identityKey ?? null,
+          initiator: c.initiator ?? null,
+          openedAt: c.openedAt,
+        })),
+        peerIdentities: [...peerIdentities],
+        joins: [...joins.keys()].map((topic) => ({
+          topic,
+          served: servedTopics.has(topic),
+          extraJoins: extraJoins.get(topic)?.length ?? 0,
+        })),
+        remoteDrives: [
+          ...[...peerOutboxDrives].map(([key, d]) => ({
+            role: "peer-outbox",
+            ...driveInfo(d),
+            key,
+          })),
+          ...[...runtimes.values()].flatMap((rt) =>
+            [...rt.memberDrives.values()].map((d) => ({
+              role: "member",
+              folder: rt.record.id,
+              ...driveInfo(d),
+            })),
+          ),
+        ],
+        folders: [...runtimes.values()].map((rt) => ({
+          id: rt.record.id,
+          role: rt.record.role,
+          pending: Boolean(rt.record.pending),
+          shareKey: rt.record.shareKey,
+          folderDrive: driveInfo(rt.folderDrive),
+          selfDrive: driveInfo(rt.selfDrive),
+          members: [...rt.memberDrives.keys()].map((key) => ({
+            key,
+            swarmKey: memberSwarmKey.get(key) ?? null,
+            connected: isMemberConnected(key),
+          })),
+          folderOwner: {
+            swarmKey: memberSwarmKey.get(rt.record.shareKey) ?? null,
+            connected: isMemberConnected(rt.record.shareKey),
+          },
+        })),
+        rediscoverTimers: rediscoverTimers.size,
+      };
     },
 
     async close() {

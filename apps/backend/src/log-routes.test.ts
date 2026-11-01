@@ -168,4 +168,35 @@ describe("log-routes", () => {
     expect(res.status).toBe(200);
     expect(collector.entries()[0].message).toBe("fits");
   });
+
+  test("GET /__state serves the p2p snapshot as JSON", () => {
+    const server = fakeServer();
+    const collector = createLogCollector({ now: () => 1000 });
+    registerLogRoutes({
+      server: server as never,
+      collector,
+      debugState: () => ({ connections: [{ conn: 1 }] }),
+    });
+    const res = mockRes();
+    server.routes["GET /__state"](getReq("/__state"), res as never);
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ connections: [{ conn: 1 }] });
+  });
+
+  test("GET /__state rejects a cross-origin caller and is absent without a provider", () => {
+    const server = fakeServer();
+    const collector = createLogCollector({ now: () => 1000 });
+    registerLogRoutes({ server: server as never, collector });
+    expect(server.routes["GET /__state"]).toBeUndefined();
+
+    registerLogRoutes({
+      server: server as never,
+      collector,
+      debugState: () => ({ secret: "peer-key" }),
+    });
+    const res = mockRes();
+    server.routes["GET /__state"](getReq("/__state", "https://evil.example"), res as never);
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain("peer-key");
+  });
 });

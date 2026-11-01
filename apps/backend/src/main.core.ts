@@ -118,7 +118,11 @@ registerUploadRoute({
 });
 
 // Debug-log surface: pull backend lifecycle logs and ingest external batches.
-registerLogRoutes({ server: runtime.server, collector: logCollector });
+registerLogRoutes({
+  server: runtime.server,
+  collector: logCollector,
+  debugState: () => store.debugState(),
+});
 
 if (config.dev && config.inbox) {
   createDevInbox({
