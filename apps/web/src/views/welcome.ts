@@ -266,7 +266,8 @@ function chooseStep() {
 export function welcomeView() {
   return html`
     <div class="mx-auto max-w-xl space-y-6 py-6">
-      <h1 class="flex justify-center">${wordmark("h-14 w-auto", true)}</h1>
+      <!-- md+: the rail already shows the wordmark; one coral dot per screen. -->
+      <h1 class="flex justify-center md:hidden">${wordmark("h-14 w-auto", true)}</h1>
       ${useStore($onboardingViewModel, (vm) => {
         if (vm.fatal) {
           return html`<p class="text-center text-sm text-danger-fg" role="alert">
