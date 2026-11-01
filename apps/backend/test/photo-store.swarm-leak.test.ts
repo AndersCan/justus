@@ -86,26 +86,28 @@ describe("#95 swarm joins must not leak", () => {
     const f2 = (await c2.store.createFolder("F2"))[1]!.folder.shareKey;
     const f3 = (await c3.store.createFolder("F3"))[1]!.folder.shareKey;
 
-    // Joining a folder opens that folder's drive and serves this device's own
-    // drive in it (2 joins). The reader also announces its request on the
-    // folder topic — idempotent, so it must NOT add a join.
+    // Joining a folder opens that folder's drive as a client and serves this
+    // device's own drive in it (2 joins). The reader then serves its request
+    // on the folder topic: that upgrades the client-only join to announcing,
+    // which Hyperswarm takes as one more session (#200: deduping it away
+    // silently dropped the announce).
     const r1 = await reader.store.join(f1);
     expect(r1[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(3); // + F1 + own drive in F1
+    expect(reader.swarm.activeJoins).toBe(4); // + F1 + own drive in F1 + F1 serve
 
     const r2 = await reader.store.join(f2);
     expect(r2[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(5); // + F2 pair
+    expect(reader.swarm.activeJoins).toBe(7); // + F2 trio
 
     const r3 = await reader.store.join(f3);
     expect(r3[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(7); // + F3 pair
+    expect(reader.swarm.activeJoins).toBe(10); // + F3 trio
 
     // Re-joining an already-held folder (#47) re-files the request but must
-    // not add a join.
+    // not add a join: the topic already serves.
     const r1again = await reader.store.join(f1);
     expect(r1again[0]).toBeNull();
-    expect(reader.swarm.activeJoins).toBe(7);
+    expect(reader.swarm.activeJoins).toBe(10);
 
     // close() must release every join, including the identity join.
     await reader.store.close();

@@ -37,6 +37,8 @@ type SwarmLike = {
   };
   on(event: "connection", handler: (conn: unknown) => void): void;
   connections: Set<unknown>;
+  /** The topic's discovery; `refresh()` re-runs its lookup and announce. */
+  status?(topic: Buffer): { refresh(): Promise<void> | void } | null;
   /** This swarm's noise identity; absent on test fakes. */
   keyPair?: { publicKey: Buffer };
   destroy(): void | Promise<void>;
@@ -451,6 +453,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   // the same handle — and lets `leaveTopic` reclaim a handle on unmount so a
   // folder switch / re-enroll doesn't leak one join per member drive.
   const joins = new Map<string, { destroy(): void | Promise<void> }>();
+  /** Topics this device announces on (joined without `server: false`). */
+  const servedTopics = new Set<string>();
+  /** Later joins of a topic that upgraded it to serving; left with it. */
+  const extraJoins = new Map<string, Array<{ destroy(): void | Promise<void> }>>();
+  const rediscoverTimers = new Set<ReturnType<typeof setTimeout>>();
+  let closed = false;
   let readyPromise: Promise<void> | null = null;
 
   /**
@@ -592,9 +600,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   /** Read a member's `/device.json` for its swarm key, bounded so an
-   * unreachable member never stalls the caller. Cached once learned. */
+   * unreachable member never stalls the caller. Re-read every time: the swarm
+   * key changes on every boot, so a cached one goes stale when the member
+   * restarts. Returns true when the key is new or changed. */
   async function learnSwarmKey(memberKey: string, drive: Drive): Promise<boolean> {
-    if (memberSwarmKey.has(memberKey)) return false;
     const text = await Promise.race([
       getText(drive, DRIVE_PATH_DEVICE),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
@@ -603,6 +612,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const parsed = JSON.parse(text) as { swarmKey?: unknown };
       if (typeof parsed.swarmKey === "string" && isHexKey(parsed.swarmKey)) {
+        if (memberSwarmKey.get(memberKey) === parsed.swarmKey) return false;
         memberSwarmKey.set(memberKey, parsed.swarmKey);
         return true;
       }
@@ -625,10 +635,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return learned;
   }
 
+  /** Re-learn members' swarm keys and announce if any changed. Runs on every
+   * connection and every drive change: a member approved after we connected,
+   * or one that restarted with a new swarm key, only becomes known once its
+   * `/device.json` replicates in. */
+  function refreshPresence() {
+    void resolveSwarmKeys()
+      .then((learned) => learned && announcePresence())
+      .catch((e) => console.error(`[justus] presence refresh failed: ${errMsg(e)}`));
+  }
+
   function onSwarmConnection(conn: any, swarmKeyHex: string) {
     connectedSwarmKeys.set(swarmKeyHex, (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1);
     announcePresence();
-    void resolveSwarmKeys().then((learned) => learned && announcePresence());
+    refreshPresence();
     conn.on("close", () => {
       const left = (connectedSwarmKeys.get(swarmKeyHex) ?? 1) - 1;
       if (left > 0) {
@@ -697,6 +717,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // The Admin's drive changed (or first replicated in after we joined
         // with only the invite's name): take the album name from it.
         if (rt && drive === rt.folderDrive) void refreshAlbumName(rt).catch(() => {});
+        refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
         deps.onChanged({ cause, folderId, memberKey: label });
@@ -739,8 +760,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
     const key = hex(topic);
     const existing = joins.get(key);
-    if (existing) return existing;
+    // A topic first joined as a client only (`server: false`, opening a remote
+    // drive) must still announce when a later caller asks to serve on it (a
+    // joiner serving its request outbox on the album topic). Hyperswarm adds
+    // the second join as a session of the same discovery and re-announces.
+    if (existing && !(opts?.server && !servedTopics.has(key))) return existing;
     const handle = swarm.join(topic, opts);
+    if (opts?.server !== false) servedTopics.add(key);
+    if (existing) {
+      extraJoins.set(key, [...(extraJoins.get(key) ?? []), handle]);
+      return existing;
+    }
     joins.set(key, handle);
     // Fire-and-forget: never block setup on DHT bootstrap — the app must
     // boot and serve the gallery even when the swarm is unreachable.
@@ -754,6 +784,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const handle = joins.get(keyHex);
     if (!handle) return;
     joins.delete(keyHex);
+    servedTopics.delete(keyHex);
+    for (const extra of extraJoins.get(keyHex) ?? []) {
+      try {
+        void Promise.resolve(extra.destroy?.()).catch(() => {});
+      } catch {
+        // already destroyed
+      }
+    }
+    extraJoins.delete(keyHex);
     try {
       const d = handle.destroy?.();
       // `destroy` may return a promise; swallow a rejection so leaving a topic
@@ -763,6 +802,40 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     } catch {
       // already destroyed
     }
+  }
+
+  /** Backoff for {@link rediscover}: about two minutes in all, after which
+   * Hyperswarm's own 10-minute refresh takes over. */
+  const REDISCOVER_MS = [500, 1000, 2000, 4000, 8000, 15000, 30000, 60000];
+
+  /**
+   * Hyperswarm looks a topic up once, then again only every 10 minutes
+   * (`REFRESH_INTERVAL` in hyperswarm/lib/peer-discovery.js). A lookup that ran
+   * before the peer's announce reached the DHT (a joiner opening an album the
+   * Admin created a moment ago) would find no one for that long. Re-run the
+   * lookup with backoff until the drive has a peer.
+   */
+  function rediscover(topic: Buffer, drive: Drive) {
+    const key = hex(topic);
+    let attempt = 0;
+    const hasPeer = () => {
+      const peers = drive.core?.peers;
+      return !Array.isArray(peers) || peers.length > 0;
+    };
+    const tick = () => {
+      rediscoverTimers.delete(timer);
+      if (closed || hasPeer() || !joins.has(key) || drive.closed) return;
+      try {
+        void Promise.resolve(swarm.status?.(topic)?.refresh()).catch(() => {});
+      } catch {
+        // discovery gone
+      }
+      if (++attempt >= REDISCOVER_MS.length) return;
+      timer = setTimeout(tick, REDISCOVER_MS[attempt]);
+      rediscoverTimers.add(timer);
+    };
+    let timer = setTimeout(tick, REDISCOVER_MS[0]);
+    rediscoverTimers.add(timer);
   }
 
   /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -787,6 +860,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       void Promise.resolve(drive.close?.()).catch(() => {});
       throw e;
     }
+    rediscover(topic, drive);
     return drive;
   }
 
@@ -2267,6 +2341,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     async close() {
+      closed = true;
+      for (const t of rediscoverTimers) clearTimeout(t);
+      rediscoverTimers.clear();
       // Tear down every folder: drop update watchers, unmount loopback routes,
       // and remove the per-folder spool dir so a shutdown leaves no mounts or
       // stale cache behind (#101).
