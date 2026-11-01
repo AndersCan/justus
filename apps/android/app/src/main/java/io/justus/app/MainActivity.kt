@@ -307,7 +307,7 @@ class MainActivity : AppCompatActivity() {
                     // Answer on the main thread, where the picker callback started.
                     val reply = { o: HostPluginRegistry.HostInvokeOutcome -> mainHandler.post { respond(o) } }
                     val items = JSONArray()
-                    for (uri in uris) copyUriToCache(uri)?.let { items.put(it.toJson()) }
+                    for (uri in uris) copyUriToCache(uri)?.withCopies()?.let { items.put(it.toJson()) }
                     if (items.length() == 0) {
                         reply(
                             HostPluginRegistry.HostInvokeOutcome.Fail(
@@ -377,13 +377,18 @@ class MainActivity : AppCompatActivity() {
         val file = pendingCaptureFile ?: return
         pendingCaptureFile = null
         if (success && file.exists() && file.length() > 0L) {
-            val json = JSONObject().put("path", file.absolutePath)
-            if (pendingCaptureName) {
-                val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
-                    .format(java.util.Date())
-                json.put("name", "IMG_$stamp.${file.extension}")
+            if (!pendingCaptureName) {
+                respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("path", file.absolutePath)))
+                return
             }
-            respond(HostPluginRegistry.HostInvokeOutcome.Ok(json))
+            // justus.media: a dated name, and the copies the album shares
+            // (encoding takes a moment, so off the main thread).
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                .format(java.util.Date())
+            stagingExecutor.execute {
+                val staged = StagedMedia(file.absolutePath, "IMG_$stamp.${file.extension}").withCopies()
+                mainHandler.post { respond(HostPluginRegistry.HostInvokeOutcome.Ok(staged.toJson())) }
+            }
         } else {
             respond(
                 HostPluginRegistry.HostInvokeOutcome.Fail(
@@ -396,8 +401,33 @@ class MainActivity : AppCompatActivity() {
 
     /** Copies a picker content:// URI into the app cache so the worklet can
      * serve it from the filesystem. */
-    private data class StagedMedia(val path: String, val name: String?) {
-        fun toJson(): JSONObject = JSONObject().put("path", path).apply { if (name != null) put("name", name) }
+    private data class StagedMedia(
+        val path: String,
+        val name: String?,
+        val thumb: String? = null,
+        val original: String? = null,
+        val takenAt: String? = null,
+    ) {
+        fun toJson(): JSONObject =
+            JSONObject().put("path", path).apply {
+                if (name != null) put("name", name)
+                if (thumb != null) put("thumb", thumb)
+                if (original != null) put("original", original)
+                if (takenAt != null) put("takenAt", takenAt)
+            }
+    }
+
+    /** `PickedMedia` with the shared copies (`justus.media`): `path` becomes
+     * the display copy and the original is passed along only to be hashed and
+     * read for its date. If the photo can't be decoded, it is shared as is. */
+    private fun StagedMedia.withCopies(): StagedMedia {
+        val copies = SharedCopies.make(File(path), importsDir) ?: return this
+        return copy(
+            path = copies.display.absolutePath,
+            thumb = copies.thumb.absolutePath,
+            original = path,
+            takenAt = copies.takenAt,
+        )
     }
 
     private fun copyUriToCache(uri: Uri): StagedMedia? {

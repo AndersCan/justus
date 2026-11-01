@@ -30,7 +30,15 @@ export function createPhotosPlugin(deps: { store: PhotoStore }) {
         // Two add flows share one invoke: a host-picked file already on disk
         // (`path`), or bytes uploaded in-band as the invoke payload from the
         // browser multi-file picker (`name` + payload).
-        if (args.path) return deps.store.add(args.path, args.name, args.folderId);
+        // A host that encoded the shared copies passes them alongside.
+        if (args.path) {
+          const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+          return deps.store.add(args.path, args.name, args.folderId, {
+            thumb: str(args.thumb),
+            original: str(args.original),
+            takenAt: str(args.takenAt),
+          });
+        }
         const payload = context?.payload;
         if (payload && payload.byteLength > 0) {
           if (payload.byteLength > MAX_INBAND_ADD_BYTES) {

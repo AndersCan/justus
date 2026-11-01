@@ -110,6 +110,26 @@ describe("gallery machine", () => {
     expect($photos.get()).toEqual([]);
   });
 
+  test("a host's shared copies travel with the add; its original is never the photo", async () => {
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("ready"));
+    const picked = {
+      kind: "path" as const,
+      path: "/tmp/d.jpg",
+      thumb: "/tmp/t.jpg",
+      original: "/tmp/o.heic",
+      takenAt: "2026-07-01T12:00:00",
+      name: "IMG_1.HEIC",
+    };
+    gallery.addMany([picked], "f1");
+    await vi.waitFor(() => expect($addBatch.get()?.running).toBe(false));
+    expect(mock.add).toHaveBeenCalledWith("/tmp/d.jpg", "IMG_1.HEIC", "f1", {
+      thumb: "/tmp/t.jpg",
+      original: "/tmp/o.heic",
+      takenAt: "2026-07-01T12:00:00",
+    });
+  });
+
   test("a batch adds every photo in order, with progress", async () => {
     let n = 0;
     mock.add.mockImplementation(async () => [null, photo(`p${++n}`, `${n}.jpg`)]);
@@ -124,7 +144,7 @@ describe("gallery machine", () => {
       "/tmp/2.jpg",
       "/tmp/3.jpg",
     ]);
-    expect(mock.add).toHaveBeenCalledWith("/tmp/1.jpg", "1.jpg", "f1");
+    expect(mock.add).toHaveBeenCalledWith("/tmp/1.jpg", "1.jpg", "f1", {});
     expect($addBatch.get()).toMatchObject({ total: 3, done: 3, added: 3, duplicates: 0 });
     expect(
       $photos
@@ -151,7 +171,7 @@ describe("gallery machine", () => {
     mock.add.mockResolvedValueOnce([null, photo("p2")]);
     gallery.retryFailed();
     await vi.waitFor(() => expect($addBatch.get()).toMatchObject({ running: false, added: 1 }));
-    expect(mock.add).toHaveBeenLastCalledWith("/tmp/2.jpg", "2.jpg", "f1");
+    expect(mock.add).toHaveBeenLastCalledWith("/tmp/2.jpg", "2.jpg", "f1", {});
     expect($addBatch.get()?.failed).toEqual([]);
   });
 

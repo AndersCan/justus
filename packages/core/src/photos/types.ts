@@ -10,9 +10,13 @@ export type PhotoMember = {
 export type Photo = {
   /** File id within the member drive (e.g. `abc123`). */
   id: string;
-  /** Loopback-served URL (same-origin, cookie-gated on device). */
+  /** Loopback-served URL of the display copy (same-origin, cookie-gated on
+   * device). Its bytes are fetched from the member only when it is loaded. */
   url: string;
-  /** Original file name. */
+  /** Loopback-served URL of the thumbnail. Unset for photos added before
+   * thumbnails existed: show `url` instead. */
+  thumbUrl?: string;
+  /** File name, with the extension of the shared copy. */
   name: string;
   mime: string;
   size: number;
@@ -23,8 +27,8 @@ export type Photo = {
    * Unset when the file carries no capture date. */
   takenAt?: string;
   member: PhotoMember;
-  /** sha256 of the original bytes (ingest dedupe). Optional: entries stored
-   * before this field existed don't carry it. */
+  /** sha256 of the original bytes on the adding device (ingest dedupe).
+   * Optional: entries stored before this field existed don't carry it. */
   sha256?: string;
   /** The folder (album) this photo belongs to. Set by every list, so a
    * cross-album list can be filtered and acted on per album. */

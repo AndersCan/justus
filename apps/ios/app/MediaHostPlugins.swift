@@ -1,5 +1,6 @@
 import BareHost
 import Foundation
+import ImageIO
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
@@ -37,7 +38,7 @@ enum MediaHostPlugins {
       )
     }
     registry.register(pluginId: "justus.media", event: "media.capture") { args, _, respond in
-      MediaHostPlugins.capture(kind: Self.kind(from: args), respond: respond)
+      MediaHostPlugins.capture(kind: Self.kind(from: args), copies: true, respond: respond)
     }
   }
 
@@ -57,7 +58,10 @@ enum MediaHostPlugins {
       config.selectionLimit = limit
       if many, #available(iOS 15.0, *) { config.selection = .ordered }
       let picker = PHPickerViewController(configuration: config)
-      let controller = MediaPickerController(kind: kind, many: many, respond: respond)
+      // justus.media (`many`) shares copies the host makes; vendor.media
+      // hands back the original.
+      let controller = MediaPickerController(
+        kind: kind, many: many, copies: many, respond: respond)
       picker.delegate = controller
       guard let top = Self.topViewController() else {
         respond(
@@ -72,6 +76,7 @@ enum MediaHostPlugins {
 
   private static func capture(
     kind: String,
+    copies: Bool = false,
     respond: @escaping (HostPluginRegistry.HostInvokeOutcome) -> Void
   ) {
     Task { @MainActor in
@@ -94,7 +99,7 @@ enum MediaHostPlugins {
       picker.sourceType = .camera
       picker.mediaTypes =
         kind == "video" ? [UTType.movie.identifier] : [UTType.image.identifier]
-      let controller = MediaPickerController(kind: kind, respond: respond)
+      let controller = MediaPickerController(kind: kind, copies: copies, respond: respond)
       picker.delegate = controller
       Self.retain(controller)
       top.present(picker, animated: true)
@@ -138,15 +143,35 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
   private let kind: String
   /// Answer `{items: [...]}` (justus.media.pickMany) instead of one `{path}`.
   private let many: Bool
+  /// Answer with the copies the album shares (`PickedMedia` in
+  /// packages/core/src/media/events.ts) instead of the original alone.
+  private let copies: Bool
   private let respond: (HostPluginRegistry.HostInvokeOutcome) -> Void
 
   init(
-    kind: String, many: Bool = false,
+    kind: String, many: Bool = false, copies: Bool = false,
     respond: @escaping (HostPluginRegistry.HostInvokeOutcome) -> Void
   ) {
     self.kind = kind
     self.many = many
+    self.copies = copies
     self.respond = respond
+  }
+
+  /// One `PickedMedia`. With `copies`, `path` is the display copy and the
+  /// original rides along only to be hashed and dated; a photo ImageIO can't
+  /// read is shared as is.
+  private func item(_ staged: URL, name: String?) -> [String: Any] {
+    var item: [String: Any] = ["path": staged.path]
+    if let name, !name.isEmpty { item["name"] = name }
+    guard copies, kind == "image",
+      let made = SharedCopies.make(from: staged, in: MediaHostPlugins.stagingDir)
+    else { return item }
+    item["path"] = made.display.path
+    item["thumb"] = made.thumb.path
+    item["original"] = staged.path
+    if let takenAt = made.takenAt { item["takenAt"] = takenAt }
+    return item
   }
 
   private func abort(_ message: String) {
@@ -155,10 +180,14 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
   }
 
   private func finish(_ path: URL, name: String? = nil) {
-    var payload: [String: Any] = ["path": path.path]
-    if let name, !name.isEmpty { payload["name"] = name }
-    respond(.ok(payload))
-    MediaHostPlugins.release(self)
+    // Encoding the copies takes a moment: keep it off the main thread.
+    DispatchQueue.global(qos: .userInitiated).async {
+      let item = self.item(path, name: name)
+      DispatchQueue.main.async {
+        self.respond(.ok(item))
+        MediaHostPlugins.release(self)
+      }
+    }
   }
 
   private func stage(from source: URL) -> URL? {
@@ -213,7 +242,7 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
       return
     }
     let type = kind == "video" ? UTType.movie.identifier : UTType.image.identifier
-    var staged = [[String: Any]?](repeating: nil, count: results.count)
+    var staged = [(url: URL, name: String?)?](repeating: nil, count: results.count)
     let lock = NSLock()
     let group = DispatchGroup()
     for (index, result) in results.enumerated() {
@@ -223,22 +252,24 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
         [weak self] url, _ in
         defer { group.leave() }
         guard let self, let url, let dest = self.stage(from: url) else { return }
-        var item: [String: Any] = ["path": dest.path]
-        if let name = result.itemProvider.suggestedName, !name.isEmpty { item["name"] = name }
         lock.lock()
-        staged[index] = item
+        staged[index] = (dest, result.itemProvider.suggestedName)
         lock.unlock()
       }
     }
-    group.notify(queue: .main) { [weak self] in
+    // One photo at a time: each decode holds a full-size bitmap, and fifty at
+    // once would get the app killed for memory.
+    group.notify(queue: .global(qos: .userInitiated)) { [weak self] in
       guard let self else { return }
-      let items = staged.compactMap { $0 }
-      if items.isEmpty {
-        self.abort("Failed to stage picked files")
-        return
+      let items = staged.compactMap { $0 }.map { self.item($0.url, name: $0.name) }
+      DispatchQueue.main.async {
+        if items.isEmpty {
+          self.abort("Failed to stage picked files")
+          return
+        }
+        self.respond(.ok(["items": items]))
+        MediaHostPlugins.release(self)
       }
-      self.respond(.ok(["items": items]))
-      MediaHostPlugins.release(self)
     }
   }
 
@@ -263,10 +294,10 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
     }
     let dest = MediaHostPlugins.stagingDir
       .appendingPathComponent("media-\(UUID().uuidString).jpg")
-    guard
-      let data = image.jpegData(compressionQuality: 0.9),
-      (try? data.write(to: dest)) != nil
-    else {
+    // Keep the camera's metadata on the staged original: its date taken (and
+    // orientation) feed the shared copies. `originalImage` alone carries none.
+    let metadata = info[.mediaMetadata] as? [CFString: Any]
+    guard Self.writeJPEG(image, metadata: metadata, to: dest) else {
       abort("Failed to stage captured image")
       return
     }
@@ -275,6 +306,20 @@ private final class MediaPickerController: NSObject, PHPickerViewControllerDeleg
     stamp.locale = Locale(identifier: "en_US_POSIX")
     stamp.dateFormat = "yyyyMMdd_HHmmss"
     finish(dest, name: "IMG_\(stamp.string(from: Date())).jpg")
+  }
+
+  private static func writeJPEG(_ image: UIImage, metadata: [CFString: Any]?, to url: URL) -> Bool {
+    guard let cgImage = image.cgImage, let metadata,
+      let dest = CGImageDestinationCreateWithURL(
+        url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+    else {
+      guard let data = image.jpegData(compressionQuality: 0.9) else { return false }
+      return (try? data.write(to: url)) != nil
+    }
+    var props = metadata
+    props[kCGImageDestinationLossyCompressionQuality] = 0.9
+    CGImageDestinationAddImage(dest, cgImage, props as CFDictionary)
+    return CGImageDestinationFinalize(dest)
   }
 
   func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {

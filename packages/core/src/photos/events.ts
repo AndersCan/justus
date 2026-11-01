@@ -1,9 +1,22 @@
 import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
 import type { FolderSummary, JoinRequest, Photo, PhotoChanged, SyncStatus } from "./types";
 
-/** Importing a photo file (read + spool + put) can take a while. */
+/** What `photos.add` takes besides the display copy at `path`. A host that
+ * made the shared copies itself passes them here (see `PickedMedia`). */
+export type AddExtras = {
+  /** The thumbnail, staged next to the display copy. */
+  thumb?: string;
+  /** The untouched original: read for its hash and date taken, never shared. */
+  original?: string;
+  /** EXIF date taken, when the host read it (it can read HEIC; we can't). */
+  takenAt?: string;
+};
+
+type AddArgs = { path?: string; name?: string; folderId?: string } & AddExtras;
+
+/** Importing a photo (read + hash + put) can take a while. */
 const PHOTOS_ADD_TIMEOUT_MS = 120_000;
-/** list/status spool remote photos on first load — network pulls can be slow. */
+/** list/status read every member's drive listing — network pulls can be slow. */
 const PHOTOS_LIST_TIMEOUT_MS = 30_000;
 /** join waits for a peer handshake; give it a generous window. */
 const PHOTOS_JOIN_TIMEOUT_MS = 60_000;
@@ -25,7 +38,7 @@ export const photoSpecs = {
     // (the original file name when the bytes travel in-band as the invoke
     // payload). The plugin picks whichever the caller provided. `folderId`
     // targets an album; without it the photo goes to the active album.
-    args: {} as { path?: string; name?: string; folderId?: string },
+    args: {} as AddArgs,
     result: {} as Photo,
   },
   remove: {
@@ -114,10 +127,11 @@ export const photoEvents = {
       path: string,
       name?: string,
       folderId?: string,
-    ): InvokeEnvelope<"photos.add", { path?: string; name?: string; folderId?: string }, Photo> {
+      extras: AddExtras = {},
+    ): InvokeEnvelope<"photos.add", AddArgs, Photo> {
       return invokeEvent(
         photoSpecs.add,
-        { path, ...(name ? { name } : {}), ...(folderId ? { folderId } : {}) },
+        { path, ...(name ? { name } : {}), ...(folderId ? { folderId } : {}), ...extras },
         null,
         PHOTOS_ADD_TIMEOUT_MS,
       );
@@ -128,7 +142,7 @@ export const photoEvents = {
       name: string,
       bytes: Uint8Array | ArrayBuffer,
       folderId?: string,
-    ): InvokeEnvelope<"photos.add", { path?: string; name?: string; folderId?: string }, Photo> {
+    ): InvokeEnvelope<"photos.add", AddArgs, Photo> {
       return invokeEvent(
         photoSpecs.add,
         { name, ...(folderId ? { folderId } : {}) },

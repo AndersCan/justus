@@ -1,8 +1,18 @@
 import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
 
 /** One file the native host picked or captured, staged where the worklet may
- * import it (`photos.add(path)`); `name` is the original display name. */
-export type PickedMedia = { path: string; name?: string };
+ * import it (`photos.add(path)`); `name` is the original display name.
+ *
+ * A host that can encode images also stages the copies the album shares: then
+ * `path` is the display copy, `thumb` the thumbnail and `original` the picked
+ * file (never shared). Without `thumb`, `path` is the original itself. */
+export type PickedMedia = {
+  path: string;
+  name?: string;
+  thumb?: string;
+  original?: string;
+  takenAt?: string;
+};
 
 /** Pickers wait on the user; give them as long as ekrooh's `vendor.media`. */
 const MEDIA_TIMEOUT_MS = 300_000;

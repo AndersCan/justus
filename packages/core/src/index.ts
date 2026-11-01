@@ -1,5 +1,7 @@
 export * from "./photos/types";
 export * from "./photos/events";
+export * from "./photos/exif-date";
+export * from "./photos/renditions";
 export * from "./logging/types";
 export * from "./logging/events";
 export * from "./grants/types";
