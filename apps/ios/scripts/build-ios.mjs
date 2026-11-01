@@ -142,7 +142,9 @@ ${addonsBlock}
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/Frameworks"
-        TARGETED_DEVICE_FAMILY: "1,2"${
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # app/Assets.xcassets, rendered by scripts/render-app-icons.mjs.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon${
           developmentTeam
             ? `\n        DEVELOPMENT_TEAM: ${developmentTeam}\n        CODE_SIGN_STYLE: Automatic`
             : ""

@@ -88,6 +88,12 @@ if (!existsSync(path.join(webDist, "index.html"))) {
 }
 cpSync(webDist, path.join(resources, "WebAssets"), { recursive: true });
 
+// App icon, rendered from assets/brand by scripts/render-app-icons.mjs. macOS
+// reads it from the bundle (CFBundleIconFile); on Linux the host sets it as the
+// GTK window icon.
+const iconFile = isMac ? "Justus.icns" : "justus.png";
+copyFileSync(path.join(appDir, "assets", iconFile), path.join(resources, iconFile));
+
 console.log("Building the Zig host...");
 const zigArch = { arm64: "aarch64", x64: "x86_64" }[process.arch];
 const zigArgs = ["build", "-Doptimize=ReleaseSafe"];
@@ -113,6 +119,7 @@ if (isMac) {
   <key>CFBundleIdentifier</key><string>app.justus.desktop</string>
   <key>CFBundleExecutable</key><string>justus</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>Justus</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>0.0.1</string>
   <key>LSMinimumSystemVersion</key><string>${minMacos}</string>
