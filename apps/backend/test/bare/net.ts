@@ -126,12 +126,17 @@ export async function bareWorld(root: string): Promise<{
           },
           async connect() {
             const swarm = new Hyperswarm({ bootstrap: testnet.bootstrap as never });
-            me.swarm = swarm;
             swarm.on("connection", (conn: any) => {
               me.store.replicate(conn);
               conn.on("error", () => {});
             });
-            await swarm.join(topic, { server: true, client: true }).flushed();
+            try {
+              await swarm.join(topic, { server: true, client: true }).flushed();
+            } catch (error) {
+              await swarm.destroy();
+              throw error;
+            }
+            me.swarm = swarm;
             const peers = connected++;
             await eventually(
               async () => swarm.connections.size,

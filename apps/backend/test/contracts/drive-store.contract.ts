@@ -69,6 +69,18 @@ export const cases: DriveCase[] = [
     },
   },
   {
+    name: "D2b list yields entries in path order, whatever the insertion order",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn();
+      for (const path of ["/d/b", "/d/c", "/d/a", "/d/a/z", "/d/B"])
+        await drive.put(path, bytes("x"));
+      const found = [];
+      for await (const entry of drive.list("/d")) found.push(entry.path);
+      t.eq(found, ["/d/B", "/d/a", "/d/a/z", "/d/b", "/d/c"], "sorted by path bytes");
+    },
+  },
+  {
     name: "D2 list yields path, real size and metadata for entries under the dir",
     async run(world, t) {
       const { store } = await world.node();
@@ -437,11 +449,15 @@ export const cases: DriveCase[] = [
     name: "D15 stats().peers counts the connected nodes replicating the drive, and drops to 0 when offline",
     async run(world, t) {
       const { a, own, remote } = await pair(world, t);
+      const bystander = await world.node();
+      await bystander.connect();
       await eventually(
         async () => own.stats().peers,
-        (v) => v >= 1,
-        "owner sees the peer",
+        (v) => v === 1,
+        "owner sees only the node replicating the drive",
       );
+      await sleep(500);
+      t.eq(own.stats().peers, 1, "a connected node that never opened the drive is not a peer");
       await eventually(
         async () => remote.stats().peers,
         (v) => v >= 1,

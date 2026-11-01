@@ -116,8 +116,7 @@ export function setFakeNodeConnected(options: {
 type Entry = {
   drive: Drive;
   refs: number;
-  closed: boolean;
-  unsubscribers: Set<() => void>;
+  close(): void;
 };
 
 function sessionClosed(): Error {
@@ -127,15 +126,11 @@ function sessionClosed(): Error {
 function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }): Entry {
   const { hub, node, replica } = options;
   const key = replica.key;
-  const entry: Entry = {
-    drive: undefined as never,
-    refs: 0,
-    closed: false,
-    unsubscribers: new Set(),
-  };
+  const state = { closed: false };
+  const unsubscribers = new Set<() => void>();
 
   function assertOpen(): void {
-    if (entry.closed) throw sessionClosed();
+    if (state.closed) throw sessionClosed();
   }
 
   function write(change: () => void): void {
@@ -147,7 +142,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     replicateKey({ hub, key });
   }
 
-  entry.drive = {
+  const drive: Drive = {
     key,
     discoveryKey: sha256Hex(`disc:${key}`),
     async readSmall(path, maxBytes) {
@@ -175,8 +170,12 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       assertOpen();
       if (hub.options.unreachable?.(key)) throw new Error("fake drive unreachable");
       const prefix = dir.endsWith("/") ? dir : `${dir}/`;
-      for (const [path, file] of replica.files) {
-        if (path === dir || !path.startsWith(prefix)) continue;
+      const paths = [...replica.files.keys()].sort((x, y) =>
+        Buffer.compare(Buffer.from(x), Buffer.from(y)),
+      );
+      for (const path of paths) {
+        const file = replica.files.get(path);
+        if (!file || path === dir || !path.startsWith(prefix)) continue;
         const listed: DriveEntry = { path, size: file.bytes.length, metadata: file.metadata };
         yield listed;
       }
@@ -190,9 +189,9 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       replica.listeners.add(callback);
       function unsubscribe() {
         replica.listeners.delete(callback);
-        entry.unsubscribers.delete(unsubscribe);
+        unsubscribers.delete(unsubscribe);
       }
-      entry.unsubscribers.add(unsubscribe);
+      unsubscribers.add(unsubscribe);
       return unsubscribe;
     },
     stats() {
@@ -204,7 +203,12 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       return { length: replica.length, peers };
     },
   };
-  return entry;
+  function close(): void {
+    state.closed = true;
+    for (const unsubscribe of unsubscribers) unsubscribe();
+  }
+
+  return { drive, refs: 0, close };
 }
 
 async function waitReady(options: { hub: FakeHub; key: string }): Promise<void> {
@@ -232,10 +236,9 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
     return entry.drive;
   }
 
-  function closeEntry(entry: Entry, key: string): void {
-    entry.closed = true;
-    for (const unsubscribe of entry.unsubscribers) unsubscribe();
-    entries.delete(key);
+  function closeEntry(options: { entry: Entry; key: string }): void {
+    options.entry.close();
+    entries.delete(options.key);
   }
 
   return {
@@ -278,11 +281,11 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       const entry = entries.get(drive.key);
       if (!entry || entry.drive !== drive) return;
       entry.refs--;
-      if (entry.refs <= 0) closeEntry(entry, drive.key);
+      if (entry.refs <= 0) closeEntry({ entry, key: drive.key });
     },
     async close() {
       closed = true;
-      for (const [key, entry] of entries) closeEntry(entry, key);
+      for (const [key, entry] of entries) closeEntry({ entry, key });
     },
   };
 }
