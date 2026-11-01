@@ -69,6 +69,18 @@ export const cases: DriveCase[] = [
     },
   },
   {
+    name: "D2b list yields entries in path order, whatever the insertion order",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn();
+      for (const path of ["/d/b", "/d/c", "/d/a", "/d/a/z", "/d/B"])
+        await drive.put(path, bytes("x"));
+      const found = [];
+      for await (const entry of drive.list("/d")) found.push(entry.path);
+      t.eq(found, ["/d/B", "/d/a", "/d/a/z", "/d/b", "/d/c"], "sorted by path bytes");
+    },
+  },
+  {
     name: "D2 list yields path, real size and metadata for entries under the dir",
     async run(world, t) {
       const { store } = await world.node();
@@ -346,6 +358,118 @@ export const cases: DriveCase[] = [
         s.on("error", reject);
       });
       t.eq(Buffer.concat(chunks).toString("utf8"), "stream me", "streamed");
+    },
+  },
+  {
+    name: "D11 a node cannot write a drive it does not own, and the rejected write leaves no trace",
+    async run(world, t) {
+      const { own, remote } = await pair(world, t);
+      await own.put("/a", bytes("1"));
+      await eventually(
+        () => remote.readSmall("/a", 10),
+        (v) => v === "1",
+        "replicated",
+      );
+      const putFailed = await remote.put("/b", bytes("x")).then(
+        () => false,
+        () => true,
+      );
+      const delFailed = await remote.del("/a").then(
+        () => false,
+        () => true,
+      );
+      t.ok(putFailed, "put rejects");
+      t.ok(delFailed, "del rejects");
+      t.eq(await remote.readSmall("/b", 10), undefined, "no local copy of the rejected put");
+      t.eq(await remote.readSmall("/a", 10), "1", "rejected del removed nothing");
+    },
+  },
+  {
+    name: "D12 a third node gets a drive from a peer that holds it while the owner is offline",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/a", bytes("relay"));
+      await eventually(
+        () => remote.readSmall("/a", 10),
+        (v) => v === "relay",
+        "b holds the data",
+      );
+      await a.disconnect();
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => viaB.readSmall("/a", 10),
+          (v) => v === "relay",
+          "relayed",
+          15_000,
+        ),
+        "relay",
+        "content from b",
+      );
+    },
+  },
+  {
+    name: "D13 a released handle rejects further use, and its listeners stop firing",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      let n = 0;
+      drive.onChange(() => n++);
+      await store.release(drive);
+      const putFailed = await drive.put("/a", bytes("1")).then(
+        () => false,
+        () => true,
+      );
+      t.ok(putFailed, "put on a released handle rejects");
+      const again = await store.openOwn("folder/x");
+      await again.put("/b", bytes("2"));
+      await sleep(200);
+      t.eq(n, 0, "released handle's listener never fires");
+      t.eq(await again.readSmall("/b", 10), "2", "reopened handle works");
+    },
+  },
+  {
+    name: "D14 restarting invalidates the old store's handles; the data survives",
+    async run(world, t) {
+      const node = await world.node();
+      const drive = await node.store.openOwn("folder/x");
+      await drive.put("/a", bytes("1"));
+      const store = await node.restart();
+      const putFailed = await drive.put("/b", bytes("2")).then(
+        () => false,
+        () => true,
+      );
+      t.ok(putFailed, "put on a handle of the old store rejects");
+      t.eq(await (await store.openOwn("folder/x")).readSmall("/a", 10), "1", "data survives");
+    },
+  },
+  {
+    name: "D15 stats().peers counts the connected nodes replicating the drive, and drops to 0 when offline",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      const bystander = await world.node();
+      await bystander.connect();
+      await eventually(
+        async () => own.stats().peers,
+        (v) => v === 1,
+        "owner sees only the node replicating the drive",
+      );
+      await sleep(500);
+      t.eq(own.stats().peers, 1, "a connected node that never opened the drive is not a peer");
+      await eventually(
+        async () => remote.stats().peers,
+        (v) => v >= 1,
+        "reader sees the owner",
+      );
+      await a.disconnect();
+      await eventually(
+        async () => own.stats().peers,
+        (v) => v === 0,
+        "no peers once offline",
+        15_000,
+      );
     },
   },
 ];
