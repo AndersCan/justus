@@ -1,41 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
   <!-- Play feature graphic source. Render: node apps/android/scripts/render-store-art.mjs -->
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5B78F5"/>
-      <stop offset="1" stop-color="#2E44C4"/>
-    </linearGradient>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E4E9FF"/>
-      <stop offset="1" stop-color="#C9D3FC"/>
-    </linearGradient>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0B1450" flood-opacity="0.35"/>
-    </filter>
-    <clipPath id="photo"><rect x="-82" y="-100" width="164" height="150" rx="10"/></clipPath>
-  </defs>
+  <rect width="1024" height="500" fill="#4B3FD6"/>
 
-  <rect width="1024" height="500" fill="url(#bg)"/>
-
-  <!-- The icon's two photos, same geometry as icon.svg -->
-  <g transform="translate(14 6)">
-    <g transform="translate(206 246) rotate(-11)" filter="url(#shadow)">
-      <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF" opacity="0.55"/>
+  <!-- The just·us wordmark (assets/brand/justus-wordmark.svg), in white. -->
+  <g transform="translate(235.25 48.45) scale(1.3)">
+    <g fill="#FFFFFF">
+      <path transform="translate(20.00,135) scale(0.05859,-0.05859)" d="M137 1118V-62C137 -156 97 -205 -4 -205H-42V-418H11C255 -418 398 -307 398 -65V1118ZM268 1276C351 1276 420 1340 420 1419C420 1498 351 1561 268 1561C185 1561 117 1498 117 1419C117 1340 185 1276 268 1276Z"/>
+      <path transform="translate(51.41,135) scale(0.05859,-0.05859)" d="M521 -14C683 -14 800 64 867 224L869 0H1116V1118H855V463C855 301 755 207 617 207C481 207 398 297 398 447V1118H138V407C138 138 291 -14 521 -14Z"/>
+      <path transform="translate(124.88,135) scale(0.05859,-0.05859)" d="M561 -23C843 -23 1041 123 1041 335C1041 492 940 592 728 637L538 677C424 702 379 743 379 808C379 884 463 938 573 938C693 938 757 876 783 798L1015 844C970 1017 823 1132 570 1132C302 1132 119 999 119 792C119 628 222 525 433 479L624 438C726 416 775 375 775 310C775 234 694 176 566 176C439 176 361 229 331 340L88 294C127 91 304 -23 561 -23Z"/>
+      <path transform="translate(190.80,135) scale(0.05859,-0.05859)" d="M655 1118H439V1384H179V1118H20V914H179V293C179 95 298 -15 512 -15C567 -15 629 -8 686 9L645 210C620 204 574 197 550 197C471 197 439 234 439 315V914H655Z"/>
+      <path transform="translate(273.96,135) scale(0.05859,-0.05859)" d="M521 -14C683 -14 800 64 867 224L869 0H1116V1118H855V463C855 301 755 207 617 207C481 207 398 297 398 447V1118H138V407C138 138 291 -14 521 -14Z"/>
+      <path transform="translate(347.44,135) scale(0.05859,-0.05859)" d="M561 -23C843 -23 1041 123 1041 335C1041 492 940 592 728 637L538 677C424 702 379 743 379 808C379 884 463 938 573 938C693 938 757 876 783 798L1015 844C970 1017 823 1132 570 1132C302 1132 119 999 119 792C119 628 222 525 433 479L624 438C726 416 775 375 775 310C775 234 694 176 566 176C439 176 361 229 331 340L88 294C127 91 304 -23 561 -23Z"/>
     </g>
-    <g transform="translate(298 268) rotate(8)" filter="url(#shadow)">
-      <rect x="-100" y="-118" width="200" height="236" rx="20" fill="#FFFFFF"/>
-      <g clip-path="url(#photo)">
-        <rect x="-82" y="-100" width="164" height="150" fill="url(#sky)"/>
-        <circle cx="40" cy="-58" r="18" fill="#FFC857"/>
-        <path d="M-90 50 L-38 -22 L-6 18 L22 -8 L90 50 Z" fill="#4361EE"/>
-        <path d="M-90 50 L-38 -22 L-22 -2 L-50 50 Z" fill="#304CD6"/>
-      </g>
-    </g>
+    <circle cx="253.56" cy="102.25" r="8.58" fill="#FF8A5B"/>
   </g>
 
-  <g font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" fill="#FFFFFF">
-    <text x="470" y="232" font-size="88" font-weight="700" letter-spacing="-2">Justus</text>
-    <text x="473" y="290" font-size="34" font-weight="500" opacity="0.95">Photo sharing with no server</text>
-    <text x="474" y="334" font-size="23" font-weight="400" opacity="0.75">Phone to phone. Only the people you choose.</text>
+  <g font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" fill="#FFFFFF" text-anchor="middle">
+    <text x="512" y="330" font-size="34" font-weight="500" opacity="0.95">Photo sharing with no server</text>
+    <text x="512" y="374" font-size="23" font-weight="400" opacity="0.75">Phone to phone. Only the people you choose.</text>
   </g>
 </svg>
