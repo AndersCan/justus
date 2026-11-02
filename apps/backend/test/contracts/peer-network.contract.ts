@@ -126,6 +126,18 @@ export const cases: PeerCase[] = [
     },
   },
   {
+    name: "N8 two servers joining the same topic at once find each other within 15s",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const topic = world.topic();
+      meet(a, b, topic);
+      await seesPeer(a, b.network.peerKey(), 15_000);
+      await seesPeer(b, a.network.peerKey(), 15_000);
+      t.ok(a.network.connectionCount() > 0 && b.network.connectionCount() > 0, "both connected");
+    },
+  },
+  {
     name: "N5 peer key differs after a restart",
     async run(world, t) {
       const a = await world.node();
