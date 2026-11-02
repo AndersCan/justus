@@ -29,36 +29,48 @@ const receive = event("RECEIVE")<{ text: string }>();
 const confirm = event("CONFIRM")();
 const cancel = event("CANCEL")();
 
-const inviteActor = new Actor({
+const inviteActor = Actor({
   inputs: [receive, confirm, cancel],
   internal: [],
   outputs: [],
   states: [idle, reviewing],
   initial: idle,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: {},
   setup: (m) => {
     for (const from of [idle, reviewing]) {
-      m.on(from, receive, (e) => {
-        const invite = parseInvite(e.payload.text);
-        if (!invite) {
-          $inviteError.set("That invite doesn't look right. Check you copied all of it.");
-          return { state: from };
-        }
-        $inviteError.set(null);
-        $invite.set(invite);
-        return { state: reviewing };
+      m.on(from, {
+        event: receive,
+        to: [idle, reviewing],
+        handler: (e) => {
+          const invite = parseInvite(e.payload.text);
+          if (!invite) {
+            $inviteError.set("That invite doesn't look right. Check you copied all of it.");
+            return { state: from };
+          }
+          $inviteError.set(null);
+          $invite.set(invite);
+          return { state: reviewing };
+        },
       });
     }
-    m.on(reviewing, confirm, () => {
-      const invite = $invite.get();
-      if (invite) sync.join(invite.key, invite.name);
-      $invite.set(null);
-      return { state: idle };
+    m.on(reviewing, {
+      event: confirm,
+      to: [idle],
+      handler: () => {
+        const invite = $invite.get();
+        if (invite) sync.join(invite.key, invite.name);
+        $invite.set(null);
+        return { state: idle };
+      },
     });
-    m.on(reviewing, cancel, () => {
-      $invite.set(null);
-      return { state: idle };
+    m.on(reviewing, {
+      event: cancel,
+      to: [idle],
+      handler: () => {
+        $invite.set(null);
+        return { state: idle };
+      },
     });
   },
 });

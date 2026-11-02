@@ -53,63 +53,94 @@ const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 
 type OnboardingContext = { pendingName: string | null };
 
-const onboardingActor = new Actor({
+const onboardingActor = Actor({
   inputs: [next, back, skip, editName, saveProfile],
   internal: [saved, saveFailed],
   outputs: [],
   states: [cards, profile, saving, choose],
   initial: cards,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: { pendingName: null } as OnboardingContext,
   setup: (m) => {
-    m.on(cards, next, () => {
-      const card = $introCard.get() + 1;
-      if (card >= INTRO_CARD_COUNT) return { state: profile };
-      $introCard.set(card);
-      return { state: cards };
+    m.on(cards, {
+      event: next,
+      to: [cards, profile],
+      handler: () => {
+        const card = $introCard.get() + 1;
+        if (card >= INTRO_CARD_COUNT) return { state: profile };
+        $introCard.set(card);
+        return { state: cards };
+      },
     });
-    m.on(cards, back, () => {
-      $introCard.set(Math.max(0, $introCard.get() - 1));
-      return { state: cards };
+    m.on(cards, {
+      event: back,
+      to: [cards],
+      handler: () => {
+        $introCard.set(Math.max(0, $introCard.get() - 1));
+        return { state: cards };
+      },
     });
-    m.on(cards, skip, () => ({ state: profile }));
+    m.on(cards, { event: skip, to: [profile], handler: () => ({ state: profile }) });
 
-    m.on(profile, back, () => {
-      $introCard.set(INTRO_CARD_COUNT - 1);
-      return { state: cards };
+    m.on(profile, {
+      event: back,
+      to: [cards],
+      handler: () => {
+        $introCard.set(INTRO_CARD_COUNT - 1);
+        return { state: cards };
+      },
     });
-    m.on(profile, editName, (e) => {
-      $nameDraft.set(e.payload.name);
-      return { state: profile };
+    m.on(profile, {
+      event: editName,
+      to: [profile],
+      handler: (e) => {
+        $nameDraft.set(e.payload.name);
+        return { state: profile };
+      },
     });
-    m.on(profile, saveProfile, (e, opts) => {
-      $onboardingError.set(null);
-      opts.context.set({ pendingName: e.payload.name.trim() });
-      return { state: saving };
+    m.on(profile, {
+      event: saveProfile,
+      to: [saving],
+      handler: (e, opts) => {
+        $onboardingError.set(null);
+        opts.context.set({ pendingName: e.payload.name.trim() });
+        return { state: saving };
+      },
     });
-    m.effect(saving, ({ signal, emit, context }) => {
-      const name = context.get().pendingName;
-      if (!name) {
-        emit(saveFailed.create({ message: "Enter a name to continue" }));
-        return;
-      }
-      return runInvoke(
-        signal,
-        () => gateway.setName(name),
-        (result) =>
-          emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
-        (message) => emit(saveFailed.create({ message })),
-      );
+    m.effect(saving, {
+      name: "saving",
+      fn: ({ signal, emit, context }) => {
+        const name = context.get().pendingName;
+        if (!name) {
+          emit(saveFailed.create({ message: "Enter a name to continue" }));
+          return;
+        }
+        return runInvoke(
+          signal,
+          () => gateway.setName(name),
+          (result) =>
+            emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
+          (message) => emit(saveFailed.create({ message })),
+        );
+      },
     });
-    m.on(saving, saved, (e, opts) => {
-      $userName.set(e.payload.name);
-      opts.context.set({ pendingName: null });
-      return { state: choose };
+    m.on(saving, {
+      event: saved,
+      to: [choose],
+      handler: (e, opts) => {
+        $userName.set(e.payload.name);
+        opts.context.set({ pendingName: null });
+        return { state: choose };
+      },
     });
-    m.on(saving, saveFailed, (e, opts) => {
-      $onboardingError.set(e.payload.message);
-      opts.context.set({ pendingName: null });
-      return { state: profile };
+    m.on(saving, {
+      event: saveFailed,
+      to: [profile],
+      handler: (e, opts) => {
+        $onboardingError.set(e.payload.message);
+        opts.context.set({ pendingName: null });
+        return { state: profile };
+      },
     });
   },
 });

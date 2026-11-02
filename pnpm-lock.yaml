@@ -206,11 +206,11 @@ settings:
 catalogs:
   default:
     '@mantaq/core':
-      specifier: ^0.3.0
-      version: 0.3.0
+      specifier: ^0.5.0
+      version: 0.5.0
     '@mantaq/sugar':
-      specifier: ^0.4.0
-      version: 0.4.0
+      specifier: ^2.0.0
+      version: 2.0.0
     '@playwright/test':
       specifier: ^1.62.1
       version: 1.62.1
@@ -332,10 +332,10 @@ importers:
         version: link:../../packages/core
       '@mantaq/core':
         specifier: 'catalog:'
-        version: 0.3.0
+        version: 0.5.0
       '@mantaq/sugar':
         specifier: 'catalog:'
-        version: 0.4.0
+        version: 2.0.0
       '@nanostores/router':
         specifier: ^1.0.0
         version: 1.1.0(nanostores@1.4.2)
@@ -584,17 +584,17 @@ packages:
   '@mantaq/core@0.2.0':
     resolution: {integrity: sha512-UBifMBqd0btspp60VeyBlO+XC6GpghaW2O6zKrS2ksvO3DZHVH0kFMg8tmZu+b9zwGKTMoySTyF600UrIYx6TA==}
 
-  '@mantaq/core@0.3.0':
-    resolution: {integrity: sha512-vzzJOy7bARoJ8KkeE/COJL6cN79FEovtofqsNqI4xzV59cbCZKtwAy9GNfPOphg0UGPTZ/FusSUEwlHKqbMx1Q==}
+  '@mantaq/core@0.5.0':
+    resolution: {integrity: sha512-ZMwxhoG+2y7vqq0qCKndwJspu3K1uOdLBrVPdmSK00vwwC/Xc4EySVo9GTOS7ZW/ifOcJDV6Dx3ejGB6Pzc9QA==}
 
-  '@mantaq/sugar@0.4.0':
-    resolution: {integrity: sha512-NRFCglgLI1DRisJOWlGfLC0e/XFyDXm7VQ3/pJVnzdqiK4csMx3fWPaX7qcGH5fToim9ENalksNqXQSi2QX9Iw==}
+  '@mantaq/sugar@2.0.0':
+    resolution: {integrity: sha512-n/d8P2bBJUWRb3kaNTx1aGGz6EtBmZ/rm18o3sQwfHmb/IYNvoJRzmYzgqN2ZDIrL16xBM2EfFJA07JlZcu/lw==}
 
   '@mantaq/utils@0.0.2':
     resolution: {integrity: sha512-cUqCc2DCKm4LcFM8gGFYaoxir5hJ+9WsBbNkhz8v/GAiHrdIZWHhuGRCu1OTHq2moFjCcnDDVQOnt2x8ozcsFQ==}
 
-  '@mantaq/utils@0.0.3':
-    resolution: {integrity: sha512-VqaPbDLv9iVSRf2800utRJ3LAXlKvfDvekbKa3+IOinPJIL06HX0JWwakbzCrpHQ24/MsQnw1vow3y+bwRBH0Q==}
+  '@mantaq/utils@0.0.4':
+    resolution: {integrity: sha512-L6IdpC94mWjW0uzCeMdXKJIqC3vdmeHJ/OtaiO7bxcE9rPZAHMeOpPtI0VDQZmBjkZA6NQ+aoHgIVs/0YxNGbg==}
 
   '@nanostores/router@1.1.0':
     resolution: {integrity: sha512-C0PyfI/4R+d6w53SBFiYzGWowsMZgVeC/7lox59g3KzhcpgvgCheYA0DlBH46z5BdgBZ3qLIlNIttGs9Kl9Wzg==}
@@ -2842,17 +2842,17 @@ snapshots:
     dependencies:
       '@mantaq/utils': 0.0.2
 
-  '@mantaq/core@0.3.0':
+  '@mantaq/core@0.5.0':
     dependencies:
-      '@mantaq/utils': 0.0.3
+      '@mantaq/utils': 0.0.4
 
-  '@mantaq/sugar@0.4.0':
+  '@mantaq/sugar@2.0.0':
     dependencies:
-      '@mantaq/core': 0.3.0
+      '@mantaq/core': 0.5.0
 
   '@mantaq/utils@0.0.2': {}
 
-  '@mantaq/utils@0.0.3': {}
+  '@mantaq/utils@0.0.4': {}
 
   '@nanostores/router@1.1.0(nanostores@1.4.2)':
     dependencies:

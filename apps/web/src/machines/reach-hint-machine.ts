@@ -29,44 +29,59 @@ const unreachable = event("UNREACHABLE")<{ name: string }>();
 const reached = event("REACHED")();
 const due = event("DUE")();
 
-const reachActor = new Actor({
+const reachActor = Actor({
   inputs: [unreachable, reached],
   internal: [due],
   outputs: [],
   states: [reachable, trying, hint],
   initial: reachable,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: {},
   setup: (m) => {
-    m.on(reachable, unreachable, (e) => {
-      $reachName.set(e.payload.name);
-      return { state: trying };
+    m.on(reachable, {
+      event: unreachable,
+      to: [trying],
+      handler: (e) => {
+        $reachName.set(e.payload.name);
+        return { state: trying };
+      },
     });
     // Keep the timer running; only the name to mention may change.
-    m.on(trying, unreachable, (e) => {
-      $reachName.set(e.payload.name);
-      return { state: trying };
+    m.on(trying, {
+      event: unreachable,
+      to: [trying],
+      handler: (e) => {
+        $reachName.set(e.payload.name);
+        return { state: trying };
+      },
     });
-    m.on(hint, unreachable, (e) => {
-      $reachName.set(e.payload.name);
-      return { state: hint };
+    m.on(hint, {
+      event: unreachable,
+      to: [hint],
+      handler: (e) => {
+        $reachName.set(e.payload.name);
+        return { state: hint };
+      },
     });
-    m.on(trying, reached, () => ({ state: reachable }));
-    m.on(hint, reached, () => ({ state: reachable }));
+    m.on(trying, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
+    m.on(hint, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
 
-    m.effect(trying, ({ signal, emit }) => {
-      return new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
-          emit(due.create());
-          resolve();
-        }, REACH_HINT_AFTER_MS);
-        signal.addEventListener("abort", () => {
-          clearTimeout(timer);
-          resolve();
+    m.effect(trying, {
+      name: "trying",
+      fn: ({ signal, emit }) => {
+        return new Promise<void>((resolve) => {
+          const timer = setTimeout(() => {
+            emit(due.create());
+            resolve();
+          }, REACH_HINT_AFTER_MS);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            resolve();
+          });
         });
-      });
+      },
     });
-    m.on(trying, due, () => ({ state: hint }));
+    m.on(trying, { event: due, to: [hint], handler: () => ({ state: hint }) });
   },
 });
 

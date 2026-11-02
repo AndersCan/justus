@@ -52,9 +52,9 @@ export function bindStateAtoms<State extends string>(args: {
   actor: {
     on(
       event: "change",
-      fn: (snapshot: Snapshot<unknown>, prev: Snapshot<unknown>) => void,
+      options: { fn: (snapshot: Snapshot<unknown>, prev: Snapshot<unknown>) => void },
     ): unknown;
-    on(event: "error", fn: (info: ErrorInfo) => void): unknown;
+    on(event: "error", options: { fn: (info: ErrorInfo) => void }): unknown;
     snapshot(): Snapshot<unknown>;
   };
   states: readonly State[];
@@ -63,19 +63,23 @@ export function bindStateAtoms<State extends string>(args: {
   $fatal: WritableAtom<boolean>;
 }): { state: () => State } {
   const nameOf = stateNameOf<State>(args.states);
-  args.actor.on("change", (snapshot) => {
-    args.$state.set(nameOf(snapshot));
-    const fatal = fatalErrorOf(snapshot);
-    args.$fatal.set(fatal !== null);
-    if (fatal) args.$error.set(fatal.message);
+  args.actor.on("change", {
+    fn: (snapshot) => {
+      args.$state.set(nameOf(snapshot));
+      const fatal = fatalErrorOf(snapshot);
+      args.$fatal.set(fatal !== null);
+      if (fatal) args.$error.set(fatal.message);
+    },
   });
   // A construction-time death fires on("error") before any "change" — and
   // mantaq's Subscribers replays the buffered error to subscribers added
   // after construction — so wiring it here makes a silent __error observable.
-  args.actor.on("error", (info) => {
-    args.$fatal.set(true);
-    const detail = info.error instanceof Error ? info.error.message : String(info.error);
-    args.$error.set(`Internal error (${info.reason}): ${detail}`);
+  args.actor.on("error", {
+    fn: (info) => {
+      args.$fatal.set(true);
+      const detail = info.error instanceof Error ? info.error.message : String(info.error);
+      args.$error.set(`Internal error (${info.reason}): ${detail}`);
+    },
   });
   return { state: () => nameOf(args.actor.snapshot()) };
 }
