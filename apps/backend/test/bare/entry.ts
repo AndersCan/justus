@@ -7,6 +7,8 @@ import { bareNet, barePeerWorlds, bareWorld } from "./net.ts";
 import { cases } from "../contracts/drive-store.contract.ts";
 import { cases as peerCases } from "../contracts/peer-network.contract.ts";
 import { cases as filesCases } from "../contracts/files.contract.ts";
+import { cases as lazyMediaCases } from "../contracts/lazy-media.contract.ts";
+import { bareLazyMedia } from "./lazy-media.ts";
 import { createBareFiles } from "../../src/adapters/bare-files.ts";
 import bareFs from "bare-fs";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
@@ -96,6 +98,23 @@ for (const c of filesCases) {
     );
   }
 }
+const lazyMedia = await bareLazyMedia();
+for (const c of lazyMediaCases) {
+  if (only && !c.name.includes(only)) continue;
+  const started = Date.now();
+  const dir = `${root}/lazy-media-${lazyMediaCases.indexOf(c)}`;
+  files.fs.mkdirSync(dir, { recursive: true });
+  try {
+    await c.run(lazyMedia.world({ ...files, dir }), makeCheck());
+    console.log(`ok   lazy-media: ${c.name} (${Date.now() - started}ms)`);
+  } catch (e) {
+    failed++;
+    console.log(
+      `FAIL lazy-media: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
+  }
+}
+await Promise.race([lazyMedia.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
 await Promise.race([worlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
 const peerWorlds = await barePeerWorlds();
 for (const c of peerCases) {
