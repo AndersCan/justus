@@ -5,11 +5,13 @@
  * what they replicated after a disconnect. Drive sharing is per world, so two
  * worlds never see each other's keys.
  *
- * The hub is the place a fake PeerNetwork attaches later: it already knows
- * which nodes are connected.
+ * A `FakePeerNetwork` attaches to the same hub: networks that joined one topic,
+ * at least one of them serving it, get a connection.
  */
 import type { Drive, DriveEntry, DriveStore, OpenResult } from "../../src/ports/drive-store.ts";
+import type { PeerEvent, PeerNetwork } from "../../src/ports/peer-network.ts";
 import type { DriveNode, DriveWorld } from "../contracts/drive-store.contract.ts";
+import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
 import { createHash, randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
 
@@ -42,6 +44,7 @@ export type FakeNode = {
 
 export type FakeHub = {
   nodes: Set<FakeNode>;
+  networks: Set<NetworkState>;
   options: FakeWorldOptions;
 };
 
@@ -50,7 +53,7 @@ function sha256Hex(input: string): string {
 }
 
 export function createFakeHub(options: FakeWorldOptions = {}): FakeHub {
-  return { nodes: new Set(), options };
+  return { nodes: new Set(), networks: new Set(), options };
 }
 
 export function addFakeNode(hub: FakeHub): FakeNode {
@@ -318,6 +321,165 @@ export function fakeDriveWorlds(options: FakeWorldOptions = {}): { world(): Driv
           };
         },
         async close() {},
+      };
+    },
+  };
+}
+
+type NetworkState = {
+  peerKey: string;
+  identityKey: string;
+  onEvent: (e: PeerEvent) => void;
+  /** topic to whether this network serves it. */
+  joins: Map<string, { server: boolean }>;
+  /** announced: `connected` was emitted, so `disconnected` may follow. */
+  conns: Map<number, { other: NetworkState; otherConn: number; announced: boolean }>;
+  closed: boolean;
+};
+
+let connSeq = 0;
+
+function linked(a: NetworkState, b: NetworkState): boolean {
+  for (const link of a.conns.values()) if (link.other === b) return true;
+  return false;
+}
+
+function shareServedTopic(a: NetworkState, b: NetworkState): boolean {
+  for (const [topic, mine] of a.joins) {
+    const theirs = b.joins.get(topic);
+    if (theirs && (mine.server || theirs.server)) return true;
+  }
+  return false;
+}
+
+/** Connects every pair that now shares a topic one of them serves. Events arrive after the caller returns, like a socket. */
+function matchNetworks(hub: FakeHub): void {
+  const all = [...hub.networks].filter((n) => !n.closed);
+  for (const [i, a] of all.entries()) {
+    for (const b of all.slice(i + 1)) {
+      if (linked(a, b) || !shareServedTopic(a, b)) continue;
+      const aConn = ++connSeq;
+      const bConn = ++connSeq;
+      const aLink = { other: b, otherConn: bConn, announced: false };
+      const bLink = { other: a, otherConn: aConn, announced: false };
+      a.conns.set(aConn, aLink);
+      b.conns.set(bConn, bLink);
+      setImmediate(() => {
+        if (!a.conns.has(aConn) || !b.conns.has(bConn)) return;
+        aLink.announced = true;
+        bLink.announced = true;
+        a.onEvent({ type: "connected", conn: aConn, peerKey: b.peerKey, initiator: true });
+        b.onEvent({ type: "connected", conn: bConn, peerKey: a.peerKey, initiator: false });
+        a.onEvent({ type: "identified", conn: aConn, identityKey: b.identityKey });
+        b.onEvent({ type: "identified", conn: bConn, identityKey: a.identityKey });
+      });
+    }
+  }
+}
+
+function dropConn(options: { state: NetworkState; conn: number }): void {
+  const link = options.state.conns.get(options.conn);
+  if (!link) return;
+  options.state.conns.delete(options.conn);
+  link.other.conns.delete(link.otherConn);
+  if (!link.announced) return;
+  options.state.onEvent({ type: "disconnected", conn: options.conn, peerKey: link.other.peerKey });
+  link.other.onEvent({
+    type: "disconnected",
+    conn: link.otherConn,
+    peerKey: options.state.peerKey,
+  });
+}
+
+/** Each call is a new network with a fresh random peer key, unrelated to any identity key. */
+export function createFakePeerNetwork(options: { hub: FakeHub }): PeerNetwork {
+  const { hub } = options;
+  const state: NetworkState = {
+    peerKey: randomBytes(32).toString("hex"),
+    identityKey: "",
+    onEvent: () => {},
+    joins: new Map(),
+    conns: new Map(),
+    closed: false,
+  };
+  hub.networks.add(state);
+
+  return {
+    peerKey() {
+      return state.peerKey;
+    },
+    start(identityKey, onEvent) {
+      state.identityKey = identityKey;
+      state.onEvent = onEvent;
+    },
+    join(topic, opts) {
+      if (state.closed) return;
+      const existing = state.joins.get(topic);
+      if (existing && (existing.server || !opts.server)) return;
+      state.joins.set(topic, { server: opts.server });
+      matchNetworks(hub);
+    },
+    leave(topic) {
+      state.joins.delete(topic);
+    },
+    findPeers() {
+      // Joining already connects everything reachable; there is no lookup to repeat.
+    },
+    connectionCount() {
+      return state.conns.size;
+    },
+    debug() {
+      return {
+        swarmKey: state.peerKey,
+        swarmConnections: state.conns.size,
+        joins: [...state.joins].map(([topic, join]) => ({ topic, served: join.server })),
+      };
+    },
+    async close() {
+      if (state.closed) return;
+      for (const conn of state.conns.keys()) dropConn({ state, conn });
+      state.closed = true;
+      state.joins.clear();
+      hub.networks.delete(state);
+    },
+  };
+}
+
+/** A fake {@link PeerWorld} per `world()` call, each with its own hub. */
+export function fakePeerWorlds(): { world(): PeerWorld } {
+  return {
+    world() {
+      const hub = createFakeHub();
+      const nodes: PeerNode[] = [];
+      return {
+        async node() {
+          const identityKey = randomBytes(32).toString("hex");
+          const events: PeerEvent[] = [];
+          function build(): PeerNetwork {
+            const network = createFakePeerNetwork({ hub });
+            network.start(identityKey, (e) => events.push(e));
+            return network;
+          }
+          let network = build();
+          const node: PeerNode = {
+            get network() {
+              return network;
+            },
+            identityKey,
+            events,
+            async restart() {
+              await network.close();
+              network = build();
+              return network;
+            },
+          };
+          nodes.push(node);
+          return node;
+        },
+        topic: () => randomBytes(32).toString("hex"),
+        async close() {
+          for (const node of nodes) await node.network.close();
+        },
       };
     },
   };
