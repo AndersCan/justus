@@ -44,47 +44,66 @@ const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 
 type PeopleContext = { pending: { folderId: string; memberKey: string } | null };
 
-const peopleActor = new Actor({
+const peopleActor = Actor({
   inputs: [openSheet, closeSheet, removeMember],
   internal: [removed, removeFailed],
   outputs: [],
   states: [closed, open, removing],
   initial: closed,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: { pending: null } as PeopleContext,
   setup: (m) => {
-    m.on(closed, openSheet, () => {
-      $peopleError.set(null);
-      requests.refresh();
-      return { state: open };
+    m.on(closed, {
+      event: openSheet,
+      to: [open],
+      handler: () => {
+        $peopleError.set(null);
+        requests.refresh();
+        return { state: open };
+      },
     });
-    m.on(open, closeSheet, () => ({ state: closed }));
-    m.on(open, removeMember, (e, opts) => {
-      $peopleError.set(null);
-      opts.context.set({ pending: e.payload });
-      return { state: removing };
+    m.on(open, { event: closeSheet, to: [closed], handler: () => ({ state: closed }) });
+    m.on(open, {
+      event: removeMember,
+      to: [removing],
+      handler: (e, opts) => {
+        $peopleError.set(null);
+        opts.context.set({ pending: e.payload });
+        return { state: removing };
+      },
     });
-    m.effect(removing, ({ signal, emit, context }) => {
-      const pending = context.get().pending;
-      if (!pending) {
-        emit(removeFailed.create({ message: "no member to remove" }));
-        return;
-      }
-      return runInvoke(
-        signal,
-        () => gateway.removeMember(pending.folderId, pending.memberKey),
-        () => emit(removed.create()),
-        (message) => emit(removeFailed.create({ message })),
-      );
+    m.effect(removing, {
+      name: "removing",
+      fn: ({ signal, emit, context }) => {
+        const pending = context.get().pending;
+        if (!pending) {
+          emit(removeFailed.create({ message: "no member to remove" }));
+          return;
+        }
+        return runInvoke(
+          signal,
+          () => gateway.removeMember(pending.folderId, pending.memberKey),
+          () => emit(removed.create()),
+          (message) => emit(removeFailed.create({ message })),
+        );
+      },
     });
-    m.on(removing, removed, (_e, opts) => {
-      opts.context.set({ pending: null });
-      return { state: open };
+    m.on(removing, {
+      event: removed,
+      to: [open],
+      handler: (_e, opts) => {
+        opts.context.set({ pending: null });
+        return { state: open };
+      },
     });
-    m.on(removing, removeFailed, (e, opts) => {
-      $peopleError.set(e.payload.message);
-      opts.context.set({ pending: null });
-      return { state: open };
+    m.on(removing, {
+      event: removeFailed,
+      to: [open],
+      handler: (e, opts) => {
+        $peopleError.set(e.payload.message);
+        opts.context.set({ pending: null });
+        return { state: open };
+      },
     });
   },
 });

@@ -61,130 +61,187 @@ type SyncContext = {
   pendingEnroll: { key: string; name: string } | null;
 };
 
-const syncActor = new Actor({
+const syncActor = Actor({
   inputs: [refresh, join, enroll, retry],
   internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
   outputs: [],
   states: [idle, refreshing, ok, joining, enrolling, error],
   initial: idle,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: {
     pendingJoin: null,
     pendingEnroll: null,
   } as SyncContext,
   setup: (m) => {
-    m.on(idle, refresh, () => {
-      $syncError.set(null);
-      return { state: refreshing };
+    m.on(idle, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $syncError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(ok, refresh, () => {
-      $syncError.set(null);
-      return { state: refreshing };
+    m.on(ok, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $syncError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(error, refresh, () => {
-      $syncError.set(null);
-      return { state: refreshing };
+    m.on(error, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $syncError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(error, retry, () => {
-      $syncError.set(null);
-      return { state: refreshing };
-    });
-
-    m.effect(refreshing, ({ signal, emit }) => {
-      return runInvoke(
-        signal,
-        () => gateway.status(),
-        (result) =>
-          result
-            ? emit(status.create({ status: result as SyncStatus }))
-            : emit(statusFailed.create({ message: "no status returned" })),
-        (message) => emit(statusFailed.create({ message })),
-      );
-    });
-    m.on(refreshing, status, (e, opts) => {
-      $syncStatus.set(e.payload.status);
-      $syncError.set(null);
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: ok };
-    });
-    m.on(refreshing, statusFailed, (e, opts) => {
-      $syncError.set(e.payload.message);
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: error };
+    m.on(error, {
+      event: retry,
+      to: [refreshing],
+      handler: () => {
+        $syncError.set(null);
+        return { state: refreshing };
+      },
     });
 
-    m.on(ok, join, (e, opts) => {
-      $syncError.set(null);
-      $pendingJoin.set(false);
-      opts.context.set({
-        pendingJoin: { key: e.payload.key, name: e.payload.name },
-        pendingEnroll: null,
-      });
-      return { state: joining };
+    m.effect(refreshing, {
+      name: "refreshing",
+      fn: ({ signal, emit }) => {
+        return runInvoke(
+          signal,
+          () => gateway.status(),
+          (result) =>
+            result
+              ? emit(status.create({ status: result as SyncStatus }))
+              : emit(statusFailed.create({ message: "no status returned" })),
+          (message) => emit(statusFailed.create({ message })),
+        );
+      },
     });
-    m.effect(joining, ({ signal, emit, context }) => {
-      const pending = context.get().pendingJoin;
-      if (!pending) {
-        emit(joinFailed.create({ message: "no pending join key" }));
-        return;
-      }
-      return runInvoke(
-        signal,
-        () => gateway.join(pending.key, pending.name),
-        (result) =>
-          result
-            ? emit(joined.create({ status: result as SyncStatus }))
-            : emit(joinFailed.create({ message: "join returned no status" })),
-        (message) => emit(joinFailed.create({ message })),
-      );
+    m.on(refreshing, {
+      event: status,
+      to: [ok],
+      handler: (e, opts) => {
+        $syncStatus.set(e.payload.status);
+        $syncError.set(null);
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: ok };
+      },
     });
-    m.on(joining, joined, (e, opts) => {
-      $syncError.set(null);
-      $syncStatus.set(e.payload.status);
-      $pendingJoin.set(Boolean((e.payload.status as SyncStatus).folder?.pending));
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: ok };
-    });
-    m.on(joining, joinFailed, (e, opts) => {
-      $syncError.set(e.payload.message);
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: ok };
+    m.on(refreshing, {
+      event: statusFailed,
+      to: [error],
+      handler: (e, opts) => {
+        $syncError.set(e.payload.message);
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: error };
+      },
     });
 
-    m.on(ok, enroll, (e, opts) => {
-      $syncError.set(null);
-      opts.context.set({
-        pendingEnroll: { key: e.payload.key, name: e.payload.name },
-        pendingJoin: null,
-      });
-      return { state: enrolling };
+    m.on(ok, {
+      event: join,
+      to: [joining],
+      handler: (e, opts) => {
+        $syncError.set(null);
+        $pendingJoin.set(false);
+        opts.context.set({
+          pendingJoin: { key: e.payload.key, name: e.payload.name },
+          pendingEnroll: null,
+        });
+        return { state: joining };
+      },
     });
-    m.effect(enrolling, ({ signal, emit, context }) => {
-      const pending = context.get().pendingEnroll;
-      if (!pending) {
-        emit(enrollFailed.create({ message: "no pending enrollment" }));
-        return;
-      }
-      return runInvoke(
-        signal,
-        () => gateway.enroll(pending.key, pending.name),
-        (result) =>
-          result
-            ? emit(enrolled.create({ status: result as SyncStatus }))
-            : emit(enrollFailed.create({ message: "enroll returned no status" })),
-        (message) => emit(enrollFailed.create({ message })),
-      );
+    m.effect(joining, {
+      name: "joining",
+      fn: ({ signal, emit, context }) => {
+        const pending = context.get().pendingJoin;
+        if (!pending) {
+          emit(joinFailed.create({ message: "no pending join key" }));
+          return;
+        }
+        return runInvoke(
+          signal,
+          () => gateway.join(pending.key, pending.name),
+          (result) =>
+            result
+              ? emit(joined.create({ status: result as SyncStatus }))
+              : emit(joinFailed.create({ message: "join returned no status" })),
+          (message) => emit(joinFailed.create({ message })),
+        );
+      },
     });
-    m.on(enrolling, enrolled, (e, opts) => {
-      $syncError.set(null);
-      $syncStatus.set(e.payload.status);
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: ok };
+    m.on(joining, {
+      event: joined,
+      to: [ok],
+      handler: (e, opts) => {
+        $syncError.set(null);
+        $syncStatus.set(e.payload.status);
+        $pendingJoin.set(Boolean((e.payload.status as SyncStatus).folder?.pending));
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: ok };
+      },
     });
-    m.on(enrolling, enrollFailed, (e, opts) => {
-      $syncError.set(e.payload.message);
-      opts.context.set({ pendingJoin: null, pendingEnroll: null });
-      return { state: ok };
+    m.on(joining, {
+      event: joinFailed,
+      to: [ok],
+      handler: (e, opts) => {
+        $syncError.set(e.payload.message);
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: ok };
+      },
+    });
+
+    m.on(ok, {
+      event: enroll,
+      to: [enrolling],
+      handler: (e, opts) => {
+        $syncError.set(null);
+        opts.context.set({
+          pendingEnroll: { key: e.payload.key, name: e.payload.name },
+          pendingJoin: null,
+        });
+        return { state: enrolling };
+      },
+    });
+    m.effect(enrolling, {
+      name: "enrolling",
+      fn: ({ signal, emit, context }) => {
+        const pending = context.get().pendingEnroll;
+        if (!pending) {
+          emit(enrollFailed.create({ message: "no pending enrollment" }));
+          return;
+        }
+        return runInvoke(
+          signal,
+          () => gateway.enroll(pending.key, pending.name),
+          (result) =>
+            result
+              ? emit(enrolled.create({ status: result as SyncStatus }))
+              : emit(enrollFailed.create({ message: "enroll returned no status" })),
+          (message) => emit(enrollFailed.create({ message })),
+        );
+      },
+    });
+    m.on(enrolling, {
+      event: enrolled,
+      to: [ok],
+      handler: (e, opts) => {
+        $syncError.set(null);
+        $syncStatus.set(e.payload.status);
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: ok };
+      },
+    });
+    m.on(enrolling, {
+      event: enrollFailed,
+      to: [ok],
+      handler: (e, opts) => {
+        $syncError.set(e.payload.message);
+        opts.context.set({ pendingJoin: null, pendingEnroll: null });
+        return { state: ok };
+      },
     });
   },
 });

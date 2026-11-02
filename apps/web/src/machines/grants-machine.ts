@@ -58,96 +58,138 @@ type GrantsContext = {
   pendingAct: { peerId: string; kind: GrantActionKind } | null;
 };
 
-const grantsActor = new Actor({
+const grantsActor = Actor({
   inputs: [refresh, act, retry],
   internal: [loaded, loadFailed, acted, actFailed],
   outputs: [],
   states: [idle, refreshing, ok, acting, error],
   initial: idle,
-  clock: new RealClock(),
+  clock: RealClock(),
   context: {
     pendingAct: null,
   } as GrantsContext,
   setup: (m) => {
-    m.on(idle, refresh, () => {
-      $grantsError.set(null);
-      return { state: refreshing };
+    m.on(idle, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $grantsError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(ok, refresh, () => {
-      $grantsError.set(null);
-      return { state: refreshing };
+    m.on(ok, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $grantsError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(error, refresh, () => {
-      $grantsError.set(null);
-      return { state: refreshing };
+    m.on(error, {
+      event: refresh,
+      to: [refreshing],
+      handler: () => {
+        $grantsError.set(null);
+        return { state: refreshing };
+      },
     });
-    m.on(error, retry, () => {
-      $grantsError.set(null);
-      return { state: refreshing };
-    });
-
-    m.effect(refreshing, ({ signal, emit }) => {
-      return runInvoke(
-        signal,
-        () => gateway.grants.view(),
-        (result) => {
-          const view = (result as { records?: GrantRecord[]; due?: string[] } | null) ?? {};
-          emit(
-            loaded.create({
-              records: view.records ?? [],
-              due: view.due ?? [],
-            }),
-          );
-        },
-        (message) => emit(loadFailed.create({ message })),
-      );
-    });
-    m.on(refreshing, loaded, (e) => {
-      $grantsRecords.set(e.payload.records);
-      $grantsDue.set(e.payload.due);
-      $grantsError.set(null);
-      return { state: ok };
-    });
-    m.on(refreshing, loadFailed, (e) => {
-      $grantsError.set(e.payload.message);
-      return { state: error };
+    m.on(error, {
+      event: retry,
+      to: [refreshing],
+      handler: () => {
+        $grantsError.set(null);
+        return { state: refreshing };
+      },
     });
 
-    m.on(ok, act, (e, opts) => {
-      $grantsError.set(null);
-      opts.context.set({ pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind } });
-      return { state: acting };
+    m.effect(refreshing, {
+      name: "refreshing",
+      fn: ({ signal, emit }) => {
+        return runInvoke(
+          signal,
+          () => gateway.grants.view(),
+          (result) => {
+            const view = (result as { records?: GrantRecord[]; due?: string[] } | null) ?? {};
+            emit(
+              loaded.create({
+                records: view.records ?? [],
+                due: view.due ?? [],
+              }),
+            );
+          },
+          (message) => emit(loadFailed.create({ message })),
+        );
+      },
     });
-    m.effect(acting, ({ signal, emit, context }) => {
-      const pending = context.get().pendingAct;
-      if (!pending) {
-        emit(actFailed.create({ message: "no pending action" }));
-        return;
-      }
-      const work =
-        pending.kind === "grant"
-          ? () => gateway.grants.grant(pending.peerId)
-          : pending.kind === "decline"
-            ? () => gateway.grants.decline(pending.peerId)
-            : pending.kind === "revoke"
-              ? () => gateway.grants.revoke(pending.peerId)
-              : () => gateway.grants.snooze();
-      return runInvoke(
-        signal,
-        work,
-        () => emit(acted.create()),
-        (message) => emit(actFailed.create({ message })),
-      );
+    m.on(refreshing, {
+      event: loaded,
+      to: [ok],
+      handler: (e) => {
+        $grantsRecords.set(e.payload.records);
+        $grantsDue.set(e.payload.due);
+        $grantsError.set(null);
+        return { state: ok };
+      },
     });
-    m.on(acting, acted, (_e, opts) => {
-      $grantsError.set(null);
-      opts.context.set({ pendingAct: null });
-      return { state: refreshing };
+    m.on(refreshing, {
+      event: loadFailed,
+      to: [error],
+      handler: (e) => {
+        $grantsError.set(e.payload.message);
+        return { state: error };
+      },
     });
-    m.on(acting, actFailed, (e, opts) => {
-      $grantsError.set(e.payload.message);
-      opts.context.set({ pendingAct: null });
-      return { state: ok };
+
+    m.on(ok, {
+      event: act,
+      to: [acting],
+      handler: (e, opts) => {
+        $grantsError.set(null);
+        opts.context.set({ pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind } });
+        return { state: acting };
+      },
+    });
+    m.effect(acting, {
+      name: "acting",
+      fn: ({ signal, emit, context }) => {
+        const pending = context.get().pendingAct;
+        if (!pending) {
+          emit(actFailed.create({ message: "no pending action" }));
+          return;
+        }
+        const work =
+          pending.kind === "grant"
+            ? () => gateway.grants.grant(pending.peerId)
+            : pending.kind === "decline"
+              ? () => gateway.grants.decline(pending.peerId)
+              : pending.kind === "revoke"
+                ? () => gateway.grants.revoke(pending.peerId)
+                : () => gateway.grants.snooze();
+        return runInvoke(
+          signal,
+          work,
+          () => emit(acted.create()),
+          (message) => emit(actFailed.create({ message })),
+        );
+      },
+    });
+    m.on(acting, {
+      event: acted,
+      to: [refreshing],
+      handler: (_e, opts) => {
+        $grantsError.set(null);
+        opts.context.set({ pendingAct: null });
+        return { state: refreshing };
+      },
+    });
+    m.on(acting, {
+      event: actFailed,
+      to: [ok],
+      handler: (e, opts) => {
+        $grantsError.set(e.payload.message);
+        opts.context.set({ pendingAct: null });
+        return { state: ok };
+      },
     });
   },
 });

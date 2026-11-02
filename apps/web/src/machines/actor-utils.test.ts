@@ -99,8 +99,8 @@ describe("bindStateAtoms", () => {
     const $fatal = atom(false);
     const handlers: Record<string, ((...args: any[]) => void) | undefined> = {};
     const fakeActor = {
-      on: (event: string, fn: (...args: any[]) => void) => {
-        handlers[event] = fn;
+      on: (event: string, options: { fn: (...args: any[]) => void }) => {
+        handlers[event] = options.fn;
       },
       snapshot: () => snapshot(["ok"]),
     };
@@ -134,8 +134,8 @@ describe("bindStateAtoms", () => {
     const $fatal = atom(false);
     const handlers: Record<string, ((...args: any[]) => void) | undefined> = {};
     const fakeActor = {
-      on: (event: string, fn: (...args: any[]) => void) => {
-        handlers[event] = fn;
+      on: (event: string, options: { fn: (...args: any[]) => void }) => {
+        handlers[event] = options.fn;
       },
       // A real mantaq actor that dies during construction seeds its errored
       // snapshot; Subscribers replays that buffered error to on("error")
