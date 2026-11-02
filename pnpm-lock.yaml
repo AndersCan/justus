@@ -253,8 +253,8 @@ importers:
   apps/backend:
     dependencies:
       '@ekrooh/bare':
-        specifier: ^0.6.0
-        version: 0.6.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+        specifier: ^0.6.1
+        version: 0.6.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       '@justus/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -325,8 +325,8 @@ importers:
   apps/web:
     dependencies:
       '@ekrooh/bare':
-        specifier: ^0.6.0
-        version: 0.6.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+        specifier: ^0.6.1
+        version: 0.6.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
       '@justus/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -365,8 +365,8 @@ importers:
   packages/core:
     dependencies:
       '@ekrooh/bare':
-        specifier: ^0.6.0
-        version: 0.6.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
+        specifier: ^0.6.1
+        version: 0.6.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)
 
 packages:
 
@@ -388,8 +388,8 @@ packages:
   '@blazediff/core@1.9.1':
     resolution: {integrity: sha512-ehg3jIkYKulZh+8om/O25vkvSsXXwC+skXmyA87FFx6A/45eqOkZsBltMw/TVteb0mloiGT8oGRTcjRAz66zaA==}
 
-  '@ekrooh/bare@0.6.0':
-    resolution: {integrity: sha512-VmgyhoyJjrcC8dkfJUotWGLhI7b7KGoCTCIPAxT7hquaU62T9tDoVTCcn11AOtOihQG/gdIFDp6rzC1iXilvQA==}
+  '@ekrooh/bare@0.6.1':
+    resolution: {integrity: sha512-/DOFWiac5y2C2CzrszET/hTWS2YzshHT3/vP617YbmKSGc+/hH2SLG1yCclS/0bXfODXxtyjaMx4kMFxvd3nVQ==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -2671,7 +2671,7 @@ snapshots:
 
   '@blazediff/core@1.9.1': {}
 
-  '@ekrooh/bare@0.6.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)':
+  '@ekrooh/bare@0.6.1(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-pipe@4.4.0(bare-buffer@3.7.0))(bare-url@2.5.2)':
     dependencies:
       '@mantaq/core': 0.2.0
       bare-crypto: 1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1)

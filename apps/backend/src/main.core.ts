@@ -23,14 +23,6 @@ import { sendHandoff, watchParentDeath } from "./desktop";
 
 declare const Bare: { exit(code?: number): void };
 
-// WORKAROUND(ekrooh#272): @ekrooh/bare 0.6.0 builds request ids
-// with globalThis.crypto.getRandomValues, which Bare lacks, so every host
-// invoke (photo picker, camera) throws before it is sent. Fixed in ekrooh#269
-// but unreleased; remove once a release containing it is installed.
-if (!globalThis.crypto) {
-  Object.defineProperty(globalThis, "crypto", { value: crypto.webcrypto, configurable: true });
-}
-
 const config = resolveJustusConfig();
 
 const storageDir = config.storage ?? ".justus-storage";

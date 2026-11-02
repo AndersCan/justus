@@ -11,7 +11,7 @@
     "test:bare": "node scripts/test-bare.mjs"
   },
   "dependencies": {
-    "@ekrooh/bare": "^0.6.0",
+    "@ekrooh/bare": "^0.6.1",
     "@justus/core": "workspace:*",
     "bare-crypto": "^1.15.3",
     "bare-encoding": "^1.0.3",
