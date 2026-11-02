@@ -7,10 +7,10 @@
  *
  * Real Corestore + Hyperdrive, because the fakes hand back the same instance.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import { createPhotoStore } from "../src/photo-store.ts";
@@ -35,7 +35,7 @@ function realDeps(storageDir: string) {
 
 describe("a pre-#195 album that is the identity drive", () => {
   it("boots instead of hanging in ready()", async () => {
-    const storageDir = mkdtempSync(join(tmpdir(), "justus-legacy-"));
+    const storageDir = makeTmpDir("justus-legacy-");
 
     // The identity drive: the store opens it as the corestore's default drive.
     const cs = new Corestore(join(storageDir, "corestore"));

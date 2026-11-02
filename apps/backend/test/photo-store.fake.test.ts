@@ -8,10 +8,10 @@
  * This file is added incrementally: #46 lands here first; the remaining suites
  * follow as their fixes land.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { FakeDrive, joinAsMember, makeFakeDeps } from "./fake-drive.ts";
 
@@ -110,7 +110,7 @@ describe("#42 a creator folder must stay a creator after a restart", () => {
   it("keeps the 2nd creator folder as creator and addable after re-createPhotoStore", async () => {
     // Share one on-disk storageDir so the persisted folder records survive the
     // "restart" (a second createPhotoStore against the same dir).
-    const storageDir = mkdtempSync(join(tmpdir(), "justus-42-"));
+    const storageDir = makeTmpDir("justus-42-");
     const cacheDir = join(storageDir, "cache");
     // The harness doesn't pre-create the cache dir; addBytes stages uploads into
     // it, so create it the way the production runtime does.

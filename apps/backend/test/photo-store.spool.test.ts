@@ -7,17 +7,17 @@
  * a name nothing else referenced: its add-URL never matched its list-URL and the
  * real spool file was orphaned.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
 
 describe("#81/#83/#87 add and list must serve one photo from one spool name", () => {
   it("matches the add-URL to the list-URL and mounts it once", async () => {
     const server = new FakeLoopbackServer();
-    const dir = mkdtempSync(join(tmpdir(), "justus-spool-"));
+    const dir = makeTmpDir("justus-spool-");
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
     const store = createPhotoStore(
@@ -53,7 +53,7 @@ describe("#81/#83/#87 add and list must serve one photo from one spool name", ()
 
   it("treats a dot-terminated filename (no extension) as having no ext", async () => {
     const server = new FakeLoopbackServer();
-    const dir = mkdtempSync(join(tmpdir(), "justus-spool-dot-"));
+    const dir = makeTmpDir("justus-spool-dot-");
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
     const store = createPhotoStore(
