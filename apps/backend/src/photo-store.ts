@@ -1000,6 +1000,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Presence reads the swarm key from here, and it changes every boot.
     await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
     await joinTopic(drive.discoveryKey);
+    rediscover(drive.discoveryKey, drive);
     return drive;
   }
 
@@ -1632,9 +1633,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Announce this device's own drive on a folder's topic as a SERVER: peers on
    * that topic (the folder's creator) become able to resolve this device's
    * drive and read `/requests.json` from it. */
-  async function announceOwnDriveOnTopic(discoveryKey: Buffer, label: string) {
+  async function announceOwnDriveOnTopic(drive: Drive, label: string) {
     try {
-      await joinTopic(discoveryKey, { server: true });
+      await joinTopic(drive.discoveryKey, { server: true });
+      rediscover(drive.discoveryKey, drive);
     } catch (e) {
       const message = errMsg(e);
       console.error(`[justus] failed to announce drive on ${label} topic: ${message}`);
@@ -1768,6 +1770,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     });
     await joinTopic(ownDrive.discoveryKey);
+    rediscover(ownDrive.discoveryKey, ownDrive);
 
     // Reopen every persisted folder so their drives stay warm.
     for (const record of state.folders) {
@@ -1789,6 +1792,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           await fd.ready();
         }
         await joinTopic(fd.discoveryKey, { server: true });
+        rediscover(fd.discoveryKey, fd);
       } else {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
       }
@@ -1868,6 +1872,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     state.activeFolderId = folderId;
     saveState();
     await joinTopic(newDrive.discoveryKey, { server: true });
+    rediscover(newDrive.discoveryKey, newDrive);
     watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
     if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
     return rt;
@@ -1923,7 +1928,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       requestedAt: Date.now(),
     };
     await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(requests)));
-    await announceOwnDriveOnTopic(rt.folderDrive.discoveryKey, "folder");
+    await announceOwnDriveOnTopic(rt.folderDrive, "folder");
   }
 
   return {
