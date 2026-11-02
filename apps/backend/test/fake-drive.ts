@@ -10,11 +10,10 @@
  * else is a no-op. Stream fidelity is intentionally deferred (those bugs need
  * no real bytes).
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { createHash } from "node:crypto";
 import * as nodeCrypto from "node:crypto";
 import * as nodeFs from "node:fs";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
@@ -265,7 +264,7 @@ const driveCache = new Map<string, FakeDrive>();
 /** Builds a `PhotoStoreDeps` that runs entirely in memory via the fake
  * constructs above. Pass it straight to `createPhotoStore`. */
 export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStoreDeps {
-  const dir = mkdtempSync(join(tmpdir(), "justus-fake-"));
+  const dir = makeTmpDir("justus-fake-");
   const corestore = new FakeCorestore();
   return {
     storageDir: dir,

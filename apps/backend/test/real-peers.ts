@@ -13,6 +13,7 @@ import type { PeerEvent } from "../src/ports/peer-network.ts";
 import type { DriveWorld } from "./contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "./contracts/peer-network.contract.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
+import { trackTmpPath } from "./tmp-dirs.ts";
 import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
 import Corestore from "corestore";
 import createTestnet from "hyperdht/testnet";
@@ -39,7 +40,7 @@ export async function realNet(): Promise<Net> {
   const live = new Set<Peer>();
 
   async function peer(name: string, storageDir?: string): Promise<Peer> {
-    const dir = storageDir ?? mkdtempSync(join(tmpdir(), `justus-real-${name}-`));
+    const dir = storageDir ?? trackTmpPath(mkdtempSync(join(tmpdir(), `justus-real-${name}-`)));
     if (!storageDir) dirs.push(dir);
     const changes: PhotoChanged[] = [];
     const events: P2pEvent[] = [];
@@ -104,7 +105,7 @@ export async function realDriveWorlds(): Promise<{
 
     return {
       async node() {
-        const dir = mkdtempSync(join(tmpdir(), "justus-drive-"));
+        const dir = trackTmpPath(mkdtempSync(join(tmpdir(), "justus-drive-")));
         dirs.push(dir);
         const me: { swarm?: any; store: HyperDriveStore } = {
           store: createHyperDriveStore(join(dir, "corestore")),

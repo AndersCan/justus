@@ -6,8 +6,9 @@
  * root (`cacheDir`, where the native picker copies selections) and must not
  * escape it via `..` segments or symlinks.
  */
+import { makeTmpDir, trackTmpPath } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync, symlinkSync, existsSync, mkdtempSync } from "node:fs";
+import { mkdirSync, writeFileSync, symlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
@@ -105,10 +106,9 @@ describe("#93/#97 add(path) must contain imports to allowed roots", () => {
     // walk started at `/` and flagged the symlinked ancestor, refusing legit
     // imports. Simulate it: a symlink (symAncestor -> realRoot) whose child is
     // the configured import root.
-    const realRoot = mkdtempSync(join(tmpdir(), "justus-real-"));
-    const symAncestor = join(
-      tmpdir(),
-      `justus-sym-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    const realRoot = makeTmpDir("justus-real-");
+    const symAncestor = trackTmpPath(
+      join(tmpdir(), `justus-sym-${Date.now()}-${Math.random().toString(36).slice(2)}`),
     );
     symlinkSync(realRoot, symAncestor);
     const importRoot = join(symAncestor, "imports");

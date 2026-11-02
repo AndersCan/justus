@@ -6,10 +6,10 @@
  * `main.core.ts`. These tests prove the inbox path is accepted when it is an
  * allowed root, and that containment still rejects it when it is NOT.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 
@@ -24,7 +24,7 @@ const PNG_BYTES = Buffer.from(
 /** A holder dir with a `cache` subdir (the default root) and an `inbox` subdir
  * that is its SIBLING — mirroring `.dev/cache` + `.dev/inbox` in production. */
 function makeRoots() {
-  const dir = mkdtempSync(join(tmpdir(), "justus-inbox-"));
+  const dir = makeTmpDir("justus-inbox-");
   const cacheDir = join(dir, "cache");
   const inboxDir = join(dir, "inbox");
   mkdirSync(cacheDir, { recursive: true });

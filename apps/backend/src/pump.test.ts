@@ -2,7 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { Readable } from "node:stream";
 import nodeFs from "node:fs";
 import nodePath from "node:path";
-import nodeOs from "node:os";
+import { makeTmpDir } from "../test/tmp-dirs";
 import { pumpStream } from "./pump";
 
 /** Builds a pausable source from in-memory chunks, counting pause() calls so
@@ -24,7 +24,7 @@ function pausableSource(chunks: Buffer[]) {
 
 describe("pumpStream", () => {
   test("pumps a source to a file with the exact byte count", async () => {
-    const dir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "pump-"));
+    const dir = makeTmpDir("pump-");
     const tmp = nodePath.join(dir, "out.bin");
     const payload = Buffer.from("hello justus stream");
     const { src } = pausableSource([payload]);
@@ -35,7 +35,7 @@ describe("pumpStream", () => {
   });
 
   test("honors writer backpressure — pauses the source when the buffer is full (#53)", async () => {
-    const dir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "pump-"));
+    const dir = makeTmpDir("pump-");
     const tmp = nodePath.join(dir, "big.bin");
     const CHUNK = 16 * 1024;
     const N = 64; // ~1 MB
@@ -53,7 +53,7 @@ describe("pumpStream", () => {
   });
 
   test("rejects and destroys the writer when the stream exceeds maxBytes (#57)", async () => {
-    const dir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "pump-"));
+    const dir = makeTmpDir("pump-");
     const tmp = nodePath.join(dir, "cap.bin");
     const chunks: Buffer[] = [];
     for (let i = 0; i < 200; i++) chunks.push(Buffer.alloc(1024, 7)); // 200 KB

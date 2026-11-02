@@ -7,16 +7,16 @@
  * routes and `rm -rf`s the spool dir). This test asserts that after `close()`
  * no loopback routes remain mounted and the spool dir is gone.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
 
 describe("#101 close() must unmount routes and remove spool dirs", () => {
   it("leaves no loopback mounts or spool dirs after shutdown", async () => {
-    const storageDir = mkdtempSync(join(tmpdir(), "justus-101-"));
+    const storageDir = makeTmpDir("justus-101-");
     const cacheDir = join(storageDir, "cache");
     mkdirSync(cacheDir, { recursive: true });
     const server = new FakeLoopbackServer();

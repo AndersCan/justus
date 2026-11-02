@@ -10,16 +10,16 @@
  * `join()` of an un-enrolled folder writes, then re-opens it (a "restart") and
  * asserts the flag survives.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 
 describe("#94 a pending (awaiting-approval) join must survive a restart", () => {
   it("restores the pending flag from persisted state", async () => {
-    const storageDir = mkdtempSync(join(tmpdir(), "justus-94-"));
+    const storageDir = makeTmpDir("justus-94-");
     const cacheDir = join(storageDir, "cache");
     mkdirSync(cacheDir, { recursive: true });
 

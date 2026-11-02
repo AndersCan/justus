@@ -8,11 +8,11 @@
  * dir accumulates orphan `*.tmp` files. Before the fix the failure path left
  * the tmp behind.
  */
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdtempSync, mkdirSync, readdirSync, existsSync } from "node:fs";
+import { mkdirSync, readdirSync, existsSync } from "node:fs";
 import * as nodeFs from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
@@ -43,7 +43,7 @@ function failingWriteFs(): typeof import("bare-fs") {
 
 describe("#90/#92 a failed spool must not leak a .tmp staging file", () => {
   it("removes the staging tmp when the spool write fails", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "justus-spoolleak-"));
+    const dir = makeTmpDir("justus-spoolleak-");
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
 
