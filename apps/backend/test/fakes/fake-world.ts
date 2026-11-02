@@ -332,7 +332,8 @@ type NetworkState = {
   onEvent: (e: PeerEvent) => void;
   /** topic to whether this network serves it. */
   joins: Map<string, { server: boolean }>;
-  conns: Map<number, { other: NetworkState; otherConn: number }>;
+  /** announced: `connected` was emitted, so `disconnected` may follow. */
+  conns: Map<number, { other: NetworkState; otherConn: number; announced: boolean }>;
   closed: boolean;
 };
 
@@ -359,10 +360,14 @@ function matchNetworks(hub: FakeHub): void {
       if (linked(a, b) || !shareServedTopic(a, b)) continue;
       const aConn = ++connSeq;
       const bConn = ++connSeq;
-      a.conns.set(aConn, { other: b, otherConn: bConn });
-      b.conns.set(bConn, { other: a, otherConn: aConn });
+      const aLink = { other: b, otherConn: bConn, announced: false };
+      const bLink = { other: a, otherConn: aConn, announced: false };
+      a.conns.set(aConn, aLink);
+      b.conns.set(bConn, bLink);
       setImmediate(() => {
         if (!a.conns.has(aConn) || !b.conns.has(bConn)) return;
+        aLink.announced = true;
+        bLink.announced = true;
         a.onEvent({ type: "connected", conn: aConn, peerKey: b.peerKey, initiator: true });
         b.onEvent({ type: "connected", conn: bConn, peerKey: a.peerKey, initiator: false });
         a.onEvent({ type: "identified", conn: aConn, identityKey: b.identityKey });
@@ -377,6 +382,7 @@ function dropConn(options: { state: NetworkState; conn: number }): void {
   if (!link) return;
   options.state.conns.delete(options.conn);
   link.other.conns.delete(link.otherConn);
+  if (!link.announced) return;
   options.state.onEvent({ type: "disconnected", conn: options.conn, peerKey: link.other.peerKey });
   link.other.onEvent({
     type: "disconnected",

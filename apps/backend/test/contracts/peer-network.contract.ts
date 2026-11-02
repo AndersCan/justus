@@ -183,4 +183,24 @@ export const cases: PeerCase[] = [
       t.eq(a.network.connectionCount(), 0, "no connections after close");
     },
   },
+  {
+    name: "N8 closing right after joining never reports disconnected without connected",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const topic = world.topic();
+      meet(a, b, topic);
+      await b.network.close();
+      await new Promise((r) => setTimeout(r, 500));
+      for (const n of [a, b]) {
+        const seen = new Set<string>();
+        let ok = true;
+        for (const e of n.events) {
+          if (e.type === "connected") seen.add(e.peerKey);
+          if (e.type === "disconnected" && !seen.has(e.peerKey)) ok = false;
+        }
+        t.ok(ok, "every disconnected follows a connected for the same peer");
+      }
+    },
+  },
 ];
