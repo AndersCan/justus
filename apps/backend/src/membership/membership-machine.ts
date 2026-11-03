@@ -1,9 +1,9 @@
+import type { RegistryFile, RemovedFile, RequestsFile } from "./records";
+import { isEnrolled, isTextJSON } from "./records";
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
 import { withPromise } from "@mantaq/sugar";
 import { Either } from "@mantaq/utils";
-import type { RegistryFile, RemovedFile, RequestsFile } from "./records";
-import { isEnrolled, isTextJSON } from "./records";
 
 export type RequestEntry = RequestsFile["requests"][string];
 
@@ -61,7 +61,11 @@ function isRequestEntry(value: unknown): value is RequestEntry {
   );
 }
 
-export function initialStateFromRecords(records: MembershipRecords, memberKey: string) {
+export function initialStateFromRecords(options: {
+  records: MembershipRecords;
+  memberKey: string;
+}) {
+  const { records, memberKey } = options;
   if (Object.values(records.removed.removed).some((r) => r.memberKey === memberKey)) {
     return removed;
   }
@@ -83,7 +87,7 @@ export function createMembershipActor(options: {
     internal: [registryWritten, registryWriteFailed, memberDropped, memberDropFailed],
     outputs: [memberEnrolled, memberRemoved],
     states: [notMember, requestPending, approved, enrolled, removing, removed],
-    initial: initialStateFromRecords(records, memberKey),
+    initial: initialStateFromRecords({ records, memberKey }),
     clock,
     setup: (m) => {
       m.on(notMember, {
@@ -109,7 +113,7 @@ export function createMembershipActor(options: {
         sends: [registryWritten, registryWriteFailed],
         fn: (input) =>
           withPromise({
-            promise: port.addMember(input.state.payload),
+            promise: Promise.resolve().then(() => port.addMember(input.state.payload)),
             signal: input.signal,
             emit: input.emit,
             events: {
@@ -144,7 +148,7 @@ export function createMembershipActor(options: {
         sends: [memberDropped, memberDropFailed],
         fn: (input) =>
           withPromise({
-            promise: port.removeMember(memberKey),
+            promise: Promise.resolve().then(() => port.removeMember(memberKey)),
             signal: input.signal,
             emit: input.emit,
             events: {
