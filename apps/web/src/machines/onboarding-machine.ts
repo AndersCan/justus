@@ -38,17 +38,28 @@ export const $onboardingViewModel = computed(
   }),
 );
 
+/** The person is swiping through the intro cards. */
 const cards = state("cards")();
+/** The person is asked for their name, which is required to continue. */
 const profile = state("profile")();
+/** The name is being saved; the button shows progress. */
 const saving = state("saving")();
+/** The name is saved and the person chooses to create an album or join one. */
 const choose = state("choose")();
 
+/** The person goes to the next card or step. */
 const next = event("NEXT")();
+/** The person goes back a card or step. */
 const back = event("BACK")();
+/** The person skips the intro cards. */
 const skip = event("SKIP")();
+/** The person types in the name field. */
 const editName = event("EDIT_NAME")<{ name: string }>();
+/** The person confirms their name. */
 const saveProfile = event("SAVE_PROFILE")<{ name: string }>();
+/** The name was saved. */
 const saved = event("SAVED")<{ name: string }>();
+/** The name could not be saved. */
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 
 type OnboardingContext = { pendingName: string | null };
@@ -62,6 +73,7 @@ export const onboardingActor = Actor({
   clock: RealClock(),
   context: { pendingName: null } as OnboardingContext,
   setup: (m) => {
+    /** Next card; after the last card the name step opens. */
     m.on(cards, {
       event: next,
       to: [cards, profile],
@@ -72,6 +84,7 @@ export const onboardingActor = Actor({
         return { state: cards };
       },
     });
+    /** Previous card; on the first card nothing changes. */
     m.on(cards, {
       event: back,
       to: [cards],
@@ -80,8 +93,10 @@ export const onboardingActor = Actor({
         return { state: cards };
       },
     });
+    /** Skipping the intro jumps straight to the name step. */
     m.on(cards, { event: skip, to: [profile], handler: () => ({ state: profile }) });
 
+    /** Going back from the name step returns to the last intro card. */
     m.on(profile, {
       event: back,
       to: [cards],
@@ -90,6 +105,7 @@ export const onboardingActor = Actor({
         return { state: cards };
       },
     });
+    /** Typing updates the avatar preview live. */
     m.on(profile, {
       event: editName,
       to: [profile],
@@ -98,6 +114,7 @@ export const onboardingActor = Actor({
         return { state: profile };
       },
     });
+    /** Confirming the name starts saving it and clears any earlier error. */
     m.on(profile, {
       event: saveProfile,
       to: [saving],
@@ -107,6 +124,7 @@ export const onboardingActor = Actor({
         return { state: saving };
       },
     });
+    /** The name is saved; an empty name is refused. */
     m.effect(saving, {
       name: "saving",
       fn: ({ signal, emit, context }) => {
@@ -124,6 +142,7 @@ export const onboardingActor = Actor({
         );
       },
     });
+    /** The name is saved and the person moves on to create or join an album. */
     m.on(saving, {
       event: saved,
       to: [choose],
@@ -133,6 +152,7 @@ export const onboardingActor = Actor({
         return { state: choose };
       },
     });
+    /** Saving failed or the name was empty: the person stays on the name step and sees why. */
     m.on(saving, {
       event: saveFailed,
       to: [profile],

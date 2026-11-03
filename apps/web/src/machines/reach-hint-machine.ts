@@ -21,12 +21,18 @@ export const $reachHint = computed([$reachState, $reachName], (state, name) =>
   state === "hint" ? reachHintText(name) : null,
 );
 
+/** Everyone in the album can be reached, or there is nobody else yet; no hint is shown. */
 const reachable = state("reachable")();
+/** Every other member is out of reach; a short wait runs before a hint appears. */
 const trying = state("trying")();
+/** The wait is over and a calm line suggests checking WiFi. */
 const hint = state("hint")();
 
+/** The other members cannot be reached right now. */
 const unreachable = event("UNREACHABLE")<{ name: string }>();
+/** Someone in the album can be reached again. */
 const reached = event("REACHED")();
+/** About 30 seconds passed with nobody reachable. */
 const due = event("DUE")();
 
 export const reachActor = Actor({
@@ -38,6 +44,7 @@ export const reachActor = Actor({
   clock: RealClock(),
   context: {},
   setup: (m) => {
+    /** Nobody else can be reached: the wait starts and no hint is shown yet. */
     m.on(reachable, {
       event: unreachable,
       to: [trying],
@@ -47,6 +54,7 @@ export const reachActor = Actor({
       },
     });
     // Keep the timer running; only the name to mention may change.
+    /** Still nobody reachable: the wait carries on and the member named in the hint may change. */
     m.on(trying, {
       event: unreachable,
       to: [trying],
@@ -55,6 +63,7 @@ export const reachActor = Actor({
         return { state: trying };
       },
     });
+    /** Still nobody reachable: the hint stays up and may name a different member. */
     m.on(hint, {
       event: unreachable,
       to: [hint],
@@ -63,9 +72,12 @@ export const reachActor = Actor({
         return { state: hint };
       },
     });
+    /** Someone is reachable again before the wait ends: nothing is shown. */
     m.on(trying, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
+    /** Someone is reachable again: the WiFi hint goes away. */
     m.on(hint, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
 
+    /** A 30 second wait runs; it is cancelled if someone becomes reachable. */
     m.effect(trying, {
       name: "trying",
       fn: ({ signal, emit }) => {
@@ -81,6 +93,7 @@ export const reachActor = Actor({
         });
       },
     });
+    /** Nobody was reachable for the whole wait: the WiFi hint appears. */
     m.on(trying, { event: due, to: [hint], handler: () => ({ state: hint }) });
   },
 });

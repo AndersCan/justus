@@ -5,7 +5,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Previous card; on the first card nothing changes.",
           "emits": [],
           "event": "BACK",
           "explanation": {
@@ -25,7 +25,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 75
+              "line": 88
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -42,7 +42,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Next card; after the last card the name step opens.",
           "emits": [],
           "event": "NEXT",
           "explanation": {
@@ -69,7 +69,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 65
+              "line": 77
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -86,7 +86,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Next card; after the last card the name step opens.",
           "emits": [],
           "event": "NEXT",
           "explanation": {
@@ -113,7 +113,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 65
+              "line": 77
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -130,7 +130,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Skipping the intro jumps straight to the name step.",
           "emits": [],
           "event": "SKIP",
           "explanation": {
@@ -150,7 +150,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 83
+              "line": 97
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -167,7 +167,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Going back from the name step returns to the last intro card.",
           "emits": [],
           "event": "BACK",
           "explanation": {
@@ -187,7 +187,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 85
+              "line": 100
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -204,7 +204,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Typing updates the avatar preview live.",
           "emits": [],
           "event": "EDIT_NAME",
           "explanation": {
@@ -224,7 +224,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 93
+              "line": 109
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -241,7 +241,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Confirming the name starts saving it and clears any earlier error.",
           "emits": [],
           "event": "SAVE_PROFILE",
           "explanation": {
@@ -261,7 +261,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 101
+              "line": 118
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -278,7 +278,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The name is saved and the person moves on to create or join an album.",
           "emits": [],
           "event": "SAVED",
           "explanation": {
@@ -298,7 +298,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 127
+              "line": 146
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -315,7 +315,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Saving failed or the name was empty: the person stays on the name step and sees why.",
           "emits": [],
           "event": "SAVE_FAILED",
           "explanation": {
@@ -335,7 +335,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 136
+              "line": 156
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -366,43 +366,43 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person goes back a card or step.",
           "id": "BACK",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person types in the name field.",
           "id": "EDIT_NAME",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person goes to the next card or step.",
           "id": "NEXT",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The name was saved.",
           "id": "SAVED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The name could not be saved.",
           "id": "SAVE_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person confirms their name.",
           "id": "SAVE_PROFILE",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person skips the intro cards.",
           "id": "SKIP",
           "internal": false,
           "payloadType": null
@@ -415,7 +415,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The person is swiping through the intro cards.",
           "effects": [],
           "final": false,
           "id": "cards",
@@ -426,7 +426,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The name is saved and the person chooses to create an album or join one.",
           "effects": [],
           "final": false,
           "id": "choose",
@@ -437,7 +437,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The person is asked for their name, which is required to continue.",
           "effects": [],
           "final": false,
           "id": "profile",
@@ -448,7 +448,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The name is being saved; the button shows progress.",
           "effects": [
             {
               "name": "saving",
@@ -469,7 +469,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Someone is reachable again: the WiFi hint goes away.",
           "emits": [],
           "event": "REACHED",
           "explanation": {
@@ -489,7 +489,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 67
+              "line": 78
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -506,7 +506,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Still nobody reachable: the hint stays up and may name a different member.",
           "emits": [],
           "event": "UNREACHABLE",
           "explanation": {
@@ -526,7 +526,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 58
+              "line": 67
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -543,7 +543,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Nobody else can be reached: the wait starts and no hint is shown yet.",
           "emits": [],
           "event": "UNREACHABLE",
           "explanation": {
@@ -563,7 +563,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 41
+              "line": 48
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -580,7 +580,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Nobody was reachable for the whole wait: the WiFi hint appears.",
           "emits": [],
           "event": "DUE",
           "explanation": {
@@ -600,7 +600,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 84
+              "line": 97
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -617,7 +617,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Someone is reachable again before the wait ends: nothing is shown.",
           "emits": [],
           "event": "REACHED",
           "explanation": {
@@ -637,7 +637,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 66
+              "line": 76
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -654,7 +654,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Still nobody reachable: the wait carries on and the member named in the hint may change.",
           "emits": [],
           "event": "UNREACHABLE",
           "explanation": {
@@ -674,7 +674,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 50
+              "line": 58
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -705,19 +705,19 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "About 30 seconds passed with nobody reachable.",
           "id": "DUE",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "Someone in the album can be reached again.",
           "id": "REACHED",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The other members cannot be reached right now.",
           "id": "UNREACHABLE",
           "internal": false,
           "payloadType": null
@@ -730,7 +730,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The wait is over and a calm line suggests checking WiFi.",
           "effects": [],
           "final": false,
           "id": "hint",
@@ -741,7 +741,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Everyone in the album can be reached, or there is nobody else yet; no hint is shown.",
           "effects": [],
           "final": false,
           "id": "reachable",
@@ -752,7 +752,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Every other member is out of reach; a short wait runs before a hint appears.",
           "effects": [
             {
               "name": "trying",
