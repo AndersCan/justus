@@ -214,6 +214,9 @@ catalogs:
     '@mantaq/sugar':
       specifier: ^2.0.0
       version: 2.0.0
+    '@mantaq/utils':
+      specifier: ^0.0.4
+      version: 0.0.4
     '@mantaq/viz':
       specifier: ^0.2.0
       version: 0.2.0
@@ -270,6 +273,15 @@ importers:
       '@justus/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@mantaq/core':
+        specifier: 'catalog:'
+        version: 0.5.0
+      '@mantaq/sugar':
+        specifier: 'catalog:'
+        version: 2.0.0
+      '@mantaq/utils':
+        specifier: 'catalog:'
+        version: 0.0.4
       bare-crypto:
         specifier: ^1.15.3
         version: 1.15.3(bare-buffer@3.7.0)(bare-events@2.9.1)

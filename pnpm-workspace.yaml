@@ -14,6 +14,7 @@ catalog:
   "@mantaq/inspect": ^0.2.0
   "@mantaq/sugar": ^2.0.0
   "@mantaq/viz": ^0.2.0
+  "@mantaq/utils": ^0.0.4
   "@playwright/test": ^1.62.1
   "@types/node": ^24
   hyperdht: 6.33.1
@@ -42,3 +43,4 @@ minimumReleaseAgeExclude:
   - "@mantaq/inspect@0.2.0"
   - "@mantaq/traversal@0.3.1"
   - "@mantaq/viz@0.2.0"
+  - "@mantaq/utils@0.0.4"

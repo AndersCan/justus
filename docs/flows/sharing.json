@@ -1900,6 +1900,734 @@
           "tested": null
         }
       ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:approved",
+          "explanation": null,
+          "from": "approved",
+          "id": "approved-effect:approved-approved",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "approved"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": null,
+          "emits": [],
+          "event": "registryWriteFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "requestPending.create(e.payload.entry)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 148
+            },
+            "payloadReads": ["entry"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "approved",
+          "id": "approved-registryWriteFailed-requestPending",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "requestPending"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 4
+          },
+          "doc": null,
+          "emits": ["memberEnrolled"],
+          "event": "registryWritten",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "enrolled"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 143
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "approved",
+          "id": "approved-registryWritten-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 3
+          },
+          "doc": null,
+          "emits": [],
+          "event": "remove",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "removing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 153
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolled",
+          "id": "enrolled-remove-removing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "removing"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 8
+          },
+          "doc": null,
+          "emits": [],
+          "event": "requestSent",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "requestPending.create(e.payload)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 105
+            },
+            "payloadReads": ["*"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "notMember",
+          "id": "notMember-requestSent-requestPending",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "requestPending"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:removing",
+          "explanation": null,
+          "from": "removing",
+          "id": "removing-effect:removing-removing",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "removing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": null,
+          "emits": [],
+          "event": "memberDropFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "enrolled"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 181
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "removing",
+          "id": "removing-memberDropFailed-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": null,
+          "emits": ["memberRemoved"],
+          "event": "memberDropped",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "removed"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 176
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "removing",
+          "id": "removing-memberDropped-removed",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "removed"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 6
+          },
+          "doc": null,
+          "emits": [],
+          "event": "approve",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isRequestEntry(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "approved.create(payload)"
+                }
+              },
+              {
+                "conditions": ["!(isRequestEntry(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 115
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "requestPending",
+          "id": "requestPending-approve-approved",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "approved"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": null,
+          "emits": [],
+          "event": "decline",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "notMember"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 110
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "requestPending",
+          "id": "requestPending-decline-notMember",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "notMember"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "approve",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "decline",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "memberDropFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "memberDropped",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "registryWriteFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "registryWritten",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "remove",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "requestSent",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:notMember"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:notMember>requestSent>requestPending", "state:requestPending"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:requestPending>approve>approved", "state:approved"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 0,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:requestPending>decline>notMember"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "x",
+                  "requestedAt": 0,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "decline",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWritten>enrolled", "state:enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 0,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:enrolled>remove>removing", "state:removing"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>memberDropped>removed", "state:removed"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "memberDropped",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>memberDropFailed>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 0,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "memberDropFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWriteFailed>requestPending"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "ample",
+                  "requestedAt": 0,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "registryWriteFailed",
+                "kind": "event",
+                "payload": {
+                  "entry": {
+                    "folderName": "sample",
+                    "requestedAt": 1,
+                    "requesterKey": "sample",
+                    "requesterName": "sample",
+                    "shareKey": "sample"
+                  },
+                  "reason": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
+      "id": "membership",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": {
+            "hits": 6
+          },
+          "doc": null,
+          "effects": [
+            {
+              "name": "addMember",
+              "sends": ["registryWritten", "registryWriteFailed"]
+            }
+          ],
+          "final": false,
+          "id": "approved",
+          "initial": false,
+          "label": "approved",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 5
+          },
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "enrolled",
+          "initial": false,
+          "label": "enrolled",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 10
+          },
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "notMember",
+          "initial": false,
+          "label": "notMember",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 1
+          },
+          "doc": null,
+          "effects": [],
+          "final": true,
+          "id": "removed",
+          "initial": false,
+          "label": "removed",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 3
+          },
+          "doc": null,
+          "effects": [
+            {
+              "name": "removeMember",
+              "sends": ["memberDropped", "memberDropFailed"]
+            }
+          ],
+          "final": false,
+          "id": "removing",
+          "initial": false,
+          "label": "removing",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 9
+          },
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "requestPending",
+          "initial": false,
+          "label": "requestPending",
+          "region": null,
+          "tested": null
+        }
+      ]
     }
   ],
   "schemaVersion": 8
