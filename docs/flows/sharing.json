@@ -5,6 +5,20 @@
         {
           "contexts": [],
           "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
           "doc": "A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen).",
           "emits": [],
           "event": "RECEIVE",
@@ -275,7 +289,7 @@
       ],
       "fuzz": null,
       "id": "invite",
-      "initial": null,
+      "initial": "idle",
       "regions": [],
       "states": [
         {
@@ -284,7 +298,7 @@
           "effects": [],
           "final": false,
           "id": "idle",
-          "initial": false,
+          "initial": true,
           "label": "idle",
           "region": null,
           "tested": null
@@ -304,6 +318,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
         {
           "contexts": ["default"],
           "coverage": null,
@@ -855,7 +883,7 @@
       ],
       "fuzz": null,
       "id": "sync",
-      "initial": null,
+      "initial": "idle",
       "regions": [],
       "states": [
         {
@@ -891,7 +919,7 @@
           "effects": [],
           "final": false,
           "id": "idle",
-          "initial": false,
+          "initial": true,
           "label": "idle",
           "region": null,
           "tested": null
@@ -943,6 +971,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
         {
           "contexts": ["default"],
           "coverage": null,
@@ -1351,7 +1393,7 @@
       ],
       "fuzz": null,
       "id": "grants",
-      "initial": null,
+      "initial": "idle",
       "regions": [],
       "states": [
         {
@@ -1387,7 +1429,7 @@
           "effects": [],
           "final": false,
           "id": "idle",
-          "initial": false,
+          "initial": true,
           "label": "idle",
           "region": null,
           "tested": null
@@ -1423,6 +1465,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
         {
           "contexts": ["default"],
           "coverage": null,
@@ -1831,7 +1887,7 @@
       ],
       "fuzz": null,
       "id": "requests",
-      "initial": null,
+      "initial": "idle",
       "regions": [],
       "states": [
         {
@@ -1851,7 +1907,7 @@
           "effects": [],
           "final": false,
           "id": "idle",
-          "initial": false,
+          "initial": true,
           "label": "idle",
           "region": null,
           "tested": null
@@ -1903,6 +1959,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->notMember",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "notMember"
+        },
         {
           "contexts": [],
           "coverage": null,
@@ -2536,7 +2606,7 @@
         "seed": 1
       },
       "id": "membership",
-      "initial": null,
+      "initial": "notMember",
       "regions": [],
       "states": [
         {
@@ -2578,7 +2648,7 @@
           "effects": [],
           "final": false,
           "id": "notMember",
-          "initial": false,
+          "initial": true,
           "label": "notMember",
           "region": null,
           "tested": null

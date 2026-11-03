@@ -12,6 +12,9 @@ import { bareLazyMedia } from "./lazy-media.ts";
 import { createBareFiles } from "../../src/adapters/bare-files.ts";
 import bareFs from "bare-fs";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
+import { createMembershipActor } from "../../src/membership/membership-machine.ts";
+import { VirtualClock } from "@mantaq/core";
+import { Either } from "@mantaq/utils";
 
 declare const Bare: { argv: string[]; exit(code?: number): never };
 
@@ -146,5 +149,43 @@ for (const c of peerCases) {
 await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
   () => {},
 );
+{
+  const started = Date.now();
+  try {
+    const entry = {
+      requesterKey: "a".repeat(64),
+      requesterName: "Ann",
+      shareKey: "b".repeat(64),
+      folderName: "Trip",
+      requestedAt: 1,
+    };
+    const actor = createMembershipActor({
+      clock: VirtualClock(),
+      port: {
+        addMember: () => Promise.resolve(Either.right({})),
+        removeMember: () => Promise.resolve(Either.right({})),
+      },
+      memberKey: entry.requesterKey,
+    });
+    const states: string[] = [];
+    actor.send({ type: "requestSent", payload: entry });
+    await actor.settled();
+    states.push(String(actor.state.name));
+    actor.send({ type: "approve" });
+    await actor.settled();
+    states.push(String(actor.state.name));
+    actor.send({ type: "remove" });
+    await actor.settled();
+    states.push(String(actor.state.name));
+    const got = states.join(",");
+    if (got !== "requestPending,enrolled,removed") throw new Error(`unexpected states ${got}`);
+    console.log(`ok   membership-machine: request, approve, remove (${Date.now() - started}ms)`);
+  } catch (e) {
+    failed++;
+    console.log(
+      `FAIL membership-machine: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
+  }
+}
 console.log(failed ? `${failed} scenario(s) or case(s) failed` : "all scenarios passed");
 Bare.exit(failed ? 1 : 0);

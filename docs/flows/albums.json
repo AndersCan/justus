@@ -5,6 +5,20 @@
         {
           "contexts": [],
           "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
           "doc": "The new album appears first in the list and is opened.",
           "emits": [],
           "event": "CREATED",
@@ -79,7 +93,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The new album is created.",
           "emits": [],
           "event": "effect:creating",
           "explanation": null,
@@ -426,7 +440,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The albums are fetched from the app's storage.",
           "emits": [],
           "event": "effect:refreshing",
           "explanation": null,
@@ -514,7 +528,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The new name is saved.",
           "emits": [],
           "event": "effect:renaming",
           "explanation": null,
@@ -602,7 +616,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The chosen album is opened.",
           "emits": [],
           "event": "effect:switching",
           "explanation": null,
@@ -696,7 +710,7 @@
       ],
       "fuzz": null,
       "id": "folders",
-      "initial": null,
+      "initial": "idle",
       "regions": [],
       "states": [
         {
@@ -732,7 +746,7 @@
           "effects": [],
           "final": false,
           "id": "idle",
-          "initial": false,
+          "initial": true,
           "label": "idle",
           "region": null,
           "tested": null
@@ -800,6 +814,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->booting",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "booting"
+        },
         {
           "contexts": [],
           "coverage": null,
@@ -999,7 +1027,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Each picked photo is added in turn, and the progress count goes up after each.",
           "emits": [],
           "event": "effect:adding",
           "explanation": null,
@@ -1593,7 +1621,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The photos are fetched from the album.",
           "emits": [],
           "event": "effect:loading",
           "explanation": null,
@@ -1907,7 +1935,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The photo is deleted from the album.",
           "emits": [],
           "event": "effect:removing",
           "explanation": null,
@@ -2001,7 +2029,7 @@
       ],
       "fuzz": null,
       "id": "gallery",
-      "initial": null,
+      "initial": "booting",
       "regions": [],
       "states": [
         {
@@ -2026,7 +2054,7 @@
           "effects": [],
           "final": false,
           "id": "booting",
-          "initial": false,
+          "initial": true,
           "label": "booting",
           "region": null,
           "tested": null
@@ -2089,6 +2117,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->closed",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "closed"
+        },
         {
           "contexts": ["default"],
           "coverage": null,
@@ -2277,7 +2319,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The member is taken out of the album.",
           "emits": [],
           "event": "effect:removing",
           "explanation": null,
@@ -2323,7 +2365,7 @@
       ],
       "fuzz": null,
       "id": "people",
-      "initial": null,
+      "initial": "closed",
       "regions": [],
       "states": [
         {
@@ -2332,7 +2374,7 @@
           "effects": [],
           "final": false,
           "id": "closed",
-          "initial": false,
+          "initial": true,
           "label": "closed",
           "region": null,
           "tested": null
