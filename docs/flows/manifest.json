@@ -8,7 +8,8 @@
     "apps/web/src/machines/invite-machine.ts",
     "apps/web/src/machines/sync-machine.ts",
     "apps/web/src/machines/grants-machine.ts",
-    "apps/web/src/machines/requests-machine.ts"
+    "apps/web/src/machines/requests-machine.ts",
+    "apps/backend/src/membership/membership-machine.ts"
   ],
   "first-run": [
     "apps/web/src/machines/onboarding-machine.ts",

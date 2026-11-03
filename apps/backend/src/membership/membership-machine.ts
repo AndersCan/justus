@@ -75,13 +75,25 @@ export function initialStateFromRecords(options: {
   return notMember;
 }
 
+const noRecords: MembershipRecords = {
+  registry: { version: 1, members: {} },
+  removed: { version: 1, removed: {} },
+  requests: {},
+};
+
+const unavailablePort: MembershipPort = {
+  addMember: async () => Either.left({ reason: "no membership port" }),
+  removeMember: async () => Either.left({ reason: "no membership port" }),
+};
+
+/** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
 export function createMembershipActor(options: {
   clock: Clock;
-  port: MembershipPort;
-  records: MembershipRecords;
-  memberKey: string;
+  port?: MembershipPort;
+  records?: MembershipRecords;
+  memberKey?: string;
 }) {
-  const { clock, port, records, memberKey } = options;
+  const { clock, port = unavailablePort, records = noRecords, memberKey = "" } = options;
   return Actor({
     inputs: [requestSent, approve, decline, remove],
     internal: [registryWritten, registryWriteFailed, memberDropped, memberDropFailed],
