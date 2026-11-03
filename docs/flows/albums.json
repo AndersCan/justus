@@ -5,7 +5,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The new album appears first in the list and is opened.",
           "emits": [],
           "event": "CREATED",
           "explanation": {
@@ -25,7 +25,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 213
+              "line": 243
             },
             "payloadReads": ["folder", "folder.id"],
             "readsActorState": false,
@@ -42,7 +42,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Creating failed: the list is unchanged and the person sees why.",
           "emits": [],
           "event": "CREATE_FAILED",
           "explanation": {
@@ -62,7 +62,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 224
+              "line": 255
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -93,7 +93,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "After an error, refreshing starts a reload and clears the error.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -113,7 +113,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 121
+              "line": 144
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -130,7 +130,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Try again after an error reloads the albums.",
           "emits": [],
           "event": "RETRY",
           "explanation": {
@@ -150,7 +150,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 129
+              "line": 153
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -167,7 +167,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "First load of albums starts and any error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -187,7 +187,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 105
+              "line": 126
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -204,7 +204,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person starts creating an album; the screen shows it is busy.",
           "emits": [],
           "event": "CREATE_FOLDER",
           "explanation": {
@@ -224,7 +224,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 185
+              "line": 213
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -241,7 +241,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Refreshing the albums starts a reload and clears any error.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -261,7 +261,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 113
+              "line": 135
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -278,7 +278,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person picks another album; the screen shows it is busy.",
           "emits": [],
           "event": "SET_ACTIVE",
           "explanation": {
@@ -298,7 +298,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 234
+              "line": 266
             },
             "payloadReads": ["folderId"],
             "readsActorState": false,
@@ -315,7 +315,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person starts changing their name; the screen shows it is busy.",
           "emits": [],
           "event": "SET_NAME",
           "explanation": {
@@ -335,7 +335,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 287
+              "line": 323
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -352,7 +352,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -372,7 +372,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 166
+              "line": 192
             },
             "payloadReads": ["activeId", "folders"],
             "readsActorState": false,
@@ -389,7 +389,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Loading failed: an error is shown with a way to try again.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
@@ -409,7 +409,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 176
+              "line": 203
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -440,7 +440,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The new name is saved and shown everywhere.",
           "emits": [],
           "event": "RENAMED",
           "explanation": {
@@ -460,7 +460,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 315
+              "line": 353
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -477,7 +477,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Saving the name failed: the old name stays and the person sees why.",
           "emits": [],
           "event": "RENAME_FAILED",
           "explanation": {
@@ -497,7 +497,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 325
+              "line": 364
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -528,7 +528,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The picked album is now open.",
           "emits": [],
           "event": "SWITCHED",
           "explanation": {
@@ -548,7 +548,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 266
+              "line": 300
             },
             "payloadReads": ["status", "status.folder.id"],
             "readsActorState": false,
@@ -565,7 +565,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Opening the album failed: the previous album stays open and the person sees why.",
           "emits": [],
           "event": "SWITCH_FAILED",
           "explanation": {
@@ -585,7 +585,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/folders-machine.ts",
-              "line": 277
+              "line": 312
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -616,79 +616,79 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The new album was created.",
           "id": "CREATED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The album could not be created.",
           "id": "CREATE_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person names and creates a new album.",
           "id": "CREATE_FOLDER",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The album list arrived.",
           "id": "LOADED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The album list could not be loaded.",
           "id": "LOAD_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The app asks for the latest list of albums.",
           "id": "REFRESH",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The new name was saved.",
           "id": "RENAMED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The new name could not be saved.",
           "id": "RENAME_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Try again after an error.",
           "id": "RETRY",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person opens a different album.",
           "id": "SET_ACTIVE",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person changes the name others see.",
           "id": "SET_NAME",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The other album is now open.",
           "id": "SWITCHED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The other album could not be opened.",
           "id": "SWITCH_FAILED",
           "internal": true,
           "payloadType": null
@@ -701,7 +701,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "A new album is being created.",
           "effects": [
             {
               "name": "creating",
@@ -717,7 +717,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The albums could not be loaded; the person can try again.",
           "effects": [],
           "final": false,
           "id": "error",
@@ -728,7 +728,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Albums have not been loaded yet.",
           "effects": [],
           "final": false,
           "id": "idle",
@@ -739,7 +739,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The albums are listed and one is open.",
           "effects": [],
           "final": false,
           "id": "ok",
@@ -750,7 +750,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The album list is loading.",
           "effects": [
             {
               "name": "refreshing",
@@ -766,7 +766,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The person's name is being changed.",
           "effects": [
             {
               "name": "renaming",
@@ -782,7 +782,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The person is moving to another album.",
           "effects": [
             {
               "name": "switching",
@@ -803,7 +803,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Adding ended: the summary shows the result and the photos reload if uploads or syncs need it.",
           "emits": [],
           "event": "BATCH_DONE",
           "explanation": {
@@ -830,7 +830,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 348
+              "line": 384
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -847,7 +847,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Adding ended: the summary shows the result and the photos reload if uploads or syncs need it.",
           "emits": [],
           "event": "BATCH_DONE",
           "explanation": {
@@ -874,7 +874,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 348
+              "line": 384
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -891,7 +891,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A photo is added to the top of the list, or counted as already in the album.",
           "emits": [],
           "event": "ITEM_ADDED",
           "explanation": {
@@ -910,7 +910,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 318
+              "line": 350
             },
             "payloadReads": ["duplicate", "photo"],
             "readsActorState": false,
@@ -927,7 +927,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A photo failed to add: it is kept in the summary for retry and the rest carry on.",
           "emits": [],
           "event": "ITEM_FAILED",
           "explanation": {
@@ -946,7 +946,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 327
+              "line": 360
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -963,7 +963,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The album synced while photos are adding: the photos reload when adding ends.",
           "emits": [],
           "event": "LOAD",
           "explanation": {
@@ -982,7 +982,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 341
+              "line": 376
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1013,7 +1013,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Photos picked while the list is still loading are queued and start once it arrives.",
           "emits": [],
           "event": "ADD_MANY",
           "explanation": {
@@ -1038,7 +1038,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 243
+              "line": 271
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1055,7 +1055,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
           "explanation": {
@@ -1074,7 +1074,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 267
+              "line": 297
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1091,7 +1091,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The first load of photos starts.",
           "emits": [],
           "event": "LOAD",
           "explanation": {
@@ -1111,7 +1111,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 132
+              "line": 152
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1128,7 +1128,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
           "explanation": {
@@ -1147,7 +1147,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 267
+              "line": 297
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1164,7 +1164,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "After an error, reloading starts again and clears the error.",
           "emits": [],
           "event": "LOAD",
           "explanation": {
@@ -1184,7 +1184,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 148
+              "line": 170
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1201,7 +1201,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Try again after an error reloads the photos.",
           "emits": [],
           "event": "RETRY",
           "explanation": {
@@ -1221,7 +1221,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 156
+              "line": 179
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1238,7 +1238,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Photos picked while the list is still loading are queued and start once it arrives.",
           "emits": [],
           "event": "ADD_MANY",
           "explanation": {
@@ -1263,7 +1263,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 243
+              "line": 271
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1280,7 +1280,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
           "explanation": {
@@ -1299,7 +1299,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 267
+              "line": 297
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1316,7 +1316,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The album synced while loading: the photos reload once more afterwards.",
           "emits": [],
           "event": "LOAD",
           "explanation": {
@@ -1335,7 +1335,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 334
+              "line": 368
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1352,7 +1352,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -1386,7 +1386,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 184
+              "line": 209
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1403,7 +1403,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -1437,7 +1437,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 184
+              "line": 209
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1454,7 +1454,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -1488,7 +1488,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 184
+              "line": 209
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1505,7 +1505,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Loading failed and an error is shown; photos already picked still start adding.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
@@ -1532,7 +1532,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 198
+              "line": 224
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1549,7 +1549,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Loading failed and an error is shown; photos already picked still start adding.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
@@ -1576,7 +1576,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 198
+              "line": 224
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1607,7 +1607,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The person adds photos and sees progress through the batch.",
           "emits": [],
           "event": "ADD_MANY",
           "explanation": {
@@ -1627,7 +1627,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 234
+              "line": 261
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1644,7 +1644,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
           "explanation": {
@@ -1663,7 +1663,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 267
+              "line": 297
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1680,7 +1680,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Refreshing the photos starts a reload.",
           "emits": [],
           "event": "LOAD",
           "explanation": {
@@ -1700,7 +1700,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 140
+              "line": 161
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1717,7 +1717,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person removes a photo; the screen shows it is busy.",
           "emits": [],
           "event": "REMOVE",
           "explanation": {
@@ -1737,7 +1737,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 362
+              "line": 399
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1754,7 +1754,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Retrying adds only the photos that failed earlier, if none are still being added.",
           "emits": [],
           "event": "RETRY_FAILED",
           "explanation": {
@@ -1780,7 +1780,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 252
+              "line": 281
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1797,7 +1797,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
           "explanation": {
@@ -1816,7 +1816,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 267
+              "line": 297
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1833,7 +1833,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The photo disappears from the list.",
           "emits": [],
           "event": "REMOVED",
           "explanation": {
@@ -1853,7 +1853,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 387
+              "line": 426
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1870,7 +1870,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Removing failed: the photo stays and the person sees why.",
           "emits": [],
           "event": "REMOVE_FAILED",
           "explanation": {
@@ -1890,7 +1890,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/gallery-machine.ts",
-              "line": 397
+              "line": 437
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1921,79 +1921,79 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person picks photos to add to an album.",
           "id": "ADD_MANY",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "Every picked photo has been tried.",
           "id": "BATCH_DONE",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person closes the add summary.",
           "id": "DISMISS_BATCH",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "One photo finished adding, or was already in the album.",
           "id": "ITEM_ADDED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "One photo could not be added.",
           "id": "ITEM_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The app asks for the latest photos, including when the album syncs.",
           "id": "LOAD",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The photo list arrived.",
           "id": "LOADED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The photo list could not be loaded.",
           "id": "LOAD_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person removes a photo from the album.",
           "id": "REMOVE",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The photo was removed.",
           "id": "REMOVED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The photo could not be removed.",
           "id": "REMOVE_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Try again after an error.",
           "id": "RETRY",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person retries the photos that failed to add.",
           "id": "RETRY_FAILED",
           "internal": false,
           "payloadType": null
@@ -2006,7 +2006,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Photos are being added to the album one by one with progress.",
           "effects": [
             {
               "name": "adding",
@@ -2022,7 +2022,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The app has just started and no photos are loaded.",
           "effects": [],
           "final": false,
           "id": "booting",
@@ -2033,7 +2033,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The photos could not be loaded; the person can try again.",
           "effects": [],
           "final": false,
           "id": "error",
@@ -2044,7 +2044,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The photo list is loading.",
           "effects": [
             {
               "name": "loading",
@@ -2060,7 +2060,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Photos are shown and the person can add or remove them.",
           "effects": [],
           "final": false,
           "id": "ready",
@@ -2071,7 +2071,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "A photo is being removed.",
           "effects": [
             {
               "name": "removing",
@@ -2092,7 +2092,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Opening the sheet clears any old error and asks for the latest join requests.",
           "emits": [],
           "event": "OPEN",
           "explanation": {
@@ -2112,7 +2112,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/people-machine.ts",
-              "line": 56
+              "line": 65
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2129,7 +2129,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Closing the sheet hides it again.",
           "emits": [],
           "event": "CLOSE",
           "explanation": {
@@ -2149,7 +2149,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/people-machine.ts",
-              "line": 65
+              "line": 75
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2166,7 +2166,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The Admin picks a member to remove; the sheet shows that it is working.",
           "emits": [],
           "event": "REMOVE_MEMBER",
           "explanation": {
@@ -2186,7 +2186,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/people-machine.ts",
-              "line": 66
+              "line": 77
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -2203,7 +2203,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The member is gone and the sheet shows the updated list.",
           "emits": [],
           "event": "REMOVED",
           "explanation": {
@@ -2223,7 +2223,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/people-machine.ts",
-              "line": 91
+              "line": 104
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2240,7 +2240,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album.",
           "emits": [],
           "event": "REMOVE_FAILED",
           "explanation": {
@@ -2260,7 +2260,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/people-machine.ts",
-              "line": 99
+              "line": 113
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -2291,31 +2291,31 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person closes the People sheet.",
           "id": "CLOSE",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps the people chip to see who is in the album.",
           "id": "OPEN",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member was taken out of the album.",
           "id": "REMOVED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member could not be removed.",
           "id": "REMOVE_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The Admin chooses to remove a member from the album.",
           "id": "REMOVE_MEMBER",
           "internal": false,
           "payloadType": null
@@ -2328,7 +2328,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The People sheet is hidden.",
           "effects": [],
           "final": false,
           "id": "closed",
@@ -2339,7 +2339,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The People sheet is showing the album's members and anyone waiting to join.",
           "effects": [],
           "final": false,
           "id": "open",
@@ -2350,7 +2350,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The Admin has asked to remove someone and the sheet waits for that to finish.",
           "effects": [
             {
               "name": "removing",

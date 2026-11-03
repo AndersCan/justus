@@ -48,30 +48,50 @@ $syncStatus.listen((status) => {
   if (status?.name) $userName.set(status.name);
 });
 
+/** Albums have not been loaded yet. */
 const idle = state("idle")();
+/** The album list is loading. */
 const refreshing = state("refreshing")();
+/** The albums are listed and one is open. */
 const ok = state("ok")();
+/** A new album is being created. */
 const creating = state("creating")();
+/** The person is moving to another album. */
 const switching = state("switching")();
+/** The person's name is being changed. */
 const renaming = state("renaming")();
+/** The albums could not be loaded; the person can try again. */
 const error = state("error")();
 
+/** The app asks for the latest list of albums. */
 const refresh = event("REFRESH")();
+/** The album list arrived. */
 const loaded = event("LOADED")<{
   name: string;
   folders: FolderSummary[];
   activeId: string | null;
 }>();
+/** The album list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
+/** The person names and creates a new album. */
 const createFolder = event("CREATE_FOLDER")<{ name: string }>();
+/** The new album was created. */
 const created = event("CREATED")<{ folder: FolderSummary }>();
+/** The album could not be created. */
 const createFailed = event("CREATE_FAILED")<{ message: string }>();
+/** The person opens a different album. */
 const setActive = event("SET_ACTIVE")<{ folderId: string }>();
+/** The other album is now open. */
 const switched = event("SWITCHED")<{ status: SyncStatus }>();
+/** The other album could not be opened. */
 const switchFailed = event("SWITCH_FAILED")<{ message: string }>();
+/** The person changes the name others see. */
 const setName = event("SET_NAME")<{ name: string }>();
+/** The new name was saved. */
 const renamed = event("RENAMED")<{ name: string }>();
+/** The new name could not be saved. */
 const renameFailed = event("RENAME_FAILED")<{ message: string }>();
+/** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
 type FoldersContext = {
@@ -102,6 +122,7 @@ export const foldersActor = Actor({
     pendingName: null,
   } as FoldersContext,
   setup: (m) => {
+    /** First load of albums starts and any error is cleared. */
     m.on(idle, {
       event: refresh,
       to: [refreshing],
@@ -110,6 +131,7 @@ export const foldersActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Refreshing the albums starts a reload and clears any error. */
     m.on(ok, {
       event: refresh,
       to: [refreshing],
@@ -118,6 +140,7 @@ export const foldersActor = Actor({
         return { state: refreshing };
       },
     });
+    /** After an error, refreshing starts a reload and clears the error. */
     m.on(error, {
       event: refresh,
       to: [refreshing],
@@ -126,6 +149,7 @@ export const foldersActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Try again after an error reloads the albums. */
     m.on(error, {
       event: retry,
       to: [refreshing],
@@ -135,6 +159,7 @@ export const foldersActor = Actor({
       },
     });
 
+    /** The albums are fetched from the app's storage. */
     m.effect(refreshing, {
       name: "refreshing",
       fn: ({ signal, emit }) => {
@@ -163,6 +188,7 @@ export const foldersActor = Actor({
         );
       },
     });
+    /** The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine. */
     m.on(refreshing, {
       event: loaded,
       to: [ok],
@@ -173,6 +199,7 @@ export const foldersActor = Actor({
         return { state: ok };
       },
     });
+    /** Loading failed: an error is shown with a way to try again. */
     m.on(refreshing, {
       event: loadFailed,
       to: [error],
@@ -182,6 +209,7 @@ export const foldersActor = Actor({
       },
     });
 
+    /** The person starts creating an album; the screen shows it is busy. */
     m.on(ok, {
       event: createFolder,
       to: [creating],
@@ -191,6 +219,7 @@ export const foldersActor = Actor({
         return { state: creating };
       },
     });
+    /** The new album is created. */
     m.effect(creating, {
       name: "creating",
       fn: ({ signal, emit, context }) => {
@@ -210,6 +239,7 @@ export const foldersActor = Actor({
         );
       },
     });
+    /** The new album appears first in the list and is opened. */
     m.on(creating, {
       event: created,
       to: [ok],
@@ -221,6 +251,7 @@ export const foldersActor = Actor({
         return { state: ok };
       },
     });
+    /** Creating failed: the list is unchanged and the person sees why. */
     m.on(creating, {
       event: createFailed,
       to: [ok],
@@ -231,6 +262,7 @@ export const foldersActor = Actor({
       },
     });
 
+    /** The person picks another album; the screen shows it is busy. */
     m.on(ok, {
       event: setActive,
       to: [switching],
@@ -244,6 +276,7 @@ export const foldersActor = Actor({
         return { state: switching };
       },
     });
+    /** The chosen album is opened. */
     m.effect(switching, {
       name: "switching",
       fn: ({ signal, emit, context }) => {
@@ -263,6 +296,7 @@ export const foldersActor = Actor({
         );
       },
     });
+    /** The picked album is now open. */
     m.on(switching, {
       event: switched,
       to: [ok],
@@ -274,6 +308,7 @@ export const foldersActor = Actor({
         return { state: ok };
       },
     });
+    /** Opening the album failed: the previous album stays open and the person sees why. */
     m.on(switching, {
       event: switchFailed,
       to: [ok],
@@ -284,6 +319,7 @@ export const foldersActor = Actor({
       },
     });
 
+    /** The person starts changing their name; the screen shows it is busy. */
     m.on(ok, {
       event: setName,
       to: [renaming],
@@ -293,6 +329,7 @@ export const foldersActor = Actor({
         return { state: renaming };
       },
     });
+    /** The new name is saved. */
     m.effect(renaming, {
       name: "renaming",
       fn: ({ signal, emit, context }) => {
@@ -312,6 +349,7 @@ export const foldersActor = Actor({
         );
       },
     });
+    /** The new name is saved and shown everywhere. */
     m.on(renaming, {
       event: renamed,
       to: [ok],
@@ -322,6 +360,7 @@ export const foldersActor = Actor({
         return { state: ok };
       },
     });
+    /** Saving the name failed: the old name stays and the person sees why. */
     m.on(renaming, {
       event: renameFailed,
       to: [ok],

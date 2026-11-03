@@ -74,25 +74,44 @@ export function samePhoto(
   return a.id === b.id && a.folderId === b.folderId;
 }
 
+/** The app has just started and no photos are loaded. */
 const booting = state("booting")();
+/** The photo list is loading. */
 const loading = state("loading")();
+/** Photos are shown and the person can add or remove them. */
 const ready = state("ready")();
+/** The photos could not be loaded; the person can try again. */
 const error = state("error")();
+/** Photos are being added to the album one by one with progress. */
 const adding = state("adding")();
+/** A photo is being removed. */
 const removing = state("removing")();
 
+/** The app asks for the latest photos, including when the album syncs. */
 const load = event("LOAD")();
+/** The photo list arrived. */
 const loaded = event("LOADED")<{ photos: Photo[] }>();
+/** The photo list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
+/** The person picks photos to add to an album. */
 const addMany = event("ADD_MANY")<{ sources: AddSource[]; folderId?: string }>();
+/** One photo finished adding, or was already in the album. */
 const itemAdded = event("ITEM_ADDED")<{ photo: Photo | null; duplicate: boolean }>();
+/** One photo could not be added. */
 const itemFailed = event("ITEM_FAILED")<{ source: AddSource; message: string }>();
+/** Every picked photo has been tried. */
 const batchDone = event("BATCH_DONE")();
+/** The person retries the photos that failed to add. */
 const retryFailed = event("RETRY_FAILED")();
+/** The person closes the add summary. */
 const dismissBatch = event("DISMISS_BATCH")();
+/** The person removes a photo from the album. */
 const remove = event("REMOVE")<{ id: string; folderId?: string }>();
+/** The photo was removed. */
 const removed = event("REMOVED")<{ id: string; folderId?: string }>();
+/** The photo could not be removed. */
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
+/** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
 type GalleryContext = {
@@ -129,6 +148,7 @@ export const galleryActor = Actor({
   clock: RealClock(),
   context: idleContext(),
   setup: (m) => {
+    /** The first load of photos starts. */
     m.on(booting, {
       event: load,
       to: [loading],
@@ -137,6 +157,7 @@ export const galleryActor = Actor({
         return { state: loading };
       },
     });
+    /** Refreshing the photos starts a reload. */
     m.on(ready, {
       event: load,
       to: [loading],
@@ -145,6 +166,7 @@ export const galleryActor = Actor({
         return { state: loading };
       },
     });
+    /** After an error, reloading starts again and clears the error. */
     m.on(error, {
       event: load,
       to: [loading],
@@ -153,6 +175,7 @@ export const galleryActor = Actor({
         return { state: loading };
       },
     });
+    /** Try again after an error reloads the photos. */
     m.on(error, {
       event: retry,
       to: [loading],
@@ -162,6 +185,7 @@ export const galleryActor = Actor({
       },
     });
 
+    /** The photos are fetched from the album. */
     m.effect(loading, {
       name: "loading",
       fn: ({ signal, emit }) => {
@@ -181,6 +205,7 @@ export const galleryActor = Actor({
       },
     });
 
+    /** The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload. */
     m.on(loading, {
       event: loaded,
       to: [loading, ready, adding],
@@ -195,6 +220,7 @@ export const galleryActor = Actor({
         return { state: again ? loading : ready };
       },
     });
+    /** Loading failed and an error is shown; photos already picked still start adding. */
     m.on(loading, {
       event: loadFailed,
       to: [error, adding],
@@ -231,6 +257,7 @@ export const galleryActor = Actor({
       queueBatch(sources, folderId, opts);
       return { state: adding };
     };
+    /** The person adds photos and sees progress through the batch. */
     m.on(ready, {
       event: addMany,
       to: [adding],
@@ -240,6 +267,7 @@ export const galleryActor = Actor({
     // picked meanwhile must not be dropped: queue them, shown as adding, and
     // start once the list is in.
     for (const at of [booting, loading]) {
+      /** Photos picked while the list is still loading are queued and start once it arrives. */
       m.on(at, {
         event: addMany,
         handler: (e, opts) => {
@@ -249,6 +277,7 @@ export const galleryActor = Actor({
         },
       });
     }
+    /** Retrying adds only the photos that failed earlier, if none are still being added. */
     m.on(ready, {
       event: retryFailed,
       handler: (_e, opts) => {
@@ -264,6 +293,7 @@ export const galleryActor = Actor({
     // A finished batch can be dismissed whatever the gallery is doing (an
     // upload batch ends in a reload); only the running one stays.
     for (const at of [booting, loading, ready, error, removing]) {
+      /** The add summary can be closed at any time, unless photos are still being added. */
       m.on(at, {
         event: dismissBatch,
         handler: () => {
@@ -274,6 +304,7 @@ export const galleryActor = Actor({
     }
     // One photo at a time: the worklet writes each to the album's drive in
     // turn, and the progress count stays honest.
+    /** Each picked photo is added in turn, and the progress count goes up after each. */
     m.effect(adding, {
       name: "adding",
       fn: ({ signal, emit, context }) => {
@@ -315,6 +346,7 @@ export const galleryActor = Actor({
       const b = $addBatch.get();
       if (b) $addBatch.set({ ...b, done: b.done + 1, ...change(b) });
     };
+    /** A photo is added to the top of the list, or counted as already in the album. */
     m.on(adding, {
       event: itemAdded,
       handler: (e) => {
@@ -324,6 +356,7 @@ export const galleryActor = Actor({
         return {};
       },
     });
+    /** A photo failed to add: it is kept in the summary for retry and the rest carry on. */
     m.on(adding, {
       event: itemFailed,
       handler: (e) => {
@@ -331,6 +364,7 @@ export const galleryActor = Actor({
         return {};
       },
     });
+    /** The album synced while loading: the photos reload once more afterwards. */
     m.on(loading, {
       event: load,
       handler: (_e, opts) => {
@@ -338,6 +372,7 @@ export const galleryActor = Actor({
         return {};
       },
     });
+    /** The album synced while photos are adding: the photos reload when adding ends. */
     m.on(adding, {
       event: load,
       handler: (_e, opts) => {
@@ -345,6 +380,7 @@ export const galleryActor = Actor({
         return {};
       },
     });
+    /** Adding ended: the summary shows the result and the photos reload if uploads or syncs need it. */
     m.on(adding, {
       event: batchDone,
       to: [loading, ready],
@@ -359,6 +395,7 @@ export const galleryActor = Actor({
       },
     });
 
+    /** The person removes a photo; the screen shows it is busy. */
     m.on(ready, {
       event: remove,
       to: [removing],
@@ -368,6 +405,7 @@ export const galleryActor = Actor({
         return { state: removing };
       },
     });
+    /** The photo is deleted from the album. */
     m.effect(removing, {
       name: "removing",
       fn: ({ signal, emit, context }) => {
@@ -384,6 +422,7 @@ export const galleryActor = Actor({
         );
       },
     });
+    /** The photo disappears from the list. */
     m.on(removing, {
       event: removed,
       to: [ready],
@@ -394,6 +433,7 @@ export const galleryActor = Actor({
         return { state: ready };
       },
     });
+    /** Removing failed: the photo stays and the person sees why. */
     m.on(removing, {
       event: removeFailed,
       to: [ready],
