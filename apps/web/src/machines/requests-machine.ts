@@ -30,18 +30,30 @@ export const $requestsViewModel = computed(
   }),
 );
 
+/** The inbox of requests to join the person's folders has not been loaded yet. */
 const idle = state("idle")();
+/** Loading the requests from people who want to join. */
 const refreshing = state("refreshing")();
+/** The requests are shown, each with Yes and No. */
 const ok = state("ok")();
+/** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const responding = state("responding")();
+/** The requests could not be loaded; the person sees the problem and can try again. */
 const error = state("error")();
 
+/** The person opens the requests inbox or asks it to reload. */
 const refresh = event("REFRESH")();
+/** The list of requests came back. */
 const loaded = event("LOADED")<{ requests: JoinRequest[] }>();
+/** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
+/** The person taps Yes or No on a request. */
 const respond = event("RESPOND")<{ folderId: string; requesterKey: string; approve: boolean }>();
+/** The answer was sent. */
 const responded = event("RESPONDED")<{ folderId: string; requesterKey: string }>();
+/** The answer could not be sent. */
 const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
+/** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
 type RequestsContext = {
@@ -59,6 +71,7 @@ export const requestsActor = Actor({
     pendingRespond: null,
   } as RequestsContext,
   setup: (m) => {
+    /** The first load starts and any old error is cleared. */
     m.on(idle, {
       event: refresh,
       to: [refreshing],
@@ -67,6 +80,7 @@ export const requestsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload starts and any old error is cleared. */
     m.on(ok, {
       event: refresh,
       to: [refreshing],
@@ -75,6 +89,7 @@ export const requestsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload after an error starts and the error message goes away. */
     m.on(error, {
       event: refresh,
       to: [refreshing],
@@ -83,6 +98,7 @@ export const requestsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Try again after an error: loading starts again and the error message goes away. */
     m.on(error, {
       event: retry,
       to: [refreshing],
@@ -110,6 +126,7 @@ export const requestsActor = Actor({
         );
       },
     });
+    /** The requests are shown. */
     m.on(refreshing, {
       event: loaded,
       to: [ok],
@@ -119,6 +136,7 @@ export const requestsActor = Actor({
         return { state: ok };
       },
     });
+    /** Loading failed: the person sees an error and can try again. */
     m.on(refreshing, {
       event: loadFailed,
       to: [error],
@@ -128,6 +146,7 @@ export const requestsActor = Actor({
       },
     });
 
+    /** Sending the Yes or No starts and any earlier error is cleared. */
     m.on(ok, {
       event: respond,
       to: [responding],
@@ -165,6 +184,7 @@ export const requestsActor = Actor({
         );
       },
     });
+    /** The answer went through and that request disappears from the list. */
     m.on(responding, {
       event: responded,
       to: [ok],
@@ -177,6 +197,7 @@ export const requestsActor = Actor({
         return { state: ok };
       },
     });
+    /** Sending failed: the person sees an error and the request stays in the list. */
     m.on(responding, {
       event: respondFailed,
       to: [ok],

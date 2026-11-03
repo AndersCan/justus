@@ -5,7 +5,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen).",
           "emits": [],
           "event": "RECEIVE",
           "explanation": {
@@ -32,7 +32,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/invite-machine.ts",
-              "line": 42
+              "line": 48
             },
             "payloadReads": ["text"],
             "readsActorState": false,
@@ -49,7 +49,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen).",
           "emits": [],
           "event": "RECEIVE",
           "explanation": {
@@ -76,7 +76,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/invite-machine.ts",
-              "line": 42
+              "line": 48
             },
             "payloadReads": ["text"],
             "readsActorState": false,
@@ -93,7 +93,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The invite is dropped and nothing is joined.",
           "emits": [],
           "event": "CANCEL",
           "explanation": {
@@ -113,7 +113,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/invite-machine.ts",
-              "line": 67
+              "line": 75
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -130,7 +130,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person joins the folder from the invite and is back at the start.",
           "emits": [],
           "event": "CONFIRM",
           "explanation": {
@@ -150,7 +150,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/invite-machine.ts",
-              "line": 57
+              "line": 64
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -167,7 +167,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen).",
           "emits": [],
           "event": "RECEIVE",
           "explanation": {
@@ -194,7 +194,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/invite-machine.ts",
-              "line": 42
+              "line": 48
             },
             "payloadReads": ["text"],
             "readsActorState": false,
@@ -211,7 +211,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen).",
           "emits": [],
           "event": "RECEIVE",
           "explanation": {
@@ -238,7 +238,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/invite-machine.ts",
-              "line": 42
+              "line": 48
             },
             "payloadReads": ["text"],
             "readsActorState": false,
@@ -255,19 +255,19 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person backs out of the invite without joining.",
           "id": "CANCEL",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person agrees to join the shared folder shown.",
           "id": "CONFIRM",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person pastes, scans or opens an invite.",
           "id": "RECEIVE",
           "internal": false,
           "payloadType": null
@@ -280,7 +280,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "No invite is being looked at; the person can paste or scan one.",
           "effects": [],
           "final": false,
           "id": "idle",
@@ -291,7 +291,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "An invite was read and its details are on screen, waiting for the person to join or cancel.",
           "effects": [],
           "final": false,
           "id": "reviewing",
@@ -307,7 +307,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The folder is set up and its status is shown.",
           "emits": [],
           "event": "ENROLLED",
           "explanation": {
@@ -327,7 +327,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 227
+              "line": 254
             },
             "payloadReads": ["status"],
             "readsActorState": false,
@@ -344,7 +344,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Setting up failed: the person sees an error and stays on the sharing screen.",
           "emits": [],
           "event": "ENROLL_FAILED",
           "explanation": {
@@ -364,7 +364,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 237
+              "line": 265
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -395,7 +395,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload after an error starts and the error message goes away.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -415,7 +415,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 92
+              "line": 111
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -432,7 +432,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Try again after an error: the check starts again and the error message goes away.",
           "emits": [],
           "event": "RETRY",
           "explanation": {
@@ -452,7 +452,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 100
+              "line": 120
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -469,7 +469,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The first check starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -489,7 +489,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 76
+              "line": 93
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -506,7 +506,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "Joining worked. If the owner still has to approve, the person is told they are waiting for approval; otherwise the folder is ready.",
           "emits": [],
           "event": "JOINED",
           "explanation": {
@@ -526,7 +526,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 175
+              "line": 199
             },
             "payloadReads": ["status"],
             "readsActorState": false,
@@ -543,7 +543,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Joining failed: the person sees an error and stays on the sharing screen to try again.",
           "emits": [],
           "event": "JOIN_FAILED",
           "explanation": {
@@ -563,7 +563,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 186
+              "line": 211
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -594,7 +594,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Setting up the person's folder for sharing starts and any earlier error is cleared.",
           "emits": [],
           "event": "ENROLL",
           "explanation": {
@@ -614,7 +614,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 196
+              "line": 222
             },
             "payloadReads": ["key", "name"],
             "readsActorState": false,
@@ -631,7 +631,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Joining starts: any earlier error and any earlier 'waiting for approval' notice are cleared.",
           "emits": [],
           "event": "JOIN",
           "explanation": {
@@ -651,7 +651,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 143
+              "line": 166
             },
             "payloadReads": ["key", "name"],
             "readsActorState": false,
@@ -668,7 +668,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -688,7 +688,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 84
+              "line": 102
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -705,7 +705,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The folder status is shown and any error is cleared.",
           "emits": [],
           "event": "STATUS",
           "explanation": {
@@ -725,7 +725,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 123
+              "line": 144
             },
             "payloadReads": ["status"],
             "readsActorState": false,
@@ -742,7 +742,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The check failed: the person sees an error and can try again.",
           "emits": [],
           "event": "STATUS_FAILED",
           "explanation": {
@@ -762,7 +762,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/sync-machine.ts",
-              "line": 133
+              "line": 155
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -793,61 +793,61 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person chooses a folder of their own to share, with a name.",
           "id": "ENROLL",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The folder is now set up for sharing.",
           "id": "ENROLLED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "Setting up the folder for sharing did not work.",
           "id": "ENROLL_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person joins a folder from an invite, with an optional name.",
           "id": "JOIN",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "Joining finished; the folder may be ready, or waiting for the owner's approval.",
           "id": "JOINED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "Joining did not work (no answer, or the app could not reach the folder).",
           "id": "JOIN_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person opens the sharing screen or asks it to reload.",
           "id": "REFRESH",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Try again after an error.",
           "id": "RETRY",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The folder status came back.",
           "id": "STATUS",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The folder status could not be read (no answer, or the app could not reach it).",
           "id": "STATUS_FAILED",
           "internal": true,
           "payloadType": null
@@ -860,7 +860,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Adding a folder of the person's own to share; a spinner shows until it finishes.",
           "effects": [
             {
               "name": "enrolling",
@@ -876,7 +876,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Checking the folder failed; the person sees the problem and can try again.",
           "effects": [],
           "final": false,
           "id": "error",
@@ -887,7 +887,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Nothing has been checked yet; the folder status is unknown.",
           "effects": [],
           "final": false,
           "id": "idle",
@@ -898,7 +898,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Joining a shared folder from an invite; a spinner shows until it finishes.",
           "effects": [
             {
               "name": "joining",
@@ -914,7 +914,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The folder status is up to date and the person can join or add a folder.",
           "effects": [],
           "final": false,
           "id": "ok",
@@ -925,7 +925,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Checking the current state of the shared folder.",
           "effects": [
             {
               "name": "refreshing",
@@ -946,7 +946,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The choice is saved, so the list reloads to show the new situation.",
           "emits": [],
           "event": "ACTED",
           "explanation": {
@@ -966,7 +966,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 176
+              "line": 196
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -983,7 +983,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Saving failed: the person sees an error and the list stays as it was.",
           "emits": [],
           "event": "ACT_FAILED",
           "explanation": {
@@ -1003,7 +1003,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 185
+              "line": 206
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1034,7 +1034,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload after an error starts and the error message goes away.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1054,7 +1054,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 88
+              "line": 103
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1071,7 +1071,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Try again after an error: loading starts again and the error message goes away.",
           "emits": [],
           "event": "RETRY",
           "explanation": {
@@ -1091,7 +1091,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 96
+              "line": 112
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1108,7 +1108,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The first load starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1128,7 +1128,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 72
+              "line": 85
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1145,7 +1145,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The person's choice starts saving and any earlier error is cleared.",
           "emits": [],
           "event": "ACT",
           "explanation": {
@@ -1165,7 +1165,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 143
+              "line": 162
             },
             "payloadReads": ["kind", "peerId"],
             "readsActorState": false,
@@ -1182,7 +1182,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1202,7 +1202,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 80
+              "line": 94
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1219,7 +1219,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The people and the prompts due today are shown.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -1239,7 +1239,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 124
+              "line": 141
             },
             "payloadReads": ["due", "records"],
             "readsActorState": false,
@@ -1256,7 +1256,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Loading failed: the person sees an error and can try again.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
@@ -1276,7 +1276,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/grants-machine.ts",
-              "line": 134
+              "line": 152
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1307,43 +1307,43 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The person lets someone see their photos, declines, snoozes the daily prompt, or stops sharing with someone.",
           "id": "ACT",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The choice was saved.",
           "id": "ACTED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The choice could not be saved.",
           "id": "ACT_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The people list and the people due a prompt came back.",
           "id": "LOADED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The people list could not be loaded.",
           "id": "LOAD_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person opens the share screen or asks it to reload.",
           "id": "REFRESH",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Try again after an error.",
           "id": "RETRY",
           "internal": false,
           "payloadType": null
@@ -1356,7 +1356,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Saving the person's choice about someone; buttons are disabled meanwhile.",
           "effects": [
             {
               "name": "acting",
@@ -1372,7 +1372,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The list could not be loaded; the person sees the problem and can try again.",
           "effects": [],
           "final": false,
           "id": "error",
@@ -1383,7 +1383,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The list of people this device shares photos with has not been loaded yet.",
           "effects": [],
           "final": false,
           "id": "idle",
@@ -1394,7 +1394,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The list of people is shown and the person can grant, decline, snooze or revoke.",
           "effects": [],
           "final": false,
           "id": "ok",
@@ -1405,7 +1405,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Loading who the person shares photos with and who is due a prompt.",
           "effects": [
             {
               "name": "refreshing",
@@ -1426,7 +1426,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload after an error starts and the error message goes away.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1446,7 +1446,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 78
+              "line": 93
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1463,7 +1463,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Try again after an error: loading starts again and the error message goes away.",
           "emits": [],
           "event": "RETRY",
           "explanation": {
@@ -1483,7 +1483,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 86
+              "line": 102
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1500,7 +1500,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The first load starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1520,7 +1520,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 62
+              "line": 75
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1537,7 +1537,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "A reload starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
           "explanation": {
@@ -1557,7 +1557,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 70
+              "line": 84
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1574,7 +1574,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Sending the Yes or No starts and any earlier error is cleared.",
           "emits": [],
           "event": "RESPOND",
           "explanation": {
@@ -1594,7 +1594,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 131
+              "line": 150
             },
             "payloadReads": ["approve", "folderId", "requesterKey"],
             "readsActorState": false,
@@ -1611,7 +1611,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "The requests are shown.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
@@ -1631,7 +1631,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 113
+              "line": 130
             },
             "payloadReads": ["requests"],
             "readsActorState": false,
@@ -1648,7 +1648,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Loading failed: the person sees an error and can try again.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
@@ -1668,7 +1668,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 122
+              "line": 140
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1699,7 +1699,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The answer went through and that request disappears from the list.",
           "emits": [],
           "event": "RESPONDED",
           "explanation": {
@@ -1719,7 +1719,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 168
+              "line": 188
             },
             "payloadReads": ["folderId", "requesterKey"],
             "readsActorState": false,
@@ -1736,7 +1736,7 @@
         {
           "contexts": ["default"],
           "coverage": null,
-          "doc": null,
+          "doc": "Sending failed: the person sees an error and the request stays in the list.",
           "emits": [],
           "event": "RESPOND_FAILED",
           "explanation": {
@@ -1756,7 +1756,7 @@
             "location": {
               "column": 5,
               "file": "src/machines/requests-machine.ts",
-              "line": 180
+              "line": 201
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1787,43 +1787,43 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The list of requests came back.",
           "id": "LOADED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The requests could not be loaded (no answer, or the app could not reach them).",
           "id": "LOAD_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person opens the requests inbox or asks it to reload.",
           "id": "REFRESH",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Yes or No on a request.",
           "id": "RESPOND",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The answer was sent.",
           "id": "RESPONDED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The answer could not be sent.",
           "id": "RESPOND_FAILED",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person taps Try again after an error.",
           "id": "RETRY",
           "internal": false,
           "payloadType": null
@@ -1836,7 +1836,7 @@
       "states": [
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The requests could not be loaded; the person sees the problem and can try again.",
           "effects": [],
           "final": false,
           "id": "error",
@@ -1847,7 +1847,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The inbox of requests to join the person's folders has not been loaded yet.",
           "effects": [],
           "final": false,
           "id": "idle",
@@ -1858,7 +1858,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "The requests are shown, each with Yes and No.",
           "effects": [],
           "final": false,
           "id": "ok",
@@ -1869,7 +1869,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Loading the requests from people who want to join.",
           "effects": [
             {
               "name": "refreshing",
@@ -1885,7 +1885,7 @@
         },
         {
           "coverage": null,
-          "doc": null,
+          "doc": "Sending the person's Yes or No; buttons are disabled meanwhile.",
           "effects": [
             {
               "name": "responding",
