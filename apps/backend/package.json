@@ -13,6 +13,9 @@
   "dependencies": {
     "@ekrooh/bare": "^0.6.1",
     "@justus/core": "workspace:*",
+    "@mantaq/core": "catalog:",
+    "@mantaq/sugar": "catalog:",
+    "@mantaq/utils": "catalog:",
     "bare-crypto": "^1.15.3",
     "bare-encoding": "^1.0.3",
     "bare-fs": "^4.8.0",
