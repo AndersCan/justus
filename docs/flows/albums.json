@@ -2133,9 +2133,11 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 5
+          },
           "doc": "Opening the sheet clears any old error and asks for the latest join requests.",
-          "emits": [],
+          "emits": ["SHEET_OPENED"],
           "event": "OPEN",
           "explanation": {
             "branches": [
@@ -2152,9 +2154,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/people-machine.ts",
-              "line": 65
+              "line": 76
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2170,7 +2172,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Closing the sheet hides it again.",
           "emits": [],
           "event": "CLOSE",
@@ -2189,9 +2193,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/people-machine.ts",
-              "line": 75
+              "line": 85
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2207,7 +2211,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The Admin picks a member to remove; the sheet shows that it is working.",
           "emits": [],
           "event": "REMOVE_MEMBER",
@@ -2226,9 +2232,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/people-machine.ts",
-              "line": 77
+              "line": 87
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -2244,7 +2250,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The member is gone and the sheet shows the updated list.",
           "emits": [],
           "event": "REMOVED",
@@ -2263,9 +2271,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/people-machine.ts",
-              "line": 104
+              "line": 114
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2281,7 +2289,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album.",
           "emits": [],
           "event": "REMOVE_FAILED",
@@ -2300,9 +2310,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/people-machine.ts",
-              "line": 113
+              "line": 123
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -2363,13 +2373,116 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:closed"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:closed>OPEN>open", "state:open"],
+            "steps": [
+              {
+                "event": "OPEN",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:open>CLOSE>closed"],
+            "steps": [
+              {
+                "event": "OPEN",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "CLOSE",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:open>REMOVE_MEMBER>removing", "state:removing"],
+            "steps": [
+              {
+                "event": "OPEN",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "REMOVE_MEMBER",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "memberKey": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>REMOVE_FAILED>open"],
+            "steps": [
+              {
+                "event": "OPEN",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "REMOVE_MEMBER",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "memberKey": "sample"
+                }
+              },
+              {
+                "event": "REMOVE_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>REMOVED>open"],
+            "steps": [
+              {
+                "event": "OPEN",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "REMOVE_MEMBER",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "memberKey": "sample"
+                }
+              },
+              {
+                "event": "REMOVED",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "people",
       "initial": "closed",
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "The People sheet is hidden.",
           "effects": [],
           "final": false,
@@ -2380,7 +2493,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "The People sheet is showing the album's members and anyone waiting to join.",
           "effects": [],
           "final": false,
@@ -2391,12 +2506,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The Admin has asked to remove someone and the sheet waits for that to finish.",
           "effects": [
             {
               "name": "removing",
-              "sends": null
+              "sends": ["REMOVED", "REMOVE_FAILED"]
             }
           ],
           "final": false,
