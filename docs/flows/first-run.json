@@ -3,6 +3,20 @@
     {
       "edges": [
         {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->cards",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "cards"
+        },
+        {
           "contexts": ["default"],
           "coverage": null,
           "doc": "Previous card; on the first card nothing changes.",
@@ -352,7 +366,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The name is saved; an empty name is refused.",
           "emits": [],
           "event": "effect:saving",
           "explanation": null,
@@ -410,7 +424,7 @@
       ],
       "fuzz": null,
       "id": "onboarding",
-      "initial": null,
+      "initial": "cards",
       "regions": [],
       "states": [
         {
@@ -419,7 +433,7 @@
           "effects": [],
           "final": false,
           "id": "cards",
-          "initial": false,
+          "initial": true,
           "label": "cards",
           "region": null,
           "tested": null
@@ -466,6 +480,20 @@
     },
     {
       "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->reachable",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "reachable"
+        },
         {
           "contexts": ["default"],
           "coverage": {
@@ -703,7 +731,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "A 30 second wait runs; it is cancelled if someone becomes reachable.",
           "emits": [],
           "event": "effect:trying",
           "explanation": null,
@@ -858,7 +886,7 @@
         "seed": 1
       },
       "id": "reach",
-      "initial": null,
+      "initial": "reachable",
       "regions": [],
       "states": [
         {
@@ -882,7 +910,7 @@
           "effects": [],
           "final": false,
           "id": "reachable",
-          "initial": false,
+          "initial": true,
           "label": "reachable",
           "region": null,
           "tested": null

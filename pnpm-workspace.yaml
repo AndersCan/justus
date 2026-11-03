@@ -10,11 +10,11 @@ allowBuilds:
   esbuild: true
 
 catalog:
-  "@mantaq/core": ^0.5.0
-  "@mantaq/inspect": ^0.2.0
-  "@mantaq/sugar": ^2.0.0
-  "@mantaq/viz": ^0.2.0
-  "@mantaq/utils": ^0.0.4
+  "@mantaq/core": ^0.5.3
+  "@mantaq/inspect": ^0.2.3
+  "@mantaq/sugar": ^2.0.3
+  "@mantaq/viz": ^0.2.3
+  "@mantaq/utils": ^0.0.5
   "@playwright/test": ^1.62.1
   "@types/node": ^24
   hyperdht: 6.33.1
@@ -38,9 +38,10 @@ linkWorkspacePackages: true
 
 minimumReleaseAgeExclude:
   - "@ekrooh/bare@0.6.1"
-  - "@mantaq/core@0.5.0 || 0.5.1"
-  - "@mantaq/sugar@2.0.0"
-  - "@mantaq/inspect@0.2.0"
-  - "@mantaq/traversal@0.3.1"
-  - "@mantaq/viz@0.2.0"
-  - "@mantaq/utils@0.0.4"
+  - "@mantaq/core@0.5.0 || 0.5.1 || 0.5.3"
+  - "@mantaq/sugar@2.0.0 || 2.0.3"
+  - "@mantaq/inspect@0.2.0 || 0.2.3"
+  - "@mantaq/traversal@0.3.1 || 0.3.3"
+  - "@mantaq/viz@0.2.0 || 0.2.3"
+  - "@mantaq/utils@0.0.4 || 0.0.5"
+  - "@mantaq/pbt@0.0.4"
