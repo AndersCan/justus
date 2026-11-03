@@ -28,7 +28,6 @@ test("every manifest path exists", () => {
   expect(listed.filter((file) => !existsSync(join(root, file)))).toEqual([]);
 });
 
-
 type Item = { id: string; doc: string | null; kind?: string };
 type Flow = { machines: { id: string; states: Item[]; events: Item[]; edges: Item[] }[] };
 
