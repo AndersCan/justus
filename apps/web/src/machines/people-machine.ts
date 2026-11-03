@@ -44,7 +44,7 @@ const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 
 type PeopleContext = { pending: { folderId: string; memberKey: string } | null };
 
-const peopleActor = Actor({
+export const peopleActor = Actor({
   inputs: [openSheet, closeSheet, removeMember],
   internal: [removed, removeFailed],
   outputs: [],

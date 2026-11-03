@@ -1,0 +1,1906 @@
+{
+  "machines": [
+    {
+      "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RECEIVE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["!invite"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "from"
+                }
+              },
+              {
+                "conditions": ["!(!invite)"],
+                "target": {
+                  "kind": "state",
+                  "state": "reviewing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/invite-machine.ts",
+              "line": 42
+            },
+            "payloadReads": ["text"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-RECEIVE-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RECEIVE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["!invite"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "from"
+                }
+              },
+              {
+                "conditions": ["!(!invite)"],
+                "target": {
+                  "kind": "state",
+                  "state": "reviewing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/invite-machine.ts",
+              "line": 42
+            },
+            "payloadReads": ["text"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-RECEIVE-reviewing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "reviewing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "CANCEL",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/invite-machine.ts",
+              "line": 67
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-CANCEL-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "CONFIRM",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/invite-machine.ts",
+              "line": 57
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-CONFIRM-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RECEIVE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["!invite"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "from"
+                }
+              },
+              {
+                "conditions": ["!(!invite)"],
+                "target": {
+                  "kind": "state",
+                  "state": "reviewing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/invite-machine.ts",
+              "line": 42
+            },
+            "payloadReads": ["text"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-RECEIVE-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RECEIVE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["!invite"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "from"
+                }
+              },
+              {
+                "conditions": ["!(!invite)"],
+                "target": {
+                  "kind": "state",
+                  "state": "reviewing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/invite-machine.ts",
+              "line": 42
+            },
+            "payloadReads": ["text"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-RECEIVE-reviewing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "reviewing"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "CANCEL",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "CONFIRM",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RECEIVE",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "invite",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "idle",
+          "initial": false,
+          "label": "idle",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "reviewing",
+          "initial": false,
+          "label": "reviewing",
+          "region": null,
+          "tested": null
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ENROLLED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 227
+            },
+            "payloadReads": ["status"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolling",
+          "id": "enrolling-ENROLLED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ENROLL_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 237
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolling",
+          "id": "enrolling-ENROLL_FAILED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:enrolling",
+          "explanation": null,
+          "from": "enrolling",
+          "id": "enrolling-effect:enrolling-enrolling",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "enrolling"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 92
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RETRY",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 100
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-RETRY-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 76
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "JOINED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 175
+            },
+            "payloadReads": ["status"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "joining",
+          "id": "joining-JOINED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "JOIN_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 186
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "joining",
+          "id": "joining-JOIN_FAILED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:joining",
+          "explanation": null,
+          "from": "joining",
+          "id": "joining-effect:joining-joining",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "joining"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ENROLL",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "enrolling"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 196
+            },
+            "payloadReads": ["key", "name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-ENROLL-enrolling",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolling"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "JOIN",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "joining"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 143
+            },
+            "payloadReads": ["key", "name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-JOIN-joining",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "joining"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 84
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "STATUS",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 123
+            },
+            "payloadReads": ["status"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-STATUS-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "STATUS_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "error"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/sync-machine.ts",
+              "line": 133
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-STATUS_FAILED-error",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "error"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:refreshing",
+          "explanation": null,
+          "from": "refreshing",
+          "id": "refreshing-effect:refreshing-refreshing",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "refreshing"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "ENROLL",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "ENROLLED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "ENROLL_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "JOIN",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "JOINED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "JOIN_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "REFRESH",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RETRY",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "STATUS",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "STATUS_FAILED",
+          "internal": true,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "sync",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "enrolling",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "enrolling",
+          "initial": false,
+          "label": "enrolling",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "error",
+          "initial": false,
+          "label": "error",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "idle",
+          "initial": false,
+          "label": "idle",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "joining",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "joining",
+          "initial": false,
+          "label": "joining",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "ok",
+          "initial": false,
+          "label": "ok",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "refreshing",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "refreshing",
+          "initial": false,
+          "label": "refreshing",
+          "region": null,
+          "tested": null
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ACTED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 176
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "acting",
+          "id": "acting-ACTED-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ACT_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 185
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "acting",
+          "id": "acting-ACT_FAILED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:acting",
+          "explanation": null,
+          "from": "acting",
+          "id": "acting-effect:acting-acting",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "acting"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 88
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RETRY",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 96
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-RETRY-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 72
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "ACT",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "acting"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 143
+            },
+            "payloadReads": ["kind", "peerId"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-ACT-acting",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "acting"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 80
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "LOADED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 124
+            },
+            "payloadReads": ["due", "records"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-LOADED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "LOAD_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "error"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/grants-machine.ts",
+              "line": 134
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-LOAD_FAILED-error",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "error"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:refreshing",
+          "explanation": null,
+          "from": "refreshing",
+          "id": "refreshing-effect:refreshing-refreshing",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "refreshing"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "ACT",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "ACTED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "ACT_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "LOADED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "LOAD_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "REFRESH",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RETRY",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "grants",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "acting",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "acting",
+          "initial": false,
+          "label": "acting",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "error",
+          "initial": false,
+          "label": "error",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "idle",
+          "initial": false,
+          "label": "idle",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "ok",
+          "initial": false,
+          "label": "ok",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "refreshing",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "refreshing",
+          "initial": false,
+          "label": "refreshing",
+          "region": null,
+          "tested": null
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 78
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RETRY",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 86
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "error",
+          "id": "error-RETRY-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 62
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REFRESH",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "refreshing"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 70
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-REFRESH-refreshing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RESPOND",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "responding"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 131
+            },
+            "payloadReads": ["approve", "folderId", "requesterKey"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "ok",
+          "id": "ok-RESPOND-responding",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "responding"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "LOADED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 113
+            },
+            "payloadReads": ["requests"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-LOADED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "LOAD_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "error"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 122
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "refreshing",
+          "id": "refreshing-LOAD_FAILED-error",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "error"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:refreshing",
+          "explanation": null,
+          "from": "refreshing",
+          "id": "refreshing-effect:refreshing-refreshing",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "refreshing"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RESPONDED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 168
+            },
+            "payloadReads": ["folderId", "requesterKey"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "responding",
+          "id": "responding-RESPONDED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "RESPOND_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "ok"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/requests-machine.ts",
+              "line": 180
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "responding",
+          "id": "responding-RESPOND_FAILED-ok",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "ok"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:responding",
+          "explanation": null,
+          "from": "responding",
+          "id": "responding-effect:responding-responding",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "responding"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "LOADED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "LOAD_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "REFRESH",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RESPOND",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RESPONDED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RESPOND_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "RETRY",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "requests",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "error",
+          "initial": false,
+          "label": "error",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "idle",
+          "initial": false,
+          "label": "idle",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "ok",
+          "initial": false,
+          "label": "ok",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "refreshing",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "refreshing",
+          "initial": false,
+          "label": "refreshing",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "responding",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "responding",
+          "initial": false,
+          "label": "responding",
+          "region": null,
+          "tested": null
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 8
+}

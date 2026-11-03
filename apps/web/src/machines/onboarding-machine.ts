@@ -53,7 +53,7 @@ const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 
 type OnboardingContext = { pendingName: string | null };
 
-const onboardingActor = Actor({
+export const onboardingActor = Actor({
   inputs: [next, back, skip, editName, saveProfile],
   internal: [saved, saveFailed],
   outputs: [],

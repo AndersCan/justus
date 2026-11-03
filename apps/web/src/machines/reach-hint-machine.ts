@@ -29,7 +29,7 @@ const unreachable = event("UNREACHABLE")<{ name: string }>();
 const reached = event("REACHED")();
 const due = event("DUE")();
 
-const reachActor = Actor({
+export const reachActor = Actor({
   inputs: [unreachable, reached],
   internal: [due],
   outputs: [],

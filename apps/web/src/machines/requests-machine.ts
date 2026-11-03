@@ -48,7 +48,7 @@ type RequestsContext = {
   pendingRespond: { folderId: string; requesterKey: string; approve: boolean } | null;
 };
 
-const requestsActor = Actor({
+export const requestsActor = Actor({
   inputs: [refresh, respond, retry],
   internal: [loaded, loadFailed, responded, respondFailed],
   outputs: [],

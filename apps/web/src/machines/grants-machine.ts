@@ -58,7 +58,7 @@ type GrantsContext = {
   pendingAct: { peerId: string; kind: GrantActionKind } | null;
 };
 
-const grantsActor = Actor({
+export const grantsActor = Actor({
   inputs: [refresh, act, retry],
   internal: [loaded, loadFailed, acted, actFailed],
   outputs: [],

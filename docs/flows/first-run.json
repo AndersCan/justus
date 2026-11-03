@@ -1,0 +1,773 @@
+{
+  "machines": [
+    {
+      "edges": [
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "BACK",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "cards"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 75
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "cards",
+          "id": "cards-BACK-cards",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "cards"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "NEXT",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["card >= INTRO_CARD_COUNT"],
+                "target": {
+                  "kind": "state",
+                  "state": "profile"
+                }
+              },
+              {
+                "conditions": ["!(card >= INTRO_CARD_COUNT)"],
+                "target": {
+                  "kind": "state",
+                  "state": "cards"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 65
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "cards",
+          "id": "cards-NEXT-cards",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "cards"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "NEXT",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["card >= INTRO_CARD_COUNT"],
+                "target": {
+                  "kind": "state",
+                  "state": "profile"
+                }
+              },
+              {
+                "conditions": ["!(card >= INTRO_CARD_COUNT)"],
+                "target": {
+                  "kind": "state",
+                  "state": "cards"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 65
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "cards",
+          "id": "cards-NEXT-profile",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "profile"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "SKIP",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "profile"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 83
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "cards",
+          "id": "cards-SKIP-profile",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "profile"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "BACK",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "cards"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 85
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "profile",
+          "id": "profile-BACK-cards",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "cards"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "EDIT_NAME",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "profile"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 93
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "profile",
+          "id": "profile-EDIT_NAME-profile",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "profile"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "SAVE_PROFILE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "saving"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 101
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "profile",
+          "id": "profile-SAVE_PROFILE-saving",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "saving"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "SAVED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "choose"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 127
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "saving",
+          "id": "saving-SAVED-choose",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "choose"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "SAVE_FAILED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "profile"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/onboarding-machine.ts",
+              "line": 136
+            },
+            "payloadReads": ["message"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "saving",
+          "id": "saving-SAVE_FAILED-profile",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "profile"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:saving",
+          "explanation": null,
+          "from": "saving",
+          "id": "saving-effect:saving-saving",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "saving"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "BACK",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "EDIT_NAME",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "NEXT",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "SAVED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "SAVE_FAILED",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "SAVE_PROFILE",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "SKIP",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "onboarding",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "cards",
+          "initial": false,
+          "label": "cards",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "choose",
+          "initial": false,
+          "label": "choose",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "profile",
+          "initial": false,
+          "label": "profile",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "saving",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "saving",
+          "initial": false,
+          "label": "saving",
+          "region": null,
+          "tested": null
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REACHED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "reachable"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 67
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "hint",
+          "id": "hint-REACHED-reachable",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "reachable"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "UNREACHABLE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "hint"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 58
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "hint",
+          "id": "hint-UNREACHABLE-hint",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "hint"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "UNREACHABLE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "trying"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 41
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reachable",
+          "id": "reachable-UNREACHABLE-trying",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "trying"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "DUE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "hint"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 84
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "trying",
+          "id": "trying-DUE-hint",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "hint"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "REACHED",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "reachable"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 66
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "trying",
+          "id": "trying-REACHED-reachable",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "reachable"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "UNREACHABLE",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "trying"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 5,
+              "file": "src/machines/reach-hint-machine.ts",
+              "line": 50
+            },
+            "payloadReads": ["name"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "trying",
+          "id": "trying-UNREACHABLE-trying",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "trying"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "effect:trying",
+          "explanation": null,
+          "from": "trying",
+          "id": "trying-effect:trying-trying",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "trying"
+        }
+      ],
+      "events": [
+        {
+          "doc": null,
+          "id": "DUE",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "REACHED",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": null,
+          "id": "UNREACHABLE",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": null,
+      "id": "reach",
+      "initial": null,
+      "regions": [],
+      "states": [
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "hint",
+          "initial": false,
+          "label": "hint",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [],
+          "final": false,
+          "id": "reachable",
+          "initial": false,
+          "label": "reachable",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": null,
+          "doc": null,
+          "effects": [
+            {
+              "name": "trying",
+              "sends": null
+            }
+          ],
+          "final": false,
+          "id": "trying",
+          "initial": false,
+          "label": "trying",
+          "region": null,
+          "tested": null
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 8
+}

@@ -29,7 +29,7 @@ const receive = event("RECEIVE")<{ text: string }>();
 const confirm = event("CONFIRM")();
 const cancel = event("CANCEL")();
 
-const inviteActor = Actor({
+export const inviteActor = Actor({
   inputs: [receive, confirm, cancel],
   internal: [],
   outputs: [],
