@@ -468,7 +468,9 @@
       "edges": [
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Someone is reachable again: the WiFi hint goes away.",
           "emits": [],
           "event": "REACHED",
@@ -487,9 +489,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 78
+              "line": 83
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -505,7 +507,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Still nobody reachable: the hint stays up and may name a different member.",
           "emits": [],
           "event": "UNREACHABLE",
@@ -524,9 +528,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 67
+              "line": 72
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -542,7 +546,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 6
+          },
           "doc": "Nobody else can be reached: the wait starts and no hint is shown yet.",
           "emits": [],
           "event": "UNREACHABLE",
@@ -561,9 +567,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 48
+              "line": 53
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -579,7 +585,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Nobody was reachable for the whole wait: the WiFi hint appears.",
           "emits": [],
           "event": "DUE",
@@ -598,9 +606,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 97
+              "line": 92
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -616,7 +624,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Someone is reachable again before the wait ends: nothing is shown.",
           "emits": [],
           "event": "REACHED",
@@ -635,9 +645,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 76
+              "line": 81
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -653,7 +663,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Still nobody reachable: the wait carries on and the member named in the hint may change.",
           "emits": [],
           "event": "UNREACHABLE",
@@ -672,9 +684,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/reach-hint-machine.ts",
-              "line": 58
+              "line": 63
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -723,13 +735,136 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:reachable"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:reachable>UNREACHABLE>trying", "state:trying"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:trying>REACHED>reachable"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "REACHED",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:trying>UNREACHABLE>trying"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:trying>DUE>hint", "state:hint"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "ample"
+                }
+              },
+              {
+                "event": "DUE",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:hint>REACHED>reachable"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "DUE",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "REACHED",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:hint>UNREACHABLE>hint"],
+            "steps": [
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "DUE",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "UNREACHABLE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "reach",
       "initial": null,
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "The wait is over and a calm line suggests checking WiFi.",
           "effects": [],
           "final": false,
@@ -740,7 +875,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 9
+          },
           "doc": "Everyone in the album can be reached, or there is nobody else yet; no hint is shown.",
           "effects": [],
           "final": false,
@@ -751,12 +888,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "Every other member is out of reach; a short wait runs before a hint appears.",
           "effects": [
             {
               "name": "trying",
-              "sends": null
+              "sends": ["DUE"]
             }
           ],
           "final": false,
