@@ -48,3 +48,19 @@ for (const feature of ["sharing", "albums", "first-run"]) {
     expect(missing).toEqual([]);
   });
 }
+
+// Factory machines run on an injected clock, so the inspector can fuzz them.
+const FUZZED = ["membership", "reach"];
+
+test("factory machines are fuzzed", () => {
+  const machines = ["sharing", "albums", "first-run"].flatMap((feature) => {
+    const flow = JSON.parse(
+      readFileSync(new URL(`../docs/flows/${feature}.json`, import.meta.url), "utf8"),
+    ) as { machines: { id: string; fuzz: unknown }[] };
+    return flow.machines;
+  });
+  const unfuzzed = FUZZED.filter(
+    (id) => !machines.some((machine) => machine.id === id && machine.fuzz !== null),
+  );
+  expect(unfuzzed).toEqual([]);
+});
