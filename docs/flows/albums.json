@@ -18,7 +18,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The new album appears first in the list and is opened.",
           "emits": [],
           "event": "CREATED",
@@ -37,9 +39,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 243
+              "line": 261
             },
             "payloadReads": ["folder", "folder.id"],
             "readsActorState": false,
@@ -55,7 +57,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Creating failed: the list is unchanged and the person sees why.",
           "emits": [],
           "event": "CREATE_FAILED",
@@ -74,9 +78,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 255
+              "line": 277
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -106,7 +110,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "After an error, refreshing starts a reload and clears the error.",
           "emits": [],
           "event": "REFRESH",
@@ -125,9 +131,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 144
+              "line": 159
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -143,7 +149,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Try again after an error reloads the albums.",
           "emits": [],
           "event": "RETRY",
@@ -162,9 +170,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 153
+              "line": 168
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -180,7 +188,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 15
+          },
           "doc": "First load of albums starts and any error is cleared.",
           "emits": [],
           "event": "REFRESH",
@@ -199,9 +209,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 126
+              "line": 141
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -217,7 +227,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person starts creating an album; the screen shows it is busy.",
           "emits": [],
           "event": "CREATE_FOLDER",
@@ -236,9 +248,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 213
+              "line": 226
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -254,7 +266,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Refreshing the albums starts a reload and clears any error.",
           "emits": [],
           "event": "REFRESH",
@@ -273,9 +287,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 135
+              "line": 150
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -291,7 +305,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person picks another album; the screen shows it is busy.",
           "emits": [],
           "event": "SET_ACTIVE",
@@ -310,9 +326,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 266
+              "line": 287
             },
             "payloadReads": ["folderId"],
             "readsActorState": false,
@@ -328,7 +344,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person starts changing their name; the screen shows it is busy.",
           "emits": [],
           "event": "SET_NAME",
@@ -347,9 +365,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 323
+              "line": 346
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -365,7 +383,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 11
+          },
           "doc": "The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine.",
           "emits": [],
           "event": "LOADED",
@@ -384,9 +404,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 192
+              "line": 202
             },
             "payloadReads": ["activeId", "folders"],
             "readsActorState": false,
@@ -402,7 +422,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Loading failed: an error is shown with a way to try again.",
           "emits": [],
           "event": "LOAD_FAILED",
@@ -421,9 +443,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 203
+              "line": 216
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -453,10 +475,12 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The new name is saved and shown everywhere.",
-          "emits": [],
-          "event": "RENAMED",
+          "emits": ["RENAMED"],
+          "event": "NAME_SAVED",
           "explanation": {
             "branches": [
               {
@@ -472,9 +496,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 353
+              "line": 381
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -482,7 +506,7 @@
             "status": "analyzed"
           },
           "from": "renaming",
-          "id": "renaming-RENAMED-ok",
+          "id": "renaming-NAME_SAVED-ok",
           "kind": "transition",
           "origin": "declared",
           "tested": null,
@@ -490,7 +514,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Saving the name failed: the old name stays and the person sees why.",
           "emits": [],
           "event": "RENAME_FAILED",
@@ -509,9 +535,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 364
+              "line": 390
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -541,8 +567,10 @@
         },
         {
           "contexts": [],
-          "coverage": null,
-          "doc": "The picked album is now open.",
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The picked album is now open and the sync status follows it.",
           "emits": [],
           "event": "SWITCHED",
           "explanation": {
@@ -560,9 +588,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 300
+              "line": 322
             },
             "payloadReads": ["status", "status.folder.id"],
             "readsActorState": false,
@@ -578,7 +606,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Opening the album failed: the previous album stays open and the person sees why.",
           "emits": [],
           "event": "SWITCH_FAILED",
@@ -597,9 +627,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 312
+              "line": 336
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -660,15 +690,15 @@
           "payloadType": null
         },
         {
-          "doc": "The app asks for the latest list of albums.",
-          "id": "REFRESH",
-          "internal": false,
+          "doc": "The new name was saved.",
+          "id": "NAME_SAVED",
+          "internal": true,
           "payloadType": null
         },
         {
-          "doc": "The new name was saved.",
-          "id": "RENAMED",
-          "internal": true,
+          "doc": "The app asks for the latest list of albums.",
+          "id": "REFRESH",
+          "internal": false,
           "payloadType": null
         },
         {
@@ -708,18 +738,572 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:idle"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:idle>REFRESH>refreshing", "state:refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:refreshing>LOAD_FAILED>error", "state:error"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>RETRY>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>REFRESH>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:refreshing>LOADED>ok", "state:ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>SET_ACTIVE>switching", "state:switching"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_ACTIVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>CREATE_FOLDER>creating", "state:creating"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "CREATE_FOLDER",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:switching>SWITCH_FAILED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_ACTIVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>REFRESH>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:creating>CREATED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "CREATE_FOLDER",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "CREATED",
+                "kind": "event",
+                "payload": {
+                  "folder": {
+                    "addedAt": 1,
+                    "driveKey": "sample",
+                    "id": "sample",
+                    "members": 1,
+                    "name": "sample",
+                    "pending": false,
+                    "role": "reader",
+                    "shareKey": "sample"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>SET_NAME>renaming", "state:renaming"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_NAME",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:renaming>RENAME_FAILED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_NAME",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "RENAME_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:switching>SWITCHED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_ACTIVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample"
+                }
+              },
+              {
+                "event": "SWITCHED",
+                "kind": "event",
+                "payload": {
+                  "status": {
+                    "discoveryKey": "sample",
+                    "driveKey": "sample",
+                    "folder": {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "member",
+                      "shareKey": "sample"
+                    },
+                    "members": [
+                      {
+                        "admin": false,
+                        "connected": false,
+                        "key": "sample",
+                        "lastSeenAt": 1,
+                        "name": "sample"
+                      }
+                    ],
+                    "name": "sample",
+                    "peers": 1,
+                    "photos": 1
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:renaming>NAME_SAVED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "SET_NAME",
+                "kind": "event",
+                "payload": {
+                  "name": "ample"
+                }
+              },
+              {
+                "event": "NAME_SAVED",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:creating>CREATE_FAILED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "activeId": "sample",
+                  "folders": [
+                    {
+                      "addedAt": 1,
+                      "driveKey": "sample",
+                      "id": "sample",
+                      "members": 1,
+                      "name": "sample",
+                      "pending": false,
+                      "role": "creator",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "CREATE_FOLDER",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "CREATE_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "folders",
       "initial": "idle",
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "A new album is being created.",
           "effects": [
             {
               "name": "creating",
-              "sends": null
+              "sends": ["CREATED", "CREATE_FAILED"]
             }
           ],
           "final": false,
@@ -730,7 +1314,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The albums could not be loaded; the person can try again.",
           "effects": [],
           "final": false,
@@ -741,7 +1327,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 16
+          },
           "doc": "Albums have not been loaded yet.",
           "effects": [],
           "final": false,
@@ -752,7 +1340,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 17
+          },
           "doc": "The albums are listed and one is open.",
           "effects": [],
           "final": false,
@@ -763,12 +1353,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 18
+          },
           "doc": "The album list is loading.",
           "effects": [
             {
               "name": "refreshing",
-              "sends": null
+              "sends": ["LOADED", "LOAD_FAILED"]
             }
           ],
           "final": false,
@@ -779,12 +1371,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person's name is being changed.",
           "effects": [
             {
               "name": "renaming",
-              "sends": null
+              "sends": ["NAME_SAVED", "RENAME_FAILED"]
             }
           ],
           "final": false,
@@ -795,12 +1389,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person is moving to another album.",
           "effects": [
             {
               "name": "switching",
-              "sends": null
+              "sends": ["SWITCHED", "SWITCH_FAILED"]
             }
           ],
           "final": false,

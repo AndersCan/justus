@@ -6,6 +6,9 @@ import {
   $foldersError,
   folders,
 } from "./folders-machine";
+import { VirtualClock } from "@mantaq/core";
+import { onOutput } from "@mantaq/sugar";
+import { createFoldersActor } from "./folders-machine";
 import { gateway } from "../gateway";
 
 // The mocked gateway is loosely typed so test fixtures don't have to satisfy
@@ -92,5 +95,122 @@ describe("folders machine", () => {
 
     expect($foldersError.get()).toMatch(/denied/i);
     expect($folders.get().map((f) => f.id)).not.toContain("f2");
+  });
+});
+
+describe("folders factory", () => {
+  const send = (actor: ReturnType<typeof createFoldersActor>, type: string, payload?: unknown) =>
+    (actor as any).send({ type, payload });
+
+  function build(port: Record<string, unknown> = {}) {
+    const gw = {
+      folders: vi.fn().mockResolvedValue([null, { folders: [], activeFolderId: null }]),
+      createFolder: vi.fn().mockResolvedValue([null, { folder: folder("f2", "New") }]),
+      setActive: vi.fn().mockResolvedValue([null, { folder: folder("f1", "Trip") }]),
+      setName: vi.fn().mockResolvedValue([null, { name: "Renamed" }]),
+      ...port,
+    };
+    const actor = createFoldersActor({ clock: VirtualClock(), gateway: gw as any });
+    const outputs: { type: string; payload: unknown }[] = [];
+    onOutput(actor, (e) => outputs.push(e as any));
+    return { actor, outputs, gw };
+  }
+  const ctx = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().context;
+  const path = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().path[0];
+
+  async function loaded(port: Record<string, unknown> = {}) {
+    const built = build({
+      folders: vi
+        .fn()
+        .mockResolvedValue([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }]),
+      ...port,
+    });
+    send(built.actor, "REFRESH");
+    await vi.waitFor(() => expect(path(built.actor)).toBe("ok"));
+    return built;
+  }
+
+  test("refresh loads the folders and active id into context", async () => {
+    const { actor } = await loaded();
+    expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
+    expect(ctx(actor).activeId).toBe("f1");
+    expect(ctx(actor).error).toBeNull();
+  });
+
+  test("refresh with no active folder still reaches ok", async () => {
+    const { actor } = build();
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(path(actor)).toBe("ok"));
+    expect(ctx(actor).activeId).toBeNull();
+  });
+
+  test("a failed refresh sets the error and retry reloads", async () => {
+    const fail = vi.fn().mockResolvedValueOnce([new Error("offline"), null]);
+    const { actor } = build({ folders: fail });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(path(actor)).toBe("error"));
+    expect(ctx(actor).error).toBe("offline");
+    fail.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
+    send(actor, "RETRY");
+    await vi.waitFor(() => expect(path(actor)).toBe("ok"));
+    expect(ctx(actor).error).toBeNull();
+  });
+
+  test("create prepends the folder and activates it", async () => {
+    const { actor, gw } = await loaded();
+    send(actor, "CREATE_FOLDER", { name: "New" });
+    await vi.waitFor(() => expect(ctx(actor).activeId).toBe("f2"));
+    expect(path(actor)).toBe("ok");
+    expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f2", "f1"]);
+    expect(gw.createFolder).toHaveBeenCalledWith("New");
+  });
+
+  test("a failed create keeps the list and sets the error", async () => {
+    const { actor } = await loaded({
+      createFolder: vi.fn().mockResolvedValue([new Error("denied"), null]),
+    });
+    send(actor, "CREATE_FOLDER", { name: "X" });
+    await vi.waitFor(() => expect(ctx(actor).error).toBe("denied"));
+    expect(path(actor)).toBe("ok");
+    expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
+  });
+
+  test("switch emits switchedTo with the new status", async () => {
+    const status = { folder: { id: "f3" }, name: "Ann" };
+    const { actor, outputs, gw } = await loaded({
+      setActive: vi.fn().mockResolvedValue([null, status]),
+    });
+    send(actor, "SET_ACTIVE", { folderId: "f3" });
+    await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["SWITCHED_TO"]));
+    expect(outputs[0]!.payload).toEqual({ status });
+    expect(ctx(actor).activeId).toBe("f3");
+    expect(gw.setActive).toHaveBeenCalledWith("f3");
+  });
+
+  test("a failed switch keeps the active folder, emits nothing and sets the error", async () => {
+    const { actor, outputs } = await loaded({
+      setActive: vi.fn().mockResolvedValue([new Error("gone"), null]),
+    });
+    send(actor, "SET_ACTIVE", { folderId: "f3" });
+    await vi.waitFor(() => expect(ctx(actor).error).toBe("gone"));
+    expect(ctx(actor).activeId).toBe("f1");
+    expect(outputs).toEqual([]);
+  });
+
+  test("rename emits renamed with the saved name", async () => {
+    const { actor, outputs } = await loaded();
+    send(actor, "SET_NAME", { name: "Me" });
+    await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["RENAMED"]));
+    expect(outputs[0]!.payload).toEqual({ name: "Renamed" });
+    expect(path(actor)).toBe("ok");
+  });
+
+  test("a failed rename emits nothing and sets the error", async () => {
+    const { actor, outputs } = await loaded({
+      setName: vi.fn().mockResolvedValue([new Error("too long"), null]),
+    });
+    send(actor, "SET_NAME", { name: "Me" });
+    await vi.waitFor(() => expect(ctx(actor).error).toBe("too long"));
+    expect(outputs).toEqual([]);
   });
 });

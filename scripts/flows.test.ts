@@ -59,6 +59,7 @@ const FUZZED = [
   "grants",
   "sync",
   "gallery",
+  "folders",
 ];
 
 test("factory machines are fuzzed", () => {
