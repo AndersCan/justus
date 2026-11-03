@@ -19,6 +19,7 @@ for (const [feature, files] of Object.entries(manifest)) {
       "--out",
       `docs/flows/${feature}.json`,
       "--no-open",
+      "--check",
       "--config",
       "apps/web/vite.config.ts",
     ],
@@ -29,7 +30,5 @@ for (const [feature, files] of Object.entries(manifest)) {
     failed = true;
   }
 }
-if (failed) process.exit(1);
-
 const fmt = spawnSync("pnpm", ["exec", "vp", "fmt", "docs/flows"], { cwd: root, stdio: "inherit" });
-if (fmt.status !== 0) process.exit(1);
+if (failed || fmt.status !== 0) process.exit(1);
