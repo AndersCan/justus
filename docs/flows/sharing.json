@@ -1922,7 +1922,7 @@
           "coverage": {
             "hits": 1
           },
-          "doc": null,
+          "doc": "The member list could not be saved, so the request goes back to waiting.",
           "emits": [],
           "event": "registryWriteFailed",
           "explanation": {
@@ -1942,7 +1942,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 148
+              "line": 170
             },
             "payloadReads": ["entry"],
             "readsActorState": false,
@@ -1961,7 +1961,7 @@
           "coverage": {
             "hits": 4
           },
-          "doc": null,
+          "doc": "The member list was saved, so the person becomes a member.",
           "emits": ["memberEnrolled"],
           "event": "registryWritten",
           "explanation": {
@@ -1981,7 +1981,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 143
+              "line": 164
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2000,7 +2000,7 @@
           "coverage": {
             "hits": 3
           },
-          "doc": null,
+          "doc": "The owner removes the member, so they are taken out of the list next.",
           "emits": [],
           "event": "remove",
           "explanation": {
@@ -2020,7 +2020,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 153
+              "line": 176
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2039,7 +2039,7 @@
           "coverage": {
             "hits": 8
           },
-          "doc": null,
+          "doc": "A request arrives and waits for the owner's decision.",
           "emits": [],
           "event": "requestSent",
           "explanation": {
@@ -2059,7 +2059,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 105
+              "line": 123
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -2092,7 +2092,7 @@
           "coverage": {
             "hits": 1
           },
-          "doc": null,
+          "doc": "Taking the member out failed, so they stay a member.",
           "emits": [],
           "event": "memberDropFailed",
           "explanation": {
@@ -2112,7 +2112,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 181
+              "line": 206
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2131,7 +2131,7 @@
           "coverage": {
             "hits": 1
           },
-          "doc": null,
+          "doc": "The member was taken out, so they are now removed.",
           "emits": ["memberRemoved"],
           "event": "memberDropped",
           "explanation": {
@@ -2151,7 +2151,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 176
+              "line": 200
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2170,7 +2170,7 @@
           "coverage": {
             "hits": 6
           },
-          "doc": null,
+          "doc": "The owner approves, so the member list is written next.",
           "emits": [],
           "event": "approve",
           "explanation": {
@@ -2196,7 +2196,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 115
+              "line": 135
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2215,7 +2215,7 @@
           "coverage": {
             "hits": 1
           },
-          "doc": null,
+          "doc": "The owner declines, so the person is no longer asking to join.",
           "emits": [],
           "event": "decline",
           "explanation": {
@@ -2235,7 +2235,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 110
+              "line": 129
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2252,49 +2252,49 @@
       ],
       "events": [
         {
-          "doc": null,
+          "doc": "The owner approves the request.",
           "id": "approve",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The owner declines the request.",
           "id": "decline",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member could not be taken out, so they stay a member.",
           "id": "memberDropFailed",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member was taken out of the member list.",
           "id": "memberDropped",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member list could not be saved, so the request stays pending.",
           "id": "registryWriteFailed",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The member list was saved with the new member.",
           "id": "registryWritten",
           "internal": true,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The owner removes a member.",
           "id": "remove",
           "internal": false,
           "payloadType": null
         },
         {
-          "doc": null,
+          "doc": "The person sends a request to join.",
           "id": "requestSent",
           "internal": false,
           "payloadType": null
@@ -2543,7 +2543,7 @@
           "coverage": {
             "hits": 6
           },
-          "doc": null,
+          "doc": "The owner approved the request and the member list is being written.",
           "effects": [
             {
               "name": "addMember",
@@ -2561,7 +2561,7 @@
           "coverage": {
             "hits": 5
           },
-          "doc": null,
+          "doc": "The person is in the member list and can see the shared photos.",
           "effects": [],
           "final": false,
           "id": "enrolled",
@@ -2574,7 +2574,7 @@
           "coverage": {
             "hits": 10
           },
-          "doc": null,
+          "doc": "This person has no request and is not in the album's member list.",
           "effects": [],
           "final": false,
           "id": "notMember",
@@ -2587,7 +2587,7 @@
           "coverage": {
             "hits": 1
           },
-          "doc": null,
+          "doc": "The person was removed and cannot rejoin.",
           "effects": [],
           "final": true,
           "id": "removed",
@@ -2600,7 +2600,7 @@
           "coverage": {
             "hits": 3
           },
-          "doc": null,
+          "doc": "The owner is taking the person out of the member list.",
           "effects": [
             {
               "name": "removeMember",
@@ -2618,7 +2618,7 @@
           "coverage": {
             "hits": 9
           },
-          "doc": null,
+          "doc": "The person asked to join and is waiting for the owner to approve or decline.",
           "effects": [],
           "final": false,
           "id": "requestPending",
