@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { Photo, PickedMedia } from "@justus/core";
 import { gateway } from "../gateway";
@@ -120,329 +120,386 @@ type GalleryContext = {
   /** A `photos.changed` push arrived mid-batch or mid-load: reload once the
    * batch or the in-flight list ends, so nothing is missed. */
   reloadAfterAdd: boolean;
+  photos: Photo[];
+  batch: AddBatch | null;
+  error: string | null;
 };
+type GalleryPort = Pick<typeof gateway, "list" | "upload" | "add" | "remove">;
 
-const idleContext = (): GalleryContext => ({
+/** Back to idle: the pending work is cleared, the photos, the add summary and the error stay. */
+const idleContext = (c: GalleryContext, change: Partial<GalleryContext> = {}): GalleryContext => ({
   pendingAdd: null,
   pendingRemove: null,
   reloadAfterAdd: false,
+  photos: c.photos,
+  batch: c.batch,
+  error: c.error,
+  ...change,
 });
 
 /** Adds one photo. A browser upload answers with only an id; the push it
  * triggers brings the full photo in on the reload after the batch. */
-function addOne(source: AddSource, folderId?: string): Promise<[unknown, unknown]> {
-  if (source.kind === "file") return gateway.upload(source.file, folderId);
+function addOne(
+  port: GalleryPort,
+  source: AddSource,
+  folderId?: string,
+): Promise<[unknown, unknown]> {
+  if (source.kind === "file") return port.upload(source.file, folderId);
   const { path, name, thumb, original, takenAt } = source;
   const extras = Object.fromEntries(
     Object.entries({ thumb, original, takenAt }).filter(([, v]) => v !== undefined),
   );
-  return gateway.add(path, name, folderId, extras);
+  return port.add(path, name, folderId, extras);
 }
 
-export const galleryActor = Actor({
-  inputs: [load, addMany, remove, retry, retryFailed, dismissBatch],
-  internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
-  outputs: [],
-  states: [booting, loading, ready, error, adding, removing],
-  initial: booting,
-  clock: RealClock(),
-  context: idleContext(),
-  setup: (m) => {
-    /** The first load of photos starts. */
-    m.on(booting, {
-      event: load,
-      to: [loading],
-      handler: () => {
-        $galleryError.set(null);
-        return { state: loading };
-      },
-    });
-    /** Refreshing the photos starts a reload. */
-    m.on(ready, {
-      event: load,
-      to: [loading],
-      handler: () => {
-        $galleryError.set(null);
-        return { state: loading };
-      },
-    });
-    /** After an error, reloading starts again and clears the error. */
-    m.on(error, {
-      event: load,
-      to: [loading],
-      handler: () => {
-        $galleryError.set(null);
-        return { state: loading };
-      },
-    });
-    /** Try again after an error reloads the photos. */
-    m.on(error, {
-      event: retry,
-      to: [loading],
-      handler: () => {
-        $galleryError.set(null);
-        return { state: loading };
-      },
-    });
-
-    /** The photos are fetched from the album. */
-    m.effect(loading, {
-      name: "loading",
-      fn: ({ signal, emit }) => {
-        return runInvoke(
-          signal,
-          () => gateway.list(),
-          (result) => {
-            const photos = (result as { photos?: Photo[] } | null)?.photos;
-            if (!photos) {
-              emit(loadFailed.create({ message: "list returned no photos" }));
-              return;
-            }
-            emit(loaded.create({ photos }));
-          },
-          (message) => emit(loadFailed.create({ message })),
-        );
-      },
-    });
-
-    /** The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload. */
-    m.on(loading, {
-      event: loaded,
-      to: [loading, ready, adding],
-      handler: (e, opts) => {
-        $photos.set(e.payload.photos);
-        $galleryError.set(null);
-        // Photos picked while the list was loading start adding now.
-        if (opts.context.get().pendingAdd) return { state: adding };
-        // A push during the load may name photos this list predates.
-        const again = opts.context.get().reloadAfterAdd;
-        opts.context.set(idleContext());
-        return { state: again ? loading : ready };
-      },
-    });
-    /** Loading failed and an error is shown; photos already picked still start adding. */
-    m.on(loading, {
-      event: loadFailed,
-      to: [error, adding],
-      handler: (e, opts) => {
-        $galleryError.set(e.payload.message);
-        if (opts.context.get().pendingAdd) return { state: adding };
-        opts.context.set(idleContext());
-        return { state: error };
-      },
-    });
-
-    const queueBatch = (
-      sources: AddSource[],
-      folderId: string | undefined,
-      opts: { context: { set(c: GalleryContext): void } },
-    ) => {
-      $addBatch.set({
-        folderId,
-        total: sources.length,
-        done: 0,
-        added: 0,
-        duplicates: 0,
-        failed: [],
-        running: true,
+/** The gallery runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
+export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPort }) {
+  const port = options.gateway ?? gateway;
+  return Actor({
+    inputs: [load, addMany, remove, retry, retryFailed, dismissBatch],
+    internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
+    outputs: [],
+    states: [booting, loading, ready, error, adding, removing],
+    initial: booting,
+    clock: options.clock,
+    context: idleContext({ photos: [], batch: null, error: null } as unknown as GalleryContext),
+    setup: (m) => {
+      /** The first load of photos starts. */
+      m.on(booting, {
+        event: load,
+        to: [loading],
+        handler: (_e, opts) => {
+          opts.context.set(idleContext(opts.context.get(), { error: null }));
+          return { state: loading };
+        },
       });
-      opts.context.set({ ...idleContext(), pendingAdd: { sources, folderId } });
-    };
-    const startBatch = (
-      sources: AddSource[],
-      folderId: string | undefined,
-      opts: { context: { set(c: GalleryContext): void } },
-    ) => {
-      $galleryError.set(null);
-      queueBatch(sources, folderId, opts);
-      return { state: adding };
-    };
-    /** The person adds photos and sees progress through the batch. */
-    m.on(ready, {
-      event: addMany,
-      to: [adding],
-      handler: (e, opts) => startBatch(e.payload.sources, e.payload.folderId, opts),
-    });
-    // A `photos.changed` push reloads the list often (every sync). Photos
-    // picked meanwhile must not be dropped: queue them, shown as adding, and
-    // start once the list is in.
-    for (const at of [booting, loading]) {
-      /** Photos picked while the list is still loading are queued and start once it arrives. */
-      m.on(at, {
-        event: addMany,
+      /** Refreshing the photos starts a reload. */
+      m.on(ready, {
+        event: load,
+        to: [loading],
+        handler: (_e, opts) => {
+          opts.context.set(idleContext(opts.context.get(), { error: null }));
+          return { state: loading };
+        },
+      });
+      /** After an error, reloading starts again and clears the error. */
+      m.on(error, {
+        event: load,
+        to: [loading],
+        handler: (_e, opts) => {
+          opts.context.set(idleContext(opts.context.get(), { error: null }));
+          return { state: loading };
+        },
+      });
+      /** Try again after an error reloads the photos. */
+      m.on(error, {
+        event: retry,
+        to: [loading],
+        handler: (_e, opts) => {
+          opts.context.set(idleContext(opts.context.get(), { error: null }));
+          return { state: loading };
+        },
+      });
+
+      /** The photos are fetched from the album. */
+      m.effect(loading, {
+        name: "loading",
+        sends: [loaded, loadFailed],
+        fn: ({ signal, emit }) => {
+          return runInvoke(
+            signal,
+            () => port.list(),
+            (result) => {
+              const photos = (result as { photos?: Photo[] } | null)?.photos;
+              if (!photos) {
+                emit(loadFailed.create({ message: "list returned no photos" }));
+                return;
+              }
+              emit(loaded.create({ photos }));
+            },
+            (message) => emit(loadFailed.create({ message })),
+          );
+        },
+      });
+
+      /** The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload. */
+      m.on(loading, {
+        event: loaded,
+        to: [loading, ready, adding],
         handler: (e, opts) => {
-          if (opts.context.get().pendingAdd) return {};
-          queueBatch(e.payload.sources, e.payload.folderId, opts);
-          return {};
-        },
-      });
-    }
-    /** Retrying adds only the photos that failed earlier, if none are still being added. */
-    m.on(ready, {
-      event: retryFailed,
-      handler: (_e, opts) => {
-        const last = $addBatch.get();
-        if (!last || last.running || last.failed.length === 0) return {};
-        return startBatch(
-          last.failed.map((f) => f.source),
-          last.folderId,
-          opts,
-        );
-      },
-    });
-    // A finished batch can be dismissed whatever the gallery is doing (an
-    // upload batch ends in a reload); only the running one stays.
-    for (const at of [booting, loading, ready, error, removing]) {
-      /** The add summary can be closed at any time, unless photos are still being added. */
-      m.on(at, {
-        event: dismissBatch,
-        handler: () => {
-          if (!$addBatch.get()?.running) $addBatch.set(null);
-          return {};
-        },
-      });
-    }
-    // One photo at a time: the worklet writes each to the album's drive in
-    // turn, and the progress count stays honest.
-    /** Each picked photo is added in turn, and the progress count goes up after each. */
-    m.effect(adding, {
-      name: "adding",
-      fn: ({ signal, emit, context }) => {
-        const batch = context.get().pendingAdd;
-        if (!batch || batch.sources.length === 0) {
-          emit(batchDone.create());
-          return;
-        }
-        // Ids already in the album, to tell a deduped re-add from a new photo.
-        const key = (id: string, folderId?: string) => `${folderId ?? ""}/${id}`;
-        const held = new Set($photos.get().map((p) => key(p.id, p.folderId)));
-        return (async () => {
-          for (const source of batch.sources) {
-            if (signal.aborted) return;
-            await runInvoke(
-              signal,
-              () => addOne(source, batch.folderId),
-              (result) => {
-                const r = result as Partial<Photo> | null;
-                if (!r?.id) {
-                  emit(itemFailed.create({ source, message: "add returned no photo" }));
-                  return;
-                }
-                const id = key(r.id, r.folderId ?? batch.folderId);
-                const duplicate = held.has(id);
-                held.add(id);
-                // A path add answers with the photo; an upload with its id only.
-                const photo = source.kind === "path" ? (r as Photo) : null;
-                emit(itemAdded.create({ photo, duplicate }));
-              },
-              (message) => emit(itemFailed.create({ source, message })),
-            );
+          const c = opts.context.get();
+          // Photos picked while the list was loading start adding now.
+          if (c.pendingAdd) {
+            opts.context.set({ ...c, photos: e.payload.photos, error: null });
+            return { state: adding };
           }
-          if (!signal.aborted) emit(batchDone.create());
-        })();
-      },
-    });
-    const tally = (change: (b: AddBatch) => Partial<AddBatch>) => {
-      const b = $addBatch.get();
-      if (b) $addBatch.set({ ...b, done: b.done + 1, ...change(b) });
-    };
-    /** A photo is added to the top of the list, or counted as already in the album. */
-    m.on(adding, {
-      event: itemAdded,
-      handler: (e) => {
-        const { photo, duplicate } = e.payload;
-        if (photo) $photos.set([photo, ...$photos.get().filter((p) => !samePhoto(p, photo))]);
-        tally((b) => (duplicate ? { duplicates: b.duplicates + 1 } : { added: b.added + 1 }));
-        return {};
-      },
-    });
-    /** A photo failed to add: it is kept in the summary for retry and the rest carry on. */
-    m.on(adding, {
-      event: itemFailed,
-      handler: (e) => {
-        tally((b) => ({ failed: [...b.failed, e.payload] }));
-        return {};
-      },
-    });
-    /** The album synced while loading: the photos reload once more afterwards. */
-    m.on(loading, {
-      event: load,
-      handler: (_e, opts) => {
-        opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
-        return {};
-      },
-    });
-    /** The album synced while photos are adding: the photos reload when adding ends. */
-    m.on(adding, {
-      event: load,
-      handler: (_e, opts) => {
-        opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
-        return {};
-      },
-    });
-    /** Adding ended: the summary shows the result and the photos reload if uploads or syncs need it. */
-    m.on(adding, {
-      event: batchDone,
-      to: [loading, ready],
-      handler: (_e, opts) => {
-        const { reloadAfterAdd, pendingAdd } = opts.context.get();
-        const b = $addBatch.get();
-        if (b) $addBatch.set({ ...b, running: false });
-        // Uploads come back as bare ids: reload for the full photos.
-        const uploaded = pendingAdd?.sources.some((s) => s.kind === "file") ?? false;
-        opts.context.set(idleContext());
-        return { state: reloadAfterAdd || uploaded ? loading : ready };
-      },
-    });
+          // A push during the load may name photos this list predates.
+          opts.context.set(idleContext(c, { photos: e.payload.photos, error: null }));
+          return { state: c.reloadAfterAdd ? loading : ready };
+        },
+      });
+      /** Loading failed and an error is shown; photos already picked still start adding. */
+      m.on(loading, {
+        event: loadFailed,
+        to: [error, adding],
+        handler: (e, opts) => {
+          const c = opts.context.get();
+          if (c.pendingAdd) {
+            opts.context.set({ ...c, error: e.payload.message });
+            return { state: adding };
+          }
+          opts.context.set(idleContext(c, { error: e.payload.message }));
+          return { state: error };
+        },
+      });
 
-    /** The person removes a photo; the screen shows it is busy. */
-    m.on(ready, {
-      event: remove,
-      to: [removing],
-      handler: (e, opts) => {
-        $galleryError.set(null);
-        opts.context.set({ ...idleContext(), pendingRemove: { ...e.payload } });
-        return { state: removing };
-      },
-    });
-    /** The photo is deleted from the album. */
-    m.effect(removing, {
-      name: "removing",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pendingRemove;
-        if (!pending) {
-          emit(removeFailed.create({ message: "no pending photo to remove" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.remove(pending.id, pending.folderId),
-          () => emit(removed.create(pending)),
-          (message) => emit(removeFailed.create({ message })),
+      const queueBatch = (
+        sources: AddSource[],
+        folderId: string | undefined,
+        opts: { context: { get(): GalleryContext; set(c: GalleryContext): void } },
+        change: Partial<GalleryContext> = {},
+      ) => {
+        opts.context.set(
+          idleContext(opts.context.get(), {
+            ...change,
+            batch: {
+              folderId,
+              total: sources.length,
+              done: 0,
+              added: 0,
+              duplicates: 0,
+              failed: [],
+              running: true,
+            },
+            pendingAdd: { sources, folderId },
+          }),
         );
-      },
-    });
-    /** The photo disappears from the list. */
-    m.on(removing, {
-      event: removed,
-      to: [ready],
-      handler: (e, opts) => {
-        $galleryError.set(null);
-        $photos.set($photos.get().filter((p) => !samePhoto(p, e.payload)));
-        opts.context.set(idleContext());
-        return { state: ready };
-      },
-    });
-    /** Removing failed: the photo stays and the person sees why. */
-    m.on(removing, {
-      event: removeFailed,
-      to: [ready],
-      handler: (e, opts) => {
-        $galleryError.set(e.payload.message);
-        opts.context.set(idleContext());
-        return { state: ready };
-      },
-    });
+      };
+      const startBatch = (
+        sources: AddSource[],
+        folderId: string | undefined,
+        opts: { context: { get(): GalleryContext; set(c: GalleryContext): void } },
+      ) => {
+        queueBatch(sources, folderId, opts, { error: null });
+        return { state: adding };
+      };
+      /** The person adds photos and sees progress through the batch. */
+      m.on(ready, {
+        event: addMany,
+        to: [adding],
+        handler: (e, opts) => startBatch(e.payload.sources, e.payload.folderId, opts),
+      });
+      // A `photos.changed` push reloads the list often (every sync). Photos
+      // picked meanwhile must not be dropped: queue them, shown as adding, and
+      // start once the list is in.
+      for (const at of [booting, loading]) {
+        /** Photos picked while the list is still loading are queued and start once it arrives. */
+        m.on(at, {
+          event: addMany,
+          handler: (e, opts) => {
+            if (opts.context.get().pendingAdd) return {};
+            queueBatch(e.payload.sources, e.payload.folderId, opts);
+            return {};
+          },
+        });
+      }
+      /** Retrying adds only the photos that failed earlier, if none are still being added. */
+      m.on(ready, {
+        event: retryFailed,
+        handler: (_e, opts) => {
+          const last = opts.context.get().batch;
+          if (!last || last.running || last.failed.length === 0) return {};
+          return startBatch(
+            last.failed.map((f) => f.source),
+            last.folderId,
+            opts,
+          );
+        },
+      });
+      // A finished batch can be dismissed whatever the gallery is doing (an
+      // upload batch ends in a reload); only the running one stays.
+      for (const at of [booting, loading, ready, error, removing]) {
+        /** The add summary can be closed at any time, unless photos are still being added. */
+        m.on(at, {
+          event: dismissBatch,
+          handler: (_e, opts) => {
+            const c = opts.context.get();
+            if (!c.batch?.running) opts.context.set({ ...c, batch: null });
+            return {};
+          },
+        });
+      }
+      // One photo at a time: the worklet writes each to the album's drive in
+      // turn, and the progress count stays honest.
+      /** Each picked photo is added in turn, and the progress count goes up after each. */
+      m.effect(adding, {
+        name: "adding",
+        sends: [itemAdded, itemFailed, batchDone],
+        fn: ({ signal, emit, context }) => {
+          const batch = context.get().pendingAdd;
+          if (!batch || batch.sources.length === 0) {
+            emit(batchDone.create());
+            return;
+          }
+          // Ids already in the album, to tell a deduped re-add from a new photo.
+          const key = (id: string, folderId?: string) => `${folderId ?? ""}/${id}`;
+          const held = new Set(context.get().photos.map((p) => key(p.id, p.folderId)));
+          return (async () => {
+            for (const source of batch.sources) {
+              if (signal.aborted) return;
+              await runInvoke(
+                signal,
+                () => addOne(port, source, batch.folderId),
+                (result) => {
+                  const r = result as Partial<Photo> | null;
+                  if (!r?.id) {
+                    emit(itemFailed.create({ source, message: "add returned no photo" }));
+                    return;
+                  }
+                  const id = key(r.id, r.folderId ?? batch.folderId);
+                  const duplicate = held.has(id);
+                  held.add(id);
+                  // A path add answers with the photo; an upload with its id only.
+                  const photo = source.kind === "path" ? (r as Photo) : null;
+                  emit(itemAdded.create({ photo, duplicate }));
+                },
+                (message) => emit(itemFailed.create({ source, message })),
+              );
+            }
+            if (!signal.aborted) emit(batchDone.create());
+          })();
+        },
+      });
+      const tally = (
+        opts: { context: { get(): GalleryContext; set(c: GalleryContext): void } },
+        change: (b: AddBatch) => Partial<AddBatch>,
+        photos?: (current: Photo[]) => Photo[],
+      ) => {
+        const c = opts.context.get();
+        opts.context.set({
+          ...c,
+          photos: photos ? photos(c.photos) : c.photos,
+          batch: c.batch ? { ...c.batch, done: c.batch.done + 1, ...change(c.batch) } : c.batch,
+        });
+      };
+      /** A photo is added to the top of the list, or counted as already in the album. */
+      m.on(adding, {
+        event: itemAdded,
+        handler: (e, opts) => {
+          const { photo, duplicate } = e.payload;
+          tally(
+            opts,
+            (b) => (duplicate ? { duplicates: b.duplicates + 1 } : { added: b.added + 1 }),
+            photo
+              ? (current) => [photo, ...current.filter((p) => !samePhoto(p, photo))]
+              : undefined,
+          );
+          return {};
+        },
+      });
+      /** A photo failed to add: it is kept in the summary for retry and the rest carry on. */
+      m.on(adding, {
+        event: itemFailed,
+        handler: (e, opts) => {
+          tally(opts, (b) => ({ failed: [...b.failed, e.payload] }));
+          return {};
+        },
+      });
+      /** The album synced while loading: the photos reload once more afterwards. */
+      m.on(loading, {
+        event: load,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
+          return {};
+        },
+      });
+      /** The album synced while photos are adding: the photos reload when adding ends. */
+      m.on(adding, {
+        event: load,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
+          return {};
+        },
+      });
+      /** Adding ended: the summary shows the result and the photos reload if uploads or syncs need it. */
+      m.on(adding, {
+        event: batchDone,
+        to: [loading, ready],
+        handler: (_e, opts) => {
+          const c = opts.context.get();
+          // Uploads come back as bare ids: reload for the full photos.
+          const uploaded = c.pendingAdd?.sources.some((s) => s.kind === "file") ?? false;
+          opts.context.set(
+            idleContext(c, { batch: c.batch ? { ...c.batch, running: false } : null }),
+          );
+          return { state: c.reloadAfterAdd || uploaded ? loading : ready };
+        },
+      });
+
+      /** The person removes a photo; the screen shows it is busy. */
+      m.on(ready, {
+        event: remove,
+        to: [removing],
+        handler: (e, opts) => {
+          opts.context.set(
+            idleContext(opts.context.get(), { error: null, pendingRemove: { ...e.payload } }),
+          );
+          return { state: removing };
+        },
+      });
+      /** The photo is deleted from the album. */
+      m.effect(removing, {
+        name: "removing",
+        sends: [removed, removeFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pendingRemove;
+          if (!pending) {
+            emit(removeFailed.create({ message: "no pending photo to remove" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.remove(pending.id, pending.folderId),
+            () => emit(removed.create(pending)),
+            (message) => emit(removeFailed.create({ message })),
+          );
+        },
+      });
+      /** The photo disappears from the list. */
+      m.on(removing, {
+        event: removed,
+        to: [ready],
+        handler: (e, opts) => {
+          const c = opts.context.get();
+          opts.context.set(
+            idleContext(c, {
+              error: null,
+              photos: c.photos.filter((p) => !samePhoto(p, e.payload)),
+            }),
+          );
+          return { state: ready };
+        },
+      });
+      /** Removing failed: the photo stays and the person sees why. */
+      m.on(removing, {
+        event: removeFailed,
+        to: [ready],
+        handler: (e, opts) => {
+          opts.context.set(idleContext(opts.context.get(), { error: e.payload.message }));
+          return { state: ready };
+        },
+      });
+    },
+  });
+}
+
+export const galleryActor = createGalleryActor({ clock: RealClock() });
+
+galleryActor.on("change", {
+  fn: (snapshot) => {
+    $photos.set(snapshot.context.photos);
+    $addBatch.set(snapshot.context.batch);
+    $galleryError.set(snapshot.context.error);
   },
 });
 
