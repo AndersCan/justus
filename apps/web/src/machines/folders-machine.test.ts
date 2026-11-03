@@ -4,12 +4,14 @@ import {
   $activeFolderId,
   $foldersState,
   $foldersError,
+  $userName,
   folders,
 } from "./folders-machine";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { createFoldersActor } from "./folders-machine";
 import { gateway } from "../gateway";
+import { $syncStatus } from "./sync-machine";
 
 // The mocked gateway is loosely typed so test fixtures don't have to satisfy
 // the full FolderSummary/Photo/Either shapes.
@@ -83,6 +85,37 @@ describe("folders machine", () => {
     folders.switchTo("f1");
     await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
     expect($activeFolderId.get()).toBe("f1");
+  });
+
+  test("switching publishes the returned status to $syncStatus", async () => {
+    const status = { folder: { id: "f1", name: "Trip" }, name: "Ann" };
+    mock.setActive.mockResolvedValue([null, status]);
+    $syncStatus.set(null as any);
+    folders.refresh();
+    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+
+    folders.switchTo("f1");
+    await vi.waitFor(() => expect($syncStatus.get()).toEqual(status));
+    expect($activeFolderId.get()).toBe("f1");
+  });
+
+  test("renaming publishes the saved name to $userName", async () => {
+    $userName.set("");
+    folders.refresh();
+    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+
+    folders.rename("Renamed");
+    await vi.waitFor(() => expect($userName.get()).toBe("Renamed"));
+  });
+
+  test("a retry after a failed refresh clears $foldersError", async () => {
+    mock.folders.mockResolvedValueOnce([new Error("offline"), null]);
+    folders.refresh();
+    await vi.waitFor(() => expect($foldersError.get()).toBe("offline"));
+
+    folders.retry();
+    await vi.waitFor(() => expect($foldersError.get()).toBeNull());
+    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
   });
 
   test("a create failure surfaces an error and returns to ok (no unhandled rejection)", async () => {
@@ -184,6 +217,7 @@ describe("folders factory", () => {
     await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["SWITCHED_TO"]));
     expect(outputs[0]!.payload).toEqual({ status });
     expect(ctx(actor).activeId).toBe("f3");
+    expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
     expect(gw.setActive).toHaveBeenCalledWith("f3");
   });
 
@@ -202,6 +236,7 @@ describe("folders factory", () => {
     send(actor, "SET_NAME", { name: "Me" });
     await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["RENAMED"]));
     expect(outputs[0]!.payload).toEqual({ name: "Renamed" });
+    expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
     expect(path(actor)).toBe("ok");
   });
 
