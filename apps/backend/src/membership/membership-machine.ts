@@ -23,24 +23,41 @@ export type MembershipRecords = {
   requests: RequestsFile["requests"];
 };
 
+/** This person has no request and is not in the album's member list. */
 const notMember = state("notMember")();
+/** The person asked to join and is waiting for the owner to approve or decline. */
 const requestPending = state("requestPending")<RequestEntry>();
+/** The owner approved the request and the member list is being written. */
 const approved = state("approved")<RequestEntry>();
+/** The person is in the member list and can see the shared photos. */
 const enrolled = state("enrolled")();
+/** The owner is taking the person out of the member list. */
 const removing = state("removing")();
-const removed = state("removed")().final();
+/** The person was removed and cannot rejoin. */
+const removedState = state("removed")();
+const removed = removedState.final();
 
+/** The person sends a request to join. */
 const requestSent = event("requestSent")<RequestEntry>();
+/** The owner approves the request. */
 const approve = event("approve")();
+/** The owner declines the request. */
 const decline = event("decline")();
+/** The owner removes a member. */
 const remove = event("remove")();
 
+/** The member list was saved with the new member. */
 const registryWritten = event("registryWritten")();
+/** The member list could not be saved, so the request stays pending. */
 const registryWriteFailed = event("registryWriteFailed")<{ reason: string; entry: RequestEntry }>();
+/** The member was taken out of the member list. */
 const memberDropped = event("memberDropped")();
+/** The member could not be taken out, so they stay a member. */
 const memberDropFailed = event("memberDropFailed")<{ reason: string }>();
 
+/** Tells the rest of the app that the person is now a member. */
 const memberEnrolled = event("memberEnrolled")<{ memberKey: string }>();
+/** Tells the rest of the app that the person is no longer a member. */
 const memberRemoved = event("memberRemoved")<{ memberKey: string }>();
 
 type AddResult =
@@ -102,16 +119,19 @@ export function createMembershipActor(options: {
     initial: initialStateFromRecords({ records, memberKey }),
     clock,
     setup: (m) => {
+      /** A request arrives and waits for the owner's decision. */
       m.on(notMember, {
         event: requestSent,
         to: [requestPending],
         handler: (e) => ({ state: requestPending.create(e.payload) }),
       });
+      /** The owner declines, so the person is no longer asking to join. */
       m.on(requestPending, {
         event: decline,
         to: [notMember],
         handler: () => ({ state: notMember }),
       });
+      /** The owner approves, so the member list is written next. */
       m.on(requestPending, {
         event: approve,
         to: [approved],
@@ -140,16 +160,19 @@ export function createMembershipActor(options: {
             },
           }),
       });
+      /** The member list was saved, so the person becomes a member. */
       m.on(approved, {
         event: registryWritten,
         to: [enrolled],
         handler: () => ({ state: enrolled, emit: [memberEnrolled.create({ memberKey })] }),
       });
+      /** The member list could not be saved, so the request goes back to waiting. */
       m.on(approved, {
         event: registryWriteFailed,
         to: [requestPending],
         handler: (e) => ({ state: requestPending.create(e.payload.entry) }),
       });
+      /** The owner removes the member, so they are taken out of the list next. */
       m.on(enrolled, {
         event: remove,
         to: [removing],
@@ -173,11 +196,13 @@ export function createMembershipActor(options: {
             },
           }),
       });
+      /** The member was taken out, so they are now removed. */
       m.on(removing, {
         event: memberDropped,
         to: [removed],
         handler: () => ({ state: removed, emit: [memberRemoved.create({ memberKey })] }),
       });
+      /** Taking the member out failed, so they stay a member. */
       m.on(removing, {
         event: memberDropFailed,
         to: [enrolled],
