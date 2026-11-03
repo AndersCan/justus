@@ -22,11 +22,16 @@ export const $inviteViewModel = computed(
   (invite, state, error, fatal) => ({ invite, state, error, fatal }),
 );
 
+/** No invite is being looked at; the person can paste or scan one. */
 const idle = state("idle")();
+/** An invite was read and its details are on screen, waiting for the person to join or cancel. */
 const reviewing = state("reviewing")();
 
+/** The person pastes, scans or opens an invite. */
 const receive = event("RECEIVE")<{ text: string }>();
+/** The person agrees to join the shared folder shown. */
 const confirm = event("CONFIRM")();
+/** The person backs out of the invite without joining. */
 const cancel = event("CANCEL")();
 
 export const inviteActor = Actor({
@@ -39,6 +44,7 @@ export const inviteActor = Actor({
   context: {},
   setup: (m) => {
     for (const from of [idle, reviewing]) {
+      /** A pasted invite is checked. If it is incomplete or garbled, the person is told to check they copied all of it and stays where they were; if it is valid, its details are shown for review (a new invite replaces one already on screen). */
       m.on(from, {
         event: receive,
         to: [idle, reviewing],
@@ -54,6 +60,7 @@ export const inviteActor = Actor({
         },
       });
     }
+    /** The person joins the folder from the invite and is back at the start. */
     m.on(reviewing, {
       event: confirm,
       to: [idle],
@@ -64,6 +71,7 @@ export const inviteActor = Actor({
         return { state: idle };
       },
     });
+    /** The invite is dropped and nothing is joined. */
     m.on(reviewing, {
       event: cancel,
       to: [idle],

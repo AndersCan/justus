@@ -38,22 +38,38 @@ export const $syncViewModel = computed(
   }),
 );
 
+/** Nothing has been checked yet; the folder status is unknown. */
 const idle = state("idle")();
+/** Checking the current state of the shared folder. */
 const refreshing = state("refreshing")();
+/** The folder status is up to date and the person can join or add a folder. */
 const ok = state("ok")();
+/** Joining a shared folder from an invite; a spinner shows until it finishes. */
 const joining = state("joining")();
+/** Adding a folder of the person's own to share; a spinner shows until it finishes. */
 const enrolling = state("enrolling")();
+/** Checking the folder failed; the person sees the problem and can try again. */
 const error = state("error")();
 
+/** The person opens the sharing screen or asks it to reload. */
 const refresh = event("REFRESH")();
+/** The folder status came back. */
 const status = event("STATUS")<{ status: SyncStatus }>();
+/** The folder status could not be read (no answer, or the app could not reach it). */
 const statusFailed = event("STATUS_FAILED")<{ message: string }>();
+/** The person joins a folder from an invite, with an optional name. */
 const join = event("JOIN")<{ key: string; name?: string }>();
+/** Joining finished; the folder may be ready, or waiting for the owner's approval. */
 const joined = event("JOINED")<{ status: SyncStatus }>();
+/** Joining did not work (no answer, or the app could not reach the folder). */
 const joinFailed = event("JOIN_FAILED")<{ message: string }>();
+/** The person chooses a folder of their own to share, with a name. */
 const enroll = event("ENROLL")<{ key: string; name: string }>();
+/** The folder is now set up for sharing. */
 const enrolled = event("ENROLLED")<{ status: SyncStatus }>();
+/** Setting up the folder for sharing did not work. */
 const enrollFailed = event("ENROLL_FAILED")<{ message: string }>();
+/** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
 type SyncContext = {
@@ -73,6 +89,7 @@ export const syncActor = Actor({
     pendingEnroll: null,
   } as SyncContext,
   setup: (m) => {
+    /** The first check starts and any old error is cleared. */
     m.on(idle, {
       event: refresh,
       to: [refreshing],
@@ -81,6 +98,7 @@ export const syncActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload starts and any old error is cleared. */
     m.on(ok, {
       event: refresh,
       to: [refreshing],
@@ -89,6 +107,7 @@ export const syncActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload after an error starts and the error message goes away. */
     m.on(error, {
       event: refresh,
       to: [refreshing],
@@ -97,6 +116,7 @@ export const syncActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Try again after an error: the check starts again and the error message goes away. */
     m.on(error, {
       event: retry,
       to: [refreshing],
@@ -120,6 +140,7 @@ export const syncActor = Actor({
         );
       },
     });
+    /** The folder status is shown and any error is cleared. */
     m.on(refreshing, {
       event: status,
       to: [ok],
@@ -130,6 +151,7 @@ export const syncActor = Actor({
         return { state: ok };
       },
     });
+    /** The check failed: the person sees an error and can try again. */
     m.on(refreshing, {
       event: statusFailed,
       to: [error],
@@ -140,6 +162,7 @@ export const syncActor = Actor({
       },
     });
 
+    /** Joining starts: any earlier error and any earlier 'waiting for approval' notice are cleared. */
     m.on(ok, {
       event: join,
       to: [joining],
@@ -172,6 +195,7 @@ export const syncActor = Actor({
         );
       },
     });
+    /** Joining worked. If the owner still has to approve, the person is told they are waiting for approval; otherwise the folder is ready. */
     m.on(joining, {
       event: joined,
       to: [ok],
@@ -183,6 +207,7 @@ export const syncActor = Actor({
         return { state: ok };
       },
     });
+    /** Joining failed: the person sees an error and stays on the sharing screen to try again. */
     m.on(joining, {
       event: joinFailed,
       to: [ok],
@@ -193,6 +218,7 @@ export const syncActor = Actor({
       },
     });
 
+    /** Setting up the person's folder for sharing starts and any earlier error is cleared. */
     m.on(ok, {
       event: enroll,
       to: [enrolling],
@@ -224,6 +250,7 @@ export const syncActor = Actor({
         );
       },
     });
+    /** The folder is set up and its status is shown. */
     m.on(enrolling, {
       event: enrolled,
       to: [ok],
@@ -234,6 +261,7 @@ export const syncActor = Actor({
         return { state: ok };
       },
     });
+    /** Setting up failed: the person sees an error and stays on the sharing screen. */
     m.on(enrolling, {
       event: enrollFailed,
       to: [ok],

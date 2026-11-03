@@ -27,3 +27,23 @@ test("every machine file is in the flows manifest", () => {
 test("every manifest path exists", () => {
   expect(listed.filter((file) => !existsSync(join(root, file)))).toEqual([]);
 });
+
+
+type Item = { id: string; doc: string | null; kind?: string };
+type Flow = { machines: { id: string; states: Item[]; events: Item[]; edges: Item[] }[] };
+
+function read(feature: string): Flow {
+  return JSON.parse(
+    readFileSync(new URL(`../docs/flows/${feature}.json`, import.meta.url), "utf8"),
+  );
+}
+
+test("sharing flows document every state, event and transition", () => {
+  const missing = read("sharing").machines.flatMap((machine) =>
+    [...machine.states, ...machine.events, ...machine.edges]
+      // effect edges are probed, not declared with m.on, so inspect has no doc for them
+      .filter((item) => item.kind !== "effect" && !item.doc?.trim())
+      .map((item) => `${machine.id}: ${item.id}`),
+  );
+  expect(missing).toEqual([]);
+});

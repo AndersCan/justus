@@ -40,18 +40,30 @@ export const $grantsViewModel = computed(
   }),
 );
 
+/** The list of people this device shares photos with has not been loaded yet. */
 const idle = state("idle")();
+/** Loading who the person shares photos with and who is due a prompt. */
 const refreshing = state("refreshing")();
+/** The list of people is shown and the person can grant, decline, snooze or revoke. */
 const ok = state("ok")();
+/** Saving the person's choice about someone; buttons are disabled meanwhile. */
 const acting = state("acting")();
+/** The list could not be loaded; the person sees the problem and can try again. */
 const error = state("error")();
 
+/** The person opens the share screen or asks it to reload. */
 const refresh = event("REFRESH")();
+/** The people list and the people due a prompt came back. */
 const loaded = event("LOADED")<{ records: GrantRecord[]; due: string[] }>();
+/** The people list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
+/** The person lets someone see their photos, declines, snoozes the daily prompt, or stops sharing with someone. */
 const act = event("ACT")<{ peerId: string; kind: GrantActionKind }>();
+/** The choice was saved. */
 const acted = event("ACTED")();
+/** The choice could not be saved. */
 const actFailed = event("ACT_FAILED")<{ message: string }>();
+/** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
 type GrantsContext = {
@@ -69,6 +81,7 @@ export const grantsActor = Actor({
     pendingAct: null,
   } as GrantsContext,
   setup: (m) => {
+    /** The first load starts and any old error is cleared. */
     m.on(idle, {
       event: refresh,
       to: [refreshing],
@@ -77,6 +90,7 @@ export const grantsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload starts and any old error is cleared. */
     m.on(ok, {
       event: refresh,
       to: [refreshing],
@@ -85,6 +99,7 @@ export const grantsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** A reload after an error starts and the error message goes away. */
     m.on(error, {
       event: refresh,
       to: [refreshing],
@@ -93,6 +108,7 @@ export const grantsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Try again after an error: loading starts again and the error message goes away. */
     m.on(error, {
       event: retry,
       to: [refreshing],
@@ -121,6 +137,7 @@ export const grantsActor = Actor({
         );
       },
     });
+    /** The people and the prompts due today are shown. */
     m.on(refreshing, {
       event: loaded,
       to: [ok],
@@ -131,6 +148,7 @@ export const grantsActor = Actor({
         return { state: ok };
       },
     });
+    /** Loading failed: the person sees an error and can try again. */
     m.on(refreshing, {
       event: loadFailed,
       to: [error],
@@ -140,6 +158,7 @@ export const grantsActor = Actor({
       },
     });
 
+    /** The person's choice starts saving and any earlier error is cleared. */
     m.on(ok, {
       event: act,
       to: [acting],
@@ -173,6 +192,7 @@ export const grantsActor = Actor({
         );
       },
     });
+    /** The choice is saved, so the list reloads to show the new situation. */
     m.on(acting, {
       event: acted,
       to: [refreshing],
@@ -182,6 +202,7 @@ export const grantsActor = Actor({
         return { state: refreshing };
       },
     });
+    /** Saving failed: the person sees an error and the list stays as it was. */
     m.on(acting, {
       event: actFailed,
       to: [ok],
