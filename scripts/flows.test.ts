@@ -50,11 +50,7 @@ for (const feature of ["sharing", "albums", "first-run"]) {
 }
 
 // Factory machines run on an injected clock, so the inspector can fuzz them.
-<<<<<<< HEAD
-const FUZZED = ["membership", "reach", "onboarding", "people"];
-=======
-const FUZZED = ["membership", "reach", "onboarding", "requests"];
->>>>>>> 6d9be47 (Requests machine as a factory with an injected clock and gateway)
+const FUZZED = ["membership", "reach", "onboarding", "people", "requests"];
 
 test("factory machines are fuzzed", () => {
   const machines = ["sharing", "albums", "first-run"].flatMap((feature) => {
