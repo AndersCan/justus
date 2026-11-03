@@ -30,6 +30,5 @@ for (const [feature, files] of Object.entries(manifest)) {
   }
 }
 if (failed) process.exit(1);
-
 const fmt = spawnSync("pnpm", ["exec", "vp", "fmt", "docs/flows"], { cwd: root, stdio: "inherit" });
 if (fmt.status !== 0) process.exit(1);
