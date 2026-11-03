@@ -37,12 +37,14 @@ function read(feature: string): Flow {
   );
 }
 
-test("sharing flows document every state, event and transition", () => {
-  const missing = read("sharing").machines.flatMap((machine) =>
-    [...machine.states, ...machine.events, ...machine.edges]
-      // effect edges are probed, not declared with m.on, so inspect has no doc for them
-      .filter((item) => item.kind !== "effect" && !item.doc?.trim())
-      .map((item) => `${machine.id}: ${item.id}`),
-  );
-  expect(missing).toEqual([]);
-});
+for (const feature of ["sharing", "albums", "first-run"]) {
+  test(`${feature} flows document every state, event and transition`, () => {
+    const missing = read(feature).machines.flatMap((machine) =>
+      [...machine.states, ...machine.events, ...machine.edges]
+        // effect edges are probed, not declared with m.on, so inspect has no doc for them
+        .filter((item) => item.kind !== "effect" && !item.doc?.trim())
+        .map((item) => `${machine.id}: ${item.id}`),
+    );
+    expect(missing).toEqual([]);
+  });
+}
