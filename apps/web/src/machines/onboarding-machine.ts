@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
@@ -6,8 +6,8 @@ import { $userName } from "./folders-machine";
 
 /**
  * First-run onboarding: swipeable intro cards, a required profile step, then
- * the create-or-join choice. Same actor pattern as the other machines; the
- * card index is an atom the change handlers keep in step.
+ * the create-or-join choice. The card index, name
+ * draft and error live in context; the singleton copies them to atoms.
  */
 
 /** Number of intro cards; the view's card list must match. */
@@ -61,107 +61,153 @@ const saveProfile = event("SAVE_PROFILE")<{ name: string }>();
 const saved = event("SAVED")<{ name: string }>();
 /** The name could not be saved. */
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
+/** The name was saved; the app records it as the person's name. */
+const nameSaved = event("NAME_SAVED")<{ name: string }>();
 
-type OnboardingContext = { pendingName: string | null };
+type OnboardingContext = {
+  card: number;
+  draftName: string | null;
+  pendingName: string | null;
+  error: string | null;
+};
 
-export const onboardingActor = Actor({
-  inputs: [next, back, skip, editName, saveProfile],
-  internal: [saved, saveFailed],
-  outputs: [],
-  states: [cards, profile, saving, choose],
-  initial: cards,
-  clock: RealClock(),
-  context: { pendingName: null } as OnboardingContext,
-  setup: (m) => {
-    /** Next card; after the last card the name step opens. */
-    m.on(cards, {
-      event: next,
-      to: [cards, profile],
-      handler: () => {
-        const card = $introCard.get() + 1;
-        if (card >= INTRO_CARD_COUNT) return { state: profile };
-        $introCard.set(card);
-        return { state: cards };
-      },
-    });
-    /** Previous card; on the first card nothing changes. */
-    m.on(cards, {
-      event: back,
-      to: [cards],
-      handler: () => {
-        $introCard.set(Math.max(0, $introCard.get() - 1));
-        return { state: cards };
-      },
-    });
-    /** Skipping the intro jumps straight to the name step. */
-    m.on(cards, { event: skip, to: [profile], handler: () => ({ state: profile }) });
+const initialContext: OnboardingContext = {
+  card: 0,
+  draftName: null,
+  pendingName: null,
+  error: null,
+};
 
-    /** Going back from the name step returns to the last intro card. */
-    m.on(profile, {
-      event: back,
-      to: [cards],
-      handler: () => {
-        $introCard.set(INTRO_CARD_COUNT - 1);
-        return { state: cards };
-      },
-    });
-    /** Typing updates the avatar preview live. */
-    m.on(profile, {
-      event: editName,
-      to: [profile],
-      handler: (e) => {
-        $nameDraft.set(e.payload.name);
-        return { state: profile };
-      },
-    });
-    /** Confirming the name starts saving it and clears any earlier error. */
-    m.on(profile, {
-      event: saveProfile,
-      to: [saving],
-      handler: (e, opts) => {
-        $onboardingError.set(null);
-        opts.context.set({ pendingName: e.payload.name.trim() });
-        return { state: saving };
-      },
-    });
-    /** The name is saved; an empty name is refused. */
-    m.effect(saving, {
-      name: "saving",
-      fn: ({ signal, emit, context }) => {
-        const name = context.get().pendingName;
-        if (!name) {
-          emit(saveFailed.create({ message: "Enter a name to continue" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.setName(name),
-          (result) =>
-            emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
-          (message) => emit(saveFailed.create({ message })),
-        );
-      },
-    });
-    /** The name is saved and the person moves on to create or join an album. */
-    m.on(saving, {
-      event: saved,
-      to: [choose],
-      handler: (e, opts) => {
-        $userName.set(e.payload.name);
-        opts.context.set({ pendingName: null });
-        return { state: choose };
-      },
-    });
-    /** Saving failed or the name was empty: the person stays on the name step and sees why. */
-    m.on(saving, {
-      event: saveFailed,
-      to: [profile],
-      handler: (e, opts) => {
-        $onboardingError.set(e.payload.message);
-        opts.context.set({ pendingName: null });
-        return { state: profile };
-      },
-    });
+/** Where the person's name is saved; the real gateway unless a test or the inspector supplies one. */
+export type OnboardingPort = Pick<typeof gateway, "setName">;
+
+export function createOnboardingActor(options: { clock: Clock; gateway?: OnboardingPort }) {
+  const port = options.gateway ?? gateway;
+  return Actor({
+    inputs: [next, back, skip, editName, saveProfile],
+    internal: [saved, saveFailed],
+    outputs: [nameSaved],
+    states: [cards, profile, saving, choose],
+    initial: cards,
+    clock: options.clock,
+    context: initialContext,
+    setup: (m) => {
+      /** Next card; after the last card the name step opens. */
+      m.on(cards, {
+        event: next,
+        to: [cards, profile],
+        handler: (_e, opts) => {
+          const card = opts.context.get().card + 1;
+          if (card >= INTRO_CARD_COUNT) return { state: profile };
+          opts.context.set({ ...opts.context.get(), card });
+          return { state: cards };
+        },
+      });
+      /** Previous card; on the first card nothing changes. */
+      m.on(cards, {
+        event: back,
+        to: [cards],
+        handler: (_e, opts) => {
+          const current = opts.context.get();
+          opts.context.set({ ...current, card: Math.max(0, current.card - 1) });
+          return { state: cards };
+        },
+      });
+      /** Skipping the intro jumps straight to the name step. */
+      m.on(cards, { event: skip, to: [profile], handler: () => ({ state: profile }) });
+
+      /** Going back from the name step returns to the last intro card. */
+      m.on(profile, {
+        event: back,
+        to: [cards],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), card: INTRO_CARD_COUNT - 1 });
+          return { state: cards };
+        },
+      });
+      /** Typing updates the avatar preview live. */
+      m.on(profile, {
+        event: editName,
+        to: [profile],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), draftName: e.payload.name });
+          return { state: profile };
+        },
+      });
+      /** Confirming the name starts saving it and clears any earlier error. */
+      m.on(profile, {
+        event: saveProfile,
+        to: [saving],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingName: e.payload.name.trim(),
+          });
+          return { state: saving };
+        },
+      });
+      /** The name is saved; an empty name is refused. */
+      m.effect(saving, {
+        name: "saving",
+        sends: [saved, saveFailed],
+        fn: ({ signal, emit, context }) => {
+          const name = context.get().pendingName;
+          if (!name) {
+            emit(saveFailed.create({ message: "Enter a name to continue" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.setName(name),
+            (result) =>
+              emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
+            (message) => emit(saveFailed.create({ message })),
+          );
+        },
+      });
+      /** The name is saved and the person moves on to create or join an album. */
+      m.on(saving, {
+        event: saved,
+        to: [choose],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), pendingName: null });
+          return { state: choose, emit: [nameSaved.create({ name: e.payload.name })] };
+        },
+      });
+      /** Saving failed or the name was empty: the person stays on the name step and sees why. */
+      m.on(saving, {
+        event: saveFailed,
+        to: [profile],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            pendingName: null,
+          });
+          return { state: profile };
+        },
+      });
+    },
+  });
+}
+
+export const onboardingActor = createOnboardingActor({ clock: RealClock() });
+
+onboardingActor.on("change", {
+  fn: (snapshot) => {
+    const { card, draftName, error } = snapshot.context;
+    $introCard.set(card);
+    $nameDraft.set(draftName);
+    $onboardingError.set(error);
+  },
+});
+
+onboardingActor.on("output", {
+  fn: (e) => {
+    const payload = e.payload;
+    if (typeof payload !== "object" || payload === null || !("name" in payload)) return;
+    if (typeof payload.name === "string") $userName.set(payload.name);
   },
 });
 

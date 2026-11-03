@@ -4,7 +4,9 @@
       "edges": [
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Previous card; on the first card nothing changes.",
           "emits": [],
           "event": "BACK",
@@ -23,9 +25,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 88
+              "line": 107
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -41,7 +43,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 6
+          },
           "doc": "Next card; after the last card the name step opens.",
           "emits": [],
           "event": "NEXT",
@@ -67,9 +71,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 77
+              "line": 96
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -85,7 +89,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Next card; after the last card the name step opens.",
           "emits": [],
           "event": "NEXT",
@@ -111,9 +117,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 77
+              "line": 96
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -129,7 +135,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 6
+          },
           "doc": "Skipping the intro jumps straight to the name step.",
           "emits": [],
           "event": "SKIP",
@@ -148,9 +156,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 97
+              "line": 117
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -166,7 +174,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Going back from the name step returns to the last intro card.",
           "emits": [],
           "event": "BACK",
@@ -185,9 +195,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 100
+              "line": 120
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -203,7 +213,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Typing updates the avatar preview live.",
           "emits": [],
           "event": "EDIT_NAME",
@@ -222,9 +234,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 109
+              "line": 129
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -240,7 +252,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Confirming the name starts saving it and clears any earlier error.",
           "emits": [],
           "event": "SAVE_PROFILE",
@@ -259,9 +273,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 118
+              "line": 138
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -277,9 +291,11 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The name is saved and the person moves on to create or join an album.",
-          "emits": [],
+          "emits": ["NAME_SAVED"],
           "event": "SAVED",
           "explanation": {
             "branches": [
@@ -296,9 +312,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 146
+              "line": 170
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -314,7 +330,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Saving failed or the name was empty: the person stays on the name step and sees why.",
           "emits": [],
           "event": "SAVE_FAILED",
@@ -333,9 +351,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 156
+              "line": 179
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -408,13 +426,180 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:cards"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:cards>NEXT>cards"],
+            "steps": [
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:cards>BACK>cards"],
+            "steps": [
+              {
+                "event": "BACK",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:cards>SKIP>profile", "state:profile"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:profile>EDIT_NAME>profile"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "EDIT_NAME",
+                "kind": "event",
+                "payload": {
+                  "name": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:profile>SAVE_PROFILE>saving", "state:saving"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "SAVE_PROFILE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:cards>NEXT>profile"],
+            "steps": [
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:saving>SAVE_FAILED>profile"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "SAVE_PROFILE",
+                "kind": "event",
+                "payload": {
+                  "name": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:profile>BACK>cards"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "BACK",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:saving>SAVED>choose", "state:choose"],
+            "steps": [
+              {
+                "event": "SKIP",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "SAVE_PROFILE",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              },
+              {
+                "event": "SAVED",
+                "kind": "event",
+                "payload": {
+                  "name": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "onboarding",
       "initial": null,
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 18
+          },
           "doc": "The person is swiping through the intro cards.",
           "effects": [],
           "final": false,
@@ -425,7 +610,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The name is saved and the person chooses to create an album or join one.",
           "effects": [],
           "final": false,
@@ -436,7 +623,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 9
+          },
           "doc": "The person is asked for their name, which is required to continue.",
           "effects": [],
           "final": false,
@@ -447,12 +636,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The name is being saved; the button shows progress.",
           "effects": [
             {
               "name": "saving",
-              "sends": null
+              "sends": ["SAVED", "SAVE_FAILED"]
             }
           ],
           "final": false,
