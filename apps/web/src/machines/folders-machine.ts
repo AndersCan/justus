@@ -80,7 +80,7 @@ type FoldersContext = {
   pendingName: string | null;
 };
 
-const foldersActor = Actor({
+export const foldersActor = Actor({
   inputs: [refresh, createFolder, setActive, setName, retry],
   internal: [
     loaded,

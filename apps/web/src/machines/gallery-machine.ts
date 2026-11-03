@@ -120,7 +120,7 @@ function addOne(source: AddSource, folderId?: string): Promise<[unknown, unknown
   return gateway.add(path, name, folderId, extras);
 }
 
-const galleryActor = Actor({
+export const galleryActor = Actor({
   inputs: [load, addMany, remove, retry, retryFailed, dismissBatch],
   internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
   outputs: [],

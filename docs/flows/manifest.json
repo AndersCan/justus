@@ -1,0 +1,17 @@
+{
+  "albums": [
+    "apps/web/src/machines/folders-machine.ts",
+    "apps/web/src/machines/gallery-machine.ts",
+    "apps/web/src/machines/people-machine.ts"
+  ],
+  "sharing": [
+    "apps/web/src/machines/invite-machine.ts",
+    "apps/web/src/machines/sync-machine.ts",
+    "apps/web/src/machines/grants-machine.ts",
+    "apps/web/src/machines/requests-machine.ts"
+  ],
+  "first-run": [
+    "apps/web/src/machines/onboarding-machine.ts",
+    "apps/web/src/machines/reach-hint-machine.ts"
+  ]
+}

@@ -61,7 +61,7 @@ type SyncContext = {
   pendingEnroll: { key: string; name: string } | null;
 };
 
-const syncActor = Actor({
+export const syncActor = Actor({
   inputs: [refresh, join, enroll, retry],
   internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
   outputs: [],
