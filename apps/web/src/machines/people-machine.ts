@@ -1,4 +1,5 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { onOutput } from "@mantaq/sugar";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
@@ -50,77 +51,96 @@ const removed = event("REMOVED")();
 /** The member could not be removed. */
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 
-type PeopleContext = { pending: { folderId: string; memberKey: string } | null };
+/** The sheet was just opened, so the latest join requests are worth fetching. */
+const sheetOpened = event("SHEET_OPENED")();
 
-export const peopleActor = Actor({
-  inputs: [openSheet, closeSheet, removeMember],
-  internal: [removed, removeFailed],
-  outputs: [],
-  states: [closed, open, removing],
-  initial: closed,
-  clock: RealClock(),
-  context: { pending: null } as PeopleContext,
-  setup: (m) => {
-    /** Opening the sheet clears any old error and asks for the latest join requests. */
-    m.on(closed, {
-      event: openSheet,
-      to: [open],
-      handler: () => {
-        $peopleError.set(null);
-        requests.refresh();
-        return { state: open };
-      },
-    });
-    /** Closing the sheet hides it again. */
-    m.on(open, { event: closeSheet, to: [closed], handler: () => ({ state: closed }) });
-    /** The Admin picks a member to remove; the sheet shows that it is working. */
-    m.on(open, {
-      event: removeMember,
-      to: [removing],
-      handler: (e, opts) => {
-        $peopleError.set(null);
-        opts.context.set({ pending: e.payload });
-        return { state: removing };
-      },
-    });
-    /** The member is taken out of the album. */
-    m.effect(removing, {
-      name: "removing",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pending;
-        if (!pending) {
-          emit(removeFailed.create({ message: "no member to remove" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.removeMember(pending.folderId, pending.memberKey),
-          () => emit(removed.create()),
-          (message) => emit(removeFailed.create({ message })),
-        );
-      },
-    });
-    /** The member is gone and the sheet shows the updated list. */
-    m.on(removing, {
-      event: removed,
-      to: [open],
-      handler: (_e, opts) => {
-        opts.context.set({ pending: null });
-        return { state: open };
-      },
-    });
-    /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
-    m.on(removing, {
-      event: removeFailed,
-      to: [open],
-      handler: (e, opts) => {
-        $peopleError.set(e.payload.message);
-        opts.context.set({ pending: null });
-        return { state: open };
-      },
-    });
+type PeopleContext = {
+  pending: { folderId: string; memberKey: string } | null;
+  error: string | null;
+};
+type PeoplePort = Pick<typeof gateway, "removeMember">;
+
+/** The Admin's removal runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
+export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort }) {
+  const port = options.gateway ?? gateway;
+  return Actor({
+    inputs: [openSheet, closeSheet, removeMember],
+    internal: [removed, removeFailed],
+    outputs: [sheetOpened],
+    states: [closed, open, removing],
+    initial: closed,
+    clock: options.clock,
+    context: { pending: null, error: null } as PeopleContext,
+    setup: (m) => {
+      /** Opening the sheet clears any old error and asks for the latest join requests. */
+      m.on(closed, {
+        event: openSheet,
+        to: [open],
+        handler: (_e, opts) => {
+          opts.context.set({ pending: null, error: null });
+          return { state: open, emit: [sheetOpened.create()] };
+        },
+      });
+      /** Closing the sheet hides it again. */
+      m.on(open, { event: closeSheet, to: [closed], handler: () => ({ state: closed }) });
+      /** The Admin picks a member to remove; the sheet shows that it is working. */
+      m.on(open, {
+        event: removeMember,
+        to: [removing],
+        handler: (e, opts) => {
+          opts.context.set({ pending: e.payload, error: null });
+          return { state: removing };
+        },
+      });
+      /** The member is taken out of the album. */
+      m.effect(removing, {
+        name: "removing",
+        sends: [removed, removeFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pending;
+          if (!pending) {
+            emit(removeFailed.create({ message: "no member to remove" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.removeMember(pending.folderId, pending.memberKey),
+            () => emit(removed.create()),
+            (message) => emit(removeFailed.create({ message })),
+          );
+        },
+      });
+      /** The member is gone and the sheet shows the updated list. */
+      m.on(removing, {
+        event: removed,
+        to: [open],
+        handler: (_e, opts) => {
+          opts.context.set({ pending: null, error: null });
+          return { state: open };
+        },
+      });
+      /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
+      m.on(removing, {
+        event: removeFailed,
+        to: [open],
+        handler: (e, opts) => {
+          opts.context.set({ pending: null, error: e.payload.message });
+          return { state: open };
+        },
+      });
+    },
+  });
+}
+
+export const peopleActor = createPeopleActor({ clock: RealClock() });
+
+peopleActor.on("change", {
+  fn: (snapshot) => {
+    $peopleError.set(snapshot.context.error);
   },
 });
+
+onOutput(peopleActor, () => requests.refresh());
 
 bindStateAtoms({
   actor: peopleActor,
