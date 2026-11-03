@@ -1481,7 +1481,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A reload after an error starts and the error message goes away.",
           "emits": [],
           "event": "REFRESH",
@@ -1500,9 +1502,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 93
+              "line": 100
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1518,7 +1520,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Try again after an error: loading starts again and the error message goes away.",
           "emits": [],
           "event": "RETRY",
@@ -1537,9 +1541,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 102
+              "line": 109
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1555,7 +1559,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "The first load starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
@@ -1574,9 +1580,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 75
+              "line": 82
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1592,7 +1598,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A reload starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
@@ -1611,9 +1619,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 84
+              "line": 91
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1629,7 +1637,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Sending the Yes or No starts and any earlier error is cleared.",
           "emits": [],
           "event": "RESPOND",
@@ -1648,9 +1658,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 150
+              "line": 157
             },
             "payloadReads": ["approve", "folderId", "requesterKey"],
             "readsActorState": false,
@@ -1666,7 +1676,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "The requests are shown.",
           "emits": [],
           "event": "LOADED",
@@ -1685,9 +1697,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 130
+              "line": 138
             },
             "payloadReads": ["requests"],
             "readsActorState": false,
@@ -1703,7 +1715,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 2
+          },
           "doc": "Loading failed: the person sees an error and can try again.",
           "emits": [],
           "event": "LOAD_FAILED",
@@ -1722,9 +1736,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 140
+              "line": 147
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1753,8 +1767,10 @@
           "to": "refreshing"
         },
         {
-          "contexts": [],
-          "coverage": null,
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The answer went through and that request disappears from the list.",
           "emits": [],
           "event": "RESPONDED",
@@ -1773,9 +1789,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 188
+              "line": 197
             },
             "payloadReads": ["folderId", "requesterKey"],
             "readsActorState": false,
@@ -1791,7 +1807,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Sending failed: the person sees an error and the request stays in the list.",
           "emits": [],
           "event": "RESPOND_FAILED",
@@ -1810,9 +1828,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 201
+              "line": 215
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1885,13 +1903,234 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:idle"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:idle>REFRESH>refreshing", "state:refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": [
+              "edge:error>REFRESH>refreshing",
+              "edge:refreshing>LOAD_FAILED>error",
+              "state:error"
+            ],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "SAMPLE"
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>REFRESH>refreshing", "edge:refreshing>LOADED>ok", "state:ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "requests": [
+                    {
+                      "folderId": "sample",
+                      "folderName": "sample",
+                      "requestedAt": 1,
+                      "requesterKey": "sample",
+                      "requesterName": "sample",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>RETRY>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "SAMPLE"
+                }
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>RESPOND>responding", "state:responding"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "requests": [
+                    {
+                      "folderId": "sample",
+                      "folderName": "sample",
+                      "requestedAt": 1,
+                      "requesterKey": "sample",
+                      "requesterName": "sample",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "RESPOND",
+                "kind": "event",
+                "payload": {
+                  "approve": true,
+                  "folderId": "sample",
+                  "requesterKey": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:responding>RESPONDED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "requests": [
+                    {
+                      "folderId": "sample",
+                      "folderName": "sample",
+                      "requestedAt": 1,
+                      "requesterKey": "sample",
+                      "requesterName": "sample",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "RESPOND",
+                "kind": "event",
+                "payload": {
+                  "approve": true,
+                  "folderId": "sample",
+                  "requesterKey": "sample"
+                }
+              },
+              {
+                "event": "RESPONDED",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "requesterKey": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:responding>RESPOND_FAILED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "requests": [
+                    {
+                      "folderId": "sample",
+                      "folderName": "sample",
+                      "requestedAt": 1,
+                      "requesterKey": "sample",
+                      "requesterName": "sample",
+                      "shareKey": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "RESPOND",
+                "kind": "event",
+                "payload": {
+                  "approve": true,
+                  "folderId": "sample",
+                  "requesterKey": "sample"
+                }
+              },
+              {
+                "event": "RESPOND_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "SAMPLE"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "requests",
       "initial": "idle",
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 2
+          },
           "doc": "The requests could not be loaded; the person sees the problem and can try again.",
           "effects": [],
           "final": false,
@@ -1902,7 +2141,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 8
+          },
           "doc": "The inbox of requests to join the person's folders has not been loaded yet.",
           "effects": [],
           "final": false,
@@ -1913,7 +2154,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 6
+          },
           "doc": "The requests are shown, each with Yes and No.",
           "effects": [],
           "final": false,
@@ -1924,12 +2167,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 10
+          },
           "doc": "Loading the requests from people who want to join.",
           "effects": [
             {
               "name": "refreshing",
-              "sends": null
+              "sends": ["LOADED", "LOAD_FAILED"]
             }
           ],
           "final": false,
@@ -1940,12 +2185,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Sending the person's Yes or No; buttons are disabled meanwhile.",
           "effects": [
             {
               "name": "responding",
-              "sends": null
+              "sends": ["RESPONDED", "RESPOND_FAILED"]
             }
           ],
           "final": false,

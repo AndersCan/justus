@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { JoinRequest } from "@justus/core";
 import { gateway } from "../gateway";
@@ -58,155 +58,182 @@ const retry = event("RETRY")();
 
 type RequestsContext = {
   pendingRespond: { folderId: string; requesterKey: string; approve: boolean } | null;
+  requests: JoinRequest[];
+  error: string | null;
 };
 
-export const requestsActor = Actor({
-  inputs: [refresh, respond, retry],
-  internal: [loaded, loadFailed, responded, respondFailed],
-  outputs: [],
-  states: [idle, refreshing, ok, responding, error],
-  initial: idle,
-  clock: RealClock(),
-  context: {
-    pendingRespond: null,
-  } as RequestsContext,
-  setup: (m) => {
-    /** The first load starts and any old error is cleared. */
-    m.on(idle, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $requestsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload starts and any old error is cleared. */
-    m.on(ok, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $requestsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload after an error starts and the error message goes away. */
-    m.on(error, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $requestsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** Try again after an error: loading starts again and the error message goes away. */
-    m.on(error, {
-      event: retry,
-      to: [refreshing],
-      handler: () => {
-        $requestsError.set(null);
-        return { state: refreshing };
-      },
-    });
+const initialContext: RequestsContext = { pendingRespond: null, requests: [], error: null };
 
-    m.effect(refreshing, {
-      name: "refreshing",
-      fn: ({ signal, emit }) => {
-        return runInvoke(
-          signal,
-          () => gateway.requests(),
-          (result) => {
-            const requests = (result as { requests?: JoinRequest[] } | null)?.requests;
-            if (!requests) {
-              emit(loadFailed.create({ message: "requests returned no data" }));
-              return;
-            }
-            emit(loaded.create({ requests }));
-          },
-          (message) => emit(loadFailed.create({ message })),
-        );
-      },
-    });
-    /** The requests are shown. */
-    m.on(refreshing, {
-      event: loaded,
-      to: [ok],
-      handler: (e) => {
-        $requests.set(e.payload.requests);
-        $requestsError.set(null);
-        return { state: ok };
-      },
-    });
-    /** Loading failed: the person sees an error and can try again. */
-    m.on(refreshing, {
-      event: loadFailed,
-      to: [error],
-      handler: (e) => {
-        $requestsError.set(e.payload.message);
-        return { state: error };
-      },
-    });
+type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 
-    /** Sending the Yes or No starts and any earlier error is cleared. */
-    m.on(ok, {
-      event: respond,
-      to: [responding],
-      handler: (e, opts) => {
-        $requestsError.set(null);
-        opts.context.set({
-          pendingRespond: {
-            folderId: e.payload.folderId,
-            requesterKey: e.payload.requesterKey,
-            approve: e.payload.approve,
-          },
-        });
-        return { state: responding };
-      },
-    });
-    m.effect(responding, {
-      name: "responding",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pendingRespond;
-        if (!pending) {
-          emit(respondFailed.create({ message: "no pending response" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.respond(pending.folderId, pending.requesterKey, pending.approve),
-          () =>
-            emit(
-              responded.create({
-                folderId: pending.folderId,
-                requesterKey: pending.requesterKey,
-              }),
+/** The clock and the gateway are injected so tests and the flow inspector can drive the machine. */
+export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
+  const { clock, gateway: port = gateway } = options;
+  return Actor({
+    inputs: [refresh, respond, retry],
+    internal: [loaded, loadFailed, responded, respondFailed],
+    outputs: [],
+    states: [idle, refreshing, ok, responding, error],
+    initial: idle,
+    clock,
+    context: initialContext,
+    setup: (m) => {
+      /** The first load starts and any old error is cleared. */
+      m.on(idle, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload starts and any old error is cleared. */
+      m.on(ok, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload after an error starts and the error message goes away. */
+      m.on(error, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** Try again after an error: loading starts again and the error message goes away. */
+      m.on(error, {
+        event: retry,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+
+      m.effect(refreshing, {
+        name: "refreshing",
+        sends: [loaded, loadFailed],
+        fn: ({ signal, emit }) => {
+          return runInvoke(
+            signal,
+            () => port.requests(),
+            (result) => {
+              const requests = (result as { requests?: JoinRequest[] } | null)?.requests;
+              if (!requests) {
+                emit(loadFailed.create({ message: "requests returned no data" }));
+                return;
+              }
+              emit(loaded.create({ requests }));
+            },
+            (message) => emit(loadFailed.create({ message })),
+          );
+        },
+      });
+      /** The requests are shown. */
+      m.on(refreshing, {
+        event: loaded,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), requests: e.payload.requests, error: null });
+          return { state: ok };
+        },
+      });
+      /** Loading failed: the person sees an error and can try again. */
+      m.on(refreshing, {
+        event: loadFailed,
+        to: [error],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: e.payload.message });
+          return { state: error };
+        },
+      });
+
+      /** Sending the Yes or No starts and any earlier error is cleared. */
+      m.on(ok, {
+        event: respond,
+        to: [responding],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingRespond: {
+              folderId: e.payload.folderId,
+              requesterKey: e.payload.requesterKey,
+              approve: e.payload.approve,
+            },
+          });
+          return { state: responding };
+        },
+      });
+      m.effect(responding, {
+        name: "responding",
+        sends: [responded, respondFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pendingRespond;
+          if (!pending) {
+            emit(respondFailed.create({ message: "no pending response" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.respond(pending.folderId, pending.requesterKey, pending.approve),
+            () =>
+              emit(
+                responded.create({
+                  folderId: pending.folderId,
+                  requesterKey: pending.requesterKey,
+                }),
+              ),
+            (message) => emit(respondFailed.create({ message })),
+          );
+        },
+      });
+      /** The answer went through and that request disappears from the list. */
+      m.on(responding, {
+        event: responded,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            requests: removeRequestFromList(
+              opts.context.get().requests,
+              e.payload.folderId,
+              e.payload.requesterKey,
             ),
-          (message) => emit(respondFailed.create({ message })),
-        );
-      },
-    });
-    /** The answer went through and that request disappears from the list. */
-    m.on(responding, {
-      event: responded,
-      to: [ok],
-      handler: (e, opts) => {
-        $requestsError.set(null);
-        $requests.set(
-          removeRequestFromList($requests.get(), e.payload.folderId, e.payload.requesterKey),
-        );
-        opts.context.set({ pendingRespond: null });
-        return { state: ok };
-      },
-    });
-    /** Sending failed: the person sees an error and the request stays in the list. */
-    m.on(responding, {
-      event: respondFailed,
-      to: [ok],
-      handler: (e, opts) => {
-        $requestsError.set(e.payload.message);
-        opts.context.set({ pendingRespond: null });
-        return { state: ok };
-      },
-    });
+            pendingRespond: null,
+          });
+          return { state: ok };
+        },
+      });
+      /** Sending failed: the person sees an error and the request stays in the list. */
+      m.on(responding, {
+        event: respondFailed,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            pendingRespond: null,
+          });
+          return { state: ok };
+        },
+      });
+    },
+  });
+}
+
+export const requestsActor = createRequestsActor({ clock: RealClock() });
+
+requestsActor.on("change", {
+  fn: (snapshot) => {
+    $requests.set(snapshot.context.requests);
+    $requestsError.set(snapshot.context.error);
   },
 });
 
