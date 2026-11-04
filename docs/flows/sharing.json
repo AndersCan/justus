@@ -357,7 +357,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 288
+              "line": 293
             },
             "payloadReads": ["status"],
             "readsActorState": false,
@@ -396,7 +396,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 303
+              "line": 309
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -449,7 +449,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 121
+              "line": 124
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -488,7 +488,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 130
+              "line": 133
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -527,7 +527,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 103
+              "line": 106
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -566,7 +566,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 222
+              "line": 226
             },
             "payloadReads": ["status", "status.folder.pending"],
             "readsActorState": false,
@@ -605,7 +605,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 238
+              "line": 243
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -658,7 +658,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 253
+              "line": 258
             },
             "payloadReads": ["key", "name"],
             "readsActorState": false,
@@ -697,7 +697,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 186
+              "line": 190
             },
             "payloadReads": ["key", "name"],
             "readsActorState": false,
@@ -736,7 +736,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 112
+              "line": 115
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -775,7 +775,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 156
+              "line": 159
             },
             "payloadReads": ["status"],
             "readsActorState": false,
@@ -814,7 +814,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/sync-machine.ts",
-              "line": 171
+              "line": 175
             },
             "payloadReads": ["message"],
             "readsActorState": false,
