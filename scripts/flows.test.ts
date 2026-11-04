@@ -41,8 +41,8 @@ for (const feature of ["sharing", "albums", "first-run"]) {
   test(`${feature} flows document every state, event and transition`, () => {
     const missing = read(feature).machines.flatMap((machine) =>
       [...machine.states, ...machine.events, ...machine.edges]
-        // effect and initial edges are probed, not declared with m.on, so inspect has no doc for them
-        .filter((item) => item.kind !== "effect" && item.kind !== "initial" && !item.doc?.trim())
+        // initial edges are probed, not declared with m.on, so inspect has no doc for them
+        .filter((item) => item.kind !== "initial" && !item.doc?.trim())
         .map((item) => `${machine.id}: ${item.id}`),
     );
     expect(missing).toEqual([]);
