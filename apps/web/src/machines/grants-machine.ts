@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { GrantRecord } from "@justus/core";
 import { gateway } from "../gateway";
@@ -68,150 +68,175 @@ const retry = event("RETRY")();
 
 type GrantsContext = {
   pendingAct: { peerId: string; kind: GrantActionKind } | null;
+  records: GrantRecord[];
+  due: string[];
+  error: string | null;
 };
 
-export const grantsActor = Actor({
-  inputs: [refresh, act, retry],
-  internal: [loaded, loadFailed, acted, actFailed],
-  outputs: [],
-  states: [idle, refreshing, ok, acting, error],
-  initial: idle,
-  clock: RealClock(),
-  context: {
-    pendingAct: null,
-  } as GrantsContext,
-  setup: (m) => {
-    /** The first load starts and any old error is cleared. */
-    m.on(idle, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $grantsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload starts and any old error is cleared. */
-    m.on(ok, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $grantsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload after an error starts and the error message goes away. */
-    m.on(error, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $grantsError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** Try again after an error: loading starts again and the error message goes away. */
-    m.on(error, {
-      event: retry,
-      to: [refreshing],
-      handler: () => {
-        $grantsError.set(null);
-        return { state: refreshing };
-      },
-    });
+const initialContext: GrantsContext = { pendingAct: null, records: [], due: [], error: null };
 
-    m.effect(refreshing, {
-      name: "refreshing",
-      fn: ({ signal, emit }) => {
-        return runInvoke(
-          signal,
-          () => gateway.grants.view(),
-          (result) => {
-            const view = (result as { records?: GrantRecord[]; due?: string[] } | null) ?? {};
-            emit(
-              loaded.create({
-                records: view.records ?? [],
-                due: view.due ?? [],
-              }),
-            );
-          },
-          (message) => emit(loadFailed.create({ message })),
-        );
-      },
-    });
-    /** The people and the prompts due today are shown. */
-    m.on(refreshing, {
-      event: loaded,
-      to: [ok],
-      handler: (e) => {
-        $grantsRecords.set(e.payload.records);
-        $grantsDue.set(e.payload.due);
-        $grantsError.set(null);
-        return { state: ok };
-      },
-    });
-    /** Loading failed: the person sees an error and can try again. */
-    m.on(refreshing, {
-      event: loadFailed,
-      to: [error],
-      handler: (e) => {
-        $grantsError.set(e.payload.message);
-        return { state: error };
-      },
-    });
+type GrantsPort = Pick<typeof gateway, "grants">;
 
-    /** The person's choice starts saving and any earlier error is cleared. */
-    m.on(ok, {
-      event: act,
-      to: [acting],
-      handler: (e, opts) => {
-        $grantsError.set(null);
-        opts.context.set({ pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind } });
-        return { state: acting };
-      },
-    });
-    m.effect(acting, {
-      name: "acting",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pendingAct;
-        if (!pending) {
-          emit(actFailed.create({ message: "no pending action" }));
-          return;
-        }
-        const work =
-          pending.kind === "grant"
-            ? () => gateway.grants.grant(pending.peerId)
-            : pending.kind === "decline"
-              ? () => gateway.grants.decline(pending.peerId)
-              : pending.kind === "revoke"
-                ? () => gateway.grants.revoke(pending.peerId)
-                : () => gateway.grants.snooze();
-        return runInvoke(
-          signal,
-          work,
-          () => emit(acted.create()),
-          (message) => emit(actFailed.create({ message })),
-        );
-      },
-    });
-    /** The choice is saved, so the list reloads to show the new situation. */
-    m.on(acting, {
-      event: acted,
-      to: [refreshing],
-      handler: (_e, opts) => {
-        $grantsError.set(null);
-        opts.context.set({ pendingAct: null });
-        return { state: refreshing };
-      },
-    });
-    /** Saving failed: the person sees an error and the list stays as it was. */
-    m.on(acting, {
-      event: actFailed,
-      to: [ok],
-      handler: (e, opts) => {
-        $grantsError.set(e.payload.message);
-        opts.context.set({ pendingAct: null });
-        return { state: ok };
-      },
-    });
+/** The clock and the gateway are injected so tests and the flow inspector can drive the machine. */
+export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort }) {
+  const { clock, gateway: port = gateway } = options;
+  return Actor({
+    inputs: [refresh, act, retry],
+    internal: [loaded, loadFailed, acted, actFailed],
+    outputs: [],
+    states: [idle, refreshing, ok, acting, error],
+    initial: idle,
+    clock,
+    context: initialContext,
+    setup: (m) => {
+      /** The first load starts and any old error is cleared. */
+      m.on(idle, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload starts and any old error is cleared. */
+      m.on(ok, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload after an error starts and the error message goes away. */
+      m.on(error, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** Try again after an error: loading starts again and the error message goes away. */
+      m.on(error, {
+        event: retry,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+
+      m.effect(refreshing, {
+        name: "refreshing",
+        sends: [loaded, loadFailed],
+        fn: ({ signal, emit }) => {
+          return runInvoke(
+            signal,
+            () => port.grants.view(),
+            (result) => {
+              const view = (result as { records?: GrantRecord[]; due?: string[] } | null) ?? {};
+              emit(
+                loaded.create({
+                  records: view.records ?? [],
+                  due: view.due ?? [],
+                }),
+              );
+            },
+            (message) => emit(loadFailed.create({ message })),
+          );
+        },
+      });
+      /** The people and the prompts due today are shown. */
+      m.on(refreshing, {
+        event: loaded,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            records: e.payload.records,
+            due: e.payload.due,
+            error: null,
+          });
+          return { state: ok };
+        },
+      });
+      /** Loading failed: the person sees an error and can try again. */
+      m.on(refreshing, {
+        event: loadFailed,
+        to: [error],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: e.payload.message });
+          return { state: error };
+        },
+      });
+
+      /** The person's choice starts saving and any earlier error is cleared. */
+      m.on(ok, {
+        event: act,
+        to: [acting],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind },
+          });
+          return { state: acting };
+        },
+      });
+      m.effect(acting, {
+        name: "acting",
+        sends: [acted, actFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pendingAct;
+          if (!pending) {
+            emit(actFailed.create({ message: "no pending action" }));
+            return;
+          }
+          const work =
+            pending.kind === "grant"
+              ? () => port.grants.grant(pending.peerId)
+              : pending.kind === "decline"
+                ? () => port.grants.decline(pending.peerId)
+                : pending.kind === "revoke"
+                  ? () => port.grants.revoke(pending.peerId)
+                  : () => port.grants.snooze();
+          return runInvoke(
+            signal,
+            work,
+            () => emit(acted.create()),
+            (message) => emit(actFailed.create({ message })),
+          );
+        },
+      });
+      /** The choice is saved, so the list reloads to show the new situation. */
+      m.on(acting, {
+        event: acted,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null, pendingAct: null });
+          return { state: refreshing };
+        },
+      });
+      /** Saving failed: the person sees an error and the list stays as it was. */
+      m.on(acting, {
+        event: actFailed,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: e.payload.message, pendingAct: null });
+          return { state: ok };
+        },
+      });
+    },
+  });
+}
+
+export const grantsActor = createGrantsActor({ clock: RealClock() });
+
+grantsActor.on("change", {
+  fn: (snapshot) => {
+    $grantsRecords.set(snapshot.context.records);
+    $grantsDue.set(snapshot.context.due);
+    $grantsError.set(snapshot.context.error);
   },
 });
 

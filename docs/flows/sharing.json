@@ -987,7 +987,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The choice is saved, so the list reloads to show the new situation.",
           "emits": [],
           "event": "ACTED",
@@ -1006,9 +1008,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 196
+              "line": 212
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1024,7 +1026,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Saving failed: the person sees an error and the list stays as it was.",
           "emits": [],
           "event": "ACT_FAILED",
@@ -1043,9 +1047,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 206
+              "line": 221
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1075,7 +1079,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A reload after an error starts and the error message goes away.",
           "emits": [],
           "event": "REFRESH",
@@ -1094,9 +1100,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 103
+              "line": 111
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1112,7 +1118,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Try again after an error: loading starts again and the error message goes away.",
           "emits": [],
           "event": "RETRY",
@@ -1131,9 +1139,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 112
+              "line": 120
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1149,7 +1157,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "The first load starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
@@ -1168,9 +1178,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 85
+              "line": 93
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1186,7 +1196,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The person's choice starts saving and any earlier error is cleared.",
           "emits": [],
           "event": "ACT",
@@ -1205,9 +1217,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 162
+              "line": 174
             },
             "payloadReads": ["kind", "peerId"],
             "readsActorState": false,
@@ -1223,7 +1235,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A reload starts and any old error is cleared.",
           "emits": [],
           "event": "REFRESH",
@@ -1242,9 +1256,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 94
+              "line": 102
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1260,7 +1274,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "The people and the prompts due today are shown.",
           "emits": [],
           "event": "LOADED",
@@ -1279,9 +1295,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 141
+              "line": 150
             },
             "payloadReads": ["due", "records"],
             "readsActorState": false,
@@ -1297,7 +1313,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Loading failed: the person sees an error and can try again.",
           "emits": [],
           "event": "LOAD_FAILED",
@@ -1316,9 +1334,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 152
+              "line": 164
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1391,18 +1409,270 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:idle"],
+            "steps": []
+          },
+          {
+            "discovered": [
+              "edge:idle>REFRESH>refreshing",
+              "edge:refreshing>LOAD_FAILED>error",
+              "state:error",
+              "state:refreshing"
+            ],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": [
+              "edge:ok>ACT>acting",
+              "edge:refreshing>LOADED>ok",
+              "state:acting",
+              "state:ok"
+            ],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "due": ["sample"],
+                  "records": [
+                    {
+                      "declinedTerminal": false,
+                      "invitedBy": "sample",
+                      "lastChangedAt": 1,
+                      "lastPromptedAt": 1,
+                      "lastSeenAt": 1,
+                      "online": false,
+                      "peerId": "sample",
+                      "receipt": "sample",
+                      "serveFrom": "sample",
+                      "serveTo": "granted",
+                      "unknownHolderSince": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "ACT",
+                "kind": "event",
+                "payload": {
+                  "kind": "decline",
+                  "peerId": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:acting>ACTED>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "due": ["sample"],
+                  "records": [
+                    {
+                      "declinedTerminal": false,
+                      "invitedBy": "sample",
+                      "lastChangedAt": 1,
+                      "lastPromptedAt": 1,
+                      "lastSeenAt": 1,
+                      "online": false,
+                      "peerId": "sample",
+                      "receipt": "sample",
+                      "serveFrom": "sample",
+                      "serveTo": "granted",
+                      "unknownHolderSince": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "ACT",
+                "kind": "event",
+                "payload": {
+                  "kind": "decline",
+                  "peerId": "sample"
+                }
+              },
+              {
+                "event": "ACTED",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:acting>ACT_FAILED>ok"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "due": ["sample"],
+                  "records": [
+                    {
+                      "declinedTerminal": false,
+                      "invitedBy": "sample",
+                      "lastChangedAt": 1,
+                      "lastPromptedAt": 1,
+                      "lastSeenAt": 1,
+                      "online": false,
+                      "peerId": "sample",
+                      "receipt": "sample",
+                      "serveFrom": "sample",
+                      "serveTo": "granted",
+                      "unknownHolderSince": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "ACT",
+                "kind": "event",
+                "payload": {
+                  "kind": "decline",
+                  "peerId": "sample"
+                }
+              },
+              {
+                "event": "ACT_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>REFRESH>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ok>REFRESH>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "due": ["sample"],
+                  "records": [
+                    {
+                      "declinedTerminal": false,
+                      "invitedBy": "sample",
+                      "lastChangedAt": 1,
+                      "lastPromptedAt": 1,
+                      "lastSeenAt": 1,
+                      "online": false,
+                      "peerId": "sample",
+                      "receipt": "sample",
+                      "serveFrom": "sample",
+                      "serveTo": "granted",
+                      "unknownHolderSince": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>RETRY>refreshing"],
+            "steps": [
+              {
+                "event": "REFRESH",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "grants",
       "initial": "idle",
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Saving the person's choice about someone; buttons are disabled meanwhile.",
           "effects": [
             {
               "name": "acting",
-              "sends": null
+              "sends": ["ACTED", "ACT_FAILED"]
             }
           ],
           "final": false,
@@ -1413,7 +1683,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "The list could not be loaded; the person sees the problem and can try again.",
           "effects": [],
           "final": false,
@@ -1424,7 +1696,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 8
+          },
           "doc": "The list of people this device shares photos with has not been loaded yet.",
           "effects": [],
           "final": false,
@@ -1435,7 +1709,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 5
+          },
           "doc": "The list of people is shown and the person can grant, decline, snooze or revoke.",
           "effects": [],
           "final": false,
@@ -1446,12 +1722,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 11
+          },
           "doc": "Loading who the person shares photos with and who is due a prompt.",
           "effects": [
             {
               "name": "refreshing",
-              "sends": null
+              "sends": ["LOADED", "LOAD_FAILED"]
             }
           ],
           "final": false,
