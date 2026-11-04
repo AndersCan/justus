@@ -830,21 +830,23 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Adding ended: the summary shows the result and the photos reload if uploads or syncs need it.",
           "emits": [],
           "event": "BATCH_DONE",
           "explanation": {
             "branches": [
               {
-                "conditions": ["reloadAfterAdd || uploaded"],
+                "conditions": ["c.reloadAfterAdd || uploaded"],
                 "target": {
                   "kind": "state",
                   "state": "loading"
                 }
               },
               {
-                "conditions": ["!(reloadAfterAdd || uploaded)"],
+                "conditions": ["!(c.reloadAfterAdd || uploaded)"],
                 "target": {
                   "kind": "state",
                   "state": "ready"
@@ -856,9 +858,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 384
+              "line": 425
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -874,21 +876,23 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Adding ended: the summary shows the result and the photos reload if uploads or syncs need it.",
           "emits": [],
           "event": "BATCH_DONE",
           "explanation": {
             "branches": [
               {
-                "conditions": ["reloadAfterAdd || uploaded"],
+                "conditions": ["c.reloadAfterAdd || uploaded"],
                 "target": {
                   "kind": "state",
                   "state": "loading"
                 }
               },
               {
-                "conditions": ["!(reloadAfterAdd || uploaded)"],
+                "conditions": ["!(c.reloadAfterAdd || uploaded)"],
                 "target": {
                   "kind": "state",
                   "state": "ready"
@@ -900,9 +904,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 384
+              "line": 425
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -918,7 +922,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A photo is added to the top of the list, or counted as already in the album.",
           "emits": [],
           "event": "ITEM_ADDED",
@@ -936,9 +942,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 350
+              "line": 386
             },
             "payloadReads": ["duplicate", "photo"],
             "readsActorState": false,
@@ -954,7 +960,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "A photo failed to add: it is kept in the summary for retry and the rest carry on.",
           "emits": [],
           "event": "ITEM_FAILED",
@@ -972,9 +980,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 360
+              "line": 401
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -990,7 +998,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The album synced while photos are adding: the photos reload when adding ends.",
           "emits": [],
           "event": "LOAD",
@@ -1008,9 +1018,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 376
+              "line": 417
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1040,7 +1050,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Photos picked while the list is still loading are queued and start once it arrives.",
           "emits": [],
           "event": "ADD_MANY",
@@ -1064,9 +1076,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 271
+              "line": 297
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1082,7 +1094,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
@@ -1100,9 +1114,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 297
+              "line": 323
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1118,7 +1132,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 23
+          },
           "doc": "The first load of photos starts.",
           "emits": [],
           "event": "LOAD",
@@ -1137,9 +1153,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 152
+              "line": 168
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1155,7 +1171,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
@@ -1173,9 +1191,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 297
+              "line": 323
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1191,7 +1209,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "After an error, reloading starts again and clears the error.",
           "emits": [],
           "event": "LOAD",
@@ -1210,9 +1230,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 170
+              "line": 186
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1228,7 +1248,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Try again after an error reloads the photos.",
           "emits": [],
           "event": "RETRY",
@@ -1247,9 +1269,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 179
+              "line": 195
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1265,7 +1287,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 6
+          },
           "doc": "Photos picked while the list is still loading are queued and start once it arrives.",
           "emits": [],
           "event": "ADD_MANY",
@@ -1289,9 +1313,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 271
+              "line": 297
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1307,7 +1331,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
@@ -1325,9 +1351,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 297
+              "line": 323
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1343,7 +1369,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 2
+          },
           "doc": "The album synced while loading: the photos reload once more afterwards.",
           "emits": [],
           "event": "LOAD",
@@ -1361,9 +1389,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 368
+              "line": 409
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1379,28 +1407,30 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 2
+          },
           "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
             "branches": [
               {
-                "conditions": ["opts.context.get().pendingAdd"],
+                "conditions": ["c.pendingAdd"],
                 "target": {
                   "kind": "state",
                   "state": "adding"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "again"],
+                "conditions": ["!(c.pendingAdd)", "c.reloadAfterAdd"],
                 "target": {
                   "kind": "state",
                   "state": "loading"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "!(again)"],
+                "conditions": ["!(c.pendingAdd)", "!(c.reloadAfterAdd)"],
                 "target": {
                   "kind": "state",
                   "state": "ready"
@@ -1412,9 +1442,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 209
+              "line": 226
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1430,28 +1460,30 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
             "branches": [
               {
-                "conditions": ["opts.context.get().pendingAdd"],
+                "conditions": ["c.pendingAdd"],
                 "target": {
                   "kind": "state",
                   "state": "adding"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "again"],
+                "conditions": ["!(c.pendingAdd)", "c.reloadAfterAdd"],
                 "target": {
                   "kind": "state",
                   "state": "loading"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "!(again)"],
+                "conditions": ["!(c.pendingAdd)", "!(c.reloadAfterAdd)"],
                 "target": {
                   "kind": "state",
                   "state": "ready"
@@ -1463,9 +1495,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 209
+              "line": 226
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1481,28 +1513,30 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 10
+          },
           "doc": "The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload.",
           "emits": [],
           "event": "LOADED",
           "explanation": {
             "branches": [
               {
-                "conditions": ["opts.context.get().pendingAdd"],
+                "conditions": ["c.pendingAdd"],
                 "target": {
                   "kind": "state",
                   "state": "adding"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "again"],
+                "conditions": ["!(c.pendingAdd)", "c.reloadAfterAdd"],
                 "target": {
                   "kind": "state",
                   "state": "loading"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)", "!(again)"],
+                "conditions": ["!(c.pendingAdd)", "!(c.reloadAfterAdd)"],
                 "target": {
                   "kind": "state",
                   "state": "ready"
@@ -1514,9 +1548,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 209
+              "line": 226
             },
             "payloadReads": ["photos"],
             "readsActorState": false,
@@ -1532,21 +1566,23 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 3
+          },
           "doc": "Loading failed and an error is shown; photos already picked still start adding.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
             "branches": [
               {
-                "conditions": ["opts.context.get().pendingAdd"],
+                "conditions": ["c.pendingAdd"],
                 "target": {
                   "kind": "state",
                   "state": "adding"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)"],
+                "conditions": ["!(c.pendingAdd)"],
                 "target": {
                   "kind": "state",
                   "state": "error"
@@ -1558,9 +1594,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 224
+              "line": 242
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1576,21 +1612,23 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "Loading failed and an error is shown; photos already picked still start adding.",
           "emits": [],
           "event": "LOAD_FAILED",
           "explanation": {
             "branches": [
               {
-                "conditions": ["opts.context.get().pendingAdd"],
+                "conditions": ["c.pendingAdd"],
                 "target": {
                   "kind": "state",
                   "state": "adding"
                 }
               },
               {
-                "conditions": ["!(opts.context.get().pendingAdd)"],
+                "conditions": ["!(c.pendingAdd)"],
                 "target": {
                   "kind": "state",
                   "state": "error"
@@ -1602,9 +1640,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 224
+              "line": 242
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1634,7 +1672,9 @@
         },
         {
           "contexts": [],
-          "coverage": null,
+          "coverage": {
+            "hits": 2
+          },
           "doc": "The person adds photos and sees progress through the batch.",
           "emits": [],
           "event": "ADD_MANY",
@@ -1653,9 +1693,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 261
+              "line": 287
             },
             "payloadReads": ["folderId", "sources"],
             "readsActorState": false,
@@ -1671,7 +1711,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
@@ -1689,9 +1731,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 297
+              "line": 323
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1707,7 +1749,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Refreshing the photos starts a reload.",
           "emits": [],
           "event": "LOAD",
@@ -1726,9 +1770,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 161
+              "line": 177
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1744,7 +1788,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "The person removes a photo; the screen shows it is busy.",
           "emits": [],
           "event": "REMOVE",
@@ -1763,9 +1809,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 399
+              "line": 440
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1781,7 +1827,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Retrying adds only the photos that failed earlier, if none are still being added.",
           "emits": [],
           "event": "RETRY_FAILED",
@@ -1806,9 +1854,9 @@
             "contextWrites": [],
             "literals": [0],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 281
+              "line": 307
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1824,7 +1872,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The add summary can be closed at any time, unless photos are still being added.",
           "emits": [],
           "event": "DISMISS_BATCH",
@@ -1842,9 +1892,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 7,
+              "column": 9,
               "file": "src/machines/gallery-machine.ts",
-              "line": 297
+              "line": 323
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1859,8 +1909,10 @@
           "to": "removing"
         },
         {
-          "contexts": [],
-          "coverage": null,
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
           "doc": "The photo disappears from the list.",
           "emits": [],
           "event": "REMOVED",
@@ -1879,9 +1931,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 426
+              "line": 469
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1897,7 +1949,9 @@
         },
         {
           "contexts": ["default"],
-          "coverage": null,
+          "coverage": {
+            "hits": 1
+          },
           "doc": "Removing failed: the photo stays and the person sees why.",
           "emits": [],
           "event": "REMOVE_FAILED",
@@ -1916,9 +1970,9 @@
             "contextWrites": [],
             "literals": [],
             "location": {
-              "column": 5,
+              "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 437
+              "line": 484
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -2027,18 +2081,953 @@
           "payloadType": null
         }
       ],
-      "fuzz": null,
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:booting"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:booting>LOAD>loading", "state:loading"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:loading>ADD_MANY"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "samplex",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:booting>ADD_MANY"],
+            "steps": [
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "samplex",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:loading>DISMISS_BATCH"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "DISMISS_BATCH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:loading>LOAD_FAILED>adding", "state:adding"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "samplex",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:loading>LOADED>ready", "state:ready"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:booting>DISMISS_BATCH"],
+            "steps": [
+              {
+                "event": "DISMISS_BATCH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:loading>LOAD_FAILED>error", "state:error"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:loading>LOADED>loading", "stay:loading>LOAD"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:loading>LOADED>adding"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:ready>DISMISS_BATCH"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "DISMISS_BATCH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ready>ADD_MANY>adding"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:adding>ITEM_FAILED", "stay:adding>LOAD"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ITEM_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample",
+                  "source": {
+                    "kind": "path",
+                    "name": "sample",
+                    "original": "sample",
+                    "path": "sample",
+                    "takenAt": "sample",
+                    "thumb": "sample"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>LOAD>loading"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ready>LOAD>loading"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:adding>ITEM_ADDED"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "samplex",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "ITEM_ADDED",
+                "kind": "event",
+                "payload": {
+                  "duplicate": false,
+                  "photo": {
+                    "addedAt": 1,
+                    "folderId": "sample",
+                    "id": "sample",
+                    "member": {
+                      "key": "sample",
+                      "name": "sample"
+                    },
+                    "mime": "sample",
+                    "mine": true,
+                    "name": "sample",
+                    "sha256": "sample",
+                    "size": 1,
+                    "takenAt": "sample",
+                    "thumbUrl": "sample",
+                    "url": "sample"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:error>RETRY>loading"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "RETRY",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:ready>RETRY_FAILED"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "x"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "RETRY_FAILED",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:ready>REMOVE>removing", "state:removing"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REMOVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "id": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:adding>BATCH_DONE>ready"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "samplex",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "BATCH_DONE",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:adding>BATCH_DONE>loading"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "ADD_MANY",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "sources": [
+                    {
+                      "kind": "path",
+                      "name": "sample",
+                      "original": "sample",
+                      "path": "sample",
+                      "takenAt": "sample",
+                      "thumb": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "BATCH_DONE",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:removing>DISMISS_BATCH"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REMOVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "id": "sample"
+                }
+              },
+              {
+                "event": "DISMISS_BATCH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>REMOVED>ready"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REMOVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "id": "sample"
+                }
+              },
+              {
+                "event": "REMOVED",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "id": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>REMOVE_FAILED>ready"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOADED",
+                "kind": "event",
+                "payload": {
+                  "photos": [
+                    {
+                      "addedAt": 1,
+                      "folderId": "sample",
+                      "id": "sample",
+                      "member": {
+                        "key": "sample",
+                        "name": "sample"
+                      },
+                      "mime": "sample",
+                      "mine": false,
+                      "name": "sample",
+                      "sha256": "sample",
+                      "size": 1,
+                      "takenAt": "sample",
+                      "thumbUrl": "sample",
+                      "url": "sample"
+                    }
+                  ]
+                }
+              },
+              {
+                "event": "REMOVE",
+                "kind": "event",
+                "payload": {
+                  "folderId": "sample",
+                  "id": "sample"
+                }
+              },
+              {
+                "event": "REMOVE_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:error>DISMISS_BATCH"],
+            "steps": [
+              {
+                "event": "LOAD",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "LOAD_FAILED",
+                "kind": "event",
+                "payload": {
+                  "message": "sample"
+                }
+              },
+              {
+                "event": "DISMISS_BATCH",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
       "id": "gallery",
       "initial": "booting",
       "regions": [],
       "states": [
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 7
+          },
           "doc": "Photos are being added to the album one by one with progress.",
           "effects": [
             {
               "name": "adding",
-              "sends": null
+              "sends": ["ITEM_ADDED", "ITEM_FAILED", "BATCH_DONE"]
             }
           ],
           "final": false,
@@ -2049,7 +3038,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 26
+          },
           "doc": "The app has just started and no photos are loaded.",
           "effects": [],
           "final": false,
@@ -2060,7 +3051,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "The photos could not be loaded; the person can try again.",
           "effects": [],
           "final": false,
@@ -2071,12 +3064,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 28
+          },
           "doc": "The photo list is loading.",
           "effects": [
             {
               "name": "loading",
-              "sends": null
+              "sends": ["LOADED", "LOAD_FAILED"]
             }
           ],
           "final": false,
@@ -2087,7 +3082,9 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 13
+          },
           "doc": "Photos are shown and the person can add or remove them.",
           "effects": [],
           "final": false,
@@ -2098,12 +3095,14 @@
           "tested": null
         },
         {
-          "coverage": null,
+          "coverage": {
+            "hits": 4
+          },
           "doc": "A photo is being removed.",
           "effects": [
             {
               "name": "removing",
-              "sends": null
+              "sends": ["REMOVED", "REMOVE_FAILED"]
             }
           ],
           "final": false,
