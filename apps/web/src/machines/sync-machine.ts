@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
@@ -73,204 +73,269 @@ const enrollFailed = event("ENROLL_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type SyncContext = {
+  status: SyncStatus | null;
+  /** Bumped whenever `status` is replaced; snapshots clone the context, so identity cannot tell. */
+  statusVersion: number;
+  awaitingApproval: boolean;
+  error: string | null;
   pendingJoin: { key: string; name?: string } | null;
   pendingEnroll: { key: string; name: string } | null;
 };
+type SyncPort = Pick<typeof gateway, "status" | "join" | "enroll">;
 
-export const syncActor = Actor({
-  inputs: [refresh, join, enroll, retry],
-  internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
-  outputs: [],
-  states: [idle, refreshing, ok, joining, enrolling, error],
-  initial: idle,
-  clock: RealClock(),
-  context: {
-    pendingJoin: null,
-    pendingEnroll: null,
-  } as SyncContext,
-  setup: (m) => {
-    /** The first check starts and any old error is cleared. */
-    m.on(idle, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $syncError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload starts and any old error is cleared. */
-    m.on(ok, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $syncError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** A reload after an error starts and the error message goes away. */
-    m.on(error, {
-      event: refresh,
-      to: [refreshing],
-      handler: () => {
-        $syncError.set(null);
-        return { state: refreshing };
-      },
-    });
-    /** Try again after an error: the check starts again and the error message goes away. */
-    m.on(error, {
-      event: retry,
-      to: [refreshing],
-      handler: () => {
-        $syncError.set(null);
-        return { state: refreshing };
-      },
-    });
+/** Folder status, join and enroll run through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
+export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
+  const port = options.gateway ?? gateway;
+  return Actor({
+    inputs: [refresh, join, enroll, retry],
+    internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
+    outputs: [],
+    states: [idle, refreshing, ok, joining, enrolling, error],
+    initial: idle,
+    clock: options.clock,
+    context: {
+      status: null,
+      statusVersion: 0,
+      awaitingApproval: false,
+      error: null,
+      pendingJoin: null,
+      pendingEnroll: null,
+    } as SyncContext,
+    setup: (m) => {
+      /** The first check starts and any old error is cleared. */
+      m.on(idle, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload starts and any old error is cleared. */
+      m.on(ok, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** A reload after an error starts and the error message goes away. */
+      m.on(error, {
+        event: refresh,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
+      /** Try again after an error: the check starts again and the error message goes away. */
+      m.on(error, {
+        event: retry,
+        to: [refreshing],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: refreshing };
+        },
+      });
 
-    m.effect(refreshing, {
-      name: "refreshing",
-      fn: ({ signal, emit }) => {
-        return runInvoke(
-          signal,
-          () => gateway.status(),
-          (result) =>
-            result
-              ? emit(status.create({ status: result as SyncStatus }))
-              : emit(statusFailed.create({ message: "no status returned" })),
-          (message) => emit(statusFailed.create({ message })),
-        );
-      },
-    });
-    /** The folder status is shown and any error is cleared. */
-    m.on(refreshing, {
-      event: status,
-      to: [ok],
-      handler: (e, opts) => {
-        $syncStatus.set(e.payload.status);
-        $syncError.set(null);
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: ok };
-      },
-    });
-    /** The check failed: the person sees an error and can try again. */
-    m.on(refreshing, {
-      event: statusFailed,
-      to: [error],
-      handler: (e, opts) => {
-        $syncError.set(e.payload.message);
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: error };
-      },
-    });
+      /** The folder status is read from the app. */
+      m.effect(refreshing, {
+        name: "refreshing",
+        sends: [status, statusFailed],
+        fn: ({ signal, emit }) => {
+          return runInvoke(
+            signal,
+            () => port.status(),
+            (result) =>
+              result
+                ? emit(status.create({ status: result as SyncStatus }))
+                : emit(statusFailed.create({ message: "no status returned" })),
+            (message) => emit(statusFailed.create({ message })),
+          );
+        },
+      });
+      /** The folder status is shown and any error is cleared. */
+      m.on(refreshing, {
+        event: status,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
+            error: null,
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: ok };
+        },
+      });
+      /** The check failed: the person sees an error and can try again. */
+      m.on(refreshing, {
+        event: statusFailed,
+        to: [error],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: error };
+        },
+      });
 
-    /** Joining starts: any earlier error and any earlier 'waiting for approval' notice are cleared. */
-    m.on(ok, {
-      event: join,
-      to: [joining],
-      handler: (e, opts) => {
-        $syncError.set(null);
-        $pendingJoin.set(false);
-        opts.context.set({
-          pendingJoin: { key: e.payload.key, name: e.payload.name },
-          pendingEnroll: null,
-        });
-        return { state: joining };
-      },
-    });
-    m.effect(joining, {
-      name: "joining",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pendingJoin;
-        if (!pending) {
-          emit(joinFailed.create({ message: "no pending join key" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.join(pending.key, pending.name),
-          (result) =>
-            result
-              ? emit(joined.create({ status: result as SyncStatus }))
-              : emit(joinFailed.create({ message: "join returned no status" })),
-          (message) => emit(joinFailed.create({ message })),
-        );
-      },
-    });
-    /** Joining worked. If the owner still has to approve, the person is told they are waiting for approval; otherwise the folder is ready. */
-    m.on(joining, {
-      event: joined,
-      to: [ok],
-      handler: (e, opts) => {
-        $syncError.set(null);
-        $syncStatus.set(e.payload.status);
-        $pendingJoin.set(Boolean((e.payload.status as SyncStatus).folder?.pending));
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: ok };
-      },
-    });
-    /** Joining failed: the person sees an error and stays on the sharing screen to try again. */
-    m.on(joining, {
-      event: joinFailed,
-      to: [ok],
-      handler: (e, opts) => {
-        $syncError.set(e.payload.message);
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: ok };
-      },
-    });
+      /** Joining starts: any earlier error and any earlier 'waiting for approval' notice are cleared. */
+      m.on(ok, {
+        event: join,
+        to: [joining],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            awaitingApproval: false,
+            pendingJoin: { key: e.payload.key, name: e.payload.name },
+            pendingEnroll: null,
+          });
+          return { state: joining };
+        },
+      });
+      /** The folder is joined through the app, using the invite key. */
+      m.effect(joining, {
+        name: "joining",
+        sends: [joined, joinFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pendingJoin;
+          if (!pending) {
+            emit(joinFailed.create({ message: "no pending join key" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.join(pending.key, pending.name),
+            (result) =>
+              result
+                ? emit(joined.create({ status: result as SyncStatus }))
+                : emit(joinFailed.create({ message: "join returned no status" })),
+            (message) => emit(joinFailed.create({ message })),
+          );
+        },
+      });
+      /** Joining worked. If the owner still has to approve, the person is told they are waiting for approval; otherwise the folder is ready. */
+      m.on(joining, {
+        event: joined,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
+            awaitingApproval: Boolean(e.payload.status.folder?.pending),
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: ok };
+        },
+      });
+      /** Joining failed: the person sees an error and stays on the sharing screen to try again. */
+      m.on(joining, {
+        event: joinFailed,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: ok };
+        },
+      });
 
-    /** Setting up the person's folder for sharing starts and any earlier error is cleared. */
-    m.on(ok, {
-      event: enroll,
-      to: [enrolling],
-      handler: (e, opts) => {
-        $syncError.set(null);
-        opts.context.set({
-          pendingEnroll: { key: e.payload.key, name: e.payload.name },
-          pendingJoin: null,
-        });
-        return { state: enrolling };
-      },
-    });
-    m.effect(enrolling, {
-      name: "enrolling",
-      fn: ({ signal, emit, context }) => {
-        const pending = context.get().pendingEnroll;
-        if (!pending) {
-          emit(enrollFailed.create({ message: "no pending enrollment" }));
-          return;
-        }
-        return runInvoke(
-          signal,
-          () => gateway.enroll(pending.key, pending.name),
-          (result) =>
-            result
-              ? emit(enrolled.create({ status: result as SyncStatus }))
-              : emit(enrollFailed.create({ message: "enroll returned no status" })),
-          (message) => emit(enrollFailed.create({ message })),
-        );
-      },
-    });
-    /** The folder is set up and its status is shown. */
-    m.on(enrolling, {
-      event: enrolled,
-      to: [ok],
-      handler: (e, opts) => {
-        $syncError.set(null);
-        $syncStatus.set(e.payload.status);
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: ok };
-      },
-    });
-    /** Setting up failed: the person sees an error and stays on the sharing screen. */
-    m.on(enrolling, {
-      event: enrollFailed,
-      to: [ok],
-      handler: (e, opts) => {
-        $syncError.set(e.payload.message);
-        opts.context.set({ pendingJoin: null, pendingEnroll: null });
-        return { state: ok };
-      },
-    });
+      /** Setting up the person's folder for sharing starts and any earlier error is cleared. */
+      m.on(ok, {
+        event: enroll,
+        to: [enrolling],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingEnroll: { key: e.payload.key, name: e.payload.name },
+            pendingJoin: null,
+          });
+          return { state: enrolling };
+        },
+      });
+      /** The person's folder is set up for sharing through the app. */
+      m.effect(enrolling, {
+        name: "enrolling",
+        sends: [enrolled, enrollFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pendingEnroll;
+          if (!pending) {
+            emit(enrollFailed.create({ message: "no pending enrollment" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.enroll(pending.key, pending.name),
+            (result) =>
+              result
+                ? emit(enrolled.create({ status: result as SyncStatus }))
+                : emit(enrollFailed.create({ message: "enroll returned no status" })),
+            (message) => emit(enrollFailed.create({ message })),
+          );
+        },
+      });
+      /** The folder is set up and its status is shown. */
+      m.on(enrolling, {
+        event: enrolled,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: ok };
+        },
+      });
+      /** Setting up failed: the person sees an error and stays on the sharing screen. */
+      m.on(enrolling, {
+        event: enrollFailed,
+        to: [ok],
+        handler: (e, opts) => {
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            pendingJoin: null,
+            pendingEnroll: null,
+          });
+          return { state: ok };
+        },
+      });
+    },
+  });
+}
+
+export const syncActor = createSyncActor({ clock: RealClock() });
+
+/** Folders also writes `$syncStatus`, so it is only written when this machine produced a new status. */
+let lastWrittenVersion = 0;
+syncActor.on("change", {
+  fn: (snapshot) => {
+    const { status: current, statusVersion, error: message, awaitingApproval } = snapshot.context;
+    $syncError.set(message);
+    $pendingJoin.set(awaitingApproval);
+    if (current !== null && statusVersion !== lastWrittenVersion) {
+      lastWrittenVersion = statusVersion;
+      $syncStatus.set(current);
+    }
   },
 });
 
