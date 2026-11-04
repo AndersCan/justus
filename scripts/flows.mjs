@@ -21,9 +21,10 @@ if (htmlFlag !== -1) {
         ...files,
         "--out",
         join(htmlDir, `${feature}.html`),
+        "--live",
         "--no-open",
         "--config",
-        "apps/web/vite.config.ts",
+        "apps/web/vite.flows.config.ts",
       ],
       { cwd: root, env, stdio: "inherit" },
     );

@@ -209,8 +209,8 @@ catalogs:
       specifier: ^0.5.3
       version: 0.5.3
     '@mantaq/inspect':
-      specifier: ^0.2.3
-      version: 0.2.3
+      specifier: ^0.3.0
+      version: 0.3.0
     '@mantaq/sugar':
       specifier: ^2.0.3
       version: 2.0.3
@@ -248,7 +248,7 @@ importers:
     devDependencies:
       '@mantaq/inspect':
         specifier: 'catalog:'
-        version: 0.2.3(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
+        version: 0.3.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
       '@mantaq/viz':
         specifier: 'catalog:'
         version: 0.2.3
@@ -617,8 +617,8 @@ packages:
   '@mantaq/core@0.5.3':
     resolution: {integrity: sha512-SrzCJt5xNwbfPnfgX0p0EnGKY5G1QfhMBTVE3qt/KUOH5SK9qrTxEVDrRAnvL12AAszfWc8w4ySz3seZTvhRCQ==}
 
-  '@mantaq/inspect@0.2.3':
-    resolution: {integrity: sha512-SIzpqc9rG1AiP57oPInq3tJiv/r32mIqtwD5mqu1fCq7emnamqfI9TLWzENbPksDTpUpU3saWa84klxB8f2RjQ==}
+  '@mantaq/inspect@0.3.0':
+    resolution: {integrity: sha512-ALVzAzyCI5yjZ3g/RgVFjhgqEHldockWN5d9LIObq+VNTXXAietHzLHwB+ZK1+rQTCJ49RTeGE6XDzZMA/tKng==}
     hasBin: true
     peerDependencies:
       vite: '*'
@@ -2909,7 +2909,7 @@ snapshots:
     dependencies:
       '@mantaq/utils': 0.0.5
 
-  '@mantaq/inspect@0.2.3(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))':
+  '@mantaq/inspect@0.3.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))':
     dependencies:
       '@mantaq/core': 0.5.3
       '@mantaq/pbt': 0.0.4

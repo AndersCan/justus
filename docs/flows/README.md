@@ -24,7 +24,8 @@ Pages: https://anderscan.github.io/justus/
 `pnpm flows` runs `mantaq-inspect` over each feature listed in
 `docs/flows/manifest.json` and writes `docs/flows/<feature>.json`.
 `pnpm flows --html <dir>` writes one `<feature>.html` page per feature plus an
-index into `<dir>` (default `flows-site`); this is what CI publishes to Pages.
+index into `<dir>` (default `flows-site`); this is what CI publishes to Pages. The HTML pages drive
+factory machines live; singleton machines stay static walks.
 
 To add a feature, list its machine files under a new key in `manifest.json`
 and re-run `pnpm flows`.

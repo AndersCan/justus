@@ -14,11 +14,34 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 let failed = false;
 for (const name of pages) {
   const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   await page.goto(pathToFileURL(join(dir, name)).href);
   try {
     await page.waitForSelector("svg", { timeout: 10_000 });
   } catch {
     console.error(`check-flows-site: no svg in ${name}`);
+    failed = true;
+  }
+  const live = (await page.locator("#app").innerText()).includes("Live: the real machine runs");
+  if (live) {
+    const before = await page.locator(".explore").first().getAttribute("data-current");
+    const sends = await page.locator("[data-send]").count();
+    let moved = false;
+    for (let index = 0; index < sends && !moved; index++) {
+      await page.locator("[data-send]").nth(index).click();
+      moved = (await page.locator(".explore").first().getAttribute("data-current")) !== before;
+    }
+    if (!moved) {
+      console.error(`check-flows-site: no event moved the cursor in ${name}`);
+      failed = true;
+    }
+  }
+  for (const error of errors) {
+    console.error(`check-flows-site: ${name}: ${error}`);
     failed = true;
   }
   await page.close();
