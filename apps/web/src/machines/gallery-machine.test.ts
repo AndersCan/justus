@@ -1,8 +1,18 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
-import { $addBatch, $galleryState, $photos, createGalleryActor, gallery } from "./gallery-machine";
+import {
+  $addBatch,
+  $galleryError,
+  $galleryState,
+  $photos,
+  createGalleryActor,
+  gallery,
+} from "./gallery-machine";
 
-vi.mock("../gateway", () => ({ gateway: {} }));
+const hoisted = vi.hoisted(() => ({
+  gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
+}));
+vi.mock("../gateway", () => ({ gateway: hoisted.gateway }));
 
 const photo = (id: string, name = "beach.jpg", folderId = "f1") => ({ id, name, folderId });
 const path = (name: string) => ({ kind: "path" as const, path: `/tmp/${name}`, name });
@@ -301,12 +311,42 @@ describe("gallery factory", () => {
   });
 });
 
+describe("gallery idle reset", () => {
+  test("a batch finishing keeps the error from a failed load", async () => {
+    const h = build();
+    h.port.list.mockResolvedValueOnce([new Error("no data"), null]);
+    h.send("LOAD");
+    h.send("ADD_MANY", { sources: [path("beach.jpg")], folderId: "f1" });
+    await finished(h);
+    await vi.waitFor(() => expect(h.stateOf()).not.toBe("adding"));
+    expect(h.ctx().error).toMatch(/no data/);
+  });
+});
+
 describe("gallery singleton", () => {
-  test("mirrors the machine into the atoms", async () => {
+  test("mirrors photos, add summary and error into the atoms", async () => {
     expect($galleryState.get()).toBe("booting");
     expect($photos.get()).toEqual([]);
     expect($addBatch.get()).toBeNull();
+    expect($galleryError.get()).toBeNull();
+
+    hoisted.gateway.list.mockResolvedValueOnce([null, { photos: [photo("p0")] }]);
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("ready"));
+    expect($photos.get()).toEqual([photo("p0")]);
+
+    hoisted.gateway.add.mockResolvedValueOnce([null, photo("p1")]);
+    gallery.add("/tmp/a.jpg", "a.jpg", "f1");
+    await vi.waitFor(() => expect($addBatch.get()?.running).toBe(false));
+    expect($addBatch.get()?.added).toBe(1);
+    expect($photos.get().map((p) => p.id)).toEqual(["p1", "p0"]);
+
     gallery.dismissBatch();
     expect($addBatch.get()).toBeNull();
+
+    hoisted.gateway.list.mockResolvedValueOnce([new Error("no data"), null]);
+    gallery.load();
+    await vi.waitFor(() => expect($galleryState.get()).toBe("error"));
+    expect($galleryError.get()).toMatch(/no data/);
   });
 });

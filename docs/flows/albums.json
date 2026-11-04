@@ -860,7 +860,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 423
+              "line": 425
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -906,7 +906,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 423
+              "line": 425
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -982,7 +982,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 399
+              "line": 401
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1020,7 +1020,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 415
+              "line": 417
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1391,7 +1391,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 407
+              "line": 409
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1811,7 +1811,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 438
+              "line": 440
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1933,7 +1933,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 467
+              "line": 469
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -1972,7 +1972,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/gallery-machine.ts",
-              "line": 482
+              "line": 484
             },
             "payloadReads": ["message"],
             "readsActorState": false,
