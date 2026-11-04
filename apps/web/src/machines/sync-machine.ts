@@ -139,7 +139,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
         },
       });
 
-      /** The folder status is read from the app. */
+      /** The folder status is fetched; if that fails or returns nothing, the status fails and the person sees an error. */
       m.effect(refreshing, {
         name: "refreshing",
         sends: [status, statusFailed],
@@ -201,7 +201,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           return { state: joining };
         },
       });
-      /** The folder is joined through the app, using the invite key. */
+      /** The person asks to join the shared folder with the invite key; if that fails or returns no status, joining fails and the person sees an error. */
       m.effect(joining, {
         name: "joining",
         sends: [joined, joinFailed],
@@ -268,7 +268,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           return { state: enrolling };
         },
       });
-      /** The person's folder is set up for sharing through the app. */
+      /** The folder is set up with its key and name; if that fails or returns no status, setting up fails and the person stays on the sharing screen. */
       m.effect(enrolling, {
         name: "enrolling",
         sends: [enrolled, enrollFailed],

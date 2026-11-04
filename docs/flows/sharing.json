@@ -413,7 +413,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": "The person's folder is set up for sharing through the app.",
+          "doc": "The folder is set up with its key and name; if that fails or returns no status, setting up fails and the person stays on the sharing screen.",
           "emits": [],
           "event": "effect:enrolling",
           "explanation": null,
@@ -622,7 +622,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": "The folder is joined through the app, using the invite key.",
+          "doc": "The person asks to join the shared folder with the invite key; if that fails or returns no status, joining fails and the person sees an error.",
           "emits": [],
           "event": "effect:joining",
           "explanation": null,
@@ -831,7 +831,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": "The folder status is read from the app.",
+          "doc": "The folder status is fetched; if that fails or returns nothing, the status fails and the person sees an error.",
           "emits": [],
           "event": "effect:refreshing",
           "explanation": null,
@@ -1622,7 +1622,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 212
+              "line": 214
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -1661,7 +1661,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 221
+              "line": 223
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1678,7 +1678,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The person's choice (allow, decline, stop sharing or remind me later) is saved; if it cannot be saved, the person sees an error.",
           "emits": [],
           "event": "effect:acting",
           "explanation": null,
@@ -1831,7 +1831,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 174
+              "line": 175
             },
             "payloadReads": ["kind", "peerId"],
             "readsActorState": false,
@@ -1909,7 +1909,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 150
+              "line": 151
             },
             "payloadReads": ["due", "records"],
             "readsActorState": false,
@@ -1948,7 +1948,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/grants-machine.ts",
-              "line": 164
+              "line": 165
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -1965,7 +1965,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The people and the prompts due today are fetched; if that fails, loading fails and the person sees an error.",
           "emits": [],
           "event": "effect:refreshing",
           "explanation": null,
@@ -2550,7 +2550,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 157
+              "line": 158
             },
             "payloadReads": ["approve", "folderId", "requesterKey"],
             "readsActorState": false,
@@ -2589,7 +2589,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 138
+              "line": 139
             },
             "payloadReads": ["requests"],
             "readsActorState": false,
@@ -2628,7 +2628,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 147
+              "line": 148
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -2645,7 +2645,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The pending join requests are fetched; if that fails or returns nothing, loading fails and the person sees an error.",
           "emits": [],
           "event": "effect:refreshing",
           "explanation": null,
@@ -2681,7 +2681,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 197
+              "line": 199
             },
             "payloadReads": ["folderId", "requesterKey"],
             "readsActorState": false,
@@ -2720,7 +2720,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/requests-machine.ts",
-              "line": 215
+              "line": 217
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -2737,7 +2737,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The owner's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list.",
           "emits": [],
           "event": "effect:responding",
           "explanation": null,
@@ -3113,7 +3113,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The approved person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again.",
           "emits": [],
           "event": "effect:approved",
           "explanation": null,
@@ -3149,7 +3149,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 167
+              "line": 168
             },
             "payloadReads": ["entry"],
             "readsActorState": false,
@@ -3188,7 +3188,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 161
+              "line": 162
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3227,7 +3227,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 173
+              "line": 174
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3283,7 +3283,7 @@
         {
           "contexts": [],
           "coverage": null,
-          "doc": null,
+          "doc": "The member is removed from the album's member list; if the list cannot be written, removing fails and the member stays.",
           "emits": [],
           "event": "effect:removing",
           "explanation": null,
@@ -3319,7 +3319,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 203
+              "line": 205
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3358,7 +3358,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 197
+              "line": 199
             },
             "payloadReads": [],
             "readsActorState": false,

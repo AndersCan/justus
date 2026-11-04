@@ -126,6 +126,7 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
         },
       });
 
+      /** The people and the prompts due today are fetched; if that fails, loading fails and the person sees an error. */
       m.effect(refreshing, {
         name: "refreshing",
         sends: [loaded, loadFailed],
@@ -183,6 +184,7 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
           return { state: acting };
         },
       });
+      /** The person's choice (allow, decline, stop sharing or remind me later) is saved; if it cannot be saved, the person sees an error. */
       m.effect(acting, {
         name: "acting",
         sends: [acted, actFailed],

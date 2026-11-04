@@ -115,6 +115,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         },
       });
 
+      /** The pending join requests are fetched; if that fails or returns nothing, loading fails and the person sees an error. */
       m.effect(refreshing, {
         name: "refreshing",
         sends: [loaded, loadFailed],
@@ -170,6 +171,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           return { state: responding };
         },
       });
+      /** The owner's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
       m.effect(responding, {
         name: "responding",
         sends: [responded, respondFailed],

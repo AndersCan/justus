@@ -137,6 +137,7 @@ export function createMembershipActor(options: {
           return isRequestEntry(payload) ? { state: approved.create(payload) } : {};
         },
       });
+      /** The approved person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again. */
       m.effect(approved, {
         name: "addMember",
         sends: [registryWritten, registryWriteFailed],
@@ -175,6 +176,7 @@ export function createMembershipActor(options: {
         to: [removing],
         handler: () => ({ state: removing }),
       });
+      /** The member is removed from the album's member list; if the list cannot be written, removing fails and the member stays. */
       m.effect(removing, {
         name: "removeMember",
         sends: [memberDropped, memberDropFailed],
