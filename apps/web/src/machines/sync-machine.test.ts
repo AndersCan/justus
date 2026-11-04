@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import type { SyncStatus } from "@justus/core";
-import { $syncStatus, createSyncActor, sync } from "./sync-machine";
+import { gateway } from "../gateway";
+import { $pendingJoin, $syncError, $syncStatus, createSyncActor, sync } from "./sync-machine";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -12,8 +13,8 @@ vi.mock("../gateway", () => ({
   },
 }));
 
-const statusOf = (pending = false) =>
-  ({ name: "Ana", folder: { id: "f1", role: "reader", pending } }) as unknown as SyncStatus;
+const statusOf = (pending = false, name = "Ana") =>
+  ({ name, folder: { id: "f1", role: "reader", pending } }) as unknown as SyncStatus;
 
 const send = (actor: ReturnType<typeof createSyncActor>, type: string, payload?: unknown) =>
   (actor as any).send({ type, payload });
@@ -115,11 +116,50 @@ describe("sync factory", () => {
 });
 
 describe("sync singleton", () => {
-  test("an external $syncStatus write survives a later retry", async () => {
-    const external = statusOf();
+  test("an external $syncStatus write survives later changes until a new status arrives", async () => {
+    const first = statusOf(false, "first");
+    const second = statusOf(false, "second");
+    const external = statusOf(false, "external");
+    vi.mocked(gateway.status)
+      .mockResolvedValueOnce([null, first] as any)
+      .mockResolvedValueOnce([new Error("offline"), null] as any)
+      .mockResolvedValueOnce([null, second] as any);
+
+    sync.refresh();
+    await vi.waitFor(() => expect($syncStatus.get()).toEqual(first));
+
     $syncStatus.set(external);
+    sync.refresh();
+    await vi.waitFor(() => expect($syncError.get()).toBe("offline"));
+    expect($syncStatus.get()).toEqual(external);
+
     sync.retry();
-    await Promise.resolve();
-    expect($syncStatus.get()).toBe(external);
+    await vi.waitFor(() => expect($syncStatus.get()).toEqual(second));
+  });
+
+  test("$syncError mirrors a failed refresh and clears on retry", async () => {
+    const after = statusOf(false, "after-retry");
+    vi.mocked(gateway.status)
+      .mockResolvedValueOnce([new Error("offline"), null] as any)
+      .mockResolvedValueOnce([null, after] as any);
+    sync.refresh();
+    await vi.waitFor(() => expect($syncError.get()).toBe("offline"));
+    sync.retry();
+    await vi.waitFor(() => expect($syncStatus.get()).toEqual(after));
+    expect($syncError.get()).toBeNull();
+  });
+
+  test("$pendingJoin is true after a join awaiting approval and cleared by the next join", async () => {
+    const start = statusOf(false, "start");
+    vi.mocked(gateway.status).mockResolvedValueOnce([null, start] as any);
+    vi.mocked(gateway.join)
+      .mockResolvedValueOnce([null, statusOf(true, "pending")] as any)
+      .mockResolvedValueOnce([null, statusOf(false, "ready")] as any);
+    sync.refresh();
+    await vi.waitFor(() => expect($syncStatus.get()).toEqual(start));
+    sync.join("k1");
+    await vi.waitFor(() => expect($pendingJoin.get()).toBe(true));
+    sync.join("k2");
+    await vi.waitFor(() => expect($pendingJoin.get()).toBe(false));
   });
 });

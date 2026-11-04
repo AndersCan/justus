@@ -74,6 +74,8 @@ const retry = event("RETRY")();
 
 type SyncContext = {
   status: SyncStatus | null;
+  /** Bumped whenever `status` is replaced; snapshots clone the context, so identity cannot tell. */
+  statusVersion: number;
   awaitingApproval: boolean;
   error: string | null;
   pendingJoin: { key: string; name?: string } | null;
@@ -93,6 +95,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
     clock: options.clock,
     context: {
       status: null,
+      statusVersion: 0,
       awaitingApproval: false,
       error: null,
       pendingJoin: null,
@@ -160,6 +163,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           opts.context.set({
             ...opts.context.get(),
             status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
             error: null,
             pendingJoin: null,
             pendingEnroll: null,
@@ -227,6 +231,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             ...opts.context.get(),
             error: null,
             status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
             awaitingApproval: Boolean(e.payload.status.folder?.pending),
             pendingJoin: null,
             pendingEnroll: null,
@@ -293,6 +298,7 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             ...opts.context.get(),
             error: null,
             status: e.payload.status,
+            statusVersion: opts.context.get().statusVersion + 1,
             pendingJoin: null,
             pendingEnroll: null,
           });
@@ -320,14 +326,14 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
 export const syncActor = createSyncActor({ clock: RealClock() });
 
 /** Folders also writes `$syncStatus`, so it is only written when this machine produced a new status. */
-let lastWrittenStatus: SyncStatus | null = null;
+let lastWrittenVersion = 0;
 syncActor.on("change", {
   fn: (snapshot) => {
-    const { status: current, error: message, awaitingApproval } = snapshot.context;
+    const { status: current, statusVersion, error: message, awaitingApproval } = snapshot.context;
     $syncError.set(message);
     $pendingJoin.set(awaitingApproval);
-    if (current !== null && current !== lastWrittenStatus) {
-      lastWrittenStatus = current;
+    if (current !== null && statusVersion !== lastWrittenVersion) {
+      lastWrittenVersion = statusVersion;
       $syncStatus.set(current);
     }
   },
