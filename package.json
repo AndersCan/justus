@@ -6,6 +6,7 @@
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "pnpm --parallel --filter './apps/*' run dev",
+    "start:mac": "node apps/desktop/scripts/build.mjs && open apps/desktop/dist/Justus.app",
     "check:issue-refs": "node scripts/check-issue-refs.mjs",
     "test": "vp test run scripts",
     "test:e2e": "playwright test",
