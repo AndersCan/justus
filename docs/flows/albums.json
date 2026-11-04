@@ -498,7 +498,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 381
+              "line": 383
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -537,7 +537,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/folders-machine.ts",
-              "line": 390
+              "line": 392
             },
             "payloadReads": ["message"],
             "readsActorState": false,
