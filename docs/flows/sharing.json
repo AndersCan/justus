@@ -2537,7 +2537,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 170
+              "line": 167
             },
             "payloadReads": ["entry"],
             "readsActorState": false,
@@ -2576,7 +2576,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 164
+              "line": 161
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2615,7 +2615,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 176
+              "line": 173
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2654,7 +2654,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 123
+              "line": 120
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -2707,7 +2707,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 206
+              "line": 203
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2746,7 +2746,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 200
+              "line": 197
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2791,7 +2791,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 135
+              "line": 132
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -2830,7 +2830,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 129
+              "line": 126
             },
             "payloadReads": [],
             "readsActorState": false,

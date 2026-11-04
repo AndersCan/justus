@@ -42,11 +42,11 @@ function fakePort(options: { failure?: PortError; overrides?: PortOverrides }) {
   const port: MembershipPort = {
     addMember: (e) => {
       added.push(e);
-      return Promise.resolve(failure ? Either.left(failure) : Either.right({}));
+      return Promise.resolve(failure ? Either.left(failure) : Either.right());
     },
     removeMember: (k) => {
       dropped.push(k);
-      return Promise.resolve(failure ? Either.left(failure) : Either.right({}));
+      return Promise.resolve(failure ? Either.left(failure) : Either.right());
     },
     ...overrides,
   };
@@ -168,7 +168,7 @@ describe("membership machine", () => {
       port: {
         addMember: () => {
           calls += 1;
-          return Promise.resolve(calls === 1 ? Either.left({ reason: "disk" }) : Either.right({}));
+          return Promise.resolve(calls === 1 ? Either.left({ reason: "disk" }) : Either.right());
         },
       },
     });

@@ -9,12 +9,9 @@ export type RequestEntry = RequestsFile["requests"][string];
 
 export type PortError = { reason: string };
 
-/** `Either.right` needs a non-nullish value, so a successful write carries `{}`. */
-export type Done = Record<string, never>;
-
 export type MembershipPort = {
-  addMember(entry: RequestEntry): Promise<Either<PortError, Done>>;
-  removeMember(memberKey: string): Promise<Either<PortError, Done>>;
+  addMember(entry: RequestEntry): Promise<Either<PortError, void>>;
+  removeMember(memberKey: string): Promise<Either<PortError, void>>;
 };
 
 export type MembershipRecords = {

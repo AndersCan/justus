@@ -162,8 +162,8 @@ await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000
     const actor = createMembershipActor({
       clock: VirtualClock(),
       port: {
-        addMember: () => Promise.resolve(Either.right({})),
-        removeMember: () => Promise.resolve(Either.right({})),
+        addMember: () => Promise.resolve(Either.right()),
+        removeMember: () => Promise.resolve(Either.right()),
       },
       memberKey: entry.requesterKey,
     });
