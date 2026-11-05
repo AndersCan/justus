@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "mantaq": {
+      "source": "AndersCan/mantaq",
+      "sourceType": "github",
+      "skillPath": "skills/mantaq/SKILL.md",
+      "computedHash": "29d5971937cba6745c950ef2c5052f7b8bab5711292edb789067768d66c7a225"
+    }
+  }
+}
