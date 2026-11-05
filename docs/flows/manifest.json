@@ -14,5 +14,6 @@
   "first-run": [
     "apps/web/src/machines/onboarding-machine.ts",
     "apps/web/src/machines/reach-hint-machine.ts"
-  ]
+  ],
+  "invite-requests": ["apps/backend/src/membership/invite-link-machine.ts"]
 }
