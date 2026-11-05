@@ -1,0 +1,513 @@
+{
+  "machines": [
+    {
+      "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->drafting",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "drafting"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "A request arrives after the Admin cancelled the link, so it is refused.",
+          "emits": ["requestRefused"],
+          "event": "requestArrived",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "cancelled"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 110
+            },
+            "payloadReads": ["*"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "cancelled",
+          "id": "cancelled-requestArrived-cancelled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "cancelled"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 6
+          },
+          "doc": "The Admin makes a link; it works until the chosen time has passed.",
+          "emits": [],
+          "event": "create",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "live.create({ linkId: newLinkId(), expiresAt: clock.now() + VALID_FOR_MS[e.payload.validFor], })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 64
+            },
+            "payloadReads": ["validFor"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "drafting",
+          "id": "drafting-create-live",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "live"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "A request arrives after the link expired, so it is refused.",
+          "emits": ["requestRefused"],
+          "event": "requestArrived",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "expired"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 101
+            },
+            "payloadReads": ["*"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "expired",
+          "id": "expired-requestArrived-expired",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "expired"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 2
+          },
+          "doc": "The Admin cancels the link, so it stops working.",
+          "emits": [],
+          "event": "cancel",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "cancelled"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 99
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "live",
+          "id": "live-cancel-cancelled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "cancelled"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": "A timer runs until the link's expiry time.",
+          "emits": [],
+          "event": "effect:live",
+          "explanation": null,
+          "from": "live",
+          "id": "live-effect:live-live",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "live"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 2
+          },
+          "doc": "The time ran out, so the link stops working.",
+          "emits": [],
+          "event": "expiryDue",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "expired"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 97
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "live",
+          "id": "live-expiryDue-expired",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "expired"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "A request arrives while the link works, so it is queued for the Admin.",
+          "emits": [],
+          "event": "requestArrived",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "live.create(payload as LinkInfo)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/invite-link-machine.ts",
+              "line": 85
+            },
+            "payloadReads": ["*"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "live",
+          "id": "live-requestArrived-live",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "live"
+        }
+      ],
+      "events": [
+        {
+          "doc": "The Admin cancels the link.",
+          "id": "cancel",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The Admin makes a link that works for the chosen time.",
+          "id": "create",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The link's time ran out.",
+          "id": "expiryDue",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "Someone opened the link and asked to join.",
+          "id": "requestArrived",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:drafting"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:drafting>create>live", "state:live"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "10m"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["error:live>create"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": ""
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:live>requestArrived>live"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "10m"
+                }
+              },
+              {
+                "event": "requestArrived",
+                "kind": "event",
+                "payload": {
+                  "requesterKey": "sample",
+                  "requesterName": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:live>cancel>cancelled", "state:cancelled"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "7d"
+                }
+              },
+              {
+                "event": "cancel",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:live>expiryDue>expired", "state:expired"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "7d"
+                }
+              },
+              {
+                "event": "expiryDue",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:cancelled>requestArrived>cancelled"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "10m"
+                }
+              },
+              {
+                "event": "cancel",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "requestArrived",
+                "kind": "event",
+                "payload": {
+                  "requesterKey": "sample",
+                  "requesterName": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:expired>requestArrived>expired"],
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": "10m"
+                }
+              },
+              {
+                "event": "expiryDue",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "requestArrived",
+                "kind": "event",
+                "payload": {
+                  "requesterKey": "sample",
+                  "requesterName": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [
+          {
+            "event": "create",
+            "from": "live",
+            "message": "RangeError: [VirtualClock] invalid setTimeout ms value: NaN",
+            "steps": [
+              {
+                "event": "create",
+                "kind": "event",
+                "payload": {
+                  "validFor": ""
+                }
+              }
+            ]
+          }
+        ],
+        "iterations": 2000,
+        "seed": 1
+      },
+      "id": "inviteLink",
+      "initial": "drafting",
+      "regions": [],
+      "states": [
+        {
+          "coverage": {
+            "hits": 3
+          },
+          "doc": "The Admin cancelled the link. New requests are refused; ones already queued stay.",
+          "effects": [],
+          "final": false,
+          "id": "cancelled",
+          "initial": false,
+          "label": "cancelled",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 8
+          },
+          "doc": "The Admin has not made a link yet.",
+          "effects": [],
+          "final": false,
+          "id": "drafting",
+          "initial": true,
+          "label": "drafting",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 3
+          },
+          "doc": "The link ran out of time. New requests are refused; ones already queued stay.",
+          "effects": [],
+          "final": false,
+          "id": "expired",
+          "initial": false,
+          "label": "expired",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 7
+          },
+          "doc": "The link works: requests that arrive are queued for the Admin to accept or decline.",
+          "effects": [
+            {
+              "name": "untilExpiry",
+              "sends": ["expiryDue"]
+            }
+          ],
+          "final": false,
+          "id": "live",
+          "initial": false,
+          "label": "live",
+          "region": null,
+          "tested": null
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 8
+}
