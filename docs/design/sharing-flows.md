@@ -39,7 +39,7 @@ Nils (Admin) made "Spain 2026" and wants Maya to see and add photos.
 - _Link expired._ Maya sees "This link has expired. Ask Nils for a new one." No request reaches Nils.
 - _Link cancelled._ Same screen and same text as expired.
 - _Declined._ Maya sees "Nils did not accept your request." Nothing is shared.
-- _Request from an unknown name._ The name is what the requester typed; Nils cannot verify it. The request shows the name plus when it arrived, and only Nils can accept it. Verifying who a requester is stays out of scope.
+- _Request from an unknown name._ The name is what the requester typed; Nils cannot verify it. The request shows the name, which link it came through and when it arrived (for example "via the 1 day link made on Tuesday"), and only Nils can accept it. Verifying who a requester is stays out of scope.
 - _Maya cancels_ while reviewing or waiting: nothing is sent, or the request is withdrawn.
 
 ## Story 2: a big group where everyone adds photos
@@ -100,8 +100,8 @@ There is one Admin per album and the role cannot be handed over yet.
 
 Rules (this is what the backend already does):
 
-- **Own photo:** the owner's drive entry is deleted (`apps/backend/src/photo-store.ts:2023-2033`).
-- **Admin removing someone else's photo:** a tombstone `driveKey:id` is written to `removed.json` on the album drive and the photo is hidden from the album (`photo-store.ts:2034-2054`, `gallery-order.ts:73-80`). The photo stays on the other person's phone.
+- **Own photo:** the owner's drive entry is deleted (`apps/backend/src/photo-store.ts:2026-2036`).
+- **Admin removing someone else's photo:** a tombstone `driveKey:id` is written to `removed.json` on the album drive and the photo is hidden from the album (`photo-store.ts:2037-2058`, `gallery-order.ts:73-80`). The photo stays on the other person's phone.
 - **Anyone else:** `NOT_FOUND` (`photo-store.ts:2060`).
 - If a Collaborator becomes a Viewer, their photos stay. They can still remove their own.
 
@@ -115,8 +115,8 @@ Proposed copy:
 Today the app does not match these rules:
 
 - The Remove button shows on every tile and in the lightbox, whatever the role (`apps/web/src/views/gallery.ts:316-324`, `apps/web/src/views/lightbox.ts:161-168`), so Viewers and Collaborators get a failed remove on other people's photos.
-- The confirm text says "It will disappear from everyone's phone in this album." (`gallery.ts:281`, `lightbox.ts:58`), which claims too much.
-- `CONTEXT.md` said the Admin "Cannot touch others' photos", which contradicts `photo-store.ts:2033-2054`. This PR corrects that row.
+- The confirm text says "It will disappear from everyone's phone in this album." (`gallery.ts:282`, `lightbox.ts:58`), which claims too much.
+- `CONTEXT.md` said the Admin "Cannot touch others' photos", which contradicts `photo-store.ts:2026-2058`. This PR corrects that row.
 - `Photo.mine` already exists (`packages/core/src/photos/types.ts:37`), so "can remove" is `photo.mine || role === "creator"`.
 
 ## Expiry options
@@ -138,7 +138,7 @@ Expiry works with no server because only the Admin's phone hands out the key, so
 2. **Word for people who can add photos?** **Collaborator** (Viewer is the default when accepting), rather than today's "Member".
 3. **Who can remove a photo?** **Whoever added it, and the Admin (removes it for everyone). Collaborators cannot remove other people's photos. Viewers cannot remove anything. No per-person setting.**
 4. **Switching a Collaborator to Viewer: do their photos stay?** **Yes.** They cannot add more and can still remove their own.
-5. **Big groups: one Admin approving 40 people is slow.** **Add "Accept all as viewers" to the request list for now.** Collaborators approving or inviting is a separate design.
+5. **Big groups: one Admin approving 40 people is slow.** **Add "Accept all as Collaborators" and "Accept all as Viewers" to the request list for now.** Collaborators approving or inviting is a separate design.
 6. **Can someone you removed ask again with a new link?** **Yes; the Admin decides again.**
 
 ## Not included
