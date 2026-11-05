@@ -11,7 +11,7 @@ allowBuilds:
 
 catalog:
   "@mantaq/core": ^0.5.4
-  "@mantaq/inspect": ^0.5.0
+  "@mantaq/inspect": ^0.5.1
   "@mantaq/sugar": ^2.0.4
   "@mantaq/viz": ^0.4.0
   "@mantaq/utils": ^0.0.5
@@ -40,7 +40,7 @@ minimumReleaseAgeExclude:
   - "@ekrooh/bare@0.6.1"
   - "@mantaq/core@0.5.0 || 0.5.1 || 0.5.3 || 0.5.4"
   - "@mantaq/sugar@2.0.0 || 2.0.3 || 2.0.4"
-  - "@mantaq/inspect@0.2.0 || 0.2.3 || 0.3.0 || 0.4.0 || 0.5.0"
+  - "@mantaq/inspect@0.2.0 || 0.2.3 || 0.3.0 || 0.4.0 || 0.5.0 || 0.5.1"
   - "@mantaq/traversal@0.3.1 || 0.3.3 || 0.3.4"
   - "@mantaq/viz@0.2.0 || 0.2.3 || 0.3.0 || 0.4.0"
   - "@mantaq/utils@0.0.4 || 0.0.5"
