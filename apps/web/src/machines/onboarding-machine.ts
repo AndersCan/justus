@@ -2,6 +2,7 @@ import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { INTRO_CARD_COUNT } from "../views/intro-cards";
 import { $userName } from "./folders-machine";
 
 /**
@@ -10,8 +11,7 @@ import { $userName } from "./folders-machine";
  * draft and error live in context; the singleton copies them to atoms.
  */
 
-/** Number of intro cards; the view's card list must match. */
-export const INTRO_CARD_COUNT = 6;
+export { INTRO_CARD_COUNT };
 
 const ONBOARDING_STATES = ["cards", "profile", "saving", "choose"] as const;
 export type OnboardingStateName = (typeof ONBOARDING_STATES)[number];
@@ -34,7 +34,8 @@ export const $onboardingViewModel = computed(
     error,
     fatal,
     userName,
-    draftName: nameDraft ?? userName,
+    // Never prefill from the stored name: it is a generated default, not the person's choice.
+    draftName: nameDraft ?? "",
   }),
 );
 

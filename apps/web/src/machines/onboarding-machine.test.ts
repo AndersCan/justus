@@ -43,6 +43,12 @@ describe("onboarding machine", () => {
     expect($onboardingState.get()).toBe("profile");
   });
 
+  test("the profile field is not prefilled with the generated device name", () => {
+    $userName.set("Quiet Otter");
+    expect($onboardingViewModel.get().draftName).toBe("");
+    $userName.set("");
+  });
+
   test("typing on the profile step updates the draft the preview reads", () => {
     expect($onboardingViewModel.get().draftName).toBe("");
     onboarding.editName("Maya Lin");

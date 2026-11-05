@@ -6,17 +6,13 @@ import {
   $foldersViewModel,
   folders,
 } from "../machines/folders-machine";
-import {
-  $onboardingState,
-  $onboardingViewModel,
-  INTRO_CARD_COUNT,
-  onboarding,
-} from "../machines/onboarding-machine";
+import { $onboardingState, $onboardingViewModel, onboarding } from "../machines/onboarding-machine";
 import { $inviteError, invites } from "../machines/invite-machine";
 import { $router } from "../router";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
+import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
 
 const SEEN_KEY = "justus:welcome-seen";
@@ -40,39 +36,6 @@ export function markWelcomeSeen(): void {
     // storage unavailable (private mode / non-browser) — ignore
   }
 }
-
-export const INTRO_CARDS: { icon: string; title: string; body: string }[] = [
-  {
-    icon: "👥",
-    title: "Share photos with the people you choose",
-    body: "Family and friends. No account needed.",
-  },
-  {
-    icon: "🚫☁",
-    title: "No server",
-    body: "Photos are kept only on your phone and the phones of the people you share with.",
-  },
-  {
-    icon: "📷",
-    title: "You pick what to share",
-    body: "Only the photos you choose or take in Justus are shared. Nothing is added by itself.",
-  },
-  {
-    icon: "✉️",
-    title: "Albums and invite links",
-    body: "Start an album and send its invite link. Anyone with the link can see the photos, so send it only to people you want in. You decide who can add their own.",
-  },
-  {
-    icon: "📱",
-    title: "No cloud copy",
-    body: "If a photo is only on a phone that gets lost, it is gone. Once someone else in the album has received it, it is much safer.",
-  },
-  {
-    icon: "📶",
-    title: "Use WiFi when you can",
-    body: "Photos arrive while you and the others have Justus open. Two phones on mobile data can have trouble reaching each other; WiFi on one of them usually fixes it.",
-  },
-];
 
 // A saved profile means the device is set up; a relaunch must not replay the intro.
 $onboardingState.listen((state) => {
@@ -111,7 +74,11 @@ function cardsStep(card: number) {
         else if (dx > 40 && card > 0) onboarding.back();
       }}
     >
-      <p class="text-5xl" aria-hidden="true">${c.icon}</p>
+      ${
+        typeof c.icon === "string"
+          ? html`<p class="text-5xl" aria-hidden="true">${c.icon}</p>`
+          : html`<p class="flex justify-center">${c.icon}</p>`
+      }
       <h1 class="mt-4 text-xl font-bold text-fg">${c.title}</h1>
       <p class="mt-2 text-sm text-fg">${c.body}</p>
       <div class="mt-6 flex justify-center gap-2" role="presentation">
@@ -266,17 +233,25 @@ function chooseStep() {
 export function welcomeView() {
   return html`
     <div class="mx-auto max-w-xl space-y-6 py-6">
-      <!-- md+: the rail already shows the wordmark; one coral dot per screen. -->
-      <h1 class="flex justify-center md:hidden">${wordmark("h-14 w-auto", true)}</h1>
       ${useStore($onboardingViewModel, (vm) => {
         if (vm.fatal) {
           return html`<p class="text-center text-sm text-danger-fg" role="alert">
             Something went wrong. Reload the app to continue.
           </p>`;
         }
-        if (vm.state === "cards") return cardsStep(vm.card);
-        if (vm.state === "choose") return chooseStep();
-        return profileStep(vm);
+        // The first card carries the logo itself, so the header would double it.
+        // md+: the rail already shows the wordmark; one coral dot per screen.
+        const header =
+          vm.state === "cards" && vm.card === 0
+            ? null
+            : html`<h1 class="flex justify-center md:hidden">${wordmark("h-14 w-auto", true)}</h1>`;
+        const step =
+          vm.state === "cards"
+            ? cardsStep(vm.card)
+            : vm.state === "choose"
+              ? chooseStep()
+              : profileStep(vm);
+        return html`${header}${step}`;
       })}
     </div>
   `;

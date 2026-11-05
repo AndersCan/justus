@@ -61,3 +61,15 @@ export function wordmark(cls: string, animated = false) {
     />
   </svg>`;
 }
+
+/**
+ * The wordmark set inline in running text. Sized so the glyphs match the
+ * surrounding x-height and the baseline lines up with the text (the viewBox
+ * keeps ~0.22em of descender room below the baseline). No coral dot animation:
+ * the dot is the one brand accent per screen, so this one stays static.
+ */
+export function justus() {
+  return html`<span class="inline-block align-baseline" style="height:0.95em;vertical-align:-0.22em"
+    >${wordmark("h-full w-auto")}</span
+  >`;
+}
