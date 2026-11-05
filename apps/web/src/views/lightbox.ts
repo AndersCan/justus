@@ -7,6 +7,7 @@ import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
+import { canRemove, removeDetail, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
 
 /** Full-screen photo detail. UI-only state — the machines stay untouched. */
@@ -55,7 +56,7 @@ async function removeFromLightbox(photo: Photo) {
   if ($galleryState.get() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
-    detail: "It will disappear from everyone's phone in this album.",
+    detail: removeDetail(photo),
     confirmLabel: "Remove",
     tone: "danger",
   });
@@ -158,16 +159,20 @@ function lightboxBody(photo: Photo) {
                   : null
               }
             </div>
-            ${useStore(
-              $galleryState,
-              (state) => html`<button
-                class="ui-btn-ghost !bg-transparent !px-3 !text-danger-fg hover:!bg-danger/10"
-                ?disabled=${state === "removing"}
-                @click=${() => void removeFromLightbox(photo)}
-              >
-                ${state === "removing" ? "Removing…" : "Remove"}
-              </button>`,
-            )}
+            ${
+              canRemove(photo, roleFor(photo))
+                ? useStore(
+                    $galleryState,
+                    (state) => html`<button
+                      class="ui-btn-ghost !bg-transparent !px-3 !text-danger-fg hover:!bg-danger/10"
+                      ?disabled=${state === "removing"}
+                      @click=${() => void removeFromLightbox(photo)}
+                    >
+                      ${state === "removing" ? "Removing…" : "Remove"}
+                    </button>`,
+                  )
+                : null
+            }
           </div>
         </div>
       </div>
