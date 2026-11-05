@@ -1,7 +1,7 @@
 # Flow confirmation workflow
 
 Large features are confirmed as flows before any UI or implementation work is
-queued. The flows are mantaq machines, drawn by `mantaq-inspect` and published
+queued. The flows are mantaq machines, drawn by the `@mantaq/inspect` Vite plugin and published
 as pages that can be read and ticked off.
 
 Pages: https://anderscan.github.io/justus/
@@ -21,11 +21,13 @@ Pages: https://anderscan.github.io/justus/
 
 ## `pnpm flows`
 
-`pnpm flows` runs `mantaq-inspect` over each feature listed in
-`docs/flows/manifest.json` and writes `docs/flows/<feature>.json`.
-`pnpm flows --html <dir>` writes one `<feature>.html` page per feature plus an
-index into `<dir>` (default `flows-site`); this is what CI publishes to Pages. The HTML pages drive
-factory machines live; singleton machines stay static walks.
+`pnpm flows` runs one `vite build` per feature listed in
+`docs/flows/manifest.json`, with the `@mantaq/inspect` Vite plugin over the
+feature's machine files. Each feature lands in `<dir>/<feature>/` (`index.html`,
+`viz.json` and a script), plus an index in `<dir>` (`--out <dir>`, default
+`flows-site`); this is what CI publishes to Pages. The pages drive factory
+machines live; singleton machines stay static walks. The Runs list on a page
+holds the tests recorded with `recordRuns`, read from the `__runs__/` folder
+next to the machine file.
 
-To add a feature, list its machine files under a new key in `manifest.json`
-and re-run `pnpm flows`.
+To add a feature, list its machine files under a new key in `manifest.json`.

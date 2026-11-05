@@ -1,5 +1,6 @@
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
+import { recordRuns } from "@mantaq/inspect/record";
 import { describe, expect, test } from "vite-plus/test";
 import {
   createInviteLinkActor,
@@ -12,7 +13,7 @@ const request: LinkRequest = { requesterKey: "a".repeat(64), requesterName: "May
 
 function setup() {
   const clock = VirtualClock();
-  const actor = createInviteLinkActor({ clock });
+  const actor = recordRuns(createInviteLinkActor)({ clock });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) => outputs.push({ type: e.type, payload: e.payload }));
   return { clock, actor, outputs };
