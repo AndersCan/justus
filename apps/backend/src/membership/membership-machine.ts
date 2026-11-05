@@ -124,10 +124,11 @@ const noRecords: MembershipRecords = {
   requests: {},
 };
 
-const unavailablePort: MembershipPort = {
-  addMember: async () => Either.left({ reason: "no membership port" }),
-  setRole: async () => Either.left({ reason: "no membership port" }),
-  removeMember: async () => Either.left({ reason: "no membership port" }),
+/** Used when no port is given, as on the flow page: there is no member list, so every save works. */
+const previewPort: MembershipPort = {
+  addMember: async () => Either.right(),
+  setRole: async () => Either.right(),
+  removeMember: async () => Either.right(),
 };
 
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
@@ -137,7 +138,7 @@ export function createMembershipActor(options: {
   records?: MembershipRecords;
   memberKey?: string;
 }) {
-  const { clock, port = unavailablePort, records = noRecords, memberKey = "" } = options;
+  const { clock, port = previewPort, records = noRecords, memberKey = "" } = options;
   return Actor({
     inputs: [requestSent, approve, decline, changeRole, remove],
     internal: [

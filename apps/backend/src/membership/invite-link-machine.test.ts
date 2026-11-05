@@ -97,3 +97,48 @@ describe("invite link machine", () => {
     expect(actor.state.name).toBe("cancelled");
   });
 });
+
+/** Each walk is the same steps as the link in docs/design/sharing-flows.md (Walks). */
+const REQUEST = `requestArrived=${JSON.stringify(request)}`;
+const LINK_WALKS: [string, string[], string][] = [
+  [
+    "Story 1, Nils: a 1 day link queues Maya's request, then expires",
+    ['create={"validFor":"1d"}', REQUEST, "@86400000", REQUEST],
+    "expired",
+  ],
+  [
+    "Story 2, Nils: a 7 day link for the wedding",
+    ['create={"validFor":"7d"}', REQUEST, "@604800000", REQUEST],
+    "expired",
+  ],
+  [
+    "Story 2, Nils: a stranger is in the chat, so he cancels the link",
+    ['create={"validFor":"7d"}', REQUEST, "cancel", REQUEST],
+    "cancelled",
+  ],
+  [
+    "Story 3, Nils: a 1 hour link for the family",
+    ['create={"validFor":"1h"}', REQUEST, "@3600000", REQUEST],
+    "expired",
+  ],
+];
+
+describe("invite link walks", () => {
+  test.each(LINK_WALKS)("%s", async (_name, steps, finalState) => {
+    const { actor, clock } = setup();
+    for (const step of steps) {
+      if (step.startsWith("@")) clock.advance(Number(step.slice(1)));
+      else {
+        const cut = step.indexOf("=");
+        if (cut === -1) actor.send({ type: step } as never);
+        else
+          actor.send({
+            type: step.slice(0, cut),
+            payload: JSON.parse(step.slice(cut + 1)),
+          } as never);
+      }
+      await actor.settled();
+    }
+    expect(actor.state.name).toBe(finalState);
+  });
+});

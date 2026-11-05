@@ -507,6 +507,1780 @@
           "tested": null
         }
       ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->notMember",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "notMember"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": "The approved person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again.",
+          "emits": [],
+          "event": "effect:approved",
+          "explanation": null,
+          "from": "approved",
+          "id": "approved-effect:approved-approved",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "approved"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The member list could not be saved, so the request goes back to waiting.",
+          "emits": [],
+          "event": "registryWriteFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "requestPending.create(e.payload.entry)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 220
+            },
+            "payloadReads": ["entry"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "approved",
+          "id": "approved-registryWriteFailed-requestPending",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "requestPending"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 9
+          },
+          "doc": "The member list was saved, so the person becomes a member.",
+          "emits": [],
+          "event": "registryWritten",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 210
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "approved",
+          "id": "approved-registryWritten-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": "The new role is saved; if it cannot be, the member keeps the old role.",
+          "emits": [],
+          "event": "effect:changingRole",
+          "explanation": null,
+          "from": "changingRole",
+          "id": "changingRole-effect:changingRole-changingRole",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "emits": [],
+          "event": "roleSaveFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.from })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 264
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "changingRole-roleSaveFailed-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role was saved, so the member has it.",
+          "emits": [],
+          "event": "roleSaved",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.to })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 255
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "changingRole-roleSaved-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 5
+          },
+          "doc": "The owner picks a different role, so the new role is saved next.",
+          "emits": [],
+          "event": "changeRole",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "changingRole.create({ from, to: e.payload.role })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 226
+            },
+            "payloadReads": ["role"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolled",
+          "id": "enrolled-changeRole-changingRole",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 3
+          },
+          "doc": "The owner removes the member, so they are taken out of the list next.",
+          "emits": [],
+          "event": "remove",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "removing.create({ role: isRole(payload) ? payload.role : \"member\" })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 273
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolled",
+          "id": "enrolled-remove-removing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "removing"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "emits": [],
+          "event": "roleSaveFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.from })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 264
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "fuzz:changingRole-roleSaveFailed-stay",
+          "kind": "stay",
+          "origin": "fuzz",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role was saved, so the member has it.",
+          "emits": [],
+          "event": "roleSaved",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.to })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 255
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "fuzz:changingRole-roleSaved-stay",
+          "kind": "stay",
+          "origin": "fuzz",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 13
+          },
+          "doc": "A request arrives and waits for the owner's decision.",
+          "emits": [],
+          "event": "requestSent",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "requestPending.create(e.payload)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 158
+            },
+            "payloadReads": ["*"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "notMember",
+          "id": "notMember-requestSent-requestPending",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "requestPending"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": "The member is removed from the album's member list; if the list cannot be written, removing fails and the member stays.",
+          "emits": [],
+          "event": "effect:removing",
+          "explanation": null,
+          "from": "removing",
+          "id": "removing-effect:removing-removing",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "removing"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "Taking the member out failed, so they stay a member.",
+          "emits": [],
+          "event": "memberDropFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: isRole(payload) ? payload.role : \"member\" })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 307
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "removing",
+          "id": "removing-memberDropFailed-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The member was taken out, so they are now removed.",
+          "emits": ["memberRemoved"],
+          "event": "memberDropped",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "removed"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 301
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "removing",
+          "id": "removing-memberDropped-removed",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "removed"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 11
+          },
+          "doc": "The owner approves, so the member list is written next.",
+          "emits": [],
+          "event": "approve",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isRequestEntry(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "approved.create({ entry: payload, role: e.payload.role })"
+                }
+              },
+              {
+                "conditions": ["!(isRequestEntry(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 170
+            },
+            "payloadReads": ["role"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "requestPending",
+          "id": "requestPending-approve-approved",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "approved"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The owner declines, so the person is no longer asking to join.",
+          "emits": [],
+          "event": "decline",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "notMember"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 164
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "requestPending",
+          "id": "requestPending-decline-notMember",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "notMember"
+        }
+      ],
+      "events": [
+        {
+          "doc": "The owner approves the request and picks the role the person joins with.",
+          "id": "approve",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The owner gives a member a different role.",
+          "id": "changeRole",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The owner declines the request.",
+          "id": "decline",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The member could not be taken out, so they stay a member.",
+          "id": "memberDropFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The member was taken out of the member list.",
+          "id": "memberDropped",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The member list could not be saved, so the request stays pending.",
+          "id": "registryWriteFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The member list was saved with the new member.",
+          "id": "registryWritten",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The owner removes a member.",
+          "id": "remove",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The person sends a request to join.",
+          "id": "requestSent",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "id": "roleSaveFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The new role was saved.",
+          "id": "roleSaved",
+          "internal": true,
+          "payloadType": null
+        }
+      ],
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:notMember"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:notMember>requestSent>requestPending", "state:requestPending"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:requestPending>decline>notMember"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "ample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "decline",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:requestPending>approve>approved", "state:approved"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWriteFailed>requestPending"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWriteFailed",
+                "kind": "event",
+                "payload": {
+                  "entry": {
+                    "folderName": "sample",
+                    "requestedAt": 1,
+                    "requesterKey": "sample",
+                    "requesterName": "sample",
+                    "shareKey": "sample"
+                  },
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWritten>enrolled", "state:enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:enrolled>changeRole>changingRole", "state:changingRole"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "reader"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:enrolled>remove>removing", "state:removing"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:changingRole>roleSaved>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "member"
+                }
+              },
+              {
+                "event": "roleSaved",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:changingRole>roleSaveFailed>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "reader"
+                }
+              },
+              {
+                "event": "roleSaveFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>memberDropFailed>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "memberDropFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:changingRole>roleSaveFailed"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "READER"
+                }
+              },
+              {
+                "event": "roleSaveFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "samplex"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:changingRole>roleSaved"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "READER"
+                }
+              },
+              {
+                "event": "roleSaved",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>memberDropped>removed", "state:removed"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "ader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "memberDropped",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
+      "id": "membership",
+      "initial": "notMember",
+      "regions": [],
+      "states": [
+        {
+          "coverage": {
+            "hits": 11
+          },
+          "doc": "The owner approved the request and the member list is being written.",
+          "effects": [
+            {
+              "name": "addMember",
+              "sends": ["registryWritten", "registryWriteFailed"]
+            }
+          ],
+          "final": false,
+          "id": "approved",
+          "initial": false,
+          "label": "approved",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 5
+          },
+          "doc": "The owner is changing the member's role and it is being saved.",
+          "effects": [
+            {
+              "name": "setRole",
+              "sends": ["roleSaved", "roleSaveFailed"]
+            }
+          ],
+          "final": false,
+          "id": "changingRole",
+          "initial": false,
+          "label": "changingRole",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 12
+          },
+          "doc": "The person is in the member list and can see the shared photos.",
+          "effects": [],
+          "final": false,
+          "id": "enrolled",
+          "initial": false,
+          "label": "enrolled",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 15
+          },
+          "doc": "This person has no request and is not in the album's member list.",
+          "effects": [],
+          "final": false,
+          "id": "notMember",
+          "initial": true,
+          "label": "notMember",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The person was removed and cannot rejoin.",
+          "effects": [],
+          "final": true,
+          "id": "removed",
+          "initial": false,
+          "label": "removed",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 3
+          },
+          "doc": "The owner is taking the person out of the member list.",
+          "effects": [
+            {
+              "name": "removeMember",
+              "sends": ["memberDropped", "memberDropFailed"]
+            }
+          ],
+          "final": false,
+          "id": "removing",
+          "initial": false,
+          "label": "removing",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 14
+          },
+          "doc": "The person asked to join and is waiting for the owner to approve or decline.",
+          "effects": [],
+          "final": false,
+          "id": "requestPending",
+          "initial": false,
+          "label": "requestPending",
+          "region": null,
+          "tested": null
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": null,
+          "emits": [],
+          "event": "",
+          "explanation": null,
+          "from": "__initial__",
+          "id": "__initial__->idle",
+          "kind": "initial",
+          "origin": "probe",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "A good link shows \"Join <album>?\". Anything else leaves the screen as it is.",
+          "emits": [],
+          "event": "openLink",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["album === undefined"],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              },
+              {
+                "conditions": ["!(album === undefined)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "reviewing.create(album)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 71
+            },
+            "payloadReads": ["link"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-openLink-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "A good link shows \"Join <album>?\". Anything else leaves the screen as it is.",
+          "emits": [],
+          "event": "openLink",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["album === undefined"],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              },
+              {
+                "conditions": ["!(album === undefined)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "reviewing.create(album)"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 71
+            },
+            "payloadReads": ["link"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "idle",
+          "id": "idle-openLink-reviewing",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "reviewing"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The joiner taps \"Ask to join\": the request is sent and the wait starts.",
+          "emits": [],
+          "event": "ask",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "waiting.create({ ...album, hint: false })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 80
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-ask-waiting",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "waiting"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The joiner backs out before asking: nothing was sent.",
+          "emits": [],
+          "event": "cancel",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 92
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "reviewing",
+          "id": "reviewing-cancel-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The Admin accepts as a Viewer or Collaborator.",
+          "emits": [],
+          "event": "accepted",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "joined.create({ role: e.payload.role })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 117
+            },
+            "payloadReads": ["role"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "waiting",
+          "id": "waiting-accepted-joined",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "joined"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The Admin declines.",
+          "emits": [],
+          "event": "adminDeclined",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "declined"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 123
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "waiting",
+          "id": "waiting-adminDeclined-declined",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "declined"
+        },
+        {
+          "contexts": ["default"],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The joiner withdraws the request.",
+          "emits": ["requestWithdrawn"],
+          "event": "cancel",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "state",
+                  "state": "idle"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 111
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "waiting",
+          "id": "waiting-cancel-idle",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "idle"
+        },
+        {
+          "contexts": [],
+          "coverage": null,
+          "doc": "After 30 seconds: \"<Admin>'s phone needs Justus open to let you in.\"",
+          "emits": [],
+          "event": "effect:waiting",
+          "explanation": null,
+          "from": "waiting",
+          "id": "waiting-effect:waiting-waiting",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "waiting"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The wait is over: the screen adds the line about the Admin's phone.",
+          "emits": [],
+          "event": "hintDue",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "waiting.create({ album, admin, hint: true })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 102
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "waiting",
+          "id": "waiting-hintDue-waiting",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "waiting"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The link expired or was cancelled before the Admin's phone saw the request.",
+          "emits": [],
+          "event": "linkRefused",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "refused.create({ reason: e.payload.reason })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/machines/sharing/join-request-machine.ts",
+              "line": 125
+            },
+            "payloadReads": ["reason"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "waiting",
+          "id": "waiting-linkRefused-refused",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "refused"
+        }
+      ],
+      "events": [
+        {
+          "doc": "The Admin accepted the request with a role.",
+          "id": "accepted",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The Admin declined the request.",
+          "id": "adminDeclined",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The joiner taps \"Ask to join\".",
+          "id": "ask",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The joiner backs out.",
+          "id": "cancel",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "30 seconds passed with no answer.",
+          "id": "hintDue",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The Admin's phone said the link is expired or cancelled.",
+          "id": "linkRefused",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The joiner opens a link or pastes text.",
+          "id": "openLink",
+          "internal": false,
+          "payloadType": null
+        }
+      ],
+      "fuzz": {
+        "corpus": [
+          {
+            "discovered": ["state:idle"],
+            "steps": []
+          },
+          {
+            "discovered": ["edge:idle>openLink>idle"],
+            "steps": [
+              {
+                "event": "openLink",
+                "kind": "event",
+                "payload": {
+                  "link": "sample"
+                }
+              }
+            ]
+          }
+        ],
+        "errors": [],
+        "iterations": 2000,
+        "seed": 1
+      },
+      "id": "joinRequest",
+      "initial": "idle",
+      "regions": [],
+      "states": [
+        {
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The Admin did not accept.",
+          "effects": [],
+          "final": false,
+          "id": "declined",
+          "initial": false,
+          "label": "declined",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 3
+          },
+          "doc": "No link is open.",
+          "effects": [],
+          "final": false,
+          "id": "idle",
+          "initial": true,
+          "label": "idle",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The Admin accepted.",
+          "effects": [],
+          "final": false,
+          "id": "joined",
+          "initial": false,
+          "label": "joined",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The link no longer works.",
+          "effects": [],
+          "final": false,
+          "id": "refused",
+          "initial": false,
+          "label": "refused",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "\"Join <album>?\" is on screen with the consent text.",
+          "effects": [],
+          "final": false,
+          "id": "reviewing",
+          "initial": false,
+          "label": "reviewing",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 0
+          },
+          "doc": "The request is sent and the joiner sees \"Waiting for <Admin>\".",
+          "effects": [
+            {
+              "name": "adminOfflineHint",
+              "sends": ["hintDue"]
+            }
+          ],
+          "final": false,
+          "id": "waiting",
+          "initial": false,
+          "label": "waiting",
+          "region": null,
+          "tested": null
+        }
+      ]
     }
   ],
   "schemaVersion": 8

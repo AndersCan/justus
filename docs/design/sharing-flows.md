@@ -1,6 +1,6 @@
 # Sharing flows: links that expire, accept as Viewer or Collaborator, who can remove photos
 
-Status: proposal for review. Nothing here changes app behaviour yet. Tracked in #78 (sharing) and #79 (removing photos). Machines and walks come in later PRs; the "Walks" section is a placeholder until then.
+Status: proposal for review. Nothing here changes app behaviour yet. Tracked in #78 (sharing) and #79 (removing photos). The machines and walk links are on the Pages site (see Walks).
 
 Words used: **Admin** (code: creator), **Collaborator** (can add photos; code today: member), **Viewer** (can only look; code today: reader), **invite link**, **album**.
 
@@ -147,4 +147,27 @@ Auto-accept, Collaborators approving or inviting, handing over the Admin role, u
 
 ## Walks
 
-_To be filled in once the sharing machines land: one link per side (joiner, link, Admin) for each story above._
+Each link opens the Pages page with a machine and its steps already taken, so you can click on from there or press **Back**. A step like `@86400000` moves the clock forward (here one day), which is how you watch a link expire. Every walk is also run as a test, so the links and the machines stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's decision about the person (`membership`). The page has no member list, so every save works there. In the Admin walks the requester's name is a sample ("Ann"), not the name used in the story.
+
+### Story 1: two friends
+
+- [Maya: asks, waits past the hint, is accepted as Collaborator](https://anderscan.github.io/justus/invite-requests.html?machine=joinRequest&step=openLink%3D%7B%22link%22%3A%22justus%3A%2F%2Fjoin%3Fi%3Dabc123%26n%3DSpain%25202026%26a%3DNils%22%7D&step=ask&step=%4030000&step=accepted%3D%7B%22role%22%3A%22member%22%7D)
+- [Maya: the link has expired](https://anderscan.github.io/justus/invite-requests.html?machine=joinRequest&step=openLink%3D%7B%22link%22%3A%22justus%3A%2F%2Fjoin%3Fi%3Dabc123%26n%3DSpain%25202026%26a%3DNils%22%7D&step=ask&step=linkRefused%3D%7B%22reason%22%3A%22expired%22%7D)
+- [Maya: declined](https://anderscan.github.io/justus/invite-requests.html?machine=joinRequest&step=openLink%3D%7B%22link%22%3A%22justus%3A%2F%2Fjoin%3Fi%3Dabc123%26n%3DSpain%25202026%26a%3DNils%22%7D&step=ask&step=adminDeclined)
+- [Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one](https://anderscan.github.io/justus/invite-requests.html?machine=inviteLink&step=create%3D%7B%22validFor%22%3A%221d%22%7D&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D&step=%4086400000&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D)
+- [Nils: accepts Maya as Collaborator](https://anderscan.github.io/justus/invite-requests.html?machine=membership&step=requestSent%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Ann%22%2C%22shareKey%22%3A%22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb%22%2C%22folderName%22%3A%22Trip%22%2C%22requestedAt%22%3A1%7D&step=approve%3D%7B%22role%22%3A%22member%22%7D)
+- [Nils: declines the request](https://anderscan.github.io/justus/invite-requests.html?machine=membership&step=requestSent%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Ann%22%2C%22shareKey%22%3A%22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb%22%2C%22folderName%22%3A%22Trip%22%2C%22requestedAt%22%3A1%7D&step=decline)
+
+### Story 2: a big group where everyone adds photos
+
+A guest's side is the Story 1 Maya walks.
+
+- [Nils's link: a 7 day link, then the week is over](https://anderscan.github.io/justus/invite-requests.html?machine=inviteLink&step=create%3D%7B%22validFor%22%3A%227d%22%7D&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D&step=%40604800000&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D)
+- [Nils's link: a stranger is in the chat, so he cancels](https://anderscan.github.io/justus/invite-requests.html?machine=inviteLink&step=create%3D%7B%22validFor%22%3A%227d%22%7D&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D&step=cancel&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D)
+- [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/invite-requests.html?machine=membership&step=requestSent%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Ann%22%2C%22shareKey%22%3A%22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb%22%2C%22folderName%22%3A%22Trip%22%2C%22requestedAt%22%3A1%7D&step=approve%3D%7B%22role%22%3A%22member%22%7D)
+
+### Story 3: a big group joining your personal album
+
+- [A relative: asks and is accepted as Viewer](https://anderscan.github.io/justus/invite-requests.html?machine=joinRequest&step=openLink%3D%7B%22link%22%3A%22justus%3A%2F%2Fjoin%3Fi%3Dabc123%26n%3DSpain%25202026%26a%3DNils%22%7D&step=ask&step=accepted%3D%7B%22role%22%3A%22reader%22%7D)
+- [Nils's link: a 1 hour link for the family expires](https://anderscan.github.io/justus/invite-requests.html?machine=inviteLink&step=create%3D%7B%22validFor%22%3A%221h%22%7D&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D&step=%403600000&step=requestArrived%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Maya%22%7D)
+- [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/invite-requests.html?machine=membership&step=requestSent%3D%7B%22requesterKey%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%2C%22requesterName%22%3A%22Ann%22%2C%22shareKey%22%3A%22bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb%22%2C%22folderName%22%3A%22Trip%22%2C%22requestedAt%22%3A1%7D&step=approve%3D%7B%22role%22%3A%22reader%22%7D&step=changeRole%3D%7B%22role%22%3A%22member%22%7D)

@@ -359,3 +359,45 @@ describe("membership machine", () => {
     expect({ state: actor.state.name, added }).toEqual({ state: "notMember", added: [] });
   });
 });
+
+/** Each walk is the same steps as the link in docs/design/sharing-flows.md (Walks). */
+const WALK_REQUEST = `requestSent=${JSON.stringify(entry)}`;
+const MEMBERSHIP_WALKS: [string, string[], string, unknown][] = [
+  [
+    "Story 1, Nils: accepts Maya as Collaborator",
+    [WALK_REQUEST, 'approve={"role":"member"}'],
+    "enrolled",
+    { role: "member" },
+  ],
+  ["Story 1, Nils: declines the request", [WALK_REQUEST, "decline"], "notMember", undefined],
+  [
+    "Story 2, Nils: accepts a guest as Collaborator",
+    [WALK_REQUEST, 'approve={"role":"member"}'],
+    "enrolled",
+    { role: "member" },
+  ],
+  [
+    "Story 3, Nils: accepts a relative as Viewer, later makes her a Collaborator",
+    [WALK_REQUEST, 'approve={"role":"reader"}', 'changeRole={"role":"member"}'],
+    "enrolled",
+    { role: "member" },
+  ],
+];
+
+describe("membership walks", () => {
+  test.each(MEMBERSHIP_WALKS)("%s", async (_name, steps, finalState, finalPayload) => {
+    const actor = createMembershipActor({ clock: VirtualClock() });
+    for (const step of steps) {
+      const cut = step.indexOf("=");
+      if (cut === -1) actor.send({ type: step } as never);
+      else
+        actor.send({
+          type: step.slice(0, cut),
+          payload: JSON.parse(step.slice(cut + 1)),
+        } as never);
+      await actor.settled();
+    }
+    expect(actor.state.name).toBe(finalState);
+    if (finalPayload !== undefined) expect(actor.snapshot().payload).toEqual(finalPayload);
+  });
+});

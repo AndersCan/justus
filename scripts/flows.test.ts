@@ -37,7 +37,7 @@ function read(feature: string): Flow {
   );
 }
 
-for (const feature of ["sharing", "albums", "first-run"]) {
+for (const feature of ["sharing", "albums", "first-run", "invite-requests"]) {
   test(`${feature} flows document every state, event and transition`, () => {
     const missing = read(feature).machines.flatMap((machine) =>
       [...machine.states, ...machine.events, ...machine.edges]
@@ -51,7 +51,9 @@ for (const feature of ["sharing", "albums", "first-run"]) {
 
 // Factory machines run on an injected clock, so the inspector can fuzz them.
 const FUZZED = [
+  "inviteLink",
   "membership",
+  "joinRequest",
   "reach",
   "onboarding",
   "people",
@@ -63,7 +65,7 @@ const FUZZED = [
 ];
 
 test("factory machines are fuzzed", () => {
-  const machines = ["sharing", "albums", "first-run"].flatMap((feature) => {
+  const machines = ["sharing", "albums", "first-run", "invite-requests"].flatMap((feature) => {
     const flow = JSON.parse(
       readFileSync(new URL(`../docs/flows/${feature}.json`, import.meta.url), "utf8"),
     ) as { machines: { id: string; fuzz: unknown }[] };

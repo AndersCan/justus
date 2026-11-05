@@ -8,12 +8,15 @@
     "apps/web/src/machines/invite-machine.ts",
     "apps/web/src/machines/sync-machine.ts",
     "apps/web/src/machines/grants-machine.ts",
-    "apps/web/src/machines/requests-machine.ts",
-    "apps/backend/src/membership/membership-machine.ts"
+    "apps/web/src/machines/requests-machine.ts"
   ],
   "first-run": [
     "apps/web/src/machines/onboarding-machine.ts",
     "apps/web/src/machines/reach-hint-machine.ts"
   ],
-  "invite-requests": ["apps/backend/src/membership/invite-link-machine.ts"]
+  "invite-requests": [
+    "apps/backend/src/membership/invite-link-machine.ts",
+    "apps/backend/src/membership/membership-machine.ts",
+    "apps/web/src/machines/sharing/join-request-machine.ts"
+  ]
 }
