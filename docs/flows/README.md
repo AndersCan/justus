@@ -31,3 +31,16 @@ holds the tests recorded with `recordRuns`, read from the `__runs__/` folder
 next to the machine file.
 
 To add a feature, list its machine files under a new key in `manifest.json`.
+
+## `pnpm flows:dev`
+
+`pnpm flows:dev [feature|file ...]` serves the live viz page for the named
+machines and redraws it on save. A target is a feature key from
+`manifest.json` (`invite-requests`) or a repo-relative `.ts` machine file
+(`apps/backend/src/membership/invite-link-machine.ts`); the file need not be in
+the manifest yet. No targets means every file in the manifest. An unknown
+target prints the known features to stderr and exits 1.
+
+Once listening it prints one line, `flows:dev: http://127.0.0.1:5180/__mantaq/`
+(Vite picks the next port if 5180 is busy). Add `?machine=<id>` to open one
+machine. It runs until killed.
