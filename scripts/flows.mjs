@@ -1,50 +1,47 @@
-import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { mantaqViz } from "@mantaq/inspect/vite";
+import { build } from "vite";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(join(root, "docs/flows/manifest.json"), "utf8"));
-const env = { ...process.env, VITE_TRANSPORT_MODE: "mock", MANTAQ_SEED: "1" };
+process.env.VITE_TRANSPORT_MODE = "mock";
+process.env.MANTAQ_SEED = "1";
 
-const htmlFlag = process.argv.indexOf("--html");
-if (htmlFlag !== -1) {
-  const htmlDir = resolve(process.argv[htmlFlag + 1] ?? "flows-site");
-  mkdirSync(htmlDir, { recursive: true });
-  let htmlFailed = false;
-  for (const [feature, files] of Object.entries(manifest)) {
-    const run = spawnSync(
-      "pnpm",
-      [
-        "exec",
-        "mantaq-inspect",
-        ...files,
-        "--out",
-        join(htmlDir, `${feature}.html`),
-        "--live",
-        "--no-open",
-        "--config",
-        "apps/web/vite.flows.config.ts",
-      ],
-      { cwd: root, env, stdio: "inherit" },
-    );
-    if (run.status !== 0) {
-      console.error(`flows: ${feature} failed`);
-      htmlFailed = true;
-    }
+const outFlag = process.argv.indexOf("--out");
+const outDir = resolve(outFlag === -1 ? "flows-site" : (process.argv[outFlag + 1] ?? "flows-site"));
+rmSync(outDir, { recursive: true, force: true });
+mkdirSync(outDir, { recursive: true });
+
+let failed = false;
+for (const [feature, files] of Object.entries(manifest)) {
+  try {
+    await build({
+      root,
+      configFile: join(root, "apps/web/vite.flows.config.ts"),
+      logLevel: "warn",
+      plugins: [mantaqViz({ machines: files.map((file) => join(root, file)), base: "/" })],
+      build: { outDir: join(outDir, feature), emptyOutDir: true },
+    });
+  } catch (error) {
+    console.error(`flows: ${feature} failed`, error);
+    failed = true;
   }
-  if (htmlFailed) process.exit(1);
-  const items = Object.entries(manifest)
-    .map(
-      ([feature, files]) =>
-        `    <li><a href="${feature}.html">${feature}</a>: ${files
-          .map((file) => file.replace(/^.*\//, "").replace(/\.ts$/, ""))
-          .join(", ")}</li>`,
-    )
-    .join("\n");
-  writeFileSync(
-    join(htmlDir, "index.html"),
-    `<!doctype html>
+}
+if (failed) process.exit(1);
+
+const items = Object.entries(manifest)
+  .map(
+    ([feature, files]) =>
+      `    <li><a href="${feature}/">${feature}</a>: ${files
+        .map((file) => file.replace(/^.*\//, "").replace(/\.ts$/, ""))
+        .join(", ")}</li>`,
+  )
+  .join("\n");
+writeFileSync(
+  join(outDir, "index.html"),
+  `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -58,32 +55,4 @@ ${items}
   </body>
 </html>
 `,
-  );
-  process.exit(0);
-}
-
-let failed = false;
-for (const [feature, files] of Object.entries(manifest)) {
-  const run = spawnSync(
-    "pnpm",
-    [
-      "exec",
-      "mantaq-inspect",
-      ...files,
-      "--json",
-      "--out",
-      `docs/flows/${feature}.json`,
-      "--no-open",
-      "--config",
-      "apps/web/vite.config.ts",
-    ],
-    { cwd: root, env, stdio: "inherit" },
-  );
-  if (run.status !== 0) {
-    console.error(`flows: ${feature} failed`);
-    failed = true;
-  }
-}
-if (failed) process.exit(1);
-const fmt = spawnSync("pnpm", ["exec", "vp", "fmt", "docs/flows"], { cwd: root, stdio: "inherit" });
-if (fmt.status !== 0) process.exit(1);
+);

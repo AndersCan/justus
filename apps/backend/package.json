@@ -28,6 +28,7 @@
     "protomux": "3.11.0"
   },
   "devDependencies": {
+    "@mantaq/inspect": "catalog:",
     "@types/node": "catalog:",
     "bare-http1": "^4.5.8",
     "bare-link": "^3.3.0",

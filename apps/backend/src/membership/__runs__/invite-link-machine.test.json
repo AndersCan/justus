@@ -1,0 +1,389 @@
+{
+  "inviteLink": [
+    {
+      "name": "invite link machine > a cancelled link never expires",
+      "end": "cancelled",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "10m"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "cancel",
+          "payload": {}
+        },
+        {
+          "kind": "advance",
+          "ms": 604800000
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > a request after cancel is refused as cancelled",
+      "end": "cancelled",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "cancel",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > a request after expiry is refused as expired",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "10m"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 600000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > a request before expiry is queued",
+      "end": "live",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1h"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 1000
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > cancel after expiry is ignored",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "10m"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 600000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > validFor 10m expires after 600000 ms",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "advance",
+          "ms": 1000
+        },
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "10m"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 600000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > validFor 1d expires after 86400000 ms",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "advance",
+          "ms": 1000
+        },
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1d"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 86400000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > validFor 1h expires after 3600000 ms",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "advance",
+          "ms": 1000
+        },
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1h"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 3600000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "invite link machine > validFor 7d expires after 604800000 ms",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "advance",
+          "ms": 1000
+        },
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "7d"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 604800000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "invite link walks > Story 1, Nils: a 1 day link queues Maya's request, then expires",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 86400000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link walks > Story 2, Nils: a 7 day link for the wedding",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "7d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 604800000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link walks > Story 2, Nils: a stranger is in the chat, so he cancels the link",
+      "end": "cancelled",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "7d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "cancel",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invite link walks > Story 3, Nils: a 1 hour link for the family",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "1h"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 3600000
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Maya"
+          }
+        }
+      ]
+    }
+  ]
+}

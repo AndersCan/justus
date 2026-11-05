@@ -1,7 +1,9 @@
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "vite-plus/test";
+import { afterAll, beforeAll, expect, test } from "vite-plus/test";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const manifest: Record<string, string[]> = JSON.parse(
@@ -29,12 +31,30 @@ test("every manifest path exists", () => {
 });
 
 type Item = { id: string; doc: string | null; kind?: string };
-type Flow = { machines: { id: string; states: Item[]; events: Item[]; edges: Item[] }[] };
+type Flow = {
+  machines: {
+    id: string;
+    states: Item[];
+    events: Item[];
+    edges: Item[];
+    runs?: { name: string }[];
+  }[];
+};
+
+const site = mkdtempSync(join(tmpdir(), "flows-"));
+
+beforeAll(() => {
+  const build = spawnSync("node", ["scripts/flows.mjs", "--out", site], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  if (build.status !== 0) throw new Error("flows build failed");
+}, 600_000);
+
+afterAll(() => rmSync(site, { recursive: true, force: true }));
 
 function read(feature: string): Flow {
-  return JSON.parse(
-    readFileSync(new URL(`../docs/flows/${feature}.json`, import.meta.url), "utf8"),
-  );
+  return JSON.parse(readFileSync(join(site, feature, "viz.json"), "utf8"));
 }
 
 for (const feature of ["sharing", "albums", "first-run", "invite-requests"]) {
@@ -66,13 +86,17 @@ const FUZZED = [
 
 test("factory machines are fuzzed", () => {
   const machines = ["sharing", "albums", "first-run", "invite-requests"].flatMap((feature) => {
-    const flow = JSON.parse(
-      readFileSync(new URL(`../docs/flows/${feature}.json`, import.meta.url), "utf8"),
-    ) as { machines: { id: string; fuzz: unknown }[] };
+    const flow = read(feature) as unknown as { machines: { id: string; fuzz: unknown }[] };
     return flow.machines;
   });
   const unfuzzed = FUZZED.filter(
     (id) => !machines.some((machine) => machine.id === id && machine.fuzz !== null),
   );
   expect(unfuzzed).toEqual([]);
+});
+
+test("invite link runs are recorded from the machine tests", () => {
+  const runs = read("invite-requests").machines.find((m) => m.id === "inviteLink")?.runs ?? [];
+  expect(runs.length).toBeGreaterThan(0);
+  expect(runs.some((run) => run.name.includes("Story 1"))).toBe(true);
 });
