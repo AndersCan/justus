@@ -31,7 +31,15 @@ test("every manifest path exists", () => {
 });
 
 type Item = { id: string; doc: string | null; kind?: string };
-type Flow = { machines: { id: string; states: Item[]; events: Item[]; edges: Item[] }[] };
+type Flow = {
+  machines: {
+    id: string;
+    states: Item[];
+    events: Item[];
+    edges: Item[];
+    runs?: { name: string }[];
+  }[];
+};
 
 const site = mkdtempSync(join(tmpdir(), "flows-"));
 
@@ -85,4 +93,10 @@ test("factory machines are fuzzed", () => {
     (id) => !machines.some((machine) => machine.id === id && machine.fuzz !== null),
   );
   expect(unfuzzed).toEqual([]);
+});
+
+test("invite link runs are recorded from the machine tests", () => {
+  const runs = read("invite-requests").machines.find((m) => m.id === "inviteLink")?.runs ?? [];
+  expect(runs.length).toBeGreaterThan(0);
+  expect(runs.some((run) => run.name.includes("Story 1"))).toBe(true);
 });
