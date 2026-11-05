@@ -41,7 +41,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 107
+              "line": 108
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -58,7 +58,7 @@
         {
           "contexts": ["default"],
           "coverage": {
-            "hits": 6
+            "hits": 7
           },
           "doc": "Next card; after the last card the name step opens.",
           "emits": [],
@@ -87,7 +87,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 96
+              "line": 97
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -133,7 +133,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 96
+              "line": 97
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -172,7 +172,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 117
+              "line": 118
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -211,7 +211,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 120
+              "line": 121
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -250,7 +250,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 129
+              "line": 130
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -289,7 +289,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 138
+              "line": 139
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -328,7 +328,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 170
+              "line": 171
             },
             "payloadReads": ["name"],
             "readsActorState": false,
@@ -367,7 +367,7 @@
             "location": {
               "column": 7,
               "file": "src/machines/onboarding-machine.ts",
-              "line": 179
+              "line": 180
             },
             "payloadReads": ["message"],
             "readsActorState": false,
@@ -511,41 +511,6 @@
             ]
           },
           {
-            "discovered": ["edge:cards>NEXT>profile"],
-            "steps": [
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "NEXT",
-                "kind": "event",
-                "payload": null
-              }
-            ]
-          },
-          {
             "discovered": ["edge:saving>SAVE_FAILED>profile"],
             "steps": [
               {
@@ -578,6 +543,46 @@
             ]
           },
           {
+            "discovered": ["edge:cards>NEXT>profile"],
+            "steps": [
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "NEXT",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
             "discovered": ["edge:saving>SAVED>choose", "state:choose"],
             "steps": [
               {
@@ -589,14 +594,14 @@
                 "event": "SAVE_PROFILE",
                 "kind": "event",
                 "payload": {
-                  "name": "sample"
+                  "name": "ample"
                 }
               },
               {
                 "event": "SAVED",
                 "kind": "event",
                 "payload": {
-                  "name": "sample"
+                  "name": "ample"
                 }
               }
             ]
@@ -612,7 +617,7 @@
       "states": [
         {
           "coverage": {
-            "hits": 18
+            "hits": 19
           },
           "doc": "The person is swiping through the intro cards.",
           "effects": [],

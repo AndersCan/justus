@@ -163,6 +163,7 @@ await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000
       clock: VirtualClock(),
       port: {
         addMember: () => Promise.resolve(Either.right()),
+        setRole: () => Promise.resolve(Either.right()),
         removeMember: () => Promise.resolve(Either.right()),
       },
       memberKey: entry.requesterKey,
@@ -171,15 +172,21 @@ await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000
     actor.send({ type: "requestSent", payload: entry });
     await actor.settled();
     states.push(String(actor.state.name));
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "reader" } });
+    await actor.settled();
+    states.push(String(actor.state.name));
+    actor.send({ type: "changeRole", payload: { role: "member" } });
     await actor.settled();
     states.push(String(actor.state.name));
     actor.send({ type: "remove" });
     await actor.settled();
     states.push(String(actor.state.name));
     const got = states.join(",");
-    if (got !== "requestPending,enrolled,removed") throw new Error(`unexpected states ${got}`);
-    console.log(`ok   membership-machine: request, approve, remove (${Date.now() - started}ms)`);
+    if (got !== "requestPending,enrolled,enrolled,removed")
+      throw new Error(`unexpected states ${got}`);
+    console.log(
+      `ok   membership-machine: request, approve, change role, remove (${Date.now() - started}ms)`,
+    );
   } catch (e) {
     failed++;
     console.log(

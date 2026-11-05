@@ -3149,7 +3149,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 168
+              "line": 219
             },
             "payloadReads": ["entry"],
             "readsActorState": false,
@@ -3164,20 +3164,20 @@
           "to": "requestPending"
         },
         {
-          "contexts": ["default"],
+          "contexts": [],
           "coverage": {
-            "hits": 4
+            "hits": 9
           },
           "doc": "The member list was saved, so the person becomes a member.",
-          "emits": ["memberEnrolled"],
+          "emits": [],
           "event": "registryWritten",
           "explanation": {
             "branches": [
               {
                 "conditions": [],
                 "target": {
-                  "kind": "state",
-                  "state": "enrolled"
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role })"
                 }
               }
             ],
@@ -3188,7 +3188,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 162
+              "line": 209
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3203,7 +3203,150 @@
           "to": "enrolled"
         },
         {
-          "contexts": ["default"],
+          "contexts": [],
+          "coverage": null,
+          "doc": "The new role is saved; if it cannot be, the member keeps the old role.",
+          "emits": [],
+          "event": "effect:changingRole",
+          "explanation": null,
+          "from": "changingRole",
+          "id": "changingRole-effect:changingRole-changingRole",
+          "kind": "effect",
+          "origin": "probe",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "emits": [],
+          "event": "roleSaveFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.from })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 263
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "changingRole-roleSaveFailed-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role was saved, so the member has it.",
+          "emits": [],
+          "event": "roleSaved",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.to })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 254
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "changingRole-roleSaved-enrolled",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "enrolled"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 5
+          },
+          "doc": "The owner picks a different role, so the new role is saved next.",
+          "emits": [],
+          "event": "changeRole",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": [],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "changingRole.create({ from, to: e.payload.role })"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 225
+            },
+            "payloadReads": ["role"],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "enrolled",
+          "id": "enrolled-changeRole-changingRole",
+          "kind": "transition",
+          "origin": "declared",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
           "coverage": {
             "hits": 3
           },
@@ -3215,8 +3358,8 @@
               {
                 "conditions": [],
                 "target": {
-                  "kind": "state",
-                  "state": "removing"
+                  "kind": "unresolved",
+                  "text": "removing.create({ role: isRole(payload) ? payload.role : \"member\" })"
                 }
               }
             ],
@@ -3227,7 +3370,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 174
+              "line": 272
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3244,7 +3387,97 @@
         {
           "contexts": [],
           "coverage": {
-            "hits": 8
+            "hits": 1
+          },
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "emits": [],
+          "event": "roleSaveFailed",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.from })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 263
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "fuzz:changingRole-roleSaveFailed-stay",
+          "kind": "stay",
+          "origin": "fuzz",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 1
+          },
+          "doc": "The new role was saved, so the member has it.",
+          "emits": [],
+          "event": "roleSaved",
+          "explanation": {
+            "branches": [
+              {
+                "conditions": ["isChange(payload)"],
+                "target": {
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: payload.to })"
+                }
+              },
+              {
+                "conditions": ["!(isChange(payload))"],
+                "target": {
+                  "kind": "stay"
+                }
+              }
+            ],
+            "comparisons": [],
+            "contextReads": [],
+            "contextWrites": [],
+            "literals": [],
+            "location": {
+              "column": 7,
+              "file": "src/membership/membership-machine.ts",
+              "line": 254
+            },
+            "payloadReads": [],
+            "readsActorState": false,
+            "registration": "on",
+            "status": "analyzed"
+          },
+          "from": "changingRole",
+          "id": "fuzz:changingRole-roleSaved-stay",
+          "kind": "stay",
+          "origin": "fuzz",
+          "tested": null,
+          "to": "changingRole"
+        },
+        {
+          "contexts": [],
+          "coverage": {
+            "hits": 13
           },
           "doc": "A request arrives and waits for the owner's decision.",
           "emits": [],
@@ -3266,7 +3499,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 120
+              "line": 157
             },
             "payloadReads": ["*"],
             "readsActorState": false,
@@ -3295,7 +3528,7 @@
           "to": "removing"
         },
         {
-          "contexts": ["default"],
+          "contexts": [],
           "coverage": {
             "hits": 1
           },
@@ -3307,8 +3540,8 @@
               {
                 "conditions": [],
                 "target": {
-                  "kind": "state",
-                  "state": "enrolled"
+                  "kind": "unresolved",
+                  "text": "enrolled.create({ role: isRole(payload) ? payload.role : \"member\" })"
                 }
               }
             ],
@@ -3319,7 +3552,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 205
+              "line": 306
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3358,7 +3591,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 199
+              "line": 300
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3375,7 +3608,7 @@
         {
           "contexts": [],
           "coverage": {
-            "hits": 6
+            "hits": 11
           },
           "doc": "The owner approves, so the member list is written next.",
           "emits": [],
@@ -3386,7 +3619,7 @@
                 "conditions": ["isRequestEntry(payload)"],
                 "target": {
                   "kind": "unresolved",
-                  "text": "approved.create(payload)"
+                  "text": "approved.create({ entry: payload, role: e.payload.role })"
                 }
               },
               {
@@ -3403,9 +3636,9 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 132
+              "line": 169
             },
-            "payloadReads": [],
+            "payloadReads": ["role"],
             "readsActorState": false,
             "registration": "on",
             "status": "analyzed"
@@ -3442,7 +3675,7 @@
             "location": {
               "column": 7,
               "file": "src/membership/membership-machine.ts",
-              "line": 126
+              "line": 163
             },
             "payloadReads": [],
             "readsActorState": false,
@@ -3459,8 +3692,14 @@
       ],
       "events": [
         {
-          "doc": "The owner approves the request.",
+          "doc": "The owner approves the request and picks the role the person joins with.",
           "id": "approve",
+          "internal": false,
+          "payloadType": null
+        },
+        {
+          "doc": "The owner gives a member a different role.",
+          "id": "changeRole",
           "internal": false,
           "payloadType": null
         },
@@ -3505,6 +3744,18 @@
           "id": "requestSent",
           "internal": false,
           "payloadType": null
+        },
+        {
+          "doc": "The new role could not be saved, so the member keeps the old role.",
+          "id": "roleSaveFailed",
+          "internal": true,
+          "payloadType": null
+        },
+        {
+          "doc": "The new role was saved.",
+          "id": "roleSaved",
+          "internal": true,
+          "payloadType": null
         }
       ],
       "fuzz": {
@@ -3522,31 +3773,10 @@
                 "payload": {
                   "folderName": "sample",
                   "requestedAt": 1,
-                  "requesterKey": "samplex",
+                  "requesterKey": "sample",
                   "requesterName": "sample",
                   "shareKey": "sample"
                 }
-              }
-            ]
-          },
-          {
-            "discovered": ["edge:requestPending>approve>approved", "state:approved"],
-            "steps": [
-              {
-                "event": "requestSent",
-                "kind": "event",
-                "payload": {
-                  "folderName": "sample",
-                  "requestedAt": 0,
-                  "requesterKey": "samplex",
-                  "requesterName": "sample",
-                  "shareKey": "sample"
-                }
-              },
-              {
-                "event": "approve",
-                "kind": "event",
-                "payload": null
               }
             ]
           },
@@ -3557,9 +3787,9 @@
                 "event": "requestSent",
                 "kind": "event",
                 "payload": {
-                  "folderName": "x",
-                  "requestedAt": 0,
-                  "requesterKey": "samplex",
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "ample",
                   "requesterName": "sample",
                   "shareKey": "sample"
                 }
@@ -3572,15 +3802,15 @@
             ]
           },
           {
-            "discovered": ["edge:approved>registryWritten>enrolled", "state:enrolled"],
+            "discovered": ["edge:requestPending>approve>approved", "state:approved"],
             "steps": [
               {
                 "event": "requestSent",
                 "kind": "event",
                 "payload": {
                   "folderName": "sample",
-                  "requestedAt": 0,
-                  "requesterKey": "samplex",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
                   "requesterName": "sample",
                   "shareKey": "sample"
                 }
@@ -3588,12 +3818,109 @@
               {
                 "event": "approve",
                 "kind": "event",
-                "payload": null
+                "payload": {
+                  "role": "eader"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWriteFailed>requestPending"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWriteFailed",
+                "kind": "event",
+                "payload": {
+                  "entry": {
+                    "folderName": "sample",
+                    "requestedAt": 1,
+                    "requesterKey": "sample",
+                    "requesterName": "sample",
+                    "shareKey": "sample"
+                  },
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:approved>registryWritten>enrolled", "state:enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
               },
               {
                 "event": "registryWritten",
                 "kind": "event",
                 "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:enrolled>changeRole>changingRole", "state:changingRole"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "reader"
+                }
               }
             ]
           },
@@ -3614,7 +3941,9 @@
               {
                 "event": "approve",
                 "kind": "event",
-                "payload": null
+                "payload": {
+                  "role": "eader"
+                }
               },
               {
                 "event": "registryWritten",
@@ -3623,6 +3952,210 @@
               },
               {
                 "event": "remove",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:changingRole>roleSaved>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "member"
+                }
+              },
+              {
+                "event": "roleSaved",
+                "kind": "event",
+                "payload": null
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:changingRole>roleSaveFailed>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "reader"
+                }
+              },
+              {
+                "event": "roleSaveFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["edge:removing>memberDropFailed>enrolled"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "samplex",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "remove",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "memberDropFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "sample"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:changingRole>roleSaveFailed"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "READER"
+                }
+              },
+              {
+                "event": "roleSaveFailed",
+                "kind": "event",
+                "payload": {
+                  "reason": "samplex"
+                }
+              }
+            ]
+          },
+          {
+            "discovered": ["stay:changingRole>roleSaved"],
+            "steps": [
+              {
+                "event": "requestSent",
+                "kind": "event",
+                "payload": {
+                  "folderName": "sample",
+                  "requestedAt": 1,
+                  "requesterKey": "sample",
+                  "requesterName": "sample",
+                  "shareKey": "sample"
+                }
+              },
+              {
+                "event": "approve",
+                "kind": "event",
+                "payload": {
+                  "role": "eader"
+                }
+              },
+              {
+                "event": "registryWritten",
+                "kind": "event",
+                "payload": null
+              },
+              {
+                "event": "changeRole",
+                "kind": "event",
+                "payload": {
+                  "role": "READER"
+                }
+              },
+              {
+                "event": "roleSaved",
                 "kind": "event",
                 "payload": null
               }
@@ -3645,7 +4178,9 @@
               {
                 "event": "approve",
                 "kind": "event",
-                "payload": null
+                "payload": {
+                  "role": "ader"
+                }
               },
               {
                 "event": "registryWritten",
@@ -3663,79 +4198,6 @@
                 "payload": null
               }
             ]
-          },
-          {
-            "discovered": ["edge:removing>memberDropFailed>enrolled"],
-            "steps": [
-              {
-                "event": "requestSent",
-                "kind": "event",
-                "payload": {
-                  "folderName": "sample",
-                  "requestedAt": 0,
-                  "requesterKey": "samplex",
-                  "requesterName": "sample",
-                  "shareKey": "sample"
-                }
-              },
-              {
-                "event": "approve",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "registryWritten",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "remove",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "memberDropFailed",
-                "kind": "event",
-                "payload": {
-                  "reason": "sample"
-                }
-              }
-            ]
-          },
-          {
-            "discovered": ["edge:approved>registryWriteFailed>requestPending"],
-            "steps": [
-              {
-                "event": "requestSent",
-                "kind": "event",
-                "payload": {
-                  "folderName": "ample",
-                  "requestedAt": 0,
-                  "requesterKey": "samplex",
-                  "requesterName": "sample",
-                  "shareKey": "sample"
-                }
-              },
-              {
-                "event": "approve",
-                "kind": "event",
-                "payload": null
-              },
-              {
-                "event": "registryWriteFailed",
-                "kind": "event",
-                "payload": {
-                  "entry": {
-                    "folderName": "sample",
-                    "requestedAt": 1,
-                    "requesterKey": "sample",
-                    "requesterName": "sample",
-                    "shareKey": "sample"
-                  },
-                  "reason": "sample"
-                }
-              }
-            ]
           }
         ],
         "errors": [],
@@ -3748,7 +4210,7 @@
       "states": [
         {
           "coverage": {
-            "hits": 6
+            "hits": 11
           },
           "doc": "The owner approved the request and the member list is being written.",
           "effects": [
@@ -3768,6 +4230,24 @@
           "coverage": {
             "hits": 5
           },
+          "doc": "The owner is changing the member's role and it is being saved.",
+          "effects": [
+            {
+              "name": "setRole",
+              "sends": ["roleSaved", "roleSaveFailed"]
+            }
+          ],
+          "final": false,
+          "id": "changingRole",
+          "initial": false,
+          "label": "changingRole",
+          "region": null,
+          "tested": null
+        },
+        {
+          "coverage": {
+            "hits": 12
+          },
           "doc": "The person is in the member list and can see the shared photos.",
           "effects": [],
           "final": false,
@@ -3779,7 +4259,7 @@
         },
         {
           "coverage": {
-            "hits": 10
+            "hits": 15
           },
           "doc": "This person has no request and is not in the album's member list.",
           "effects": [],
@@ -3823,7 +4303,7 @@
         },
         {
           "coverage": {
-            "hits": 9
+            "hits": 14
           },
           "doc": "The person asked to join and is waiting for the owner to approve or decline.",
           "effects": [],

@@ -4,6 +4,7 @@ import {
   type MembershipPort,
   type MembershipRecords,
   type PortError,
+  type Role,
   type RequestEntry,
 } from "./membership-machine";
 import { VirtualClock } from "@mantaq/core";
@@ -38,10 +39,15 @@ type PortOverrides = Partial<MembershipPort>;
 function fakePort(options: { failure?: PortError; overrides?: PortOverrides }) {
   const { failure, overrides } = options;
   const added: RequestEntry[] = [];
+  const roles: Role[] = [];
   const dropped: string[] = [];
   const port: MembershipPort = {
     addMember: (e) => {
       added.push(e);
+      return Promise.resolve(failure ? Either.left(failure) : Either.right());
+    },
+    setRole: (_k, role) => {
+      roles.push(role);
       return Promise.resolve(failure ? Either.left(failure) : Either.right());
     },
     removeMember: (k) => {
@@ -50,7 +56,7 @@ function fakePort(options: { failure?: PortError; overrides?: PortOverrides }) {
     },
     ...overrides,
   };
-  return { port, added, dropped };
+  return { port, added, roles, dropped };
 }
 
 function setup(
@@ -73,7 +79,7 @@ describe("membership machine", () => {
     const { actor, outputs, added, dropped } = setup();
     actor.send({ type: "requestSent", payload: entry });
     await actor.settled();
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     actor.send({ type: "remove" });
     await actor.settled();
@@ -96,7 +102,7 @@ describe("membership machine", () => {
   test("registry write failure returns to requestPending", async () => {
     const { actor, outputs } = setup({ failure: { reason: "disk" } });
     actor.send({ type: "requestSent", payload: entry });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("requestPending");
     expect(outputs).toEqual([]);
@@ -115,7 +121,7 @@ describe("membership machine", () => {
       port: { addMember: () => Promise.reject(new Error("boom")) },
     });
     actor.send({ type: "requestSent", payload: entry });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("requestPending");
     expect(outputs).toEqual([]);
@@ -141,7 +147,7 @@ describe("membership machine", () => {
       },
     });
     actor.send({ type: "requestSent", payload: entry });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("requestPending");
     expect(outputs).toEqual([]);
@@ -173,9 +179,9 @@ describe("membership machine", () => {
       },
     });
     actor.send({ type: "requestSent", payload: entry });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("enrolled");
     expect(outputs).toEqual(["memberEnrolled"]);
@@ -186,7 +192,7 @@ describe("membership machine", () => {
       JSON.stringify({ ...entry, requestedAt: "yesterday" }),
     );
     const { actor, added, outputs } = setup({ records: { ...empty, requests: { s: malformed } } });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("requestPending");
     expect(added).toEqual([]);
@@ -198,14 +204,14 @@ describe("membership machine", () => {
     const other = { ...entry, folderName: "Other" };
     actor.send({ type: "requestSent", payload: entry });
     actor.send({ type: "requestSent", payload: other });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(added).toEqual([entry]);
   });
 
   test("approve, decline and remove from notMember change nothing", async () => {
     const { actor, added, dropped } = setup();
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     actor.send({ type: "decline" });
     actor.send({ type: "remove" });
     await actor.settled();
@@ -217,7 +223,7 @@ describe("membership machine", () => {
   test("ignores decline and approve while enrolled", async () => {
     const { actor, added } = setup({ records: enrolledRecords });
     actor.send({ type: "decline" });
-    actor.send({ type: "approve" });
+    actor.send({ type: "approve", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("enrolled");
     expect(added).toEqual([]);
@@ -261,5 +267,95 @@ describe("membership machine", () => {
       removed: { version: 1, removed: { x: { memberKey: key, removedAt: 2 } } },
     };
     expect(stateName(initialStateFromRecords({ records, memberKey: key }))).toBe("removed");
+  });
+
+  test("approve as reader and as member both enroll with that role", async () => {
+    const seen: Array<{ role: Role; state: unknown }> = [];
+    for (const role of ["reader", "member"] as const) {
+      const roles: Role[] = [];
+      const { actor } = setup({
+        port: {
+          addMember: (_e, r) => {
+            roles.push(r);
+            return Promise.resolve(Either.right());
+          },
+        },
+      });
+      actor.send({ type: "requestSent", payload: entry });
+      actor.send({ type: "approve", payload: { role } });
+      await actor.settled();
+      seen.push({ role: roles[0] as Role, state: actor.snapshot().payload });
+    }
+    expect(seen).toEqual([
+      { role: "reader", state: { role: "reader" } },
+      { role: "member", state: { role: "member" } },
+    ]);
+  });
+
+  test("changes role both ways", async () => {
+    const { actor, roles } = setup({ records: enrolledRecords });
+    actor.send({ type: "changeRole", payload: { role: "reader" } });
+    await actor.settled();
+    expect(actor.snapshot().payload).toEqual({ role: "reader" });
+    actor.send({ type: "changeRole", payload: { role: "member" } });
+    await actor.settled();
+    expect({ state: actor.state.name, payload: actor.snapshot().payload, roles }).toEqual({
+      state: "enrolled",
+      payload: { role: "member" },
+      roles: ["reader", "member"],
+    });
+  });
+
+  test("a failed role change keeps the old role", async () => {
+    for (const port of [
+      { setRole: () => Promise.resolve(Either.left({ reason: "disk" })) },
+      { setRole: () => Promise.reject(new Error("boom")) },
+    ]) {
+      const { actor } = setup({ records: enrolledRecords, port });
+      actor.send({ type: "changeRole", payload: { role: "reader" } });
+      await actor.settled();
+      expect({ state: actor.state.name, payload: actor.snapshot().payload }).toEqual({
+        state: "enrolled",
+        payload: { role: "member" },
+      });
+    }
+  });
+
+  test("a failed role change after an approve-as-reader keeps reader", async () => {
+    const { actor } = setup({
+      port: { setRole: () => Promise.resolve(Either.left({ reason: "disk" })) },
+    });
+    actor.send({ type: "requestSent", payload: entry });
+    actor.send({ type: "approve", payload: { role: "reader" } });
+    await actor.settled();
+    actor.send({ type: "changeRole", payload: { role: "member" } });
+    await actor.settled();
+    expect(actor.snapshot().payload).toEqual({ role: "reader" });
+  });
+
+  test("changeRole is ignored outside enrolled", async () => {
+    for (const records of [empty, { ...empty, requests: { s: entry } }]) {
+      const { actor, roles } = setup({ records });
+      const before = actor.state.name;
+      actor.send({ type: "changeRole", payload: { role: "reader" } });
+      await actor.settled();
+      expect({ state: actor.state.name, roles }).toEqual({ state: before, roles: [] });
+    }
+    const removedRun = setup({ records: enrolledRecords });
+    removedRun.actor.send({ type: "remove" });
+    await removedRun.actor.settled();
+    removedRun.actor.send({ type: "changeRole", payload: { role: "reader" } });
+    await removedRun.actor.settled();
+    expect({ state: removedRun.actor.state.name, roles: removedRun.roles }).toEqual({
+      state: "removed",
+      roles: [],
+    });
+  });
+
+  test("approve with no request is ignored", async () => {
+    const { actor, added } = setup();
+    actor.send({ type: "approve", payload: { role: "reader" } });
+    await actor.settled();
+    expect({ state: actor.state.name, added }).toEqual({ state: "notMember", added: [] });
   });
 });
