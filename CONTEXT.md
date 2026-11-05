@@ -72,16 +72,16 @@ _Avoid_: e2e encrypted (misleading), end-to-end encrypted
 
 The code terms above are precise; the UI uses plainer ones. Never show the left column to users.
 
-| Code / docs term | User sees                      | Notes                                                                                    |
-| ---------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
-| Folder           | **Album**                      | Create, share, join an album. There is no separate local "albums" feature.               |
-| Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Cannot touch others' photos.     |
-| Member           | **Member**                     | Can add photos.                                                                          |
-| Reader           | **Viewer**                     | Can only look.                                                                           |
-| Share key        | **Invite**                     | Copyable link, QR, or pasted key. Grants viewing at once; approval is needed to add.     |
-| Registry         | _(hidden)_                     |                                                                                          |
-| Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join. |
-| Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                       |
+| Code / docs term | User sees                      | Notes                                                                                      |
+| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| Folder           | **Album**                      | Create, share, join an album. There is no separate local "albums" feature.                 |
+| Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Can remove others' photos for all. |
+| Member           | **Member**                     | Can add photos.                                                                            |
+| Reader           | **Viewer**                     | Can only look.                                                                             |
+| Share key        | **Invite**                     | Copyable link, QR, or pasted key. Grants viewing at once; approval is needed to add.       |
+| Registry         | _(hidden)_                     |                                                                                            |
+| Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |
+| Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                         |
 
 **Profile**:
 The user's display name and auto-assigned colour, set on first run. No account, email or password. Device labels are derived automatically.
