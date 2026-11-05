@@ -45,6 +45,13 @@ const QA: { q: string; a: string[] }[] = [
       "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
     ],
   },
+  {
+    q: "Who can remove a photo?",
+    a: [
+      "Whoever added a photo can remove it, and so can the Admin. Collaborators can't remove other people's photos, and Viewers can't remove anything.",
+      "Removing your own photo removes it from the album for everyone. Phones that already have it may keep a copy. When the Admin removes someone else's photo, it is hidden from the album for everyone, and it stays on that person's phone.",
+    ],
+  },
 ];
 
 /** The Help destination: a short FAQ, starting with what peer to peer means. */
