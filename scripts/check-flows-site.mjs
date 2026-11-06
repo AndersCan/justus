@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright";
 
+let failed = false;
 const dir = resolve(process.argv[2] ?? "flows-site");
 const pages = readdirSync(dir, { withFileTypes: true })
   .filter(
@@ -15,6 +16,64 @@ const pages = readdirSync(dir, { withFileTypes: true })
 if (pages.length === 0) {
   console.error(`check-flows-site: no pages in ${dir}`);
   process.exit(1);
+}
+
+// Factory machines run on an injected clock, so the inspector can fuzz them.
+const FUZZED = [
+  "inviteLink",
+  "membership",
+  "joinRequest",
+  "reach",
+  "onboarding",
+  "people",
+  "requests",
+  "grants",
+  "sync",
+  "gallery",
+  "folders",
+];
+
+function vizDocuments(name) {
+  const html = readFileSync(join(dir, name, "index.html"), "utf8");
+  const unescape = (text) =>
+    text
+      .replaceAll("&quot;", '"')
+      .replaceAll("&#39;", "'")
+      .replaceAll("&lt;", "<")
+      .replaceAll("&gt;", ">")
+      .replaceAll("&amp;", "&");
+  return [...html.matchAll(/data-mantaq-viz="([^"]*)"/g)].flatMap(
+    (match) => JSON.parse(unescape(match[1])).machines,
+  );
+}
+
+const fuzzedSeen = new Set();
+const allMachines = [];
+for (const name of pages) {
+  const machines = vizDocuments(name);
+  allMachines.push(...machines);
+  for (const machine of machines) {
+    if (machine.fuzz !== null) fuzzedSeen.add(machine.id);
+    const missing = [...machine.states, ...machine.events, ...machine.edges]
+      // initial edges are probed, not declared with m.on, so inspect has no doc for them
+      .filter((item) => item.kind !== "initial" && !item.doc?.trim())
+      .map((item) => item.id);
+    if (missing.length > 0) {
+      console.error(
+        `check-flows-site: ${name}: ${machine.id} has undocumented: ${missing.join(", ")}`,
+      );
+      failed = true;
+    }
+  }
+}
+for (const id of FUZZED.filter((id) => !fuzzedSeen.has(id))) {
+  console.error(`check-flows-site: factory machine ${id} is not fuzzed (or missing)`);
+  failed = true;
+}
+const invite = allMachines.find((machine) => machine.id === "inviteLink");
+if (!invite?.runs?.some((run) => run.name.includes("Story 1"))) {
+  console.error("check-flows-site: inviteLink has no recorded Story 1 run");
+  failed = true;
 }
 
 const BASE = "/justus";
@@ -44,7 +103,6 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
-let failed = false;
 for (const name of pages) {
   const page = await browser.newPage();
   const errors = [];
