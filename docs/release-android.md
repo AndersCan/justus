@@ -36,7 +36,7 @@ Play rejects or blocks the release without these:
 
 - [ ] **Store assets:** a 512×512 icon, a 1024×500 feature graphic, and at least
       2 phone screenshots. Screenshots from the arm64 emulator are fine.
-- [ ] **Privacy policy URL**, hosted publicly (GitHub Pages works). It must match
+- [ ] **Privacy policy URL**: <https://anderscan.github.io/justus/privacy/> (after merge). It must match
       what we actually do: no server, data stays on devices and with chosen peers.
 - [ ] **Target SDK.** Play requires the current target API level, which is
       **36** (Android 16) since 31 Aug 2026. It rises every August; check
