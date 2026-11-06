@@ -24,6 +24,8 @@ import { createHyperPeerNetwork } from "../../src/adapters/hyper-peer-network.ts
 import type { PeerEvent } from "../../src/ports/peer-network.ts";
 import type { DriveWorld } from "../contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
+import type { AnswerNode, AnswerWorld } from "../contracts/peer-answer.contract.ts";
+import { makeAnswerNode } from "../answer-node.ts";
 import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
 import type { P2pEvent } from "../../src/p2p-log.ts";
 
@@ -238,6 +240,47 @@ export async function barePeerWorlds(): Promise<{
   return {
     world() {
       const w = world();
+      worlds.push(w);
+      return w;
+    },
+    async destroy() {
+      for (const w of worlds) await w.close();
+      await testnet.destroy();
+    },
+  };
+}
+
+/** Bare twin of `realAnswerWorlds` in `../real-answer-world.ts`. */
+export async function bareAnswerWorlds(
+  root: string,
+): Promise<{ world(): AnswerWorld; destroy(): Promise<void> }> {
+  const testnet = await createTestnet(3);
+  const worlds: AnswerWorld[] = [];
+  let n = 0;
+  return {
+    world() {
+      const nodes: AnswerNode[] = [];
+      const w: AnswerWorld = {
+        async node() {
+          const dir = path.join(root, `answer-${n++}`);
+          fs.mkdirSync(dir, { recursive: true });
+          const node = makeAnswerNode(
+            {
+              Corestore: Corestore as never,
+              Hyperdrive: Hyperdrive as never,
+              Hyperswarm: Hyperswarm as never,
+              bootstrap: testnet.bootstrap as never,
+            },
+            dir,
+          );
+          nodes.push(node);
+          return node;
+        },
+        topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
+        async close() {
+          for (const node of nodes) await node.close().catch(() => {});
+        },
+      };
       worlds.push(w);
       return w;
     },

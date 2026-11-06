@@ -3,7 +3,8 @@
  * Started by `scripts/test-bare.mjs` as `bare <bundle> dir=<scratch> [only=<substr>]`.
  * Exits non-zero if any scenario fails.
  */
-import { bareNet, barePeerWorlds, bareWorld } from "./net.ts";
+import { bareAnswerWorlds, bareNet, barePeerWorlds, bareWorld } from "./net.ts";
+import { cases as answerCases } from "../contracts/peer-answer.contract.ts";
 import { cases } from "../contracts/drive-store.contract.ts";
 import { cases as peerCases } from "../contracts/peer-network.contract.ts";
 import { cases as filesCases } from "../contracts/files.contract.ts";
@@ -149,6 +150,36 @@ for (const c of peerCases) {
   }
 }
 await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
+  () => {},
+);
+const answerWorlds = await bareAnswerWorlds(root);
+for (const c of answerCases) {
+  if (only && !c.name.includes(only)) continue;
+  const started = Date.now();
+  const world = answerWorlds.world();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      c.run(world, makeCheck()),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`case timed out after ${CASE_TIMEOUT_MS}ms`)),
+          CASE_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    console.log(`ok   peer-answer: ${c.name} (${Date.now() - started}ms)`);
+  } catch (e) {
+    failed++;
+    console.log(
+      `FAIL peer-answer: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+    );
+  } finally {
+    clearTimeout(timer);
+    await Promise.race([world.close(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
+  }
+}
+await Promise.race([answerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
   () => {},
 );
 {

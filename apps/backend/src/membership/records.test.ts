@@ -2,6 +2,7 @@ import {
   isEnrolled,
   isHexKey,
   parseDeviceName,
+  parseAnswer,
   parseDeviceSwarmKey,
   parseFolderName,
   parseJoinRequests,
@@ -203,5 +204,38 @@ describe("parseJoinRequests", () => {
     expect(
       parseJoinRequests(JSON.stringify({ version: 2, requests: { a: entry } }), target),
     ).toEqual([]);
+  });
+});
+
+describe("parseAnswer", () => {
+  const k1 = "a".repeat(64);
+  const k2 = "b".repeat(64);
+
+  test("accepts an accepted answer with a share key", () => {
+    expect(parseAnswer({ code: k1, answer: "accepted", shareKey: k2 })).toEqual({
+      code: k1,
+      answer: "accepted",
+      shareKey: k2,
+    });
+  });
+
+  test("accepts a declined answer and drops extra fields", () => {
+    expect(parseAnswer({ code: k1, answer: "declined", shareKey: k2 })).toEqual({
+      code: k1,
+      answer: "declined",
+    });
+  });
+
+  test.each([
+    ["null", null],
+    ["a string", "accepted"],
+    ["no code", { answer: "declined" }],
+    ["short code", { code: "abc", answer: "declined" }],
+    ["unknown answer", { code: k1, answer: "maybe" }],
+    ["accepted without key", { code: k1, answer: "accepted" }],
+    ["accepted with short key", { code: k1, answer: "accepted", shareKey: "abc" }],
+    ["accepted with non-string key", { code: k1, answer: "accepted", shareKey: 1 }],
+  ])("drops %s", (_, value) => {
+    expect(parseAnswer(value)).toBeUndefined();
   });
 });
