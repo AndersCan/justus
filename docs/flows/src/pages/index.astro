@@ -1,0 +1,22 @@
+---
+import Flow from "../layouts/Flow.astro";
+import manifest from "../../manifest.json";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const features = Object.entries(manifest).map(([feature, files]) => ({
+  feature,
+  names: files.map((file) => file.replace(/^.*\//, "").replace(/\.ts$/, "")),
+}));
+---
+
+<Flow title="Justus flows">
+  <ul>
+    {
+      features.map(({ feature, names }) => (
+        <li>
+          <a href={`${base}${feature}/`}>{feature}</a>: {names.join(", ")}
+        </li>
+      ))
+    }
+  </ul>
+</Flow>

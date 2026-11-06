@@ -71,3 +71,5 @@ apps/android/.bundle
 apps/android/vendor/bundle
 .dev-e2e-hub
 flows-site/
+
+.astro/

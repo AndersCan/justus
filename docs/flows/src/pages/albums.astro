@@ -1,0 +1,13 @@
+---
+import Flow from "../layouts/Flow.astro";
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+---
+
+<Flow title="Albums">
+  <p>
+    Albums, the photos in them and who is in them: the folder list, the gallery with adding and removing photos, and the People sheet.
+  </p>
+  <Machine src="apps/web/src/machines/folders-machine.ts" />
+  <Machine src="apps/web/src/machines/gallery-machine.ts" />
+  <Machine src="apps/web/src/machines/people-machine.ts" />
+</Flow>

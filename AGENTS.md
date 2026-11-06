@@ -41,7 +41,7 @@ layer, Host, Actor). Use those terms exactly.
   `useStore`. Never `.get()` an atom inside a template (no re-render).
 - **No server, ever.** Nothing in the architecture may route photos or metadata
   through a service we operate. Privacy must stay legible in the UI.
-- **New feature flows: machines + `pnpm flows` first**, then implementation. See
+- **New feature flows: machines + `pnpm flows:dev` first**, then implementation. See
   `docs/flows/README.md`.
 - **Mark every workaround or known limitation** with `WORKAROUND(ekrooh#N): why`
   or `LIMITATION(#N): why` (`#N` = this repo). `pnpm check:issue-refs` fails CI
@@ -49,22 +49,22 @@ layer, Host, Actor). Use those terms exactly.
 
 ## Commands
 
-| Command                                           | Meaning                                                            |
-| ------------------------------------------------- | ------------------------------------------------------------------ |
-| `vp install`                                      | Install (pnpm, **hoisted** linker; do not switch to isolated)      |
-| `vp check`                                        | Format + lint + type-check                                         |
-| `vp run -r test`                                  | Unit tests (all packages)                                          |
-| `vp run -r build`                                 | Build web, backend, core                                           |
-| `pnpm run dev`                                    | Vite (:5173) + Bare worklet (:8080, `apps/backend/.dev/`, no auth) |
-| `pnpm run dev:peers`                              | Two worklets (:8080/:8081) + local DHT; tabs `?peer=0` / `?peer=1` |
-| `pnpm flows`                                      | Flow pages from `docs/flows/manifest.json` (`--out <dir>`)         |
-| `pnpm flows:dev [feature\|file]`                  | Live viz page for those machines (:5180); redraws on save          |
-| `pnpm test:e2e`                                   | Playwright against the real worklet (needs `libatomic1` on Linux)  |
-| `pnpm test:e2e-hub` / `test:e2e-p2p`              | Multi-peer hub / p2p suites                                        |
-| `pnpm test:native`                                | Maestro on an Android emulator (needs SDK + AVD; gates release)    |
-| `cd apps/android && ./gradlew :app:assembleDebug` | Android APK (see `apps/android/README.md`)                         |
-| `cd apps/android && ./gradlew :app:bundleRelease` | Signed Play bundle; release runbook in `docs/release-android.md`   |
-| `node apps/desktop/scripts/build.mjs`             | Desktop app (needs zig 0.17; Linux: GTK3 + WebKitGTK 4.1 dev libs) |
+| Command                                           | Meaning                                                              |
+| ------------------------------------------------- | -------------------------------------------------------------------- |
+| `vp install`                                      | Install (pnpm, **hoisted** linker; do not switch to isolated)        |
+| `vp check`                                        | Format + lint + type-check                                           |
+| `vp run -r test`                                  | Unit tests (all packages)                                            |
+| `vp run -r build`                                 | Build web, backend, core                                             |
+| `pnpm run dev`                                    | Vite (:5173) + Bare worklet (:8080, `apps/backend/.dev/`, no auth)   |
+| `pnpm run dev:peers`                              | Two worklets (:8080/:8081) + local DHT; tabs `?peer=0` / `?peer=1`   |
+| `pnpm flows:build`                                | Flow site (Astro) from `docs/flows/manifest.json` into `flows-site/` |
+| `pnpm flows:dev [feature\|file]`                  | Live viz page for those machines (:5180); redraws on save            |
+| `pnpm test:e2e`                                   | Playwright against the real worklet (needs `libatomic1` on Linux)    |
+| `pnpm test:e2e-hub` / `test:e2e-p2p`              | Multi-peer hub / p2p suites                                          |
+| `pnpm test:native`                                | Maestro on an Android emulator (needs SDK + AVD; gates release)      |
+| `cd apps/android && ./gradlew :app:assembleDebug` | Android APK (see `apps/android/README.md`)                           |
+| `cd apps/android && ./gradlew :app:bundleRelease` | Signed Play bundle; release runbook in `docs/release-android.md`     |
+| `node apps/desktop/scripts/build.mjs`             | Desktop app (needs zig 0.17; Linux: GTK3 + WebKitGTK 4.1 dev libs)   |
 
 ## Repo map
 
@@ -118,7 +118,7 @@ layer, Host, Actor). Use those terms exactly.
 
 - Use the mantaq skill (`.claude/skills/mantaq`, start with `designing.md`) for any feature or change to a machine.
 - Open the live page with `pnpm flows:dev <feature|file>`.
-- A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it).
+- A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/flows/src/pages`.
 - A new backend machine also gets a `pnpm test:bare` scenario.
 - After merge the page is at `https://anderscan.github.io/justus/<feature>/?machine=<id>`.
 - Refresh the skill with `npx skills update -p`.

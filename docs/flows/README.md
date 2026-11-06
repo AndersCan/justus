@@ -19,18 +19,25 @@ Pages: https://anderscan.github.io/justus/
 3. **Confirm.** The owner ticks the boxes or comments on a flow. Implementation
    tasks are queued only after every box is ticked.
 
-## `pnpm flows`
+## `pnpm flows:build`
 
-`pnpm flows` runs one `vite build` per feature listed in
-`docs/flows/manifest.json`, with the `@mantaq/inspect` Vite plugin over the
-feature's machine files. Each feature lands in `<dir>/<feature>/` (`index.html`,
-`viz.json` and a script), plus an index in `<dir>` (`--out <dir>`, default
-`flows-site`); this is what CI publishes to Pages. The pages drive factory
-machines live; singleton machines stay static walks. The Runs list on a page
-holds the tests recorded with `recordRuns`, read from the `__runs__/` folder
-next to the machine file.
+`pnpm flows:build` runs `astro build` with the config in
+`docs/flows/astro.config.mjs` and the `@mantaq/inspect` Astro integration over
+every machine file in `docs/flows/manifest.json`. The site lands in `flows-site/`
+(`index.html` plus one folder per feature); this is what CI publishes to Pages.
+Each feature page (`docs/flows/src/pages/<feature>.astro`) is a few lines of
+prose followed by one `<Machine src="..." />` per machine file. Each `<Machine>`
+shows its design findings above the diagram. Factory machines are driven live;
+singleton machines stay static walks. The Runs list holds the tests recorded with
+`recordRuns`, read from the `__runs__/` folder next to the machine file.
 
-To add a feature, list its machine files under a new key in `manifest.json`.
+To add a machine, list its file under its feature in `manifest.json` and add a
+`<Machine src>` for it on that feature's page. To add a feature, add a manifest
+key, a page in `docs/flows/src/pages/` and a link comes for free on the index.
+
+`node scripts/check-flows-site.mjs flows-site` serves the built site under
+`/justus/` and checks every page in a browser (needs Chromium; set
+`CHROMIUM_PATH` if Playwright's is not installed).
 
 ## `pnpm flows:dev`
 
