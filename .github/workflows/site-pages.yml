@@ -1,4 +1,4 @@
-name: flows-pages
+name: site-pages
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 concurrency:
-  group: flows-pages-${{ github.ref }}
+  group: site-pages-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -36,28 +36,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build flow pages
-        run: pnpm flows:build
+      - name: Build site
+        run: pnpm site:build
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Check every page renders a diagram
-        run: node scripts/check-flows-site.mjs flows-site
+        run: node scripts/check-site-dist.mjs site-dist
 
       - name: Upload site for review
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: flows-site
-          path: flows-site
+          name: site-dist
+          path: site-dist
           retention-days: 7
 
       - name: Upload Pages artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: flows-site
+          path: site-dist
 
   deploy:
     if: github.event_name == 'push'

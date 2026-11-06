@@ -1,0 +1,11 @@
+---
+import Site from "./Site.astro";
+
+const { title } = Astro.props;
+const home = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+---
+
+<Site title={`${title} flow`}>
+  <p><a href={`${home}flows/`}>All flows</a></p>
+  <slot />
+</Site>

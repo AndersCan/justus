@@ -4,12 +4,16 @@ import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright";
 
 let failed = false;
-const dir = resolve(process.argv[2] ?? "flows-site");
+const dir = resolve(process.argv[2] ?? "site-dist");
+// The site also holds non-flow pages (home, privacy); only feature pages draw diagrams.
+const features = Object.keys(
+  JSON.parse(readFileSync(new URL("../docs/flows/manifest.json", import.meta.url), "utf8")),
+);
 const pages = readdirSync(dir, { withFileTypes: true })
   .filter(
     (entry) =>
       entry.isDirectory() &&
-      entry.name !== "_astro" &&
+      features.includes(entry.name) &&
       existsSync(join(dir, entry.name, "index.html")),
   )
   .map((entry) => entry.name);

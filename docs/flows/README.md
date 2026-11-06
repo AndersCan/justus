@@ -4,7 +4,7 @@ Large features are confirmed as flows before any UI or implementation work is
 queued. The flows are mantaq machines, drawn by the `@mantaq/inspect` Vite plugin and published
 as pages that can be read and ticked off.
 
-Pages: https://anderscan.github.io/justus/
+Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus home page)
 
 ## Steps
 
@@ -19,13 +19,13 @@ Pages: https://anderscan.github.io/justus/
 3. **Confirm.** The owner ticks the boxes or comments on a flow. Implementation
    tasks are queued only after every box is ticked.
 
-## `pnpm flows:build`
+## `pnpm site:build`
 
-`pnpm flows:build` runs `astro build` with the config in
-`docs/flows/astro.config.mjs` and the `@mantaq/inspect` Astro integration over
-every machine file in `docs/flows/manifest.json`. The site lands in `flows-site/`
+`pnpm site:build` runs `astro build` with the config in
+`docs/site/astro.config.mjs` and the `@mantaq/inspect` Astro integration over
+every machine file in `docs/flows/manifest.json`. The site lands in `site-dist/`
 (`index.html` plus one folder per feature); this is what CI publishes to Pages.
-Each feature page (`docs/flows/src/pages/<feature>.astro`) is a few lines of
+Each feature page (`docs/site/src/pages/<feature>.astro`) is a few lines of
 prose followed by one `<Machine src="..." />` per machine file. Each `<Machine>`
 shows its design findings above the diagram. Factory machines are driven live;
 singleton machines stay static walks. The Runs list holds the tests recorded with
@@ -33,9 +33,9 @@ singleton machines stay static walks. The Runs list holds the tests recorded wit
 
 To add a machine, list its file under its feature in `manifest.json` and add a
 `<Machine src>` for it on that feature's page. To add a feature, add a manifest
-key, a page in `docs/flows/src/pages/` and a link comes for free on the index.
+key, a page in `docs/site/src/pages/` and a link comes for free on the index.
 
-`node scripts/check-flows-site.mjs flows-site` serves the built site under
+`node scripts/check-site-dist.mjs site-dist` serves the built site under
 `/justus/` and checks every page in a browser (needs Chromium; set
 `CHROMIUM_PATH` if Playwright's is not installed).
 

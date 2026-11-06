@@ -1,6 +1,6 @@
 ---
-import Flow from "../layouts/Flow.astro";
-import manifest from "../../manifest.json";
+import Site from "../layouts/Site.astro";
+import manifest from "../../../flows/manifest.json";
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const features = Object.entries(manifest).map(([feature, files]) => ({
@@ -9,7 +9,7 @@ const features = Object.entries(manifest).map(([feature, files]) => ({
 }));
 ---
 
-<Flow title="Justus flows">
+<Site title="Flows">
   <ul>
     {
       features.map(({ feature, names }) => (
@@ -19,4 +19,4 @@ const features = Object.entries(manifest).map(([feature, files]) => ({
       ))
     }
   </ul>
-</Flow>
+</Site>
