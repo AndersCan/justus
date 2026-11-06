@@ -1,132 +1,213 @@
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
-import { withTimeout } from "@mantaq/sugar";
+import { runInvoke } from "../actor-utils";
+import { parseInviteLink } from "../../utils/invite-link";
+import type { JoinInvite } from "../../utils/invite-link";
 
 /**
  * Proposed flow, not wired into the app yet: the joiner's screens, from
- * opening an invite link to being let in. It never calls `sync`.
+ * opening an invite link to the owner's answer. The link carries no album key;
+ * the key arrives only if the owner accepts.
  */
 
-/** How long the joiner waits before being told the Admin's phone needs Justus open. */
-export const ADMIN_OFFLINE_HINT_AFTER_MS = 30_000;
+/** What the app already knows about a link's invite code. */
+export type Known =
+  | { kind: "new" }
+  | { kind: "own"; folderId: string }
+  | { kind: "member"; folderId: string }
+  | { kind: "waiting" }
+  | { kind: "declined" };
 
-export type JoinRole = "reader" | "member";
-export type JoinAlbum = { album: string; admin: string };
+/** A request this phone already made, as the albums list shows it. */
+export type AskSummary = {
+  code: string;
+  owner: string;
+  albumName: string;
+  ownerName: string;
+  askedAt: number;
+  status: "waiting" | "declined";
+};
 
-/** Reads `justus://join?i=<code>&n=<album>&a=<admin>`; undefined when it is not an invite link. */
-export function parseJoinLink(text: string): JoinAlbum | undefined {
-  const match = /justus:\/\/join\?([^\s]*)/i.exec(text);
-  if (!match) return undefined;
-  const params = new URLSearchParams(match[1]);
-  const code = params.get("i");
-  const album = params.get("n");
-  if (!code || !/^[0-9a-z]+$/i.test(code) || !album) return undefined;
-  return { album, admin: params.get("a") || "the Admin" };
-}
+/** Sends the request; resolves `[error, result]` like the gateway. */
+export type JoinPort = { ask(invite: JoinInvite): Promise<[unknown, unknown]> };
+
+export const GARBLED_LINK = "That invite doesn't look right. Check you copied all of it.";
+export const SEND_FAILED = "Couldn't send your request. Try again.";
 
 /** No link is open. */
 const idle = state("idle")();
-/** "Join <album>?" is on screen with the consent text. */
-const reviewing = state("reviewing")<JoinAlbum>();
-/** The request is sent and the joiner sees "Waiting for <Admin>". */
-const waiting = state("waiting")<JoinAlbum & { hint: boolean }>();
-/** The Admin accepted. */
-const joined = state("joined")<{ role: JoinRole }>();
-/** The Admin did not accept. */
-const declined = state("declined")();
-/** The link no longer works. */
-const refused = state("refused")<{ reason: "expired" | "cancelled" }>();
+/** "Ask to join <album>?" is on screen. No photos, no counts. */
+const reviewing = state("reviewing")<JoinInvite>();
+/** The request is being sent; the buttons are disabled. */
+const sending = state("sending")<JoinInvite>();
+/** "Waiting for <owner>". Shown with no timer until an answer comes. */
+const waiting = state("waiting")<JoinInvite>();
+/** "<owner> didn't accept your request." The answer is final. */
+const declined = state("declined")<JoinInvite>();
 
 /** The joiner opens a link or pastes text. */
-const openLink = event("openLink")<{ link: string }>();
+const openLink = event("openLink")<{ text: string }>();
+/** The joiner taps an ask row in the albums list. */
+const openAsk = event("openAsk")<{ ask: AskSummary }>();
 /** The joiner taps "Ask to join". */
 const ask = event("ask")();
-/** The joiner backs out. */
-const cancel = event("cancel")();
-/** The Admin accepted the request with a role. */
-const accepted = event("accepted")<{ role: JoinRole }>();
-/** The Admin declined the request. */
-const adminDeclined = event("adminDeclined")();
-/** The Admin's phone said the link is expired or cancelled. */
-const linkRefused = event("linkRefused")<{ reason: "expired" | "cancelled" }>();
+/** The joiner taps "Not now". */
+const notNow = event("notNow")();
+/** The joiner closes the waiting screen; the ask stays. */
+const close = event("close")();
+/** The joiner taps OK on the declined screen. */
+const ok = event("ok")();
+/** The owner's answer reached this phone. */
+const answered = event("answered")<{
+  code: string;
+  answer: "accepted" | "declined";
+  folderId?: string;
+}>();
 
-/** 30 seconds passed with no answer. */
-const hintDue = event("hintDue")();
+/** The request was sent. */
+const sent = event("sent")();
+/** The request could not be sent. */
+const sendFailed = event("sendFailed")<{ message: string }>();
 
-/** The request that goes to the Admin's phone. */
-const requestSent = event("requestSent")<JoinAlbum>();
-/** The request is withdrawn. */
-const requestWithdrawn = event("requestWithdrawn")();
+/** Asks the app to show the album: the joiner is already in, or was just accepted. */
+const openAlbum = event("openAlbum")<{ folderId: string }>();
 
-export function createJoinRequestActor(options: { clock: Clock }) {
+type JoinContext = { error: string };
+
+const allowAll: JoinPort = { ask: async () => [undefined, {}] };
+
+export function createJoinRequestActor(options: {
+  clock: Clock;
+  port?: JoinPort;
+  known?: Known | ((invite: JoinInvite) => Known);
+}) {
+  const { clock, port = allowAll, known = { kind: "new" } } = options;
+  const classify = typeof known === "function" ? known : () => known;
+
   return Actor({
-    inputs: [openLink, ask, cancel, accepted, adminDeclined, linkRefused],
-    internal: [hintDue],
-    outputs: [requestSent, requestWithdrawn],
-    states: [idle, reviewing, waiting, joined, declined, refused],
+    inputs: [openLink, openAsk, ask, notNow, close, ok, answered],
+    internal: [sent, sendFailed],
+    outputs: [openAlbum],
+    states: [idle, reviewing, sending, waiting, declined],
     initial: idle,
-    clock: options.clock,
+    clock,
+    context: { error: "" } as JoinContext,
     setup: (m) => {
-      /** A good link shows "Join <album>?". Anything else leaves the screen as it is. */
-      m.on(idle, {
-        event: openLink,
-        to: [idle, reviewing],
-        handler: (e) => {
-          const album = parseJoinLink(e.payload.link);
-          return album === undefined ? { state: idle } : { state: reviewing.create(album) };
-        },
-      });
-      /** The joiner taps "Ask to join": the request is sent and the wait starts. */
+      /** A link opens the screen that fits what this phone knows about it. */
+      for (const from of [idle, reviewing, waiting, declined]) {
+        m.on(from, {
+          event: openLink,
+          to: [idle, reviewing, waiting, declined],
+          handler: (e, { actor, context }) => {
+            const parsed = parseInviteLink(e.payload.text);
+            if (parsed.kind === "garbled") {
+              context.set({ error: GARBLED_LINK });
+              return { state: actor.snapshot().path[0] === "idle" ? idle : stay(actor) };
+            }
+            context.set({ error: "" });
+            const invite = parsed.invite;
+            const found = classify(invite);
+            if (found.kind === "own" || found.kind === "member") {
+              return { state: idle, emit: [openAlbum.create({ folderId: found.folderId })] };
+            }
+            if (found.kind === "waiting") return { state: waiting.create(invite) };
+            if (found.kind === "declined") return { state: declined.create(invite) };
+            return { state: reviewing.create(invite) };
+          },
+        });
+        /** A tapped ask row shows its current answer. */
+        m.on(from, {
+          event: openAsk,
+          to: [waiting, declined],
+          handler: (e) => {
+            const { ask: row } = e.payload;
+            const invite = {
+              code: row.code,
+              owner: row.owner,
+              album: row.albumName,
+              ownerName: row.ownerName,
+            };
+            return row.status === "declined"
+              ? { state: declined.create(invite) }
+              : { state: waiting.create(invite) };
+          },
+        });
+      }
+
+      /** "Ask to join": the request goes out and the buttons lock. */
       m.on(reviewing, {
         event: ask,
-        to: [waiting],
-        handler: (_e, { actor }) => {
-          const album = actor.snapshot().payload as JoinAlbum;
-          return {
-            state: waiting.create({ ...album, hint: false }),
-            emit: [requestSent.create(album)],
-          };
+        to: [sending],
+        handler: (_e, { actor, context }) => {
+          context.set({ error: "" });
+          return { state: sending.create(actor.snapshot().payload as JoinInvite) };
         },
       });
-      /** The joiner backs out before asking: nothing was sent. */
-      m.on(reviewing, { event: cancel, to: [idle], handler: () => ({ state: idle }) });
+      /** "Not now": nothing was sent. */
+      m.on(reviewing, { event: notNow, to: [idle], handler: () => ({ state: idle }) });
 
-      /** After 30 seconds: "<Admin>'s phone needs Justus open to let you in." */
-      m.effect(waiting, {
-        name: "adminOfflineHint",
-        sends: [hintDue],
-        fn: (input) =>
-          withTimeout(ADMIN_OFFLINE_HINT_AFTER_MS, { input, event: () => hintDue.create() }),
+      /** The request is handed to the phone's sharing layer. */
+      m.effect(sending, {
+        name: "sending",
+        sends: [sent, sendFailed],
+        fn: ({ signal, emit, state: current }) =>
+          runInvoke(
+            signal,
+            () => port.ask(current.payload as JoinInvite),
+            () => emit(sent.create()),
+            () => emit(sendFailed.create({ message: SEND_FAILED })),
+          ),
       });
-      /** The wait is over: the screen adds the line about the Admin's phone. */
-      m.on(waiting, {
-        event: hintDue,
+      /** The request is on its way: "Waiting for <owner>". */
+      m.on(sending, {
+        event: sent,
         to: [waiting],
-        handler: (_e, { actor }) => {
-          const { album, admin } = actor.snapshot().payload as JoinAlbum;
-          return { state: waiting.create({ album, admin, hint: true }) };
+        handler: (_e, { actor }) => ({
+          state: waiting.create(actor.snapshot().payload as JoinInvite),
+        }),
+      });
+      /** The send failed: back to the question, with the error shown. */
+      m.on(sending, {
+        event: sendFailed,
+        to: [reviewing],
+        handler: (e, { actor, context }) => {
+          context.set({ error: e.payload.message });
+          return { state: reviewing.create(actor.snapshot().payload as JoinInvite) };
         },
       });
-      /** The joiner withdraws the request. */
+
+      /** The joiner closes the screen; the request stays pending. */
+      m.on(waiting, { event: close, to: [idle], handler: () => ({ state: idle }) });
+      /** The owner answered. Only an answer for this request counts. */
       m.on(waiting, {
-        event: cancel,
-        to: [idle],
-        handler: () => ({ state: idle, emit: [requestWithdrawn.create()] }),
+        event: answered,
+        to: [idle, declined, waiting],
+        handler: (e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          if (e.payload.code !== invite.code) return { state: waiting.create(invite) };
+          if (e.payload.answer === "declined") return { state: declined.create(invite) };
+          const folderId = e.payload.folderId;
+          return folderId === undefined
+            ? { state: waiting.create(invite) }
+            : { state: idle, emit: [openAlbum.create({ folderId })] };
+        },
       });
-      /** The Admin accepts as a Viewer or Collaborator. */
-      m.on(waiting, {
-        event: accepted,
-        to: [joined],
-        handler: (e) => ({ state: joined.create({ role: e.payload.role }) }),
-      });
-      /** The Admin declines. */
-      m.on(waiting, { event: adminDeclined, to: [declined], handler: () => ({ state: declined }) });
-      /** The link expired or was cancelled before the Admin's phone saw the request. */
-      m.on(waiting, {
-        event: linkRefused,
-        to: [refused],
-        handler: (e) => ({ state: refused.create({ reason: e.payload.reason }) }),
-      });
+
+      /** The joiner acknowledges the answer. */
+      m.on(declined, { event: ok, to: [idle], handler: () => ({ state: idle }) });
     },
   });
+}
+
+function stay(actor: { snapshot(): { path: string[]; payload?: unknown } }) {
+  const snap = actor.snapshot();
+  const invite = snap.payload as JoinInvite;
+  switch (snap.path[0]) {
+    case "reviewing":
+      return reviewing.create(invite);
+    case "waiting":
+      return waiting.create(invite);
+    default:
+      return declined.create(invite);
+  }
 }
