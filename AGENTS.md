@@ -126,6 +126,4 @@ layer, Host, Actor). Use those terms exactly.
 ## Agent skills
 
 Issues live in GitHub Issues at `AndersCan/justus` via `gh` (`docs/agents/issue-tracker.md`).
-Triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
-`wontfix` (`docs/agents/triage-labels.md`). Single-context domain docs
-(`docs/agents/domain.md`). The roadmap map is issue #1.
+Single-context domain docs (`docs/agents/domain.md`). The roadmap map is issue #1.
