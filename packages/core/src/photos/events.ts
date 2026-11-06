@@ -1,5 +1,12 @@
 import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
-import type { FolderSummary, JoinRequest, Photo, PhotoChanged, SyncStatus } from "./types";
+import type {
+  AskSummary,
+  FolderSummary,
+  JoinRequest,
+  Photo,
+  PhotoChanged,
+  SyncStatus,
+} from "./types";
 
 /** What `photos.add` takes besides the display copy at `path`. A host that
  * made the shared copies itself passes them here (see `PickedMedia`). */
@@ -74,7 +81,14 @@ export const photoSpecs = {
     result: {} as {
       folders: FolderSummary[];
       activeFolderId: string;
+      asks: AskSummary[];
     },
+  },
+  ask: {
+    pluginId: "justus.photos",
+    name: "photos.ask",
+    args: {} as { code: string; owner: string; albumName?: string; ownerName?: string },
+    result: {} as { ask: AskSummary },
   },
   createFolder: {
     pluginId: "justus.photos",
@@ -186,9 +200,26 @@ export const photoEvents = {
     folders(): InvokeEnvelope<
       "photos.folders",
       Record<string, never>,
-      { folders: FolderSummary[]; activeFolderId: string }
+      { folders: FolderSummary[]; activeFolderId: string; asks: AskSummary[] }
     > {
       return invokeEvent(photoSpecs.folders, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    },
+    ask(
+      code: string,
+      owner: string,
+      albumName?: string,
+      ownerName?: string,
+    ): InvokeEnvelope<
+      "photos.ask",
+      { code: string; owner: string; albumName?: string; ownerName?: string },
+      { ask: AskSummary }
+    > {
+      return invokeEvent(
+        photoSpecs.ask,
+        { code, owner, albumName, ownerName },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
     createFolder(
       name: string,

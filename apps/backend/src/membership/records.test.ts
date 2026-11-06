@@ -205,6 +205,34 @@ describe("parseJoinRequests", () => {
       parseJoinRequests(JSON.stringify({ version: 2, requests: { a: entry } }), target),
     ).toEqual([]);
   });
+
+  describe("invite entries", () => {
+    const CODE = "d".repeat(64);
+    const v2 = { requesterKey: KEY_B, requesterName: "Bo", invite: CODE, requestedAt: 5 };
+    const withCode = { ...target, inviteCode: CODE };
+
+    test("matches the invite code and reports the album's own share key", () => {
+      expect(parseJoinRequests(file({ ["invite:" + CODE]: v2 }), withCode)).toEqual([
+        {
+          requesterKey: KEY_B.toLowerCase(),
+          requesterName: "Bo",
+          folderId: "f1",
+          folderName: "Holiday",
+          shareKey: SHARE,
+          requestedAt: 5,
+        },
+      ]);
+    });
+    test("ignores another album's code and a target without a code", () => {
+      const text = file({ x: { ...v2, invite: "e".repeat(64) } });
+      expect(parseJoinRequests(text, withCode)).toEqual([]);
+      expect(parseJoinRequests(file({ x: v2 }), target)).toEqual([]);
+    });
+    test("an entry cannot borrow another album through a bogus share key", () => {
+      const text = file({ x: { ...v2, shareKey: "f".repeat(64) } });
+      expect(parseJoinRequests(text, withCode)[0]?.shareKey).toBe(SHARE);
+    });
+  });
 });
 
 describe("parseAnswer", () => {

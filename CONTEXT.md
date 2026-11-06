@@ -30,7 +30,15 @@ _Avoid_: member list, contacts
 
 **Share key**:
 The secret that grants access to a folder — the creator drive's key. Anyone holding it can read the folder; writer enrollment additionally records a member's own drive key.
-_Avoid_: invite code, link, password
+_Avoid_: link, password
+
+**Invite code**:
+A random per-album code in the invite link, in place of the share key. It names a swarm topic only the Admin's device serves, so a link holder meets nobody else and learns nothing of the album. It grants no access.
+_Avoid_: share key, link
+
+**Ask**:
+A device's request to join an album through an invite code. It waits until the Admin answers: accepted, the share key travels to the asker over a verified connection and the asker joins; declined, the answer is final for that device. Both devices must be online at once to deliver the answer.
+_Avoid_: join request (the older request made with a share key)
 
 **Gallery**:
 The app's view over a folder's photos, ordered and rendered for browsing.
@@ -78,7 +86,7 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Can remove others' photos for all. |
 | Member           | **Member**                     | Can add photos.                                                                            |
 | Reader           | **Viewer**                     | Can only look.                                                                             |
-| Share key        | **Invite**                     | Copyable link, QR, or pasted key. Grants viewing at once; approval is needed to add.       |
+| Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
 | Registry         | _(hidden)_                     |                                                                                            |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |
 | Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                         |

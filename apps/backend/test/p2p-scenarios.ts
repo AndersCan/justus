@@ -328,4 +328,143 @@ export const scenarios: Scenario[] = [
       t.ok(album?.role !== "member", "declined joiner is not a member");
     },
   },
+  {
+    name: "ask: a stranger gets no key until the Admin accepts, then sees the photo",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, invite, adminIdentity } = await askedAlbum(net);
+      // Nothing the joiner can show holds the album's key.
+      const before = JSON.stringify([
+        joiner.store.debugState(),
+        await joiner.store.folders(),
+        await joiner.store.list({ all: true }),
+      ]);
+      t.ok(!before.includes(shareKey), "no share key on the joiner before the accept");
+      t.eq((await joiner.store.folders()).folders, [], "no album yet");
+      t.eq(
+        (await joiner.store.folders()).asks.map((a) => a.status),
+        ["waiting"],
+        "one ask",
+      );
+      t.eq(invite.owner, adminIdentity, "the link names the Admin's identity drive");
+
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, requests[0].requesterKey, true), "accept");
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member" && !f.pending,
+        "the joiner becomes a member",
+      );
+      t.eq(album?.invite?.code, invite.code, "the album remembers the code it came through");
+      t.eq((await joiner.store.folders()).asks, [], "the ask is gone");
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (l) => l.some((p) => p.name === "a.jpg"),
+        "the Admin's photo on the joiner",
+      );
+      t.ok(
+        joiner.changes.some((c) => c.cause === "ask" && c.answer === "accepted"),
+        "joiner was told the ask was accepted",
+      );
+    },
+  },
+  {
+    name: "ask: a declined ask stays declined, across a restart and a second ask",
+    async run(net, t) {
+      const { admin, joiner, folderId, invite } = await askedAlbum(net);
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, requests[0].requesterKey, false), "decline");
+      const declined = await eventually(
+        () => joiner.store.folders(),
+        (f) => f.asks[0]?.status === "declined",
+        "the joiner hears no",
+      );
+      t.eq(declined.folders, [], "still no album");
+      t.eq((await admin.store.requests()).requests, [], "the inbox is clear");
+
+      await joiner.stop();
+      const again = await net.peer("Desktop", joiner.storageDir);
+      t.eq(
+        (await again.store.folders()).asks.map((a) => a.status),
+        ["declined"],
+        "kept",
+      );
+      const second = await again.store.ask({ code: invite.code, owner: invite.owner });
+      t.noErr(second, "ask again");
+      t.eq(second[1]?.ask.status, "declined", "asking again returns declined");
+      await new Promise((r) => setTimeout(r, 1500));
+      t.eq((await admin.store.requests()).requests, [], "the Admin is not asked again");
+      t.eq((await again.store.folders()).folders, [], "never got the album");
+    },
+  },
+  {
+    name: "ask: the Admin was offline, comes back, accepts, and the joiner gets the photo",
+    async run(net, t) {
+      const admin = await net.peer("Phone");
+      const created = await admin.store.createFolder("Lisbon");
+      t.noErr(created, "createFolder");
+      const { id: folderId, shareKey, invite } = created[1]!.folder;
+      t.noErr(await admin.store.addBytes("a.jpg", new Uint8Array([211, 2, 3]), folderId), "add");
+      const adminIdentity = (admin.store.debugState() as { identityDrive: string }).identityDrive;
+      await admin.stop();
+
+      const joiner = await net.peer("Desktop");
+      t.noErr(
+        await joiner.store.ask({
+          code: invite!.code,
+          owner: adminIdentity,
+          albumName: "Lisbon",
+          ownerName: "Phone",
+        }),
+        "ask while the Admin is offline",
+      );
+      const back = await net.peer("Phone", admin.storageDir);
+      const { requests } = await eventually(
+        () => back.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask reaches the restarted Admin",
+        40_000,
+      );
+      t.noErr(await back.store.respond(folderId, requests[0].requesterKey, true), "accept");
+      await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member",
+        "the joiner becomes a member",
+        40_000,
+      );
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (l) => l.some((p) => p.name === "a.jpg"),
+        "the photo on the joiner",
+      );
+    },
+  },
 ];
+
+/** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
+async function askedAlbum(net: Net) {
+  const admin = await net.peer("Phone");
+  const joiner = await net.peer("Desktop");
+  const created = await admin.store.createFolder("Lisbon");
+  if (created[0]) throw created[0];
+  const { id: folderId, shareKey, invite } = created[1].folder;
+  if (!invite) throw new Error("the creator's album has no invite code");
+  const added = await admin.store.addBytes("a.jpg", new Uint8Array([211, 2, 3]), folderId);
+  if (added[0]) throw added[0];
+  const adminIdentity = (admin.store.debugState() as { identityDrive: string }).identityDrive;
+  const asked = await joiner.store.ask({
+    code: invite.code,
+    owner: adminIdentity,
+    albumName: "Lisbon",
+    ownerName: "Phone",
+  });
+  if (asked[0]) throw asked[0];
+  return { admin, joiner, folderId, shareKey, invite, adminIdentity };
+}

@@ -3,128 +3,197 @@
     "photos.folders": [
       {
         "folders": [],
-        "activeFolderId": ""
+        "activeFolderId": "",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wf-40191ceb",
+            "id": "mw5la901-a5cdfb79",
             "name": "Contract",
             "role": "creator",
             "pending": false,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
             "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
             "members": 1,
-            "addedAt": 1700000000000
+            "addedAt": 1700000000000,
+            "invite": {
+              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+            }
           }
         ],
-        "activeFolderId": "mvxt90wf-40191ceb"
+        "activeFolderId": "mw5la901-a5cdfb79",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wx-56507098",
+            "id": "mw5la90o-33b171a5",
             "name": "Contract",
             "role": "reader",
             "pending": true,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "members": 0,
             "addedAt": 1700000000000
           }
         ],
-        "activeFolderId": "mvxt90wx-56507098"
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wx-56507098",
+            "id": "mw5la90o-33b171a5",
             "name": "Contract",
             "role": "reader",
             "pending": true,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "members": 0,
             "addedAt": 1700000000000
           }
         ],
-        "activeFolderId": "mvxt90wx-56507098"
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wx-56507098",
+            "id": "mw5la90o-33b171a5",
             "name": "Contract",
             "role": "reader",
             "pending": true,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "members": 0,
             "addedAt": 1700000000000
           }
         ],
-        "activeFolderId": "mvxt90wx-56507098"
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wx-56507098",
+            "id": "mw5la90o-33b171a5",
             "name": "Contract",
             "role": "reader",
             "pending": true,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "members": 0,
             "addedAt": 1700000000000
           }
         ],
-        "activeFolderId": "mvxt90wx-56507098"
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
       },
       {
         "folders": [
           {
-            "id": "mvxt90wx-56507098",
+            "id": "mw5la90o-33b171a5",
+            "name": "Contract",
+            "role": "reader",
+            "pending": true,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
+            "members": 0,
+            "addedAt": 1700000000000
+          }
+        ],
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
+      },
+      {
+        "folders": [
+          {
+            "id": "mw5la90o-33b171a5",
             "name": "Contract",
             "role": "member",
             "pending": false,
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "members": 1,
             "addedAt": 1700000000000
           }
         ],
-        "activeFolderId": "mvxt90wx-56507098"
+        "activeFolderId": "mw5la90o-33b171a5",
+        "asks": []
+      },
+      {
+        "folders": [
+          {
+            "id": "mw5la901-a5cdfb79",
+            "name": "Contract",
+            "role": "creator",
+            "pending": false,
+            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "members": 1,
+            "addedAt": 1700000000000,
+            "invite": {
+              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+            }
+          }
+        ],
+        "activeFolderId": "mw5la901-a5cdfb79",
+        "asks": []
+      },
+      {
+        "folders": [],
+        "activeFolderId": "",
+        "asks": [
+          {
+            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "owner": "0303030303030303030303030303030303030303030303030303030303030303",
+            "albumName": "Contract",
+            "ownerName": "Phone",
+            "askedAt": 1700000000000,
+            "status": "waiting"
+          }
+        ]
       }
     ],
     "photos.createFolder": [
       {
         "folder": {
-          "id": "mvxt90wf-40191ceb",
+          "id": "mw5la901-a5cdfb79",
           "name": "Contract",
           "role": "creator",
           "pending": false,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "members": 1,
-          "addedAt": 1700000000000
+          "addedAt": 1700000000000,
+          "invite": {
+            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+          }
         }
       }
     ],
     "photos.setActive": [
       {
         "folder": {
-          "id": "mvxt90wf-40191ceb",
+          "id": "mw5la901-a5cdfb79",
           "name": "Contract",
           "role": "creator",
           "pending": false,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "members": 1,
-          "addedAt": 1700000000000
+          "addedAt": 1700000000000,
+          "invite": {
+            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+          }
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
         "peers": 0,
         "photos": 0,
         "members": [
@@ -144,8 +213,8 @@
     ],
     "photos.add": [
       {
-        "id": "mvxt90wl-f82d97f4",
-        "url": "http://localhost:0/photos/mvxt90wf-40191ceb/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+        "id": "mw5la908-2134341f",
+        "url": "http://localhost:0/photos/mw5la901-a5cdfb79/NWEwZDMyYTkzMzFhOTEwNzgyMzJkZGZlNmJkOGI1M2QzZTI1N2U4MDRlMTRiMjgzZWNhMTIxYjBiODk0ODFkMTptdzVsYTkwOC0yMTM0MzQxZjouanBn",
         "name": "a.jpg",
         "mime": "image/jpeg",
         "size": 3,
@@ -154,7 +223,7 @@
           "key": "0101010101010101010101010101010101010101010101010101010101010101",
           "name": "Phone"
         },
-        "folderId": "mvxt90wf-40191ceb",
+        "folderId": "mw5la901-a5cdfb79",
         "mine": true
       }
     ],
@@ -162,18 +231,18 @@
       {
         "photos": [
           {
-            "id": "mvxt90wl-f82d97f4",
-            "url": "http://localhost:0/photos/mvxt90wf-40191ceb/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+            "id": "mw5la908-2134341f",
+            "url": "http://localhost:0/photos/mw5la901-a5cdfb79/NWEwZDMyYTkzMzFhOTEwNzgyMzJkZGZlNmJkOGI1M2QzZTI1N2U4MDRlMTRiMjgzZWNhMTIxYjBiODk0ODFkMTptdzVsYTkwOC0yMTM0MzQxZjouanBn",
             "name": "a.jpg",
             "mime": "image/jpeg",
-            "size": 0,
+            "size": 3,
             "addedAt": 1700000000000,
             "member": {
               "key": "0101010101010101010101010101010101010101010101010101010101010101",
               "name": "Phone"
             },
-            "sha256": "0404040404040404040404040404040404040404040404040404040404040404",
-            "folderId": "mvxt90wf-40191ceb",
+            "sha256": "0606060606060606060606060606060606060606060606060606060606060606",
+            "folderId": "mw5la901-a5cdfb79",
             "mine": true
           }
         ]
@@ -181,18 +250,18 @@
       {
         "photos": [
           {
-            "id": "mvxt90wl-f82d97f4",
-            "url": "http://localhost:0/photos/mvxt90wx-56507098/Y2ZiMWI1N2FiM2M1YmJjNzFiNTY3MWJhMDA4MDA3NTNkNDI3MWM2MWZjNDJhMTBiODRhN2NmMTJjZWQ1OTQyMzptdnh0OTB3bC1mODJkOTdmNDouanBn",
+            "id": "mw5la908-2134341f",
+            "url": "http://localhost:0/photos/mw5la90o-33b171a5/NWEwZDMyYTkzMzFhOTEwNzgyMzJkZGZlNmJkOGI1M2QzZTI1N2U4MDRlMTRiMjgzZWNhMTIxYjBiODk0ODFkMTptdzVsYTkwOC0yMTM0MzQxZjouanBn",
             "name": "a.jpg",
             "mime": "image/jpeg",
-            "size": 0,
+            "size": 3,
             "addedAt": 1700000000000,
             "member": {
               "key": "0101010101010101010101010101010101010101010101010101010101010101",
               "name": "Phone"
             },
-            "sha256": "0404040404040404040404040404040404040404040404040404040404040404",
-            "folderId": "mvxt90wx-56507098",
+            "sha256": "0606060606060606060606060606060606060606060606060606060606060606",
+            "folderId": "mw5la90o-33b171a5",
             "mine": false
           }
         ]
@@ -201,18 +270,22 @@
     "photos.status": [
       {
         "folder": {
-          "id": "mvxt90wf-40191ceb",
+          "id": "mw5la901-a5cdfb79",
           "name": "Contract",
           "role": "creator",
           "pending": false,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "members": 1,
-          "addedAt": 1700000000000
+          "addedAt": 1700000000000,
+          "invite": {
+            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+          }
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
         "peers": 0,
         "photos": 1,
         "members": [
@@ -226,23 +299,23 @@
       },
       {
         "folder": {
-          "id": "mvxt90wx-56507098",
+          "id": "mw5la90o-33b171a5",
           "name": "Contract",
           "role": "reader",
           "pending": true,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-          "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+          "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
           "members": 0,
           "addedAt": 1700000000000
         },
         "name": "Desktop",
         "driveKey": "",
-        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
+        "discoveryKey": "0707070707070707070707070707070707070707070707070707070707070707",
         "peers": 1,
         "photos": 1,
         "members": [
           {
-            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "key": "0404040404040404040404040404040404040404040404040404040404040404",
             "name": "Desktop",
             "admin": false,
             "connected": true
@@ -257,18 +330,22 @@
       },
       {
         "folder": {
-          "id": "mvxt90wf-40191ceb",
+          "id": "mw5la901-a5cdfb79",
           "name": "Contract",
           "role": "creator",
           "pending": false,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
           "members": 2,
-          "addedAt": 1700000000000
+          "addedAt": 1700000000000,
+          "invite": {
+            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "owner": "0303030303030303030303030303030303030303030303030303030303030303"
+          }
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0303030303030303030303030303030303030303030303030303030303030303",
+        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
         "peers": 1,
         "photos": 1,
         "members": [
@@ -279,10 +356,10 @@
             "connected": true
           },
           {
-            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "key": "0404040404040404040404040404040404040404040404040404040404040404",
             "name": "Desktop",
             "admin": false,
-            "connected": false
+            "connected": true
           }
         ]
       }
@@ -290,23 +367,23 @@
     "photos.join": [
       {
         "folder": {
-          "id": "mvxt90wx-56507098",
+          "id": "mw5la90o-33b171a5",
           "name": "Contract",
           "role": "reader",
           "pending": true,
           "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-          "driveKey": "0202020202020202020202020202020202020202020202020202020202020202",
+          "driveKey": "0404040404040404040404040404040404040404040404040404040404040404",
           "members": 0,
           "addedAt": 1700000000000
         },
         "name": "Desktop",
         "driveKey": "",
-        "discoveryKey": "0505050505050505050505050505050505050505050505050505050505050505",
+        "discoveryKey": "0707070707070707070707070707070707070707070707070707070707070707",
         "peers": 1,
         "photos": 1,
         "members": [
           {
-            "key": "0202020202020202020202020202020202020202020202020202020202020202",
+            "key": "0404040404040404040404040404040404040404040404040404040404040404",
             "name": "Desktop",
             "admin": false,
             "connected": true
@@ -327,9 +404,9 @@
       {
         "requests": [
           {
-            "requesterKey": "0202020202020202020202020202020202020202020202020202020202020202",
+            "requesterKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "requesterName": "Desktop",
-            "folderId": "mvxt90wf-40191ceb",
+            "folderId": "mw5la901-a5cdfb79",
             "folderName": "Contract",
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
             "requestedAt": 1700000000000
@@ -344,37 +421,49 @@
     ],
     "photos.remove": [
       {
-        "id": "mvxt90wl-f82d97f4"
+        "id": "mw5la908-2134341f"
       }
     ],
     "photos.removeMember": [
       {
         "ok": true
       }
+    ],
+    "photos.ask": [
+      {
+        "ask": {
+          "code": "0202020202020202020202020202020202020202020202020202020202020202",
+          "owner": "0303030303030303030303030303030303030303030303030303030303030303",
+          "albumName": "Contract",
+          "ownerName": "Phone",
+          "askedAt": 1700000000000,
+          "status": "waiting"
+        }
+      }
     ]
   },
   "pushes": [
     {
       "cause": "enroll",
-      "folderId": "mvxt90wx-56507098",
-      "memberKey": "0202020202020202020202020202020202020202020202020202020202020202"
+      "folderId": "mw5la90o-33b171a5",
+      "memberKey": "0404040404040404040404040404040404040404040404040404040404040404"
     },
     {
       "cause": "add",
-      "folderId": "mvxt90wx-56507098",
+      "folderId": "mw5la90o-33b171a5",
       "memberKey": "0101010101010101010101010101010101010101010101010101010101010101"
     },
     {
       "cause": "presence",
-      "folderId": "mvxt90wf-40191ceb"
+      "folderId": "mw5la90o-33b171a5"
     },
     {
       "cause": "request",
-      "folderId": "mvxt90wx-56507098"
+      "folderId": "mw5la90o-33b171a5"
     },
     {
       "cause": "remove",
-      "folderId": "mvxt90wf-40191ceb",
+      "folderId": "mw5la901-a5cdfb79",
       "memberKey": "0101010101010101010101010101010101010101010101010101010101010101"
     }
   ]

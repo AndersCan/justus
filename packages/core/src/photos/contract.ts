@@ -9,6 +9,7 @@
  * or mistyped field is an error that names its path.
  */
 import type {
+  AskSummary,
   FolderSummary,
   JoinRequest,
   Photo,
@@ -126,6 +127,16 @@ export const folderSummarySchema = s.object({
   driveKey: s.string,
   members: s.number,
   addedAt: s.number,
+  invite: s.optional(s.object({ code: s.string, owner: s.string })),
+});
+
+export const askSummarySchema = s.object({
+  code: s.string,
+  owner: s.string,
+  albumName: s.string,
+  ownerName: s.string,
+  askedAt: s.number,
+  status: s.oneOf("waiting", "declined"),
 });
 
 export const syncStatusSchema = s.object({
@@ -148,9 +159,11 @@ export const joinRequestSchema = s.object({
 });
 
 export const photoChangedSchema = s.object({
-  cause: s.oneOf("add", "remove", "enroll", "request", "presence"),
+  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask"),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
+  code: s.optional(s.string),
+  answer: s.optional(s.oneOf("accepted", "declined")),
 });
 
 /** Result schema of every `photos.*` invoke the web reads, by event name. */
@@ -164,7 +177,9 @@ export const photoResultSchemas = {
   "photos.folders": s.object({
     folders: s.array(folderSummarySchema),
     activeFolderId: s.string,
+    asks: s.array(askSummarySchema),
   }),
+  "photos.ask": s.object({ ask: askSummarySchema }),
   "photos.createFolder": s.object({ folder: folderSummarySchema }),
   "photos.setActive": syncStatusSchema,
   "photos.setName": s.object({ name: s.string }),
@@ -196,6 +211,7 @@ export type _ContractChecks = [
   Assert<Equal<T<typeof photoSchema>, Photo>>,
   Assert<Equal<T<typeof syncMemberSchema>, SyncMember>>,
   Assert<Equal<T<typeof folderSummarySchema>, FolderSummary>>,
+  Assert<Equal<T<typeof askSummarySchema>, AskSummary>>,
   Assert<Equal<T<typeof syncStatusSchema>, SyncStatus>>,
   Assert<Equal<T<typeof joinRequestSchema>, JoinRequest>>,
   Assert<Equal<T<typeof photoChangedSchema>, PhotoChanged>>,
