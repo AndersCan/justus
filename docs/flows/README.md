@@ -35,7 +35,7 @@ To add a machine, list its file under its feature in `manifest.json` and add a
 `<Machine src>` for it on that feature's page. To add a feature, add a manifest
 key, a page in `docs/site/src/pages/` and a link comes for free on the index.
 
-`node scripts/check-site-dist.mjs site-dist` serves the built site under
+`node scripts/check-flows-site.mjs site-dist` serves the built site under
 `/justus/` and checks every page in a browser (needs Chromium; set
 `CHROMIUM_PATH` if Playwright's is not installed).
 
