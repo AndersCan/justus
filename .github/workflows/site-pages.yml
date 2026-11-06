@@ -43,7 +43,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Check every page renders a diagram
-        run: node scripts/check-site-dist.mjs site-dist
+        run: node scripts/check-flows-site.mjs site-dist
 
       - name: Upload site for review
         if: github.event_name == 'pull_request'
