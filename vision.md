@@ -16,6 +16,18 @@ Ship a working photo-sharing app where photos are captured, shared, and synced
 logic expressed in Mantaq and all of its cross-platform/runtime plumbing running
 on Ekrooh.
 
+## Visions
+
+What the maintainer wants justus to be, in order. Each one is worked toward
+in small, visible steps; the rest of this file is direction.
+
+1. **Private sharing.** A share link alone never shows your photos: the album
+   owner accepts each person who joins.
+2. **Daily use.** Two people can install justus, make an album and share
+   photos in under five minutes.
+3. **Visible privacy.** You can always see who holds a photo and that no
+   server is involved.
+
 ## Privacy must be visible
 
 Privacy is not only a technical fact (no server, direct p2p) - it must be
