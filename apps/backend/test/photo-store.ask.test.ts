@@ -163,4 +163,46 @@ describe("ask", () => {
     expect(saved.folders[0].answers ?? {}).toEqual({});
     await s.close();
   });
+
+  it("a requester key listed by two outboxes is dropped, in either read order", async () => {
+    for (const aliceLast of [true, false]) {
+      const s = await scenario();
+      const mallOwn: FakeDrive[] = [];
+      const mallory = buildStore("Mallory", { own: mallOwn });
+      await mallory.store.ready();
+      await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+      await mallory.store.ask({ code: s.invite.code, owner: s.owner });
+      const aliceKey = Object.values(JSON.parse(await outboxText(s.outbox)).requests as object)[0]
+        .requesterKey as string;
+      const file = JSON.parse(await outboxText(mallOwn[0]!));
+      for (const entry of Object.values(file.requests) as { requesterKey: string }[])
+        entry.requesterKey = aliceKey;
+      await mallOwn[0]!.put("/requests.json", Buffer.from(JSON.stringify(file)));
+
+      const order = aliceLast ? [mallOwn[0]!, s.outbox] : [s.outbox, mallOwn[0]!];
+      for (const d of order) s.swarm.emit("connection", fakeConnection(d.key));
+      const { requests } = await s.admin.store.requests();
+      expect(requests.filter((r) => r.requesterKey === aliceKey)).toEqual([]);
+
+      const res = await s.admin.store.respond(s.folderId, aliceKey, true);
+      const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+      expect(saved.folders[0].answers ?? {}).toEqual({});
+      expect(res[0] === null).toBe(true);
+      await mallory.store.close();
+      await s.close();
+    }
+  });
+
+  it("a declined identity's old-style request is not hidden", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const first = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
+    await s.joiner.store.join(s.shareKey);
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const after = (await s.admin.store.requests()).requests;
+    expect(after.some((r) => r.requesterKey !== first[0].requesterKey)).toBe(true);
+    await s.close();
+  });
 });

@@ -1789,13 +1789,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    *    and keeps the outbox entries whose share key matches this album.
    */
   const lastRequestCount = new Map<string, number>();
+  type Listed = { peerKeyHex: string; found: JoinRequest[]; invited: Set<string> };
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
     const shareKey = rt.record.shareKey;
     // Open every peer's request outbox concurrently. A peer whose drive never
     // becomes ready (unreachable) is bounded by `openDriveWithTopic`'s timeout
     // *per drive* — running the opens in parallel keeps total latency at ~one
     // timeout rather than N timeouts summed across unreachable peers (issue #88).
-    const tasks = [...peerIdentities].map(async (peerKeyHex): Promise<JoinRequest[]> => {
+    const tasks = [...peerIdentities].map(async (peerKeyHex): Promise<Listed> => {
       let peerDrive: Drive;
       try {
         peerDrive = await openPeerOutbox(peerKeyHex);
@@ -1803,10 +1804,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         console.error(
           `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
         );
-        return [];
+        return { peerKeyHex, found: [], invited: new Set() };
       }
       const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
-      if (text === null) return [];
+      if (text === null) return { peerKeyHex, found: [], invited: new Set() };
       const found = parseJoinRequests(text, {
         shareKey,
         folderId: rt.record.id,
@@ -1814,15 +1815,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         inviteCode: rt.record.invite?.code,
       });
       const invited = parseInviteRequesters(text, rt.record.invite?.code);
-      for (const req of found) {
-        requesterIdentity.set(req.requesterKey, peerKeyHex);
-        if (invited.has(req.requesterKey)) inviteRequesters.add(req.requesterKey);
-        else inviteRequesters.delete(req.requesterKey);
-      }
-      return found;
+      return { peerKeyHex, found, invited };
     });
     const settled = await Promise.allSettled(tasks);
-    const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    const listed = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    // A requester key listed by more than one outbox cannot be tied to one
+    // identity (anyone may write any key into their own outbox), so it is
+    // dropped from every outbox rather than letting the last read win.
+    const owners = new Map<string, Set<string>>();
+    for (const l of listed) {
+      for (const req of l.found) {
+        const set = owners.get(req.requesterKey) ?? new Set<string>();
+        set.add(l.peerKeyHex);
+        owners.set(req.requesterKey, set);
+      }
+    }
+    const found: JoinRequest[] = [];
+    for (const l of listed) {
+      for (const req of l.found) {
+        if ((owners.get(req.requesterKey)?.size ?? 0) > 1) {
+          requesterIdentity.delete(req.requesterKey);
+          inviteRequesters.delete(req.requesterKey);
+          continue;
+        }
+        requesterIdentity.set(req.requesterKey, l.peerKeyHex);
+        if (l.invited.has(req.requesterKey)) inviteRequesters.add(req.requesterKey);
+        else inviteRequesters.delete(req.requesterKey);
+        found.push(req);
+      }
+    }
     // Logged on change only: the web layer polls this on every push.
     if (lastRequestCount.get(rt.record.id) !== found.length) {
       lastRequestCount.set(rt.record.id, found.length);
@@ -2765,7 +2786,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           if (enrolled.has(req.requesterKey)) continue;
           if (deniedRequesters.has(req.requesterKey)) continue;
           const identity = requesterIdentity.get(req.requesterKey);
-          if (identity && rt.record.answers?.[identity]) continue;
+          if (identity && inviteRequesters.has(req.requesterKey) && rt.record.answers?.[identity])
+            continue;
           out.push(req);
         }
       }
