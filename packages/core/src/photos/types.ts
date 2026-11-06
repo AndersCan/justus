@@ -70,6 +70,21 @@ export type FolderSummary = {
   members: number;
   /** When this device joined/created the folder (ms epoch). */
   addedAt: number;
+  /** The invite code: the creator's own, or the one a joiner asked through. */
+  invite?: { code: string; owner: string };
+};
+
+/** A request to join an album, made through an invite code and not yet
+ * answered with the key (waiting) or answered no (declined). */
+export type AskSummary = {
+  code: string;
+  /** The Admin's identity drive key (hex). */
+  owner: string;
+  albumName: string;
+  ownerName: string;
+  /** When this device asked (ms epoch). */
+  askedAt: number;
+  status: "waiting" | "declined";
 };
 
 /** This device's read view over the folder it is currently showing. */
@@ -103,7 +118,7 @@ export type JoinRequest = {
   requestedAt: number;
 };
 
-export type PhotoChangedCause = "add" | "remove" | "enroll" | "request" | "presence";
+export type PhotoChangedCause = "add" | "remove" | "enroll" | "request" | "presence" | "ask";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {
@@ -112,4 +127,7 @@ export type PhotoChanged = {
    * aware (older peers). The web layer keys animation/refresh off it. */
   folderId?: string;
   memberKey?: string;
+  /** For cause "ask": the invite code asked through, and the Admin's answer. */
+  code?: string;
+  answer?: "accepted" | "declined";
 };

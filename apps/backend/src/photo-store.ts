@@ -9,13 +9,17 @@ import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
-import { greetPeer } from "./peer-identity";
+import { greetPeer } from "./adapters/peer-identity";
+import { openAnswers } from "./adapters/peer-answer";
+import { inviteTopic } from "./membership/invite";
 import { toDriveEntry } from "./adapters/hyper-drive-store";
 import type { DriveEntry } from "./ports/drive-store";
 import {
   isEnrolled,
   isHexKey,
   isTextJSON,
+  parseAnswer,
+  type Answer,
   parseDeviceName,
   parseDeviceSwarmKey,
   parseFolderName,
@@ -68,6 +72,7 @@ type SwarmLike = {
 const defaultSwarm = (opts?: { bootstrap?: string[] }): SwarmLike =>
   new Hyperswarm(opts) as unknown as SwarmLike;
 import type {
+  AskSummary,
   FolderSummary,
   JoinRequest,
   Photo,
@@ -114,7 +119,17 @@ type PersistedState = {
   name: string;
   folders: FolderRecord[];
   activeFolderId: string | null;
+  asks: AskRecord[];
 };
+
+/** A request to join through an invite code. `shareKey` is set only once the
+ * Admin accepted and the join is not done yet; it never touches a drive. */
+type AskRecord = Omit<AskSummary, "status"> & {
+  status: "waiting" | "declined" | "accepted";
+  shareKey?: string;
+};
+
+type Answers = Record<string, "accepted" | "declined">;
 
 /**
  * One folder this device holds. `id` is a stable local id (across sessions);
@@ -131,6 +146,13 @@ type FolderRecord = {
   shareKey: string;
   driveKey: string;
   createdAt: number;
+  /** Creator: the album's own invite code. Joiner: the code it asked through. */
+  invite?: { code: string; owner?: string };
+  /** Creator only: the answer given to each identity that asked. */
+  answers?: Answers;
+  /** Corestore namespace of this device's drive in the album. Defaults to
+   * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
+  selfNs?: string;
 };
 
 type PhotoMeta = {
@@ -192,6 +214,9 @@ export type PhotoStoreDeps = {
   /** Exchanges identity drive keys with the peer on a swarm connection.
    * Defaults to {@link greetPeer} (a protomux channel); test fakes swap it. */
   greetPeer?: typeof greetPeer;
+  /** Opens the answer channel on a swarm connection. Defaults to
+   * {@link openAnswers}; test fakes swap it. */
+  openAnswers?: typeof openAnswers;
   /** Receives structured p2p boundary events (see `p2p-log.ts`). Defaults to a
    * console line per event; tests inject a sink to assert on them. */
   log?: P2pLogSink;
@@ -217,7 +242,15 @@ export interface PhotoStore {
   join(key: string, nameHint?: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
   status(): Promise<SyncStatus>;
-  folders(): Promise<{ folders: FolderSummary[]; activeFolderId: string }>;
+  folders(): Promise<{ folders: FolderSummary[]; activeFolderId: string; asks: AskSummary[] }>;
+  /** Asks the Admin behind an invite code to let this device in. The album's
+   * key reaches this device only after the Admin accepts. */
+  ask(args: {
+    code: string;
+    owner: string;
+    albumName?: string;
+    ownerName?: string;
+  }): Promise<EitherResult<{ ask: AskSummary }>>;
   createFolder(name: string): Promise<EitherResult<{ folder: FolderSummary }>>;
   setActive(folderId: string): Promise<EitherResult<SyncStatus>>;
   setName(name: string): Promise<EitherResult<{ name: string }>>;
@@ -248,6 +281,8 @@ const DRIVE_PATH_REQUESTS = "/requests.json";
 /** Album name shown until the Admin's `/folder.json` replicates in. */
 const JOINED_PLACEHOLDER_NAME = "Joined folder";
 const STATE_FILE = "justus.json";
+const DEFAULT_ASK_ALBUM = "this album";
+const DEFAULT_ASK_OWNER = "the Admin";
 
 function newId(c: typeof import("bare-crypto")): string {
   return `${Date.now().toString(36)}-${c.randomBytes(4).toString("hex")}`;
@@ -443,8 +478,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let connSeq = 0;
   const conns = new Map<
     number,
-    { noiseKey?: string; identityKey?: string; openedAt: number; initiator?: boolean }
+    {
+      noiseKey?: string;
+      identityKey?: string;
+      openedAt: number;
+      initiator?: boolean;
+      /** The identity above is proven: its `/device.json` names this connection's noise key. */
+      verified?: boolean;
+      answers?: { send(answer: Answer): boolean };
+      /** `code` of each answer already sent on this connection. */
+      sent: Set<string>;
+    }
   >();
+  /** Self drives opened by namespace; Hyperdrive takes its core exclusively,
+   * so a second open of the same namespace would wait on the first. */
+  const selfDrives = new Map<string, Promise<Drive>>();
+  /** Which identity drive each request in a peer's outbox came from, and which
+   * of them were made through an invite code. */
+  const requesterIdentity = new Map<string, string>();
+  const inviteRequesters = new Set<string>();
+  const askInflight = new Map<string, Promise<unknown>>();
+  const completing = new Set<string>();
   /** Resolved peer-outbox drives (the map above holds promises). */
   const peerOutboxDrives = new Map<string, Drive>();
   let closed = false;
@@ -507,15 +561,57 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               shareKey: f.shareKey,
               driveKey: f.driveKey,
               createdAt: typeof f.createdAt === "number" ? f.createdAt : 0,
+              ...loadFolderExtras(f),
             });
           }
         }
-        return { name, folders, activeFolderId };
+        return { name, folders, activeFolderId, asks: loadAsks(parsed.asks) };
       }
     } catch {
       // Fresh state.
     }
-    return { name: deps.deviceName, folders: [], activeFolderId: null };
+    return { name: deps.deviceName, folders: [], activeFolderId: null, asks: [] };
+  }
+
+  function loadFolderExtras(f: { [k: string]: unknown }): Partial<FolderRecord> {
+    const out: Partial<FolderRecord> = {};
+    const inv = f.invite;
+    if (isTextJSON(inv) && typeof inv.code === "string" && isHexKey(inv.code)) {
+      out.invite = {
+        code: inv.code,
+        ...(typeof inv.owner === "string" && isHexKey(inv.owner) ? { owner: inv.owner } : {}),
+      };
+    }
+    if (isTextJSON(f.answers)) {
+      const answers: Answers = {};
+      for (const [id, a] of Object.entries(f.answers)) {
+        if (isHexKey(id) && (a === "accepted" || a === "declined")) answers[id] = a;
+      }
+      out.answers = answers;
+    }
+    if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
+    return out;
+  }
+
+  function loadAsks(raw: unknown): AskRecord[] {
+    if (!Array.isArray(raw)) return [];
+    const out: AskRecord[] = [];
+    for (const a of raw as unknown[]) {
+      if (!isTextJSON(a)) continue;
+      if (typeof a.code !== "string" || !isHexKey(a.code)) continue;
+      if (typeof a.owner !== "string" || !isHexKey(a.owner)) continue;
+      if (a.status !== "waiting" && a.status !== "declined" && a.status !== "accepted") continue;
+      out.push({
+        code: a.code,
+        owner: a.owner,
+        albumName: peerName(a.albumName, DEFAULT_ASK_ALBUM),
+        ownerName: peerName(a.ownerName, DEFAULT_ASK_OWNER),
+        askedAt: typeof a.askedAt === "number" ? a.askedAt : 0,
+        status: a.status,
+        ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
+      });
+    }
+    return out;
   }
 
   function saveState() {
@@ -843,20 +939,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * lookup with backoff until the drive has a peer.
    */
   function rediscover(topic: Buffer, drive: Drive) {
+    rediscoverUntil(
+      topic,
+      drive.key,
+      () => {
+        const peers = drive.core?.peers;
+        return !Array.isArray(peers) || peers.length > 0 || Boolean(drive.closed);
+      },
+      () => drive.core?.peers?.length,
+    );
+  }
+
+  /** {@link rediscover} for a topic with no drive behind it: runs until
+   * `done()` holds. `label` names it in the log. */
+  function rediscoverUntil(
+    topic: Buffer,
+    label: Uint8Array | string,
+    done: () => boolean,
+    peerCount: () => number | undefined = () => undefined,
+  ) {
     const key = hex(topic);
     let attempt = 0;
-    const hasPeer = () => {
-      const peers = drive.core?.peers;
-      return !Array.isArray(peers) || peers.length > 0;
-    };
     const tick = () => {
       rediscoverTimers.delete(timer);
-      if (closed || hasPeer() || !joins.has(key) || drive.closed) return;
+      if (closed || done() || !joins.has(key)) return;
       log("rediscover.attempt", {
-        drive: short(drive.key),
+        drive: short(label),
         topic: short(key),
         n: attempt + 1,
-        peers: drive.core?.peers?.length,
+        peers: peerCount(),
       });
       try {
         void Promise.resolve(swarm.status?.(topic)?.refresh()).catch((e) =>
@@ -866,7 +977,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // discovery gone (topic left meanwhile): expected, quiet
       }
       if (++attempt >= REDISCOVER_MS.length) {
-        log("rediscover.giveup", { drive: short(drive.key), topic: short(key) });
+        log("rediscover.giveup", { drive: short(label), topic: short(key) });
         return;
       }
       timer = setTimeout(tick, REDISCOVER_MS[attempt]);
@@ -994,14 +1105,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * album, on its own namespace, so the same share key always reopens the
    * same drive and a photo added here never shows up in another album. It is
    * served on its own topic so the Admin and members can open it by key. */
-  async function openSelfDrive(shareKey: string): Promise<Drive> {
-    const drive = deps.makeDrive(corestore.namespace(`member/${shareKey}`));
-    await drive.ready();
-    // Presence reads the swarm key from here, and it changes every boot.
-    await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-    await joinTopic(drive.discoveryKey);
-    rediscover(drive.discoveryKey, drive);
-    return drive;
+  function openSelfDrive(shareKey: string, selfNs?: string): Promise<Drive> {
+    return openSelfDriveIn(selfNs ?? `member/${shareKey}`);
+  }
+
+  function openSelfDriveIn(ns: string): Promise<Drive> {
+    let opening = selfDrives.get(ns);
+    if (!opening) {
+      opening = (async () => {
+        const drive = deps.makeDrive(corestore.namespace(ns));
+        await drive.ready();
+        // Presence reads the swarm key from here, and it changes every boot.
+        await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+        await joinTopic(drive.discoveryKey);
+        rediscover(drive.discoveryKey, drive);
+        return drive;
+      })();
+      opening.catch(() => selfDrives.delete(ns));
+      selfDrives.set(ns, opening);
+    }
+    return opening;
   }
 
   async function loadMemberDrive(rt: FolderRuntime, keyHex: string, name?: string) {
@@ -1569,6 +1692,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       driveKey,
       members: memberCount,
       addedAt: rt.record.createdAt,
+      ...(rt.record.invite
+        ? {
+            invite: {
+              code: rt.record.invite.code,
+              owner: rt.record.invite.owner ?? hex(ownDrive.key),
+            },
+          }
+        : {}),
     };
   }
 
@@ -1676,11 +1807,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
       if (text === null) return [];
-      return parseJoinRequests(text, {
+      const found = parseJoinRequests(text, {
         shareKey,
         folderId: rt.record.id,
         folderName: rt.record.name,
+        inviteCode: rt.record.invite?.code,
       });
+      const invited = parseInviteRequesters(text, rt.record.invite?.code);
+      for (const req of found) {
+        requesterIdentity.set(req.requesterKey, peerKeyHex);
+        if (invited.has(req.requesterKey)) inviteRequesters.add(req.requesterKey);
+        else inviteRequesters.delete(req.requesterKey);
+      }
+      return found;
     });
     const settled = await Promise.allSettled(tasks);
     const found = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
@@ -1696,6 +1835,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return found;
   }
 
+  /** Requester keys in an outbox that asked through `code`. */
+  function parseInviteRequesters(text: string, code: string | undefined): Set<string> {
+    const out = new Set<string>();
+    const file = code ? parseRequestsFile(text) : undefined;
+    for (const raw of Object.values(file?.requests ?? {}) as unknown[]) {
+      if (!isTextJSON(raw) || raw.invite !== code) continue;
+      if (typeof raw.requesterKey === "string" && isHexKey(raw.requesterKey)) {
+        out.add(raw.requesterKey.toLowerCase());
+      }
+    }
+    return out;
+  }
+
   function announceRequestInbox() {
     for (const rt of runtimes.values()) {
       if (rt.record.role === "creator")
@@ -1708,7 +1860,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!opening) {
       opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
         peerOutboxDrives.set(keyHex, drive);
-        onDriveChange(drive, announceRequestInbox);
+        onDriveChange(drive, () => {
+          announceRequestInbox();
+          void deliverAnswers(keyHex).catch(answerErr("deliver"));
+        });
         return drive;
       });
       // Unreachable this time: let a later `requests()` try again.
@@ -1727,6 +1882,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     log("identity.learned", { conn: connId, identity: short(keyHex), new: isNew });
     const c = connId === undefined ? undefined : conns.get(connId);
     if (c) c.identityKey = keyHex;
+    if (keyHex !== hex(ownDrive.key)) {
+      void deliverAnswers(keyHex).catch(answerErr("deliver"));
+      // An accepted ask whose join failed earlier: the Admin is here again.
+      for (const ask of state.asks) {
+        if (ask.status === "accepted" && ask.owner === keyHex) {
+          void completeAccepted(ask).catch(answerErr("complete"));
+        }
+      }
+    }
     if (!isNew) return;
     peerIdentities.add(keyHex);
     announceRequestInbox();
@@ -1746,7 +1910,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ? hex(conn.remotePublicKey)
         : undefined;
       const openedAt = Date.now();
-      conns.set(connId, { noiseKey, openedAt, initiator: conn.isInitiator });
+      conns.set(connId, { noiseKey, openedAt, initiator: conn.isInitiator, sent: new Set() });
       log("conn.open", { conn: connId, noise: short(noiseKey), initiator: conn.isInitiator });
       conn.on("error", (e: unknown) =>
         log("conn.error", { conn: connId, noise: short(noiseKey), err: errText(e) }),
@@ -1767,6 +1931,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, (key) => onPeerIdentity(key, connId));
       } catch (e) {
         console.error(`[justus] identity greeting failed: ${errMsg(e)}`);
+      }
+      try {
+        const channel = (deps.openAnswers ?? openAnswers)(conn, (value) => {
+          void onAnswerMessage(connId, value).catch(answerErr("answer"));
+        });
+        const entry = conns.get(connId);
+        if (entry) entry.answers = channel;
+      } catch (e) {
+        console.error(`[justus] answer channel failed: ${errMsg(e)}`);
       }
     });
     await joinTopic(ownDrive.discoveryKey);
@@ -1793,10 +1966,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         await joinTopic(fd.discoveryKey, { server: true });
         rediscover(fd.discoveryKey, fd);
+        if (!record.invite) {
+          record.invite = { code: newInviteCode() };
+          saveState();
+        }
+        serveInvite(record.invite.code);
       } else {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
       }
-      const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey);
+      const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = hex(selfDrive.key);
       const enrolled = !isCreator && isEnrolled(await readRegistryIn(fd), selfKey);
       const role: Role = isCreator ? "creator" : enrolled ? "member" : "reader";
@@ -1825,6 +2003,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       await refreshMembersFor(rt);
       watchDrive(fd, record.id, hex(fd.key), isCreator ? "enroll" : "add");
+    }
+    // Asks still waiting go back on their topic; an accepted one retries its join.
+    for (const ask of state.asks) {
+      if (ask.status === "waiting") {
+        try {
+          await openSelfDriveIn(`ask/${ask.code}`);
+          await watchInvite(ask);
+        } catch (e) {
+          log("error", { where: "ask.resume", code: short(ask.code), err: errText(e) });
+        }
+      }
     }
     await pruneJoinRequests();
 
@@ -1859,6 +2048,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         shareKey: hex(newDrive.key),
         driveKey: hex(newDrive.key),
         createdAt: Date.now(),
+        invite: { code: newInviteCode() },
       },
       folderDrive: newDrive,
       selfDrive: newDrive,
@@ -1873,6 +2063,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     saveState();
     await joinTopic(newDrive.discoveryKey, { server: true });
     rediscover(newDrive.discoveryKey, newDrive);
+    serveInvite(rt.record.invite!.code);
     watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
     if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
     return rt;
@@ -1897,6 +2088,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         })
         .map((f) => f.shareKey),
     );
+    for (const ask of state.asks) if (ask.status === "waiting") pending.add(`invite:${ask.code}`);
     const kept = Object.fromEntries(Object.entries(entries).filter(([key]) => pending.has(key)));
     if (file && Object.keys(kept).length === Object.keys(entries).length) return;
     try {
@@ -1931,6 +2123,385 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await announceOwnDriveOnTopic(rt.folderDrive, "folder");
   }
 
+  // --- Private sharing: invite codes, asks and answers. ---------------------
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | undefined> =>
+    Promise.race([p, sleep(ms).then(() => undefined)]);
+  let setupDone = false;
+
+  function answerErr(where: string) {
+    return (e: unknown) => log("error", { where: `answer.${where}`, err: errText(e) });
+  }
+
+  function newInviteCode(): string {
+    return crypto.randomBytes(32).toString("hex");
+  }
+
+  function askSummary(a: AskRecord): AskSummary {
+    return {
+      code: a.code,
+      owner: a.owner,
+      albumName: a.albumName,
+      ownerName: a.ownerName,
+      askedAt: a.askedAt,
+      status: a.status === "declined" ? "declined" : "waiting",
+    };
+  }
+
+  /** The Admin serves an album's invite topic; a link holder meets only this device. */
+  function serveInvite(code: string) {
+    const topic = inviteTopic(code, crypto);
+    joinTopic(topic, { server: true }).catch((e) =>
+      log("error", { where: "invite.join", code: short(code), err: errText(e) }),
+    );
+    rediscoverUntil(topic, code, () => false);
+  }
+
+  /** The joiner serves the same topic until its owner connects. */
+  async function watchInvite(ask: AskRecord) {
+    const topic = inviteTopic(ask.code, crypto);
+    await joinTopic(topic, { server: true });
+    rediscoverUntil(
+      topic,
+      ask.code,
+      () =>
+        ask.status !== "waiting" || [...conns.values()].some((c) => c.identityKey === ask.owner),
+    );
+  }
+
+  async function fileAsk(
+    code: string,
+    owner: string,
+    albumName: unknown,
+    ownerName: unknown,
+  ): Promise<EitherResult<{ ask: AskSummary }>> {
+    try {
+      const drive = await openSelfDriveIn(`ask/${code}`);
+      const askedAt = Date.now();
+      const text = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+      const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
+      file.requests[`invite:${code}`] = {
+        requesterKey: hex(drive.key),
+        requesterName: state.name,
+        invite: code,
+        requestedAt: askedAt,
+      };
+      await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(file)));
+      const ask: AskRecord = {
+        code,
+        owner,
+        albumName: peerName(albumName, DEFAULT_ASK_ALBUM),
+        ownerName: peerName(ownerName, DEFAULT_ASK_OWNER),
+        askedAt,
+        status: "waiting",
+      };
+      state.asks.push(ask);
+      saveState();
+      await watchInvite(ask);
+      deps.onChanged({ cause: "ask", code });
+      return ok({ ask: askSummary(ask) });
+    } catch (e) {
+      return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${errMsg(e)}`);
+    }
+  }
+
+  /** Records (or with `undefined` takes back) the answer to `identity`'s ask. */
+  function setAnswer(
+    rt: FolderRuntime,
+    identity: string,
+    value: "accepted" | "declined" | undefined,
+  ) {
+    const next: Answers = { ...rt.record.answers };
+    if (value) next[identity] = value;
+    else delete next[identity];
+    rt.record.answers = next;
+    const persisted = state.folders.find((f) => f.id === rt.record.id);
+    if (persisted) persisted.answers = next;
+    saveState();
+  }
+
+  const verifying = new Map<number, Promise<string | undefined>>();
+
+  /** The identity drive key behind connection `connId`, once proven: the
+   * greeting only *claims* it, so the claimed drive's `/device.json` must name
+   * this connection's noise key. A restarted peer's file lags its new key, so
+   * this retries for a few seconds. */
+  function verifiedIdentity(connId: number): Promise<string | undefined> {
+    let running = verifying.get(connId);
+    if (!running) {
+      running = verifyConn(connId).finally(() => verifying.delete(connId));
+      verifying.set(connId, running);
+    }
+    return running;
+  }
+
+  async function verifyConn(connId: number): Promise<string | undefined> {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const c = conns.get(connId);
+      if (!c || closed) return undefined;
+      if (c.verified) return c.identityKey;
+      if (c.identityKey && c.noiseKey && c.identityKey !== hex(ownDrive.key)) {
+        try {
+          const drive = await openPeerOutbox(c.identityKey);
+          // `update()` first: the local copy may hold the key of the peer's last boot.
+          await withTimeout(Promise.resolve(drive.update?.()), 2_000);
+          const text = await withTimeout(getText(drive, DRIVE_PATH_DEVICE), 5_000);
+          if (text && parseDeviceSwarmKey(text) === c.noiseKey) {
+            c.verified = true;
+            return c.identityKey;
+          }
+        } catch (e) {
+          log("error", { where: "verifiedIdentity", conn: connId, err: errText(e) });
+        }
+      }
+      await sleep(1_000);
+    }
+    return undefined;
+  }
+
+  /** Sends each answer owed to `identity` on every connection proven to be it. */
+  async function deliverAnswers(identity: string, attempt = 0): Promise<void> {
+    if (closed || !setupDone) return;
+    const owed = [...runtimes.values()].filter(
+      (rt) => rt.record.role === "creator" && rt.record.invite && rt.record.answers?.[identity],
+    );
+    if (owed.length === 0) return;
+    let retry = false;
+    for (const [connId, c] of Array.from(conns)) {
+      if (c.identityKey !== identity) continue;
+      if ((await verifiedIdentity(connId)) !== identity) {
+        log("answer.unverified", { conn: connId, identity: short(identity) });
+        continue;
+      }
+      for (const rt of owed) {
+        const code = rt.record.invite!.code;
+        const answer = rt.record.answers?.[identity];
+        if (!answer || c.sent.has(code)) continue;
+        c.sent.add(code);
+        const message: Answer =
+          answer === "accepted" ? { code, answer, shareKey: rt.record.shareKey } : { code, answer };
+        if (c.answers?.send(message)) {
+          log("answer.sent", { conn: connId, code: short(code), answer });
+        } else {
+          c.sent.delete(code);
+          retry = true;
+        }
+      }
+    }
+    if (retry && attempt < 5) {
+      const timer = setTimeout(() => {
+        rediscoverTimers.delete(timer);
+        void deliverAnswers(identity, attempt + 1).catch(answerErr("deliver"));
+      }, 1_000);
+      rediscoverTimers.add(timer);
+    }
+  }
+
+  /** An answer arrived on connection `connId`. Only the owner named in the ask,
+   * proven by {@link verifiedIdentity}, can settle it. */
+  async function onAnswerMessage(connId: number, value: unknown): Promise<void> {
+    const answer = parseAnswer(value);
+    if (!answer) return log("answer.ignored", { conn: connId, reason: "malformed" });
+    const ask = state.asks.find((a) => a.code === answer.code);
+    if (!ask || ask.status !== "waiting")
+      return log("answer.ignored", { conn: connId, reason: "no-waiting-ask" });
+    if ((await verifiedIdentity(connId)) !== ask.owner)
+      return log("answer.ignored", { conn: connId, reason: "unverified" });
+    if (ask.status !== "waiting") return;
+    if (answer.answer === "declined") {
+      ask.status = "declined";
+      saveState();
+      leaveTopic(hex(inviteTopic(ask.code, crypto)));
+      await pruneJoinRequests();
+      deps.onChanged({ cause: "ask", code: ask.code, answer: "declined" });
+      return;
+    }
+    ask.status = "accepted";
+    ask.shareKey = answer.shareKey;
+    saveState();
+    await completeAccepted(ask);
+  }
+
+  /** Joins the album an accepted ask opened. A failure leaves the ask accepted:
+   * the next boot, or the Admin's next connection, tries again. */
+  async function completeAccepted(ask: AskRecord): Promise<void> {
+    if (!ask.shareKey || !setupDone || completing.has(ask.code)) return;
+    completing.add(ask.code);
+    try {
+      const joined = await joinAlbum(ask.shareKey, ask.albumName, {
+        invite: { code: ask.code, owner: ask.owner },
+        selfNs: `ask/${ask.code}`,
+      });
+      if (joined[0]) {
+        log("error", { where: "ask.join", code: short(ask.code), err: joined[0].message });
+        return;
+      }
+      state.asks = state.asks.filter((a) => a.code !== ask.code);
+      saveState();
+      leaveTopic(hex(inviteTopic(ask.code, crypto)));
+      await pruneJoinRequests();
+      const album = state.folders.find((f) => f.shareKey === ask.shareKey);
+      deps.onChanged({ cause: "ask", code: ask.code, answer: "accepted", folderId: album?.id });
+    } finally {
+      completing.delete(ask.code);
+    }
+  }
+
+  function resumeAsks() {
+    setupDone = true;
+    for (const ask of state.asks) {
+      if (ask.status === "accepted") void completeAccepted(ask).catch(answerErr("complete"));
+    }
+  }
+
+  /** Joins the album with `key`. `via` is set when the Admin accepted an ask: the
+   * join then files no request (the Admin already enrolled the ask's drive) and
+   * keeps the ask's drive. */
+  async function joinAlbum(
+    key: string,
+    nameHint?: string,
+    via?: { invite: { code: string; owner: string }; selfNs: string },
+  ): Promise<EitherResult<SyncStatus>> {
+    if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
+    if (
+      key === hex(ownDrive.key) ||
+      state.folders.some((f) => f.role === "creator" && f.shareKey === key)
+    )
+      return err(PhotoError.INVALID_KEY, "You already own this album");
+
+    // Idempotency (issue #47): re-joining a folder we already hold must not
+    // mint a second `FolderRecord` with a fresh id — that leaves two folders
+    // pointing at the same share key and double-counts it in `folders()`.
+    // Reuse the existing record/runtime instead.
+    const existing = state.folders.find((f) => f.shareKey === key);
+    if (existing) {
+      let rt = runtimes.get(existing.id);
+      if (!rt) {
+        // Runtime was dropped (e.g. after a restart re-setup): rebuild it from
+        // the persisted record so the device's own view stays consistent.
+        try {
+          const fd = await openDriveWithTopic(key, { server: false });
+          const selfDrive = await openSelfDrive(key, existing.selfNs);
+          const selfKey = hex(selfDrive.key);
+          const enrolled = isEnrolled(await readRegistryIn(fd), selfKey);
+          const role: Role = enrolled ? "member" : "reader";
+          rt = {
+            record: {
+              ...existing,
+              role,
+              driveKey: role === "reader" ? "" : selfKey,
+              pending: role === "reader" ? Boolean(existing.pending) : false,
+            },
+            folderDrive: fd,
+            selfDrive,
+            memberDrives: new Map(),
+            memberNameCache: new Map(),
+            mounted: new Set(),
+            watcherRemoves: new Set(),
+          };
+          runtimes.set(existing.id, rt);
+          await refreshMembersFor(rt);
+          watchDrive(fd, rt.record.id, hex(fd.key), "add");
+          // The Admin's drive may have replicated in while we joined, before the
+          // watcher existed: catch up on its name now.
+          void refreshAlbumName(rt).catch(nameErr(rt));
+        } catch (e) {
+          log("error", { where: "join.reopen", folder: short(existing.id), err: errText(e) });
+          return ok(await computeStatus());
+        }
+      }
+      // Still not enrolled: maybe the Admin approved since, else ask again.
+      // A membership from before #195 was enrolled with the identity drive,
+      // so it lands here and re-requests with this album's own drive.
+      // A joiner who asked through an invite code never files one.
+      if (rt.record.role === "reader" && !(await upgradePendingRole(rt)) && !existing.invite) {
+        await fileJoinRequest(rt, rt.record.name);
+        existing.pending = true;
+        saveState();
+        deps.onChanged({ cause: "request", folderId: rt.record.id });
+      }
+      return ok(await computeStatus());
+    }
+
+    let drive: Drive;
+    let registry: RegistryFile;
+    let folderName = "";
+    try {
+      // Join the folder topic first so a peer serves the drive's blocks
+      // (a remote `drive.ready()` otherwise waits forever).
+      drive = await openDriveWithTopic(key, { server: false });
+      // The registry tells us whether this device is enrolled as a member.
+      registry = await readRegistryIn(drive);
+      folderName = await readFolderNameIn(drive);
+    } catch (e) {
+      const message = errMsg(e);
+      return err(PhotoError.INVALID_KEY, `Cannot open album: ${message}`);
+    }
+
+    // The drive this device will add photos to in this album, and the key the
+    // Admin enrolls (#195).
+    const selfDrive = await openSelfDrive(key, via?.selfNs);
+    const selfKey = hex(selfDrive.key);
+    const enrolled = isEnrolled(registry, selfKey);
+    const role: Role = enrolled ? "member" : "reader";
+    const folderId = newId(deps.crypto);
+
+    const rt: FolderRuntime = {
+      record: {
+        id: folderId,
+        name: folderName || peerName(nameHint, JOINED_PLACEHOLDER_NAME),
+        role,
+        shareKey: key,
+        driveKey: enrolled ? selfKey : "",
+        createdAt: Date.now(),
+        ...(via ? { invite: via.invite, selfNs: via.selfNs } : {}),
+      },
+      folderDrive: drive,
+      selfDrive,
+      memberDrives: new Map(),
+      memberNameCache: new Map(),
+      mounted: new Set(),
+      watcherRemoves: new Set(),
+    };
+    runtimes.set(folderId, rt);
+
+    if (!enrolled) {
+      // Not yet a member → file a JOIN REQUEST the creator can read. An ask
+      // was answered already: the Admin enrolled its drive before sending the
+      // key, so the registry watcher upgrades this reader once it replicates.
+      if (!via) await fileJoinRequest(rt, folderName);
+
+      // This device becomes a (read-only) reader of the requested folder —
+      // the gallery shows it as pending until the creator approves.
+      state.folders.push(rt.record);
+      state.activeFolderId = folderId;
+      saveState();
+      await refreshMembersFor(rt);
+      // Watch the folder (creator) drive so replication updates — including
+      // the creator's approval that flips this device reader → member — reach
+      // this store in-session (issue #52).
+      watchDrive(drive, folderId, hex(drive.key), "add");
+      // The Admin's drive may have replicated in while we joined, before the
+      // watcher existed: catch up on its name now.
+      void refreshAlbumName(rt).catch(nameErr(rt));
+      deps.onChanged({ cause: "request", folderId });
+      return ok(await computeStatus());
+    }
+
+    // Already enrolled → member; make it active.
+    state.folders.push(rt.record);
+    state.activeFolderId = folderId;
+    saveState();
+    await refreshMembersFor(rt);
+    watchDrive(drive, folderId, hex(drive.key), "add");
+    // The Admin's drive may have replicated in while we joined, before the
+    // watcher existed: catch up on its name now.
+    void refreshAlbumName(rt).catch(nameErr(rt));
+    deps.onChanged({ cause: "enroll", folderId });
+    return ok(await computeStatus());
+  }
+
   return {
     async ready() {
       if (readyPromise) return readyPromise;
@@ -1938,10 +2509,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // permanently poison the store: clear the memoized promise on rejection so
       // the next `ready()` re-runs setup instead of re-throwing the same stale
       // error forever (issue #98).
-      readyPromise = setup().catch((e) => {
-        readyPromise = null;
-        throw e;
-      });
+      readyPromise = setup()
+        .then(resumeAsks)
+        .catch((e) => {
+          readyPromise = null;
+          throw e;
+        });
       return readyPromise;
     },
 
@@ -2062,139 +2635,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     async join(key, nameHint) {
       await readyPromise;
-      if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
-      if (
-        key === hex(ownDrive.key) ||
-        state.folders.some((f) => f.role === "creator" && f.shareKey === key)
-      )
-        return err(PhotoError.INVALID_KEY, "You already own this album");
-
-      // Idempotency (issue #47): re-joining a folder we already hold must not
-      // mint a second `FolderRecord` with a fresh id — that leaves two folders
-      // pointing at the same share key and double-counts it in `folders()`.
-      // Reuse the existing record/runtime instead.
-      const existing = state.folders.find((f) => f.shareKey === key);
-      if (existing) {
-        let rt = runtimes.get(existing.id);
-        if (!rt) {
-          // Runtime was dropped (e.g. after a restart re-setup): rebuild it from
-          // the persisted record so the device's own view stays consistent.
-          try {
-            const fd = await openDriveWithTopic(key, { server: false });
-            const selfDrive = await openSelfDrive(key);
-            const selfKey = hex(selfDrive.key);
-            const enrolled = isEnrolled(await readRegistryIn(fd), selfKey);
-            const role: Role = enrolled ? "member" : "reader";
-            rt = {
-              record: {
-                ...existing,
-                role,
-                driveKey: role === "reader" ? "" : selfKey,
-                pending: role === "reader" ? Boolean(existing.pending) : false,
-              },
-              folderDrive: fd,
-              selfDrive,
-              memberDrives: new Map(),
-              memberNameCache: new Map(),
-              mounted: new Set(),
-              watcherRemoves: new Set(),
-            };
-            runtimes.set(existing.id, rt);
-            await refreshMembersFor(rt);
-            watchDrive(fd, rt.record.id, hex(fd.key), "add");
-            // The Admin's drive may have replicated in while we joined, before the
-            // watcher existed: catch up on its name now.
-            void refreshAlbumName(rt).catch(nameErr(rt));
-          } catch (e) {
-            log("error", { where: "join.reopen", folder: short(existing.id), err: errText(e) });
-            return ok(await computeStatus());
-          }
-        }
-        // Still not enrolled: maybe the Admin approved since, else ask again.
-        // A membership from before #195 was enrolled with the identity drive,
-        // so it lands here and re-requests with this album's own drive.
-        if (rt.record.role === "reader" && !(await upgradePendingRole(rt))) {
-          await fileJoinRequest(rt, rt.record.name);
-          existing.pending = true;
-          saveState();
-          deps.onChanged({ cause: "request", folderId: rt.record.id });
-        }
-        return ok(await computeStatus());
-      }
-
-      let drive: Drive;
-      let registry: RegistryFile;
-      let folderName = "";
-      try {
-        // Join the folder topic first so a peer serves the drive's blocks
-        // (a remote `drive.ready()` otherwise waits forever).
-        drive = await openDriveWithTopic(key, { server: false });
-        // The registry tells us whether this device is enrolled as a member.
-        registry = await readRegistryIn(drive);
-        folderName = await readFolderNameIn(drive);
-      } catch (e) {
-        const message = errMsg(e);
-        return err(PhotoError.INVALID_KEY, `Cannot open album: ${message}`);
-      }
-
-      // The drive this device will add photos to in this album, and the key the
-      // Admin enrolls (#195).
-      const selfDrive = await openSelfDrive(key);
-      const selfKey = hex(selfDrive.key);
-      const enrolled = isEnrolled(registry, selfKey);
-      const role: Role = enrolled ? "member" : "reader";
-      const folderId = newId(deps.crypto);
-
-      const rt: FolderRuntime = {
-        record: {
-          id: folderId,
-          name: folderName || peerName(nameHint, JOINED_PLACEHOLDER_NAME),
-          role,
-          shareKey: key,
-          driveKey: enrolled ? selfKey : "",
-          createdAt: Date.now(),
-        },
-        folderDrive: drive,
-        selfDrive,
-        memberDrives: new Map(),
-        memberNameCache: new Map(),
-        mounted: new Set(),
-        watcherRemoves: new Set(),
-      };
-      runtimes.set(folderId, rt);
-
-      if (!enrolled) {
-        // Not yet a member → file a JOIN REQUEST the creator can read.
-        await fileJoinRequest(rt, folderName);
-
-        // This device becomes a (read-only) reader of the requested folder —
-        // the gallery shows it as pending until the creator approves.
-        state.folders.push(rt.record);
-        state.activeFolderId = folderId;
-        saveState();
-        await refreshMembersFor(rt);
-        // Watch the folder (creator) drive so replication updates — including
-        // the creator's approval that flips this device reader → member — reach
-        // this store in-session (issue #52).
-        watchDrive(drive, folderId, hex(drive.key), "add");
-        // The Admin's drive may have replicated in while we joined, before the
-        // watcher existed: catch up on its name now.
-        void refreshAlbumName(rt).catch(nameErr(rt));
-        deps.onChanged({ cause: "request", folderId });
-        return ok(await computeStatus());
-      }
-
-      // Already enrolled → member; make it active.
-      state.folders.push(rt.record);
-      state.activeFolderId = folderId;
-      saveState();
-      await refreshMembersFor(rt);
-      watchDrive(drive, folderId, hex(drive.key), "add");
-      // The Admin's drive may have replicated in while we joined, before the
-      // watcher existed: catch up on its name now.
-      void refreshAlbumName(rt).catch(nameErr(rt));
-      deps.onChanged({ cause: "enroll", folderId });
-      return ok(await computeStatus());
+      return joinAlbum(key, nameHint);
     },
 
     async enroll(key, name) {
@@ -2216,7 +2657,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: key });
       return ok(await computeStatus());
     },
-
     async status() {
       await readyPromise;
       return computeStatus();
@@ -2228,7 +2668,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const rt of runtimes.values()) {
         folders.push(toSummary(rt));
       }
-      return { folders, activeFolderId: activeFolderId() ?? "" };
+      return { folders, activeFolderId: activeFolderId() ?? "", asks: state.asks.map(askSummary) };
+    },
+
+    async ask(args) {
+      await readyPromise;
+      const code = typeof args.code === "string" ? args.code.toLowerCase() : "";
+      const owner = typeof args.owner === "string" ? args.owner.toLowerCase() : "";
+      if (!isHexKey(code) || !isHexKey(owner))
+        return err(PhotoError.INVALID_KEY, "Invite code and owner must be 64-char hex keys");
+      if (state.folders.some((f) => f.invite?.code === code))
+        return err(PhotoError.ALREADY_ENROLLED, "You already have this album");
+      const known = state.asks.find((a) => a.code === code);
+      if (known) return ok({ ask: askSummary(known) });
+      const pending = askInflight.get(code);
+      if (pending) return (await pending) as EitherResult<{ ask: AskSummary }>;
+      const filing = fileAsk(code, owner, args.albumName, args.ownerName);
+      askInflight.set(code, filing);
+      try {
+        return await filing;
+      } finally {
+        askInflight.delete(code);
+      }
     },
 
     async createFolder(name) {
@@ -2303,6 +2764,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         for (const req of found) {
           if (enrolled.has(req.requesterKey)) continue;
           if (deniedRequesters.has(req.requesterKey)) continue;
+          const identity = requesterIdentity.get(req.requesterKey);
+          if (identity && rt.record.answers?.[identity]) continue;
           out.push(req);
         }
       }
@@ -2317,8 +2780,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.NOT_CREATOR, "Only the creator can respond to requests");
       if (!isHexKey(requesterKey))
         return err(PhotoError.INVALID_KEY, "Requester key must be a 64-char hex key");
+      requesterKey = requesterKey.toLowerCase();
+      if (!requesterIdentity.has(requesterKey)) await readRequestsFromPeers(rt);
+      const identity = requesterIdentity.get(requesterKey);
+      const viaInvite = Boolean(identity && rt.record.invite && inviteRequesters.has(requesterKey));
       const registry = await readRegistryIn(rt.folderDrive);
       const alreadyPresent = Boolean(registry.members[requesterKey]);
+      if (!approve && viaInvite && identity) {
+        // Final: the joiner is told, and asking again changes nothing.
+        setAnswer(rt, identity, "declined");
+        deniedRequesters.add(requesterKey);
+        deps.onChanged({ cause: "request", folderId });
+        void deliverAnswers(identity).catch(answerErr("deliver"));
+        return ok({ ok: true });
+      }
       if (!approve) {
         // Denials have no state to write — the request just stays on the
         // requester's own drive until it is superseded. Remember it for the
@@ -2344,9 +2819,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         name: requesterName,
         addedAt: Date.now(),
       };
-      await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
+      // The answer is recorded before the key can leave: if the registry write
+      // fails the answer is taken back, so no one holds a key without a seat.
+      if (viaInvite && identity) setAnswer(rt, identity, "accepted");
+      try {
+        await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
+      } catch (e) {
+        if (viaInvite && identity) setAnswer(rt, identity, undefined);
+        return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${errMsg(e)}`);
+      }
       await loadMemberDrive(rt, requesterKey, requesterName);
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
+      if (viaInvite && identity) void deliverAnswers(identity).catch(answerErr("deliver"));
       return ok({ ok: true });
     },
 
@@ -2388,6 +2872,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           openedAt: c.openedAt,
         })),
         peerIdentities: [...peerIdentities],
+        asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
         joins: [...joins.keys()].map((topic) => ({
           topic,
           served: servedTopics.has(topic),

@@ -33,6 +33,7 @@ function device(name: string, bootstrap: unknown[]) {
     makeSwarm: () => new Hyperswarm({ bootstrap }),
     // The real protomux greeting, not the harness fake.
     greetPeer: undefined,
+    openAnswers: undefined,
     driveOpenTimeoutMs: 10_000,
   });
   mkdirSync(deps.cacheDir, { recursive: true });

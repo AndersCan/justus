@@ -64,6 +64,7 @@ describe("backend -> web contract, from real backend output", () => {
     cleanups.push(() => net.destroy());
     const admin = await net.peer("Phone");
     const joiner = await net.peer("Desktop");
+    const asker = await net.peer("Tablet");
 
     const captured: Captured = {};
     const plugin = (store: PhotoStore) => {
@@ -82,6 +83,7 @@ describe("backend -> web contract, from real backend output", () => {
     };
     const a = plugin(admin.store);
     const b = plugin(joiner.store);
+    const c = plugin(asker.store);
 
     // A fresh device: no folders, and an empty (not null) active id.
     await a("photos.folders");
@@ -123,6 +125,18 @@ describe("backend -> web contract, from real backend output", () => {
     await a("photos.status");
     await a("photos.remove", { id: photo.id, folderId: folder.id });
     await a("photos.removeMember", { folderId: folder.id, memberKey: requests[0].requesterKey });
+
+    // A stranger asks through the album's invite code.
+    const { folders } = await a("photos.folders");
+    const invite = folders[0].invite;
+    expect(invite, "the creator's folder carries its invite").toBeDefined();
+    await c("photos.ask", {
+      code: invite.code,
+      owner: invite.owner,
+      albumName: "Contract",
+      ownerName: "Phone",
+    });
+    await c("photos.folders");
 
     // Every result the web reads was exercised, except the legacy direct enroll.
     const untested = Object.keys(photoResultSchemas).filter((n) => !captured[n]);

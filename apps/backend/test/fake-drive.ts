@@ -287,6 +287,8 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
       const id = (conn as { identityKey?: Buffer }).identityKey;
       if (id) onIdentity(id);
     },
+    // Fake connections carry no protomux muxer, so there is no answer channel.
+    openAnswers: () => ({ send: () => false }),
     makeDrive: (cs: unknown, key?: Buffer) => {
       const seed = key ? key.toString("hex") : `${(cs as FakeCorestore).path}/db`;
       const drive = new FakeDrive(seed);

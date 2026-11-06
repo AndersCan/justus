@@ -21,8 +21,11 @@ export type RequestsFile = {
     {
       requesterKey: string;
       requesterName: string;
-      shareKey: string;
-      folderName: string;
+      /** Set by old-style requests, which name the album by its share key. */
+      shareKey?: string;
+      folderName?: string;
+      /** Set by requests made through an invite code: the code, never a key. */
+      invite?: string;
       requestedAt: number;
     }
   >;
@@ -122,11 +125,12 @@ export function parseRequestsFile(text: string): RequestsFile | undefined {
   }
 }
 
-/** The join requests in a peer's outbox that target `shareKey`. Every field is
- * the requester's own claim: shapes are checked, never trusted. */
+/** The join requests in a peer's outbox that target `shareKey`, or that were
+ * made through `inviteCode`. Every field is the requester's own claim: shapes
+ * are checked, never trusted. */
 export function parseJoinRequests(
   text: string,
-  target: { shareKey: string; folderId: string; folderName: string },
+  target: { shareKey: string; folderId: string; folderName: string; inviteCode?: string },
 ): JoinRequest[] {
   const file = parseRequestsFile(text);
   if (!file) return [];
@@ -134,7 +138,8 @@ export function parseJoinRequests(
   for (const raw of Object.values(file.requests) as unknown[]) {
     if (!isTextJSON(raw)) continue;
     const req = raw as Record<string, unknown>;
-    if (req.shareKey !== target.shareKey) continue;
+    const viaInvite = target.inviteCode !== undefined && req.invite === target.inviteCode;
+    if (req.shareKey !== target.shareKey && !viaInvite) continue;
     if (typeof req.requesterKey !== "string" || !isHexKey(req.requesterKey)) continue;
     out.push({
       requesterKey: req.requesterKey.toLowerCase(),

@@ -54,6 +54,7 @@ export async function realNet(): Promise<Net> {
       makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap }),
       // The real protomux greeting, not the harness fake.
       greetPeer: undefined,
+      openAnswers: undefined,
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });
