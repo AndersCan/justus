@@ -47,6 +47,12 @@ const requestRefused = event("requestRefused")<{
   request: LinkRequest;
 }>();
 
+/** Time left until `expiresAt`; a time that is not a number counts as already passed. */
+function msUntil(expiresAt: number, now: number): number {
+  const left = expiresAt - now;
+  return Number.isFinite(left) ? Math.max(0, left) : 0;
+}
+
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
 export function createInviteLinkActor(options: { clock: Clock; newLinkId?: () => string }) {
   const { clock } = options;
@@ -76,7 +82,7 @@ export function createInviteLinkActor(options: { clock: Clock; newLinkId?: () =>
         name: "untilExpiry",
         sends: [expiryDue],
         fn: (input) =>
-          withTimeout(Math.max(0, input.state.payload.expiresAt - clock.now()), {
+          withTimeout(msUntil(input.state.payload.expiresAt, clock.now()), {
             input,
             event: () => expiryDue.create(),
           }),

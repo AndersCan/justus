@@ -142,4 +142,12 @@ describe("invite link walks", () => {
     }
     expect(actor.state.name).toBe(finalState);
   });
+
+  test("a link with an unknown validity expires at once instead of throwing", async () => {
+    const { clock, actor } = setup();
+    actor.send({ type: "create", payload: { validFor: "forever" as ValidFor } });
+    clock.advance(0);
+    await actor.settled();
+    expect(actor.state.name).toBe("expired");
+  });
 });
