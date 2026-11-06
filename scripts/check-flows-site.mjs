@@ -5,16 +5,33 @@ import { chromium } from "playwright";
 
 const dir = resolve(process.argv[2] ?? "flows-site");
 const pages = readdirSync(dir, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && existsSync(join(dir, entry.name, "index.html")))
+  .filter(
+    (entry) =>
+      entry.isDirectory() &&
+      entry.name !== "_astro" &&
+      existsSync(join(dir, entry.name, "index.html")),
+  )
   .map((entry) => entry.name);
 if (pages.length === 0) {
   console.error(`check-flows-site: no pages in ${dir}`);
   process.exit(1);
 }
 
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json" };
+const BASE = "/justus";
+const TYPES = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".json": "application/json",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+};
 const server = createServer((request, response) => {
-  const path = new URL(request.url ?? "/", "http://localhost").pathname;
+  const full = new URL(request.url ?? "/", "http://localhost").pathname;
+  if (!full.startsWith(`${BASE}/`)) {
+    response.writeHead(404).end();
+    return;
+  }
+  const path = full.slice(BASE.length);
   const file = resolve(dir, `.${path.endsWith("/") ? `${path}index.html` : path}`);
   if (!file.startsWith(dir) || !existsSync(file)) {
     response.writeHead(404).end();
@@ -36,24 +53,35 @@ for (const name of pages) {
     if (message.type() === "error" && !message.location().url.endsWith("/favicon.ico"))
       errors.push(message.text());
   });
-  await page.goto(`${origin}/${name}/`);
+  await page.goto(`${origin}${BASE}/${name}/`);
   try {
     await page.waitForSelector("svg", { timeout: 10_000 });
   } catch {
     console.error(`check-flows-site: no svg in ${name}`);
     failed = true;
   }
-  const live = (await page.locator("#app").innerText()).includes("Live: the real machine runs");
-  if (live) {
-    const before = await page.locator(".explore").first().getAttribute("data-current");
-    const sends = await page.locator("[data-send]").count();
+  const machines = page.locator(".mantaq-machine");
+  const machineCount = await machines.count();
+  const findingsCount = await page.locator(".mantaq-findings").count();
+  if (machineCount === 0 || findingsCount !== machineCount) {
+    console.error(
+      `check-flows-site: ${name}: ${findingsCount} .mantaq-findings for ${machineCount} .mantaq-machine`,
+    );
+    failed = true;
+  }
+  for (let machine = 0; machine < machineCount; machine++) {
+    const root = machines.nth(machine);
+    const live = (await root.innerText()).includes("Live: the real machine runs");
+    if (!live) continue;
+    const before = await root.locator(".explore").first().getAttribute("data-current");
+    const sends = await root.locator("[data-send]").count();
     let moved = false;
     for (let index = 0; index < sends && !moved; index++) {
-      await page.locator("[data-send]").nth(index).click();
-      moved = (await page.locator(".explore").first().getAttribute("data-current")) !== before;
+      await root.locator("[data-send]").nth(index).click();
+      moved = (await root.locator(".explore").first().getAttribute("data-current")) !== before;
     }
     if (!moved) {
-      console.error(`check-flows-site: no event moved the cursor in ${name}`);
+      console.error(`check-flows-site: no event moved the cursor in ${name} (machine ${machine})`);
       failed = true;
     }
   }

@@ -37,7 +37,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build flow pages
-        run: pnpm flows --out flows-site
+        run: pnpm flows:build
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
