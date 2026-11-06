@@ -118,7 +118,7 @@ layer, Host, Actor). Use those terms exactly.
 
 - Use the mantaq skill (`.claude/skills/mantaq`, start with `designing.md`) for any feature or change to a machine.
 - Open the live page with `pnpm flows:dev <feature|file>`.
-- A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/pages`.
+- A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/content/docs/<feature>.mdx`.
 - A new backend machine also gets a `pnpm test:bare` scenario.
 - After merge the page is at `https://anderscan.github.io/justus/<feature>/?machine=<id>`.
 - Refresh the skill with `npx skills update -p`.

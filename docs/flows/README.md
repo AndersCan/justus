@@ -25,7 +25,7 @@ Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus ho
 `docs/site/astro.config.mjs` and the `@mantaq/inspect` Astro integration over
 every machine file in `docs/flows/manifest.json`. The site lands in `site-dist/`
 (`index.html` plus one folder per feature); this is what CI publishes to Pages.
-Each feature page (`docs/site/src/pages/<feature>.astro`) is a few lines of
+Each feature page (`docs/site/src/content/docs/<feature>.mdx`) is a few lines of
 prose followed by one `<Machine src="..." />` per machine file. Each `<Machine>`
 shows its design findings above the diagram. Factory machines are driven live;
 singleton machines stay static walks. The Runs list holds the tests recorded with
@@ -33,7 +33,7 @@ singleton machines stay static walks. The Runs list holds the tests recorded wit
 
 To add a machine, list its file under its feature in `manifest.json` and add a
 `<Machine src>` for it on that feature's page. To add a feature, add a manifest
-key, a page in `docs/site/src/pages/` and a link comes for free on the index.
+key, a page in `docs/site/src/content/docs/` and the sidebar and index pick it up.
 
 `node scripts/check-flows-site.mjs site-dist` serves the built site under
 `/justus/` and checks every page in a browser (needs Chromium; set

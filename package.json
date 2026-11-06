@@ -21,6 +21,8 @@
     "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev"
   },
   "devDependencies": {
+    "@astrojs/mdx": "catalog:",
+    "@astrojs/starlight": "catalog:",
     "@mantaq/inspect": "catalog:",
     "@mantaq/viz": "catalog:",
     "@playwright/test": "catalog:",

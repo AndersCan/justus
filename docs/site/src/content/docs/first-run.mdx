@@ -1,0 +1,12 @@
+---
+title: "First run flow"
+description: "What a new person sees first: the intro cards and profile step, then the create-or-join choice, plus the hint shown when no other member can be reached."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+What a new person sees first: the intro cards and profile step, then the create-or-join choice, plus the hint shown when no other member can be reached.
+
+<Machine src="apps/web/src/machines/onboarding-machine.ts" />
+
+<Machine src="apps/web/src/machines/reach-hint-machine.ts" />

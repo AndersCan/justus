@@ -30,7 +30,7 @@ test("every manifest path exists", () => {
 
 test("every manifest file is shown on its feature page", () => {
   const missing = Object.entries(manifest).flatMap(([feature, files]) => {
-    const page = readFileSync(join(root, "docs/site/src/pages", `${feature}.astro`), "utf8");
+    const page = readFileSync(join(root, "docs/site/src/content/docs", `${feature}.mdx`), "utf8");
     return files.filter((file) => !page.includes(`src="${file}"`));
   });
   expect(missing).toEqual([]);

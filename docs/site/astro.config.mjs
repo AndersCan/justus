@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import mdx from "@astrojs/mdx";
+import starlight from "@astrojs/starlight";
 import { mantaqViz } from "@mantaq/inspect/astro";
 import { defineConfig } from "astro/config";
 
@@ -19,5 +21,20 @@ export default defineConfig({
   site: "https://anderscan.github.io",
   base: "/justus",
   vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
-  integrations: [mantaqViz({ machines: Object.values(manifest).flat() })],
+  integrations: [
+    mantaqViz({ machines: Object.values(manifest).flat() }),
+    starlight({
+      title: "Justus",
+      description: "Private photo sharing, directly between devices.",
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/AndersCan/justus" }],
+      sidebar: [
+        {
+          label: "Flows",
+          items: [{ slug: "flows" }, ...Object.keys(manifest).map((slug) => ({ slug }))],
+        },
+        { slug: "privacy" },
+      ],
+    }),
+    mdx(),
+  ],
 });

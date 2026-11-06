@@ -1,0 +1,14 @@
+---
+title: "Invite requests flow"
+description: "Proposed flow, not wired into the app yet: invite links that expire, joiners who wait for the Admin to accept them as a Viewer or a Collaborator, and roles the Admin can change later. See docs/design/sharing-flows.md."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+Proposed flow, not wired into the app yet: invite links that expire, joiners who wait for the Admin to accept them as a Viewer or a Collaborator, and roles the Admin can change later. See docs/design/sharing-flows.md.
+
+<Machine src="apps/backend/src/membership/invite-link-machine.ts" />
+
+<Machine src="apps/backend/src/membership/membership-machine.ts" />
+
+<Machine src="apps/web/src/machines/sharing/join-request-machine.ts" />
