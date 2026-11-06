@@ -93,8 +93,8 @@ export function createJoinRequestActor(options: {
     clock,
     context: { error: "" } as JoinContext,
     setup: (m) => {
-      /** A link opens the screen that fits what this phone knows about it. */
       for (const from of [idle, reviewing, waiting, declined]) {
+        /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
           event: openLink,
           to: [idle, reviewing, waiting, declined],
