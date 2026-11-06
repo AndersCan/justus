@@ -81,6 +81,9 @@ export const gateway = {
   enroll: (key: string, name: string) => invoke(photoEvents.photos.enroll(key, name)),
   status: () => invoke(photoEvents.photos.status()),
   folders: () => invoke(photoEvents.photos.folders()),
+  /** Asks the album's Admin to let this phone in, from a link's code, owner and name hints. */
+  ask: (code: string, owner: string, albumName?: string, ownerName?: string) =>
+    invoke(photoEvents.photos.ask(code, owner, albumName, ownerName)),
   createFolder: (name: string) => invoke(photoEvents.photos.createFolder(name)),
   setActive: (folderId: string) => invoke(photoEvents.photos.setActive(folderId)),
   setName: (name: string) => invoke(photoEvents.photos.setName(name)),

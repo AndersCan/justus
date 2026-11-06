@@ -5,7 +5,6 @@
     "apps/web/src/machines/people-machine.ts"
   ],
   "sharing": [
-    "apps/web/src/machines/invite-machine.ts",
     "apps/web/src/machines/sync-machine.ts",
     "apps/web/src/machines/grants-machine.ts",
     "apps/web/src/machines/requests-machine.ts"

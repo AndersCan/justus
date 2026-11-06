@@ -1,6 +1,5 @@
 import { html } from "lit-html";
-import { atom } from "nanostores";
-import type { FolderSummary } from "@justus/core";
+import type { AskSummary, FolderSummary } from "@justus/core";
 import {
   $activeFolderId,
   $folders,
@@ -9,18 +8,12 @@ import {
   $foldersViewModel,
   folders,
 } from "../machines/folders-machine";
-import {
-  $syncState,
-  $syncStatus,
-  $syncViewModel,
-  type SyncStateName,
-} from "../machines/sync-machine";
-import { invites, $inviteError } from "../machines/invite-machine";
+import { $syncState, $syncViewModel, type SyncStateName } from "../machines/sync-machine";
+import { $join, join } from "../machines/sharing/join-request";
 import { $requests, requests } from "../machines/requests-machine";
 import { people } from "../machines/people-machine";
 import { $router } from "../router";
 import { useStore } from "../use-store";
-import { friendlyError } from "../utils/friendly-error";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
 
@@ -36,13 +29,10 @@ export function roleLabel(role: FolderSummary["role"], pending = false): string 
 async function pasteKey(input: HTMLInputElement) {
   try {
     input.value = (await navigator.clipboard.readText()).trim();
-    invites.clearError();
   } catch {
     toast("Couldn't read the clipboard. Paste the invite link into the box.");
   }
 }
-
-const $joinProgress = atom(false);
 
 // Refresh the request inbox when the album state turns over (a join or an
 // approval can change pending requests). Push-driven refreshes are handled in
@@ -51,24 +41,6 @@ let seenSync: SyncStateName | null = null;
 $syncState.listen((state) => {
   if (seenSync && state !== seenSync) requests.refresh();
   seenSync = state;
-});
-
-// Open the album in Photos once a join lands (joining → ok) — its photos then
-// appear without the user hunting for them. When the join turns out to be a
-// *request* (pending Admin approval), the album page explains that it waits.
-let seenJoin: SyncStateName | null = null;
-$syncState.listen((state) => {
-  if (seenJoin === "joining" && state === "ok") {
-    const folder = $syncStatus.get()?.folder;
-    toast(
-      folder?.pending
-        ? "You're in. You can add photos once the Admin approves you"
-        : "You're in. Photos are on their way",
-    );
-    $router.open(folder ? `/albums/${folder.id}` : "/", true);
-  }
-  seenJoin = state;
-  $joinProgress.set(state === "joining");
 });
 
 // A new album opens in Photos (ready for its first photos) once the create
@@ -151,11 +123,34 @@ function albumRow(folder: FolderSummary) {
   `;
 }
 
+function askRow(ask: AskSummary) {
+  const declined = ask.status === "declined";
+  return html`
+    <li>
+      <button
+        class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
+        aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName}: ${ask.albumName}"
+        @click=${() => join.openAsk(ask)}
+      >
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-lg font-medium text-fg">${ask.albumName}</span>
+          <span
+            class="mt-0.5 block text-xs ${declined ? "text-muted" : "font-semibold text-warn-fg"}"
+            >${declined ? "Not accepted" : `Waiting for ${ask.ownerName}`}</span
+          >
+        </span>
+        <span class="text-muted" aria-hidden="true">›</span>
+      </button>
+    </li>
+  `;
+}
+
 function albumList(view: FoldersViewModel) {
   if (view.state === "idle" || (view.state === "refreshing" && view.folders.length === 0)) {
     return html`<p class="text-muted">Loading…</p>`;
   }
-  if (view.folders.length === 0) {
+  const asks = view.asks;
+  if (view.folders.length === 0 && asks.length === 0) {
     return html`<div class="ui-card p-5 text-center">
       <p class="text-lg text-fg">No albums yet.</p>
       <p class="mt-1 text-sm text-fg">
@@ -164,7 +159,7 @@ function albumList(view: FoldersViewModel) {
     </div>`;
   }
   return html`<ul class="space-y-3" aria-label="Your albums">
-    ${view.folders.map((f) => albumRow(f))}
+    ${view.folders.map((f) => albumRow(f))} ${asks.map((a) => askRow(a))}
   </ul>`;
 }
 
@@ -200,19 +195,28 @@ function newAlbumSection(view: FoldersViewModel) {
   `;
 }
 
+/** The "doesn't look right" message for a pasted link that could not be read. */
+export function joinError() {
+  return useStore($join, ({ state, error }) =>
+    state === "idle" && error
+      ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
+      : null,
+  );
+}
+
 function joinSection(state: string, busy: boolean) {
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Join with an invite link</h2>
       <p class="mb-3 text-sm text-fg">
-        Got an invite link from someone? Paste it here to see their album.
+        Got an invite link from someone? Paste it here to ask to join their album.
       </p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          invites.receive(input.value);
+          join.openLink(input.value);
         }}
       >
         <input
@@ -223,7 +227,6 @@ function joinSection(state: string, busy: boolean) {
           autocapitalize="none"
           autocomplete="off"
           autocorrect="off"
-          @input=${() => invites.clearError()}
         />
         <div class="flex gap-2">
           <button
@@ -238,33 +241,12 @@ function joinSection(state: string, busy: boolean) {
           >
             Paste
           </button>
-          ${useStore(
-            $joinProgress,
-            (joining) => html`<button
-              class="ui-btn-primary flex-1"
-              type="submit"
-              ?disabled=${busy || state !== "ok" || joining}
-            >
-              ${joining ? "Joining…" : "Join"}
-            </button>`,
-          )}
+          <button class="ui-btn-primary flex-1" type="submit" ?disabled=${busy || state !== "ok"}>
+            Continue
+          </button>
         </div>
       </form>
-      ${useStore($inviteError, (err) =>
-        err
-          ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${friendlyError(err)}</p>`
-          : null,
-      )}
-      ${useStore($joinProgress, (joining) =>
-        joining
-          ? html`<p class="mt-3 flex items-center gap-2 text-sm text-fg">
-              <span
-                class="h-2 w-2 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
-              ></span>
-              Finding the album… This works best while the person who invited you has Justus open.
-            </p>`
-          : null,
-      )}
+      ${joinError()}
     </section>
   `;
 }

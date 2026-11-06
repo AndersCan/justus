@@ -5,9 +5,8 @@ import { parseInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
 
 /**
- * Proposed flow, not wired into the app yet: the joiner's screens, from
- * opening an invite link to the owner's answer. The link carries no album key;
- * the key arrives only if the owner accepts.
+ * The joiner's screens, from opening an invite link to the owner's answer.
+ * The link carries no album key; the key arrives only if the owner accepts.
  */
 
 /** What the app already knows about a link's invite code. */
@@ -46,19 +45,19 @@ const waiting = state("waiting")<JoinInvite>();
 const declined = state("declined")<JoinInvite>();
 
 /** The joiner opens a link or pastes text. */
-const openLink = event("openLink")<{ text: string }>();
+export const openLink = event("openLink")<{ text: string }>();
 /** The joiner taps an ask row in the albums list. */
-const openAsk = event("openAsk")<{ ask: AskSummary }>();
+export const openAsk = event("openAsk")<{ ask: AskSummary }>();
 /** The joiner taps "Ask to join". */
-const ask = event("ask")();
+export const ask = event("ask")();
 /** The joiner taps "Not now". */
-const notNow = event("notNow")();
+export const notNow = event("notNow")();
 /** The joiner closes the waiting screen; the ask stays. */
-const close = event("close")();
+export const close = event("close")();
 /** The joiner taps OK on the declined screen. */
-const ok = event("ok")();
+export const ok = event("ok")();
 /** The owner's answer reached this phone. */
-const answered = event("answered")<{
+export const answered = event("answered")<{
   code: string;
   answer: "accepted" | "declined";
   folderId?: string;
