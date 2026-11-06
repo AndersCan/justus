@@ -238,6 +238,24 @@
       ]
     },
     {
+      "name": "invite link walks > a link with an unknown validity expires at once instead of throwing",
+      "end": "expired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "create",
+          "payload": {
+            "validFor": "forever"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "expiryDue",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "invite link walks > Story 1, Nils: a 1 day link queues Maya's request, then expires",
       "end": "expired",
       "steps": [
