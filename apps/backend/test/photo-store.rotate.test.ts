@@ -34,7 +34,7 @@ async function putPhoto(drive: any, id: string, body: string, withThumb: boolean
 
 /** A version 1 install: an album we started with 3 photos, one member with 2
  * (one tombstoned), and an album someone else started. */
-async function seedV1(storageDir: string) {
+async function seedV1(storageDir: string, opts: { extraCreator?: boolean } = {}) {
   const cs = new Corestore(join(storageDir, "corestore"));
   const album = new Hyperdrive(cs.namespace("folder/f1"));
   const member = new Hyperdrive(cs.namespace("other-member"));
@@ -62,17 +62,52 @@ async function seedV1(storageDir: string) {
     bytes(
       JSON.stringify({
         version: 1,
-        removed: { [`${memberKey}:m2`]: { memberKey, removedAt: 5 } },
+        removed: {
+          [`${memberKey}:m2`]: { memberKey, removedAt: 5 },
+          [`${"cd".repeat(32)}:z9`]: { memberKey: "cd".repeat(32), removedAt: 6 },
+        },
       }),
     ),
   );
   await member.put("/device.json", bytes(JSON.stringify({ name: "Nils" })));
   await putPhoto(member, "m1", "mm1", false);
   await putPhoto(member, "m2", "mm22", false);
+  // This device is enrolled in their album, so only the move keeps it read-only.
+  const selfDrive = new Hyperdrive(cs.namespace(`member/${theirKey}`));
+  await selfDrive.ready();
+  const selfHex = selfDrive.key.toString("hex");
+  await selfDrive.close();
+  await theirs.put(
+    "/members.json",
+    bytes(
+      JSON.stringify({
+        version: 1,
+        members: { [selfHex]: { key: selfHex, name: "Me", addedAt: 2 } },
+      }),
+    ),
+  );
   await theirs.put("/device.json", bytes(JSON.stringify({ name: "Greta" })));
   await theirs.put("/folder.json", bytes(JSON.stringify({ version: 1, name: "Greta's" })));
   await putPhoto(theirs, "g1", "gg1", false);
 
+  const extra = [];
+  if (opts.extraCreator) {
+    const third = new Hyperdrive(cs.namespace("folder/f3"));
+    await third.ready();
+    await third.put("/folder.json", bytes(JSON.stringify({ version: 1, name: "Second" })));
+    await putPhoto(third, "x1", "xx1", false);
+    const key = third.key.toString("hex");
+    await third.close();
+    extra.push({
+      id: "f3",
+      name: "Second",
+      role: "creator",
+      shareKey: key,
+      driveKey: key,
+      createdAt: 9,
+      invite: { code: "cd".repeat(32) },
+    });
+  }
   const v1 = {
     name: "Me",
     activeFolderId: "f1",
@@ -95,6 +130,7 @@ async function seedV1(storageDir: string) {
         driveKey: "",
         createdAt: 8,
       },
+      ...extra,
     ],
   };
   writeFileSync(join(storageDir, "justus.json"), JSON.stringify(v1), "utf8");
@@ -154,6 +190,8 @@ describe("saved state 1 → 2", () => {
     expect((await drive.get("/thumbs/a1.jpg"))?.toString()).toBe("t-aaa1");
     expect((await drive.entry("/photos/a3.jpg"))?.value.metadata).toMatchObject({ name: "a3.jpg" });
     expect(await drive.entry("/thumbs/a3.jpg")).toBeNull();
+    const removed = JSON.parse((await drive.get("/removed.json"))?.toString() ?? "{}").removed;
+    expect(Object.keys(removed)).toEqual([`${readState(dir).folders[0].earlier[0].key}:m2`]);
     const lengthBefore = drive.core.length;
     await drive.close();
     await cs.close();
@@ -247,7 +285,114 @@ describe("saved state 1 → 2", () => {
   });
 });
 
+describe("more rotation cases", () => {
+  it("keeps the first album moved when the second fails, and moves it next boot", async () => {
+    const dir = makeTmpDir("justus-rotate-");
+    const { albumKey } = await seedV1(dir, { extraCreator: true });
+    const deps = realDeps(dir);
+    let puts = 0;
+    const flaky = {
+      ...deps,
+      makeDrive: (cs: unknown, key?: Buffer) => {
+        const d = new Hyperdrive(cs as never, key);
+        if (key) return d;
+        const put = d.put.bind(d);
+        d.put = (async (...a: Parameters<typeof put>) => {
+          if (String(a[0]).startsWith("/photos/") && ++puts === 4) throw new Error("disk full");
+          return put(...a);
+        }) as typeof d.put;
+        return d;
+      },
+    };
+    const broken = createPhotoStore(flaky);
+    await broken.ready();
+    await broken.close();
+    const mid = readState(dir);
+    expect(mid.version).toBeUndefined();
+    expect(mid.folders[0].shareKey).not.toBe(albumKey);
+    expect(mid.folders[0].rotatedAt).toBeDefined();
+    expect(mid.folders[2].rotatedAt).toBeUndefined();
+    const oldSecond = mid.folders[2].shareKey;
+
+    const ok = createPhotoStore(realDeps(dir));
+    await ok.ready();
+    await ok.close();
+    const done = readState(dir);
+    expect(done.version).toBe(2);
+    expect(done.folders[0].shareKey).toBe(mid.folders[0].shareKey);
+    expect(done.folders[2].shareKey).not.toBe(oldSecond);
+  });
+
+  it("moves an album that is the device identity drive and keeps its photos", async () => {
+    const dir = makeTmpDir("justus-rotate-");
+    const cs = new Corestore(join(dir, "corestore"));
+    const own = new Hyperdrive(cs);
+    await own.ready();
+    const key = own.key.toString("hex");
+    await own.put("/folder.json", bytes(JSON.stringify({ version: 1, name: "Old" })));
+    await putPhoto(own, "l1", "ll1", true);
+    await putPhoto(own, "l2", "ll22", false);
+    await own.close();
+    await cs.close();
+    writeFileSync(
+      join(dir, "justus.json"),
+      JSON.stringify({
+        name: "Me",
+        activeFolderId: "f1",
+        asks: [],
+        folders: [
+          { id: "f1", name: "Old", role: "creator", shareKey: key, driveKey: key, createdAt: 1 },
+        ],
+      }),
+      "utf8",
+    );
+    const store = createPhotoStore(realDeps(dir));
+    await store.ready();
+    expect((await store.list()).map((p) => p.id).sort((a, b) => a.localeCompare(b))).toEqual([
+      "l1",
+      "l2",
+    ]);
+    await store.close();
+    const state = readState(dir);
+    expect(state.version).toBe(2);
+    expect(state.folders[0].shareKey).not.toBe(key);
+  });
+});
+
 describe("copyAlbumEntries", () => {
+  async function pair() {
+    const dir = makeTmpDir("justus-rotate-");
+    const cs = new Corestore(dir);
+    const from = new Hyperdrive(cs.namespace("a"));
+    const to = new Hyperdrive(cs.namespace("b"));
+    await Promise.all([from.ready(), to.ready()]);
+    const close = async () => {
+      await from.close();
+      await to.close();
+      await cs.close();
+    };
+    return { from, to, close };
+  }
+  const withHash = (name: string, sha256: string) => ({ ...meta(name), sha256 });
+
+  it("rejects a copy of the same size whose sha256 differs", async () => {
+    const { from, to, close } = await pair();
+    await from.put("/photos/p1.jpg", bytes("one"), { metadata: withHash("p1.jpg", "aa") });
+    await to.put("/photos/p1.jpg", bytes("two"), { metadata: withHash("p1.jpg", "bb") });
+    await expect(copyAlbumEntries(from, to)).rejects.toThrow(/copy incomplete 1 of 1/);
+    await close();
+  });
+
+  it("accepts a matching sha256 and does not rewrite a copy that already matches", async () => {
+    const { from, to, close } = await pair();
+    await from.put("/photos/p1.jpg", bytes("one"), { metadata: withHash("p1.jpg", "aa") });
+    await to.put("/photos/p1.jpg", bytes("one"), { metadata: withHash("p1.jpg", "aa") });
+    const length = to.core.length;
+    await expect(copyAlbumEntries(from, to)).resolves.toEqual({ photos: 1, thumbs: 0 });
+    expect(to.core.length).toBe(length);
+    await close();
+  });
+
   it("reports a copy that is not complete", async () => {
     const dir = makeTmpDir("justus-rotate-");
     const cs = new Corestore(dir);
