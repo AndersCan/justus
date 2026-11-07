@@ -650,6 +650,26 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "friend: a Join tapped while the Admin is off is finished when the Admin is back",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      await admin.stop();
+      t.noErr(await friend.store.joinOffer(offers[0].code, offers[0].owner), "joinOffer");
+      await net.peer("Phone", admin.storageDir);
+      await eventually(
+        () => friend.store.folders(),
+        (f) => f.folders.length === 1 && !f.folders[0].pending,
+        "the friend is in the album",
+      );
+    },
+  },
+  {
     name: "friend: turning off links takes back open friend invites",
     async run(net, t) {
       const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);

@@ -1832,6 +1832,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (c) c.identityKey = keyHex;
     if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
+      // A Join tapped while we were offline: the friend is here, finish it.
+      if (state.folders.some((f) => f.role === "creator" && f.invited?.includes(keyHex))) {
+        void acceptOfferedFriend(keyHex).catch(answerErr("acceptOffered"));
+      }
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
         if (ask.status === "accepted" && ask.owner === keyHex) {
