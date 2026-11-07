@@ -3,6 +3,7 @@ package io.justus.app
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
 
     // App lock state (main thread only). See AppLock.kt for the 30s rule.
     private var locked = false
+    private var covered = false
     private var stoppedAt: Long? = null
     private var ownScreenOpen = false
     private var promptShownThisLock = false
@@ -131,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.lock_unlock).setOnClickListener { requestUnlock() }
         Log.i("JUSTUS_ANDROID", "lock create locked=$locked pref=${readLockPref(this)} secure=${isDeviceSecure(this)} stoppedAt=$stoppedAt")
         renderLock()
+        applyRecentsScreenshot()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -151,7 +154,7 @@ class MainActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    if (locked) {
+                    if (locked || covered) {
                         moveTaskToBack(true)
                         return
                     }
@@ -187,8 +190,18 @@ class MainActivity : AppCompatActivity() {
         renderLock()
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && ::webView.isInitialized && lockEnabled(this)) {
+            covered = true
+            renderLock()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        covered = false
+        if (::webView.isInitialized) renderLock()
         Log.i("JUSTUS_ANDROID", "lock resume locked=$locked prompted=$promptShownThisLock")
         if (locked && !promptShownThisLock) {
             promptShownThisLock = true
@@ -208,8 +221,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderLock() {
-        findViewById<View>(R.id.lock_screen).visibility = if (locked) View.VISIBLE else View.GONE
-        webView.visibility = if (locked) View.INVISIBLE else View.VISIBLE
+        val hidden = locked || covered
+        findViewById<View>(R.id.lock_screen).visibility = if (hidden) View.VISIBLE else View.GONE
+        webView.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+    }
+
+    private fun applyRecentsScreenshot() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(!lockEnabled(this))
+        }
     }
 
     private fun requestUnlock() {
@@ -260,6 +280,7 @@ class MainActivity : AppCompatActivity() {
                         when (result) {
                             is UnlockResult.Success -> {
                                 writeLockPref(this, requested)
+                                applyRecentsScreenshot()
                                 respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", requested)))
                             }
                             is UnlockResult.Cancelled ->
