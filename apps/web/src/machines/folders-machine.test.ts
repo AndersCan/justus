@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
+import { expectNoDesignErrors } from "@mantaq/inspect";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import {
@@ -378,6 +379,9 @@ describe("folders single owner", () => {
     expect(foldersViewModel(folders.snapshot())).toEqual({
       userName: "",
       folders: [],
+      archived: [],
+      deleted: [],
+      pendingChange: null,
       asks: [],
       offers: [],
       activeFolderId: null,
@@ -394,5 +398,139 @@ describe("folders single owner", () => {
       expect(vm.state).toBe("creatingAlbum");
       expect(vm.busy).toBe(true);
     });
+  });
+});
+
+describe("album lifecycle in the folders machine", () => {
+  const send = (actor: ReturnType<typeof createFoldersActor>, type: string, payload?: unknown) =>
+    (actor as any).send({ type, payload });
+  const path = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().path[0];
+  const trip = { folderId: "f1", name: "Trip" };
+  const notice = { id: "f2", name: "Hytta", adminName: "Nils" };
+
+  function build(port: Record<string, unknown> = {}) {
+    const listed = vi
+      .fn()
+      .mockResolvedValueOnce([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }])
+      .mockResolvedValue([
+        null,
+        {
+          folders: [],
+          activeFolderId: null,
+          archived: [folder("f1", "Trip")],
+          deleted: [notice],
+        },
+      ]);
+    const ok = () => vi.fn().mockResolvedValue([null, { ok: true }]);
+    const gw = {
+      folders: listed,
+      archiveAlbum: ok(),
+      restoreAlbum: ok(),
+      leaveAlbum: ok(),
+      deleteAlbum: ok(),
+      dismissAlbumNotice: ok(),
+      ...port,
+    };
+    const actor = createFoldersActor({ clock: VirtualClock(), gateway: gw as any });
+    return { actor, gw };
+  }
+
+  async function loaded(port: Record<string, unknown> = {}) {
+    const built = build(port);
+    send(built.actor, "REFRESH");
+    await vi.waitFor(() => expect(path(built.actor)).toBe("showingAlbums"));
+    return built;
+  }
+
+  test("archiving lists the album under archived", async () => {
+    const { actor, gw } = await loaded();
+    send(actor, "ARCHIVE_ALBUM", trip);
+    expect(path(actor)).toBe("archivingAlbum");
+    expect(foldersViewModel(actor.snapshot()).busy).toBe(true);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(gw.archiveAlbum).toHaveBeenCalledWith("f1");
+    const context = actor.snapshot().context;
+    expect(context.folders).toEqual([]);
+    expect(context.archived.map((f) => f.id)).toEqual(["f1"]);
+    expect(context.pendingChange).toEqual({ kind: "archive", ...trip });
+  });
+
+  test.each([
+    ["RESTORE_ALBUM", "restoringAlbum", "restoreAlbum"],
+    ["LEAVE_ALBUM", "leavingAlbum", "leaveAlbum"],
+    ["DELETE_ALBUM", "deletingAlbum", "deleteAlbum"],
+    ["DISMISS_DELETED_NOTICE", "dismissingDeletedNotice", "dismissAlbumNotice"],
+  ] as const)("%s is busy in %s and calls %s", async (type, busy, call) => {
+    const { actor, gw } = await loaded();
+    send(actor, type, trip);
+    expect(path(actor)).toBe(busy);
+    expect(foldersViewModel(actor.snapshot()).busy).toBe(true);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect((gw as any)[call]).toHaveBeenCalledWith("f1");
+  });
+
+  test("a failed delete stays and keeps what failed", async () => {
+    const { actor } = await loaded({
+      deleteAlbum: vi.fn().mockResolvedValue([new Error("NOT_CREATOR"), null]),
+    });
+    send(actor, "DELETE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotChangeAlbum"));
+    const context = actor.snapshot().context;
+    expect(context.folders.map((f) => f.id)).toEqual(["f1"]);
+    expect(context.pendingChange).toEqual({ kind: "delete", ...trip });
+    expect(context.error).toBe("NOT_CREATOR");
+    expect(foldersViewModel(actor.snapshot())).toMatchObject({ settled: true, busy: false });
+  });
+
+  test("a change that cannot reload the lists fails too", async () => {
+    const failing = await loaded({
+      folders: vi
+        .fn()
+        .mockResolvedValueOnce([null, { folders: [folder("f1", "Trip")], activeFolderId: "f1" }])
+        .mockResolvedValue([new Error("offline"), null]),
+    });
+    send(failing.actor, "ARCHIVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(failing.actor)).toBe("couldNotChangeAlbum"));
+  });
+
+  test("dismissing removes the notice", async () => {
+    const { actor } = await loaded();
+    send(actor, "DISMISS_DELETED_NOTICE", { folderId: "f2", name: "Hytta" });
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(actor.snapshot().context.deleted).toEqual([notice]);
+  });
+
+  test("busy while leaving", async () => {
+    const { actor } = await loaded({ leaveAlbum: vi.fn(() => new Promise(() => {})) });
+    send(actor, "LEAVE_ALBUM", trip);
+    send(actor, "ARCHIVE_ALBUM", trip);
+    expect(path(actor)).toBe("leavingAlbum");
+    expect(foldersViewModel(actor.snapshot())).toMatchObject({ busy: true, settled: false });
+  });
+
+  test("another change can start after a failure", async () => {
+    const { actor } = await loaded({
+      archiveAlbum: vi.fn().mockResolvedValue([new Error("nope"), null]),
+    });
+    send(actor, "ARCHIVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotChangeAlbum"));
+    send(actor, "LEAVE_ALBUM", trip);
+    expect(path(actor)).toBe("leavingAlbum");
+    expect(actor.snapshot().context.error).toBeNull();
+  });
+
+  test("has no design errors", () => {
+    expectNoDesignErrors({
+      id: "folders",
+      create: () => createFoldersActor({ clock: VirtualClock(), gateway: {} as any }),
+      payloads: {
+        ALBUMS_LOADED: [{ folders: [], asks: [], offers: [], activeId: null }],
+        ARCHIVE_ALBUM: [trip],
+        RESTORE_ALBUM: [trip],
+        LEAVE_ALBUM: [trip],
+        DELETE_ALBUM: [trip],
+        DISMISS_DELETED_NOTICE: [trip],
+      },
+    } as any);
   });
 });

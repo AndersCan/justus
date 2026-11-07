@@ -6,7 +6,7 @@ import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer"
 import { join, joinActor } from "../machines/sharing/join-request";
 import { buildInviteLink } from "../utils/invite-link";
 import { sharingView } from "./sharing";
-import { albumsPanel, joinPanel, pendingAsks } from "./albums";
+import { albumVanished, albumsPanel, archivedSummary, joinPanel, pendingAsks } from "./albums";
 
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
@@ -436,5 +436,49 @@ describe("albums list motion", () => {
     await Promise.resolve();
     expect(own(host)).toHaveLength(0);
     rows(host).forEach((row, i) => expect(row).toBe(before[i]));
+  });
+});
+
+describe("archived and deleted sections", () => {
+  test("Archived shows with its count and Restore, and a notice has Dismiss", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    mock.folders.mockResolvedValue([
+      null,
+      {
+        folders: [album("a")],
+        archived: [album("z")],
+        deleted: [
+          { id: "d1", name: "Old", adminName: "Nils" },
+          { id: "d2", name: "Newer", adminName: "Nils" },
+        ],
+        activeFolderId: "a",
+      },
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(host.querySelector("details")).not.toBeNull());
+    expect(host.querySelector("summary")?.textContent?.trim()).toBe("Archived (1)");
+    expect(host.querySelector("[aria-label='Restore Album z']")).not.toBeNull();
+    const notices = [...host.querySelectorAll("[role=status]")].map((n) => n.textContent?.trim());
+    expect(notices).toEqual([
+      "Nils deleted “Newer”. The album and its photos were removed from this phone.",
+      "Nils deleted “Old”. The album and its photos were removed from this phone.",
+    ]);
+    expect(host.querySelector("[aria-label='Dismiss notice about Old']")).not.toBeNull();
+  });
+
+  test("the summary counts requests waiting on archived albums", () => {
+    expect(archivedSummary(2, 0)).toBe("Archived (2)");
+    expect(archivedSummary(2, 3)).toBe("Archived (2) · 3 waiting");
+  });
+});
+
+describe("an album that vanishes under an open page", () => {
+  test("routes only for an id that was listed before and is listed no more", () => {
+    const before = new Set(["a", "b"]);
+    expect(albumVanished(before, ["a"], "b")).toBe(true);
+    expect(albumVanished(before, ["a", "b"], "b")).toBe(false);
+    expect(albumVanished(before, ["a"], "never")).toBe(false);
+    expect(albumVanished(before, [], null)).toBe(false);
   });
 });

@@ -1,11 +1,16 @@
 import { html } from "lit-html";
-import type { FolderSummary, SyncStatus } from "@justus/core";
+import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 
 /** The line under an album's title when it moved to a new key; none otherwise. */
 export function albumNoticeText(notice: FolderSummary["notice"]): string | null {
   if (!notice) return null;
   if (notice.kind === "newKey") return "This album has a new key. Invite your members again.";
   return `This album has a new key. Ask ${notice.ownerName || "the Admin"} for a new invite link.`;
+}
+
+/** The line on Your albums after the Admin deleted an album for everyone. */
+export function deletedNoticeText(d: DeletedAlbum): string {
+  return `${d.adminName || "The Admin"} deleted “${d.name}”. The album and its photos were removed from this phone.`;
 }
 
 /** The lines shown on every page when a phone runs another Justus version. */

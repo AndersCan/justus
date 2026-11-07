@@ -3,7 +3,7 @@ import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
-import { folders } from "../machines/folders-machine";
+import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import { requests, requestsActor, requestsViewModel } from "../machines/requests-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
@@ -19,6 +19,106 @@ import { addFriendSheetView } from "./add-friend-sheet";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 import { gridMotion } from "./grid-motion";
+
+/** Why a Member or Viewer needs the Admin again after leaving. */
+export function leaveDetail(role: "member" | "reader", adminName: string): string {
+  return role === "member"
+    ? `It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from ${adminName}.`
+    : `It disappears from this phone. To come back you need a new invite from ${adminName}.`;
+}
+
+const photoCount = (n: number) => (n === 1 ? "1 photo" : `${n} photos`);
+
+/** The names after "will lose their photos in it": none past three others. */
+function loseLine(names: string[]): string {
+  if (names.length === 0 || names.length > 3) return "";
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return ` ${list} will lose their photos in it.`;
+}
+
+/** The delete sheet: with others it says whose photos go, alone it is just this phone. */
+export function deleteSheet(name: string, photos: number, otherNames: string[]) {
+  const count = photoCount(photos);
+  if (otherNames.length === 0) {
+    return {
+      title: `Delete “${name}”?`,
+      detail: `The album and its ${count} are removed from this phone. This can't be undone.`,
+    };
+  }
+  return {
+    title: `Delete “${name}” for everyone?`,
+    detail: `The album and its ${count}, including the ones other people added, are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.${loseLine(otherNames)}`,
+  };
+}
+
+/** The ••• menu entries by role: everyone archives; the Admin deletes, others leave. */
+export function albumMenuItems(
+  role: "creator" | "member" | "reader",
+  pending: boolean,
+): { value: "archive" | "leave" | "delete"; label: string; danger: boolean }[] {
+  const archive = { value: "archive", label: "Archive", danger: false } as const;
+  if (pending) return [archive];
+  if (role === "creator")
+    return [archive, { value: "delete", label: "Delete album", danger: true }];
+  return [archive, { value: "leave", label: "Leave album", danger: true }];
+}
+
+async function chooseAlbumAction(value: string, status: Status) {
+  const { id, name, role } = status.folder;
+  if (value === "archive") {
+    folders.archive(id, name);
+    return;
+  }
+  if (value === "leave") {
+    const ok = await confirmAction({
+      title: `Leave “${name}”?`,
+      detail: leaveDetail(role === "member" ? "member" : "reader", adminName(status)),
+      confirmLabel: "Leave",
+      tone: "danger",
+    });
+    if (ok) folders.leave(id, name);
+    return;
+  }
+  if (value === "delete") {
+    const others = status.members.slice(1).map((m) => m.name);
+    const sheet = deleteSheet(name, status.photos, others);
+    const ok = await confirmAction({ ...sheet, confirmLabel: "Delete album", tone: "danger" });
+    if (ok) folders.delete(id, name);
+  }
+}
+
+function albumMenu(status: Status, busy: boolean) {
+  const items = albumMenuItems(status.folder.role, Boolean(status.folder.pending));
+  return html`<wa-dropdown
+    placement="bottom-end"
+    @wa-select=${(e: CustomEvent<{ item: { value: string } }>) =>
+      void chooseAlbumAction(e.detail.item.value, status)}
+  >
+    <button
+      slot="trigger"
+      class="ui-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fg hover:bg-subtle"
+      aria-label="More options"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="2" />
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="19" cy="12" r="2" />
+      </svg>
+    </button>
+    ${items.map(
+      (item) =>
+        html`<wa-dropdown-item
+          value=${item.value}
+          variant=${item.danger ? "danger" : "default"}
+          ?disabled=${busy}
+          >${item.label}</wa-dropdown-item
+        >`,
+    )}
+  </wa-dropdown>`;
+}
 
 type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
@@ -370,9 +470,12 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
       <h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight text-fg">
         ${status.folder.name}
       </h1>
-      <span class="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
-        ${roleLabel(status.folder.role, status.folder.pending)}
-      </span>
+      <div class="flex shrink-0 items-center gap-1">
+        <span class="rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
+          ${roleLabel(status.folder.role, status.folder.pending)}
+        </span>
+        ${watch(foldersActor, (fs) => albumMenu(status, foldersViewModel(fs).busy))}
+      </div>
     </div>
     ${albumNotice(status.folder.notice)}
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"

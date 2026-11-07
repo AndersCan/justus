@@ -95,6 +95,9 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Member           | **Collaborator**               | Can add photos. The Admin picks Viewer or Collaborator on Accept.                          |
 | Remove (photo)   | **Delete**                     | The adder or the Admin. Gone for everyone; no undo.                                        |
 | Reader           | **Viewer**                     | Sees every photo, adds none.                                                               |
+| Archive (album)  | **Archive**                    | This phone only; Restore from Archived.                                                    |
+| Leave (album)    | **Leave album**                | Member or Viewer; needs a new invite to come back.                                         |
+| Delete (album)   | **Delete album**               | Admin only; gone from every phone; no undo.                                                |
 | Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
 | Registry         | _(hidden)_                     |                                                                                            |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |

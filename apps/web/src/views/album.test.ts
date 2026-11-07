@@ -7,7 +7,7 @@ import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { gateway } from "../gateway";
-import { albumView } from "./album";
+import { albumMenuItems, albumView, deleteSheet, leaveDetail } from "./album";
 import { toast } from "./toast";
 
 vi.mock("./toast", () => ({ toast: vi.fn() }));
@@ -433,5 +433,65 @@ describe("album requests motion", () => {
     expect(fade.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
     slides(host, 0);
     expect(calls.some((c) => c.el === card)).toBe(false);
+  });
+});
+
+describe("leave and delete copy", () => {
+  test("a Member is told their photos go; a Viewer is not", () => {
+    expect(leaveDetail("member", "Nils")).toBe(
+      "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from Nils.",
+    );
+    expect(leaveDetail("reader", "the Admin")).toBe(
+      "It disappears from this phone. To come back you need a new invite from the Admin.",
+    );
+  });
+
+  const tail = "The album and its";
+  test.each([
+    [
+      0,
+      [],
+      "Delete “Trip”?",
+      `${tail} 0 photos are removed from this phone. This can't be undone.`,
+    ],
+    [1, [], "Delete “Trip”?", `${tail} 1 photo are removed from this phone. This can't be undone.`],
+  ])("alone, %i photos", (photos, others, title, detail) => {
+    expect(deleteSheet("Trip", photos, others)).toEqual({ title, detail });
+  });
+
+  const everyone =
+    "are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.";
+  test.each([
+    [1, ["Ann"], " Ann will lose their photos in it."],
+    [5, ["Ann", "Bo"], " Ann and Bo will lose their photos in it."],
+    [5, ["Ann", "Bo", "Cy"], " Ann, Bo and Cy will lose their photos in it."],
+    [5, ["Ann", "Bo", "Cy", "Di"], ""],
+  ])("with others, %i photos, names %j", (photos, others, lose) => {
+    const count = photos === 1 ? "1 photo" : `${photos} photos`;
+    expect(deleteSheet("Trip", photos, others)).toEqual({
+      title: "Delete “Trip” for everyone?",
+      detail: `${tail} ${count}, including the ones other people added, ${everyone}${lose}`,
+    });
+  });
+});
+
+describe("album menu items", () => {
+  test.each([
+    ["creator", false, ["Archive", "Delete album"]],
+    ["member", false, ["Archive", "Leave album"]],
+    ["reader", false, ["Archive", "Leave album"]],
+    ["reader", true, ["Archive"]],
+  ] as const)("%s (pending %s)", (role, pending, labels) => {
+    expect(albumMenuItems(role, pending).map((i) => i.label)).toEqual(labels);
+  });
+
+  test("the album page shows the menu with the Admin's items", () => {
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    expect(host.querySelector("[aria-label='More options']")).not.toBeNull();
+    expect(
+      [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
+    ).toEqual(["Archive", "Delete album"]);
   });
 });
