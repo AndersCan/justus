@@ -6,7 +6,7 @@ Words used: **Admin** (code: creator), **Collaborator** (can add photos; code to
 
 ## Today, in one paragraph
 
-An invite link is the album's key. The link is `justus://join/<64-hex share key>?n=&a=&m=` (`apps/web/src/utils/invite.ts:13-24`); the name, Admin and member count are unsigned hints (`invite.ts:1-11`). Anyone who gets the link sees every photo, forever: "Anyone holding it can read every photo, approved or not, and removal does not revoke it" (`CONTEXT.md`, Encryption). The joiner confirms and joins straight away, with no waiting step (`apps/web/src/machines/invite-machine.ts:64-73`). Approval only decides who may add photos (`docs/design/ui-ux-spec.md` §2.3, lines 108-113).
+An invite link carries a one-time invite code, the Admin's id and the album name (`apps/web/src/utils/invite-link.ts`); the name and Admin are unsigned hints. The joiner sees "Ask to join", sends a request and waits until the Admin accepts or declines (`apps/web/src/machines/sharing/join-request-machine.ts`). Approval decides who may add photos (`docs/design/ui-ux-spec.md` §2.3, lines 108-113). Old links that carry the album key no longer parse.
 
 ## What changes
 
