@@ -46,8 +46,8 @@ const showingIntroCards = state("showingIntroCards")();
 const askingForName = state("askingForName")();
 /** The name is being saved; the button shows progress. */
 const savingName = state("savingName")();
-/** The name is saved and the person chooses to create an album or join one. */
-const choosingCreateOrJoin = state("choosingCreateOrJoin")();
+/** The name is saved and the person chooses to create an album or join one. The onboarding machine ends here. */
+const choosingCreateOrJoin = state("choosingCreateOrJoin")().final();
 
 /** The person goes to the next card or step. */
 const next = event("NEXT")();

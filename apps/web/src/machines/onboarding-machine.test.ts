@@ -151,6 +151,7 @@ describe("onboarding actor factory", () => {
     await actor.settled();
     expect(setName).toHaveBeenCalledWith("Maya");
     expect(actor.state.name).toBe("choosingCreateOrJoin");
+    expect(actor.snapshot().done).toBe(true);
     expect(outputs.map((o) => [o.type, o.payload])).toEqual([["NAME_SAVED", { name: "Maya" }]]);
   });
 
