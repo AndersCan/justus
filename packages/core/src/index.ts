@@ -9,3 +9,5 @@ export * from "./grants/types";
 export * from "./grants/events";
 export * from "./media/events";
 export * from "./lock/events";
+export * from "./friends/types";
+export * from "./friends/events";
