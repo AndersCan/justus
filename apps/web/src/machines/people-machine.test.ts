@@ -10,6 +10,7 @@ vi.mock("../gateway", () => ({
   gateway: {
     removeMember: vi.fn(),
     makeMember: vi.fn(),
+    makeViewer: vi.fn(),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     respond: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
@@ -18,6 +19,7 @@ vi.mock("../gateway", () => ({
 
 beforeEach(() => {
   mock.makeMember.mockReset().mockResolvedValue([null, { ok: true }]);
+  mock.makeViewer.mockReset().mockResolvedValue([null, { ok: true }]);
   mock.removeMember.mockReset().mockResolvedValue([null, { ok: true }]);
   people.close();
 });
@@ -206,5 +208,39 @@ describe("peopleViewModel", () => {
     expect(vm.isAdmin).toBe(false);
     expect(vm.folder).toBeNull();
     expect(vm.myName).toBe("");
+  });
+});
+
+describe("making a Collaborator a Viewer", () => {
+  test("MAKE_VIEWER calls makeViewer and returns to the open sheet", async () => {
+    people.open();
+    people.makeViewer("f1", "k1");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
+    expect(mock.makeViewer).toHaveBeenCalledWith("f1", "k1");
+  });
+
+  test("a failure lands in couldNotMakeViewer with the message", async () => {
+    mock.makeViewer.mockResolvedValue([
+      new Error("Only the Admin can make someone a Viewer"),
+      null,
+    ]);
+    people.open();
+    people.makeViewer("f1", "k1");
+    await vi.waitFor(() =>
+      expect(peopleActor.snapshot().context.error).toBe("Only the Admin can make someone a Viewer"),
+    );
+    expect(peopleActor.snapshot().path[0]).toBe("couldNotMakeViewer");
+  });
+
+  test("busy while makingViewer", () => {
+    const actor = createPeopleActor({
+      clock: VirtualClock(),
+      gateway: { makeViewer: () => new Promise(() => {}) } as any,
+    });
+    actor.send({ type: "OPEN" } as never);
+    actor.send({ type: "MAKE_VIEWER", payload: { folderId: "f1", memberKey: "k" } } as never);
+    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    expect(actor.snapshot().path[0]).toBe("makingViewer");
+    expect(vm.busy).toBe(true);
   });
 });

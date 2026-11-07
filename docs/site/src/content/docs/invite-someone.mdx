@@ -15,13 +15,14 @@ On this page the invite machine runs with a pretend gateway: turning links off a
 | The name is being saved                                         | Waits                            | `friends.savingFriend`          |
 | "Remove" is being carried out                                   | Removes a member                 | `people.removingMember`         |
 | "Let add photos" is being saved                                 | Anna taps Let add photos on Nils | `people.lettingViewerAddPhotos` |
+| Saving that Nils is a Viewer now                                | Anna taps Make Viewer on Nils    | `people.makingViewer`           |
 | The invite panel: pick how long the link works                  | Picks a time                     | `inviteLink.noLinkYet`          |
 | The link and when it ends                                       | Taps Send or Copy                | `inviteLink.linkMade`           |
 | The links are being turned off                                  | Confirms turning them off        | `inviteLink.turningOff`         |
 
 Members who are not the Admin see "Ask &lt;Admin&gt; for the invite link". That is a line on the screen, not a state.
 
-**When it goes wrong.** A member could not be removed: `people.couldNotRemoveMember`. A Viewer could not be let add photos: `people.couldNotLetViewerAddPhotos`.
+**When it goes wrong.** A member could not be removed: `people.couldNotRemoveMember`. A Viewer could not be let add photos: `people.couldNotLetViewerAddPhotos`. A Collaborator could not be made a Viewer: `people.couldNotMakeViewer`.
 
 <Machine src="apps/web/src/machines/people-machine.ts" />
 

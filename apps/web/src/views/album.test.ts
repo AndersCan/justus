@@ -9,8 +9,10 @@ import { requests, requestsActor } from "../machines/requests-machine";
 import { gateway } from "../gateway";
 import { albumMenuItems, albumView, deleteSheet, leaveDetail } from "./album";
 import { toast } from "./toast";
+import { confirmAction } from "./confirm";
 
 vi.mock("./toast", () => ({ toast: vi.fn() }));
+vi.mock("./confirm", () => ({ confirmAction: vi.fn().mockResolvedValue(true) }));
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -21,6 +23,7 @@ vi.mock("../gateway", () => ({
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
     makeMember: vi.fn().mockResolvedValue([null, { ok: true }]),
+    makeViewer: vi.fn().mockResolvedValue([null, { ok: true }]),
     respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
   },
@@ -43,6 +46,64 @@ const status = {
 const memberRows = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLLIElement>("ul.divide-y > li"),
 ];
+
+describe("Make Viewer", () => {
+  const viewerStatus = {
+    ...status,
+    members: [
+      { key: "k0", name: "Me", admin: true, connected: true },
+      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+      { key: "k2", name: "Vi", admin: false, connected: false, identity: "i2", viewer: true },
+    ],
+  } as unknown as SyncStatus;
+  const open = () => {
+    syncActor.send(statusSeen.create({ status: viewerStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    return host;
+  };
+
+  test("a Collaborator row shows Make Viewer before Remove", () => {
+    const row = memberRows(open()).find((r) => r.textContent?.includes("Nils"));
+    const labels = [...row!.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(labels.indexOf("Make Viewer")).toBeGreaterThanOrEqual(0);
+    expect(labels.indexOf("Make Viewer")).toBeLessThan(labels.indexOf("Remove"));
+  });
+
+  test("confirm copy names the person", async () => {
+    vi.mocked(confirmAction).mockResolvedValueOnce(false);
+    open().querySelector<HTMLButtonElement>('button[aria-label="Make Nils a Viewer"]')?.click();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith({
+        title: "Make Nils a Viewer?",
+        detail:
+          "Nils keeps seeing every photo but can't add more. The photos Nils already added stay in the album.",
+        confirmLabel: "Make Viewer",
+      }),
+    );
+  });
+
+  test("confirming calls makeViewer; cancelling does not", async () => {
+    vi.mocked(confirmAction).mockResolvedValueOnce(false);
+    const host = open();
+    const button = () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Make Nils a Viewer"]');
+    button()?.click();
+    await vi.waitFor(() => expect(confirmAction).toHaveBeenCalled());
+    expect(gateway.makeViewer).not.toHaveBeenCalled();
+    button()?.click();
+    await vi.waitFor(() => expect(gateway.makeViewer).toHaveBeenCalledWith("f1", "k1"));
+  });
+
+  test("a Viewer row and the Admin's own row have no Make Viewer", () => {
+    const rows = memberRows(open());
+    for (const name of ["Vi", "Me"]) {
+      const row = rows.find((r) => r.querySelector("p")?.textContent?.trim().startsWith(name));
+      expect(row?.textContent).not.toContain("Make Viewer");
+    }
+  });
+});
 
 describe("album people", () => {
   test("naming a friend changes that row's label and keeps every row element", async () => {

@@ -19,6 +19,8 @@ const PEOPLE_STATES = [
   "couldNotRemoveMember",
   "lettingViewerAddPhotos",
   "couldNotLetViewerAddPhotos",
+  "makingViewer",
+  "couldNotMakeViewer",
 ] as const;
 export type PeopleStateName = (typeof PEOPLE_STATES)[number];
 
@@ -34,6 +36,10 @@ const couldNotRemoveMember = state("couldNotRemoveMember")();
 const lettingViewerAddPhotos = state("lettingViewerAddPhotos")();
 /** It could not be saved; the person stays a Viewer and the sheet says why. */
 const couldNotLetViewerAddPhotos = state("couldNotLetViewerAddPhotos")();
+/** Saving that the Collaborator is a Viewer now; the sheet's buttons wait. */
+const makingViewer = state("makingViewer")();
+/** It could not be saved; the person stays a Collaborator and the sheet says why. */
+const couldNotMakeViewer = state("couldNotMakeViewer")();
 
 /** The person taps the people chip to see who is in the album. */
 const openSheet = event("OPEN")();
@@ -54,6 +60,13 @@ const letViewerAddPhotos = event("LET_VIEWER_ADD_PHOTOS")<{
 const viewerCanAddPhotos = event("VIEWER_CAN_ADD_PHOTOS")();
 /** The Viewer could not be let add photos. */
 const letViewerAddFailed = event("LET_VIEWER_ADD_FAILED")<{ message: string }>();
+
+/** The Admin makes a Collaborator a Viewer. */
+const makeViewer = event("MAKE_VIEWER")<{ folderId: string; memberKey: string }>();
+/** The Collaborator is a Viewer now. */
+const madeViewer = event("MADE_VIEWER")();
+/** The Collaborator could not be made a Viewer. */
+const makeViewerFailed = event("MAKE_VIEWER_FAILED")<{ message: string }>();
 
 /** The person asks to see the invite QR code. */
 const showQr = event("SHOW_QR")();
@@ -88,7 +101,8 @@ export function peopleViewModel(
   return {
     ...buildPeople(deps.status, deps.requests, deps.friends),
     open: state !== "peopleSheetClosed",
-    busy: state === "removingMember" || state === "lettingViewerAddPhotos",
+    busy:
+      state === "removingMember" || state === "lettingViewerAddPhotos" || state === "makingViewer",
     qrShown: s.context.qrShown,
     error: fatalErrorOf(s)?.message ?? s.context.error,
     isAdmin: deps.status?.folder.role === "creator",
@@ -97,14 +111,21 @@ export function peopleViewModel(
   };
 }
 
-type PeoplePort = Pick<typeof gateway, "removeMember" | "makeMember">;
+type PeoplePort = Pick<typeof gateway, "removeMember" | "makeMember" | "makeViewer">;
 
 /** The Admin's removal runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
 export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [openSheet, closeSheet, removeMember, letViewerAddPhotos, showQr],
-    internal: [removed, removeFailed, viewerCanAddPhotos, letViewerAddFailed],
+    inputs: [openSheet, closeSheet, removeMember, letViewerAddPhotos, makeViewer, showQr],
+    internal: [
+      removed,
+      removeFailed,
+      viewerCanAddPhotos,
+      letViewerAddFailed,
+      madeViewer,
+      makeViewerFailed,
+    ],
     outputs: [sheetOpened, viewerLetAddPhotos],
     states: [
       peopleSheetClosed,
@@ -113,6 +134,8 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       couldNotRemoveMember,
       lettingViewerAddPhotos,
       couldNotLetViewerAddPhotos,
+      makingViewer,
+      couldNotMakeViewer,
     ],
     initial: peopleSheetClosed,
     clock: options.clock,
@@ -127,7 +150,12 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
           return { state: showingPeople, emit: [sheetOpened.create()] };
         },
       });
-      for (const at of [showingPeople, couldNotRemoveMember, couldNotLetViewerAddPhotos]) {
+      for (const at of [
+        showingPeople,
+        couldNotRemoveMember,
+        couldNotLetViewerAddPhotos,
+        couldNotMakeViewer,
+      ]) {
         /** Closing the sheet hides it again. */
         m.on(at, {
           event: closeSheet,
@@ -163,6 +191,15 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
             return { state: lettingViewerAddPhotos };
           },
         });
+        /** The Admin makes a Collaborator a Viewer; the sheet shows that it is working. */
+        m.on(at, {
+          event: makeViewer,
+          to: [makingViewer],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
+            return { state: makingViewer };
+          },
+        });
       }
       /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
       m.on(removingMember, {
@@ -178,6 +215,50 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), qrShown: true });
           return {};
+        },
+      });
+      /** The person asks for the invite QR code while a Collaborator is being made a Viewer; it stays up until the sheet closes. */
+      m.on(makingViewer, {
+        event: showQr,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), qrShown: true });
+          return {};
+        },
+      });
+      /** The Collaborator is made a Viewer. */
+      m.effect(makingViewer, {
+        name: "makingViewer",
+        sends: [madeViewer, makeViewerFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pending;
+          if (!pending) {
+            emit(makeViewerFailed.create({ message: "no member to update" }));
+            return;
+          }
+          return runInvoke(
+            signal,
+            () => port.makeViewer(pending.folderId, pending.memberKey),
+            () => emit(madeViewer.create()),
+            (message) => emit(makeViewerFailed.create({ message })),
+          );
+        },
+      });
+      /** The Collaborator is a Viewer and the sheet shows the updated row. */
+      m.on(makingViewer, {
+        event: madeViewer,
+        to: [showingPeople],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), pending: null, error: null });
+          return { state: showingPeople };
+        },
+      });
+      /** Saving failed: the sheet stays open and says why, and the person stays a Collaborator. */
+      m.on(makingViewer, {
+        event: makeViewerFailed,
+        to: [couldNotMakeViewer],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+          return { state: couldNotMakeViewer };
         },
       });
       /** The Viewer is made a Collaborator. */
@@ -271,6 +352,8 @@ onOutput(peopleActor, (e) => {
 });
 
 export const people = {
+  makeViewer: (folderId: string, memberKey: string) =>
+    peopleActor.send(makeViewer.create({ folderId, memberKey })),
   open: () => peopleActor.send(openSheet.create()),
   close: () => peopleActor.send(closeSheet.create()),
   showQr: () => peopleActor.send(showQr.create()),
