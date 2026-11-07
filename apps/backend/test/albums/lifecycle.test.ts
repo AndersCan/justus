@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
 import {
   adminDroppedYou,
+  clearLeftNote,
   deleteOwnPhotos,
   parseDeleteNote,
   parseLeftNote,
@@ -367,6 +368,37 @@ describe("leave", () => {
     expect(members.map((m: SyncMember) => m.key)).toEqual([mine.driveKey]);
   });
 
+  async function droppedByAdmin(
+    admin: ReturnType<typeof device>,
+    member: ReturnType<typeof device>,
+    mine: { id: string },
+  ) {
+    expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    for (let i = 0; i < 100; i++) {
+      const members = (await admin.store.status()).members.filter((m: SyncMember) => !m.admin);
+      if (members.length === 0) return;
+      await sleep(100);
+    }
+    throw new Error("the Member was not dropped");
+  }
+
+  it("joining again after leaving removes the old left note, and the Member stays", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    await droppedByAdmin(admin, member, mine);
+    const del = vi.spyOn(FakeDrive.prototype, "del");
+    try {
+      await joinAsMember(admin.store, album.id, member.store, album.shareKey);
+      expect(del.mock.calls.some((c) => c[0] === "/left.json")).toBe(true);
+    } finally {
+      del.mockRestore();
+    }
+    await sleep(500);
+    expect((await admin.store.status()).members.filter((m: SyncMember) => !m.admin)).toHaveLength(
+      1,
+    );
+  }, 20_000);
+
   it("a Member whose note is newer than the join is dropped", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const { member, mine } = await memberOf(album, admin);
@@ -389,6 +421,33 @@ describe("left note", () => {
     for (const text of [null, "", "nope", "[]", "{}", '{"leftAt":"5"}', '{"leftAt":null}']) {
       expect(parseLeftNote(text)).toBeUndefined();
     }
+  });
+});
+
+describe("clearLeftNote", () => {
+  const log = () => {};
+  const stub = (files: Map<string, string>, readFails = false) =>
+    ({
+      readSmall: async (path: string) => {
+        if (readFails) throw new Error("boom");
+        return files.get(path);
+      },
+      del: async (path: string) => {
+        files.delete(path);
+      },
+    }) as unknown as Drive;
+
+  it("removes a left note", async () => {
+    const files = new Map([["/left.json", '{"version":1,"leftAt":5}']]);
+    await clearLeftNote(stub(files), { log });
+    expect(files.has("/left.json")).toBe(false);
+  });
+
+  it("does nothing when there is no note, and never rejects", async () => {
+    const files = new Map([["/other.json", "{}"]]);
+    await clearLeftNote(stub(files), { log });
+    expect([...files.keys()]).toEqual(["/other.json"]);
+    await expect(clearLeftNote(stub(files, true), { log })).resolves.toBeUndefined();
   });
 });
 

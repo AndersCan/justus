@@ -870,6 +870,12 @@ export const scenarios: Scenario[] = [
         (photos) => photos.length === 2,
         "the Member's photo on the Admin",
       );
+      const purged: string[] = [];
+      const released: string[] = [];
+      const purge = joiner.drives.purge.bind(joiner.drives);
+      const release = joiner.drives.release.bind(joiner.drives);
+      joiner.drives.purge = (key) => (purged.push(key), purge(key));
+      joiner.drives.release = (drive) => (released.push(drive.key), release(drive));
       t.noErr(await joiner.store.leaveAlbum(joinerFolderId), "leaveAlbum");
       const after = await joiner.store.folders();
       t.eq(
@@ -887,8 +893,57 @@ export const scenarios: Scenario[] = [
         (photos) => photos.length === 1,
         "the Member's photo off the Admin",
       );
+      await eventually(
+        async () => ((await joiner.store.debugState()) as { gone: unknown[] }).gone,
+        (gone) => gone.length === 0,
+        "the Member forgets the album",
+      );
+      t.eq(purged.length, 1, "the album's drive is purged on the Member");
+      t.ok(purged[0] !== joinerDrive, "the purged drive is not the Member's own");
+      t.ok(released.includes(joinerDrive), "the Member's own drive is released");
       const [cannot] = await admin.store.leaveAlbum(folderId);
       t.ok(cannot?.code === "justus.photos/admin-cannot-leave", "ADMIN_CANNOT_LEAVE");
+    },
+  },
+  {
+    name: "leave: after the Admin drops a Member, the old invite link starts a fresh ask",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, invite, adminIdentity } = await askedAlbum(net);
+      const first = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, first.requests[0].requesterKey, true), "accept");
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member" && !f.pending,
+        "the joiner is a Member",
+      );
+      const answers = () =>
+        (admin.store.debugState() as { folders: { answers?: Record<string, string> }[] }).folders[0]
+          .answers ?? {};
+      await eventually(
+        async () => Object.values(answers()),
+        (v) => v.length === 1 && v[0] === "accepted",
+        "the Admin records the answer",
+      );
+      t.noErr(await joiner.store.leaveAlbum(album!.id), "leaveAlbum");
+      await eventually(
+        async () => Object.keys(answers()).length,
+        (n) => n === 0,
+        "the Admin takes back the answer",
+      );
+      t.noErr(
+        await joiner.store.ask({ code: invite.code, owner: adminIdentity }),
+        "the old link is used again",
+      );
+      const again = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "a fresh ask on the Admin",
+      );
+      t.eq(again.requests[0].viaInvite, true, "the fresh ask came through the old link");
     },
   },
   {

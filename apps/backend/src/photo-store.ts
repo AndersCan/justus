@@ -3622,6 +3622,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           lifecycle: rt.record.lifecycle ?? "shown",
           pending: Boolean(rt.record.pending),
           invited: rt.record.invited ?? [],
+          answers: rt.record.answers ?? {},
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),
           selfDrive: driveInfo(rt.selfDrive),
