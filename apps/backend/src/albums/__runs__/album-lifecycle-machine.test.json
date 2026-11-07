@@ -1,0 +1,196 @@
+{
+  "albumLifecycle": [
+    {
+      "name": "A Viewer leaves Hytta",
+      "end": "leftAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "reader"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "leave",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "leaveSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya archives Summer and brings it back",
+      "end": "shownInYourAlbums",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "archive",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "restore",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya had archived Hytta when Nils deleted it",
+      "end": "deletedByAdmin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "archive",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "deleteHeard",
+          "payload": {
+            "adminName": "Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "deletedAlbumRemoved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya leaves Hytta, and is gone once Nils's phone sees it",
+      "end": "leftAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "leave",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "leaveSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "adminSawYouLeave",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "lastCopyRemoved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya leaves Hytta, and Nils deletes it before his phone sees her leave",
+      "end": "leftAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "leave",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "leaveSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "deleteHeard",
+          "payload": {
+            "adminName": "Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "lastCopyRemoved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya's phone hears that Nils deleted Hytta, after being away",
+      "end": "deletedByAdmin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "deleteHeard",
+          "payload": {
+            "adminName": "Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "deletedAlbumRemoved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils deletes Hytta for everyone",
+      "end": "deletedForEveryone",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "creator"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "deleteForEveryone",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "deleteSaved",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}
