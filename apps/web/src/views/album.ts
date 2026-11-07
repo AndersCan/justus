@@ -16,6 +16,7 @@ import { adminName, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
+import { gridMotion } from "./grid-motion";
 
 type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
@@ -42,7 +43,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
       </p>
     </div>`;
   const identity = p.identity;
-  return html`<li class="flex items-center gap-3 py-2">
+  return html`<li class="flex items-center gap-3 py-2" data-motion-key=${p.key}>
     ${
       p.tappable && identity !== undefined
         ? html`<button
@@ -119,7 +120,7 @@ function requestsSection(vm: PeopleVm) {
   </section>`;
 }
 
-function membersSection(vm: PeopleVm) {
+function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5">
     <h2 class="ui-label">Members</h2>
     <p class="mb-2 mt-1 text-xs text-muted">
@@ -127,7 +128,10 @@ function membersSection(vm: PeopleVm) {
       album sees this list.
     </p>
     ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
-    <ul class="divide-y divide-line">
+    <ul
+      class="divide-y divide-line"
+      ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
+    >
       ${repeat(
         vm.people,
         (p) => p.key,
@@ -311,7 +315,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
     )}
     ${requestsSection(vm)}
     ${invitePanel(status.folder, status.name, adminName(status), vm.qrShown, () => people.showQr())}
-    ${membersSection(vm)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
+    ${membersSection(vm, id)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
   </div>`;
 }
 

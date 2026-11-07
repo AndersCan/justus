@@ -50,8 +50,8 @@ function build(initial: Rec[], scope: PhotoScope = { kind: "album", id: "f1" }) 
   };
   const tiles = () =>
     new Map(
-      [...host.querySelectorAll<HTMLElement>("[data-photo-key]")].map((el) => [
-        el.dataset.photoKey!,
+      [...host.querySelectorAll<HTMLElement>("[data-motion-key]")].map((el) => [
+        el.dataset.motionKey!,
         el,
       ]),
     );
