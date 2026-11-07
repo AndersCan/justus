@@ -49,7 +49,14 @@ appId: no.cankode.justus
 - tapOn:
     text: "Settings"
     waitToSettleTimeoutMs: 500
-- takeScreenshot: settings
+# The lock card arrives after the status call; the WebView's accessibility tree can miss a node
+# added late, so leave and re-enter Settings and read the card from a fresh render.
+- tapOn:
+    text: "Help"
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Settings"
+    waitToSettleTimeoutMs: 500
 - scrollUntilVisible:
     element: "Require unlock to open Justus.*"
     timeout: 20000
