@@ -1,12 +1,14 @@
 import { watch } from "@mantaq/lit";
 import { RealClock } from "@mantaq/core";
 import { html } from "lit-html";
+import { repeat } from "lit-html/directives/repeat.js";
 import type { LogEntry, LogLevel } from "@justus/core";
 import { LOGS_VIEW_MAX_ENTRIES } from "@justus/core";
 import { gateway } from "../gateway";
 import {
   availableSources,
   createLogsActor,
+  logKey,
   logsEvents,
   visibleEntries,
   type LogsActor,
@@ -315,22 +317,29 @@ function logsBody(ctx: {
         ${
           visible.length === 0
             ? html`<p class="text-muted">No log entries yet.</p>`
-            : visible
-                .slice()
-                .reverse()
-                .map(
-                  (e) => html`
-                    <div class="border-l-2 px-2 py-0.5 ${severityClasses(e.level)}">
-                      <span class="opacity-70">${new Date(e.ts).toISOString().slice(11, 23)}</span>
-                      <span class="font-semibold">${e.level.toUpperCase()}</span>
-                      ${e.tag ? html`<span class="opacity-70"> [${e.tag}]</span>` : null}
-                      <span class="opacity-70"> (${e.source})</span>
-                      ${e.message}
-                    </div>
-                  `,
-                )
+            : logLines(visible)
         }
       </div>
     </section>
   `;
+}
+
+/** The visible lines, newest first, kept by line so a new line adds one row. */
+export function logLines(entries: readonly LogEntry[]) {
+  return repeat(
+    entries.slice().reverse(),
+    logKey,
+    (e) => html`
+      <div
+        class="justus-log-line border-l-2 px-2 py-0.5 ${severityClasses(e.level)}"
+        data-log-key=${logKey(e)}
+      >
+        <span class="opacity-70">${new Date(e.ts).toISOString().slice(11, 23)}</span>
+        <span class="font-semibold">${e.level.toUpperCase()}</span>
+        ${e.tag ? html`<span class="opacity-70"> [${e.tag}]</span>` : null}
+        <span class="opacity-70"> (${e.source})</span>
+        ${e.message}
+      </div>
+    `,
+  );
 }

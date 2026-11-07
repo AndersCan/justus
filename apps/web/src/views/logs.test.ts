@@ -6,11 +6,15 @@ import {
   createLogsController,
   type LogsFetch,
 } from "./logs";
+import { VirtualClock } from "@mantaq/core";
 import type { LogEntry } from "@justus/core";
 import {
   availableSources,
   collectSources,
   filterLogEntries,
+  keepSeenEntries,
+  createLogsActor,
+  logsEvents,
   visibleEntries,
 } from "../machines/logs-machine";
 
@@ -152,5 +156,53 @@ describe("LogsController failures", () => {
     expect(s.entries).toEqual([good]);
     expect(s.loading).toBe(false);
     c.stop();
+  });
+});
+
+describe("keepSeenEntries", () => {
+  const line = (n: number, ts = 1_700_000_000_000 + n) =>
+    entry({ seq: n, ts, source: "web", message: `m${n}` });
+
+  it("reuses held objects and takes new ones from the fetch", () => {
+    const [a1, a2, a3] = [line(1), line(2), line(3)];
+    const out = keepSeenEntries([a1, a2], [{ ...a1 }, { ...a2 }, a3]);
+    expect(out[0]).toBe(a1);
+    expect(out[1]).toBe(a2);
+    expect(out[2]).toBe(a3);
+  });
+
+  it("returns the held array when nothing is new", () => {
+    const held = [line(1), line(2)];
+    expect(
+      keepSeenEntries(
+        held,
+        held.map((e) => ({ ...e })),
+      ),
+    ).toBe(held);
+  });
+
+  it("drops lines past the cap and keeps the rest", () => {
+    const [a1, a2, a3] = [line(1), line(2), line(3)];
+    const a4 = line(4);
+    const out = keepSeenEntries([a1, a2, a3], [{ ...a2 }, { ...a3 }, a4]);
+    expect(out).toHaveLength(3);
+    expect(out[0]).toBe(a2);
+    expect(out[1]).toBe(a3);
+    expect(out[2]).toBe(a4);
+  });
+
+  it("treats the same seq with a different time as a different line", () => {
+    const held = line(1, 1000);
+    const fetched = line(1, 2000);
+    expect(keepSeenEntries([held], [fetched])[0]).toBe(fetched);
+  });
+
+  it("keeps held objects through the actor", () => {
+    const actor = createLogsActor({ clock: VirtualClock() });
+    const [a1, a2, a3] = [line(1), line(2), line(3)];
+    actor.send(logsEvents.loaded.create({ entries: [a1, a2], at: 1 }));
+    const first = actor.snapshot().context.entries[0];
+    actor.send(logsEvents.loaded.create({ entries: [{ ...a1 }, { ...a2 }, a3], at: 2 }));
+    expect(actor.snapshot().context.entries[0]).toBe(first);
   });
 });
