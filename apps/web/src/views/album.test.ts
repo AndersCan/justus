@@ -260,9 +260,38 @@ describe("album viewer rows", () => {
     expect(button?.textContent).toContain("Let add photos");
     button?.click();
     await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalledWith("f1", "k1"));
-    await vi.waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/ can add photos now$/)),
-    );
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Kimmy can add photos now"));
+  });
+
+  test("both member buttons are disabled while Let add photos is in progress", async () => {
+    vi.mocked(gateway.makeMember).mockReturnValue(new Promise(() => {}));
+    const busyStatus = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
+        { key: "k2", name: "Ada", admin: false, connected: false, identity: "i2" },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: busyStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const letButton = () =>
+      host.querySelector<HTMLButtonElement>(
+        'button[aria-label^="Let "][aria-label$=" add photos"]',
+      );
+    const removeButton = () =>
+      [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
+        b.textContent?.includes("Remove"),
+      );
+    expect(letButton()?.disabled).toBe(false);
+    expect(removeButton()?.disabled).toBe(false);
+    letButton()?.click();
+    await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalled());
+    render(albumView("f1"), host);
+    expect(letButton()?.disabled).toBe(true);
+    expect(removeButton()?.disabled).toBe(true);
   });
 
   test("non-Viewers have no Let add photos button", () => {
