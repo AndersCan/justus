@@ -249,10 +249,18 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     .first();
   await expect(tap).toBeVisible({ timeout: 60_000 });
   await tap.click();
-  await a.getByRole("button", { name: "Add to friends" }).click();
-  await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
-  await a.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+  // The instances outlive a test, so an earlier test may already have saved B as Sam.
+  const add = a.getByRole("button", { name: "Add to friends" });
+  const known = a.getByText("Saved as a friend");
+  await expect(add.or(known)).toBeVisible();
+  if (await add.isVisible()) {
+    await add.click();
+    await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
+    await a.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+  } else {
+    await a.getByRole("button", { name: "Close" }).click();
+  }
 
   const lisbon = "Lisbon trip";
   const lisbonPhoto = "hub-lisbon.png";
