@@ -74,7 +74,7 @@ const couldNotSaveName = state("couldNotSaveName")();
 /** The app asks for the latest list of albums. */
 const refresh = event("REFRESH")();
 /** The album list arrived. */
-const loaded = event("LOADED")<{
+const loaded = event("ALBUMS_LOADED")<{
   folders: FolderSummary[];
   asks: AskSummary[];
   activeId: string | null;

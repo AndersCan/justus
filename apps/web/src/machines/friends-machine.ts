@@ -37,7 +37,7 @@ const save = event("SAVE")();
 /** The person closes the friend sheet. */
 const close = event("CLOSE")();
 /** The saved friends were read from this device. */
-const loaded = event("LOADED")<{ friends: Friend[] }>();
+const loaded = event("FRIENDS_LOADED")<{ friends: Friend[] }>();
 /** The saved friends could not be read. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The friend was saved. */

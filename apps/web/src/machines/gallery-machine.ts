@@ -95,7 +95,7 @@ const couldNotRemovePhoto = state("couldNotRemovePhoto")();
 /** The app asks for the latest photos, including when the album syncs. */
 const load = event("LOAD")();
 /** The photo list arrived. */
-const loaded = event("LOADED")<{ photos: Photo[] }>();
+const loaded = event("PHOTOS_LOADED")<{ photos: Photo[] }>();
 /** The photo list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person picks photos to add to an album. */

@@ -36,7 +36,7 @@ const couldNotLoadRequests = state("couldNotLoadRequests")();
 /** The person opens the requests inbox or asks it to reload. */
 const refresh = event("REFRESH")();
 /** The list of requests came back. */
-const loaded = event("LOADED")<{ requests: JoinRequest[] }>();
+const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person taps Yes or No on a request. */
