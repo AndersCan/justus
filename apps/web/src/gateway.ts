@@ -92,6 +92,9 @@ export const gateway = {
   respond: (folderId: string, requesterKey: string, approve: boolean) =>
     invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
   turnOffInvite: (folderId: string) => invoke(photoEvents.photos.turnOffInvite(folderId)),
+  /** Asks a saved friend's phone, by key alone, to offer them the album. Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
+  offerAlbum: (folderId: string, identity: string) =>
+    invoke(photoEvents.photos.offerAlbum(folderId, identity)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

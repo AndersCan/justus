@@ -23,5 +23,9 @@
     "apps/web/src/machines/logs-machine.ts",
     "apps/web/src/machines/lightbox-machine.ts",
     "apps/web/src/machines/app-lock-machine.ts"
+  ],
+  "invite-requests": [
+    "apps/web/src/machines/sharing/add-friend-machine.ts",
+    "apps/web/src/machines/sharing/friend-offer-machine.ts"
   ]
 }

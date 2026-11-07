@@ -1,0 +1,344 @@
+{
+  "friendOffer": [
+    {
+      "name": "30 seconds with no answer returns with couldNotJoin",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 30000
+        },
+        {
+          "kind": "event",
+          "event": "joinFailed",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "a decline keeps waiting",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "answer": "declined"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a thrown invoke returns with couldNotJoin",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "joinFailed",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "an accept with no album keeps waiting",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "answer": "accepted"
+          }
+        }
+      ]
+    },
+    {
+      "name": "an answer inside 30 seconds cancels the timeout",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 10000
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "answer": "accepted",
+            "folderId": "f9"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 30000
+        }
+      ]
+    },
+    {
+      "name": "an answer with no join in progress is ignored",
+      "end": "showingFriendOffers",
+      "steps": []
+    },
+    {
+      "name": "another invite's answer keeps waiting",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+            "answer": "accepted",
+            "folderId": "f9"
+          }
+        }
+      ]
+    },
+    {
+      "name": "error \"\" returns with couldNotJoin",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "joinFailed",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "error \"other-error\" returns with couldNotJoin",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "joinFailed",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Join again after a timeout works",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 30000
+        },
+        {
+          "kind": "event",
+          "event": "joinFailed",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "join is ignored while joining",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Join sends the code and owner and shows Joining",
+      "end": "joiningFriendsAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "OFFER_GONE returns to the list with no message",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "offerGone",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "the Admin's accept opens the album",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "answer": "accepted",
+            "folderId": "f9"
+          }
+        }
+      ]
+    }
+  ]
+}

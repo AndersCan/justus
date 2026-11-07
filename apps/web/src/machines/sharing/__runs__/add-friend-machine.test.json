@@ -1,0 +1,4954 @@
+{
+  "addFriend": [
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #10",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #100",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #11",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #12",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #13",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #14",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #15",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #16",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #17",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #18",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #19",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #2",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #20",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #21",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #22",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #23",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #24",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #25",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #26",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #27",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #28",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #29",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #3",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #30",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #31",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #32",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #33",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #34",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #35",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #36",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #37",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #38",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #39",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #4",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #40",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #41",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #42",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #43",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #44",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #45",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #46",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #47",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #48",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #49",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #5",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #50",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #51",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #52",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #53",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #54",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #55",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #56",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #57",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #58",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #59",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #6",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #60",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #61",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #62",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #63",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #64",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #65",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #66",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #67",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #68",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #69",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #7",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #70",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Ånna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #71",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #72",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #73",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #74",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #75",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #76",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "anna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #77",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #78",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #79",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #8",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #80",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #81",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #82",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #83",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #84",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #85",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "anna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #86",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Zed"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "kari"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #87",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "ole"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #88",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Zed"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #89",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #9",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #90",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Zed"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #91",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #92",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "anna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "ole"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #93",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "ole"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #94",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "ole"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #95",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Zed"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "Zed"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #96",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "b"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "anna"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #97",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "b"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "ole"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "b"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "Kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #98",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "kari"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "Ånna"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Ånna"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "b"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "choices (property) > are exactly the non-members, sorted by name #99",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "anna"
+              },
+              {
+                "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "name": "kari"
+              },
+              {
+                "identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "name": "Kari"
+              },
+              {
+                "identity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "name": "b"
+              },
+              {
+                "identity": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "name": "kari"
+              }
+            ],
+            "memberIdentities": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "closePicker > closes from choosingFriend",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "closePicker",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "closePicker > closes from couldNotReachFriend",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "closePicker",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "closePicker > closes from noFriendsYet",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "closePicker",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "closePicker > is ignored when nothing is open",
+      "end": "showingPeopleWithAddFriend",
+      "steps": []
+    },
+    {
+      "name": "closePicker > is ignored while the friend is being asked",
+      "end": "lookingForFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openPicker > every friend already a member goes to noFriendsYet",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": [
+              "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+              "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "openPicker > lists friends who are not members, sorted by name",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": ["oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "openPicker > no friends goes to noFriendsYet",
+      "end": "noFriendsYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [],
+            "memberIdentities": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "openPicker > opens again from noFriendsYet and couldNotReachFriend",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "openPicker > sorts ignoring case",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > a refusal says refused",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "refused"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > a thrown invoke says unreachable",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > an unknown identity is ignored",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > asks the friend's phone and closes with a toast output on success",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendReached",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > error justus.photos/friend-unreachable says unreachable",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > error something-else says unreachable",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > error undefined says unreachable",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > shows lookingForFriend while the phone is asked",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendReached",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}
