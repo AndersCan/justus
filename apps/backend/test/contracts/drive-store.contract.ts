@@ -524,4 +524,84 @@ export const cases: DriveCase[] = [
       t.eq(outcome, "done", "update settles");
     },
   },
+  {
+    name: "D19 clear drops this node's copy of a file's bytes; the entry stays and a peer's copy comes back",
+    async run(world, t) {
+      const { a, b, own, remote } = await pair(world, t);
+      await own.put("/a", bytes("hi"));
+      await eventually(
+        () => remote.readSmall("/a", 10, { timeoutMs: 500 }),
+        (v) => v === "hi",
+        "b reads /a",
+      );
+      await b.disconnect();
+      await a.disconnect();
+      await own.clear("/a");
+      t.eq(await own.readSmall("/a", 10, { timeoutMs: 500 }), undefined, "bytes gone");
+      const found = [];
+      for await (const entry of own.list("/")) found.push(entry.path);
+      t.eq(found, ["/a"], "entry stays");
+      await b.connect();
+      await a.connect();
+      await eventually(
+        () => own.readSmall("/a", 10, { timeoutMs: 500 }),
+        (v) => v === "hi",
+        "bytes come back from the peer",
+      );
+    },
+  },
+  {
+    name: "D20 purge deletes this node's copy of a remote drive; the owner still serves it",
+    async run(world, t) {
+      const { a, b, own, remote } = await pair(world, t);
+      await own.put("/a", bytes("hi"));
+      await eventually(
+        () => remote.readSmall("/a", 10, { timeoutMs: 500 }),
+        (v) => v === "hi",
+        "b reads /a",
+      );
+      await b.disconnect();
+      await b.store.purge(remote.key);
+      const readFailed = await remote.readSmall("/a", 10).then(
+        () => false,
+        () => true,
+      );
+      t.ok(readFailed, "purged handle rejects");
+      const store = await b.restart();
+      const [err, reopened] = await store.open(own.key, { timeoutMs: 1_000 });
+      t.noErr([err], "reopen purged key");
+      if (!reopened) throw new Error("no drive");
+      const found = [];
+      for await (const entry of reopened.list("/")) found.push(entry.path);
+      t.eq(found, [], "reopened key lists nothing");
+      await b.connect();
+      await a.connect();
+      await eventually(
+        () => reopened.readSmall("/a", 10, { timeoutMs: 500 }),
+        (v) => v === "hi",
+        "data fills in again",
+      );
+    },
+  },
+  {
+    name: "D21 purge of an own drive empties it after a restart and leaves other drives usable",
+    async run(world, t) {
+      const node = await world.node();
+      const doomed = await node.store.openOwn("folder/x");
+      const kept = await node.store.openOwn("folder/y");
+      await doomed.put("/a", bytes("1"));
+      await kept.put("/b", bytes("2"));
+      await node.store.purge(doomed.key);
+      const store = await node.restart();
+      const again = await store.openOwn("folder/x");
+      t.eq(again.key, doomed.key, "same key");
+      const found = [];
+      for await (const entry of again.list("/")) found.push(entry.path);
+      t.eq(found, [], "emptied");
+      const other = await store.openOwn("folder/y");
+      t.eq(await other.readSmall("/b", 10), "2", "other drive intact");
+      await again.put("/c", bytes("3"));
+      t.eq(await again.readSmall("/c", 10), "3", "purged drive writable again");
+    },
+  },
 ];

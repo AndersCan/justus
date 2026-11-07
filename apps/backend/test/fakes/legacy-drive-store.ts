@@ -43,6 +43,9 @@ function wrap(raw: any): Drive {
     async del(path) {
       await raw.del(path);
     },
+    async clear(path) {
+      await raw.clear(path);
+    },
     async *list(dir) {
       for await (const entry of raw.list(dir)) yield toDriveEntry(entry);
     },
@@ -132,6 +135,21 @@ export function createLegacyDriveStore(hooks: () => LegacyHooks): DriveStore & {
       if (entry.refs > 0) return;
       held.delete(drive.key);
       await Promise.resolve(entry.raw.close?.()).catch(() => {});
+    },
+    async purge(key) {
+      const entry = held.get(key);
+      if (entry) {
+        held.delete(key);
+        await entry.raw.purge?.();
+        return;
+      }
+      const raw = hooks().makeDrive(store(), Buffer.from(key, "hex"));
+      try {
+        await raw.ready();
+        await raw.purge?.();
+      } finally {
+        await Promise.resolve(raw.close?.()).catch(() => {});
+      }
     },
     async close() {
       for (const entry of held.values()) await Promise.resolve(entry.raw.close?.()).catch(() => {});

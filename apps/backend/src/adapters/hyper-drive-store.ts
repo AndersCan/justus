@@ -37,7 +37,11 @@ function wrap(raw: any): Drive {
       const node = await raw.entry(path, readOpts);
       const size = node?.value?.blob?.byteLength;
       if (typeof size === "number" && size > maxBytes) return undefined;
-      const bytes = await raw.get(path, readOpts);
+      /** A blob nobody can serve inside the timeout reads as missing, like an absent path. */
+      const bytes = await raw.get(path, readOpts).catch((e: unknown) => {
+        if (opts && (e as { code?: string })?.code === "REQUEST_TIMEOUT") return undefined;
+        throw e;
+      });
       if (bytes === null || bytes === undefined || bytes.byteLength > maxBytes) return undefined;
       // Not TextDecoder: Bare has no global one (#201).
       return Buffer.from(bytes).toString("utf8");
@@ -51,6 +55,9 @@ function wrap(raw: any): Drive {
     },
     async del(path) {
       await raw.del(path);
+    },
+    async clear(path) {
+      await raw.clear(path);
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
       for await (const e of raw.list(dir)) {
@@ -144,6 +151,23 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
       if (!entry || entry.drive !== drive) return;
       entry.refs--;
       if (entry.refs <= 0) await closeEntry(entry);
+    },
+    async purge(key) {
+      const pending = byKey.get(key);
+      const entry = pending ? await pending.catch(() => undefined) : undefined;
+      if (entry) {
+        byKey.delete(key);
+        entry.refs = 0;
+        await entry.raw.purge();
+        return;
+      }
+      const raw = new Hyperdrive(corestore.session(), Buffer.from(key, "hex"));
+      try {
+        await raw.ready();
+        await raw.purge();
+      } finally {
+        await raw.close().catch(() => {});
+      }
     },
     async close() {
       const entries = await Promise.all(
