@@ -203,7 +203,9 @@
             "admin": true,
             "connected": true
           }
-        ]
+        ],
+        "updateNeeded": false,
+        "peersBehind": []
       }
     ],
     "photos.setName": [
@@ -295,7 +297,9 @@
             "admin": true,
             "connected": true
           }
-        ]
+        ],
+        "updateNeeded": false,
+        "peersBehind": []
       },
       {
         "folder": {
@@ -326,7 +330,9 @@
             "admin": true,
             "connected": false
           }
-        ]
+        ],
+        "updateNeeded": false,
+        "peersBehind": []
       },
       {
         "folder": {
@@ -361,7 +367,9 @@
             "admin": false,
             "connected": true
           }
-        ]
+        ],
+        "updateNeeded": false,
+        "peersBehind": []
       }
     ],
     "photos.join": [
@@ -394,7 +402,9 @@
             "admin": true,
             "connected": false
           }
-        ]
+        ],
+        "updateNeeded": false,
+        "peersBehind": []
       }
     ],
     "photos.requests": [
@@ -443,6 +453,9 @@
     ]
   },
   "pushes": [
+    {
+      "cause": "version"
+    },
     {
       "cause": "enroll",
       "folderId": "mw5la90o-33b171a5",

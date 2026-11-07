@@ -50,7 +50,11 @@ export async function bareNet(root: string): Promise<Net> {
   const live = new Set<Peer>();
   let n = 0;
 
-  async function peer(name: string, storageDir?: string): Promise<Peer> {
+  async function peer(
+    name: string,
+    storageDir?: string,
+    opts: { peerProtocol?: number; legacy?: boolean } = {},
+  ): Promise<Peer> {
     const dir = storageDir ?? path.join(root, `${name}-${n++}`);
     const cacheDir = path.join(dir, "cache");
     fs.mkdirSync(cacheDir, { recursive: true });
@@ -63,6 +67,8 @@ export async function bareNet(root: string): Promise<Net> {
       deviceName: name,
       onChanged: (c) => changes.push(c),
       seedOnEmpty: false,
+      peerProtocol: opts.peerProtocol,
+      ...(opts.legacy ? { openVersion: () => {} } : {}),
       fs,
       path,
       crypto,

@@ -287,6 +287,9 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
       const id = (conn as { identityKey?: Buffer }).identityKey;
       if (id) onIdentity(id);
     },
+    // Fake connections carry no protomux muxer: the remote reports our own protocol.
+    openVersion: (_conn: unknown, own: number, onVersion: (remote: number) => void) =>
+      onVersion(own),
     // Fake connections carry no protomux muxer, so there is no answer channel.
     openAnswers: () => ({ send: () => false }),
     makeDrive: (cs: unknown, key?: Buffer) => {

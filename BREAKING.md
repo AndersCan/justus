@@ -14,3 +14,6 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
   one. Do: ask the album owner for a new link.
 - **Saved state** (`justus.json`) is version 2; an older Justus refuses to open it
   ("Update Justus to open your albums."). Who: anyone who downgrades. Do: update.
+- **Peer protocol 2.** Phones on an older Justus no longer sync with this one; the
+  newer phone shows "<name> needs to update Justus". Who: mixed-version groups.
+  Do: everyone updates.
