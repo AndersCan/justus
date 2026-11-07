@@ -623,17 +623,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** A peer record that is not on this device and cannot be fetched (the peer left) reads as missing after this long; the next poll retries. */
+  const PEER_READ = { timeout: 5_000 };
+
   /** Reads a small text record, or null when missing, unreadable, or larger
    * than {@link MAX_PEER_JSON_BYTES}. The size is checked on the entry before
    * the blob downloads, and again on the bytes (drives without `entry`). */
   async function getText(drive: Drive, drivePath: string): Promise<string | null> {
     try {
       if (typeof drive.entry === "function") {
-        const node = await drive.entry(drivePath);
+        const node = await drive.entry(drivePath, PEER_READ);
         const size = node?.value?.blob?.byteLength;
         if (typeof size === "number" && size > MAX_PEER_JSON_BYTES) return null;
       }
-      const value = await drive.get(drivePath);
+      const value = await drive.get(drivePath, PEER_READ);
       if (value === null || value === undefined) return null;
       if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
       // Not `new TextDecoder()`: Bare has no global TextDecoder, so it threw
