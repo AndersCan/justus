@@ -30,6 +30,12 @@ export default defineConfig({
     mantaqViz({ machines: Object.values(manifest).flat(), failOnFindings: true }),
     starlight({
       title: "Justus",
+      logo: {
+        light: "./assets/brand/justus-wordmark.svg",
+        dark: "./assets/brand/justus-wordmark-dark.svg",
+        replacesTitle: true,
+      },
+      customCss: ["./apps/web/src/tokens.css", "./docs/site/src/styles/brand.css"],
       description: "Private photo sharing, directly between devices.",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/AndersCan/justus" }],
       sidebar: [
