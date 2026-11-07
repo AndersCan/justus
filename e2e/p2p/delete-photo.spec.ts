@@ -77,6 +77,10 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("button", { name: "Accept" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toBeVisible({ timeout: 60_000 });
+  // Ben is a Viewer until the Admin's enrolment reaches his phone; adds before that are refused.
+  await expect(b.getByRole("button", { name: `Add photos to ${ALBUM}` })).toBeVisible({
+    timeout: 60_000,
+  });
 
   for (const [file, colour] of [
     [BEN, 43],
