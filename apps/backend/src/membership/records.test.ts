@@ -324,6 +324,17 @@ describe("parseViewers", () => {
     expect(parseViewers(text)).toEqual({ version: 1, viewers: { [KEY_A]: entry } });
   });
 
+  test("keeps a valid keptVersion and ignores a bad one without dropping the entry", () => {
+    const read = (keptVersion: unknown) =>
+      parseViewers(JSON.stringify({ version: 1, viewers: { [KEY_A]: { ...entry, keptVersion } } }))
+        .viewers[KEY_A];
+    expect(read(0)?.keptVersion).toBe(0);
+    expect(read(12)?.keptVersion).toBe(12);
+    for (const bad of [-1, 1.5, "3", null]) {
+      expect(read(bad)).toEqual(entry);
+    }
+  });
+
   test("a missing, malformed or wrong-version file lists no one", () => {
     expect(parseViewers(null)).toEqual(empty);
     expect(parseViewers("not json")).toEqual(empty);
