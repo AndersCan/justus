@@ -3,7 +3,7 @@ import type { Clock } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
 
 /**
- * Proposed flow, not wired into the app yet: the Admin's side of an invite link.
+ * The Admin's side of an invite link.
  * The Admin's device is the only one that checks the clock, so a request is
  * judged when it reaches that device.
  */
