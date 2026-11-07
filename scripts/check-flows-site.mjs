@@ -164,7 +164,7 @@ for (const name of pages) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
-    if (message.type() === "error" && !message.location().url.endsWith("/favicon.ico"))
+    if (message.type() === "error" && !/\/favicon\.(ico|svg)$/.test(message.location().url))
       errors.push(message.text());
   });
   await page.goto(`${origin}${BASE}/${name}/`);
@@ -190,13 +190,23 @@ for (const name of pages) {
     liveCount++;
     const before = await root.locator(".explore").first().getAttribute("data-current");
     const sends = await root.locator("[data-send]").count();
-    let moved = false;
-    for (let index = 0; index < sends && !moved; index++) {
+    let handled = false;
+    for (let index = 0; index < sends && !handled; index++) {
       await root.locator("[data-send]").nth(index).click();
-      moved = (await root.locator(".explore").first().getAttribute("data-current")) !== before;
+      // Events that declare a payload open a form filled with a sample; send it as is.
+      const send = root.locator("[data-payload-send]");
+      if ((await send.count()) > 0) await send.first().click();
+      // An event the machine handles, even one that keeps the state, leaves an outcome that is
+      // not "ignored". A machine that answers nothing leaves none, so the check still fails.
+      const outcomes = root.locator("[data-outcome]");
+      const outcome =
+        (await outcomes.count()) > 0 ? await outcomes.first().getAttribute("data-outcome") : null;
+      handled =
+        (await root.locator(".explore").first().getAttribute("data-current")) !== before ||
+        (outcome !== null && outcome !== "ignored");
     }
-    if (!moved) {
-      console.error(`check-flows-site: no event moved the cursor in ${name} (machine ${machine})`);
+    if (!handled) {
+      console.error(`check-flows-site: no event was handled in ${name} (machine ${machine})`);
       failed = true;
     }
   }
