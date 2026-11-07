@@ -14,6 +14,7 @@ import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
 import { adminName, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
+import { addFriendSheetView } from "./add-friend-sheet";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 import { gridMotion } from "./grid-motion";
@@ -314,8 +315,16 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
       fatal ? () => window.location.reload() : undefined,
     )}
     ${requestsSection(vm)}
-    ${invitePanel(status.folder, status.name, adminName(status), vm.qrShown, () => people.showQr())}
+    ${invitePanel(
+      status.folder,
+      status.name,
+      adminName(status),
+      vm.qrShown,
+      () => people.showQr(),
+      status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
+    )}
     ${membersSection(vm, id)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
+    ${addFriendSheetView()}
   </div>`;
 }
 

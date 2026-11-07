@@ -14,7 +14,9 @@ import {
   type InviteLinkView,
 } from "../machines/sharing/invite-link";
 import { VALID_FOR_LABEL, type ValidFor } from "../machines/sharing/invite-link-machine";
+import { friendsActor } from "../machines/friends-machine";
 import { confirmAction } from "./confirm";
+import { openAddFriend } from "./add-friend-sheet";
 import { toast } from "./toast";
 
 export async function copyText(value: string): Promise<boolean> {
@@ -118,6 +120,7 @@ export function invitePanel(
   admin: string,
   qrShown: boolean,
   onShowQr: () => void,
+  memberIdentities: string[] = [],
 ) {
   if (folder.role !== "creator" || !folder.invite) {
     return html`
@@ -132,7 +135,15 @@ export function invitePanel(
   return watch(inviteLinkActor, (snapshot) => {
     const view = inviteLinkViewOf(snapshot);
     const made = view.folderId === folder.id && view.expiresAt !== undefined ? view : null;
-    return invitePanelBody(folder, myName, view, made?.expiresAt ?? null, qrShown, onShowQr);
+    return invitePanelBody(
+      folder,
+      myName,
+      view,
+      made?.expiresAt ?? null,
+      qrShown,
+      onShowQr,
+      memberIdentities,
+    );
   });
 }
 
@@ -143,6 +154,7 @@ function invitePanelBody(
   expiresAt: number | null,
   qrShown: boolean,
   onShowQr: () => void,
+  memberIdentities: string[],
 ) {
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
@@ -151,6 +163,19 @@ function invitePanelBody(
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
+      <button
+        class="ui-btn-primary mb-4"
+        @click=${(e: Event) =>
+          openAddFriend(
+            e.currentTarget as HTMLElement,
+            { folderId: folder.id, albumName: folder.name },
+            friendsActor.snapshot().context.friends,
+            memberIdentities,
+          )}
+      >
+        Add a friend
+      </button>
+      <h3 class="ui-label mb-1">Or send a link</h3>
       <p class="mb-4 text-sm text-fg">
         Send the link to people you want in “${folder.name}”. They ask to join and you choose who
         gets in. They see no photos until you accept.
