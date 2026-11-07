@@ -12,8 +12,12 @@ const request = (folderId: string, requesterKey: string) =>
 
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
-const respond = (folderId: string, requesterKey: string, approve: boolean) =>
-  ({ type: "RESPOND", payload: { folderId, requesterKey, approve } }) as never;
+const respond = (
+  folderId: string,
+  requesterKey: string,
+  approve: boolean,
+  role: "reader" | "member" = "member",
+) => ({ type: "RESPOND", payload: { folderId, requesterKey, approve, role } }) as never;
 
 function setup(
   options: {
@@ -95,9 +99,18 @@ describe("requests machine factory", () => {
     actor.send(respond("f1", "k1", approve));
     expect(actor.state.name).toBe("sendingAnswer");
     await actor.settled();
-    expect(port.respond).toHaveBeenCalledWith("f1", "k1", approve);
+    expect(port.respond).toHaveBeenCalledWith("f1", "k1", approve, "member");
     expect(actor.state.name).toBe("showingRequests");
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
+  });
+
+  test("accepting as a Viewer sends the reader role", async () => {
+    const { actor, port } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true, "reader"));
+    await actor.settled();
+    expect(port.respond).toHaveBeenCalledWith("f1", "k1", true, "reader");
   });
 
   test("a failed answer keeps the request and shows the error", async () => {

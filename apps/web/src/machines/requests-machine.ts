@@ -39,8 +39,13 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The person taps Yes or No on a request. */
-const respond = event("RESPOND")<{ folderId: string; requesterKey: string; approve: boolean }>();
+/** The person taps Decline, Accept as Viewer ("reader") or Accept and let them add photos ("member") on a request. */
+const respond = event("RESPOND")<{
+  folderId: string;
+  requesterKey: string;
+  approve: boolean;
+  role: "reader" | "member";
+}>();
 /** The answer was sent. */
 const responded = event("RESPONDED")<{ folderId: string; requesterKey: string }>();
 /** The answer could not be sent. */
@@ -49,7 +54,12 @@ const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
 const retry = event("RETRY")();
 
 type RequestsContext = {
-  pendingRespond: { folderId: string; requesterKey: string; approve: boolean } | null;
+  pendingRespond: {
+    folderId: string;
+    requesterKey: string;
+    approve: boolean;
+    role: "reader" | "member";
+  } | null;
   requests: JoinRequest[];
   error: string | null;
 };
@@ -124,6 +134,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
                 folderId: e.payload.folderId,
                 requesterKey: e.payload.requesterKey,
                 approve: e.payload.approve,
+                role: e.payload.role,
               },
             });
             return { state: sendingAnswer };
@@ -200,7 +211,8 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           }
           return runInvoke(
             signal,
-            () => port.respond(pending.folderId, pending.requesterKey, pending.approve),
+            () =>
+              port.respond(pending.folderId, pending.requesterKey, pending.approve, pending.role),
             () =>
               emit(
                 responded.create({
@@ -252,7 +264,11 @@ export const requestsActor = createRequestsActor({ clock: RealClock() });
 export const requests = {
   state: () => nameOf(requestsActor.snapshot()),
   refresh: () => requestsActor.send(refresh.create()),
-  respond: (folderId: string, requesterKey: string, approve: boolean) =>
-    requestsActor.send(respond.create({ folderId, requesterKey, approve })),
+  respond: (
+    folderId: string,
+    requesterKey: string,
+    approve: boolean,
+    role: "reader" | "member" = "member",
+  ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
 };

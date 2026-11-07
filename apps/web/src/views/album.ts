@@ -4,7 +4,7 @@ import { watch } from "@mantaq/lit";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { folders } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
-import { requests, requestsActor } from "../machines/requests-machine";
+import { requests, requestsActor, requestsViewModel } from "../machines/requests-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { formatRelative } from "../utils/time";
@@ -28,6 +28,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
       <p class="truncate text-sm font-medium text-fg">
         ${p.name}${p.you ? " (you)" : ""}
         ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">· Admin</span>` : null}
+        ${p.viewer ? html`<span class="ml-1 text-xs font-normal text-muted">· Viewer</span>` : null}
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">· Friend</span>` : null}
       </p>
       ${
@@ -36,10 +37,14 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
           : null
       }
       <p class="flex items-center gap-1.5 text-xs text-muted">
-        <span
-          class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
-          aria-hidden="true"
-        ></span>
+        ${
+          p.viewer
+            ? null
+            : html`<span
+                class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
+                aria-hidden="true"
+              ></span>`
+        }
         ${p.presence}
       </p>
     </div>`;
@@ -59,7 +64,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         : html`<div class="flex min-w-0 flex-1 items-center gap-3">${body}</div>`
     }
     ${
-      vm.isAdmin && !p.you && !p.admin
+      vm.isAdmin && !p.you && !p.admin && !p.viewer
         ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
             ?disabled=${vm.removing}
@@ -81,29 +86,60 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   </li>`;
 }
 
-function requestRow(r: PeopleVm["requests"][number]) {
+function requestRow(r: PeopleVm["requests"][number], busy = false) {
+  const accept = (role: "reader" | "member", toastText: string) => () => {
+    requests.respond(r.folderId, r.requesterKey, true, role);
+    toast(toastText);
+  };
   return html`<li class="rounded-xl bg-subtle p-3">
     <p class="text-sm text-fg">
       <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
     </p>
     <p class="mt-1 text-xs text-muted">Asked ${formatRelative(r.requestedAt)}</p>
+    ${
+      r.viaInvite
+        ? html`<p class="mt-1 text-xs text-muted">
+            A Viewer sees every photo. A Collaborator can add photos too.
+          </p>`
+        : null
+    }
     <div class="mt-2 flex gap-2">
       <button
         class="ui-btn-ghost"
+        ?disabled=${busy}
         @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
       >
         Decline
       </button>
-      <button
-        class="ui-btn-primary"
-        @click=${() => {
-          requests.respond(r.folderId, r.requesterKey, true);
-          toast(`${r.requesterName} is in`);
-        }}
-      >
-        Accept
-      </button>
+      ${
+        r.viaInvite
+          ? html`<button
+              class="ui-btn-primary"
+              ?disabled=${busy}
+              @click=${accept("reader", `${r.requesterName} is in as a Viewer`)}
+            >
+              Accept as Viewer
+            </button>`
+          : html`<button
+              class="ui-btn-primary"
+              ?disabled=${busy}
+              @click=${accept("member", `${r.requesterName} is in`)}
+            >
+              Accept
+            </button>`
+      }
     </div>
+    ${
+      r.viaInvite
+        ? html`<button
+            class="mt-2 text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
+            ?disabled=${busy}
+            @click=${accept("member", `${r.requesterName} is in and can add photos`)}
+          >
+            Accept, and let them add photos
+          </button>`
+        : null
+    }
   </li>`;
 }
 
@@ -115,7 +151,7 @@ function requestsSection(vm: PeopleVm) {
       ${repeat(
         vm.requests,
         (r) => `${r.folderId}/${r.requesterKey}`,
-        (r) => requestRow(r),
+        (r) => requestRow(r, requestsViewModel(requestsActor.snapshot()).responding),
       )}
     </ul>
   </section>`;
@@ -126,7 +162,7 @@ function membersSection(vm: PeopleVm, id: string) {
     <h2 class="ui-label">Members</h2>
     <p class="mb-2 mt-1 text-xs text-muted">
       Connected means they have Justus open and your phone can reach them right now. Everyone in the
-      album sees this list.
+      album sees this list. Viewers see every photo but can't add any.
     </p>
     ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
     <ul

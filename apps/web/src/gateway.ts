@@ -89,8 +89,8 @@ export const gateway = {
   setActive: (folderId: string) => invoke(photoEvents.photos.setActive(folderId)),
   setName: (name: string) => invoke(photoEvents.photos.setName(name)),
   requests: () => invoke(photoEvents.photos.requests()),
-  respond: (folderId: string, requesterKey: string, approve: boolean) =>
-    invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
+  respond: (folderId: string, requesterKey: string, approve: boolean, role?: "reader" | "member") =>
+    invoke(photoEvents.photos.respond(folderId, requesterKey, approve, role)),
   turnOffInvite: (folderId: string) => invoke(photoEvents.photos.turnOffInvite(folderId)),
   /** Asks a saved friend's phone, by key alone, to offer them the album. Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
   offerAlbum: (folderId: string, identity: string) =>

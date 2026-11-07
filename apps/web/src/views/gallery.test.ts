@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { missingAlbumText, scopePhotos } from "./gallery";
+import { missingAlbumText, scopePhotos, viewerLine } from "./gallery";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -242,5 +242,27 @@ describe("missingAlbumText", () => {
     expect(missingAlbumText({ folders: [{}], foldersLoading: false })).toBe(
       "This album isn't on this phone.",
     );
+  });
+});
+
+describe("viewerLine", () => {
+  const status = {
+    folder: { id: "f1" },
+    members: [
+      { name: "Me", admin: false },
+      { name: "Maya", admin: true },
+    ],
+  } as never;
+
+  test("names the Admin of the album on screen", () => {
+    expect(viewerLine({ status }, { id: "f1" })).toBe(
+      "You're a Viewer: you see every photo here. Maya decides who adds photos.",
+    );
+  });
+
+  test("says The Admin when the status is for another album or missing", () => {
+    const line = "You're a Viewer: you see every photo here. The Admin decides who adds photos.";
+    expect(viewerLine({ status }, { id: "f2" })).toBe(line);
+    expect(viewerLine({ status: null }, { id: "f1" })).toBe(line);
   });
 });

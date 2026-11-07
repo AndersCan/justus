@@ -84,9 +84,9 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | Folder           | **Album**                      | Create, share, join an album. There is no separate local "albums" feature.                 |
 | Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Can delete others' photos for all. |
-| Member           | **Member**                     | Can add photos.                                                                            |
+| Member           | **Collaborator**               | Can add photos. The Admin picks Viewer or Collaborator on Accept.                          |
 | Remove (photo)   | **Delete**                     | The adder or the Admin. Gone for everyone; no undo.                                        |
-| Reader           | **Viewer**                     | Can only look.                                                                             |
+| Reader           | **Viewer**                     | Sees every photo, adds none.                                                               |
 | Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
 | Registry         | _(hidden)_                     |                                                                                            |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |
