@@ -32,7 +32,7 @@ describe("parseInviteLink", () => {
   test.each([
     ["empty", ""],
     ["no link", "hello"],
-    ["old-style link", `justus://join/${A}?n=x`],
+    ["old-style link with a short key", "justus://join/abc"],
     ["bare key", A],
     ["short code", `justus://join?i=abc&o=${B}`],
     ["missing owner", `justus://join?i=${A}`],
@@ -41,6 +41,30 @@ describe("parseInviteLink", () => {
     ["long code", `justus://join?i=${A}a&o=${B}`],
   ])("%s is garbled", (_name, text) => {
     expect(parseInviteLink(text)).toEqual({ kind: "garbled" });
+  });
+});
+
+describe("parseInviteLink old links", () => {
+  test("reads the owner hint", () => {
+    expect(parseInviteLink(`justus://join/${A}?n=Lisbon&a=Nils`)).toEqual({
+      kind: "old",
+      ownerName: "Nils",
+    });
+  });
+
+  test("falls back without a hint", () => {
+    expect(parseInviteLink(`justus://join/${A}`)).toEqual({ kind: "old", ownerName: "the Admin" });
+  });
+
+  test("finds it inside a message", () => {
+    expect(parseInviteLink(`Join! justus://join/${A}?a=Nils thanks`)).toEqual({
+      kind: "old",
+      ownerName: "Nils",
+    });
+  });
+
+  test("a key longer than 64 hex is garbled", () => {
+    expect(parseInviteLink(`justus://join/${A}a`)).toEqual({ kind: "garbled" });
   });
 });
 

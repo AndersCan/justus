@@ -31,6 +31,8 @@ export type AskSummary = {
 export type JoinPort = { ask(invite: JoinInvite): Promise<[unknown, unknown]> };
 
 export const GARBLED_LINK = "That invite doesn't look right. Check you copied all of it.";
+export const oldLinkMessage = (ownerName: string) =>
+  `This link no longer works. Ask ${ownerName} for a new invite link.`;
 export const SEND_FAILED = "Couldn't send your request. Try again.";
 
 /** No link is open. */
@@ -99,8 +101,10 @@ export function createJoinRequestActor(options: {
           to: [idle, reviewing, waiting, declined],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
-            if (parsed.kind === "garbled") {
-              context.set({ error: GARBLED_LINK });
+            if (parsed.kind !== "invite") {
+              context.set({
+                error: parsed.kind === "old" ? oldLinkMessage(parsed.ownerName) : GARBLED_LINK,
+              });
               return { state: actor.snapshot().path[0] === "idle" ? idle : stay(actor) };
             }
             context.set({ error: "" });

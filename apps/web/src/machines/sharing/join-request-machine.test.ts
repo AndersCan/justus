@@ -6,6 +6,7 @@ import type { JoinInvite } from "../../utils/invite-link";
 import {
   GARBLED_LINK,
   SEND_FAILED,
+  oldLinkMessage,
   createJoinRequestActor,
   type AskSummary,
   type JoinPort,
@@ -71,6 +72,25 @@ describe("openLink", () => {
     await s.send("openLink", { text: "nope" });
     expect(s.actor.state.name).toBe("declined");
     expect(error(s)).toBe(GARBLED_LINK);
+  });
+
+  test.each(["idle", "reviewing", "waiting", "declined"] as const)(
+    "an old link in %s stays put with its own message",
+    async (name) => {
+      const s = setup();
+      if (name === "declined") await s.send("openAsk", { ask: ask("declined") });
+      else if (name !== "idle") await s.send("openLink", { text: LINK });
+      if (name === "waiting") await s.send("ask");
+      await s.send("openLink", { text: `justus://join/${"a".repeat(64)}?n=Lisbon&a=Nils` });
+      expect(s.actor.state.name).toBe(name);
+      expect(error(s)).toBe("This link no longer works. Ask Nils for a new invite link.");
+    },
+  );
+
+  test("an old link without a hint names the Admin", async () => {
+    const s = setup();
+    await s.send("openLink", { text: `justus://join/${"a".repeat(64)}` });
+    expect(error(s)).toBe(oldLinkMessage("the Admin"));
   });
 
   test.each([["own"], ["member"]] as const)(
@@ -264,7 +284,9 @@ const ANSWER = (answer: string, folder = "") =>
   `answered={"code":"${INVITE.code}","answer":"${answer}"${folder}}`;
 const ROW = (status: string) =>
   `openAsk={"ask":{"code":"${INVITE.code}","owner":"${INVITE.owner}","albumName":"Spain 2026","ownerName":"Nils","askedAt":1,"status":"${status}"}}`;
+const OLD = `openLink={"text":"justus://join/${INVITE.code}?n=Spain 2026&a=Nils"}`;
 const WALKS: [string, string[], string][] = [
+  ["Maya opens a link from before the new key", [OLD], "idle"],
   ["Maya asks and is accepted", [OPEN, "ask", ANSWER("accepted", ',"folderId":"f1"')], "idle"],
   ["Maya asks and is declined", [OPEN, "ask", ANSWER("declined")], "declined"],
   ["Maya reopens her ask while waiting", [OPEN, "ask", "close", ROW("waiting")], "waiting"],
