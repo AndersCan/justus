@@ -28,11 +28,17 @@ function conn(identity: Buffer, protocol?: number): Conn {
   return c;
 }
 
-function build(name: string, swarm?: FakeSwarm) {
+type Extra = {
+  log?: (e: { event: string; fields: Record<string, unknown> }) => void;
+  openAnswers?: unknown;
+};
+
+function build(name: string, swarm?: FakeSwarm, extra: Extra = {}) {
   const own: FakeDrive[] = [];
   const changes: Array<{ cause: string }> = [];
   const deps = makeFakeDeps({
     deviceName: name,
+    ...extra,
     onChanged: (c) => changes.push(c),
     ...(swarm ? { makeSwarm: () => swarm } : {}),
     openVersion: (c: unknown, _own: number, onVersion: (remote: number) => void) => {
@@ -49,9 +55,9 @@ function build(name: string, swarm?: FakeSwarm) {
   return { store: createPhotoStore(deps), own, changes };
 }
 
-async function setup() {
+async function setup(extra: Extra = {}) {
   const swarm = new FakeSwarm();
-  const me = build("Me", swarm);
+  const me = build("Me", swarm, extra);
   const peer = build("Nils");
   await me.store.ready();
   await peer.store.ready();
@@ -138,6 +144,50 @@ describe("peer versions", () => {
     s.swarm.emit("connection", c);
     const state = s.me.store.debugState() as { connections: { identityKey: string | null }[] };
     expect(state.connections.map((x) => x.identityKey)).toEqual([null]);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it.each([
+    ["newer", PEER_PROTOCOL + 1],
+    ["older", PEER_PROTOCOL - 1],
+  ])("an answer on a %s connection is dropped and the ask stays waiting", async (_n, protocol) => {
+    const events: { event: string; fields: Record<string, unknown> }[] = [];
+    let deliver: (v: unknown) => void = () => {};
+    const s = await setup({
+      log: (e) => events.push(e),
+      openAnswers: (_c: unknown, onMessage: (v: unknown) => void) => {
+        deliver = onMessage;
+        return { send: () => false };
+      },
+    });
+    const code = "a".repeat(64);
+    await s.me.store.ask({ code, owner: s.peerKey.toString("hex") });
+    s.swarm.emit("connection", conn(s.peerKey, protocol));
+    deliver({ code, answer: "declined" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(events.some((e) => e.event === "answer.ignored" && e.fields.reason === "version")).toBe(
+      true,
+    );
+    const folders = await s.me.store.folders();
+    expect(folders.asks.find((a) => a.code === code)?.status).toBe("waiting");
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("peersBehind never holds more than five names", async () => {
+    const s = await setup();
+    const names = ["a", "b", "c", "d", "e", "f", "g"];
+    for (const [i, n] of names.entries()) {
+      const peer = build(n);
+      await peer.store.ready();
+      s.swarm.emit("connection", conn(peer.own[0].key));
+      for (let j = 0; j < 50 && (await behind(s)).length < Math.min(5, i + 1); j++) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      await peer.store.close();
+    }
+    expect((await behind(s)).length).toBe(5);
     await s.me.store.close();
     await s.peer.store.close();
   });

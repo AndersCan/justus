@@ -502,6 +502,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let updateNeeded = false;
   /** Names of phones on an older Justus we refused; for this session only. */
   const peersBehind: string[] = [];
+  const MAX_PEERS_BEHIND = 5;
   const conns = new Map<
     number,
     {
@@ -2007,7 +2008,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }),
         5_000,
       ).catch(() => undefined)) ?? "Someone";
-    if (!peersBehind.includes(name)) {
+    if (!peersBehind.includes(name) && peersBehind.length < MAX_PEERS_BEHIND) {
       peersBehind.push(name);
       deps.onChanged({ cause: "version" });
     }
