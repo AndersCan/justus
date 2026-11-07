@@ -112,12 +112,15 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   </li>`;
 }
 
+const requestKey = (r: { folderId: string; requesterKey: string }) =>
+  `request:${r.folderId}/${r.requesterKey}`;
+
 function requestRow(r: PeopleVm["requests"][number], busy = false) {
   const accept = (role: "reader" | "member", toastText: string) => () => {
     requests.respond(r.folderId, r.requesterKey, true, role);
     toast(toastText);
   };
-  return html`<li class="rounded-xl bg-subtle p-3">
+  return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
     <p class="text-sm text-fg">
       <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
     </p>
@@ -169,22 +172,23 @@ function requestRow(r: PeopleVm["requests"][number], busy = false) {
   </li>`;
 }
 
-function requestsSection(vm: PeopleVm) {
+function requestsSection(vm: PeopleVm, id: string) {
   if (vm.requests.length === 0) return null;
-  return html`<section class="ui-card border-l-4 border-l-warn p-5">
+  return html`<section
+    class="ui-card border-l-4 border-l-warn p-5"
+    data-motion-key="section:requests"
+  >
     <h2 class="ui-label mb-3">Asking to join</h2>
-    <ul class="space-y-2">
-      ${repeat(
-        vm.requests,
-        (r) => `${r.folderId}/${r.requesterKey}`,
-        (r) => requestRow(r, requestsViewModel(requestsActor.snapshot()).responding),
+    <ul class="space-y-2" ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}>
+      ${repeat(vm.requests, requestKey, (r) =>
+        requestRow(r, requestsViewModel(requestsActor.snapshot()).responding),
       )}
     </ul>
   </section>`;
 }
 
 function membersSection(vm: PeopleVm, id: string) {
-  return html`<section class="ui-card p-5">
+  return html`<section class="ui-card p-5" data-motion-key="section:members">
     <h2 class="ui-label">Members</h2>
     <p class="mb-2 mt-1 text-xs text-muted">
       Connected means they have Justus open and your phone can reach them right now. Everyone in the
@@ -299,7 +303,7 @@ function secretValue(name: string, value: string) {
 
 function advancedSection(status: Status, settled: boolean, busy: boolean) {
   const driveKey = status.folder.driveKey || status.driveKey;
-  return html`<details class="text-xs text-muted">
+  return html`<details class="text-xs text-muted" data-motion-key="section:advanced">
     <summary class="ui-label cursor-pointer select-none">Advanced</summary>
     <dl class="mt-3 grid grid-cols-2 gap-y-2 text-sm">
       <dt class="text-muted">Peers reachable</dt>
@@ -357,7 +361,10 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
       }
     </div>`;
   }
-  return html`<div class="max-w-2xl space-y-5">
+  return html`<div
+    class="max-w-2xl space-y-5"
+    ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}
+  >
     ${back}
     <div class="flex items-center justify-between gap-3">
       <h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight text-fg">
@@ -376,15 +383,17 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
       state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
-    ${requestsSection(vm)}
-    ${invitePanel(
-      status.folder,
-      status.name,
-      adminName(status),
-      vm.qrShown,
-      () => people.showQr(),
-      status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
-    )}
+    ${requestsSection(vm, id)}
+    <div data-motion-key="section:invite">
+      ${invitePanel(
+        status.folder,
+        status.name,
+        adminName(status),
+        vm.qrShown,
+        () => people.showQr(),
+        status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
+      )}
+    </div>
     ${membersSection(vm, id)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
     ${addFriendSheetView()}
   </div>`;
