@@ -87,6 +87,12 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     expect((await creator.store.respond(folderId, requesterKey, true))[0]).toBeNull();
     // Approved member must no longer appear as pending (#84).
     expect((await creator.store.requests()).requests.length).toBe(1);
+    // The enrolled member carries the name from its own request, not a fallback.
+    await creator.store.setActive(folderId);
+    const enrolled = (await creator.store.status()).members.find(
+      (m: { key: string }) => m.key === requesterKey,
+    );
+    expect(enrolled?.name).toBe("Requester");
 
     // Deny the second requester.
     expect((await creator.store.respond(folderId, requester2Key, false))[0]).toBeNull();
