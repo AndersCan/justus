@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
-import { render } from "lit-html";
+import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { joinActor } from "../machines/sharing/join-request";
-import { albumsPanel, pendingAsks } from "./albums";
+import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
@@ -143,5 +143,41 @@ describe("Photos page wiring", () => {
       expect(all.querySelector("section[aria-label='Waiting to join']")).not.toBeNull(),
     );
     expect(inAlbum.querySelector("section[aria-label='Waiting to join']")).toBeNull();
+  });
+});
+
+describe("join card", () => {
+  test("has the invite input, a Paste button and a Continue button", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    await vi.waitFor(() =>
+      expect(host.querySelector("input[aria-label='Invite link']")).not.toBeNull(),
+    );
+    expect(host.querySelector("button[aria-label='Paste from clipboard']")?.textContent).toContain(
+      "Paste",
+    );
+    expect(host.querySelector("button[type='submit']")?.textContent).toContain("Continue");
+    expect(host.querySelectorAll("section")).toHaveLength(1);
+  });
+
+  test("Continue is enabled once sync has settled", async () => {
+    const { sync, syncActor } = await import("../machines/sync-machine");
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    mock.status.mockResolvedValue([null, { name: "Me", members: [] }]);
+    sync.refresh();
+    await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("showingAlbum"));
+    await syncActor.settled();
+    await vi.waitFor(() =>
+      expect(host.querySelector<HTMLButtonElement>("button[type='submit']")?.disabled).toBe(false),
+    );
+  });
+
+  test("the start screen pairs the waiting row with the join card", async () => {
+    const host = document.createElement("div");
+    render(html`${pendingAsks()}${joinPanel()}`, host);
+    await load(["a"], [ask("waiting")]);
+    expect(host.querySelector("section[aria-label='Waiting to join']")).not.toBeNull();
+    expect(host.querySelector("input[aria-label='Invite link']")).not.toBeNull();
   });
 });

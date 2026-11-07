@@ -153,15 +153,3 @@ describe("missingAlbumText", () => {
     );
   });
 });
-
-describe("missingAlbumText", () => {
-  test("loading while the list is loading or empty", () => {
-    expect(missingAlbumText({ folders: [{}], foldersLoading: true })).toBe("Loading…");
-    expect(missingAlbumText({ folders: [], foldersLoading: false })).toBe("Loading…");
-  });
-  test("says the album is missing once loaded, even after a failed refresh", () => {
-    expect(missingAlbumText({ folders: [{}], foldersLoading: false })).toBe(
-      "This album isn't on this phone.",
-    );
-  });
-});
