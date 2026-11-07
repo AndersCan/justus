@@ -94,7 +94,12 @@ class ListingScreenshots {
       ?: fail("picker add button", "button_add")
     add.click()
 
-    photos.forEach { find("View " + it, 60) }
+    // The picker hands the app MediaStore ids, so tiles read "View 17.jpg", not the sample file names.
+    val deadline = System.currentTimeMillis() + 60000
+    while (device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).size < 3) {
+      if (System.currentTimeMillis() > deadline) fail("photo tiles", "View")
+      Thread.sleep(500)
+    }
     Thread.sleep(1000)
     Screengrab.setDefaultScreenshotStrategy(UiAutomatorScreenshotStrategy())
     Screengrab.screenshot("1_album")
