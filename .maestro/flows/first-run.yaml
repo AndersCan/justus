@@ -49,6 +49,9 @@ appId: no.cankode.justus
 - tapOn:
     text: "Settings"
     waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element: "Require unlock to open Justus"
+    timeout: 20000
 - tapOn:
     text: "Require unlock to open Justus"
     waitToSettleTimeoutMs: 500
@@ -100,6 +103,9 @@ appId: no.cankode.justus
 - tapOn:
     text: "Settings"
     waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element: "Require unlock to open Justus"
+    timeout: 20000
 - tapOn:
     text: "Require unlock to open Justus"
     waitToSettleTimeoutMs: 500
