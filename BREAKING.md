@@ -10,6 +10,9 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 - **Viewers** (`/viewers.json` on the album's drive). Who: albums with phones on
   different versions. An older Justus would not list Viewers or count them. Do:
   everyone updates; the newer phone shows "<name> needs to update Justus".
+- **Delete and leave.** Albums can be deleted for everyone and members can leave; phones on
+  an older Justus no longer sync with this one. Who: mixed-version groups. Do: everyone
+  updates.
 - **Invite links carry an end time** (`e=`). Who: testers on internal builds. An app
   from before this change ignores it, and links made before it never expire.
 - **Album keys.** Every album you started moves to a new key on first start; its

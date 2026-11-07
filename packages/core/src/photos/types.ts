@@ -84,6 +84,16 @@ export type FolderSummary = {
   notice?: FolderNotice;
 };
 
+/** An album its Admin deleted for everyone. The phone removed the album and its
+ * photos; this notice stays until the person dismisses it. */
+export type DeletedAlbum = {
+  /** The id the album had on this phone. */
+  id: string;
+  name: string;
+  /** The Admin's name, as the phone last knew it. */
+  adminName: string;
+};
+
 /** A request to join an album, made through an invite code and not yet
  * answered with the key (waiting) or answered no (declined). */
 export type AskSummary = {

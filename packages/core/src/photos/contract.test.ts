@@ -22,9 +22,14 @@ describe("photo contract", () => {
     expect(checkPhotoResult("photos.list", { photos: [{ id: "a" }] })).toBe(
       "photos.list contract violation: result.photos[0].url: missing required field",
     );
-    expect(checkPhotoResult("photos.folders", { folders: [], activeFolderId: null })).toContain(
-      "result.activeFolderId: expected string, got null",
-    );
+    expect(
+      checkPhotoResult("photos.folders", {
+        folders: [],
+        archived: [],
+        deleted: [],
+        activeFolderId: null,
+      }),
+    ).toContain("result.activeFolderId: expected string, got null");
     expect(checkPhotoChanged({ cause: "rename" })).toContain("args.cause: expected one of");
     expect(checkPhotoChanged("nope")).toContain("args: expected object, got string");
   });

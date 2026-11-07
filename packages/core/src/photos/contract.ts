@@ -10,6 +10,7 @@
  */
 import type {
   AskSummary,
+  DeletedAlbum,
   FolderSummary,
   JoinRequest,
   Photo,
@@ -151,6 +152,12 @@ export const offerSummarySchema = s.object({
   ownerName: s.string,
 });
 
+export const deletedAlbumSchema = s.object({
+  id: s.string,
+  name: s.string,
+  adminName: s.string,
+});
+
 export const syncStatusSchema = s.object({
   folder: folderSummarySchema,
   name: s.string,
@@ -191,6 +198,8 @@ export const photoResultSchemas = {
   "photos.status": syncStatusSchema,
   "photos.folders": s.object({
     folders: s.array(folderSummarySchema),
+    archived: s.array(folderSummarySchema),
+    deleted: s.array(deletedAlbumSchema),
     activeFolderId: s.string,
     asks: s.array(askSummarySchema),
     offers: s.array(offerSummarySchema),
@@ -205,6 +214,10 @@ export const photoResultSchemas = {
   "photos.respond": s.object({ ok: s.boolean }),
   "photos.offerAlbum": s.object({ ok: s.boolean }),
   "photos.joinOffer": s.object({ ask: askSummarySchema }),
+  "photos.archiveAlbum": s.object({ ok: s.boolean }),
+  "photos.restoreAlbum": s.object({ ok: s.boolean }),
+  "photos.deleteAlbum": s.object({ ok: s.boolean }),
+  "photos.dismissAlbumNotice": s.object({ ok: s.boolean }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
 } as const;
 
@@ -232,6 +245,7 @@ export type _ContractChecks = [
   Assert<Equal<T<typeof syncMemberSchema>, SyncMember>>,
   Assert<Equal<T<typeof folderSummarySchema>, FolderSummary>>,
   Assert<Equal<T<typeof askSummarySchema>, AskSummary>>,
+  Assert<Equal<T<typeof deletedAlbumSchema>, DeletedAlbum>>,
   Assert<Equal<T<typeof syncStatusSchema>, SyncStatus>>,
   Assert<Equal<T<typeof joinRequestSchema>, JoinRequest>>,
   Assert<Equal<T<typeof photoChangedSchema>, PhotoChanged>>,

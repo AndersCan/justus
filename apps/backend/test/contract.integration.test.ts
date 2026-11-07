@@ -182,6 +182,18 @@ describe("backend -> web contract, from real backend output", () => {
     // The Admin turns the links off and the album carries a new code.
     await a("photos.turnOffInvite", { folderId: folder.id });
 
+    // The Admin archives the album and brings it back, then deletes it for everyone.
+    await a("photos.archiveAlbum", { folderId: folder.id });
+    await a("photos.folders");
+    await a("photos.restoreAlbum", { folderId: folder.id });
+    await a("photos.deleteAlbum", { folderId: folder.id });
+    const { deleted } = await eventually(
+      () => c("photos.folders"),
+      (r: any) => r.deleted.length === 1,
+      "the delete notice on the asker",
+    );
+    await c("photos.dismissAlbumNotice", { folderId: deleted[0].id });
+
     // Every result the web reads was exercised, except the legacy direct enroll.
     const untested = Object.keys(photoResultSchemas).filter((n) => !captured[n]);
     expect(untested).toEqual(["photos.enroll"]);

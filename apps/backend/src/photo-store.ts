@@ -16,6 +16,15 @@ import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
+import { RealClock } from "@mantaq/core";
+import { Either } from "@mantaq/utils";
+import {
+  createAlbumLifecycleActor,
+  lifecycleStart,
+  type AlbumLifecyclePort,
+  type Keep,
+} from "./albums/album-lifecycle-machine";
+import { deleteOwnPhotos, readDeleteNote, writeDeleteNote } from "./albums/lifecycle";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
@@ -56,7 +65,6 @@ import {
   type RegistryFile,
   type ViewersFile,
   type RemovedFile,
-  type RequestsFile,
 } from "./membership/records";
 import {
   checkAsk,
@@ -102,6 +110,7 @@ import type {
   AskSummary,
   OfferSummary,
   FolderNotice,
+  DeletedAlbum,
   FolderSummary,
   JoinRequest,
   Photo,
@@ -132,6 +141,8 @@ export const PhotoError = {
   OFFER_PENDING: "justus.photos/offer-pending",
   INVALID_ROLE: "justus.photos/invalid-role",
   VIEWER_NEEDS_INVITE: "justus.photos/viewer-needs-invite",
+  ALBUM_ARCHIVED: "justus.photos/album-archived",
+  ALBUM_NOT_CHANGED: "justus.photos/album-not-changed",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -155,6 +166,20 @@ type PersistedState = {
   asks: AskRecord[];
   /** Invites friends sent to this phone, not answered yet. */
   offers: OfferSummary[];
+  /** Albums that left this phone's list, kept for what still has to be done or shown. */
+  gone: GoneRecord[];
+};
+
+/** An album removed from this phone. `deletedForEveryone`: this phone is the
+ * Admin's and keeps only the delete note, to offer it to members who were away.
+ * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed. */
+type GoneRecord = {
+  id: string;
+  name: string;
+  shareKey: string;
+  kind: "deletedForEveryone" | "deletedByAdmin";
+  adminName?: string;
+  at: number;
 };
 
 /** A request to join through an invite code. `shareKey` is set only once the
@@ -200,6 +225,9 @@ type FolderRecord = {
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
+  /** Absent: shown. `archived`: hidden on this phone, still synced. The other
+   * two mark work that a restart must finish. */
+  lifecycle?: "archived" | "leaving" | "deleting";
 };
 
 /** The copies an add brings besides the display copy (see `AddExtras` in
@@ -276,6 +304,8 @@ export interface PhotoStore {
   status(): Promise<SyncStatus>;
   folders(): Promise<{
     folders: FolderSummary[];
+    archived: FolderSummary[];
+    deleted: DeletedAlbum[];
     activeFolderId: string;
     asks: AskSummary[];
     offers: OfferSummary[];
@@ -312,6 +342,14 @@ export interface PhotoStore {
   offerAlbum(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
   joinOffer(code: string, owner: string): Promise<EitherResult<{ ask: AskSummary }>>;
+  /** Hides the album on this phone only; it keeps syncing. */
+  archiveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Brings an archived album back. */
+  restoreAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Admin only: removes the album and its photos from every phone. */
+  deleteAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Clears the "deleted by the Admin" notice of an album. */
+  dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -622,12 +660,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           activeFolderId,
           asks: loadAsks(parsed.asks),
           offers: loadOffers(parsed.offers),
+          gone: loadGone(parsed.gone),
         };
       }
     } catch {
       // Fresh state.
     }
-    return { name: deps.deviceName, folders: [], activeFolderId: null, asks: [], offers: [] };
+    return {
+      name: deps.deviceName,
+      folders: [],
+      activeFolderId: null,
+      asks: [],
+      offers: [],
+      gone: [],
+    };
   }
 
   function loadFolderExtras(f: { [k: string]: unknown }): Partial<FolderRecord> {
@@ -668,11 +714,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       out.earlier = earlier;
     }
     if (f.moved === true) out.moved = true;
+    if (f.lifecycle === "archived" || f.lifecycle === "leaving" || f.lifecycle === "deleting") {
+      out.lifecycle = f.lifecycle;
+    }
     if (isTextJSON(f.notice)) {
       if (f.notice.kind === "newKey") out.notice = { kind: "newKey" };
       else if (f.notice.kind === "moved") {
         out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
       }
+    }
+    return out;
+  }
+
+  function loadGone(raw: unknown): GoneRecord[] {
+    if (!Array.isArray(raw)) return [];
+    const out: GoneRecord[] = [];
+    for (const g of raw as unknown[]) {
+      if (!isTextJSON(g)) continue;
+      if (typeof g.id !== "string" || typeof g.shareKey !== "string") continue;
+      if (g.kind !== "deletedForEveryone" && g.kind !== "deletedByAdmin") continue;
+      out.push({
+        id: g.id,
+        name: peerName(g.name, DEFAULT_ASK_ALBUM),
+        shareKey: g.shareKey,
+        kind: g.kind,
+        ...(typeof g.adminName === "string"
+          ? { adminName: peerName(g.adminName, DEFAULT_ASK_OWNER) }
+          : {}),
+        at: typeof g.at === "number" ? g.at : 0,
+      });
     }
     return out;
   }
@@ -886,6 +956,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             log("error", { where: "refreshAlbumName", folder: short(folderId), err: errText(e) }),
           );
         }
+        // The Admin's drive may now carry the delete note.
+        if (rt && drive === rt.folderDrive && rt.record.role !== "creator") {
+          void checkDeleteNote(rt, 2_000).catch((e) =>
+            log("error", { where: "checkDeleteNote", folder: short(folderId), err: errText(e) }),
+          );
+        }
         refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
@@ -984,11 +1060,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     deps.onChanged({ cause: "add", folderId: rt.record.id });
   }
 
+  /** The albums shown on this phone: every saved album but the archived ones. */
+  function shownFolders(): FolderRecord[] {
+    return state.folders.filter((f) => f.lifecycle !== "archived");
+  }
+
   function activeFolderId(): string | null {
-    if (state.activeFolderId && state.folders.some((f) => f.id === state.activeFolderId)) {
+    const shown = shownFolders();
+    if (state.activeFolderId && shown.some((f) => f.id === state.activeFolderId)) {
       return state.activeFolderId;
     }
-    return state.folders.length > 0 ? state.folders[0].id : null;
+    return shown.length > 0 ? shown[0].id : null;
   }
 
   function activeRuntime(): FolderRuntime | null {
@@ -1185,6 +1267,196 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await pruneJoinRequests();
     deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
     return true;
+  }
+
+  // --- Archive, delete for everyone (#186). ---------------------------------
+
+  type LifecycleActor = ReturnType<typeof createAlbumLifecycleActor>;
+  /** One actor per album, built when first needed. */
+  const lifecycles = new Map<string, LifecycleActor>();
+
+  /** Sets the saved lifecycle mark on the runtime's record and the persisted one. */
+  function markLifecycle(rt: FolderRuntime, mark: FolderRecord["lifecycle"]) {
+    for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
+      if (!target) continue;
+      if (mark === undefined) delete target.lifecycle;
+      else target.lifecycle = mark;
+    }
+    saveState();
+  }
+
+  function lifecyclePort(rt: FolderRuntime): AlbumLifecyclePort {
+    return {
+      // Leaving an album is the next change (#186).
+      writeLeftNote: async () => Either.left({ reason: "Leaving an album is not available yet" }),
+      writeDeleteNote: async () => {
+        const [error] = await writeDeleteNote(rt.folderDrive, {
+          adminName: state.name,
+          at: Date.now(),
+        });
+        return error ? Either.left(error) : Either.right();
+      },
+      removeCopy: (keep) => removeAlbumCopy(rt, keep),
+      forget: async () => {},
+    };
+  }
+
+  /** Removes this phone's copy of an album: the runtime, the other members'
+   * drives and, unless `keep` names them, this phone's own drives. Never rejects;
+   * safe to run twice. */
+  async function removeAlbumCopy(rt: FolderRuntime, keep: Keep): Promise<void> {
+    const id = rt.record.id;
+    const keys = new Set<string>([
+      ...rt.memberDrives.keys(),
+      ...(rt.record.earlier ?? []).map((e) => e.key),
+    ]);
+    const own = new Map<string, Drive>([
+      [rt.selfDrive.key, rt.selfDrive],
+      [rt.folderDrive.key, rt.folderDrive],
+    ]);
+    try {
+      await unmountRuntime(rt);
+    } catch (e) {
+      log("error", { where: "removeAlbumCopy.unmount", folder: short(id), err: errText(e) });
+    }
+    if (keep === "nothing") {
+      for (const [key, drive] of own) {
+        keys.add(key);
+        leaveTopic(hex(topicOf(drive)));
+      }
+      selfDrives.delete(rt.record.selfNs ?? `member/${rt.record.shareKey}`);
+    } else {
+      for (const drive of new Set(own.values())) {
+        await deleteOwnPhotos(drive, { log });
+      }
+    }
+    if (rt.record.role === "creator") {
+      for (const code of [rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])]) {
+        if (code) leaveTopic(hex(inviteTopic(code, crypto)));
+      }
+    }
+    keys.delete(ownDrive.key);
+    for (const key of keys) {
+      try {
+        await deps.drives.purge(key);
+      } catch (e) {
+        log("error", { where: "removeAlbumCopy.purge", drive: short(key), err: errText(e) });
+      }
+    }
+    for (const [sha, arr] of contentIndex) {
+      const rest = arr.filter((e) => e.folderId !== id);
+      if (rest.length === 0) contentIndex.delete(sha);
+      else contentIndex.set(sha, rest);
+    }
+    runtimes.delete(id);
+  }
+
+  /** Moves an album from the saved list to the gone records. */
+  function moveToGone(rt: FolderRuntime, kind: GoneRecord["kind"], adminName?: string) {
+    const id = rt.record.id;
+    state.folders = state.folders.filter((f) => f.id !== id);
+    state.gone = [
+      ...state.gone.filter((g) => g.id !== id),
+      {
+        id,
+        name: rt.record.name,
+        shareKey: rt.record.shareKey,
+        kind,
+        ...(adminName === undefined ? {} : { adminName }),
+        at: Date.now(),
+      },
+    ];
+    if (state.activeFolderId === id) state.activeFolderId = shownFolders()[0]?.id ?? null;
+    runtimes.delete(id);
+    lifecycles.delete(id);
+    saveState();
+    deps.onChanged({ cause: "remove", folderId: id });
+  }
+
+  function onLifecycleState(rt: FolderRuntime, name: string, payload: unknown) {
+    const id = rt.record.id;
+    switch (name) {
+      case "archived":
+        markLifecycle(rt, "archived");
+        if (state.activeFolderId === id) {
+          state.activeFolderId = shownFolders()[0]?.id ?? null;
+          saveState();
+        }
+        deps.onChanged({ cause: "remove", folderId: id });
+        return;
+      case "shownInYourAlbums":
+        if (rt.record.lifecycle === undefined) return;
+        markLifecycle(rt, undefined);
+        deps.onChanged({ cause: "add", folderId: id });
+        return;
+      case "leavingAlbum":
+        markLifecycle(rt, "leaving");
+        return;
+      case "deletingForEveryone":
+        markLifecycle(rt, "deleting");
+        return;
+      case "deletedForEveryone":
+        moveToGone(rt, "deletedForEveryone");
+        return;
+      case "deletedByAdmin": {
+        const adminName =
+          isTextJSON(payload) && typeof payload.adminName === "string"
+            ? payload.adminName
+            : DEFAULT_ASK_OWNER;
+        moveToGone(rt, "deletedByAdmin", adminName);
+        return;
+      }
+    }
+  }
+
+  /** The album's actor, started from the saved mark (and a delete note already read). */
+  function lifecycleOf(rt: FolderRuntime, deleteNote?: { adminName: string }): LifecycleActor {
+    const existing = lifecycles.get(rt.record.id);
+    if (existing) return existing;
+    const start = lifecycleStart({
+      role: rt.record.role,
+      saved: rt.record.lifecycle ?? "shown",
+      ...(deleteNote ? { deleteNote } : {}),
+    });
+    const actor = createAlbumLifecycleActor({ clock: RealClock(), port: lifecyclePort(rt), start });
+    lifecycles.set(rt.record.id, actor);
+    actor.on("change", {
+      fn: (snapshot) => onLifecycleState(rt, snapshot.path[0] ?? "", snapshot.payload),
+    });
+    return actor;
+  }
+
+  /** Reads the album's delete note (not the Admin's own) and, if the Admin deleted it, removes this phone's copy. */
+  async function checkDeleteNote(rt: FolderRuntime, timeoutMs: number): Promise<void> {
+    if (rt.record.role === "creator") return;
+    const note = await readDeleteNote(rt.folderDrive, { log, timeoutMs });
+    if (!note) return;
+    const actor = lifecycleOf(rt, note);
+    const name = actor.state.name;
+    if (name !== "shownInYourAlbums" && name !== "archived") return;
+    actor.send({ type: "roleSeen", payload: { role: rt.record.role } });
+    actor.send({ type: "deleteHeard", payload: note });
+  }
+
+  /** Sends one input to the album's actor and answers when it is at rest. */
+  async function changeLifecycle(
+    rt: FolderRuntime,
+    type: "archive" | "restore" | "deleteForEveryone",
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    const actor = lifecycleOf(rt);
+    const name = actor.state.name;
+    if (name !== "shownInYourAlbums" && name !== "archived") {
+      return err(PhotoError.ALBUM_NOT_CHANGED, "The album is being changed");
+    }
+    actor.send({ type: "roleSeen", payload: { role: rt.record.role } });
+    actor.send({ type });
+    await actor.settled();
+    const snapshot = actor.snapshot();
+    const reason = snapshot.context.error;
+    if (reason !== null && snapshot.path[0] === "shownInYourAlbums") {
+      return err(PhotoError.ALBUM_NOT_CHANGED, reason);
+    }
+    return ok({ ok: true });
   }
 
   async function unmountRuntime(rt: FolderRuntime) {
@@ -1926,6 +2198,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         watcherRemoves: new Set(),
       };
       runtimes.set(record.id, rt);
+      // A delete the Admin made while this phone was away, or work a restart
+      // must finish: the album is removed before anything else opens.
+      const deleteNote = isCreator
+        ? undefined
+        : await readDeleteNote(fd, { log, timeoutMs: 2_000 });
+      if (deleteNote || rt.record.lifecycle === "deleting" || rt.record.lifecycle === "leaving") {
+        await lifecycleOf(rt, deleteNote).settled();
+        continue;
+      }
       if (!isCreator) void refreshAlbumName(rt).catch(nameErr(rt));
       if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
@@ -1937,6 +2218,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       await refreshMembersFor(rt);
       watchDrive(fd, record.id, fd.key, isCreator ? "enroll" : "add");
+    }
+    // An album this phone deleted is still offered to members who were away.
+    for (const gone of state.gone) {
+      if (gone.kind !== "deletedForEveryone") continue;
+      try {
+        let fd: Drive;
+        if (gone.shareKey === ownDrive.key) {
+          fd = ownDrive;
+        } else {
+          const [openErr, opened] = await deps.drives.open(gone.shareKey, {
+            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+          });
+          if (openErr) throw openErr;
+          fd = opened;
+        }
+        joinTopic(topicOf(fd), { server: true });
+        rediscover(topicOf(fd), fd);
+      } catch (e) {
+        log("error", { where: "gone.reopen", album: short(gone.id), err: errText(e) });
+      }
     }
     // Asks still waiting go back on their topic; an accepted one retries its join.
     for (const ask of state.asks) {
@@ -1957,9 +2258,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (deps.seedOnEmpty) await startFolder("Sample photos");
     } else if (state.activeFolderId === null) {
       // Restore an active pointer if the persisted one didn't survive.
-      const ownFolder = state.folders.find((f) => f.role === "creator") ?? state.folders[0];
-      state.activeFolderId = ownFolder.id;
-      saveState();
+      const shown = shownFolders();
+      const ownFolder = shown.find((f) => f.role === "creator") ?? shown[0];
+      if (ownFolder) {
+        state.activeFolderId = ownFolder.id;
+        saveState();
+      }
     }
   }
 
@@ -2554,7 +2858,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return rt ? listPhotosIn(rt) : [];
       }
       const photos: Photo[] = [];
-      for (const record of state.folders) {
+      for (const record of shownFolders()) {
         const rt = runtimes.get(record.id);
         if (rt) photos.push(...(await listPhotosIn(rt)));
       }
@@ -2694,11 +2998,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async folders() {
       await readyPromise;
       const folders: FolderSummary[] = [];
+      const archived: FolderSummary[] = [];
       for (const rt of runtimes.values()) {
-        folders.push(toSummary(rt));
+        (rt.record.lifecycle === "archived" ? archived : folders).push(toSummary(rt));
       }
+      const deleted: DeletedAlbum[] = state.gone.flatMap((g) =>
+        g.kind === "deletedByAdmin"
+          ? [{ id: g.id, name: g.name, adminName: g.adminName ?? DEFAULT_ASK_OWNER }]
+          : [],
+      );
       return {
         folders,
+        archived,
+        deleted,
         activeFolderId: activeFolderId() ?? "",
         asks: state.asks
           .filter((a) => !state.offers.some((o) => o.code === a.code && o.owner === a.owner))
@@ -3025,6 +3337,45 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async archiveAlbum(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.lifecycle === "archived") return ok({ ok: true });
+      return changeLifecycle(rt, "archive");
+    },
+
+    async restoreAlbum(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.lifecycle !== "archived") return ok({ ok: true });
+      return changeLifecycle(rt, "restore");
+    },
+
+    async deleteAlbum(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator") {
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can delete an album");
+      }
+      if (rt.record.lifecycle === "archived") {
+        return err(PhotoError.ALBUM_ARCHIVED, "Restore the album before deleting it");
+      }
+      return changeLifecycle(rt, "deleteForEveryone");
+    },
+
+    async dismissAlbumNotice(folderId) {
+      await readyPromise;
+      const found = state.gone.find((g) => g.id === folderId && g.kind === "deletedByAdmin");
+      if (!found) return err(PhotoError.FOLDER_NOT_FOUND, `No notice for ${folderId}`);
+      state.gone = state.gone.filter((g) => g !== found);
+      saveState();
+      deps.onChanged({ cause: "remove", folderId });
+      return ok({ ok: true });
+    },
+
     debugState() {
       const driveInfo = (drive: Drive) => ({
         key: drive.key,
@@ -3043,6 +3394,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           openedAt: c.openedAt,
         })),
         peerIdentities: [...peerIdentities],
+        gone: state.gone.map((g) => ({ id: g.id, kind: g.kind, shareKey: g.shareKey })),
+        indexedPhotos: [...contentIndex.values()].reduce((n, arr) => n + arr.length, 0),
         asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
         remoteDrives: [
           ...[...peerOutboxDrives].map(([key, d]) => ({
@@ -3061,6 +3414,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         folders: [...runtimes.values()].map((rt) => ({
           id: rt.record.id,
           role: rt.record.role,
+          lifecycle: rt.record.lifecycle ?? "shown",
           pending: Boolean(rt.record.pending),
           invited: rt.record.invited ?? [],
           shareKey: rt.record.shareKey,
@@ -3134,6 +3488,10 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     turnOffInvite: refuse,
     offerAlbum: refuse,
     joinOffer: refuse,
+    archiveAlbum: refuse,
+    restoreAlbum: refuse,
+    deleteAlbum: refuse,
+    dismissAlbumNotice: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };

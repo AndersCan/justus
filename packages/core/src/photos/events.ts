@@ -1,6 +1,7 @@
 import { invokeEvent, type EventSpec, type InvokeEnvelope } from "@ekrooh/bare/core";
 import type {
   AskSummary,
+  DeletedAlbum,
   FolderSummary,
   JoinRequest,
   OfferSummary,
@@ -84,6 +85,10 @@ export const photoSpecs = {
     args: {} as Record<string, never>,
     result: {} as {
       folders: FolderSummary[];
+      /** Albums archived on this phone; they keep syncing. */
+      archived: FolderSummary[];
+      /** Albums the Admin deleted, until dismissed. */
+      deleted: DeletedAlbum[];
       activeFolderId: string;
       asks: AskSummary[];
       offers: OfferSummary[];
@@ -154,6 +159,30 @@ export const photoSpecs = {
     name: "photos.joinOffer",
     args: {} as { code: string; owner: string },
     result: {} as { ask: AskSummary },
+  },
+  archiveAlbum: {
+    pluginId: "justus.photos",
+    name: "photos.archiveAlbum",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
+  restoreAlbum: {
+    pluginId: "justus.photos",
+    name: "photos.restoreAlbum",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
+  deleteAlbum: {
+    pluginId: "justus.photos",
+    name: "photos.deleteAlbum",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
+  dismissAlbumNotice: {
+    pluginId: "justus.photos",
+    name: "photos.dismissAlbumNotice",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
   },
   changed: {
     pluginId: "justus.photos",
@@ -231,6 +260,8 @@ export const photoEvents = {
       Record<string, never>,
       {
         folders: FolderSummary[];
+        archived: FolderSummary[];
+        deleted: DeletedAlbum[];
         activeFolderId: string;
         asks: AskSummary[];
         offers: OfferSummary[];
@@ -353,6 +384,31 @@ export const photoEvents = {
       owner: string,
     ): InvokeEnvelope<"photos.joinOffer", { code: string; owner: string }, { ask: AskSummary }> {
       return invokeEvent(photoSpecs.joinOffer, { code, owner }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    archiveAlbum(
+      folderId: string,
+    ): InvokeEnvelope<"photos.archiveAlbum", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.archiveAlbum, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    restoreAlbum(
+      folderId: string,
+    ): InvokeEnvelope<"photos.restoreAlbum", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.restoreAlbum, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    deleteAlbum(
+      folderId: string,
+    ): InvokeEnvelope<"photos.deleteAlbum", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.deleteAlbum, { folderId }, null, PHOTOS_OFFER_TIMEOUT_MS);
+    },
+    dismissAlbumNotice(
+      folderId: string,
+    ): InvokeEnvelope<"photos.dismissAlbumNotice", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(
+        photoSpecs.dismissAlbumNotice,
+        { folderId },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
   },
 } as const;
