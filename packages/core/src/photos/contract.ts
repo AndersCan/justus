@@ -150,6 +150,8 @@ export const syncStatusSchema = s.object({
   peers: s.number,
   photos: s.number,
   members: s.array(syncMemberSchema),
+  updateNeeded: s.boolean,
+  peersBehind: s.array(s.string),
 });
 
 export const joinRequestSchema = s.object({
@@ -162,7 +164,7 @@ export const joinRequestSchema = s.object({
 });
 
 export const photoChangedSchema = s.object({
-  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask"),
+  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask", "version"),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
   code: s.optional(s.string),

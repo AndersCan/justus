@@ -39,7 +39,11 @@ export async function realNet(): Promise<Net> {
   const dirs: string[] = [];
   const live = new Set<Peer>();
 
-  async function peer(name: string, storageDir?: string): Promise<Peer> {
+  async function peer(
+    name: string,
+    storageDir?: string,
+    opts: { peerProtocol?: number; legacy?: boolean } = {},
+  ): Promise<Peer> {
     const dir = storageDir ?? trackTmpPath(mkdtempSync(join(tmpdir(), `justus-real-${name}-`)));
     if (!storageDir) dirs.push(dir);
     const changes: PhotoChanged[] = [];
@@ -54,6 +58,9 @@ export async function realNet(): Promise<Net> {
       makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap }),
       // The real protomux greeting, not the harness fake.
       greetPeer: undefined,
+      // A legacy phone never opens the version channel.
+      openVersion: opts.legacy ? () => {} : undefined,
+      peerProtocol: opts.peerProtocol,
       openAnswers: undefined,
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),

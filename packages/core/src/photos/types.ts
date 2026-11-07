@@ -105,6 +105,10 @@ export type SyncStatus = {
   peers: number;
   photos: number;
   members: SyncMember[];
+  /** A phone on a newer Justus refused to sync with this one. */
+  updateNeeded: boolean;
+  /** Names of phones on an older Justus that this one refused. */
+  peersBehind: string[];
 };
 
 /** Pending "wants to join" request surfaced to a folder's creator. */
@@ -123,7 +127,14 @@ export type JoinRequest = {
   requestedAt: number;
 };
 
-export type PhotoChangedCause = "add" | "remove" | "enroll" | "request" | "presence" | "ask";
+export type PhotoChangedCause =
+  | "add"
+  | "remove"
+  | "enroll"
+  | "request"
+  | "presence"
+  | "ask"
+  | "version";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {

@@ -1,0 +1,144 @@
+/**
+ * Peers on another version, on fakes: a newer peer sets `updateNeeded`, an
+ * older one (no version before its greeting) lands in `peersBehind`, and
+ * neither is asked or answered. Real-swarm delivery is `p2p-scenarios.ts` V1.
+ */
+import { describe, it, expect } from "vite-plus/test";
+import { mkdirSync } from "node:fs";
+import { createPhotoStore } from "../src/photo-store.ts";
+import { PEER_PROTOCOL } from "../src/versions.ts";
+import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
+import type { FakeDrive } from "./fake-drive.ts";
+
+type Conn = ReturnType<typeof fakeConnection> & {
+  protocol?: number;
+  destroyed: boolean;
+  destroy(): void;
+};
+
+function conn(identity: Buffer, protocol?: number): Conn {
+  const c = {
+    ...fakeConnection(identity),
+    protocol,
+    destroyed: false,
+    destroy() {
+      c.destroyed = true;
+    },
+  };
+  return c;
+}
+
+function build(name: string, swarm?: FakeSwarm) {
+  const own: FakeDrive[] = [];
+  const changes: Array<{ cause: string }> = [];
+  const deps = makeFakeDeps({
+    deviceName: name,
+    onChanged: (c) => changes.push(c),
+    ...(swarm ? { makeSwarm: () => swarm } : {}),
+    openVersion: (c: unknown, _own: number, onVersion: (remote: number) => void) => {
+      const protocol = (c as Conn).protocol;
+      if (protocol !== undefined) onVersion(protocol);
+    },
+    makeDrive: (cs: unknown, key?: Buffer) => {
+      const drive = makeFakeDeps().makeDrive(cs, key);
+      if (!key) own.push(drive);
+      return drive;
+    },
+  });
+  mkdirSync(deps.cacheDir, { recursive: true });
+  return { store: createPhotoStore(deps), own, changes };
+}
+
+async function setup() {
+  const swarm = new FakeSwarm();
+  const me = build("Me", swarm);
+  const peer = build("Nils");
+  await me.store.ready();
+  await peer.store.ready();
+  return { swarm, me, peer, peerKey: peer.own[0].key };
+}
+
+const behind = async (s: Awaited<ReturnType<typeof setup>>) =>
+  (await s.me.store.status()).peersBehind;
+
+describe("peer versions", () => {
+  it("same version: nothing refused, identity learned", async () => {
+    const s = await setup();
+    const c = conn(s.peerKey, PEER_PROTOCOL);
+    s.swarm.emit("connection", c);
+    await new Promise((r) => setTimeout(r, 20));
+    const status = await s.me.store.status();
+    expect(status.updateNeeded).toBe(false);
+    expect(status.peersBehind).toEqual([]);
+    expect(c.destroyed).toBe(false);
+    expect(s.me.changes.some((x) => x.cause === "version")).toBe(false);
+    const state = s.me.store.debugState() as { connections: { identityKey: string | null }[] };
+    expect(state.connections[0].identityKey).toBe(s.peerKey.toString("hex"));
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("newer peer: updateNeeded once, connection destroyed", async () => {
+    const s = await setup();
+    const c = conn(s.peerKey, PEER_PROTOCOL + 1);
+    s.swarm.emit("connection", c);
+    s.swarm.emit("connection", conn(s.peerKey, PEER_PROTOCOL + 1));
+    expect((await s.me.store.status()).updateNeeded).toBe(true);
+    expect(c.destroyed).toBe(true);
+    expect(s.me.changes.filter((x) => x.cause === "version")).toHaveLength(1);
+    const state = s.me.store.debugState() as { connections: { identityKey: string | null }[] };
+    expect(state.connections.every((x) => x.identityKey === null)).toBe(true);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("greeting without a version: the name from /device.json, once", async () => {
+    const s = await setup();
+    const c = conn(s.peerKey);
+    s.swarm.emit("connection", c);
+    s.swarm.emit("connection", conn(s.peerKey));
+    for (let i = 0; i < 50 && (await behind(s)).length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(await behind(s)).toEqual(["Nils"]);
+    expect((await s.me.store.status()).updateNeeded).toBe(false);
+    expect(c.destroyed).toBe(true);
+    expect(s.me.changes.filter((x) => x.cause === "version")).toHaveLength(1);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("an older version below ours is also refused and named", async () => {
+    const s = await setup();
+    s.swarm.emit("connection", conn(s.peerKey, PEER_PROTOCOL - 1));
+    for (let i = 0; i < 50 && (await behind(s)).length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(await behind(s)).toEqual(["Nils"]);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("an unreadable name falls back to Someone", async () => {
+    const s = await setup();
+    const slow = new Promise<never>(() => {});
+    (s.peer.own[0] as unknown as { get: () => Promise<never> }).get = () => slow;
+    const c = conn(s.peerKey);
+    s.swarm.emit("connection", c);
+    await new Promise((r) => setTimeout(r, 5_300));
+    expect(await behind(s)).toEqual(["Someone"]);
+    expect(c.destroyed).toBe(true);
+    await s.me.store.close();
+    await s.peer.store.close();
+  }, 15_000);
+
+  it("a refused connection is never asked or answered", async () => {
+    const s = await setup();
+    const c = conn(s.peerKey, PEER_PROTOCOL + 1);
+    s.swarm.emit("connection", c);
+    const state = s.me.store.debugState() as { connections: { identityKey: string | null }[] };
+    expect(state.connections.map((x) => x.identityKey)).toEqual([null]);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+});

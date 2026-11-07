@@ -10,6 +10,8 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./adapters/peer-identity";
+import { openVersion } from "./adapters/peer-version";
+import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { copyAlbumEntries } from "./rotate-album";
 import { openAnswers } from "./adapters/peer-answer";
@@ -225,6 +227,11 @@ export type PhotoStoreDeps = {
   /** Exchanges identity drive keys with the peer on a swarm connection.
    * Defaults to {@link greetPeer} (a protomux channel); test fakes swap it. */
   greetPeer?: typeof greetPeer;
+  /** Exchanges peer protocol numbers on a swarm connection. Defaults to
+   * {@link openVersion}; test fakes swap it. */
+  openVersion?: typeof openVersion;
+  /** Peer protocol this device announces. Tests only: plays a newer or older peer. */
+  peerProtocol?: number;
   /** Opens the answer channel on a swarm connection. Defaults to
    * {@link openAnswers}; test fakes swap it. */
   openAnswers?: typeof openAnswers;
@@ -491,6 +498,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const log = createP2pLog(deps.log);
   /** Per-store monotonic id naming a swarm connection in log lines. */
   let connSeq = 0;
+  /** A phone on a newer Justus refused us; for this session only. */
+  let updateNeeded = false;
+  /** Names of phones on an older Justus we refused; for this session only. */
+  const peersBehind: string[] = [];
   const conns = new Map<
     number,
     {
@@ -500,6 +511,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       initiator?: boolean;
       /** The identity above is proven: its `/device.json` names this connection's noise key. */
       verified?: boolean;
+      /** Peer protocol the remote announced; unset until it does. */
+      protocol?: number;
+      /** The remote speaks another protocol: nothing but its name is read. */
+      refused?: "newer" | "older";
+      noted?: boolean;
+      destroy?: () => void;
       answers?: { send(answer: Answer): boolean };
       /** `code` of each answer already sent on this connection. */
       sent: Set<string>;
@@ -1776,6 +1793,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         peers: swarm.connections.size,
         photos: 0,
         members: [],
+        updateNeeded,
+        peersBehind: [...peersBehind],
       };
     }
     const registry = await readRegistryIn(rt.folderDrive);
@@ -1811,6 +1830,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       peers: swarm.connections.size,
       photos,
       members: memberList,
+      updateNeeded,
+      peersBehind: [...peersBehind],
     };
   }
 
@@ -1947,6 +1968,52 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return opening;
   }
 
+  /** The peer on `connId` announced peer protocol `remote`. */
+  function onPeerVersion(connId: number, remote: number) {
+    const c = conns.get(connId);
+    if (!c) return;
+    const own = deps.peerProtocol ?? PEER_PROTOCOL;
+    c.protocol = remote;
+    if (remote === own) return;
+    if (remote > own) {
+      c.refused = "newer";
+      if (!updateNeeded) {
+        updateNeeded = true;
+        deps.onChanged({ cause: "version" });
+      }
+      c.destroy?.();
+      return;
+    }
+    c.refused = "older";
+    // Its identity greeting names it; without one, give up after 5 s.
+    const timer = setTimeout(() => c.destroy?.(), 5_000);
+    timer.unref?.();
+  }
+
+  /** Records the name of a peer on an older Justus, then drops it. */
+  async function noteOlderPeer(connId: number, identity: string) {
+    const c = conns.get(connId);
+    if (!c || c.noted) return;
+    c.noted = true;
+    const name =
+      (await withTimeout(
+        openPeerOutbox(identity).then(async (drive) => {
+          // The file may not have replicated yet: wait for it.
+          for (;;) {
+            await drive.update?.();
+            if ((await getText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
+            await sleep(100);
+          }
+        }),
+        5_000,
+      ).catch(() => undefined)) ?? "Someone";
+    if (!peersBehind.includes(name)) {
+      peersBehind.push(name);
+      deps.onChanged({ cause: "version" });
+    }
+    c.destroy?.();
+  }
+
   /** A peer told us its identity drive. An Admin may have a join request
    * waiting there: tell the web layer to refresh its request inbox. */
   function onPeerIdentity(key: Uint8Array, connId?: number) {
@@ -1955,6 +2022,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const isNew = !peerIdentities.has(keyHex) && keyHex !== hex(ownDrive.key);
     log("identity.learned", { conn: connId, identity: short(keyHex), new: isNew });
     const c = connId === undefined ? undefined : conns.get(connId);
+    if (c && connId !== undefined && keyHex !== hex(ownDrive.key)) {
+      // A greeting with no version before it comes from protocol 1.
+      if (c.protocol === undefined && !c.refused) c.refused = "older";
+      if (c.refused) {
+        if (c.refused === "older") void noteOlderPeer(connId, keyHex).catch(answerErr("version"));
+        return;
+      }
+    }
     if (c) c.identityKey = keyHex;
     if (keyHex !== hex(ownDrive.key)) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
@@ -2078,7 +2153,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ? hex(conn.remotePublicKey)
         : undefined;
       const openedAt = Date.now();
-      conns.set(connId, { noiseKey, openedAt, initiator: conn.isInitiator, sent: new Set() });
+      conns.set(connId, {
+        noiseKey,
+        openedAt,
+        initiator: conn.isInitiator,
+        sent: new Set(),
+        destroy: () => conn.destroy?.(),
+      });
       log("conn.open", { conn: connId, noise: short(noiseKey), initiator: conn.isInitiator });
       conn.on("error", (e: unknown) =>
         log("conn.error", { conn: connId, noise: short(noiseKey), err: errText(e) }),
@@ -2095,6 +2176,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const peerKey = conn.remotePublicKey;
       if (peerKey && Buffer.isBuffer(peerKey)) onSwarmConnection(conn, hex(peerKey));
+      try {
+        (deps.openVersion ?? openVersion)(conn, deps.peerProtocol ?? PEER_PROTOCOL, (remote) =>
+          onPeerVersion(connId, remote),
+        );
+      } catch (e) {
+        console.error(`[justus] version channel failed: ${errMsg(e)}`);
+      }
       try {
         (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, (key) => onPeerIdentity(key, connId));
       } catch (e) {
@@ -2469,6 +2557,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** An answer arrived on connection `connId`. Only the owner named in the ask,
    * proven by {@link verifiedIdentity}, can settle it. */
   async function onAnswerMessage(connId: number, value: unknown): Promise<void> {
+    if (conns.get(connId)?.refused)
+      return log("answer.ignored", { conn: connId, reason: "version" });
     const answer = parseAnswer(value);
     if (!answer) return log("answer.ignored", { conn: connId, reason: "malformed" });
     const ask = state.asks.find((a) => a.code === answer.code);

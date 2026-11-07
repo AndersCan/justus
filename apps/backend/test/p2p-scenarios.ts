@@ -28,7 +28,11 @@ export type Peer = {
 export type Net = {
   bootstrap: unknown[];
   /** Boots a device; pass `storageDir` of a stopped peer to restart it. */
-  peer(name: string, storageDir?: string): Promise<Peer>;
+  peer(
+    name: string,
+    storageDir?: string,
+    opts?: { peerProtocol?: number; legacy?: boolean },
+  ): Promise<Peer>;
   destroy(): Promise<void>;
 };
 
@@ -444,6 +448,51 @@ export const scenarios: Scenario[] = [
         (l) => l.some((p) => p.name === "a.jpg"),
         "the photo on the joiner",
       );
+    },
+  },
+  {
+    name: "V1: peers on another version refuse each other and say who must update",
+    async run(net, t) {
+      // A phone from before the version channel: it greets, but sends no version.
+      const behind = await net.peer("Behind", undefined, { legacy: true });
+      const current = await net.peer("Current");
+      const created = await behind.store.createFolder("Shared");
+      if (created[0]) throw created[0];
+      const { id: folderId, shareKey } = created[1].folder;
+      t.noErr(await behind.store.addBytes("a.jpg", new Uint8Array([211, 2, 3]), folderId), "add");
+      current.store.join(shareKey, "Shared").catch(() => {});
+      const ahead = await eventually(
+        () => current.store.status(),
+        (st) => st.peersBehind.length > 0,
+        "peersBehind on the current peer",
+      );
+      t.eq(ahead.peersBehind, ["Behind"], "the current peer names the older one");
+      t.ok(
+        current.changes.some((c) => c.cause === "version"),
+        "the current peer was pushed a version change",
+      );
+    },
+  },
+  {
+    name: "V1b: a peer on a newer version is refused and flagged",
+    async run(net, t) {
+      const ahead = await net.peer("Ahead", undefined, { peerProtocol: 3 });
+      const current = await net.peer("Current");
+      const created = await ahead.store.createFolder("Shared");
+      if (created[0]) throw created[0];
+      t.noErr(
+        await ahead.store.addBytes("a.jpg", new Uint8Array([211, 2, 3]), created[1].folder.id),
+        "add",
+      );
+      current.store.join(created[1].folder.shareKey, "Shared").catch(() => {});
+      const status = await eventually(
+        () => current.store.status(),
+        (st) => st.updateNeeded,
+        "updateNeeded on the current peer",
+      );
+      t.ok(status.updateNeeded, "the current peer is told to update");
+      await new Promise((r) => setTimeout(r, 3_000));
+      t.eq((await current.store.list({ all: true })).length, 0, "the photo never reaches it");
     },
   },
 ];
