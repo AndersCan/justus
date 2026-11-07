@@ -202,8 +202,8 @@ if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
   {
-    "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'cat cache/bare/*.log 2>/dev/null || true'" 2>/dev/null \
-      && "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'ls -la cache/bare/ 2>/dev/null || true'" 2>/dev/null
+    "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'" 2>/dev/null \
+      && "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'ls -la files/bare/ 2>/dev/null || true'" 2>/dev/null
   } >"$worklet_file" 2>/dev/null || true
 
   echo
@@ -214,6 +214,37 @@ if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; 
   echo
   exit 1
 fi
+
+# ----------------------------------------------------------------------------
+# 5b. Albums survive "Clear cache", and an old cache-folder install is moved
+# ----------------------------------------------------------------------------
+APP=no.cankode.justus
+SURVIVE="$MAESTRO_DIR/survive/albums-survive.yaml"
+run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
+survive_fail() {
+  echo "✗ Survive check FAILED: $1"
+  mkdir -p "$OUT_DIR"
+  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$OUT_DIR/logcat-JUSTUS_ANDROID.txt" 2>/dev/null || true
+  {
+    run_as 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'
+    run_as 'ls -la files/bare/ cache/ 2>/dev/null || true'
+  } >"$OUT_DIR/worklet-logs.txt" 2>/dev/null || true
+  exit 1
+}
+
+echo
+echo "▶ Survive check: clear cache, reopen..."
+"$ADB" -s "$SERIAL" shell am force-stop "$APP"
+run_as 'rm -rf cache/*' || survive_fail "could not clear cache"
+run_as 'test -d files/bare/corestore' || survive_fail "store is not in app storage (files/bare)"
+maestro --device "$SERIAL" test "$SURVIVE" || survive_fail "albums gone after clearing cache"
+
+echo "▶ Survive check: old install (store in cache folder) is moved..."
+"$ADB" -s "$SERIAL" shell am force-stop "$APP"
+run_as 'rm -rf cache/bare && mv files/bare cache/bare' || survive_fail "could not recreate the old layout"
+maestro --device "$SERIAL" test "$SURVIVE" || survive_fail "albums gone after upgrade from cache folder"
+run_as 'test -d files/bare/corestore && ! test -e cache/bare' || survive_fail "store was not moved to files/bare"
+echo "✓ Albums survive cache clearing and the upgrade move."
 
 # ----------------------------------------------------------------------------
 # 6. Success

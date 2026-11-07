@@ -43,3 +43,10 @@ out even though the text is on screen.
 - `Require unlock to open Justus`: the Settings switch (page-unique). Tapping it opens the system credential prompt.
 - `Justus is locked`, `Unlock`: the native lock screen. While it shows, the WebView is invisible, so no web text (`Settings`, the switch) is in the accessibility tree.
 - Toasts: `App lock is on`, `App lock is off`.
+
+## Survive flow
+
+`survive/albums-survive.yaml` is not in `flows/`: `scripts/maestro-e2e.sh` runs it after the
+suite, twice, without clearing state. First after wiping the app's cache dir (as Settings →
+Clear cache does), then after moving `files/bare` back to `cache/bare` (an install from before
+albums moved to app storage). Both times album "M" from `first-run.yaml` must still open.

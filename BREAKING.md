@@ -13,6 +13,9 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 - **Delete and leave.** Albums can be deleted for everyone and members can leave; phones on
   an older Justus no longer sync with this one. Who: mixed-version groups. Do: everyone
   updates.
+- **Android app data moves** out of the cache folder into app storage on first start.
+  Who: anyone who installs an older Justus over this one (only possible with
+  `adb install -d`); it starts with no albums. Do: update again; the albums come back.
 - **Invite links carry an end time** (`e=`). Who: testers on internal builds. An app
   from before this change ignores it, and links made before it never expire.
 - **Album keys.** Every album you started moves to a new key on first start; its

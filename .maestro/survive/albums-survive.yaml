@@ -1,0 +1,19 @@
+appId: no.cankode.justus
+---
+# Run by scripts/maestro-e2e.sh after the main suite, with no clearState: the data from
+# first-run.yaml (album "M") must still be there after the cache was cleared or an old
+# install was moved.
+- launchApp
+- extendedWaitUntil:
+    visible: "Albums"
+    timeout: 60000
+- assertNotVisible: "Welcome"
+- tapOn:
+    text: "Albums"
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "M"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Add photos to M"
+    timeout: 20000
