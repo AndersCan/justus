@@ -2,12 +2,12 @@ package io.justus.app
 
 import android.annotation.SuppressLint
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.OpenableColumns
 import android.view.View
 import android.util.Log
 import android.webkit.WebSettings
