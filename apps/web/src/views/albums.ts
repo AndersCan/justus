@@ -58,7 +58,7 @@ function followRouteAlbum() {
   const page = currentPage();
   const id = page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
   const { activeId, folders: list } = foldersActor.snapshot().context;
-  if (!id || id === activeId || folders.state() !== "ok") return;
+  if (!id || id === activeId || !foldersViewModel(foldersActor.snapshot()).settled) return;
   if (list.some((f) => f.id === id)) folders.switchTo(id);
 }
 onStateChange(foldersActor, FOLDERS_STATES, followRouteAlbum);
@@ -194,7 +194,7 @@ function newAlbumSection(view: FoldersViewModel) {
           aria-label="Album name"
           maxlength="60"
         />
-        <button class="ui-btn-primary" type="submit" ?disabled=${busy || view.state !== "ok"}>
+        <button class="ui-btn-primary" type="submit" ?disabled=${busy || !view.settled}>
           ${busy ? "Creating…" : "Create album"}
         </button>
       </form>

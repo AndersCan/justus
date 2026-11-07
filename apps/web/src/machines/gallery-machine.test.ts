@@ -281,8 +281,69 @@ describe("gallery factory", () => {
     await ready(h);
     h.send("REMOVE", { id: "p1", folderId: "f1" });
     await vi.waitFor(() => expect(h.ctx().error).toBe("not allowed"));
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("couldNotRemovePhoto");
     expect(h.ctx().photos).toHaveLength(1);
+  });
+
+  describe("from couldNotRemovePhoto", () => {
+    const failed = async () => {
+      const h = build({
+        list: async () => [null, { photos: [photo("p1")] }],
+        remove: async () => [new Error("not allowed"), null],
+      });
+      await ready(h);
+      h.send("REMOVE", { id: "p1", folderId: "f1" });
+      await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
+      return h;
+    };
+
+    test("the view model is settled and not busy", async () => {
+      const h = await failed();
+      expect(galleryViewModel(h.actor.snapshot(), null)).toMatchObject({
+        settled: true,
+        busy: false,
+        error: "not allowed",
+      });
+    });
+
+    test.each([
+      ["LOAD", undefined, "loading"],
+      ["ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" }, "adding"],
+      ["REMOVE", { id: "p1", folderId: "f1" }, "removing"],
+    ] as const)("%s enters the same state as from ready", async (type, payload, next) => {
+      const h = await failed();
+      h.send(type, payload);
+      expect(h.stateOf()).toBe(next);
+    });
+
+    test("RETRY_FAILED re-adds the photos that failed", async () => {
+      const h = build({
+        list: async () => [null, { photos: [photo("p1")] }],
+        add: async () => [new Error("disk full"), null],
+        remove: async () => [new Error("not allowed"), null],
+      });
+      await ready(h);
+      h.send("ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" });
+      await finished(h);
+      h.send("REMOVE", { id: "p1", folderId: "f1" });
+      await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
+      h.send("RETRY_FAILED");
+      expect(h.stateOf()).toBe("adding");
+    });
+
+    test("DISMISS_BATCH closes the add summary and stays", async () => {
+      const h = await failed();
+      h.send("DISMISS_BATCH");
+      expect(h.stateOf()).toBe("couldNotRemovePhoto");
+      expect(h.ctx().batch).toBeNull();
+    });
+  });
+
+  test("settled is true only in ready and couldNotRemovePhoto", async () => {
+    const h = build();
+    expect(galleryViewModel(h.actor.snapshot(), null).settled).toBe(false);
+    await ready(h);
+    expect(galleryViewModel(h.actor.snapshot(), null).settled).toBe(true);
   });
 
   test("a load failure shows the error, and Try again recovers", async () => {
@@ -366,6 +427,7 @@ describe("gallery last synced and view model", () => {
     expect(galleryViewModel(h.actor.snapshot(), null)).toEqual({
       state: "booting",
       busy: false,
+      settled: false,
       error: null,
       fatal: false,
       photos: [],

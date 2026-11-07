@@ -18,6 +18,9 @@ export const FOLDERS_STATES = [
   "switching",
   "renaming",
   "error",
+  "couldNotCreateAlbum",
+  "couldNotOpenAlbum",
+  "couldNotSaveName",
 ] as const;
 export type FoldersStateName = (typeof FOLDERS_STATES)[number];
 
@@ -35,6 +38,12 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
     activeFolderId: s.context.activeId,
     state,
     busy: state === "creating" || state === "switching" || state === "renaming",
+    /** The albums are listed and nothing is in flight: fine, or the last action failed. */
+    settled:
+      state === "ok" ||
+      state === "couldNotCreateAlbum" ||
+      state === "couldNotOpenAlbum" ||
+      state === "couldNotSaveName",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -54,6 +63,13 @@ const switching = state("switching")();
 const renaming = state("renaming")();
 /** The albums could not be loaded; the person can try again. */
 const error = state("error")();
+
+/** The album was not created; the album list shows why. */
+const couldNotCreateAlbum = state("couldNotCreateAlbum")();
+/** The other album did not open; the current one stays and the person sees why. */
+const couldNotOpenAlbum = state("couldNotOpenAlbum")();
+/** The new name was not saved; the old name stays and the person sees why. */
+const couldNotSaveName = state("couldNotSaveName")();
 
 /** The app asks for the latest list of albums. */
 const refresh = event("REFRESH")();
@@ -106,6 +122,9 @@ type FoldersContext = {
 };
 type FoldersPort = Pick<typeof gateway, "folders" | "createFolder" | "setActive" | "setName">;
 
+/** The states where the album list is shown and the person can act on it. */
+const settledStates = [ok, couldNotCreateAlbum, couldNotOpenAlbum, couldNotSaveName] as const;
+
 const noPending = { pendingCreate: null, pendingActive: null, pendingName: null };
 
 /** Album calls run through `gateway` and the clock is injected, so tests and the flow inspector can drive them. */
@@ -124,7 +143,18 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       renameFailed,
     ],
     outputs: [switchedTo, renamed],
-    states: [idle, refreshing, ok, creating, switching, renaming, error],
+    states: [
+      idle,
+      refreshing,
+      ok,
+      creating,
+      switching,
+      renaming,
+      error,
+      couldNotCreateAlbum,
+      couldNotOpenAlbum,
+      couldNotSaveName,
+    ],
     initial: idle,
     clock: options.clock,
     context: {
@@ -153,15 +183,17 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
           return { state: refreshing };
         },
       });
-      /** Refreshing the albums starts a reload and clears any error. */
-      m.on(ok, {
-        event: refresh,
-        to: [refreshing],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
-        },
-      });
+      for (const at of settledStates) {
+        /** Refreshing the albums starts a reload and clears any error. */
+        m.on(at, {
+          event: refresh,
+          to: [refreshing],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: refreshing };
+          },
+        });
+      }
       /** After an error, refreshing starts a reload and clears the error. */
       m.on(error, {
         event: refresh,
@@ -240,20 +272,22 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
         },
       });
 
-      /** The person starts creating an album; the screen shows it is busy. */
-      m.on(ok, {
-        event: createFolder,
-        to: [creating],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            ...noPending,
-            error: null,
-            pendingCreate: e.payload.name,
-          });
-          return { state: creating };
-        },
-      });
+      for (const at of settledStates) {
+        /** The person starts creating an album; the screen shows it is busy. */
+        m.on(at, {
+          event: createFolder,
+          to: [creating],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              error: null,
+              pendingCreate: e.payload.name,
+            });
+            return { state: creating };
+          },
+        });
+      }
       /** The new album is created. */
       m.effect(creating, {
         name: "creating",
@@ -294,27 +328,29 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       /** Creating failed: the list is unchanged and the person sees why. */
       m.on(creating, {
         event: createFailed,
-        to: [ok],
+        to: [couldNotCreateAlbum],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: ok };
+          return { state: couldNotCreateAlbum };
         },
       });
 
-      /** The person picks another album; the screen shows it is busy. */
-      m.on(ok, {
-        event: setActive,
-        to: [switching],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            ...noPending,
-            error: null,
-            pendingActive: e.payload.folderId,
-          });
-          return { state: switching };
-        },
-      });
+      for (const at of settledStates) {
+        /** The person picks another album; the screen shows it is busy. */
+        m.on(at, {
+          event: setActive,
+          to: [switching],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              error: null,
+              pendingActive: e.payload.folderId,
+            });
+            return { state: switching };
+          },
+        });
+      }
       /** The chosen album is opened. */
       m.effect(switching, {
         name: "switching",
@@ -353,27 +389,29 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       /** Opening the album failed: the previous album stays open and the person sees why. */
       m.on(switching, {
         event: switchFailed,
-        to: [ok],
+        to: [couldNotOpenAlbum],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: ok };
+          return { state: couldNotOpenAlbum };
         },
       });
 
-      /** The person starts changing their name; the screen shows it is busy. */
-      m.on(ok, {
-        event: setName,
-        to: [renaming],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            ...noPending,
-            error: null,
-            pendingName: e.payload.name,
-          });
-          return { state: renaming };
-        },
-      });
+      for (const at of settledStates) {
+        /** The person starts changing their name; the screen shows it is busy. */
+        m.on(at, {
+          event: setName,
+          to: [renaming],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              error: null,
+              pendingName: e.payload.name,
+            });
+            return { state: renaming };
+          },
+        });
+      }
       /** The new name is saved. */
       m.effect(renaming, {
         name: "renaming",
@@ -414,10 +452,10 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       /** Saving the name failed: the old name stays and the person sees why. */
       m.on(renaming, {
         event: renameFailed,
-        to: [ok],
+        to: [couldNotSaveName],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: ok };
+          return { state: couldNotSaveName };
         },
       });
     },

@@ -497,7 +497,7 @@ function addButton(page: PhotosPage, album: FolderSummary) {
   const running = page.batch?.running ?? false;
   return html`<button
     class="ui-btn-primary min-w-0 max-w-full"
-    ?disabled=${page.busy || page.state !== "ready" || running}
+    ?disabled=${page.busy || !page.settled || running}
     @click=${() => void startAdd(album.id)}
   >
     <span class="block truncate">
@@ -517,7 +517,7 @@ function cameraButton(page: PhotosPage, album: FolderSummary) {
     class="ui-btn-ghost inline-flex shrink-0 items-center"
     aria-label="Take a photo for ${album.name}"
     title="Take a photo for ${album.name}"
-    ?disabled=${page.busy || page.state !== "ready" || (page.batch?.running ?? false)}
+    ?disabled=${page.busy || !page.settled || (page.batch?.running ?? false)}
     @click=${() => void startAdd(album.id, "camera")}
   >
     <svg
