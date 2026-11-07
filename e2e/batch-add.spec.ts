@@ -75,5 +75,5 @@ test("dropping photos onto an album adds them there without asking", async ({ pa
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(`Added a photo to ${name}`)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("figure img")).toHaveCount(before + 1, { timeout: 20_000 });
-  await expect(page.getByText(/^Drop to add/)).toHaveCount(0);
+  await expect(page.getByText(/^Drop to add/)).toBeHidden();
 });
