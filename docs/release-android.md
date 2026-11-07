@@ -108,7 +108,9 @@ every release build waits for a click.
    generated, not committed: `fastlane screenshots` (emulator attached) runs
    `ListingScreenshots` and writes `images/phoneScreenshots/1_album.png`,
    `2_photo.png` and `3_desktop.png` (gitignored). Every release takes and
-   uploads them.
+   uploads them. The landing page shows copies of `1_album.png` and
+   `2_photo.png` in `docs/site/src/assets/landing/`. Re-copy them from a
+   `store-screenshots` artifact when the app's look changes.
 
 ### A6. First upload (manual, required once)
 
