@@ -39,6 +39,9 @@ layer, Host, Actor). Use those terms exactly.
 - **All app state is a mantaq actor.** Each actor's change handler writes
   module-scope nanostore atoms; views read computed view-models through
   `useStore`. Never `.get()` an atom inside a template (no re-render).
+  Exception: the album photo grid (`albumPhotos` in `views/gallery.ts`) reads
+  `galleryActor` with `watch` from `@mantaq/lit`; tiles and groups are keyed
+  (`photoKey`, group label).
 - **No server, ever.** Nothing in the architecture may route photos or metadata
   through a service we operate. Privacy must stay legible in the UI.
 - **New feature flows: machines + `pnpm flows:dev` first**, then implementation. See

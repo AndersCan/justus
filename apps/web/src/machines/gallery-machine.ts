@@ -74,6 +74,11 @@ export function samePhoto(
   return a.id === b.id && a.folderId === b.folderId;
 }
 
+/** Identity of a photo across syncs: every sync brings new Photo objects. */
+export function photoKey(photo: { id: string; folderId?: string }): string {
+  return `${photo.folderId ?? ""}/${photo.id}`;
+}
+
 /** The app has just started and no photos are loaded. */
 const booting = state("booting")();
 /** The photo list is loading. */
@@ -492,6 +497,8 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
     },
   });
 }
+
+export type GalleryActor = ReturnType<typeof createGalleryActor>;
 
 export const galleryActor = createGalleryActor({ clock: RealClock() });
 

@@ -12,12 +12,14 @@ allowBuilds:
 catalog:
   "@mantaq/core": ^0.6.0
   "@mantaq/inspect": ^0.6.0
+  "@mantaq/lit": ^0.1.0
   "@mantaq/sugar": ^2.0.5
   "@mantaq/viz": ^0.5.0
   "@mantaq/utils": ^0.0.5
   astro: ^7.4.4
   "@playwright/test": ^1.62.1
   "@types/node": ^24
+  happy-dom: ^21.0.4
   hyperdht: 6.33.1
   qrcode-generator: 2.0.4
   typescript: ^7.0.2
@@ -47,4 +49,5 @@ minimumReleaseAgeExclude:
   - "@mantaq/traversal@0.3.1 || 0.3.3 || 0.3.4 || 0.3.5"
   - "@mantaq/viz@0.2.0 || 0.2.3 || 0.3.0 || 0.4.0 || 0.5.0"
   - "@mantaq/utils@0.0.4 || 0.0.5"
+  - "@mantaq/lit@0.1.0"
   - "@mantaq/pbt@0.0.4"

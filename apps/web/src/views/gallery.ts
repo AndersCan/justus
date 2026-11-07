@@ -1,4 +1,6 @@
 import { html } from "lit-html";
+import { repeat } from "lit-html/directives/repeat.js";
+import { watch } from "@mantaq/lit";
 import { createRef, ref } from "lit-html/directives/ref.js";
 import { atom, computed } from "nanostores";
 import type { FolderSummary, Photo, SyncStatus } from "@justus/core";
@@ -9,7 +11,10 @@ import {
   $galleryViewModel,
   $lastSyncAt,
   gallery,
+  galleryActor,
+  photoKey,
   sourceName,
+  type GalleryActor,
   type AddBatch,
   type AddSource,
 } from "../machines/gallery-machine";
@@ -294,6 +299,7 @@ async function confirmRemove(photo: Photo) {
 function photoTile(photo: Photo, within: Photo[]) {
   return html`
     <figure
+      data-photo-key=${photoKey(photo)}
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       style="view-transition-name: ${vtName(photo)}"
       role="button"
@@ -381,7 +387,9 @@ function sortControl(sort: PhotoSort) {
  * or by date taken (months). */
 function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
   const ordered = sortPhotos(photos, sort);
-  return groupPhotos(ordered, sort).map(
+  return repeat(
+    groupPhotos(ordered, sort),
+    (group) => group.label,
     (group) => html`
       <div class="mt-6 first:mt-0">
         <h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg">
@@ -389,11 +397,34 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
           <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
         <div class="grid ${gridColsFor(density)} gap-0.5 overflow-hidden rounded-xl">
-          ${group.photos.map((p) => photoTile(p, ordered))}
+          ${repeat(group.photos, photoKey, (p) => photoTile(p, ordered))}
         </div>
       </div>
     `,
   );
+}
+
+/** The album's photos, read straight from the actor so tiles keep their
+ * elements (and loaded images) when photos arrive or leave. */
+export function albumPhotos(
+  actor: GalleryActor,
+  view: { album: FolderSummary; sort: PhotoSort; density: Density; empty: () => unknown },
+) {
+  return watch(actor, (s) => {
+    const photos = photosInScope(s.context.photos, { kind: "album", id: view.album.id });
+    return html`<div class="space-y-5" data-album-photos>
+      ${
+        photos.length === 0
+          ? view.empty()
+          : html`
+              ${sortControl(view.sort)} ${photoTimeline(photos, view.sort, view.density)}
+              <footer class="pt-6 text-center text-xs text-muted">
+                ${photos.length} photo${photos.length === 1 ? "" : "s"}
+              </footer>
+            `
+      }
+    </div>`;
+  });
 }
 
 function presenceStrip(status: SyncStatus, lastSync: number | null) {
@@ -748,14 +779,21 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
           ? loadingGrid()
           : scope.kind === "album" && !album
             ? null
-            : photos.length === 0
-              ? scopeEmptyState(page, scope, album)
-              : html`
-                  ${sortControl(page.sort)} ${photoTimeline(photos, page.sort, page.density)}
-                  <footer class="pt-6 text-center text-xs text-muted">
-                    ${photos.length} photo${photos.length === 1 ? "" : "s"}
-                  </footer>
-                `
+            : scope.kind === "album" && album
+              ? albumPhotos(galleryActor, {
+                  album,
+                  sort: page.sort,
+                  density: page.density,
+                  empty: () => scopeEmptyState(page, scope, album),
+                })
+              : photos.length === 0
+                ? scopeEmptyState(page, scope, album)
+                : html`
+                    ${sortControl(page.sort)} ${photoTimeline(photos, page.sort, page.density)}
+                    <footer class="pt-6 text-center text-xs text-muted">
+                      ${photos.length} photo${photos.length === 1 ? "" : "s"}
+                    </footer>
+                  `
       }
     </div>
   `;
@@ -763,7 +801,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
 
 /** The Photos page for one scope: every photo, only yours, or one album. */
 export function galleryView(scope: PhotoScope) {
-  return useStore($photosPage, (page) => photosBody(page, scope), true);
+  return useStore($photosPage, (page) => photosBody(page, scope), scope.kind !== "album");
 }
 
 function albumCard(card: AlbumCard, waiting: number) {
