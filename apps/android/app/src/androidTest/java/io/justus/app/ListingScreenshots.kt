@@ -126,7 +126,7 @@ class ListingScreenshots {
       opened = device.wait(Until.hasObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000)
       Thread.sleep(1000)
     }
-    device.wait(Until.hasObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000)
+    if (!opened) fail("invite page did not open", "Copy link")
     var tries = 0
     while (device.findObject(By.text(Pattern.compile("Copy (invite )?link"))) == null && tries++ < 6) {
       device.swipe(540, 1600, 540, 600, 20)
