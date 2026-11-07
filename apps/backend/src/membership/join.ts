@@ -288,3 +288,29 @@ export function pendingJoinRequests(
     })
     .map((f) => f.request);
 }
+
+/** Add the requester to the registry. The name comes from the requester's own
+ * request, else a neutral label. The input registry is not changed. */
+export async function acceptJoinRequest(
+  folderDrive: Drive,
+  options: { registry: RegistryFile; requesterKey: string; requests: JoinRequest[] },
+): Promise<JoinResult<{ registry: RegistryFile; member: RegistryFile["members"][string] }>> {
+  const { registry, requesterKey, requests } = options;
+  if (registry.members[requesterKey]) {
+    return [{ kind: "already-enrolled", message: "Member already enrolled" }, null];
+  }
+  const name = requests.find((r) => r.requesterKey === requesterKey)?.requesterName ?? "New member";
+  const next: RegistryFile = {
+    ...registry,
+    members: {
+      ...registry.members,
+      [requesterKey]: { key: requesterKey, name, addedAt: Date.now() },
+    },
+  };
+  try {
+    await folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(next)));
+  } catch (e) {
+    return [{ kind: "write-failed", message: errText(e) }, null];
+  }
+  return [null, { registry: next, member: next.members[requesterKey] }];
+}
