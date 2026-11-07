@@ -629,14 +629,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Reads a small text record, or null when missing, unreadable, or larger
    * than {@link MAX_PEER_JSON_BYTES}. The size is checked on the entry before
    * the blob downloads, and again on the bytes (drives without `entry`). */
-  async function getText(drive: Drive, drivePath: string): Promise<string | null> {
+  async function getText(
+    drive: Drive,
+    drivePath: string,
+    opts?: { timeout: number },
+  ): Promise<string | null> {
     try {
       if (typeof drive.entry === "function") {
-        const node = await drive.entry(drivePath, PEER_READ);
+        const node = await (opts ? drive.entry(drivePath, opts) : drive.entry(drivePath));
         const size = node?.value?.blob?.byteLength;
         if (typeof size === "number" && size > MAX_PEER_JSON_BYTES) return null;
       }
-      const value = await drive.get(drivePath, PEER_READ);
+      const value = await (opts ? drive.get(drivePath, opts) : drive.get(drivePath));
       if (value === null || value === undefined) return null;
       if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
       // Not `new TextDecoder()`: Bare has no global TextDecoder, so it threw
@@ -1809,7 +1813,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         );
         return { peerKeyHex, found: [], invited: new Set() };
       }
-      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS);
+      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS, PEER_READ);
       if (text === null) return { peerKeyHex, found: [], invited: new Set() };
       const found = parseJoinRequests(text, {
         shareKey,
