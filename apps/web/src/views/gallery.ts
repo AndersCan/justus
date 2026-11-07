@@ -557,13 +557,22 @@ function albumAddRow(page: PhotosPage, album: FolderSummary) {
   </div>`;
 }
 
+/** The strip's motion key while it shows, so the page can slide around it. */
+function batchKeys(batch: AddBatch | null): string[] {
+  return batch?.running ? ["batch:adding"] : [];
+}
+
 /** Progress of an add batch, then its failures (with Retry) if any. */
 function batchStrip(batch: AddBatch | null) {
   if (!batch) return null;
   const album = albumName(batch.folderId);
   if (batch.running) {
     const shown = Math.min(batch.done + 1, batch.total);
-    return html`<div class="rounded-2xl bg-surface p-4 ring-1 ring-line" role="status">
+    return html`<div
+      class="rounded-2xl bg-surface p-4 ring-1 ring-line"
+      role="status"
+      data-motion-key="batch:adding"
+    >
       <p class="text-sm text-fg">
         Adding ${batch.total === 1 ? "a photo" : `${shown} of ${batch.total}`} to
         <span class="font-medium">${album}</span>…
@@ -707,7 +716,7 @@ function albumHeader(page: PhotosPage, album: FolderSummary) {
   const waiting =
     album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id).length : 0;
   return html`
-    <div class="space-y-2">
+    <div class="space-y-2" data-motion-key="section:album">
       <a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg">${album.name}</h2>
@@ -749,9 +758,21 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   const loading =
     (state === "loadingPhotos" || state === "photosNotLoaded") && page.photos.length === 0;
   const drop = dropHandlers(scope);
+  const scopeKey = scope.kind === "album" ? `album:${scope.id}` : scope.kind;
+  const photos = loading
+    ? loadingGrid()
+    : scope.kind === "album" && !album
+      ? null
+      : scopePhotos(galleryActor, {
+          scope,
+          sort: page.sort,
+          density: page.density,
+          empty: () => scopeEmptyState(page, scope, album),
+        });
   return html`
     <div
       class="space-y-5"
+      ${gridMotion({ keys: batchKeys(page.batch), settle: scopeKey })}
       @dragenter=${drop.enter}
       @dragover=${drop.over}
       @dragleave=${drop.leave}
@@ -772,18 +793,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
         state === "couldNotLoadPhotos" && !fatal ? () => gallery.retry() : undefined,
         fatal ? () => window.location.reload() : undefined,
       )}
-      ${
-        loading
-          ? loadingGrid()
-          : scope.kind === "album" && !album
-            ? null
-            : scopePhotos(galleryActor, {
-                scope,
-                sort: page.sort,
-                density: page.density,
-                empty: () => scopeEmptyState(page, scope, album),
-              })
-      }
+      ${photos === null ? null : html`<div data-motion-key="section:photos">${photos}</div>`}
     </div>
   `;
 }
