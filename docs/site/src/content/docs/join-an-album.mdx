@@ -28,7 +28,7 @@ Albums joined by key before invite links existed show "Waiting for approval" unt
 | The Admin's answer could not be sent; no message is shown | `requests.couldNotSendAnswer`                               |
 | The Admin could not add the person                        | `sync.couldNotAddMember`                                    |
 
-**Not decided yet.** Can a declined person ask again? The joiner's screen says no; the Admin's design (not in the app yet) lets a new request in.
+**Asking again.** A declined person can ask again. The Admin stops this by turning off the invite link or letting it expire. Until that follow-up ships, Ana's screen still says otherwise.
 
 <Machine src="apps/web/src/machines/sharing/join-request-machine.ts" />
 
