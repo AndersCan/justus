@@ -40,6 +40,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/android
       - name: Install Android SDK platform + NDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
@@ -76,4 +81,23 @@ jobs:
         with:
           name: maestro-out
           path: .maestro/out
+          retention-days: 14
+      # Spike: Play listing screenshots through screengrab. Moves to release-android.yml.
+      - name: Store screenshots
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -wipe-data
+          working-directory: apps/android
+          script: bundle exec fastlane screenshots serial:emulator-5554 || { adb logcat -d -s ListingShots TestRunner AndroidRuntime; exit 1; }
+      - name: Upload store screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: store-screenshots
+          path: apps/android/fastlane/metadata/android/en-US/images/phoneScreenshots/*.png
           retention-days: 14
