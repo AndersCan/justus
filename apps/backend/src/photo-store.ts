@@ -49,7 +49,6 @@ import {
   type FriendMessage,
   type Answer,
   parseDeviceName,
-  parseDeviceIdentity,
   parseDeviceSwarmKey,
   parseFolderName,
   parseRemoved,
@@ -59,6 +58,16 @@ import {
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
+import {
+  createPresence,
+  learnDevices,
+  memberPresence,
+  parseLastSeen,
+  peerConnected,
+  peerDisconnected,
+  serializeLastSeen,
+  type DeviceSource,
+} from "./presence/presence";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 import { holdOffer, mayShowOfferFrom, OFFER_REACH_MS, OFFER_RESEND_MS } from "./membership/offers";
 
@@ -705,19 +714,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   // --- Presence: which members this device can reach right now. -----------
   const PRESENCE_FILE = path.join(deps.storageDir, "presence.json");
-  /** Live swarm connections per remote noise key (a peer can hold several). */
-  const connectedSwarmKeys = new Map<string, number>();
-  /** Member drive key → that member's swarm key, learned from their `/device.json`. */
-  const memberSwarmKey = new Map<string, string>();
-  /** Member drive key → that member's identity drive key, learned from their `/device.json`. */
-  const memberIdentity = new Map<string, string>();
-  const lastSeen = new Map<string, number>(loadLastSeen());
+  const presence = createPresence({ lastSeen: readLastSeenFile() });
 
-  function loadLastSeen(): [string, number][] {
+  function readLastSeenFile(): [string, number][] {
     try {
-      const parsed = JSON.parse(fs.readFileSync(PRESENCE_FILE, "utf8"));
-      if (!isTextJSON(parsed)) return [];
-      return Object.entries(parsed).filter((e): e is [string, number] => typeof e[1] === "number");
+      return parseLastSeen(fs.readFileSync(PRESENCE_FILE, "utf8"));
     } catch {
       return [];
     }
@@ -725,20 +726,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function saveLastSeen() {
     try {
-      fs.writeFileSync(PRESENCE_FILE, JSON.stringify(Object.fromEntries(lastSeen)));
+      fs.writeFileSync(PRESENCE_FILE, serializeLastSeen(presence));
     } catch (e) {
       console.error(`[justus] failed to persist presence: ${errMsg(e)}`);
     }
-  }
-
-  function memberKeyForSwarmKey(swarmKeyHex: string): string | undefined {
-    for (const [member, sk] of memberSwarmKey) if (sk === swarmKeyHex) return member;
-    return undefined;
-  }
-
-  function isMemberConnected(memberKey: string): boolean {
-    const sk = memberSwarmKey.get(memberKey);
-    return sk !== undefined && (connectedSwarmKeys.get(sk) ?? 0) > 0;
   }
 
   /** Tell the web layer presence changed; it refreshes status only. */
@@ -747,44 +738,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (rt) deps.onChanged({ cause: "presence", folderId: rt.record.id });
   }
 
-  /** Read a member's `/device.json` for its swarm key, bounded so an
-   * unreachable member never stalls the caller. Re-read every time: the swarm
-   * key changes on every boot, so a cached one goes stale when the member
-   * restarts. Returns true when the key is new or changed. */
-  async function learnSwarmKey(memberKey: string, drive: Drive): Promise<boolean> {
-    const text = await Promise.race([
-      readText(drive, DRIVE_PATH_DEVICE),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
-    ]);
-    if (!text) return false;
-    let changed = false;
-    const identity = parseDeviceIdentity(text);
-    if (identity !== undefined && memberIdentity.get(memberKey) !== identity) {
-      memberIdentity.set(memberKey, identity);
-      changed = true;
-    }
-    const swarmKey = parseDeviceSwarmKey(text);
-    if (swarmKey === undefined) return changed;
-    const prev = memberSwarmKey.get(memberKey);
-    if (prev === swarmKey) return changed;
-    memberSwarmKey.set(memberKey, swarmKey);
-    log(prev && prev !== swarmKey ? "swarmkey.changed" : "swarmkey.learned", {
-      member: short(memberKey),
-      swarmkey: short(swarmKey),
-      from: short(prev),
-    });
-    return true;
-  }
-
-  /** Learn swarm keys for every member of every folder we hold. */
+  /** Learn peer keys for every member of every folder we hold. */
   async function resolveSwarmKeys(): Promise<boolean> {
     let learned = false;
     for (const rt of runtimes.values()) {
-      const jobs: Promise<boolean>[] = [];
-      for (const [key, drive] of rt.memberDrives) jobs.push(learnSwarmKey(key, drive));
+      const sources: DeviceSource[] = [...rt.memberDrives].map(([memberKey, drive]) => ({
+        memberKey,
+        drive,
+      }));
       if (rt.record.role !== "creator")
-        jobs.push(learnSwarmKey(rt.record.shareKey, rt.folderDrive));
-      learned = (await Promise.all(jobs)).some(Boolean) || learned;
+        sources.push({ memberKey: rt.record.shareKey, drive: rt.folderDrive });
+      learned = (await learnDevices(presence, { sources, timeoutMs: 1500, log })) || learned;
     }
     return learned;
   }
@@ -824,39 +788,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
-  function onPeerUp(swarmKeyHex: string) {
-    const now = (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1;
-    connectedSwarmKeys.set(swarmKeyHex, now);
-    if (now === 1) {
-      log("presence.change", {
-        swarmkey: short(swarmKeyHex),
-        member: short(memberKeyForSwarmKey(swarmKeyHex)),
-        state: "up",
-        conns: now,
-      });
-    }
+  function onPeerUp(peerKey: string) {
+    peerConnected(presence, { peerKey, log });
     announcePresence();
     refreshPresence();
   }
 
-  function onPeerDown(swarmKeyHex: string) {
-    const left = (connectedSwarmKeys.get(swarmKeyHex) ?? 1) - 1;
-    if (left > 0) {
-      connectedSwarmKeys.set(swarmKeyHex, left);
-      return;
-    }
-    connectedSwarmKeys.delete(swarmKeyHex);
-    const member = memberKeyForSwarmKey(swarmKeyHex);
-    log("presence.change", {
-      swarmkey: short(swarmKeyHex),
-      member: short(member),
-      state: "down",
-      conns: 0,
-    });
-    if (member) {
-      lastSeen.set(member, Date.now());
-      saveLastSeen();
-    }
+  function onPeerDown(peerKey: string) {
+    const down = peerDisconnected(presence, { peerKey, now: Date.now(), log });
+    if (down === "still-connected") return;
+    if (down === "member-down") saveLastSeen();
     announcePresence();
   }
 
@@ -1645,19 +1586,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // may appear in `registry.members`, but must not be double-counted.
     const isAdmin = rt.record.role === "creator";
     const adminKey = rt.record.shareKey;
-    const peer = (key: string, name: string, admin: boolean): SyncMember => {
-      const connected = isMemberConnected(key);
-      const seen = lastSeen.get(key);
-      const identity = memberIdentity.get(key);
-      return {
-        key,
-        name,
-        admin,
-        connected,
-        ...(seen !== undefined ? { lastSeenAt: seen } : {}),
-        ...(identity !== undefined ? { identity } : {}),
-      };
-    };
+    const peer = (key: string, name: string, admin: boolean): SyncMember => ({
+      key,
+      name,
+      admin,
+      ...memberPresence(presence, key),
+    });
     const memberList: SyncMember[] = [
       {
         key: selfKey,
@@ -2440,7 +2374,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ) {
     const known = {
       isFriend: deps.isFriend?.(sender) ?? false,
-      coMembers: new Set(memberIdentity.values()),
+      coMembers: new Set(presence.identities.values()),
       albumAdmins: new Set([
         ...state.folders.flatMap((f) => (f.invite?.owner ? [f.invite.owner] : [])),
         ...state.asks.map((a) => a.owner),
@@ -3102,12 +3036,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           selfDrive: driveInfo(rt.selfDrive),
           members: [...rt.memberDrives.keys()].map((key) => ({
             key,
-            swarmKey: memberSwarmKey.get(key) ?? null,
-            connected: isMemberConnected(key),
+            swarmKey: presence.peerKeys.get(key) ?? null,
+            connected: memberPresence(presence, key).connected,
           })),
           folderOwner: {
-            swarmKey: memberSwarmKey.get(rt.record.shareKey) ?? null,
-            connected: isMemberConnected(rt.record.shareKey),
+            swarmKey: presence.peerKeys.get(rt.record.shareKey) ?? null,
+            connected: memberPresence(presence, rt.record.shareKey).connected,
           },
         })),
       };
