@@ -79,6 +79,28 @@ export function createInviteLinkActor(options: { clock: Clock }) {
           return { state: linkMade.create({ expiresAt }) };
         },
       });
+      /** The panel for another album shows the picker, so a pick still counts. */
+      m.on(linkMade, {
+        event: chooseLinkTime,
+        handler: (e, { context }) => {
+          if (e.payload.validFor in VALID_FOR_MS)
+            context.set({ ...context.get(), validFor: e.payload.validFor });
+          return {};
+        },
+      });
+      /** A link for another album replaces the one made; the same album keeps its link. */
+      m.on(linkMade, {
+        event: createLink,
+        to: [linkMade],
+        handler: (e, { context }) => {
+          const current = context.get();
+          if (e.payload.folderId === "" || e.payload.folderId === current.folderId) return {};
+          context.set({ ...current, folderId: e.payload.folderId });
+          const expiresAt =
+            Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
+          return { state: linkMade.create({ expiresAt }) };
+        },
+      });
       /** A timer runs until the link's end time. */
       m.effect(linkMade, {
         name: "untilExpiry",

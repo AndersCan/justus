@@ -57,16 +57,45 @@ describe("invite link machine", () => {
     expect(expiresAt(actor)).toBe(601_000);
   });
 
-  test("createLink while a link is made changes nothing", async () => {
+  test("createLink for the same album while a link is made changes nothing", async () => {
     const { clock, actor } = setup();
     actor.send({ type: "chooseLinkTime", payload: { validFor: "1h" } });
     actor.send({ type: "createLink", payload: { folderId: FOLDER } });
     await actor.settled();
     const first = expiresAt(actor);
     clock.advance(60_000);
-    actor.send({ type: "createLink", payload: { folderId: "e".repeat(64) } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER } });
     await actor.settled();
     expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(first);
+    expect(context(actor).folderId).toBe(FOLDER);
+  });
+
+  test("a link for another album gets the time picked for it", async () => {
+    const { clock, actor } = setup();
+    const other = "e".repeat(64);
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER } });
+    await actor.settled();
+    clock.advance(60_000);
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "10m" } });
+    actor.send({ type: "createLink", payload: { folderId: other } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).folderId).toBe(other);
+    expect(expiresAt(actor)).toBe(60_000 + VALID_FOR_MS["10m"]);
+    clock.advance(VALID_FOR_MS["10m"]);
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
+  test("an empty folderId while a link is made changes nothing", async () => {
+    const { actor } = setup();
+    actor.send({ type: "createLink", payload: { folderId: FOLDER } });
+    await actor.settled();
+    const first = expiresAt(actor);
+    actor.send({ type: "createLink", payload: { folderId: "" } });
+    await actor.settled();
     expect(expiresAt(actor)).toBe(first);
     expect(context(actor).folderId).toBe(FOLDER);
   });
@@ -86,12 +115,16 @@ describe("invite link machine", () => {
     expect(context(actor).folderId).toBe("");
   });
 
-  test("choosing a time while a link is made changes nothing", async () => {
+  test("choosing a time while a link is made keeps that link's end time", async () => {
     const { actor } = setup();
     actor.send({ type: "createLink", payload: { folderId: FOLDER } });
+    await actor.settled();
+    const first = expiresAt(actor);
     actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
     await actor.settled();
-    expect(context(actor).validFor).toBe("1d");
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(first);
+    expect(context(actor).folderId).toBe(FOLDER);
   });
 });
 
