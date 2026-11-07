@@ -93,6 +93,26 @@ describe("membership machine", () => {
     });
   });
 
+  test("accepted is false after the request, true after accept and in joined", async () => {
+    const { actor } = setup();
+    actor.send({ type: "requestQueued", payload: entry });
+    const afterRequest = actor.context.accepted;
+    actor.send({ type: "accept", payload: { role: "member" } });
+    const afterAccept = actor.context.accepted;
+    await actor.settled();
+    expect({
+      afterRequest,
+      afterAccept,
+      state: actor.state.name,
+      joined: actor.context.accepted,
+    }).toEqual({
+      afterRequest: false,
+      afterAccept: true,
+      state: "joined",
+      joined: true,
+    });
+  });
+
   test("decline ends in declined", async () => {
     const { actor, outputs } = setup();
     actor.send({ type: "requestQueued", payload: entry });

@@ -1,5 +1,6 @@
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
+import type { Expectations } from "@mantaq/inspect";
 import { withTimeout } from "@mantaq/sugar";
 
 /**
@@ -128,3 +129,9 @@ export function createInviteLinkActor(options: { clock: Clock; newLinkId?: () =>
     },
   });
 }
+
+/** A link can always still run out, and the Admin can always still cancel it. */
+export const inviteLinkExpectations: Expectations<typeof createInviteLinkActor> = {
+  expired: { mustSee: [{}] },
+  cancelled: { mustSee: [{}] },
+};

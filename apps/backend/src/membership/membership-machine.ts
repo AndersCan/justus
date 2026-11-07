@@ -2,6 +2,7 @@ import type { RegistryFile, RemovedFile, RequestsFile } from "./records";
 import { isEnrolled, isTextJSON } from "./records";
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
+import type { Expectations } from "@mantaq/inspect";
 import { withPromise } from "@mantaq/sugar";
 import { Either } from "@mantaq/utils";
 
@@ -166,13 +167,18 @@ export function createMembershipActor(options: {
       removed,
     ],
     initial: initialStateFromRecords({ records, memberKey }),
+    /** Whether the Admin accepted this person; an enrolled member starts accepted. */
+    context: { accepted: isEnrolled(records.registry, memberKey) },
     clock,
     setup: (m) => {
       /** A request arrives and waits for the owner's decision. */
       m.on(noRequest, {
         event: requestQueued,
         to: [awaitingDecision],
-        handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
+        handler: (e, { context }) => {
+          context.set({ accepted: false });
+          return { state: awaitingDecision.create(e.payload) };
+        },
       });
       /** The Admin declines, so the request ends. */
       m.on(awaitingDecision, {
@@ -187,17 +193,20 @@ export function createMembershipActor(options: {
       m.on(declined, {
         event: requestQueued,
         to: [awaitingDecision],
-        handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
+        handler: (e, { context }) => {
+          context.set({ accepted: false });
+          return { state: awaitingDecision.create(e.payload) };
+        },
       });
       /** The owner approves, so the member list is written next. */
       m.on(awaitingDecision, {
         event: accept,
         to: [addingMember],
-        handler: (e, { actor }) => {
+        handler: (e, { actor, context }) => {
           const { payload } = actor.snapshot();
-          return isRequestEntry(payload)
-            ? { state: addingMember.create({ entry: payload, role: e.payload.role }) }
-            : {};
+          if (!isRequestEntry(payload)) return {};
+          context.set({ accepted: true });
+          return { state: addingMember.create({ entry: payload, role: e.payload.role }) };
         },
       });
       /** The accepted person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again. */
@@ -249,7 +258,10 @@ export function createMembershipActor(options: {
       m.on(addingMember, {
         event: memberListSaveFailed,
         to: [awaitingDecision],
-        handler: (e) => ({ state: awaitingDecision.create(e.payload.entry) }),
+        handler: (e, { context }) => {
+          context.set({ accepted: false });
+          return { state: awaitingDecision.create(e.payload.entry) };
+        },
       });
       /** The owner picks a different role, so the new role is saved next. */
       m.on(joined, {
@@ -346,3 +358,9 @@ export function createMembershipActor(options: {
     },
   });
 }
+
+/** What fuzzing must never and must always see: nobody is added without the Admin's accept, and an accepted request still becomes a member. */
+export const membershipExpectations: Expectations<typeof createMembershipActor> = {
+  addingMember: { neverSee: [{ accepted: false }] },
+  joined: { neverSee: [{ accepted: false }], mustSee: [{ accepted: true }] },
+};
