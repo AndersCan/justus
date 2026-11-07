@@ -1,0 +1,38 @@
+---
+title: "Archive, leave or delete an album"
+description: "Someone is done with an album: they archive it, leave it, or the Admin deletes it for everyone."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+Two people, two phones. Maya is a Member; Nils is the Admin. The page has no drives, so every save works there.
+
+| Moment                                         | Maya sees                                                                                                | Nils (Admin) sees                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Maya archives the album                        | It leaves Your albums and shows under Archived `albumLifecycle.archived`                                 | Nothing changes                                                           |
+| Maya restores it                               | It is back in Your albums `albumLifecycle.shownInYourAlbums`                                             | Nothing changes                                                           |
+| Maya confirms Leave                            | The album and her photos go from her phone `albumLifecycle.leavingAlbum`                                 | Nothing yet                                                               |
+| Maya's phone waits                             | Nothing of the album shows `albumLifecycle.waitingForAdminToSeeYouLeft`                                  | His phone hears it and drops her from the people list                     |
+| Nils's phone has dropped her                   | The last kept drives are removed `albumLifecycle.removingYourLastCopy`                                   | The people list no longer lists Maya                                      |
+| Nils confirms Delete album                     | Nothing yet                                                                                              | The album's photos go from his phone `albumLifecycle.deletingForEveryone` |
+| Nils's delete is written                       | Nothing yet                                                                                              | Only the delete note is kept `albumLifecycle.deletedForEveryone`          |
+| Maya's phone hears the delete, even days later | The copy is removed `albumLifecycle.removingDeletedAlbum`, then a notice `albumLifecycle.deletedByAdmin` | Nothing more                                                              |
+
+**When it goes wrong.**
+
+| What went wrong                 | State                                                    |
+| ------------------------------- | -------------------------------------------------------- |
+| The leave could not be written  | `albumLifecycle.shownInYourAlbums`, with the reason kept |
+| The delete could not be written | `albumLifecycle.shownInYourAlbums`, with the reason kept |
+
+**Walks.** Each link opens the machine at the end of the walk.
+
+- [Maya archives Summer and brings it back](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20archives%20Summer%20and%20brings%20it%20back)
+- [Maya leaves Hytta, and is gone once Nils's phone sees it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20leaves%20Hytta%2C%20and%20is%20gone%20once%20Nils's%20phone%20sees%20it)
+- [A Viewer leaves Hytta](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=A%20Viewer%20leaves%20Hytta)
+- [Nils deletes Hytta for everyone](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Nils%20deletes%20Hytta%20for%20everyone)
+- [Maya's phone hears that Nils deleted Hytta, after being away](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya's%20phone%20hears%20that%20Nils%20deleted%20Hytta%2C%20after%20being%20away)
+- [Maya had archived Hytta when Nils deleted it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20had%20archived%20Hytta%20when%20Nils%20deleted%20it)
+- [Maya leaves Hytta, and Nils deletes it before his phone sees her leave](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20leaves%20Hytta%2C%20and%20Nils%20deletes%20it%20before%20his%20phone%20sees%20her%20leave)
+
+<Machine src="apps/backend/src/albums/album-lifecycle-machine.ts" />

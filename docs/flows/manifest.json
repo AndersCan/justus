@@ -27,5 +27,6 @@
   "invite-requests": [
     "apps/web/src/machines/sharing/add-friend-machine.ts",
     "apps/web/src/machines/sharing/friend-offer-machine.ts"
-  ]
+  ],
+  "archive-or-delete": ["apps/backend/src/albums/album-lifecycle-machine.ts"]
 }
