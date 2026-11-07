@@ -7,6 +7,7 @@ import {
 import {
   photoEvents,
   logEvents,
+  friendEvents,
   grantEvents,
   justusLockEvents,
   justusMediaEvents,
@@ -105,6 +106,10 @@ export const gateway = {
     view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
       invoke(logEvents.view(opts)),
     clear: () => invoke(logEvents.clear()),
+  },
+  friends: {
+    list: () => invoke(friendEvents.list()),
+    add: (identity: string, name: string) => invoke(friendEvents.add(identity, name)),
   },
   grants: {
     view: () => invoke(grantEvents.view()),

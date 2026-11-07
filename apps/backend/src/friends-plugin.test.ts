@@ -1,0 +1,37 @@
+import { describe, expect, test } from "vite-plus/test";
+import { createFriendsPlugin } from "./friends-plugin";
+import type { FriendsStore } from "./friends-store";
+
+const A = "a".repeat(64);
+
+function invoke(
+  plugin: ReturnType<typeof createFriendsPlugin>,
+  event: string,
+  args: Record<string, unknown>,
+) {
+  const adapter = plugin.runtimes.bare;
+  if (!adapter?.invoke) throw new Error("no invoke adapter");
+  return adapter.invoke(event, args, { runtime: "bare", payload: new Uint8Array() });
+}
+
+describe("justus.friends plugin", () => {
+  test("list and add round-trip through the store", async () => {
+    const stored: { identity: string; name: string }[] = [];
+    const store: FriendsStore = {
+      list: () => [null, stored],
+      add: async (identity, name) => {
+        stored.push({ identity, name });
+        return [null, { identity, name }];
+      },
+    };
+    const plugin = createFriendsPlugin({ store });
+    expect(await invoke(plugin, "friends.add", { identity: A, name: "Sam" })).toEqual([
+      null,
+      { friend: { identity: A, name: "Sam" } },
+    ]);
+    expect(await invoke(plugin, "friends.list", {})).toEqual([
+      null,
+      { friends: [{ identity: A, name: "Sam" }] },
+    ]);
+  });
+});
