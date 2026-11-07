@@ -1,9 +1,9 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { INTRO_CARD_COUNT } from "../views/intro-cards";
-import { $userName } from "./folders-machine";
+import { $userName, foldersActor, nameSeen } from "./folders-machine";
 
 /**
  * First-run onboarding: swipeable intro cards, a required profile step, then
@@ -38,6 +38,26 @@ export const $onboardingViewModel = computed(
     draftName: nameDraft ?? "",
   }),
 );
+
+const nameOf = stateNameOf(ONBOARDING_STATES);
+
+/** The onboarding UI's view model as a pure function of the actor snapshot and
+ * the device's saved name (owned by folders). */
+export function onboardingViewModel(s: Snapshot<OnboardingContext>, userName: string) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    card: s.context.card,
+    cardCount: INTRO_CARD_COUNT,
+    state,
+    saving: state === "saving",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+    userName,
+    // Never prefill from the stored name: it is a generated default, not the person's choice.
+    draftName: s.context.draftName ?? "",
+  };
+}
 
 /** The person is swiping through the intro cards. */
 const cards = state("cards")();
@@ -208,7 +228,8 @@ onboardingActor.on("output", {
   fn: (e) => {
     const payload = e.payload;
     if (typeof payload !== "object" || payload === null || !("name" in payload)) return;
-    if (typeof payload.name === "string") $userName.set(payload.name);
+    if (typeof payload.name === "string")
+      foldersActor.send(nameSeen.create({ name: payload.name }));
   },
 });
 

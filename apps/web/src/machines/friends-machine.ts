@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom } from "nanostores";
 import type { Friend } from "@justus/core";
 import { gateway } from "../gateway";
@@ -229,28 +229,33 @@ export const $friendSheet = atom<FriendSheet>({
   canSave: false,
 });
 
+/** What the friend sheet draws, as a pure function of the actor snapshot. */
+export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
+  const name = snapshot.path[0] as FriendSheet["state"];
+  const payload = snapshot.payload as
+    | (Partial<FriendTarget> & { draft?: string; name?: string })
+    | undefined;
+  const target =
+    payload?.identity !== undefined && payload.ownName !== undefined
+      ? { identity: payload.identity, ownName: payload.ownName }
+      : null;
+  const draft = payload?.draft ?? payload?.name ?? "";
+  return {
+    state: name,
+    target,
+    draft,
+    error: snapshot.context.error,
+    canSave: name === "naming" && draft.trim() !== "",
+  };
+}
+
 export const friendsActor = createFriendsActor({ clock: RealClock() });
 
 friendsActor.on("change", {
   fn: (snapshot) => {
     const context = snapshot.context;
     $friends.set(context.friends);
-    const name = snapshot.path[0] as FriendSheet["state"];
-    const payload = snapshot.payload as
-      | (Partial<FriendTarget> & { draft?: string; name?: string })
-      | undefined;
-    const target =
-      payload?.identity !== undefined && payload.ownName !== undefined
-        ? { identity: payload.identity, ownName: payload.ownName }
-        : null;
-    const draft = payload?.draft ?? payload?.name ?? "";
-    $friendSheet.set({
-      state: name,
-      target,
-      draft,
-      error: context.error,
-      canSave: name === "naming" && draft.trim() !== "",
-    });
+    $friendSheet.set(friendSheetOf(snapshot));
   },
 });
 

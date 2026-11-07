@@ -1,8 +1,8 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { GrantRecord } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * Share surface: the local grant ledger this device serves photos to, plus the
@@ -74,6 +74,23 @@ type GrantsContext = {
 };
 
 const initialContext: GrantsContext = { pendingAct: null, records: [], due: [], error: null };
+
+const nameOf = stateNameOf(GRANTS_STATES);
+
+/** The share surface view model as a pure function of the actor snapshot. */
+export function grantsViewModel(s: Snapshot<GrantsContext>) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    records: s.context.records,
+    due: s.context.due,
+    dueRecords: dueRecords(s.context.records, s.context.due),
+    state,
+    acting: state === "acting",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+  };
+}
 
 type GrantsPort = Pick<typeof gateway, "grants">;
 

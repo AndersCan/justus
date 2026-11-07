@@ -2,7 +2,7 @@ import type { WireMessage } from "@ekrooh/bare/core";
 import { photoSpecs } from "@justus/core";
 import { guardPush } from "./contract-guard";
 import { folders } from "./machines/folders-machine";
-import { $lastSyncAt, gallery } from "./machines/gallery-machine";
+import { gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
 import { join } from "./machines/sharing/join-request";
 import { sync } from "./machines/sync-machine";
@@ -45,7 +45,7 @@ export function handleMessage(msg: WireMessage) {
       sync.refresh();
       return;
     }
-    $lastSyncAt.set(Date.now());
+    gallery.synced(Date.now());
     gallery.load();
     sync.refresh();
     folders.refresh();

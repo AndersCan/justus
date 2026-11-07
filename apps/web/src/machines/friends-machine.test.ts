@@ -4,6 +4,7 @@ import {
   $friendSheet,
   $friends,
   SAVE_FAILED_COPY,
+  friendSheetOf,
   createFriendsActor,
   friends,
   friendsActor,
@@ -203,5 +204,41 @@ describe("friends singleton mirror", () => {
     await friendsActor.settled();
     expect($friendSheet.get()).toMatchObject({ state: "closed", error: null });
     expect($friends.get()).toEqual({ k1: "Kimmy" });
+  });
+});
+
+describe("friendSheetOf", () => {
+  test("initial snapshot is the loading sheet", async () => {
+    const { actor } = await setup();
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({ state: "closed", target: null });
+  });
+
+  test("naming carries the target and the draft, and canSave follows the draft", async () => {
+    const { actor } = await setup();
+    actor.send(open());
+    actor.send(add());
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({
+      state: "naming",
+      target: { identity: "k1", ownName: "Kim" },
+      draft: "Kim",
+      canSave: true,
+    });
+    actor.send(type("  "));
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({ canSave: false });
+    actor.send(type("Kimmy"));
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({ draft: "Kimmy", canSave: true });
+  });
+
+  test("saving is a busy state with the draft kept", async () => {
+    const { actor } = await setup({ add: () => new Promise(() => {}) });
+    actor.send(open());
+    actor.send(add());
+    actor.send(type("Kimmy"));
+    actor.send(save());
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({
+      state: "saving",
+      draft: "Kimmy",
+      canSave: false,
+    });
   });
 });

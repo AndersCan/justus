@@ -1,8 +1,8 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { JoinRequest } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { removeRequestFromList } from "./requests-list";
 
 /**
@@ -63,6 +63,21 @@ type RequestsContext = {
 };
 
 const initialContext: RequestsContext = { pendingRespond: null, requests: [], error: null };
+
+const nameOf = stateNameOf(REQUESTS_STATES);
+
+/** The requests inbox view model as a pure function of the actor snapshot. */
+export function requestsViewModel(s: Snapshot<RequestsContext>) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    requests: s.context.requests,
+    state,
+    responding: state === "responding",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+  };
+}
 
 type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 

@@ -1,9 +1,9 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
-import type { Photo, PickedMedia } from "@justus/core";
+import type { Photo, PickedMedia, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { $syncStatus } from "./sync-machine";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * The gallery state machine. All gallery state lives here (a mantaq actor);
@@ -66,6 +66,24 @@ export const $galleryViewModel = computed(
   }),
 );
 
+const nameOf = stateNameOf(GALLERY_STATES);
+
+/** The gallery UI's view model as a pure function of the actor snapshot.
+ * `busy` is exactly "an add or remove is in flight"; `role` comes from the
+ * sync status passed in, so the empty state can be reader-aware. */
+export function galleryViewModel(s: Snapshot<GalleryContext>, status: SyncStatus | null) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    state,
+    busy: state === "adding" || state === "removing",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+    photos: s.context.photos,
+    role: status?.folder?.role ?? null,
+  };
+}
+
 /** Photo ids are only unique within an album; the list spans all of them. */
 export function samePhoto(
   a: { id: string; folderId?: string },
@@ -118,6 +136,8 @@ const removed = event("REMOVED")<{ id: string; folderId?: string }>();
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 /** The person taps Try again after an error. */
 const retry = event("RETRY")();
+/** The backend pushed a photos change; `at` is when (ms since epoch). */
+const synced = event("SYNCED")<{ at: number }>();
 
 type GalleryContext = {
   pendingAdd: { sources: AddSource[]; folderId?: string } | null;
@@ -128,6 +148,8 @@ type GalleryContext = {
   photos: Photo[];
   batch: AddBatch | null;
   error: string | null;
+  /** When the last `photos.changed` push arrived — feeds the "last synced" hint. */
+  lastSyncAt: number | undefined;
 };
 type GalleryPort = Pick<typeof gateway, "list" | "upload" | "add" | "remove">;
 
@@ -139,6 +161,7 @@ const idleContext = (c: GalleryContext, change: Partial<GalleryContext> = {}): G
   photos: c.photos,
   batch: c.batch,
   error: c.error,
+  lastSyncAt: c.lastSyncAt,
   ...change,
 });
 
@@ -161,7 +184,7 @@ function addOne(
 export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [load, addMany, remove, retry, retryFailed, dismissBatch],
+    inputs: [load, addMany, remove, retry, retryFailed, dismissBatch, synced],
     internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
     outputs: [],
     states: [booting, loading, ready, error, adding, removing],
@@ -169,6 +192,14 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
     clock: options.clock,
     context: idleContext({ photos: [], batch: null, error: null } as unknown as GalleryContext),
     setup: (m) => {
+      /** A photos push arrived: the time is kept for the "last synced" hint, in any state. */
+      m.onAny({
+        event: synced,
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), lastSyncAt: e.payload.at });
+          return {};
+        },
+      });
       /** The first load of photos starts. */
       m.on(booting, {
         event: load,
@@ -505,6 +536,7 @@ export const galleryActor = createGalleryActor({ clock: RealClock() });
 galleryActor.on("change", {
   fn: (snapshot) => {
     $photos.set(snapshot.context.photos);
+    $lastSyncAt.set(snapshot.context.lastSyncAt ?? null);
     $addBatch.set(snapshot.context.batch);
     $galleryError.set(snapshot.context.error);
   },
@@ -530,4 +562,6 @@ export const gallery = {
   dismissBatch: () => galleryActor.send(dismissBatch.create()),
   remove: (id: string, folderId?: string) => galleryActor.send(remove.create({ id, folderId })),
   retry: () => galleryActor.send(retry.create()),
+  /** The backend pushed a photos change at `at`. */
+  synced: (at: number) => galleryActor.send(synced.create({ at })),
 };

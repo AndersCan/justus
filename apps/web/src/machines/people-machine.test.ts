@@ -1,7 +1,13 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { $peopleError, $peopleState, createPeopleActor, people } from "./people-machine";
+import {
+  $peopleError,
+  $peopleState,
+  createPeopleActor,
+  people,
+  peopleViewModel,
+} from "./people-machine";
 import { gateway } from "../gateway";
 
 const mock = gateway as any;
@@ -105,5 +111,40 @@ describe("people factory", () => {
     send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
     send(actor, "CLOSE");
     expect(actor.snapshot().path[0]).toBe("removing");
+  });
+});
+
+describe("peopleViewModel", () => {
+  const status = {
+    name: "Ann",
+    folder: { id: "f1", role: "creator" },
+    members: [{ key: "me", name: "Ann", admin: true, connected: true }],
+  } as any;
+  const deps = { status, requests: [], friends: {} };
+
+  test("closed, from the initial snapshot", () => {
+    const actor = createPeopleActor({ clock: VirtualClock(), gateway: {} as any });
+    const vm = peopleViewModel(actor.snapshot(), deps);
+    expect(vm.open).toBe(false);
+    expect(vm.removing).toBe(false);
+    expect(vm.error).toBeNull();
+    expect(vm.isAdmin).toBe(true);
+    expect(vm.myName).toBe("Ann");
+    expect(vm.folder).toBe(status.folder);
+  });
+
+  test("open, then removing, with no status", () => {
+    const actor = createPeopleActor({
+      clock: VirtualClock(),
+      gateway: { removeMember: () => new Promise(() => {}) } as any,
+    });
+    actor.send({ type: "OPEN" } as never);
+    expect(peopleViewModel(actor.snapshot(), { ...deps, status: null }).open).toBe(true);
+    actor.send({ type: "REMOVE_MEMBER", payload: { folderId: "f1", memberKey: "k" } } as never);
+    const vm = peopleViewModel(actor.snapshot(), { ...deps, status: null });
+    expect(vm.removing).toBe(true);
+    expect(vm.isAdmin).toBe(false);
+    expect(vm.folder).toBeNull();
+    expect(vm.myName).toBe("");
   });
 });

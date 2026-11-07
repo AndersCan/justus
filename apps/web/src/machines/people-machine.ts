@@ -1,12 +1,13 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
 import { $friends } from "./friends-machine";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { $requests, requests } from "./requests-machine";
 import { $syncStatus } from "./sync-machine";
+import type { JoinRequest, SyncStatus } from "@justus/core";
 
 /**
  * The People sheet: opened from the header chip, closed again, and the
@@ -59,6 +60,27 @@ type PeopleContext = {
   pending: { folderId: string; memberKey: string } | null;
   error: string | null;
 };
+const nameOf = stateNameOf(PEOPLE_STATES);
+
+/** The People sheet view model as a pure function of the actor snapshot and
+ * the values other machines own: the sync status, the join requests and the
+ * saved friend names. */
+export function peopleViewModel(
+  s: Snapshot<PeopleContext>,
+  deps: { status: SyncStatus | null; requests: JoinRequest[]; friends: Record<string, string> },
+) {
+  const state = nameOf(s);
+  return {
+    ...buildPeople(deps.status, deps.requests, deps.friends),
+    open: state !== "closed",
+    removing: state === "removing",
+    error: fatalErrorOf(s)?.message ?? s.context.error,
+    isAdmin: deps.status?.folder.role === "creator",
+    folder: deps.status?.folder ?? null,
+    myName: deps.status?.name ?? "",
+  };
+}
+
 type PeoplePort = Pick<typeof gateway, "removeMember">;
 
 /** The Admin's removal runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */

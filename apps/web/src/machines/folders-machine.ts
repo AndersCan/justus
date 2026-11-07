@@ -1,10 +1,9 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
-import { onOutput } from "@mantaq/sugar";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { AskSummary, FolderSummary, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
-import { $syncStatus } from "./sync-machine";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { statusSeen, syncActor, type SyncActor } from "./sync-machine";
 
 /**
  * Folder management: the device's user name, its folder list, and the active
@@ -46,11 +45,24 @@ export const $foldersViewModel = computed(
   }),
 );
 
-// The user name lives on the backend (device.json); status is the source of
-// truth for it, so keep the atom in step whenever the active folder reports.
-$syncStatus.listen((status) => {
-  if (status?.name) $userName.set(status.name);
-});
+const nameOf = stateNameOf(FOLDERS_STATES);
+
+/** The folders UI's view model as a pure function of the actor snapshot; a
+ * fatal message replaces the context error. */
+export function foldersViewModel(s: Snapshot<FoldersContext>) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    userName: s.context.userName,
+    folders: s.context.folders,
+    asks: s.context.asks,
+    activeFolderId: s.context.activeId,
+    state,
+    busy: state === "creating" || state === "switching" || state === "renaming",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+  };
+}
 
 /** Albums have not been loaded yet. */
 const idle = state("idle")();
@@ -97,6 +109,8 @@ const nameSaved = event("NAME_SAVED")<{ name: string }>();
 const renameFailed = event("RENAME_FAILED")<{ message: string }>();
 /** The person taps Try again after an error. */
 const retry = event("RETRY")();
+/** Another part of the app reports the name the backend holds for this device. */
+export const nameSeen = event("NAME_SEEN")<{ name: string }>();
 
 /** The other album is open and the app's sync status should follow it. */
 const switchedTo = event("SWITCHED_TO")<{ status: SyncStatus }>();
@@ -104,6 +118,8 @@ const switchedTo = event("SWITCHED_TO")<{ status: SyncStatus }>();
 const renamed = event("RENAMED")<{ name: string }>();
 
 type FoldersContext = {
+  /** The name others see; the backend holds it, so status and onboarding report it here. */
+  userName: string;
   folders: FolderSummary[];
   asks: AskSummary[];
   activeId: string | null;
@@ -120,7 +136,7 @@ const noPending = { pendingCreate: null, pendingActive: null, pendingName: null 
 export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [refresh, createFolder, setActive, setName, retry],
+    inputs: [refresh, createFolder, setActive, setName, retry, nameSeen],
     internal: [
       loaded,
       loadFailed,
@@ -136,6 +152,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
     initial: idle,
     clock: options.clock,
     context: {
+      userName: "",
       folders: [],
       asks: [],
       activeId: null,
@@ -143,6 +160,14 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       ...noPending,
     } as FoldersContext,
     setup: (m) => {
+      /** The backend reports this device's name: it becomes the name shown, in any state. */
+      m.onAny({
+        event: nameSeen,
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), userName: e.payload.name });
+          return {};
+        },
+      });
       /** First load of albums starts and any error is cleared. */
       m.on(idle, {
         event: refresh,
@@ -401,7 +426,12 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
         event: nameSaved,
         to: [ok],
         handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), ...noPending, error: null });
+          opts.context.set({
+            ...opts.context.get(),
+            ...noPending,
+            userName: e.payload.name,
+            error: null,
+          });
           return { state: ok, emit: [renamed.create({ name: e.payload.name })] };
         },
       });
@@ -420,18 +450,44 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
 
 export const foldersActor = createFoldersActor({ clock: RealClock() });
 
+export type FoldersActor = ReturnType<typeof createFoldersActor>;
+
+/** Folders and sync each own one value and tell the other when theirs moves:
+ * a switched album gives sync its new status, and a status with a new name
+ * gives folders that name. The name check keeps the two from echoing. */
+export function wireFoldersToSync(folders: FoldersActor, sync: SyncActor): () => void {
+  const offOutput = folders.on("output", {
+    fn: (e) => {
+      if (e.type === switchedTo.type) {
+        sync.send(statusSeen.create({ status: (e.payload as { status: SyncStatus }).status }));
+      }
+    },
+  });
+  const offChange = sync.on("change", {
+    fn: (snapshot) => {
+      const name = snapshot.context.status?.name;
+      if (name && name !== folders.snapshot().context.userName) {
+        folders.send(nameSeen.create({ name }));
+      }
+    },
+  });
+  return () => {
+    offOutput();
+    offChange();
+  };
+}
+
+wireFoldersToSync(foldersActor, syncActor);
+
+/** `$userName` is a projection of `context.userName`. */
 foldersActor.on("change", {
   fn: (snapshot) => {
+    $userName.set(snapshot.context.userName);
     $folders.set(snapshot.context.folders);
     $asks.set(snapshot.context.asks);
     $activeFolderId.set(snapshot.context.activeId);
     $foldersError.set(snapshot.context.error);
   },
-});
-
-onOutput(foldersActor, (e) => {
-  if (e.type === switchedTo.type) $syncStatus.set((e.payload as { status: SyncStatus }).status);
-  if (e.type === renamed.type) $userName.set((e.payload as { name: string }).name);
 });
 
 const { state: stateName } = bindStateAtoms({

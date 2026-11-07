@@ -4,8 +4,10 @@ import {
   $addBatch,
   $galleryError,
   $galleryState,
+  $lastSyncAt,
   $photos,
   createGalleryActor,
+  galleryViewModel,
   gallery,
 } from "./gallery-machine";
 
@@ -348,5 +350,47 @@ describe("gallery singleton", () => {
     gallery.load();
     await vi.waitFor(() => expect($galleryState.get()).toBe("error"));
     expect($galleryError.get()).toMatch(/no data/);
+  });
+});
+
+describe("gallery last synced and view model", () => {
+  test("synced stores the time in context and survives a reload", async () => {
+    const h = build();
+    expect(h.ctx().lastSyncAt).toBeUndefined();
+    h.send("SYNCED", { at: 5 });
+    expect(h.ctx().lastSyncAt).toBe(5);
+    await ready(h);
+    expect(h.ctx().lastSyncAt).toBe(5);
+  });
+
+  test("the singleton projects lastSyncAt to $lastSyncAt", () => {
+    gallery.synced(7);
+    expect($lastSyncAt.get()).toBe(7);
+  });
+
+  test("galleryViewModel: initial snapshot, role from the passed status", () => {
+    const h = build();
+    expect(galleryViewModel(h.actor.snapshot(), null)).toEqual({
+      state: "booting",
+      busy: false,
+      error: null,
+      fatal: false,
+      photos: [],
+      role: null,
+    });
+    const status = { folder: { role: "reader" } } as any;
+    expect(galleryViewModel(h.actor.snapshot(), status).role).toBe("reader");
+  });
+
+  test("galleryViewModel: busy while removing", async () => {
+    const h = build({
+      list: async () => [null, { photos: [photo("p1")] }],
+      remove: () => new Promise(() => {}),
+    });
+    await ready(h);
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    const vm = galleryViewModel(h.actor.snapshot(), null);
+    expect(vm.state).toBe("removing");
+    expect(vm.busy).toBe(true);
   });
 });

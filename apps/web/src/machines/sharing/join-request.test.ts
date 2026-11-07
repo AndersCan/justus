@@ -1,3 +1,4 @@
+import { VirtualClock } from "@mantaq/core";
 import { atom } from "nanostores";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { buildInviteLink } from "../../utils/invite-link";
@@ -16,7 +17,8 @@ vi.mock("../folders-machine", async () => {
   return { $folders: a([]), $asks: a([]), folders: { refresh: mocks.refresh } };
 });
 
-const { $join, join, joinActor } = await import("./join-request");
+const { $join, join, joinActor, joinViewOf } = await import("./join-request");
+const { createJoinRequestActor } = await import("./join-request-machine");
 const { $asks, $folders } = (await import("../folders-machine")) as unknown as {
   $asks: ReturnType<typeof atom<unknown[]>>;
   $folders: ReturnType<typeof atom<unknown[]>>;
@@ -135,5 +137,28 @@ describe("join singleton", () => {
     join.openLink("not a link");
     await settle();
     expect($join.get().invite).toBeNull();
+  });
+});
+
+describe("joinViewOf", () => {
+  test("initial snapshot has no invite", () => {
+    const fresh = createJoinRequestActor({
+      clock: VirtualClock(),
+      known: () => ({ kind: "new" }) as never,
+      port: { ask: async () => [null, null] as never },
+    });
+    expect(joinViewOf(fresh.snapshot())).toEqual({
+      state: "noInvite",
+      invite: null,
+      error: "",
+    });
+  });
+
+  test("an opened link shows the invite", async () => {
+    join.openLink(LINK);
+    await settle();
+    const view = joinViewOf(joinActor.snapshot());
+    expect(view.state).toBe("decidingToAsk");
+    expect(view.invite).toMatchObject({ album: "Spain 2026" });
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import type { JoinRequest } from "@justus/core";
-import { createRequestsActor } from "./requests-machine";
+import { createRequestsActor, requestsViewModel } from "./requests-machine";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -109,5 +109,28 @@ describe("requests machine factory", () => {
     expect(actor.state.name).toBe("ok");
     expect(actor.snapshot().context.error).toBe("not the owner");
     expect(actor.snapshot().context.requests).toHaveLength(2);
+  });
+});
+
+describe("requestsViewModel", () => {
+  test("initial snapshot", () => {
+    const { actor } = setup();
+    expect(requestsViewModel(actor.snapshot())).toEqual({
+      requests: [],
+      state: "idle",
+      responding: false,
+      error: null,
+      fatal: false,
+    });
+  });
+
+  test("responding while an answer is in flight", async () => {
+    const { actor } = setup({ respond: () => new Promise(() => {}) });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true));
+    const vm = requestsViewModel(actor.snapshot());
+    expect(vm.state).toBe("responding");
+    expect(vm.responding).toBe(true);
   });
 });

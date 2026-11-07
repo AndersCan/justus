@@ -83,3 +83,27 @@ export function bindStateAtoms<State extends string>(args: {
   });
   return { state: () => nameOf(args.actor.snapshot()) };
 }
+
+/** Calls `fn(next, prev)` when the actor's state name changes (like an atom
+ * listener). Not called on subscribe. Built on `change` rather than
+ * `transition` because a dying actor emits no transition. */
+export function onStateChange<S extends string>(
+  actor: {
+    snapshot(): Snapshot<unknown>;
+    on(event: "change", options: { fn: (snapshot: Snapshot<unknown>) => void }): () => void;
+  },
+  states: readonly S[],
+  fn: (next: S, prev: S) => void,
+): () => void {
+  const nameOf = stateNameOf<S>(states);
+  let last = nameOf(actor.snapshot());
+  return actor.on("change", {
+    fn: (snapshot) => {
+      const next = nameOf(snapshot);
+      if (next === last) return;
+      const prev = last;
+      last = next;
+      fn(next, prev);
+    },
+  });
+}

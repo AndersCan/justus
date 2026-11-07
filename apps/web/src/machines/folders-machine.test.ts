@@ -10,9 +10,9 @@ import {
 } from "./folders-machine";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { createFoldersActor } from "./folders-machine";
+import { createFoldersActor, foldersViewModel, wireFoldersToSync } from "./folders-machine";
 import { gateway } from "../gateway";
-import { $syncStatus } from "./sync-machine";
+import { $syncStatus, createSyncActor, statusSeen } from "./sync-machine";
 
 // The mocked gateway is loosely typed so test fixtures don't have to satisfy
 // the full FolderSummary/Photo/Either shapes.
@@ -260,5 +260,84 @@ describe("folders factory", () => {
     send(actor, "SET_NAME", { name: "Me" });
     await vi.waitFor(() => expect(ctx(actor).error).toBe("too long"));
     expect(outputs).toEqual([]);
+  });
+});
+
+describe("folders single owner", () => {
+  const status = (name: string, id = "f1") => ({ name, folder: { id }, members: [] }) as any;
+  const wired = (port: Record<string, unknown> = {}) => {
+    const clock = VirtualClock();
+    const folders = createFoldersActor({
+      clock,
+      gateway: {
+        folders: vi.fn().mockResolvedValue([null, { folders: [], activeFolderId: null }]),
+        setActive: vi.fn().mockResolvedValue([null, status("Ann")]),
+        setName: vi.fn().mockResolvedValue([null, { name: "Renamed" }]),
+        ...port,
+      } as any,
+    });
+    const sync = createSyncActor({ clock, gateway: {} as any });
+    const off = wireFoldersToSync(folders, sync);
+    return { folders, sync, off };
+  };
+
+  test("a switch makes sync's context.status the switched status", async () => {
+    const { folders, sync } = wired();
+    folders.send({ type: "REFRESH" } as never);
+    await folders.settled();
+    folders.send({ type: "SET_ACTIVE", payload: { folderId: "f1" } } as never);
+    await folders.settled();
+    expect(sync.snapshot().context.status).toEqual(status("Ann"));
+  });
+
+  test("a sync status with a new name gives folders that userName", () => {
+    const { folders, sync } = wired();
+    sync.send(statusSeen.create({ status: status("Maya") }));
+    expect(folders.snapshot().context.userName).toBe("Maya");
+  });
+
+  test("the same name sends no event", () => {
+    const { folders, sync } = wired();
+    const send = vi.spyOn(folders, "send");
+    sync.send(statusSeen.create({ status: status("Maya") }));
+    sync.send(statusSeen.create({ status: status("Maya", "f2") }));
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  test("a rename sets userName", async () => {
+    const { folders } = wired();
+    folders.send({ type: "REFRESH" } as never);
+    await folders.settled();
+    folders.send({ type: "SET_NAME", payload: { name: "Me" } } as never);
+    await folders.settled();
+    expect(folders.snapshot().context.userName).toBe("Renamed");
+  });
+
+  test("the returned function unwires both directions", () => {
+    const { folders, sync, off } = wired();
+    off();
+    sync.send(statusSeen.create({ status: status("Maya") }));
+    expect(folders.snapshot().context.userName).toBe("");
+  });
+
+  test("foldersViewModel: initial snapshot and busy while creating", () => {
+    const { folders } = wired({ createFolder: vi.fn(() => new Promise(() => {})) });
+    expect(foldersViewModel(folders.snapshot())).toEqual({
+      userName: "",
+      folders: [],
+      asks: [],
+      activeFolderId: null,
+      state: "idle",
+      busy: false,
+      error: null,
+      fatal: false,
+    });
+    folders.send({ type: "REFRESH" } as never);
+    return folders.settled().then(() => {
+      folders.send({ type: "CREATE_FOLDER", payload: { name: "X" } } as never);
+      const vm = foldersViewModel(folders.snapshot());
+      expect(vm.state).toBe("creating");
+      expect(vm.busy).toBe(true);
+    });
   });
 });
