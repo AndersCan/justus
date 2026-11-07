@@ -472,4 +472,56 @@ export const cases: DriveCase[] = [
       );
     },
   },
+  {
+    name: "D16 readSmall with a timeout settles when the blob cannot be fetched",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/big", bytes("x".repeat(100)));
+      await eventually(
+        async () => {
+          const found = [];
+          for await (const entry of remote.list("/")) found.push(entry.path);
+          return found;
+        },
+        (paths) => paths.includes("/big"),
+        "entry replicated",
+      );
+      await a.disconnect();
+      const started = Date.now();
+      const outcome = await Promise.race([
+        remote.readSmall("/big", 1_000, { timeoutMs: 200 }).then(
+          (v) => v,
+          () => undefined,
+        ),
+        sleep(2_000).then(() => "hung"),
+      ]);
+      t.ok(outcome !== "hung", "settled");
+      t.ok(Date.now() - started < 1_500, "bounded by the timeout");
+    },
+  },
+  {
+    name: "D17 discoveryKeyOf(key) is the opened drive's discoveryKey, before and after opening",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      t.eq(store.discoveryKeyOf(drive.key), drive.discoveryKey, "own drive");
+      const other = await world.node();
+      const served = await other.store.openOwn();
+      const before = store.discoveryKeyOf(served.key);
+      const remote = await openOk(store, served.key, 1_000, t);
+      t.eq(remote.discoveryKey, before, "remote drive");
+    },
+  },
+  {
+    name: "D18 update resolves on a drive with nobody to ask",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn();
+      const outcome = await Promise.race([
+        drive.update().then(() => "done"),
+        sleep(5_000).then(() => "hung"),
+      ]);
+      t.eq(outcome, "done", "update settles");
+    },
+  },
 ];
