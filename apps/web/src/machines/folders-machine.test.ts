@@ -43,7 +43,7 @@ const folder = (id: string, name: string) => ({ id, name });
 
 beforeEach(() => {
   // The backend returns `activeFolderId: null` for a fresh device with no
-  // folder chosen yet — the machine must reach "ok", not "error", in that case.
+  // folder chosen yet — the machine must reach "showingAlbums", not "couldNotLoadAlbums", in that case.
   mock.folders.mockReset().mockResolvedValue([null, { folders: [], activeFolderId: null }]);
   mock.createFolder.mockReset().mockResolvedValue([null, { folder: folder("f2", "New") }]);
   mock.setActive.mockReset().mockResolvedValue([null, { folder: folder("f1", "Trip") }]);
@@ -57,7 +57,7 @@ describe("folders machine", () => {
       { folders: [folder("f1", "Trip")], activeFolderId: "f1" },
     ]);
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     expect(ctx().folders.map((f) => f.id)).toContain("f1");
     expect(ctx().activeId).toBe("f1");
   });
@@ -75,12 +75,12 @@ describe("folders machine", () => {
 
   test("create appends the folder and makes it the active folder", async () => {
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
 
     folders.create("New");
     await vi.waitFor(() => expect(ctx().activeId).toBe("f2"));
 
-    expect(folders.state()).toBe("ok");
+    expect(folders.state()).toBe("showingAlbums");
     expect(ctx().folders.map((f) => f.id)).toContain("f2");
   });
 
@@ -90,10 +90,10 @@ describe("folders machine", () => {
       { folders: [folder("f1", "Trip")], activeFolderId: "f1" },
     ]);
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
 
     folders.switchTo("f1");
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     expect(ctx().activeId).toBe("f1");
   });
 
@@ -101,7 +101,7 @@ describe("folders machine", () => {
     const status = { folder: { id: "f1", name: "Trip" }, name: "Ann" };
     mock.setActive.mockResolvedValue([null, status]);
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
 
     folders.switchTo("f1");
     await vi.waitFor(() => expect(sync().status).toEqual(status));
@@ -110,7 +110,7 @@ describe("folders machine", () => {
 
   test("renaming sets userName", async () => {
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
 
     folders.rename("Renamed");
     await vi.waitFor(() => expect(ctx().userName).toBe("Renamed"));
@@ -123,13 +123,13 @@ describe("folders machine", () => {
 
     folders.retry();
     await vi.waitFor(() => expect(ctx().error).toBeNull());
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
   });
 
   test("a create failure surfaces an error and lands in couldNotCreateAlbum (no unhandled rejection)", async () => {
     mock.createFolder.mockResolvedValue([new Error("folder denied"), null]);
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
 
     folders.create("X");
     await vi.waitFor(() => expect(folders.state()).toBe("couldNotCreateAlbum"));
@@ -167,7 +167,7 @@ describe("folders factory", () => {
       ...port,
     });
     send(built.actor, "REFRESH");
-    await vi.waitFor(() => expect(path(built.actor)).toBe("ok"));
+    await vi.waitFor(() => expect(path(built.actor)).toBe("showingAlbums"));
     return built;
   }
 
@@ -181,7 +181,7 @@ describe("folders factory", () => {
   test("refresh with no active folder still reaches ok", async () => {
     const { actor } = build();
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(path(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
     expect(ctx(actor).activeId).toBeNull();
   });
 
@@ -189,11 +189,11 @@ describe("folders factory", () => {
     const fail = vi.fn().mockResolvedValueOnce([new Error("offline"), null]);
     const { actor } = build({ folders: fail });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(path(actor)).toBe("error"));
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotLoadAlbums"));
     expect(ctx(actor).error).toBe("offline");
     fail.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
     send(actor, "RETRY");
-    await vi.waitFor(() => expect(path(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
     expect(ctx(actor).error).toBeNull();
   });
 
@@ -201,7 +201,7 @@ describe("folders factory", () => {
     const { actor, gw } = await loaded();
     send(actor, "CREATE_FOLDER", { name: "New" });
     await vi.waitFor(() => expect(ctx(actor).activeId).toBe("f2"));
-    expect(path(actor)).toBe("ok");
+    expect(path(actor)).toBe("showingAlbums");
     expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f2", "f1"]);
     expect(gw.createFolder).toHaveBeenCalledWith("New");
   });
@@ -246,7 +246,7 @@ describe("folders factory", () => {
     await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["RENAMED"]));
     expect(outputs[0]!.payload).toEqual({ name: "Renamed" });
     expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
-    expect(path(actor)).toBe("ok");
+    expect(path(actor)).toBe("showingAlbums");
   });
 
   test("a failed rename emits nothing and sets the error", async () => {
@@ -280,10 +280,10 @@ describe("folders factory", () => {
     });
 
     test.each([
-      ["REFRESH", undefined, "refreshing"],
-      ["CREATE_FOLDER", { name: "N" }, "creating"],
-      ["SET_ACTIVE", { folderId: "f3" }, "switching"],
-      ["SET_NAME", { name: "Me" }, "renaming"],
+      ["REFRESH", undefined, "loadingAlbums"],
+      ["CREATE_FOLDER", { name: "N" }, "creatingAlbum"],
+      ["SET_ACTIVE", { folderId: "f3" }, "openingAlbum"],
+      ["SET_NAME", { name: "Me" }, "savingName"],
     ] as const)(
       "%s enters the same state as from ok and clears the error",
       async (type, payload, next) => {
@@ -300,7 +300,7 @@ describe("folders factory", () => {
     expect(foldersViewModel(actor.snapshot()).settled).toBe(false);
     send(actor, "REFRESH");
     expect(foldersViewModel(actor.snapshot()).settled).toBe(false);
-    await vi.waitFor(() => expect(path(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
     expect(foldersViewModel(actor.snapshot()).settled).toBe(true);
   });
 });
@@ -369,7 +369,7 @@ describe("folders single owner", () => {
       folders: [],
       asks: [],
       activeFolderId: null,
-      state: "idle",
+      state: "albumsNotLoaded",
       busy: false,
       settled: false,
       error: null,
@@ -379,7 +379,7 @@ describe("folders single owner", () => {
     return folders.settled().then(() => {
       folders.send({ type: "CREATE_FOLDER", payload: { name: "X" } } as never);
       const vm = foldersViewModel(folders.snapshot());
-      expect(vm.state).toBe("creating");
+      expect(vm.state).toBe("creatingAlbum");
       expect(vm.busy).toBe(true);
     });
   });

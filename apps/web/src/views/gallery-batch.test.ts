@@ -17,7 +17,7 @@ describe("add batch toast", () => {
   test("a clean batch says what happened and is dismissed; one with failures stays up", async () => {
     hoisted.gateway.list.mockResolvedValue([null, { photos: [] }]);
     gallery.load();
-    await vi.waitFor(() => expect(galleryActor.snapshot().path[0]).toBe("ready"));
+    await vi.waitFor(() => expect(galleryActor.snapshot().path[0]).toBe("showingPhotos"));
     hoisted.gateway.add.mockResolvedValueOnce([null, photo]);
     gallery.addMany([{ kind: "path", path: "/a.jpg", name: "a.jpg" }], "f1");
     await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));

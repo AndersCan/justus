@@ -36,8 +36,8 @@ describe("sync factory", () => {
     const status = statusOf();
     const { actor } = build({ status: vi.fn().mockResolvedValue([null, status]) });
     send(actor, "REFRESH");
-    expect(stateOf(actor)).toBe("refreshing");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    expect(stateOf(actor)).toBe("checkingAlbum");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     expect(ctx(actor).status).toEqual(status);
     expect(ctx(actor).error).toBeNull();
   });
@@ -49,30 +49,30 @@ describe("sync factory", () => {
       .mockResolvedValue([null, statusOf()]);
     const { actor } = build({ status });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("error"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotCheckAlbum"));
     expect(ctx(actor).error).toBe("offline");
     send(actor, "RETRY");
-    expect(stateOf(actor)).toBe("refreshing");
+    expect(stateOf(actor)).toBe("checkingAlbum");
     expect(ctx(actor).error).toBeNull();
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
   });
 
   test("enroll stores the new status", async () => {
     const enrolled = statusOf();
     const { actor, gateway } = build({ enroll: vi.fn().mockResolvedValue([null, enrolled]) });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
-    expect(stateOf(actor)).toBe("enrolling");
+    expect(stateOf(actor)).toBe("addingMemberByKey");
     await vi.waitFor(() => expect(ctx(actor).status).toEqual(enrolled));
     expect(gateway.enroll).toHaveBeenCalledWith("k2", "Trip");
-    expect(stateOf(actor)).toBe("ok");
+    expect(stateOf(actor)).toBe("showingAlbum");
   });
 
   test("a failed enroll lands in couldNotAddMember with the message", async () => {
     const { actor } = build({ enroll: vi.fn().mockResolvedValue([new Error("denied"), null]) });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
     await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
     expect(ctx(actor).error).toBe("denied");
@@ -82,17 +82,17 @@ describe("sync factory", () => {
     const enroll = vi.fn().mockResolvedValue([new Error("denied"), null]);
     const { actor } = build({ enroll });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
     await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
     send(actor, "REFRESH");
-    expect(stateOf(actor)).toBe("refreshing");
+    expect(stateOf(actor)).toBe("checkingAlbum");
     expect(ctx(actor).error).toBeNull();
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
     await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
-    expect(stateOf(actor)).toBe("enrolling");
+    expect(stateOf(actor)).toBe("addingMemberByKey");
     expect(ctx(actor).error).toBeNull();
     await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
   });
@@ -103,7 +103,7 @@ describe("sync factory", () => {
     await vi.waitFor(() => expect(stateOf(pending.actor)).toBe("waitingForAdminApproval"));
     const fine = build({});
     send(fine.actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(fine.actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(fine.actor)).toBe("showingAlbum"));
   });
 
   test("waitingForAdminApproval accepts REFRESH and ENROLL", async () => {
@@ -111,10 +111,10 @@ describe("sync factory", () => {
     send(actor, "REFRESH");
     await vi.waitFor(() => expect(stateOf(actor)).toBe("waitingForAdminApproval"));
     send(actor, "REFRESH");
-    expect(stateOf(actor)).toBe("refreshing");
+    expect(stateOf(actor)).toBe("checkingAlbum");
     await vi.waitFor(() => expect(stateOf(actor)).toBe("waitingForAdminApproval"));
     send(actor, "ENROLL", { key: "k", name: "T" });
-    expect(stateOf(actor)).toBe("enrolling");
+    expect(stateOf(actor)).toBe("addingMemberByKey");
   });
 });
 
@@ -143,21 +143,21 @@ describe("sync single owner", () => {
     const status = statusOf(false, "Seen");
     send(actor, "STATUS_SEEN", { status });
     expect(ctx(actor).status).toBe(status);
-    expect(stateOf(actor)).toBe("idle");
+    expect(stateOf(actor)).toBe("albumNotChecked");
   });
 
   test("STATUS_SEEN moves ok to waitingForAdminApproval and back", async () => {
     const { actor } = build({});
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     send(actor, "STATUS_SEEN", { status: statusOf(false) });
-    expect(stateOf(actor)).toBe("ok");
+    expect(stateOf(actor)).toBe("showingAlbum");
     send(actor, "STATUS_SEEN", { status: statusOf(true) });
     expect(stateOf(actor)).toBe("waitingForAdminApproval");
     send(actor, "STATUS_SEEN", { status: statusOf(true) });
     expect(stateOf(actor)).toBe("waitingForAdminApproval");
     send(actor, "STATUS_SEEN", { status: statusOf(false) });
-    expect(stateOf(actor)).toBe("ok");
+    expect(stateOf(actor)).toBe("showingAlbum");
   });
 
   test("STATUS_SEEN while refreshing only stores the status", () => {
@@ -165,7 +165,7 @@ describe("sync single owner", () => {
     send(actor, "REFRESH");
     const status = statusOf(true);
     send(actor, "STATUS_SEEN", { status });
-    expect(stateOf(actor)).toBe("refreshing");
+    expect(stateOf(actor)).toBe("checkingAlbum");
     expect(ctx(actor).status).toBe(status);
   });
 
@@ -183,7 +183,7 @@ describe("sync single owner", () => {
     const { actor } = build({});
     expect(syncViewModel(actor.snapshot())).toEqual({
       status: null,
-      state: "idle",
+      state: "albumNotChecked",
       busy: false,
       settled: false,
       error: null,
@@ -194,11 +194,11 @@ describe("sync single owner", () => {
   test("syncViewModel: busy while enrolling, settled in ok and waitingForAdminApproval", async () => {
     const { actor } = build({ enroll: vi.fn(() => new Promise(() => {})) });
     send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
     expect(syncViewModel(actor.snapshot())).toMatchObject({ busy: false, settled: true });
     send(actor, "ENROLL", { key: "k", name: "T" });
     const vm = syncViewModel(actor.snapshot());
-    expect(vm.state).toBe("enrolling");
+    expect(vm.state).toBe("addingMemberByKey");
     expect(vm).toMatchObject({ busy: true, settled: false });
     const waiting = build({ status: vi.fn().mockResolvedValue([null, statusOf(true)]) });
     send(waiting.actor, "REFRESH");
@@ -213,7 +213,7 @@ describe("sync single owner", () => {
       error: { error: new Error("boom"), reason: "throw" },
     } as any);
     expect(vm.fatal).toBe(true);
-    expect(vm.state).toBe("error");
+    expect(vm.state).toBe("__error");
     expect(vm.error).toContain("boom");
   });
 });

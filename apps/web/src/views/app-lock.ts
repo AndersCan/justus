@@ -32,7 +32,7 @@ export async function toggleAppLock(
 ) {
   const snap = appLockActor.snapshot();
   const status = snap.context.status;
-  if (snap.path[0] === "saving" || !status) return;
+  if (snap.path[0] === "savingLockChoice" || !status) return;
   const want = !status.enabled;
   appLockActor.send(appLockEvents.saveStarted.create());
   const [err, result] = await set(want);
@@ -65,7 +65,7 @@ export function appLockView({ status, busy }: { status: LockStatus | undefined; 
 
 export function appLockSection() {
   return watch(appLockActor, (s) => {
-    const view = appLockView({ status: s.context.status, busy: s.path[0] === "saving" });
+    const view = appLockView({ status: s.context.status, busy: s.path[0] === "savingLockChoice" });
     if (!view) return nothing;
     const { on, disabled, hint } = view;
     return html`<section class="ui-card p-5">

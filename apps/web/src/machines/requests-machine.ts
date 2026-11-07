@@ -5,33 +5,33 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { removeRequestFromList } from "./requests-list";
 
 /**
- * Join-request inbox: pending "<name> wants to join <folder>" requests shown
- * to this device's folder creators, each with Yes/No. Same actor pattern as
+ * Join-request inbox: pending "<name> wants to join <album>" requests shown
+ * to this device's Admins, each with Yes/No. Same actor pattern as
  * the other machines.
  */
 
 const REQUESTS_STATES = [
-  "idle",
-  "refreshing",
-  "ok",
-  "responding",
-  "error",
+  "requestsNotLoaded",
+  "loadingRequests",
+  "showingRequests",
+  "sendingAnswer",
+  "couldNotLoadRequests",
   "couldNotSendAnswer",
 ] as const;
 export type RequestsStateName = (typeof REQUESTS_STATES)[number];
 
-/** The inbox of requests to join the person's folders has not been loaded yet. */
-const idle = state("idle")();
+/** The inbox of requests to join the person's albums has not been loaded yet. */
+const requestsNotLoaded = state("requestsNotLoaded")();
 /** Loading the requests from people who want to join. */
-const refreshing = state("refreshing")();
+const loadingRequests = state("loadingRequests")();
 /** The requests are shown, each with Yes and No. */
-const ok = state("ok")();
+const showingRequests = state("showingRequests")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
-const responding = state("responding")();
+const sendingAnswer = state("sendingAnswer")();
 /** The Yes or No did not reach the app; the request stays in the list. No message is shown. */
 const couldNotSendAnswer = state("couldNotSendAnswer")();
 /** The requests could not be loaded; the person sees the problem and can try again. */
-const error = state("error")();
+const couldNotLoadRequests = state("couldNotLoadRequests")();
 
 /** The person opens the requests inbox or asks it to reload. */
 const refresh = event("REFRESH")();
@@ -65,8 +65,8 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
   return {
     requests: s.context.requests,
     state,
-    responding: state === "responding",
-    settled: state === "ok" || state === "couldNotSendAnswer",
+    responding: state === "sendingAnswer",
+    settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -81,34 +81,41 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
     inputs: [refresh, respond, retry],
     internal: [loaded, loadFailed, responded, respondFailed],
     outputs: [],
-    states: [idle, refreshing, ok, responding, error, couldNotSendAnswer],
-    initial: idle,
+    states: [
+      requestsNotLoaded,
+      loadingRequests,
+      showingRequests,
+      sendingAnswer,
+      couldNotLoadRequests,
+      couldNotSendAnswer,
+    ],
+    initial: requestsNotLoaded,
     clock,
     context: initialContext,
     setup: (m) => {
       /** The first load starts and any old error is cleared. */
-      m.on(idle, {
+      m.on(requestsNotLoaded, {
         event: refresh,
-        to: [refreshing],
+        to: [loadingRequests],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingRequests };
         },
       });
-      for (const at of [ok, couldNotSendAnswer]) {
+      for (const at of [showingRequests, couldNotSendAnswer]) {
         /** A reload starts and any old error is cleared. */
         m.on(at, {
           event: refresh,
-          to: [refreshing],
+          to: [loadingRequests],
           handler: (_e, opts) => {
             opts.context.set({ ...opts.context.get(), error: null });
-            return { state: refreshing };
+            return { state: loadingRequests };
           },
         });
         /** Sending the Yes or No starts and any earlier error is cleared. */
         m.on(at, {
           event: respond,
-          to: [responding],
+          to: [sendingAnswer],
           handler: (e, opts) => {
             opts.context.set({
               ...opts.context.get(),
@@ -119,32 +126,32 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
                 approve: e.payload.approve,
               },
             });
-            return { state: responding };
+            return { state: sendingAnswer };
           },
         });
       }
       /** A reload after an error starts and the error message goes away. */
-      m.on(error, {
+      m.on(couldNotLoadRequests, {
         event: refresh,
-        to: [refreshing],
+        to: [loadingRequests],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingRequests };
         },
       });
       /** Try again after an error: loading starts again and the error message goes away. */
-      m.on(error, {
+      m.on(couldNotLoadRequests, {
         event: retry,
-        to: [refreshing],
+        to: [loadingRequests],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingRequests };
         },
       });
 
       /** The pending join requests are fetched; if that fails or returns nothing, loading fails and the person sees an error. */
-      m.effect(refreshing, {
-        name: "refreshing",
+      m.effect(loadingRequests, {
+        name: "loadingRequests",
         sends: [loaded, loadFailed],
         fn: ({ signal, emit }) => {
           return runInvoke(
@@ -163,27 +170,27 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         },
       });
       /** The requests are shown. */
-      m.on(refreshing, {
+      m.on(loadingRequests, {
         event: loaded,
-        to: [ok],
+        to: [showingRequests],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), requests: e.payload.requests, error: null });
-          return { state: ok };
+          return { state: showingRequests };
         },
       });
       /** Loading failed: the person sees an error and can try again. */
-      m.on(refreshing, {
+      m.on(loadingRequests, {
         event: loadFailed,
-        to: [error],
+        to: [couldNotLoadRequests],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), error: e.payload.message });
-          return { state: error };
+          return { state: couldNotLoadRequests };
         },
       });
 
-      /** The owner's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
-      m.effect(responding, {
-        name: "responding",
+      /** The Admin's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
+      m.effect(sendingAnswer, {
+        name: "sendingAnswer",
         sends: [responded, respondFailed],
         fn: ({ signal, emit, context }) => {
           const pending = context.get().pendingRespond;
@@ -206,9 +213,9 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         },
       });
       /** The answer went through and that request disappears from the list. */
-      m.on(responding, {
+      m.on(sendingAnswer, {
         event: responded,
-        to: [ok],
+        to: [showingRequests],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
@@ -220,11 +227,11 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             ),
             pendingRespond: null,
           });
-          return { state: ok };
+          return { state: showingRequests };
         },
       });
       /** Sending failed: the person sees an error and the request stays in the list. */
-      m.on(responding, {
+      m.on(sendingAnswer, {
         event: respondFailed,
         to: [couldNotSendAnswer],
         handler: (e, opts) => {

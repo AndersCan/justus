@@ -47,7 +47,12 @@ onStateChange(syncActor, SYNC_STATES, () => {
 // lands; a failed create stays here with its error.
 onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   const { error, activeId } = foldersActor.snapshot().context;
-  if (prev === "creating" && next === "ok" && !error && currentPage()?.route === "sharing") {
+  if (
+    prev === "creatingAlbum" &&
+    next === "showingAlbums" &&
+    !error &&
+    currentPage()?.route === "sharing"
+  ) {
     open(activeId ? `/albums/${activeId}` : "/albums");
   }
 });
@@ -144,7 +149,10 @@ function askRow(ask: AskSummary) {
 }
 
 function albumList(view: FoldersViewModel) {
-  if (view.state === "idle" || (view.state === "refreshing" && view.folders.length === 0)) {
+  if (
+    view.state === "albumsNotLoaded" ||
+    (view.state === "loadingAlbums" && view.folders.length === 0)
+  ) {
     return html`<p class="text-muted">Loading…</p>`;
   }
   const asks = view.asks;
@@ -171,7 +179,7 @@ function albumList(view: FoldersViewModel) {
 }
 
 function newAlbumSection(view: FoldersViewModel) {
-  const busy = view.state === "creating";
+  const busy = view.state === "creatingAlbum";
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">New album</h2>
@@ -206,7 +214,7 @@ function newAlbumSection(view: FoldersViewModel) {
 export function joinError() {
   return watch(joinActor, (s) => {
     const { state, error } = joinViewOf(s);
-    return state === "unusableLink" && error
+    return state === "showingLinkProblem" && error
       ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
       : null;
   });
@@ -266,7 +274,7 @@ export function albumsPanel() {
     return html`
       ${errorBanner(
         view.error,
-        view.state === "error" && !view.fatal ? () => folders.retry() : undefined,
+        view.state === "couldNotLoadAlbums" && !view.fatal ? () => folders.retry() : undefined,
         view.fatal ? () => window.location.reload() : undefined,
       )}
       <p class="text-sm text-muted">

@@ -57,14 +57,14 @@ describe("openLink", () => {
     expect(payload(s)).toEqual(INVITE);
   });
 
-  test.each(["noInvite", "decidingToAsk", "waitingForAnswer"] as const)(
+  test.each(["noInviteOpen", "decidingToAsk", "waitingForAdminToAccept"] as const)(
     "a garbled link in %s stays put with an error",
     async (name) => {
       const s = setup();
-      if (name !== "noInvite") await s.send("openLink", { text: LINK });
-      if (name === "waitingForAnswer") await s.send("askToJoin");
+      if (name !== "noInviteOpen") await s.send("openLink", { text: LINK });
+      if (name === "waitingForAdminToAccept") await s.send("askToJoin");
       await s.send("openLink", { text: "justus://join/not-a-link" });
-      expect(s.actor.state.name).toBe(name === "noInvite" ? "unusableLink" : name);
+      expect(s.actor.state.name).toBe(name === "noInviteOpen" ? "showingLinkProblem" : name);
       expect(error(s)).toBe(GARBLED_LINK);
     },
   );
@@ -73,22 +73,24 @@ describe("openLink", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask("declined") });
     await s.send("openLink", { text: "nope" });
-    expect(s.actor.state.name).toBe("declined");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
     expect(error(s)).toBe(GARBLED_LINK);
   });
 
-  test.each(["noInvite", "decidingToAsk", "waitingForAnswer", "declined"] as const)(
-    "an old link in %s stays put with its own message",
-    async (name) => {
-      const s = setup();
-      if (name === "declined") await s.send("reopenRequest", { ask: ask("declined") });
-      else if (name !== "noInvite") await s.send("openLink", { text: LINK });
-      if (name === "waitingForAnswer") await s.send("askToJoin");
-      await s.send("openLink", { text: `justus://join/${"a".repeat(64)}?n=Lisbon&a=Nils` });
-      expect(s.actor.state.name).toBe(name === "noInvite" ? "unusableLink" : name);
-      expect(error(s)).toBe("This link no longer works. Ask Nils for a new invite link.");
-    },
-  );
+  test.each([
+    "noInviteOpen",
+    "decidingToAsk",
+    "waitingForAdminToAccept",
+    "declinedByAdmin",
+  ] as const)("an old link in %s stays put with its own message", async (name) => {
+    const s = setup();
+    if (name === "declinedByAdmin") await s.send("reopenRequest", { ask: ask("declined") });
+    else if (name !== "noInviteOpen") await s.send("openLink", { text: LINK });
+    if (name === "waitingForAdminToAccept") await s.send("askToJoin");
+    await s.send("openLink", { text: `justus://join/${"a".repeat(64)}?n=Lisbon&a=Nils` });
+    expect(s.actor.state.name).toBe(name === "noInviteOpen" ? "showingLinkProblem" : name);
+    expect(error(s)).toBe("This link no longer works. Ask Nils for a new invite link.");
+  });
 
   test("an old link without a hint names the Admin", async () => {
     const s = setup();
@@ -101,7 +103,7 @@ describe("openLink", () => {
     async (kind) => {
       const s = setup({ known: { kind, folderId: "f1" } });
       await s.send("openLink", { text: LINK });
-      expect(s.actor.state.name).toBe("joined");
+      expect(s.actor.state.name).toBe("joinedAlbum");
       expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
     },
   );
@@ -113,16 +115,16 @@ describe("openLink", () => {
       port: { ask: async () => (calls++, [undefined, {}]) },
     });
     await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(calls).toBe(0);
   });
 
   test("a link with a declined ask shows declined, with no way to ask", async () => {
     const s = setup({ known: { kind: "declined" } });
     await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("declined");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
     await s.send("askToJoin");
-    expect(s.actor.state.name).toBe("declined");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
   });
 
   test("a good link clears an earlier error", async () => {
@@ -154,8 +156,8 @@ function ask(status: AskSummary["status"]): AskSummary {
 
 describe("reopenRequest", () => {
   test.each([
-    ["waiting", "waitingForAnswer"],
-    ["declined", "declined"],
+    ["waiting", "waitingForAdminToAccept"],
+    ["declined", "declinedByAdmin"],
   ] as const)("a %s row opens %s", async (status, expected) => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask(status) });
@@ -170,14 +172,14 @@ describe("decidingToAsk", () => {
     const s = setup({ port: { ask: async () => (calls++, [undefined, {}]) } });
     await s.send("openLink", { text: LINK });
     await s.send("notNow");
-    expect(s.actor.state.name).toBe("noInvite");
+    expect(s.actor.state.name).toBe("noInviteOpen");
     expect(calls).toBe(0);
   });
 
   test("ask sends the invite and waits", async () => {
     const seen: JoinInvite[] = [];
     const s = await waitingSetup({ port: { ask: async (i) => (seen.push(i), [undefined, {}]) } });
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(seen).toEqual([INVITE]);
     expect(payload(s)).toEqual(INVITE);
   });
@@ -194,7 +196,7 @@ describe("decidingToAsk", () => {
     s.actor.send({ type: "askToJoin" } as never);
     release();
     await s.actor.settled();
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
   });
 
   test.each([
@@ -214,30 +216,30 @@ describe("decidingToAsk", () => {
     });
     fail = false;
     await s.send("askToJoin");
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(error(s)).toBe("");
   });
 });
 
-describe("waitingForAnswer", () => {
+describe("waitingForAdminToAccept", () => {
   test("closeWaiting goes to noInvite and sends nothing", async () => {
     const s = await waitingSetup();
     await s.send("closeWaiting");
-    expect(s.actor.state.name).toBe("noInvite");
+    expect(s.actor.state.name).toBe("noInviteOpen");
     expect(s.outputs).toEqual([]);
   });
 
   test("accepted opens the album", async () => {
     const s = await waitingSetup();
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
-    expect(s.actor.state.name).toBe("joined");
+    expect(s.actor.state.name).toBe("joinedAlbum");
     expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
   });
 
   test("declined shows declined", async () => {
     const s = await waitingSetup();
     await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
-    expect(s.actor.state.name).toBe("declined");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
     expect(payload(s)).toEqual(INVITE);
   });
 
@@ -246,7 +248,7 @@ describe("waitingForAnswer", () => {
     async (answer) => {
       const s = await waitingSetup();
       await s.send("requestAnswered", { code: "c".repeat(64), answer, folderId: "f9" });
-      expect(s.actor.state.name).toBe("waitingForAnswer");
+      expect(s.actor.state.name).toBe("waitingForAdminToAccept");
       expect(s.outputs).toEqual([]);
     },
   );
@@ -254,13 +256,13 @@ describe("waitingForAnswer", () => {
   test("an accepted answer with no folder keeps waiting", async () => {
     const s = await waitingSetup();
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted" });
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
   });
 
   test("answers outside waiting are dropped", async () => {
     const s = setup();
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
-    expect(s.actor.state.name).toBe("noInvite");
+    expect(s.actor.state.name).toBe("noInviteOpen");
     expect(s.outputs).toEqual([]);
   });
 });
@@ -341,14 +343,14 @@ describe("declined", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask("declined") });
     await s.send("dismissDecline");
-    expect(s.actor.state.name).toBe("noInvite");
+    expect(s.actor.state.name).toBe("noInviteOpen");
   });
 
   test("the decline is final: a later answer does not change it", async () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask("declined") });
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
-    expect(s.actor.state.name).toBe("declined");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
   });
 });
 
@@ -356,7 +358,7 @@ describe("link states", () => {
   test("a link after an unusable link opens its screen", async () => {
     const s = setup();
     await s.send("openLink", { text: "nope" });
-    expect(s.actor.state.name).toBe("unusableLink");
+    expect(s.actor.state.name).toBe("showingLinkProblem");
     await s.send("openLink", { text: LINK });
     expect(s.actor.state.name).toBe("decidingToAsk");
     expect(error(s)).toBe("");
@@ -366,7 +368,7 @@ describe("link states", () => {
     const s = setup({ known: { kind: "own", folderId: "f1" } });
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("joined");
+    expect(s.actor.state.name).toBe("joinedAlbum");
     expect(s.outputs).toHaveLength(2);
   });
 
@@ -374,18 +376,18 @@ describe("link states", () => {
     const s = setup({ known: { kind: "own", folderId: "f1" } });
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: "nope" });
-    expect(s.actor.state.name).toBe("unusableLink");
+    expect(s.actor.state.name).toBe("showingLinkProblem");
   });
 
   test("a request row opens from joined and from unusableLink", async () => {
     const s = setup({ known: { kind: "own", folderId: "f1" } });
     await s.send("openLink", { text: LINK });
     await s.send("reopenRequest", { ask: ask("waiting") });
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     const t = setup();
     await t.send("openLink", { text: "nope" });
     await t.send("reopenRequest", { ask: ask("declined") });
-    expect(t.actor.state.name).toBe("declined");
+    expect(t.actor.state.name).toBe("declinedByAdmin");
   });
 });
 
@@ -408,7 +410,7 @@ test("Maya: asks and is accepted", async () => {
     await send("askToJoin");
     await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
   });
-  expect(actor.state.name).toBe("joined");
+  expect(actor.state.name).toBe("joinedAlbum");
 });
 
 test("Maya: asks and is declined", async () => {
@@ -417,7 +419,7 @@ test("Maya: asks and is declined", async () => {
     await send("askToJoin");
     await send("requestAnswered", { code: INVITE.code, answer: "declined" });
   });
-  expect(actor.state.name).toBe("declined");
+  expect(actor.state.name).toBe("declinedByAdmin");
 });
 
 test("Maya: reopens her ask while waiting", async () => {
@@ -427,7 +429,7 @@ test("Maya: reopens her ask while waiting", async () => {
     await send("closeWaiting");
     await send("reopenRequest", { ask: ROW("waiting") });
   });
-  expect(actor.state.name).toBe("waitingForAnswer");
+  expect(actor.state.name).toBe("waitingForAdminToAccept");
 });
 
 test("Maya: reopens her ask after a decline", async () => {
@@ -438,14 +440,14 @@ test("Maya: reopens her ask after a decline", async () => {
     await send("dismissDecline");
     await send("reopenRequest", { ask: ROW("declined") });
   });
-  expect(actor.state.name).toBe("declined");
+  expect(actor.state.name).toBe("declinedByAdmin");
 });
 
 test("Maya: opens a link from before the new key", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: `justus://join/${INVITE.code}?n=Spain 2026&a=Nils` });
   });
-  expect(actor.state.name).toBe("unusableLink");
+  expect(actor.state.name).toBe("showingLinkProblem");
 });
 
 test("Maya opens Nils's link after it ended", async () => {

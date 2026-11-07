@@ -665,7 +665,7 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
       <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>
       <button
         class="ui-btn-ghost shrink-0"
-        ?disabled=${page.busy || page.state === "loading" || page.fatal}
+        ?disabled=${page.busy || page.state === "loadingPhotos" || page.fatal}
         @click=${() => gallery.load()}
       >
         Refresh
@@ -719,7 +719,8 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   const { state, error, fatal } = page;
   const album =
     scope.kind === "album" ? (page.folders.find((f) => f.id === scope.id) ?? null) : null;
-  const loading = (state === "loading" || state === "booting") && page.photos.length === 0;
+  const loading =
+    (state === "loadingPhotos" || state === "photosNotLoaded") && page.photos.length === 0;
   const drop = dropHandlers(scope);
   return html`
     <div
@@ -742,7 +743,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
       }
       ${errorBanner(
         error,
-        state === "error" && !fatal ? () => gallery.retry() : undefined,
+        state === "couldNotLoadPhotos" && !fatal ? () => gallery.retry() : undefined,
         fatal ? () => window.location.reload() : undefined,
       )}
       ${

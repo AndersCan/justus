@@ -76,14 +76,14 @@ function createAlbum(name: string): Promise<string | null> {
   return new Promise((resolve) => {
     let started = false;
     const stop = onStateChange(foldersActor, FOLDERS_STATES, (state) => {
-      if (state === "creating") {
+      if (state === "creatingAlbum") {
         started = true;
         return;
       }
       if (!started) return;
       stop();
       const { error, activeId } = foldersActor.snapshot().context;
-      resolve(state === "ok" && !error ? activeId : null);
+      resolve(state === "showingAlbums" && !error ? activeId : null);
     });
     folders.create(name);
     // A create the actor refused never leaves `ok`.

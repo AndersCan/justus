@@ -45,7 +45,7 @@ if (typeof document !== "undefined") {
 }
 
 async function removeFromLightbox(photo: Photo) {
-  if (gallery.state() === "removing") return;
+  if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
     detail: removeDetail(photo),

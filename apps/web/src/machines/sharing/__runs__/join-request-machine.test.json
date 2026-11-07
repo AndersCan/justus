@@ -41,7 +41,7 @@
     },
     {
       "name": "Maya: asks and is accepted",
-      "end": "joined",
+      "end": "joinedAlbum",
       "steps": [
         {
           "kind": "event",
@@ -73,7 +73,7 @@
     },
     {
       "name": "Maya: asks and is declined",
-      "end": "declined",
+      "end": "declinedByAdmin",
       "steps": [
         {
           "kind": "event",
@@ -140,7 +140,7 @@
     },
     {
       "name": "Maya: opens a link from before the new key",
-      "end": "unusableLink",
+      "end": "showingLinkProblem",
       "steps": [
         {
           "kind": "event",
@@ -153,7 +153,7 @@
     },
     {
       "name": "Maya: reopens her ask after a decline",
-      "end": "declined",
+      "end": "declinedByAdmin",
       "steps": [
         {
           "kind": "event",
@@ -203,7 +203,7 @@
     },
     {
       "name": "Maya: reopens her ask while waiting",
-      "end": "waitingForAnswer",
+      "end": "waitingForAdminToAccept",
       "steps": [
         {
           "kind": "event",

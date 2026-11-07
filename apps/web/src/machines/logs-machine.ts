@@ -30,15 +30,15 @@ const paused = event("PAUSED")<{ paused: boolean }>();
 const cleared = event("CLEARED")<{ at: number }>();
 
 /** The tail is shown and can be filtered at any time. */
-const ready = state("ready")();
+const holdingLogs = state("holdingLogs")();
 
 export function createLogsActor(options: { clock: Clock }) {
   return Actor({
     inputs: [loadingStarted, loaded, loadFailed, levelChosen, sourceToggled, paused, cleared],
     internal: [],
     outputs: [],
-    states: [ready],
-    initial: ready,
+    states: [holdingLogs],
+    initial: holdingLogs,
     clock: options.clock,
     context: {
       entries: [],

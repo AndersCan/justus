@@ -26,12 +26,13 @@ export function runInvoke(
   })();
 }
 
-/** Maps an actor snapshot to its state name, normalising anything unknown to
- * "error" — the shared safety net every state atom in this app uses. */
+/** Maps an actor snapshot to its state name, normalising anything not in `states`
+ * (mantaq's universal `__error` state included) to "__error" — the shared safety
+ * net every state atom in this app uses. */
 export function stateNameOf<TState extends string>(states: readonly TState[]) {
   const known = new Set<string>(states);
-  return (snapshot: Snapshot<unknown>): TState =>
-    (known.has(snapshot.path[0] as string) ? snapshot.path[0] : "error") as TState;
+  return (snapshot: Snapshot<unknown>): TState | "__error" =>
+    (known.has(snapshot.path[0] as string) ? snapshot.path[0] : "__error") as TState | "__error";
 }
 
 /** Extracts mantaq's universal error state (`__error` — the machine is dead,
@@ -53,7 +54,7 @@ export function onStateChange<S extends string>(
     on(event: "change", options: { fn: (snapshot: Snapshot<unknown>) => void }): () => void;
   },
   states: readonly S[],
-  fn: (next: S, prev: S) => void,
+  fn: (next: S | "__error", prev: S | "__error") => void,
 ): () => void {
   const nameOf = stateNameOf<S>(states);
   let last = nameOf(actor.snapshot());

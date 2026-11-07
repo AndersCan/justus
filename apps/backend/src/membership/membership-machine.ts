@@ -26,32 +26,32 @@ export type MembershipRecords = {
 };
 
 /** This person has not asked to join and is not in the member list. */
-const noRequest = state("noRequest")();
+const noRequestYet = state("noRequestYet")();
 /** The person asked to join and waits for the Admin to accept or decline. */
-const awaitingDecision = state("awaitingDecision")<RequestEntry>();
+const requestWaitingForAdmin = state("requestWaitingForAdmin")<RequestEntry>();
 /** The Admin accepted, and the member list is being saved. */
 const addingMember = state("addingMember")<{ entry: RequestEntry; role: Role }>();
 /** The person is in the member list with their role. */
-const joined = state("joined")<{ role: Role }>();
+const memberOfAlbum = state("memberOfAlbum")<{ role: Role }>();
 /** The Admin picked a different role, and it is being saved. */
 const savingRole = state("savingRole")<{ from: Role; to: Role }>();
 /** The Admin is taking the person out of the member list. */
 const removingMember = state("removingMember")<{ role: Role }>();
 /** The Admin declined the request; a new request starts again. */
-const declined = state("declined")();
+const requestDeclined = state("requestDeclined")();
 /** The person was removed and cannot rejoin. */
-const removedState = state("removed")();
-const removed = removedState.final();
+const removedFromAlbum = state("removedFromAlbum")();
+const removed = removedFromAlbum.final();
 
 /** The person's request to join reached the Admin. */
 const requestQueued = event("requestQueued")<RequestEntry>();
 /** The Admin accepts the request with the role the person joins with. */
 const accept = event("accept")<{ role: Role }>();
-/** The owner gives a member a different role. */
+/** The Admin gives a member a different role. */
 const changeRole = event("changeRole")<{ role: Role }>();
-/** The owner declines the request. */
+/** The Admin declines the request. */
 const decline = event("decline")();
-/** The owner removes a member. */
+/** The Admin removes a member. */
 const removeMember = event("removeMember")();
 
 /** The member list was saved with the new member. */
@@ -118,10 +118,10 @@ export function initialStateFromRecords(options: {
   if (Object.values(records.removed.removed).some((r) => r.memberKey === memberKey)) {
     return removed;
   }
-  if (isEnrolled(records.registry, memberKey)) return joined.create({ role: "member" });
+  if (isEnrolled(records.registry, memberKey)) return memberOfAlbum.create({ role: "member" });
   const entry = Object.values(records.requests).find((r) => r.requesterKey === memberKey);
-  if (entry) return awaitingDecision.create(entry);
-  return noRequest;
+  if (entry) return requestWaitingForAdmin.create(entry);
+  return noRequestYet;
 }
 
 const noRecords: MembershipRecords = {
@@ -157,13 +157,13 @@ export function createMembershipActor(options: {
     ],
     outputs: [memberJoined, memberRemoved, requestAnswered],
     states: [
-      noRequest,
-      awaitingDecision,
+      noRequestYet,
+      requestWaitingForAdmin,
       addingMember,
-      joined,
+      memberOfAlbum,
       savingRole,
       removingMember,
-      declined,
+      requestDeclined,
       removed,
     ],
     initial: initialStateFromRecords({ records, memberKey }),
@@ -171,35 +171,35 @@ export function createMembershipActor(options: {
     context: { accepted: isEnrolled(records.registry, memberKey) },
     clock,
     setup: (m) => {
-      /** A request arrives and waits for the owner's decision. */
-      m.on(noRequest, {
+      /** A request arrives and waits for the Admin's decision. */
+      m.on(noRequestYet, {
         event: requestQueued,
-        to: [awaitingDecision],
+        to: [requestWaitingForAdmin],
         handler: (e, { context }) => {
           context.set({ accepted: false });
-          return { state: awaitingDecision.create(e.payload) };
+          return { state: requestWaitingForAdmin.create(e.payload) };
         },
       });
       /** The Admin declines, so the request ends. */
-      m.on(awaitingDecision, {
+      m.on(requestWaitingForAdmin, {
         event: decline,
-        to: [declined],
+        to: [requestDeclined],
         handler: () => ({
-          state: declined,
+          state: requestDeclined,
           emit: [requestAnswered.create({ answer: "declined" })],
         }),
       });
       /** After a decline, a new request waits for the Admin to decide again. */
-      m.on(declined, {
+      m.on(requestDeclined, {
         event: requestQueued,
-        to: [awaitingDecision],
+        to: [requestWaitingForAdmin],
         handler: (e, { context }) => {
           context.set({ accepted: false });
-          return { state: awaitingDecision.create(e.payload) };
+          return { state: requestWaitingForAdmin.create(e.payload) };
         },
       });
-      /** The owner approves, so the member list is written next. */
-      m.on(awaitingDecision, {
+      /** The Admin approves, so the member list is written next. */
+      m.on(requestWaitingForAdmin, {
         event: accept,
         to: [addingMember],
         handler: (e, { actor, context }) => {
@@ -209,7 +209,7 @@ export function createMembershipActor(options: {
           return { state: addingMember.create({ entry: payload, role: e.payload.role }) };
         },
       });
-      /** The accepted person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again. */
+      /** The accepted person is added to the album's member list; if the list cannot be written, the request fails and the Admin can try again. */
       m.effect(addingMember, {
         name: "saveNewMember",
         sends: [memberListSaved, memberListSaveFailed],
@@ -241,12 +241,12 @@ export function createMembershipActor(options: {
       /** The member list was saved, so the person becomes a member. */
       m.on(addingMember, {
         event: memberListSaved,
-        to: [joined],
+        to: [memberOfAlbum],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
           const role = isApproved(payload) ? payload.role : "member";
           return {
-            state: joined.create({ role }),
+            state: memberOfAlbum.create({ role }),
             emit: [
               memberJoined.create({ memberKey }),
               requestAnswered.create({ answer: "accepted" }),
@@ -257,14 +257,14 @@ export function createMembershipActor(options: {
       /** The member list could not be saved, so the request goes back to waiting. */
       m.on(addingMember, {
         event: memberListSaveFailed,
-        to: [awaitingDecision],
+        to: [requestWaitingForAdmin],
         handler: (e, { context }) => {
           context.set({ accepted: false });
-          return { state: awaitingDecision.create(e.payload.entry) };
+          return { state: requestWaitingForAdmin.create(e.payload.entry) };
         },
       });
-      /** The owner picks a different role, so the new role is saved next. */
-      m.on(joined, {
+      /** The Admin picks a different role, so the new role is saved next. */
+      m.on(memberOfAlbum, {
         event: changeRole,
         to: [savingRole],
         handler: (e, { actor }) => {
@@ -295,23 +295,23 @@ export function createMembershipActor(options: {
       /** The new role was saved, so the member has it. */
       m.on(savingRole, {
         event: roleSaved,
-        to: [joined],
+        to: [memberOfAlbum],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: joined.create({ role: payload.to }) } : {};
+          return isChange(payload) ? { state: memberOfAlbum.create({ role: payload.to }) } : {};
         },
       });
       /** The new role could not be saved, so the member keeps the old role. */
       m.on(savingRole, {
         event: roleSaveFailed,
-        to: [joined],
+        to: [memberOfAlbum],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: joined.create({ role: payload.from }) } : {};
+          return isChange(payload) ? { state: memberOfAlbum.create({ role: payload.from }) } : {};
         },
       });
-      /** The owner removes the member, so they are taken out of the list next. */
-      m.on(joined, {
+      /** The Admin removes the member, so they are taken out of the list next. */
+      m.on(memberOfAlbum, {
         event: removeMember,
         to: [removingMember],
         handler: (_e, { actor }) => {
@@ -349,10 +349,12 @@ export function createMembershipActor(options: {
       /** Taking the member out failed, so they stay a member. */
       m.on(removingMember, {
         event: removalFailed,
-        to: [joined],
+        to: [memberOfAlbum],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return { state: joined.create({ role: isRole(payload) ? payload.role : "member" }) };
+          return {
+            state: memberOfAlbum.create({ role: isRole(payload) ? payload.role : "member" }),
+          };
         },
       });
     },
@@ -362,5 +364,5 @@ export function createMembershipActor(options: {
 /** What fuzzing must never and must always see: nobody is added without the Admin's accept, and an accepted request still becomes a member. */
 export const membershipExpectations: Expectations<typeof createMembershipActor> = {
   addingMember: { neverSee: [{ accepted: false }] },
-  joined: { neverSee: [{ accepted: false }], mustSee: [{ accepted: true }] },
+  memberOfAlbum: { neverSee: [{ accepted: false }], mustSee: [{ accepted: true }] },
 };

@@ -66,20 +66,20 @@ type RouterContext = { page: AppPage | undefined };
 const navigated = event("NAVIGATED")<{ page: AppPage | undefined }>();
 
 /** The page in view. */
-const shown = state("shown")();
+const showingPage = state("showingPage")();
 
 export function createRouterActor(options: { clock: Clock; page: AppPage | undefined }) {
   return Actor({
     inputs: [navigated],
     internal: [],
     outputs: [],
-    states: [shown],
-    initial: shown,
+    states: [showingPage],
+    initial: showingPage,
     clock: options.clock,
     context: { page: options.page } as RouterContext,
     setup: (m) => {
       /** A new page replaces the old one; the machine stays where it is. */
-      m.on(shown, {
+      m.on(showingPage, {
         event: navigated,
         handler: (e, opts) => {
           opts.context.set({ page: e.payload.page });

@@ -21,13 +21,13 @@ import {
 /** What the join screens draw: which screen, whose album, and any error. */
 export type JoinView = {
   state:
-    | "noInvite"
-    | "unusableLink"
-    | "joined"
+    | "noInviteOpen"
+    | "showingLinkProblem"
+    | "joinedAlbum"
     | "decidingToAsk"
     | "sendingRequest"
-    | "waitingForAnswer"
-    | "declined"
+    | "waitingForAdminToAccept"
+    | "declinedByAdmin"
     | "linkExpired";
   invite: JoinInvite | null;
   error: string;
@@ -39,7 +39,7 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
   return {
     state: name,
     invite:
-      name === "noInvite" || name === "unusableLink" || name === "joined"
+      name === "noInviteOpen" || name === "showingLinkProblem" || name === "joinedAlbum"
         ? null
         : (snapshot.payload as JoinInvite),
     error: (snapshot.context as { error: string }).error,

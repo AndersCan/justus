@@ -131,23 +131,24 @@ function devicesBody(view: SharingViewModel) {
       </p>
       <button
         class="ui-btn-ghost shrink-0"
-        ?disabled=${state === "refreshing" || state === "acting"}
+        ?disabled=${state === "loadingShareList" || state === "savingShareChoice"}
         @click=${() => grants.refresh()}
       >
-        ${state === "refreshing" ? "Refreshing…" : "Refresh"}
+        ${state === "loadingShareList" ? "Refreshing…" : "Refresh"}
       </button>
     </div>
 
     ${errorBanner(
       error,
-      state === "error" && !fatal ? () => grants.retry() : undefined,
+      state === "couldNotLoadShareList" && !fatal ? () => grants.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
 
     <section class="space-y-3">
       <h2 class="ui-label">Unknown holder</h2>
       ${
-        state === "idle" || (state === "refreshing" && view.dueRecords.length === 0)
+        state === "shareListNotLoaded" ||
+        (state === "loadingShareList" && view.dueRecords.length === 0)
           ? html`<p class="text-muted">Loading…</p>`
           : view.dueRecords.length === 0
             ? html`

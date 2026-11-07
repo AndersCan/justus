@@ -12,7 +12,12 @@ import { foldersActor, nameSeen } from "./folders-machine";
 
 export { INTRO_CARD_COUNT };
 
-export const ONBOARDING_STATES = ["cards", "profile", "saving", "choose"] as const;
+export const ONBOARDING_STATES = [
+  "showingIntroCards",
+  "askingForName",
+  "savingName",
+  "choosingCreateOrJoin",
+] as const;
 export type OnboardingStateName = (typeof ONBOARDING_STATES)[number];
 
 const nameOf = stateNameOf(ONBOARDING_STATES);
@@ -26,7 +31,7 @@ export function onboardingViewModel(s: Snapshot<OnboardingContext>, userName: st
     card: s.context.card,
     cardCount: INTRO_CARD_COUNT,
     state,
-    saving: state === "saving",
+    saving: state === "savingName",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
     userName,
@@ -36,13 +41,13 @@ export function onboardingViewModel(s: Snapshot<OnboardingContext>, userName: st
 }
 
 /** The person is swiping through the intro cards. */
-const cards = state("cards")();
+const showingIntroCards = state("showingIntroCards")();
 /** The person is asked for their name, which is required to continue. */
-const profile = state("profile")();
+const askingForName = state("askingForName")();
 /** The name is being saved; the button shows progress. */
-const saving = state("saving")();
+const savingName = state("savingName")();
 /** The name is saved and the person chooses to create an album or join one. */
-const choose = state("choose")();
+const choosingCreateOrJoin = state("choosingCreateOrJoin")();
 
 /** The person goes to the next card or step. */
 const next = event("NEXT")();
@@ -84,69 +89,73 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
     inputs: [next, back, skip, editName, saveProfile],
     internal: [saved, saveFailed],
     outputs: [nameSaved],
-    states: [cards, profile, saving, choose],
-    initial: cards,
+    states: [showingIntroCards, askingForName, savingName, choosingCreateOrJoin],
+    initial: showingIntroCards,
     clock: options.clock,
     context: initialContext,
     setup: (m) => {
       /** Next card; after the last card the name step opens. */
-      m.on(cards, {
+      m.on(showingIntroCards, {
         event: next,
-        to: [cards, profile],
+        to: [showingIntroCards, askingForName],
         handler: (_e, opts) => {
           const card = opts.context.get().card + 1;
-          if (card >= INTRO_CARD_COUNT) return { state: profile };
+          if (card >= INTRO_CARD_COUNT) return { state: askingForName };
           opts.context.set({ ...opts.context.get(), card });
-          return { state: cards };
+          return { state: showingIntroCards };
         },
       });
       /** Previous card; on the first card nothing changes. */
-      m.on(cards, {
+      m.on(showingIntroCards, {
         event: back,
-        to: [cards],
+        to: [showingIntroCards],
         handler: (_e, opts) => {
           const current = opts.context.get();
           opts.context.set({ ...current, card: Math.max(0, current.card - 1) });
-          return { state: cards };
+          return { state: showingIntroCards };
         },
       });
       /** Skipping the intro jumps straight to the name step. */
-      m.on(cards, { event: skip, to: [profile], handler: () => ({ state: profile }) });
+      m.on(showingIntroCards, {
+        event: skip,
+        to: [askingForName],
+        handler: () => ({ state: askingForName }),
+      });
 
       /** Going back from the name step returns to the last intro card. */
-      m.on(profile, {
+      m.on(askingForName, {
         event: back,
-        to: [cards],
+        to: [showingIntroCards],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), card: INTRO_CARD_COUNT - 1 });
-          return { state: cards };
+          return { state: showingIntroCards };
         },
       });
       /** Typing updates the avatar preview live. */
-      m.on(profile, {
+      m.on(askingForName, {
         event: editName,
-        to: [profile],
+        to: [askingForName],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), draftName: e.payload.name });
-          return { state: profile };
+          return { state: askingForName };
         },
       });
       /** Confirming the name starts saving it and clears any earlier error. */
-      m.on(profile, {
+      m.on(askingForName, {
         event: saveProfile,
-        to: [saving],
+        to: [savingName],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
             error: null,
             pendingName: e.payload.name.trim(),
           });
-          return { state: saving };
+          return { state: savingName };
         },
       });
       /** The name is saved; an empty name is refused. */
-      m.effect(saving, {
-        name: "saving",
+      m.effect(savingName, {
+        name: "savingName",
         sends: [saved, saveFailed],
         fn: ({ signal, emit, context }) => {
           const name = context.get().pendingName;
@@ -164,25 +173,28 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
         },
       });
       /** The name is saved and the person moves on to create or join an album. */
-      m.on(saving, {
+      m.on(savingName, {
         event: saved,
-        to: [choose],
+        to: [choosingCreateOrJoin],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), pendingName: null });
-          return { state: choose, emit: [nameSaved.create({ name: e.payload.name })] };
+          return {
+            state: choosingCreateOrJoin,
+            emit: [nameSaved.create({ name: e.payload.name })],
+          };
         },
       });
       /** Saving failed or the name was empty: the person stays on the name step and sees why. */
-      m.on(saving, {
+      m.on(savingName, {
         event: saveFailed,
-        to: [profile],
+        to: [askingForName],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
             error: e.payload.message,
             pendingName: null,
           });
-          return { state: profile };
+          return { state: askingForName };
         },
       });
     },

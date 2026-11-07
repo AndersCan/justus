@@ -72,7 +72,7 @@ describe("albums wiring", () => {
     mock.status.mockResolvedValue([null, { name: "Me", members: [] }]);
     // idle -> refreshing is the first change and is only remembered; refreshing -> ok refreshes
     sync.refresh();
-    await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("ok"));
+    await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("showingAlbum"));
     expect(refresh).toHaveBeenCalledTimes(1);
     sync.refresh();
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(3));
@@ -82,11 +82,11 @@ describe("albums wiring", () => {
     const { people, peopleActor } = await import("../machines/people-machine");
     const { open } = await import("../machines/router-machine");
     open("/sharing/a");
-    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("open"));
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
     people.showQr();
     expect(peopleActor.snapshot().context.qrShown).toBe(true);
     open("/sharing/b");
     await vi.waitFor(() => expect(peopleActor.snapshot().context.qrShown).toBe(false));
-    expect(peopleActor.snapshot().path[0]).toBe("open");
+    expect(peopleActor.snapshot().path[0]).toBe("showingPeople");
   });
 });

@@ -59,7 +59,7 @@ describe("join singleton", () => {
     join.askToJoin();
     await settle();
     expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils");
-    expect(view().state).toBe("waitingForAnswer");
+    expect(view().state).toBe("waitingForAdminToAccept");
   });
 
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {
@@ -87,7 +87,7 @@ describe("join singleton", () => {
     await settle();
     join.notNow();
     await settle();
-    expect(view()).toEqual({ state: "noInvite", invite: null, error: "" });
+    expect(view()).toEqual({ state: "noInviteOpen", invite: null, error: "" });
   });
 
   test("a link for an album I already joined opens it", async () => {
@@ -103,14 +103,14 @@ describe("join singleton", () => {
     foldersContext.asks = [{ code: INVITE.code, status: "declined" }];
     join.openLink(LINK);
     await settle();
-    expect(view().state).toBe("declined");
+    expect(view().state).toBe("declinedByAdmin");
   });
 
   test("a link whose ask is waiting shows the waiting screen", async () => {
     foldersContext.asks = [{ code: INVITE.code, status: "waiting" }];
     join.openLink(LINK);
     await settle();
-    expect(view().state).toBe("waitingForAnswer");
+    expect(view().state).toBe("waitingForAdminToAccept");
   });
 
   test("an accepted answer opens the album", async () => {
@@ -132,7 +132,7 @@ describe("join singleton", () => {
     await settle();
     join.requestAnswered(INVITE.code, "declined");
     await settle();
-    expect(view().state).toBe("declined");
+    expect(view().state).toBe("declinedByAdmin");
     expect(mocks.open).not.toHaveBeenCalled();
   });
 
@@ -151,7 +151,7 @@ describe("joinViewOf", () => {
       port: { ask: async () => [null, null] as never },
     });
     expect(joinViewOf(fresh.snapshot())).toEqual({
-      state: "noInvite",
+      state: "noInviteOpen",
       invite: null,
       error: "",
     });

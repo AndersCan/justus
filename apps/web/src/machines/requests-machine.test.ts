@@ -36,9 +36,9 @@ describe("requests machine factory", () => {
   test("refresh loads the requests", async () => {
     const { actor } = setup();
     actor.send(refresh());
-    expect(actor.state.name).toBe("refreshing");
+    expect(actor.state.name).toBe("loadingRequests");
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingRequests");
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k1", "k2"]);
   });
 
@@ -46,7 +46,7 @@ describe("requests machine factory", () => {
     const { actor } = setup({ requests: async () => [new Error("offline"), null] });
     actor.send(refresh());
     await actor.settled();
-    expect(actor.state.name).toBe("error");
+    expect(actor.state.name).toBe("couldNotLoadRequests");
     expect(actor.snapshot().context.error).toBe("offline");
   });
 
@@ -67,10 +67,10 @@ describe("requests machine factory", () => {
     await actor.settled();
     fail = false;
     actor.send(retry());
-    expect(actor.state.name).toBe("refreshing");
+    expect(actor.state.name).toBe("loadingRequests");
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingRequests");
     expect(actor.snapshot().context.requests).toHaveLength(1);
   });
 
@@ -85,7 +85,7 @@ describe("requests machine factory", () => {
     actor.send(refresh());
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingRequests");
   });
 
   test.each([true, false])("responding (approve=%s) removes that request", async (approve) => {
@@ -93,10 +93,10 @@ describe("requests machine factory", () => {
     actor.send(refresh());
     await actor.settled();
     actor.send(respond("f1", "k1", approve));
-    expect(actor.state.name).toBe("responding");
+    expect(actor.state.name).toBe("sendingAnswer");
     await actor.settled();
     expect(port.respond).toHaveBeenCalledWith("f1", "k1", approve);
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingRequests");
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
   });
 
@@ -119,14 +119,14 @@ describe("requests machine factory", () => {
     actor.send(respond("f1", "k1", true));
     await actor.settled();
     actor.send(respond("f1", "k1", false));
-    expect(actor.state.name).toBe("responding");
+    expect(actor.state.name).toBe("sendingAnswer");
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSendAnswer");
     actor.send(refresh());
-    expect(actor.state.name).toBe("refreshing");
+    expect(actor.state.name).toBe("loadingRequests");
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingRequests");
   });
 });
 
@@ -135,7 +135,7 @@ describe("requestsViewModel", () => {
     const { actor } = setup();
     expect(requestsViewModel(actor.snapshot())).toEqual({
       requests: [],
-      state: "idle",
+      state: "requestsNotLoaded",
       responding: false,
       settled: false,
       error: null,
@@ -149,7 +149,7 @@ describe("requestsViewModel", () => {
     await actor.settled();
     actor.send(respond("f1", "k1", true));
     const vm = requestsViewModel(actor.snapshot());
-    expect(vm.state).toBe("responding");
+    expect(vm.state).toBe("sendingAnswer");
     expect(vm.responding).toBe(true);
   });
 });

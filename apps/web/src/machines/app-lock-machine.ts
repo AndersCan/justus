@@ -13,17 +13,17 @@ const saveStarted = event("SAVE_STARTED")();
 const saveEnded = event("SAVE_ENDED")<{ status: LockStatus | undefined }>();
 
 /** The switch can be tapped. */
-const idle = state("idle")();
+const showingLockSwitch = state("showingLockSwitch")();
 /** The host is being asked; the switch is disabled. */
-const saving = state("saving")();
+const savingLockChoice = state("savingLockChoice")();
 
 export function createAppLockActor(options: { clock: Clock }) {
   return Actor({
     inputs: [statusRead, saveStarted, saveEnded],
     internal: [],
     outputs: [],
-    states: [idle, saving],
-    initial: idle,
+    states: [showingLockSwitch, savingLockChoice],
+    initial: showingLockSwitch,
     clock: options.clock,
     context: { status: undefined } as AppLockContext,
     setup: (m) => {
@@ -36,14 +36,18 @@ export function createAppLockActor(options: { clock: Clock }) {
         },
       });
       /** The switch is disabled while the host is asked. */
-      m.on(idle, { event: saveStarted, to: [saving], handler: () => ({ state: saving }) });
+      m.on(showingLockSwitch, {
+        event: saveStarted,
+        to: [savingLockChoice],
+        handler: () => ({ state: savingLockChoice }),
+      });
       /** The host answered: the switch is usable again. */
-      m.on(saving, {
+      m.on(savingLockChoice, {
         event: saveEnded,
-        to: [idle],
+        to: [showingLockSwitch],
         handler: (e, opts) => {
           opts.context.set({ status: e.payload.status });
-          return { state: idle };
+          return { state: showingLockSwitch };
         },
       });
     },

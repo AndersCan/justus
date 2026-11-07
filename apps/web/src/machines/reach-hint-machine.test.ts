@@ -29,7 +29,7 @@ afterEach(() => vi.useRealTimers());
 describe("reach hint", () => {
   test("shows the hint only after about 30s of not reaching anyone", () => {
     setStatus(withPeers(false));
-    expect(reachActor.snapshot().path[0]).toBe("trying");
+    expect(reachActor.snapshot().path[0]).toBe("waitingBeforeWifiHint");
     expect(hintNow()).toBeNull();
     vi.advanceTimersByTime(REACH_HINT_AFTER_MS - 1);
     expect(hintNow()).toBeNull();
@@ -42,7 +42,7 @@ describe("reach hint", () => {
     vi.advanceTimersByTime(10_000);
     setStatus(withPeers(true));
     vi.advanceTimersByTime(REACH_HINT_AFTER_MS * 2);
-    expect(reachActor.snapshot().path[0]).toBe("reachable");
+    expect(reachActor.snapshot().path[0]).toBe("noWifiHint");
     expect(hintNow()).toBeNull();
   });
 
@@ -68,12 +68,12 @@ describe("reach actor on a virtual clock", () => {
   test("the hint appears after the wait", async () => {
     const { clock, actor } = setup();
     actor.send(unreachable("Maya"));
-    expect(actor.state.name).toBe("trying");
+    expect(actor.state.name).toBe("waitingBeforeWifiHint");
     clock.advance(REACH_HINT_AFTER_MS - 1);
-    expect(actor.state.name).toBe("trying");
+    expect(actor.state.name).toBe("waitingBeforeWifiHint");
     clock.advance(1);
     await actor.settled();
-    expect(actor.state.name).toBe("hint");
+    expect(actor.state.name).toBe("showingWifiHint");
   });
 
   test("reaching someone cancels the wait", async () => {
@@ -83,7 +83,7 @@ describe("reach actor on a virtual clock", () => {
     actor.send(reached());
     clock.advance(REACH_HINT_AFTER_MS * 2);
     await actor.settled();
-    expect(actor.state.name).toBe("reachable");
+    expect(actor.state.name).toBe("noWifiHint");
   });
 
   test("reaching someone clears the hint", async () => {
@@ -92,7 +92,7 @@ describe("reach actor on a virtual clock", () => {
     clock.advance(REACH_HINT_AFTER_MS);
     await actor.settled();
     actor.send(reached());
-    expect(actor.state.name).toBe("reachable");
+    expect(actor.state.name).toBe("noWifiHint");
   });
 
   test("the name updates while trying and in the hint", async () => {
@@ -103,7 +103,7 @@ describe("reach actor on a virtual clock", () => {
     clock.advance(REACH_HINT_AFTER_MS);
     await actor.settled();
     actor.send(unreachable("Ola"));
-    expect(actor.state.name).toBe("hint");
+    expect(actor.state.name).toBe("showingWifiHint");
     expect(actor.snapshot().context.name).toBe("Ola");
   });
 });
@@ -120,7 +120,7 @@ describe("wireReachToSync", () => {
 
   test("acts once on the current status when wired", () => {
     const { reach } = wired(async () => [null, null]);
-    expect(reach.state.name).toBe("trying");
+    expect(reach.state.name).toBe("waitingBeforeWifiHint");
     expect(reachHintOf(reach.snapshot())).toBeNull();
   });
 
@@ -132,13 +132,13 @@ describe("wireReachToSync", () => {
     expect(sync.snapshot().context.error).toBe("offline");
     clock.advance(10_000);
     await reach.settled();
-    expect(reach.state.name).toBe("hint");
+    expect(reach.state.name).toBe("showingWifiHint");
     expect(reachHintOf(reach.snapshot())).toMatch(/Can't reach Maya/);
   });
 
   test("a new status object is acted on", () => {
     const { sync, reach } = wired(async () => [null, null]);
     sync.send(statusSeen.create({ status: withPeers(true) }));
-    expect(reach.state.name).toBe("reachable");
+    expect(reach.state.name).toBe("noWifiHint");
   });
 });

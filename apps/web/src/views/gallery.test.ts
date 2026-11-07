@@ -45,8 +45,8 @@ function build(initial: Rec[], scope: PhotoScope = { kind: "album", id: "f1" }) 
   const reload = async (next: Rec[]) => {
     current = next;
     (actor as any).send({ type: "LOAD" });
-    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("loading"));
-    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("ready"));
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("loadingPhotos"));
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("showingPhotos"));
   };
   const tiles = () =>
     new Map(

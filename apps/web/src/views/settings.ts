@@ -49,7 +49,7 @@ function pictureRow(name: string) {
 }
 
 function profileSection(view: FoldersViewModel) {
-  const saving = view.state === "renaming";
+  const saving = view.state === "savingName";
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Profile</h2>
@@ -109,7 +109,9 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
 
       ${errorBanner(
         error || foldersVm.error,
-        (state === "error" || foldersVm.state === "error") && !fatal && !foldersVm.fatal
+        (state === "couldNotCheckAlbum" || foldersVm.state === "couldNotLoadAlbums") &&
+          !fatal &&
+          !foldersVm.fatal
           ? () => {
               sync.retry();
               folders.retry();

@@ -15,9 +15,9 @@ describe("stateNameOf", () => {
     expect(toName(snapshot(["idle"]))).toBe("idle");
   });
 
-  test("normalises unknown paths to the error state", () => {
-    expect(toName(snapshot(["frobnicate"]))).toBe("error");
-    expect(toName(snapshot([]))).toBe("error");
+  test("normalises unknown paths to __error", () => {
+    expect(toName(snapshot(["frobnicate"]))).toBe("__error");
+    expect(toName(snapshot([]))).toBe("__error");
   });
 });
 
@@ -133,7 +133,7 @@ describe("onStateChange", () => {
     const fn = vi.fn();
     onStateChange(actor, states, fn);
     actor.emit(["__error"], { error: new Error("boom"), reason: "throw" });
-    expect(fn).toHaveBeenCalledWith("error", "ok");
+    expect(fn).toHaveBeenCalledWith("__error", "ok");
   });
 
   test("the returned function unsubscribes", () => {

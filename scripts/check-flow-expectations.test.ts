@@ -23,7 +23,7 @@ test("a handler that skips the Admin's accept is reported as a never-see hit", a
   const planted = original.replace(
     marker,
     `${marker}
-    m.on(awaitingDecision, { event: requestQueued, to: [addingMember], handler: (e) => ({ state: addingMember.create({ entry: e.payload, role: "member" }) }) });`,
+    m.on(requestWaitingForAdmin, { event: requestQueued, to: [addingMember], handler: (e) => ({ state: addingMember.create({ entry: e.payload, role: "member" }) }) });`,
   );
   const file = resolve(dir, "membership-machine.ts");
   writeFileSync(file, planted);

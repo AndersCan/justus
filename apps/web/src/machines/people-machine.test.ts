@@ -23,9 +23,9 @@ beforeEach(() => {
 describe("people machine", () => {
   test("opens and closes the sheet", () => {
     people.open();
-    expect(peopleActor.snapshot().path[0]).toBe("open");
+    expect(peopleActor.snapshot().path[0]).toBe("showingPeople");
     people.close();
-    expect(peopleActor.snapshot().path[0]).toBe("closed");
+    expect(peopleActor.snapshot().path[0]).toBe("peopleSheetClosed");
   });
 
   test("the QR code shows once asked and hides when the sheet closes", () => {
@@ -33,7 +33,7 @@ describe("people machine", () => {
     expect(peopleActor.snapshot().context.qrShown).toBe(false);
     people.showQr();
     expect(peopleActor.snapshot().context.qrShown).toBe(true);
-    expect(peopleActor.snapshot().path[0]).toBe("open");
+    expect(peopleActor.snapshot().path[0]).toBe("showingPeople");
     people.close();
     expect(peopleActor.snapshot().context.qrShown).toBe(false);
     people.open();
@@ -43,7 +43,7 @@ describe("people machine", () => {
   test("removing a member returns to the open sheet", async () => {
     people.open();
     people.remove("f1", "k1");
-    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("open"));
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
     expect(mock.removeMember).toHaveBeenCalledWith("f1", "k1");
   });
 
@@ -75,10 +75,10 @@ describe("people factory", () => {
   test("opening emits sheetOpened and closing hides the sheet", () => {
     const { actor, outputs } = build(async () => [null, {}]);
     send(actor, "OPEN");
-    expect(actor.snapshot().path[0]).toBe("open");
+    expect(actor.snapshot().path[0]).toBe("showingPeople");
     expect(outputs).toEqual(["SHEET_OPENED"]);
     send(actor, "CLOSE");
-    expect(actor.snapshot().path[0]).toBe("closed");
+    expect(actor.snapshot().path[0]).toBe("peopleSheetClosed");
   });
 
   test("removed returns to the open sheet", async () => {
@@ -86,8 +86,8 @@ describe("people factory", () => {
     const { actor } = build(removeMember);
     send(actor, "OPEN");
     send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
-    expect(actor.snapshot().path[0]).toBe("removing");
-    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("open"));
+    expect(actor.snapshot().path[0]).toBe("removingMember");
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("showingPeople"));
     expect(removeMember).toHaveBeenCalledWith("f1", "k1");
     expect(actor.snapshot().context.error).toBeNull();
   });
@@ -111,7 +111,7 @@ describe("people factory", () => {
     send(actor, "SHOW_QR");
     expect(actor.snapshot().context.qrShown).toBe(true);
     send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
-    expect(actor.snapshot().path[0]).toBe("removing");
+    expect(actor.snapshot().path[0]).toBe("removingMember");
     expect(actor.snapshot().context.error).toBeNull();
     await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("couldNotRemoveMember"));
   });
@@ -128,7 +128,7 @@ describe("people factory", () => {
     send(actor, "OPEN");
     send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
     send(actor, "CLOSE");
-    expect(actor.snapshot().path[0]).toBe("removing");
+    expect(actor.snapshot().path[0]).toBe("removingMember");
   });
 });
 
