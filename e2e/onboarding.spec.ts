@@ -27,6 +27,27 @@ test("the intro saves the name and moves on to the choice", async ({ page }) => 
   expect(await page.evaluate(() => localStorage.getItem("justus:welcome-seen"))).toBe("1");
 });
 
+test("three cards, no Skip on the last, Back returns to the card left", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Skip" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByLabel("Your name")).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
+  await page.getByRole("button", { name: "Skip" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
+});
+
 /** Creating the first album lands inside it, where its add button names it,
  * not on "All", where it would be unclear which album photos go to. */
 test("creating the first album opens it", async ({ page }) => {

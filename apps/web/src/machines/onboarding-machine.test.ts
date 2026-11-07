@@ -34,7 +34,9 @@ describe("onboarding machine", () => {
     expect(onboarding.state()).toBe("askingForName");
   });
 
-  test("back from the profile returns to the last card", () => {
+  test("there are three intro cards", () => expect(INTRO_CARD_COUNT).toBe(3));
+
+  test("back from the profile returns to the card the person left from", () => {
     onboarding.back();
     expect(onboarding.state()).toBe("showingIntroCards");
     expect(vm().card).toBe(INTRO_CARD_COUNT - 1);
@@ -79,7 +81,7 @@ describe("onboarding actor factory", () => {
     return { actor, setName, outputs };
   }
 
-  test("six nexts reach the profile", () => {
+  test("a next past the last card reaches the profile", () => {
     const { actor } = setup();
     for (let i = 0; i < INTRO_CARD_COUNT - 1; i++) send(actor, "NEXT");
     expect(actor.state.name).toBe("showingIntroCards");
@@ -95,12 +97,25 @@ describe("onboarding actor factory", () => {
     expect(actor.snapshot().context.card).toBe(0);
   });
 
-  test("back from the profile returns to the last card", () => {
-    const { actor } = setup();
-    send(actor, "SKIP");
-    send(actor, "BACK");
-    expect(actor.state.name).toBe("showingIntroCards");
-    expect(actor.snapshot().context.card).toBe(INTRO_CARD_COUNT - 1);
+  test("back from the profile returns to the card the person left from", () => {
+    const skipped = setup().actor;
+    send(skipped, "SKIP");
+    send(skipped, "BACK");
+    expect(skipped.state.name).toBe("showingIntroCards");
+    expect(skipped.snapshot().context.card).toBe(0);
+
+    const second = setup().actor;
+    send(second, "NEXT");
+    send(second, "SKIP");
+    send(second, "BACK");
+    expect(second.snapshot().context.card).toBe(1);
+
+    const last = setup().actor;
+    for (let i = 0; i < INTRO_CARD_COUNT; i++) send(last, "NEXT");
+    expect(last.state.name).toBe("askingForName");
+    send(last, "BACK");
+    expect(last.state.name).toBe("showingIntroCards");
+    expect(last.snapshot().context.card).toBe(INTRO_CARD_COUNT - 1);
   });
 
   test("typing updates the draft", () => {

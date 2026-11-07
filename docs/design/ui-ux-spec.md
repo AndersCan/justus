@@ -41,12 +41,11 @@ Layout (single column, mobile-first):
      decoration. Respect `prefers-reduced-motion`.
 
 3. **Intro cards** (swipeable, skippable, one idea each; replaces the three-bullet list):
-   1. **Share photos with the people you choose.** Family and friends. No account.
-   2. **No server.** Photos travel directly between phones.
-   3. **You pick what to share.** Photos enter through the picker or camera.
-   4. **Albums and invites.** An Admin starts an album and sends its invite link. Anyone with the link can see the photos; the Admin approves who can add their own.
-   5. **Photos live on your devices,** not in the cloud. Keep them on at least one device you trust.
-   6. **Connect over WiFi when you can.** Photos move while two members have Justus open. Phones on mobile data can have trouble finding each other; if one of you is on WiFi it usually works.
+   1. **Welcome.** Share photos directly with family and friends. No account needed.
+   2. **No servers, no accounts.** Photos stay on your phone and the phones of the people you share with.
+   3. **You decide who joins.** The link alone shows no photos; the Admin accepts each person who asks to join.
+
+   The rest live in Help ("What is Justus?", "Do I need WiFi?", "Is Justus a backup?").
 
 4. **Profile step** (required, after the cards): display name plus an auto
    colour/initials avatar. Copy states the name is shared only with albums you

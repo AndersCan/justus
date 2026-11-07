@@ -1,5 +1,5 @@
-import { html, type TemplateResult } from "lit-html";
-import { justus, wordmark } from "./wordmark";
+import type { TemplateResult } from "lit-html";
+import { wordmark } from "./wordmark";
 
 export const INTRO_CARDS: {
   /** An emoji, or a template (the first card shows the logo). */
@@ -18,31 +18,9 @@ export const INTRO_CARDS: {
     body: "Your photos stay on your phone and on the phones of the people you share with. We never see them.",
   },
   {
-    icon: "📷",
-    title: "You pick what to share",
-    body: "Only the photos you choose are shared. Nothing gets added by itself.",
-  },
-  {
     icon: "✉️",
-    title: "Create Albums and share them",
-    body: "An album can be shared via a link or QR code. Anyone with the link can request to join your album",
-  },
-  {
-    icon: "🔄",
-    title: "Both of you need to be online",
-    body: html`Photos move directly between phones, so you and your friends need ${justus()} open at
-    the same time.`,
-  },
-  {
-    icon: "📶",
-    title: "WiFi works best",
-    body: "Phones on mobile data can have trouble finding each other. If sharing stalls, try WiFi on one of them.",
-  },
-  {
-    icon: "📱",
-    title: "Made for sharing, not backup",
-    body: html`Photos you share are shared to your friends' phones, so ${justus()} might seem like a
-    backup solution, but that's not what ${justus()} is made for (or good at).`,
+    title: "You decide who joins",
+    body: "Share an album with a link or QR code. The link alone shows no photos: you accept each person who asks to join, and only the photos you pick are added.",
   },
 ];
 

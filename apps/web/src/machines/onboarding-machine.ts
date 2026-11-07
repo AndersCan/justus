@@ -122,14 +122,11 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
         handler: () => ({ state: askingForName }),
       });
 
-      /** Going back from the name step returns to the last intro card. */
+      /** Going back from the name step returns to the card the person left from. */
       m.on(askingForName, {
         event: back,
         to: [showingIntroCards],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), card: INTRO_CARD_COUNT - 1 });
-          return { state: showingIntroCards };
-        },
+        handler: () => ({ state: showingIntroCards }),
       });
       /** Typing updates the avatar preview live. */
       m.on(askingForName, {
