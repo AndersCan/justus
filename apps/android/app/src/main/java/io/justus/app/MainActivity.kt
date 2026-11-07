@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity() {
         locked = savedInstanceState?.getBoolean(K_LOCKED) == true ||
             lockDue(lockEnabled(this), stoppedAt, SystemClock.elapsedRealtime())
         findViewById<View>(R.id.lock_unlock).setOnClickListener { requestUnlock() }
+        Log.i("JUSTUS_ANDROID", "lock create locked=$locked pref=${readLockPref(this)} secure=${isDeviceSecure(this)} stoppedAt=$stoppedAt")
         renderLock()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -188,6 +189,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Log.i("JUSTUS_ANDROID", "lock resume locked=$locked prompted=$promptShownThisLock")
         if (locked && !promptShownThisLock) {
             promptShownThisLock = true
             mainHandler.post { if (locked) requestUnlock() }
