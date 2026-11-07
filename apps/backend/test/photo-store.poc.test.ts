@@ -16,10 +16,10 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
-  const deps = makeFakeDeps();
+  const deps = fakeStoreDeps();
   // addBytes stages uploads into cacheDir, which the production runtime
   // pre-creates; mirror that here so staging doesn't throw.
   mkdirSync(deps.cacheDir, { recursive: true });

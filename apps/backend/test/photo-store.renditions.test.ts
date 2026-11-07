@@ -7,11 +7,11 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
-import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
   const server = new FakeLoopbackServer();
-  const deps = makeFakeDeps({ server });
+  const deps = fakeStoreDeps({ server });
   mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   return { store, deps, server };

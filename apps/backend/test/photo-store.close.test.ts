@@ -12,7 +12,7 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 describe("#101 close() must unmount routes and remove spool dirs", () => {
   it("leaves no loopback mounts or spool dirs after shutdown", async () => {
@@ -22,7 +22,7 @@ describe("#101 close() must unmount routes and remove spool dirs", () => {
     const server = new FakeLoopbackServer();
 
     const store = createPhotoStore(
-      makeFakeDeps({ storageDir, cacheDir, server, seedOnEmpty: false }),
+      fakeStoreDeps({ storageDir, cacheDir, server, seedOnEmpty: false }),
     );
     await store.ready();
 

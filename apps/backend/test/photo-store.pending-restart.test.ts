@@ -15,7 +15,7 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 describe("#94 a pending (awaiting-approval) join must survive a restart", () => {
   it("restores the pending flag from persisted state", async () => {
@@ -44,7 +44,7 @@ describe("#94 a pending (awaiting-approval) join must survive a restart", () => 
     writeFileSync(join(storageDir, "justus.json"), JSON.stringify(state), "utf8");
 
     // Session 2: simulate a restart against the same storageDir.
-    const store = createPhotoStore(makeFakeDeps({ storageDir, cacheDir, seedOnEmpty: false }));
+    const store = createPhotoStore(fakeStoreDeps({ storageDir, cacheDir, seedOnEmpty: false }));
     await store.ready();
 
     const after = await store.folders();

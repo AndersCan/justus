@@ -4,16 +4,15 @@
  * stored `Photo.name`, instead of recording the transient `upload-<id>.<ext>`
  * staging filename.
  *
- * Built on the in-memory substitutes from `./fake-drive` (see
- * docs/design/fake-drive-test-harness-spec.md) — no Bare runtime required.
+ * Built on the in-memory fakes from `./fakes/fake-store-deps` — no Bare runtime required.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
-  const deps = makeFakeDeps({ deviceName: "Filenamer" });
+  const deps = fakeStoreDeps({ deviceName: "Filenamer" });
   // addBytes stages uploads into cacheDir, which the production runtime
   // pre-creates — mirror that here so staging doesn't throw.
   mkdirSync(deps.cacheDir, { recursive: true });

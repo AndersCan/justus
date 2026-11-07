@@ -7,13 +7,13 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
 import { greetPeer } from "../src/adapters/peer-identity.ts";
 import { openAnswers } from "../src/adapters/peer-answer.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
+import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
 import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 import { makeTmpDir } from "./tmp-dirs.ts";
 import { eventually } from "./p2p-scenarios.ts";
 
@@ -24,31 +24,33 @@ afterEach(async () => {
 
 function device(
   name: string,
-  bootstrap: unknown[],
+  bootstrap: string[],
   extra: { claim?: () => string; received?: unknown[] } = {},
 ) {
   const storageDir = makeTmpDir("justus-real-");
   const drives = createHyperDriveStore(join(storageDir, "corestore"));
-  const deps = makeFakeDeps({
+  const deps = fakeStoreDeps({
     storageDir,
     cacheDir: join(storageDir, "cache"),
     deviceName: name,
     drives,
-    replicate: (conn) => drives.replicate(conn),
-    makeSwarm: () => new Hyperswarm({ bootstrap }),
-    greetPeer: extra.claim
-      ? (conn: unknown, own: Uint8Array, onIdentity: (key: Uint8Array) => void) =>
-          greetPeer(
-            conn,
-            Buffer.from(extra.claim!() || Buffer.from(own).toString("hex"), "hex"),
-            onIdentity,
-          )
-      : undefined,
-    openAnswers: (conn: unknown, onAnswer: (value: unknown) => void) =>
-      openAnswers(conn, (value) => {
-        extra.received?.push(value);
-        onAnswer(value);
-      }),
+    network: createHyperPeerNetwork({
+      bootstrap,
+      replicate: (conn) => drives.replicate(conn),
+      greetPeer: extra.claim
+        ? (conn: unknown, own: Uint8Array, onIdentity: (key: Uint8Array) => void) =>
+            greetPeer(
+              conn,
+              Buffer.from(extra.claim!() || Buffer.from(own).toString("hex"), "hex"),
+              onIdentity,
+            )
+        : undefined,
+      openAnswers: (conn: unknown, onAnswer: (value: unknown) => void) =>
+        openAnswers(conn, (value) => {
+          extra.received?.push(value);
+          onAnswer(value);
+        }),
+    }),
     driveOpenTimeoutMs: 10_000,
   });
   mkdirSync(deps.cacheDir, { recursive: true });
