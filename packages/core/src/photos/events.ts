@@ -3,6 +3,7 @@ import type {
   AskSummary,
   FolderSummary,
   JoinRequest,
+  OfferSummary,
   Photo,
   PhotoChanged,
   SyncStatus,
@@ -29,6 +30,8 @@ const PHOTOS_LIST_TIMEOUT_MS = 30_000;
 const PHOTOS_JOIN_TIMEOUT_MS = 60_000;
 /** remove/enroll/respond/create touch local drives — still, don't be stingy. */
 const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
+/** offerAlbum waits up to 30 s for the friend's phone to answer. */
+export const PHOTOS_OFFER_TIMEOUT_MS = 45_000;
 
 export const photoSpecs = {
   list: {
@@ -82,6 +85,7 @@ export const photoSpecs = {
       folders: FolderSummary[];
       activeFolderId: string;
       asks: AskSummary[];
+      offers: OfferSummary[];
     },
   },
   ask: {
@@ -131,6 +135,12 @@ export const photoSpecs = {
     name: "photos.turnOffInvite",
     args: {} as { folderId: string },
     result: {} as { invite: { code: string; owner: string } },
+  },
+  offerAlbum: {
+    pluginId: "justus.photos",
+    name: "photos.offerAlbum",
+    args: {} as { folderId: string; identity: string },
+    result: {} as { ok: boolean },
   },
   changed: {
     pluginId: "justus.photos",
@@ -206,7 +216,12 @@ export const photoEvents = {
     folders(): InvokeEnvelope<
       "photos.folders",
       Record<string, never>,
-      { folders: FolderSummary[]; activeFolderId: string; asks: AskSummary[] }
+      {
+        folders: FolderSummary[];
+        activeFolderId: string;
+        asks: AskSummary[];
+        offers: OfferSummary[];
+      }
     > {
       return invokeEvent(photoSpecs.folders, {}, null, PHOTOS_LIST_TIMEOUT_MS);
     },
@@ -286,6 +301,21 @@ export const photoEvents = {
       { invite: { code: string; owner: string } }
     > {
       return invokeEvent(photoSpecs.turnOffInvite, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    offerAlbum(
+      folderId: string,
+      identity: string,
+    ): InvokeEnvelope<
+      "photos.offerAlbum",
+      { folderId: string; identity: string },
+      { ok: boolean }
+    > {
+      return invokeEvent(
+        photoSpecs.offerAlbum,
+        { folderId, identity },
+        null,
+        PHOTOS_OFFER_TIMEOUT_MS,
+      );
     },
   },
 } as const;

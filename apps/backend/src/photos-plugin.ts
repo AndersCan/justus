@@ -116,6 +116,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
       removeMember: async (args) => deps.store.removeMember(args.folderId, args.memberKey),
       respond: async (args) => deps.store.respond(args.folderId, args.requesterKey, args.approve),
       turnOffInvite: async (args) => deps.store.turnOffInvite(args.folderId),
+      offerAlbum: async (args) => deps.store.offerAlbum(args.folderId, args.identity),
     }),
   });
 }

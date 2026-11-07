@@ -31,7 +31,13 @@ export type Net = {
   peer(
     name: string,
     storageDir?: string,
-    opts?: { peerProtocol?: number; legacy?: boolean },
+    opts?: {
+      peerProtocol?: number;
+      legacy?: boolean;
+      /** Identities this device saved as friends; read on every call, so a list may grow after boot. */
+      friends?: string[];
+      offerReachMs?: number;
+    },
   ): Promise<Peer>;
   destroy(): Promise<void>;
 };
@@ -542,6 +548,55 @@ export const scenarios: Scenario[] = [
       t.eq((await current.store.list({ all: true })).length, 0, "the photo never reaches it");
     },
   },
+  {
+    name: "friend: an Admin reaches a friend by key alone, with no shared album",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      t.eq(offers[0].albumName, "Lisbon", "the invite names the album");
+      t.eq(offers[0].ownerName, "Phone", "the invite names the Admin");
+      t.ok(
+        friend.changes.some((c) => c.cause === "offer"),
+        "the friend was pushed an offer",
+      );
+      t.ok(
+        !JSON.stringify(await friend.store.folders()).includes(
+          (await admin.store.folders()).folders[0].shareKey,
+        ),
+        "the invite carries no album key",
+      );
+    },
+  },
+  {
+    name: "friend: a phone that doesn't know the Admin turns the invite down",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, false);
+      const [error] = await admin.store.offerAlbum(folderId, friendIdentity);
+      t.ok(error?.code === "justus.photos/friend-refused", "FRIEND_REFUSED");
+      t.eq((await friend.store.folders()).offers, [], "the friend holds nothing");
+    },
+  },
+  {
+    name: "friend: an invite to a phone that is off fails and leaves nothing",
+    async run(net, t) {
+      const admin = await net.peer("Phone", undefined, { offerReachMs: 3000 });
+      const away = await net.peer("Kari");
+      const friendIdentity = (away.store.debugState() as { identityDrive: string }).identityDrive;
+      await away.stop();
+      const created = await admin.store.createFolder("Lisbon");
+      if (created[0]) throw created[0];
+      const folderId = created[1].folder.id;
+      const [error] = await admin.store.offerAlbum(folderId, friendIdentity);
+      t.ok(error?.code === "justus.photos/friend-unreachable", "FRIEND_UNREACHABLE");
+      const folder = admin.store.debugState() as { folders?: unknown };
+      t.ok(!JSON.stringify(folder).includes(`"invited"`), "nothing was written");
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
@@ -563,4 +618,16 @@ async function askedAlbum(net: Net) {
   });
   if (asked[0]) throw asked[0];
   return { admin, joiner, folderId, shareKey, invite, adminIdentity };
+}
+
+/** An Admin (Phone) with an album and a friend's phone (Kari) that shares no album with it. */
+async function friendSetup(net: Net, friendKnowsAdmin: boolean) {
+  const friends: string[] = [];
+  const admin = await net.peer("Phone");
+  const friend = await net.peer("Kari", undefined, { friends });
+  const idOf = (p: Peer) => (p.store.debugState() as { identityDrive: string }).identityDrive;
+  if (friendKnowsAdmin) friends.push(idOf(admin));
+  const created = await admin.store.createFolder("Lisbon");
+  if (created[0]) throw created[0];
+  return { admin, friend, folderId: created[1].folder.id, friendIdentity: idOf(friend) };
 }

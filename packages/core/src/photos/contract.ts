@@ -143,6 +143,13 @@ export const askSummarySchema = s.object({
   status: s.oneOf("waiting", "declined"),
 });
 
+export const offerSummarySchema = s.object({
+  code: s.string,
+  owner: s.string,
+  albumName: s.string,
+  ownerName: s.string,
+});
+
 export const syncStatusSchema = s.object({
   folder: folderSummarySchema,
   name: s.string,
@@ -165,7 +172,7 @@ export const joinRequestSchema = s.object({
 });
 
 export const photoChangedSchema = s.object({
-  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask", "version"),
+  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask", "offer", "version"),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
@@ -184,6 +191,7 @@ export const photoResultSchemas = {
     folders: s.array(folderSummarySchema),
     activeFolderId: s.string,
     asks: s.array(askSummarySchema),
+    offers: s.array(offerSummarySchema),
   }),
   "photos.ask": s.object({ ask: askSummarySchema }),
   "photos.createFolder": s.object({ folder: folderSummarySchema }),
@@ -192,6 +200,7 @@ export const photoResultSchemas = {
   "photos.requests": s.object({ requests: s.array(joinRequestSchema) }),
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
+  "photos.offerAlbum": s.object({ ok: s.boolean }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
 } as const;
 

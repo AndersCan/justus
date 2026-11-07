@@ -1,5 +1,5 @@
 import { errText, short, createP2pLog, type P2pLog } from "../p2p-log";
-import type { Answer } from "../membership/records";
+import type { ChannelMessage } from "../membership/records";
 import type { PeerEvent, PeerNetwork } from "../ports/peer-network";
 import { openAnswers } from "./peer-answer";
 import { greetPeer } from "./peer-identity";
@@ -44,7 +44,7 @@ export function createHyperPeerNetwork(deps: {
       openedAt: number;
       initiator?: boolean;
       destroy(): void;
-      answers?: { send(answer: Answer): boolean };
+      answers?: { send(answer: ChannelMessage): boolean };
     }
   >();
   let connSeq = 0;

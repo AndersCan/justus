@@ -95,6 +95,15 @@ export type AskSummary = {
   status: "waiting" | "declined";
 };
 
+/** An album invite a friend sent straight to this phone, not answered yet.
+ * `code` is the album's invite code and `owner` the Admin's identity key. */
+export type OfferSummary = {
+  code: string;
+  owner: string;
+  albumName: string;
+  ownerName: string;
+};
+
 /** This device's read view over the folder it is currently showing. */
 export type SyncStatus = {
   /** The active folder this status describes. */
@@ -137,6 +146,7 @@ export type PhotoChangedCause =
   | "request"
   | "presence"
   | "ask"
+  | "offer"
   | "version";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */

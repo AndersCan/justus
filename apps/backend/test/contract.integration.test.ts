@@ -137,6 +137,11 @@ describe("backend -> web contract, from real backend output", () => {
       ownerName: "Phone",
     });
     await c("photos.folders");
+    // The Admin invites the asker's phone by its key.
+    await a("photos.offerAlbum", {
+      folderId: folder.id,
+      identity: (asker.store.debugState() as { identityDrive: string }).identityDrive,
+    });
     // The Admin turns the links off and the album carries a new code.
     await a("photos.turnOffInvite", { folderId: folder.id });
 

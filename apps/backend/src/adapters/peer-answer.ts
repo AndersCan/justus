@@ -1,6 +1,6 @@
 import c from "compact-encoding";
 import Protomux from "protomux";
-import type { Answer } from "../membership/records.ts";
+import type { ChannelMessage } from "../membership/records.ts";
 
 /** Protomux protocol carrying an Admin's answer to a join ask. */
 export const ANSWER_PROTOCOL = "justus/answer/v1";
@@ -14,7 +14,7 @@ export const ANSWER_PROTOCOL = "justus/answer/v1";
 export function openAnswers(
   conn: unknown,
   onAnswer: (value: unknown) => void,
-): { send(answer: Answer): boolean } {
+): { send(message: ChannelMessage): boolean } {
   const mux = Protomux.from(conn);
   let message: { send(value: unknown): boolean } | null = null;
   let open = false;
@@ -35,5 +35,5 @@ export function openAnswers(
     onmessage: (value: unknown) => onAnswer(value),
   });
   channel.open();
-  return { send: (answer) => open && message !== null && message.send(answer) };
+  return { send: (value) => open && message !== null && message.send(value) };
 }
