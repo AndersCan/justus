@@ -2,7 +2,6 @@ import { html } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import { createRef, ref } from "lit-html/directives/ref.js";
-import { atom, computed } from "nanostores";
 import type { FolderSummary, JoinRequest, Photo, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import {
@@ -18,12 +17,11 @@ import {
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor } from "../machines/folders-machine";
 import { requestsActor } from "../machines/requests-machine";
-import { useStore } from "../use-store";
+import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
-import { $photoSort } from "../utils/photo-sort";
 import { currentPage, open } from "../machines/router-machine";
 import { memberColor } from "../utils/palette";
-import { $density, gridColsFor, type Density } from "../utils/gallery-density";
+import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
   addTargets,
   albumCards,
@@ -59,7 +57,6 @@ const fileInputRef = createRef<HTMLInputElement>();
 const inNativeShell =
   typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
 /** Photos are being dragged over the page (browser/desktop only). */
-const $dropActive = atom(false);
 /** How the running batch was picked, for the "Take another" follow-up. */
 let batchVia: "library" | "camera" = "library";
 
@@ -159,13 +156,18 @@ function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefin
 
 const hasFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
 let dragDepth = 0;
+/** Shows or hides the page's drop overlay without a re-render. */
+function setDropOverlay(e: DragEvent, hidden: boolean) {
+  const overlay = (e.currentTarget as Element | null)?.querySelector("[data-drop-overlay]");
+  if (overlay instanceof HTMLElement) overlay.hidden = hidden;
+}
 function dropHandlers(scope: PhotoScope) {
   if (inNativeShell) return { enter: null, over: null, leave: null, drop: null };
   return {
     enter: (e: DragEvent) => {
       if (!hasFiles(e)) return;
       dragDepth += 1;
-      $dropActive.set(true);
+      setDropOverlay(e, false);
     },
     over: (e: DragEvent) => {
       if (!hasFiles(e)) return;
@@ -175,13 +177,13 @@ function dropHandlers(scope: PhotoScope) {
     leave: (e: DragEvent) => {
       if (!hasFiles(e)) return;
       dragDepth = Math.max(0, dragDepth - 1);
-      if (dragDepth === 0) $dropActive.set(false);
+      if (dragDepth === 0) setDropOverlay(e, true);
     },
     drop: (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
       dragDepth = 0;
-      $dropActive.set(false);
+      setDropOverlay(e, true);
       addDropped(scope, e.dataTransfer?.files);
     },
   };
@@ -236,20 +238,13 @@ galleryActor.on("change", {
   },
 });
 
-/** Device preferences and drag state the Photos page reads until they become machines. */
-const $pagePrefs = computed([$density, $photoSort, $dropActive], (density, sort, dropActive) => ({
-  density,
-  sort,
-  dropActive,
-}));
-
 /** Everything the Photos page reads, as one plain value. */
 function photosPageOf(
   g: Parameters<typeof galleryViewModel>[0],
   folders: FolderSummary[],
   status: SyncStatus | null,
   requests: JoinRequest[],
-  prefs: { density: Density; sort: PhotoSort; dropActive: boolean },
+  prefs: { density: Density; sort: PhotoSort },
 ) {
   return {
     ...galleryViewModel(g, status),
@@ -269,8 +264,13 @@ function pageView(body: (page: PhotosPage) => unknown) {
     watch(foldersActor, (f) =>
       watch(syncActor, (ss) =>
         watch(requestsActor, (q) =>
-          useStore($pagePrefs, (prefs) =>
-            body(photosPageOf(g, f.context.folders, ss.context.status, q.context.requests, prefs)),
+          watch(prefsActor, (p) =>
+            body(
+              photosPageOf(g, f.context.folders, ss.context.status, q.context.requests, {
+                density: p.context.density,
+                sort: p.context.sort,
+              }),
+            ),
           ),
         ),
       ),
@@ -380,7 +380,7 @@ function sortControl(sort: PhotoSort) {
       }"
       role="radio"
       aria-checked=${on ? "true" : "false"}
-      @click=${() => $photoSort.set(value)}
+      @click=${() => prefs.setSort(value)}
     >
       ${label}
     </button>`;
@@ -624,7 +624,6 @@ function batchStrip(batch: AddBatch | null) {
 
 /** Shown over the page while photos are dragged onto it. */
 function dropOverlay(page: PhotosPage, scope: PhotoScope) {
-  if (!page.dropActive) return null;
   const plan = scope.kind === "album" ? planAdd(scope.id, page.folders) : null;
   const [title, detail] = !plan
     ? ["Open an album to add photos", "Photos always go into one album, so you know who gets them."]
@@ -632,6 +631,8 @@ function dropOverlay(page: PhotosPage, scope: PhotoScope) {
       ? [`Drop to add to ${albumName(plan.folderId)}`, "Only the people in this album get them."]
       : [`You can't add to ${plan.album.name}`, "Ask the Admin, or start your own album."];
   return html`<div
+    hidden
+    data-drop-overlay
     class="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-accent/10 p-6"
   >
     <div

@@ -36,12 +36,10 @@ layer, Host, Actor). Use those terms exactly.
   the same release. Bump both together, run `vp check` + tests, then do app work.
   Currently **0.6.0**.
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
-- **All app state is a mantaq actor.** Each actor's change handler writes
-  module-scope nanostore atoms; views read computed view-models through
-  `useStore`. Never `.get()` an atom inside a template (no re-render).
-  Exception: the album photo grid (`albumPhotos` in `views/gallery.ts`) reads
-  `galleryActor` with `watch` from `@mantaq/lit`; tiles and groups are keyed
-  (`photoKey`, group label).
+- **All app state is a mantaq actor.** Views read it with `watch(actor, select)`
+  from `@mantaq/lit`. For two actors, nest `watch`. Never nest two `watch`es on
+  the same actor. Never call `actor.snapshot()` inside a template; event handlers
+  and listeners may.
 - **No server, ever.** Nothing in the architecture may route photos or metadata
   through a service we operate. Privacy must stay legible in the UI.
 - **New feature flows: machines + `pnpm flows:dev` first**, then implementation. See
@@ -73,7 +71,7 @@ layer, Host, Actor). Use those terms exactly.
 
 | Path              | Contents                                                                         |
 | ----------------- | -------------------------------------------------------------------------------- |
-| `apps/web`        | Web layer: lit-html + nanostores + mantaq + UnoCSS. `views/`, `machines/`        |
+| `apps/web`        | Web layer: lit-html + mantaq + UnoCSS. `views/`, `machines/`                     |
 | `apps/backend`    | Bare worklet: corestore + hyperdrive + hyperswarm, `justus.photos` plugin        |
 | `apps/android`    | Android host (WebView + worklet + media pick/capture)                            |
 | `apps/ios`        | iOS host (xcodegen; depends on ekrooh `BareHost`)                                |
@@ -89,8 +87,6 @@ layer, Host, Actor). Use those terms exactly.
   inside one script.
 - **`Buffer.from(str, "base64")` throws in the bare runtime**, at module load,
   crashing the whole worklet. Use `base64ToBytes()` in `photo-store.ts`.
-- **`useStore` is a lit-html directive.** Never dereference its result; write
-  `useStore($vm, (vm) => body(vm))`.
 - **UnoCSS only scans what `uno.config.ts` includes.** lit-html lives in `.ts`;
   keep the pipeline `include` covering it and keep `import "uno.css"` in `main.ts`.
 - **mantaq `send()` is a no-op after `__error`.** Distinguish a dead machine

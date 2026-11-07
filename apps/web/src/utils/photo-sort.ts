@@ -1,4 +1,3 @@
-import { atom } from "nanostores";
 import type { PhotoSort } from "./photo-scope";
 
 const STORAGE_KEY = "justus:photo-sort";
@@ -22,7 +21,3 @@ export function writePhotoSort(sort: PhotoSort): void {
     // storage unavailable (private mode / non-browser) — ignore
   }
 }
-
-/** Which timeline the Photos grid follows: date taken or date added. */
-export const $photoSort = atom<PhotoSort>(readPhotoSort());
-$photoSort.listen(writePhotoSort);

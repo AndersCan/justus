@@ -1,10 +1,16 @@
-import { atom, computed } from "nanostores";
-import type { ReadableAtom, WritableAtom } from "nanostores";
+import { watch } from "@mantaq/lit";
+import { RealClock } from "@mantaq/core";
 import { html } from "lit-html";
 import type { LogEntry, LogLevel } from "@justus/core";
-import { LOG_LEVELS, LOGS_VIEW_MAX_ENTRIES } from "@justus/core";
+import { LOGS_VIEW_MAX_ENTRIES } from "@justus/core";
 import { gateway } from "../gateway";
-import { useStore } from "../use-store";
+import {
+  availableSources,
+  createLogsActor,
+  logsEvents,
+  visibleEntries,
+  type LogsActor,
+} from "../machines/logs-machine";
 import { toast } from "./toast";
 
 /** Tailwind color classes per severity (vision: trust-colored, legible). */
@@ -27,27 +33,6 @@ export function formatLogLine(e: LogEntry): string {
   const ts = `${t.toISOString().slice(0, 19)}.${String(t.getMilliseconds()).padStart(3, "0")}`;
   const tag = e.tag ? ` [${e.tag}]` : "";
   return `${ts} ${e.level.toUpperCase()}${tag} (${e.source}) ${e.message}`;
-}
-
-/** Origin sources present in the current entries (backend / web / …). */
-export function collectSources(entries: LogEntry[]): string[] {
-  const set = new Set<string>();
-  for (const e of entries) set.add(e.source);
-  return [...set].sort();
-}
-
-/** Filter by minimum severity + selected sources. Empty source set = all sources. */
-export function filterLogEntries(
-  entries: LogEntry[],
-  level: LogLevel | "all",
-  sources: ReadonlySet<string>,
-): LogEntry[] {
-  const min = level === "all" ? -1 : LOG_LEVELS.indexOf(level);
-  return entries.filter((e) => {
-    if (min >= 0 && LOG_LEVELS.indexOf(e.level) < min) return false;
-    if (sources.size > 0 && !sources.has(e.source)) return false;
-    return true;
-  });
 }
 
 /** Render an unknown error to a human-readable string (never `[object Object]`). */
@@ -88,15 +73,7 @@ export interface LogsControllerDeps {
 }
 
 export interface LogsController {
-  $entries: WritableAtom<LogEntry[]>;
-  $level: WritableAtom<LogLevel | "all">;
-  $sources: WritableAtom<Set<string>>;
-  $paused: WritableAtom<boolean>;
-  $error: WritableAtom<string | null>;
-  $loading: WritableAtom<boolean>;
-  $updatedAt: WritableAtom<number | null>;
-  $availableSources: ReadableAtom<string[]>;
-  $visible: ReadableAtom<LogEntry[]>;
+  actor: LogsActor;
   start(): void;
   stop(): void;
   refresh(): Promise<void>;
@@ -108,25 +85,14 @@ export interface LogsController {
 
 export function createLogsController(deps: LogsControllerDeps): LogsController {
   const intervalMs = deps.intervalMs ?? 2000;
-  const $entries = atom<LogEntry[]>([]);
-  const $level = atom<LogLevel | "all">("all");
-  const $sources = atom<Set<string>>(new Set());
-  const $paused = atom(false);
-  const $error = atom<string | null>(null);
-  const $loading = atom(false);
-  const $updatedAt = atom<number | null>(null);
-
-  const $availableSources = computed($entries, (entries) => collectSources(entries));
-  const $visible = computed([$entries, $level, $sources], (entries, level, sources) =>
-    filterLogEntries(entries, level, sources),
-  );
+  const actor = createLogsActor({ clock: RealClock() });
+  const send = actor.send.bind(actor);
 
   let timer: ReturnType<typeof setInterval> | undefined;
   let stopped = true;
 
   function currentOpts() {
-    const level = $level.get();
-    const sources = [...$sources.get()];
+    const { level, sources } = actor.snapshot().context;
     return {
       tail: LOGS_VIEW_MAX_ENTRIES,
       ...(level !== "all" ? { level } : {}),
@@ -136,16 +102,13 @@ export function createLogsController(deps: LogsControllerDeps): LogsController {
 
   async function refresh() {
     if (stopped) return;
-    $loading.set(true);
+    send(logsEvents.loadingStarted.create());
     const [err, res] = await deps.fetchLogs(currentOpts());
-    $loading.set(false);
     if (err) {
-      $error.set(errorMessage(err));
+      send(logsEvents.loadFailed.create({ message: errorMessage(err) }));
       return;
     }
-    $error.set(null);
-    $entries.set(res?.entries ?? []);
-    $updatedAt.set(Date.now());
+    send(logsEvents.loaded.create({ entries: res?.entries ?? [], at: Date.now() }));
   }
 
   function start() {
@@ -153,7 +116,7 @@ export function createLogsController(deps: LogsControllerDeps): LogsController {
     stopped = false;
     void refresh();
     timer = setInterval(() => {
-      if (!$paused.get()) void refresh();
+      if (!actor.snapshot().context.paused) void refresh();
     }, intervalMs);
   }
 
@@ -164,51 +127,30 @@ export function createLogsController(deps: LogsControllerDeps): LogsController {
   }
 
   function setLevel(level: LogLevel | "all") {
-    $level.set(level);
+    send(logsEvents.levelChosen.create({ level }));
     void refresh();
   }
 
   function toggleSource(source: string) {
-    const next = new Set($sources.get());
-    if (next.has(source)) next.delete(source);
-    else next.add(source);
-    $sources.set(next);
+    send(logsEvents.sourceToggled.create({ source }));
     void refresh();
   }
 
   function setPaused(paused: boolean) {
-    $paused.set(paused);
+    send(logsEvents.paused.create({ paused }));
   }
 
   async function clear(): Promise<boolean> {
     const [err] = await deps.clearLogs();
     if (err) {
-      $error.set(errorMessage(err));
+      send(logsEvents.loadFailed.create({ message: errorMessage(err) }));
       return false;
     }
-    $entries.set([]);
-    $updatedAt.set(Date.now());
+    send(logsEvents.cleared.create({ at: Date.now() }));
     return true;
   }
 
-  return {
-    $entries,
-    $level,
-    $sources,
-    $paused,
-    $error,
-    $loading,
-    $updatedAt,
-    $availableSources,
-    $visible,
-    start,
-    stop,
-    refresh,
-    setLevel,
-    toggleSource,
-    setPaused,
-    clear,
-  };
+  return { actor, start, stop, refresh, setLevel, toggleSource, setPaused, clear };
 }
 
 /** The live Logs controller the panel binds to (talks to the worklet backend). */
@@ -258,43 +200,24 @@ async function downloadLogs(level: LogLevel | "all", sources: ReadonlySet<string
 export function logsPanel() {
   ensureStarted();
   const c = logsController;
-  return useStore(c.$error, (error) =>
-    useStore(c.$loading, (loading) =>
-      useStore(c.$paused, (paused) =>
-        useStore(c.$updatedAt, (updatedAt) =>
-          useStore(c.$level, (level) =>
-            useStore(c.$availableSources, (available) =>
-              useStore(c.$sources, (sources) =>
-                useStore(c.$visible, (visible) =>
-                  logsBody({
-                    error,
-                    loading,
-                    paused,
-                    updatedAt,
-                    level,
-                    available,
-                    sources,
-                    visible,
-                    c,
-                  }),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
+  return watch(c.actor, (s) =>
+    logsBody({
+      ...s.context,
+      available: availableSources(s),
+      visible: visibleEntries(s),
+      c,
+    }),
   );
 }
 
 function logsBody(ctx: {
-  error: string | null;
+  error: string | undefined;
   loading: boolean;
   paused: boolean;
-  updatedAt: number | null;
+  updatedAt: number | undefined;
   level: LogLevel | "all";
   available: string[];
-  sources: Set<string>;
+  sources: string[];
   visible: LogEntry[];
   c: LogsController;
 }) {
@@ -345,10 +268,10 @@ function logsBody(ctx: {
                 (s) => html`
                   <button
                     class="rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      sources.has(s) ? "bg-accent-soft text-accent" : "bg-subtle text-fg"
+                      sources.includes(s) ? "bg-accent-soft text-accent" : "bg-subtle text-fg"
                     }"
                     @click=${() => c.toggleSource(s)}
-                    aria-pressed=${sources.has(s)}
+                    aria-pressed=${sources.includes(s)}
                   >
                     ${s}
                   </button>
@@ -366,7 +289,7 @@ function logsBody(ctx: {
           </button>
           <button
             class="ui-btn-ghost"
-            @click=${() => void downloadLogs(level, sources)}
+            @click=${() => void downloadLogs(level, new Set(sources))}
             ?disabled=${visible.length === 0}
           >
             Download
@@ -386,7 +309,7 @@ function logsBody(ctx: {
       <div
         class="max-h-80 overflow-auto rounded-2xl border border-line p-3 font-mono text-[11px] leading-relaxed"
         @scroll=${() => {
-          if (!c.$paused.get()) c.setPaused(true);
+          if (!c.actor.snapshot().context.paused) c.setPaused(true);
         }}
       >
         ${

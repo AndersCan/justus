@@ -2,7 +2,7 @@
   "name": "@justus/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Justus gallery UI — lit-html + nanostores + mantaq + UnoCSS.",
+  "description": "Justus gallery UI — lit-html + mantaq + UnoCSS.",
   "type": "module",
   "scripts": {
     "dev": "vp dev --port 5173 --strictPort",
@@ -17,7 +17,6 @@
     "@mantaq/lit": "catalog:",
     "@mantaq/sugar": "catalog:",
     "lit-html": "^3.3.2",
-    "nanostores": "^1.2.0",
     "qrcode-generator": "catalog:",
     "unocss": "^66.0.0"
   },

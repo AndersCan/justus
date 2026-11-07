@@ -1,4 +1,4 @@
-import { atom } from "nanostores";
+import { prefs } from "../machines/prefs-machine";
 
 const STORAGE_KEY = "justus:profile-picture";
 const SIZE = 192;
@@ -24,8 +24,6 @@ export function writeProfilePicture(dataUrl: string): boolean {
     return false;
   }
 }
-
-export const $profilePicture = atom<string>(readProfilePicture());
 
 /** Centre-crop to a square and downscale, so a 12 MP photo becomes ~10 KB. */
 export async function pictureFromFile(file: File): Promise<string> {
@@ -54,13 +52,9 @@ export async function pictureFromFile(file: File): Promise<string> {
 }
 
 export async function setProfilePictureFromFile(file: File): Promise<boolean> {
-  const dataUrl = await pictureFromFile(file);
-  if (!writeProfilePicture(dataUrl)) return false;
-  $profilePicture.set(dataUrl);
-  return true;
+  return prefs.setPicture(await pictureFromFile(file));
 }
 
 export function clearProfilePicture(): void {
-  writeProfilePicture("");
-  $profilePicture.set("");
+  prefs.setPicture("");
 }

@@ -15,7 +15,7 @@ validates the ekrooh framework's beta (findings are filed as ekrooh issues).
 ## Architecture
 
 ```
-apps/web       Gallery UI (lit-html + nanostores + mantaq + UnoCSS)
+apps/web       Gallery UI (lit-html + mantaq + UnoCSS)
 apps/backend   Bare worklet: photo store (corestore+hyperdrive+hyperswarm),
                the justus.photos plugin, loopback serving, dev inbox
 apps/android   Android host (WebView + Bare worklet + media pick/capture)

@@ -53,7 +53,7 @@ The worklet process that runs on each device: owns the folder's storage and sync
 _Avoid_: server, cloud
 
 **Web layer**:
-The UI bundle (lit-html + nanostores) that runs in the browser or WebView and talks to the backend over a WebSocket.
+The UI bundle (lit-html + mantaq) that runs in the browser or WebView and talks to the backend over a WebSocket.
 _Avoid_: frontend, client, app
 
 **Host**:

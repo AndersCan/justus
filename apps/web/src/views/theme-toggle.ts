@@ -1,10 +1,8 @@
 import { html } from "lit-html";
-import { atom } from "nanostores";
-import { useStore } from "../use-store";
-import { $density, writeDensity, type Density } from "../utils/gallery-density";
-import { readTheme, writeTheme, type Theme } from "../utils/theme";
-
-const $theme = atom<Theme>(readTheme());
+import { watch } from "@mantaq/lit";
+import { prefs, prefsActor } from "../machines/prefs-machine";
+import type { Density } from "../utils/gallery-density";
+import type { Theme } from "../utils/theme";
 
 const OPTIONS: { value: Theme; label: string; hint: string }[] = [
   { value: "system", label: "Auto", hint: "Follows your device" },
@@ -12,11 +10,15 @@ const OPTIONS: { value: Theme; label: string; hint: string }[] = [
   { value: "dark", label: "Dark", hint: "Always dark" },
 ];
 
-/** Auto / Light / Dark choice. Persists via `writeTheme`. */
+/** Auto / Light / Dark choice. Persists via `prefs.setTheme`. */
 export function themeSetting() {
-  return useStore(
-    $theme,
-    (theme) => html`<div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
+  return watch(
+    prefsActor,
+    ({ context: { theme } }) => html`<div
+      class="grid grid-cols-3 gap-2"
+      role="radiogroup"
+      aria-label="Theme"
+    >
       ${OPTIONS.map(
         (o) => html`<button
           type="button"
@@ -29,8 +31,7 @@ export function themeSetting() {
               : "bg-subtle text-fg ring-line hover:bg-line"
           }"
           @click=${() => {
-            writeTheme(o.value);
-            $theme.set(o.value);
+            prefs.setTheme(o.value);
           }}
         >
           ${o.label}
@@ -45,11 +46,15 @@ const DENSITIES: { value: Density; label: string }[] = [
   { value: "compact", label: "Compact" },
 ];
 
-/** Gallery grid density: Comfortable / Compact. Persists via `writeDensity`. */
+/** Gallery grid density: Comfortable / Compact. Persists via `prefs.setDensity`. */
 export function densitySetting() {
-  return useStore(
-    $density,
-    (density) => html`<div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Photo grid">
+  return watch(
+    prefsActor,
+    ({ context: { density } }) => html`<div
+      class="grid grid-cols-2 gap-2"
+      role="radiogroup"
+      aria-label="Photo grid"
+    >
       ${DENSITIES.map(
         (o) => html`<button
           type="button"
@@ -61,8 +66,7 @@ export function densitySetting() {
               : "bg-subtle text-fg ring-line hover:bg-line"
           }"
           @click=${() => {
-            writeDensity(o.value);
-            $density.set(o.value);
+            prefs.setDensity(o.value);
           }}
         >
           ${o.label}

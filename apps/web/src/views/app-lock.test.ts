@@ -4,7 +4,8 @@ import type { LockStatus } from "@justus/core";
 vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("../gateway", () => ({ gateway: { lock: { status: vi.fn(), setEnabled: vi.fn() } } }));
 
-import { $appLock, appLockView, refreshAppLock, toggleAppLock } from "./app-lock";
+import { appLockActor, appLockEvents } from "../machines/app-lock-machine";
+import { appLockView, refreshAppLock, toggleAppLock } from "./app-lock";
 import { toast } from "./toast";
 
 const shell = (on: boolean) => {
@@ -14,11 +15,15 @@ const ok = <T>(v: T) => Promise.resolve([null, v] as [null, T]);
 const fail = () => Promise.resolve([new Error("x"), null] as [Error, null]);
 const status = (s: LockStatus) => () => ok(s);
 
-const view = () => appLockView($appLock.get());
+const view = () =>
+  appLockView({
+    status: appLockActor.snapshot().context.status,
+    busy: appLockActor.snapshot().path[0] === "saving",
+  });
 
 beforeEach(() => {
   shell(true);
-  $appLock.set({ status: undefined, busy: false });
+  appLockActor.send(appLockEvents.statusRead.create({ status: undefined }));
   vi.mocked(toast).mockClear();
 });
 
@@ -38,7 +43,7 @@ describe("app lock card", () => {
 
   it("stays absent on a malformed result", async () => {
     await refreshAppLock((() => ok({ available: "yes" })) as never);
-    expect($appLock.get().status).toBeUndefined();
+    expect(appLockActor.snapshot().context.status).toBeUndefined();
   });
 
   it("disables the switch without a screen lock", async () => {
@@ -82,5 +87,20 @@ describe("app lock card", () => {
     const set = vi.fn(() => ok({ enabled: true }));
     await Promise.all([toggleAppLock(set), toggleAppLock(set)]);
     expect(set).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("app lock busy state", () => {
+  it("is busy while the host is asked, then idle", async () => {
+    await refreshAppLock(status({ available: true, enabled: false }));
+    let release: (v: [null, { enabled: boolean }]) => void = () => {};
+    const pending = toggleAppLock(
+      () => new Promise<[null, { enabled: boolean }]>((r) => (release = r)),
+    );
+    expect(appLockActor.snapshot().path[0]).toBe("saving");
+    expect(view()?.disabled).toBe(true);
+    release([null, { enabled: true }]);
+    await pending;
+    expect(appLockActor.snapshot().path[0]).toBe("idle");
   });
 });
