@@ -184,7 +184,9 @@ class ListingScreenshots {
     // which says they choose who gets in.
     captioned("2_invite", "You choose who joins. Nobody sees a photo until you accept")
 
-    // Help opens on "What is Justus?", which explains there is no server in the middle.
+    // Help is a row in Settings. It opens on "What is Justus?", which explains there is no
+    // server in the middle.
+    find("Settings", 10).click()
     find("Help", 10).click()
     find("What is Justus?", 10).click()
     Thread.sleep(1000)
