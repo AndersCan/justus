@@ -4,6 +4,8 @@ import {
   parseDeviceIdentity,
   parseDeviceName,
   parseAnswer,
+  parseFriendMessage,
+  isFriendMessageShape,
   parseDeviceSwarmKey,
   parseFolderName,
   parseJoinRequests,
@@ -279,5 +281,35 @@ describe("parseAnswer", () => {
     ["accepted with non-string key", { code: k1, answer: "accepted", shareKey: 1 }],
   ])("drops %s", (_, value) => {
     expect(parseAnswer(value)).toBeUndefined();
+  });
+});
+
+describe("parseFriendMessage", () => {
+  const code = "a".repeat(64);
+
+  test("accepts an offer and cleans its names", () => {
+    expect(
+      parseFriendMessage({ kind: "offer", code, albumName: "  Lisbon ", ownerName: 7, extra: 1 }),
+    ).toEqual({ kind: "offer", code, albumName: "Lisbon", ownerName: "the Admin" });
+  });
+
+  test("accepts each reply with only its code", () => {
+    for (const kind of ["offerSeen", "offerRefused", "offerWithdrawn", "offerTaken"] as const) {
+      expect(parseFriendMessage({ kind, code, shareKey: "x" })).toEqual({ kind, code });
+    }
+  });
+
+  test("drops a bad code, an unknown kind and non-objects", () => {
+    expect(parseFriendMessage({ kind: "offerSeen", code: "nope" })).toBeUndefined();
+    expect(parseFriendMessage({ kind: "offerSeen" })).toBeUndefined();
+    expect(parseFriendMessage({ kind: "other", code })).toBeUndefined();
+    expect(parseFriendMessage(null)).toBeUndefined();
+    expect(parseFriendMessage("offer")).toBeUndefined();
+  });
+
+  test("a friend message is never an answer, and an answer never a friend message", () => {
+    expect(isFriendMessageShape({ kind: "offer", code })).toBe(true);
+    expect(isFriendMessageShape({ code, answer: "declined" })).toBe(false);
+    expect(parseAnswer({ kind: "offerSeen", code })).toBeUndefined();
   });
 });

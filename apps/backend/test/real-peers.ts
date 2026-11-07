@@ -40,7 +40,12 @@ export async function realNet(): Promise<Net> {
   async function peer(
     name: string,
     storageDir?: string,
-    opts: { peerProtocol?: number; legacy?: boolean } = {},
+    opts: {
+      peerProtocol?: number;
+      legacy?: boolean;
+      friends?: string[];
+      offerReachMs?: number;
+    } = {},
   ): Promise<Peer> {
     const dir = storageDir ?? trackTmpPath(mkdtempSync(join(tmpdir(), `justus-real-${name}-`)));
     if (!storageDir) dirs.push(dir);
@@ -61,6 +66,8 @@ export async function realNet(): Promise<Net> {
         openVersion: opts.legacy ? () => {} : undefined,
       }),
       peerProtocol: opts.peerProtocol,
+      isFriend: (identity: string) => opts.friends?.includes(identity) ?? false,
+      offerReachMs: opts.offerReachMs,
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });

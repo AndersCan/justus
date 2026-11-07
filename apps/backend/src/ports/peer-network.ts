@@ -5,7 +5,7 @@
  * `replicate` dependency, wired by the composition root; it is not part of
  * this port.
  */
-import type { Answer } from "../membership/records";
+import type { ChannelMessage } from "../membership/records";
 
 export type PeerEvent =
   /** `peerKey` is the peer's per-boot noise key, never a drive key. */
@@ -27,7 +27,7 @@ export type PeerNetwork = {
    */
   start(identityKey: string, onEvent: (e: PeerEvent) => void, protocol?: number): void;
   /** Sends an answer on the answer channel of connection `conn`. False when the channel is not open. */
-  sendAnswer(conn: number, answer: Answer): boolean;
+  sendAnswer(conn: number, answer: ChannelMessage): boolean;
   /** Closes connection `conn`. */
   drop(conn: number): void;
   /** Idempotent. Joining a client-only topic again with `server: true` starts announcing it. */

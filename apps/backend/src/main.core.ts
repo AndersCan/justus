@@ -84,7 +84,18 @@ const network = createHyperPeerNetwork({
   replicate: (conn) => drives.replicate(conn),
 });
 
+const bareFiles = createBareFiles();
+const friendsStore = createFriendsStore({
+  dir: storageDir,
+  files: bareFiles.fs,
+  paths: bareFiles.path,
+});
+
 const store: PhotoStore = createPhotoStore({
+  isFriend: (identity) => {
+    const [e, friends] = friendsStore.list();
+    return !e && friends.some((f) => f.identity === identity);
+  },
   storageDir,
   cacheDir,
   // The dev inbox (and any picker-configured local import root) writes files
@@ -118,16 +129,11 @@ const grantLedger = new GrantLedger({
 });
 runtime.pluginRegistry.register(createGrantsPlugin({ ledger: grantLedger }));
 
-const bareFiles = createBareFiles();
 // Per-device friends: names this device gave to people, keyed by identity key.
 // Local only, so a file in `storageDir` (not localStorage: the web origin's
 // port can change, the desktop host falls back to a random one when its fixed
 // port is taken).
-runtime.pluginRegistry.register(
-  createFriendsPlugin({
-    store: createFriendsStore({ dir: storageDir, files: bareFiles.fs, paths: bareFiles.path }),
-  }),
-);
+runtime.pluginRegistry.register(createFriendsPlugin({ store: friendsStore }));
 
 // The real upload route on the worklet's own loopback server — the add path
 // the browser "Pick photo" uses in dev and on the device WebView alike.

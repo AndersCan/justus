@@ -53,7 +53,12 @@ export async function bareNet(root: string): Promise<Net> {
   async function peer(
     name: string,
     storageDir?: string,
-    opts: { peerProtocol?: number; legacy?: boolean } = {},
+    opts: {
+      peerProtocol?: number;
+      legacy?: boolean;
+      friends?: string[];
+      offerReachMs?: number;
+    } = {},
   ): Promise<Peer> {
     const dir = storageDir ?? path.join(root, `${name}-${n++}`);
     const cacheDir = path.join(dir, "cache");
@@ -69,6 +74,8 @@ export async function bareNet(root: string): Promise<Net> {
       onChanged: (c) => changes.push(c),
       seedOnEmpty: false,
       peerProtocol: opts.peerProtocol,
+      isFriend: (identity: string) => opts.friends?.includes(identity) ?? false,
+      offerReachMs: opts.offerReachMs,
       fs,
       path,
       crypto,

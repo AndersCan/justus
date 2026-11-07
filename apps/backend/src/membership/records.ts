@@ -190,3 +190,48 @@ export function parseAnswer(value: unknown): Answer | undefined {
   }
   return undefined;
 }
+
+/** Shown when a peer's invite names no album. */
+export const DEFAULT_ASK_ALBUM = "this album";
+/** Shown when a peer's invite names no Admin. */
+export const DEFAULT_ASK_OWNER = "the Admin";
+
+/** Messages between an Admin and a friend about an album invite. `code` is the album's invite code, never a key. */
+export type FriendMessage =
+  | { kind: "offer"; code: string; albumName: string; ownerName: string }
+  | { kind: "offerSeen"; code: string }
+  | { kind: "offerRefused"; code: string }
+  | { kind: "offerWithdrawn"; code: string }
+  | { kind: "offerTaken"; code: string };
+
+/** Everything the answer channel carries. */
+export type ChannelMessage = Answer | FriendMessage;
+
+/** True for a value that belongs to {@link parseFriendMessage}, not {@link parseAnswer}. */
+export function isFriendMessageShape(value: unknown): boolean {
+  return isTextJSON(value) && typeof value.kind === "string";
+}
+
+/** A friend message off the wire, or undefined when it is malformed. */
+export function parseFriendMessage(value: unknown): FriendMessage | undefined {
+  if (!isTextJSON(value)) return undefined;
+  const { kind, code, albumName, ownerName } = value;
+  if (typeof code !== "string" || !isHexKey(code)) return undefined;
+  if (kind === "offer") {
+    return {
+      kind,
+      code,
+      albumName: peerName(albumName, DEFAULT_ASK_ALBUM),
+      ownerName: peerName(ownerName, DEFAULT_ASK_OWNER),
+    };
+  }
+  if (
+    kind === "offerSeen" ||
+    kind === "offerRefused" ||
+    kind === "offerWithdrawn" ||
+    kind === "offerTaken"
+  ) {
+    return { kind, code };
+  }
+  return undefined;
+}

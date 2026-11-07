@@ -38,10 +38,15 @@ import {
 import type { Drive, DriveStore, OpenResult } from "./ports/drive-store";
 import type { DriveEntry } from "./ports/drive-store";
 import {
+  DEFAULT_ASK_ALBUM,
+  DEFAULT_ASK_OWNER,
   isEnrolled,
+  isFriendMessageShape,
   isHexKey,
   isTextJSON,
   parseAnswer,
+  parseFriendMessage,
+  type FriendMessage,
   type Answer,
   parseDeviceName,
   parseDeviceIdentity,
@@ -55,6 +60,7 @@ import {
   type RequestsFile,
 } from "./membership/records";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
+import { holdOffer, mayShowOfferFrom, OFFER_REACH_MS, OFFER_RESEND_MS } from "./membership/offers";
 
 /**
  * Dependency-injection seam. `photo-store.ts` used to import the full p2p
@@ -68,6 +74,7 @@ import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
  */
 import type {
   AskSummary,
+  OfferSummary,
   FolderNotice,
   FolderSummary,
   JoinRequest,
@@ -93,6 +100,10 @@ export const PhotoError = {
   FORBIDDEN: "justus.photos/import-path-forbidden",
   UNSUPPORTED_FORMAT: "justus.photos/unsupported-format",
   UPDATE_REQUIRED: "justus.photos/update-required",
+  FRIEND_UNREACHABLE: "justus.photos/friend-unreachable",
+  FRIEND_REFUSED: "justus.photos/friend-refused",
+  OFFER_GONE: "justus.photos/offer-gone",
+  OFFER_PENDING: "justus.photos/offer-pending",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -114,6 +125,8 @@ type PersistedState = {
   folders: FolderRecord[];
   activeFolderId: string | null;
   asks: AskRecord[];
+  /** Invites friends sent to this phone, not answered yet. */
+  offers: OfferSummary[];
 };
 
 /** A request to join through an invite code. `shareKey` is set only once the
@@ -147,6 +160,8 @@ type FolderRecord = {
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
+  /** Creator only: identities with an open friend invite to this album. */
+  invited?: string[];
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
@@ -194,6 +209,10 @@ export type PhotoStoreDeps = {
   crypto: typeof import("bare-crypto");
   /** Where drives live (Corestore and Hyperdrive in production). */
   drives: DriveStore;
+  /** True when `identity` is a saved friend. Only friends (and people already in an album together) can send this phone an invite. */
+  isFriend?: (identity: string) => boolean;
+  /** How long `offerAlbum` waits for the friend's phone. Defaults to {@link OFFER_REACH_MS}. */
+  offerReachMs?: number;
   /** Peers: topics, connections, and the identity, version and answer channels. */
   network: PeerNetwork;
   /** Max ms to wait for a remote drive to become ready before giving up on it
@@ -227,7 +246,12 @@ export interface PhotoStore {
   join(key: string, nameHint?: string): Promise<EitherResult<SyncStatus>>;
   enroll(key: string, name: string): Promise<EitherResult<SyncStatus>>;
   status(): Promise<SyncStatus>;
-  folders(): Promise<{ folders: FolderSummary[]; activeFolderId: string; asks: AskSummary[] }>;
+  folders(): Promise<{
+    folders: FolderSummary[];
+    activeFolderId: string;
+    asks: AskSummary[];
+    offers: OfferSummary[];
+  }>;
   /** Asks the Admin behind an invite code to let this device in. The album's
    * key reaches this device only after the Admin accepts. */
   ask(args: {
@@ -253,6 +277,8 @@ export interface PhotoStore {
   turnOffInvite(
     folderId: string,
   ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
+  /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. */
+  offerAlbum(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -263,8 +289,6 @@ const DRIVE_PATH_DEVICE = "/device.json";
 /** Album name shown until the Admin's `/folder.json` replicates in. */
 const JOINED_PLACEHOLDER_NAME = "Joined folder";
 const STATE_FILE = "justus.json";
-const DEFAULT_ASK_ALBUM = "this album";
-const DEFAULT_ASK_OWNER = "the Admin";
 
 function newId(c: typeof import("bare-crypto")): string {
   return `${Date.now().toString(36)}-${c.randomBytes(4).toString("hex")}`;
@@ -557,12 +581,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             });
           }
         }
-        return { name, folders, activeFolderId, asks: loadAsks(parsed.asks) };
+        return {
+          name,
+          folders,
+          activeFolderId,
+          asks: loadAsks(parsed.asks),
+          offers: loadOffers(parsed.offers),
+        };
       }
     } catch {
       // Fresh state.
     }
-    return { name: deps.deviceName, folders: [], activeFolderId: null, asks: [] };
+    return { name: deps.deviceName, folders: [], activeFolderId: null, asks: [], offers: [] };
   }
 
   function loadFolderExtras(f: { [k: string]: unknown }): Partial<FolderRecord> {
@@ -586,6 +616,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (c): c is string => typeof c === "string" && isHexKey(c),
       );
     }
+    if (Array.isArray(f.invited)) {
+      out.invited = (f.invited as unknown[]).filter(
+        (c): c is string => typeof c === "string" && isHexKey(c),
+      );
+    }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
     if (Array.isArray(f.earlier)) {
@@ -603,6 +638,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       else if (f.notice.kind === "moved") {
         out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
       }
+    }
+    return out;
+  }
+
+  function loadOffers(raw: unknown): OfferSummary[] {
+    if (!Array.isArray(raw)) return [];
+    let out: OfferSummary[] = [];
+    for (const o of raw as unknown[]) {
+      if (!isTextJSON(o)) continue;
+      if (typeof o.code !== "string" || !isHexKey(o.code)) continue;
+      if (typeof o.owner !== "string" || !isHexKey(o.owner)) continue;
+      out = holdOffer(out, {
+        code: o.code,
+        owner: o.owner,
+        albumName: peerName(o.albumName, DEFAULT_ASK_ALBUM),
+        ownerName: peerName(o.ownerName, DEFAULT_ASK_OWNER),
+      });
     }
     return out;
   }
@@ -759,7 +811,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     } else if (e.type === "identified") {
       onPeerIdentity(e.identityKey, e.conn);
     } else if (e.type === "answer") {
-      void onAnswerMessage(e.conn, e.value).catch(answerErr("answer"));
+      if (isFriendMessageShape(e.value)) {
+        void onFriendMessage(e.conn, e.value).catch(answerErr("friend"));
+      } else {
+        void onAnswerMessage(e.conn, e.value).catch(answerErr("answer"));
+      }
     } else {
       conns.delete(e.conn);
       onPeerDown(e.peerKey);
@@ -2300,6 +2356,62 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** An Admin waiting for a friend's phone to answer an invite, by `identity:code`. */
+  const offerWaiters = new Map<string, (reply: "seen" | "refused") => void>();
+
+  /** A friend message arrived on connection `connId`. Only a connection proven
+   * to belong to an identity ({@link verifiedIdentity}) can act as that identity. */
+  async function onFriendMessage(connId: number, value: unknown): Promise<void> {
+    if (conns.get(connId)?.refused)
+      return log("friend.ignored", { conn: connId, reason: "version" });
+    const message = parseFriendMessage(value);
+    if (!message) return log("friend.ignored", { conn: connId, reason: "malformed" });
+    const sender = await verifiedIdentity(connId);
+    if (!sender) return log("friend.ignored", { conn: connId, reason: "unverified" });
+    if (message.kind === "offerSeen" || message.kind === "offerRefused") {
+      const key = `${sender}:${message.code}`;
+      offerWaiters.get(key)?.(message.kind === "offerSeen" ? "seen" : "refused");
+      return;
+    }
+    if (message.kind !== "offer") return;
+    receiveOffer(connId, sender, message);
+  }
+
+  /** The friend side of an invite: show it, or turn it down when the sender is a stranger. */
+  function receiveOffer(
+    connId: number,
+    sender: string,
+    offer: Extract<FriendMessage, { kind: "offer" }>,
+  ) {
+    const known = {
+      isFriend: deps.isFriend?.(sender) ?? false,
+      coMembers: new Set(memberIdentity.values()),
+      albumAdmins: new Set([
+        ...state.folders.flatMap((f) => (f.invite?.owner ? [f.invite.owner] : [])),
+        ...state.asks.map((a) => a.owner),
+      ]),
+    };
+    if (!mayShowOfferFrom(sender, known)) {
+      log("offer.refused", { sender: short(sender), code: short(offer.code) });
+      network.sendAnswer(connId, { kind: "offerRefused", code: offer.code });
+      return;
+    }
+    const alreadyIn = state.folders.some(
+      (f) => f.invite?.code === offer.code && f.invite.owner === sender,
+    );
+    if (!alreadyIn) {
+      state.offers = holdOffer(state.offers, {
+        code: offer.code,
+        owner: sender,
+        albumName: offer.albumName,
+        ownerName: offer.ownerName,
+      });
+      saveState();
+      deps.onChanged({ cause: "offer" });
+    }
+    network.sendAnswer(connId, { kind: "offerSeen", code: offer.code });
+  }
+
   function resumeAsks() {
     setupDone = true;
     for (const ask of state.asks) {
@@ -2611,7 +2723,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const rt of runtimes.values()) {
         folders.push(toSummary(rt));
       }
-      return { folders, activeFolderId: activeFolderId() ?? "", asks: state.asks.map(askSummary) };
+      return {
+        folders,
+        activeFolderId: activeFolderId() ?? "",
+        asks: state.asks.map(askSummary),
+        offers: state.offers,
+      };
     },
 
     async ask(args) {
@@ -2785,6 +2902,58 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ invite: { code, owner: ownDrive.key } });
     },
 
+    async offerAlbum(folderId, identity) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the creator can invite a friend");
+      if (!isHexKey(identity) || identity === ownDrive.key)
+        return err(PhotoError.INVALID_KEY, "Friend key must be a 64-char hex key");
+      const invite = rt.record.invite;
+      if (!invite) return err(PhotoError.FOLDER_NOT_FOUND, `No invite for album ${folderId}`);
+      openPeerOutbox(identity).catch((e) =>
+        log("error", { where: "offerAlbum.open", err: errText(e) }),
+      );
+      const key = `${identity}:${invite.code}`;
+      if (offerWaiters.has(key))
+        return err(PhotoError.OFFER_PENDING, "This invite is already waiting for that friend");
+      const reply = new Promise<"seen" | "refused">((resolve) => offerWaiters.set(key, resolve));
+      const deadline = Date.now() + (deps.offerReachMs ?? OFFER_REACH_MS);
+      try {
+        const got: { v?: "seen" | "refused" } = {};
+        void reply.then((r) => (got.v = r));
+        while (!got.v && !closed && Date.now() < deadline) {
+          for (const [connId, c] of Array.from(conns)) {
+            if (c.identityKey !== identity) continue;
+            const left = deadline - Date.now();
+            if ((await withTimeout(verifiedIdentity(connId), left)) !== identity) continue;
+            network.sendAnswer(connId, {
+              kind: "offer",
+              code: invite.code,
+              albumName: rt.record.name,
+              ownerName: state.name,
+            });
+          }
+          await Promise.race([reply, sleep(OFFER_RESEND_MS)]);
+        }
+        if (got.v === "refused")
+          return err(PhotoError.FRIEND_REFUSED, "The friend's phone turned the invite down");
+        if (got.v !== "seen")
+          return err(PhotoError.FRIEND_UNREACHABLE, "The friend's phone did not answer");
+        for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+          if (target && !target.invited?.includes(identity)) {
+            target.invited = [...(target.invited ?? []), identity];
+          }
+        }
+        saveState();
+        deps.onChanged({ cause: "offer", folderId });
+        return ok({ ok: true });
+      } finally {
+        offerWaiters.delete(key);
+      }
+    },
+
     async removeMember(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -2841,6 +3010,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           id: rt.record.id,
           role: rt.record.role,
           pending: Boolean(rt.record.pending),
+          invited: rt.record.invited ?? [],
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),
           selfDrive: driveInfo(rt.selfDrive),
@@ -2909,6 +3079,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,
+    offerAlbum: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };
