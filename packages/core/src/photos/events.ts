@@ -126,6 +126,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; requesterKey: string; approve: boolean },
     result: {} as { ok: boolean },
   },
+  turnOffInvite: {
+    pluginId: "justus.photos",
+    name: "photos.turnOffInvite",
+    args: {} as { folderId: string },
+    result: {} as { invite: { code: string; owner: string } },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -271,6 +277,15 @@ export const photoEvents = {
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );
+    },
+    turnOffInvite(
+      folderId: string,
+    ): InvokeEnvelope<
+      "photos.turnOffInvite",
+      { folderId: string },
+      { invite: { code: string; owner: string } }
+    > {
+      return invokeEvent(photoSpecs.turnOffInvite, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
   },
 } as const;

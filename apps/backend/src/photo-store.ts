@@ -245,6 +245,11 @@ export interface PhotoStore {
     requesterKey: string,
     approve: boolean,
   ): Promise<EitherResult<{ ok: boolean }>>;
+  /** Admin only: every link sent for the album stops working at once. The album
+   * gets a new invite code; answers already given are kept. */
+  turnOffInvite(
+    folderId: string,
+  ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -2747,6 +2752,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async turnOffInvite(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the creator can turn off invite links");
+      const old = rt.record.invite?.code;
+      const code = newInviteCode();
+      rt.record.invite = { code };
+      const persisted = state.folders.find((f) => f.id === folderId);
+      if (persisted) persisted.invite = { code };
+      saveState();
+      if (old) leaveTopic(hex(inviteTopic(old, crypto)));
+      serveInvite(code);
+      deps.onChanged({ cause: "request", folderId });
+      return ok({ invite: { code, owner: ownDrive.key } });
+    },
+
     async removeMember(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -2870,6 +2893,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     requests: fail,
     removeMember: refuse,
     respond: refuse,
+    turnOffInvite: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };

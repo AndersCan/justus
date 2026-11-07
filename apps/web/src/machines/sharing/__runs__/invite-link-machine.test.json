@@ -15,7 +15,8 @@
           "kind": "event",
           "event": "createLink",
           "payload": {
-            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
           }
         },
         {
@@ -26,6 +27,36 @@
           "kind": "event",
           "event": "timeRanOut",
           "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils turns off the links he sent",
+      "end": "noLinkYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "turnOffLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkOff",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
         }
       ]
     }

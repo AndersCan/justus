@@ -91,6 +91,7 @@ export const gateway = {
   requests: () => invoke(photoEvents.photos.requests()),
   respond: (folderId: string, requesterKey: string, approve: boolean) =>
     invoke(photoEvents.photos.respond(folderId, requesterKey, approve)),
+  turnOffInvite: (folderId: string) => invoke(photoEvents.photos.turnOffInvite(folderId)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

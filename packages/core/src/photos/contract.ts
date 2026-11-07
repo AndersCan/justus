@@ -192,6 +192,7 @@ export const photoResultSchemas = {
   "photos.requests": s.object({ requests: s.array(joinRequestSchema) }),
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
+  "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
 } as const;
 
 /** Validates an invoke result; returns a message naming the field, or null. */
