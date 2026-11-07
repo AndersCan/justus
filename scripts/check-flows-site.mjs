@@ -183,14 +183,34 @@ for (const name of pages) {
   }
   await page.close();
 }
+// The state each walk is told to end in. Written by hand, so the check does not
+// trust the viewer or the recorded run to say where the cursor should land.
+const WALK_ENDS = {
+  "Maya: asks and is accepted": "joined",
+  "Maya: asks and is declined": "declined",
+  "Maya: reopens her ask while waiting": "waitingForAnswer",
+  "Maya: reopens her ask after a decline": "declined",
+  "Maya: opens a link from before the new key": "unusableLink",
+  "Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one":
+    "expired",
+  "Nils: accepts Maya as Collaborator": "joined",
+  "Nils: declines the request": "declined",
+  "Nils's link: a 7 day link, then the week is over": "expired",
+  "Nils's link: a stranger is in the chat, so he cancels": "cancelled",
+  "Nils: accepts a guest as Collaborator": "joined",
+  "Nils's link: a 1 hour link for the family expires": "expired",
+  "Nils: accepts a relative as Viewer, later makes her a Collaborator": "joined",
+};
 for (const [, text, href] of walkLinks) {
   const url = new URL(href);
   const machineId = url.searchParams.get("machine");
   const page = url.pathname.slice(new URL(SITE).pathname.length).replace(/\/$/, "");
-  const end = vizDocuments(page)
-    .find((each) => each.id === machineId)
-    ?.runs?.find((run) => run.name === text)?.end;
-  if (end === undefined) continue;
+  const end = WALK_ENDS[text];
+  if (end === undefined) {
+    console.error(`check-flows-site: walk "${text}": no expected end state in WALK_ENDS`);
+    failed = true;
+    continue;
+  }
   const tab = await browser.newPage();
   await tab.goto(`${origin}${url.pathname}${url.search}`);
   const reason = await (async () => {
