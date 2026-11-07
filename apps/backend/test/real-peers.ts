@@ -12,6 +12,7 @@ import { createPhotoStore } from "../src/photo-store.ts";
 import type { PeerEvent } from "../src/ports/peer-network.ts";
 import type { DriveWorld } from "./contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "./contracts/peer-network.contract.ts";
+import type { WiredNode, WiredWorld } from "./contracts/wired.contract.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 import { trackTmpPath } from "./tmp-dirs.ts";
 import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
@@ -240,6 +241,77 @@ export async function realPeerWorlds(): Promise<{
       topic: () => randomBytes(32).toString("hex"),
       async close() {
         for (const n of nodes) await n.node.network.close();
+        for (const n of nodes) await n.drives.close();
+      },
+    };
+  }
+
+  return {
+    world() {
+      const w = world();
+      worlds.push(w);
+      return w;
+    },
+    async destroy() {
+      for (const w of worlds) await w.close();
+      await testnet.destroy();
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    },
+  };
+}
+
+export async function realWiredWorlds(): Promise<{
+  world(): WiredWorld;
+  destroy(): Promise<void>;
+}> {
+  const testnet = await createTestnet(3);
+  const worlds: WiredWorld[] = [];
+  const dirs: string[] = [];
+
+  function world(): WiredWorld {
+    const nodes: WiredNode[] = [];
+    return {
+      async node() {
+        const dir = trackTmpPath(mkdtempSync(join(tmpdir(), "justus-wired-")));
+        dirs.push(dir);
+        const corestorePath = join(dir, "corestore");
+        let drives = createHyperDriveStore(corestorePath);
+        await drives.ready();
+        const identityKey = (await drives.openOwn()).key;
+        const events: PeerEvent[] = [];
+        const build = () => {
+          const network = createHyperPeerNetwork({
+            bootstrap: testnet.bootstrap,
+            replicate: (conn) => drives.replicate(conn),
+            log: () => {},
+          });
+          network.start(identityKey, (e: PeerEvent) => events.push(e));
+          return network;
+        };
+        let network = build();
+        const node: WiredNode = {
+          get drives() {
+            return drives;
+          },
+          get network() {
+            return network;
+          },
+          identityKey,
+          events,
+          async restart() {
+            await network.close();
+            await drives.close();
+            drives = createHyperDriveStore(corestorePath);
+            await drives.ready();
+            network = build();
+          },
+        };
+        nodes.push(node);
+        return node;
+      },
+      topic: () => randomBytes(32).toString("hex"),
+      async close() {
+        for (const n of nodes) await n.network.close();
         for (const n of nodes) await n.drives.close();
       },
     };

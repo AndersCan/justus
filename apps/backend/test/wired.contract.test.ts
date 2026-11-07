@@ -1,12 +1,13 @@
-import { cases } from "./contracts/peer-answer.contract.ts";
+// Real only: the fake drive store replicates per node, not per connection.
+import { cases } from "./contracts/wired.contract.ts";
 import { makeCheck } from "./p2p-scenarios.ts";
-import { realAnswerWorlds } from "./real-answer-world.ts";
+import { realWiredWorlds } from "./real-peers.ts";
 import { afterAll, beforeAll, describe, it } from "vite-plus/test";
 
 describe("real", () => {
-  let worlds: Awaited<ReturnType<typeof realAnswerWorlds>>;
+  let worlds: Awaited<ReturnType<typeof realWiredWorlds>>;
   beforeAll(async () => {
-    worlds = await realAnswerWorlds();
+    worlds = await realWiredWorlds();
   });
   afterAll(async () => {
     await worlds.destroy();
