@@ -36,7 +36,7 @@ import {
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
-import { makeViewerMember, seatViewer } from "./membership/viewers";
+import { makeMemberViewer, makeViewerMember, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_REQUESTS,
@@ -337,6 +337,7 @@ export interface PhotoStore {
   /** Admin only: take a member out of the album (their copies stay on their
    * own devices, but the album stops syncing with them). */
   makeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
+  makeViewer(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   removeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   respond(
     folderId: string,
@@ -459,6 +460,9 @@ type FolderRuntime = {
   selfDrive: Drive;
   /** Registered writer drives other than this device, opened read-only. */
   memberDrives: Map<string, Drive>;
+  /** For each `memberDrives` entry that is a read-only copy of a Viewer's drive,
+   * the version it was opened at. Absent = the live drive. */
+  keptAt: Map<string, number>;
   memberNameCache: Map<string, string>;
   /** Viewers the Admin listed in `/viewers.json`; their drives are never opened. */
   viewers: ViewersFile["viewers"];
@@ -967,8 +971,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // with only the invite's name): take the album name from it.
         if (rt && drive === rt.folderDrive) {
           void refreshViewers(rt)
-            .then((changed) => {
-              if (changed) deps.onChanged({ cause: "enroll", folderId });
+            .then(async (changed) => {
+              if (!changed) return;
+              if (rt.record.role !== "creator") {
+                becomeViewerIfListed(rt);
+                await refreshMembersFor(rt);
+                armFolderWatchers(rt);
+              }
+              deps.onChanged({ cause: "enroll", folderId });
             })
             .catch((e) =>
               log("error", { where: "refreshViewers", folder: short(folderId), err: errText(e) }),
@@ -1025,6 +1035,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watchDrive(rt.selfDrive, rt.record.id, rt.selfDrive.key, "enroll");
     }
     for (const [key, drive] of rt.memberDrives) {
+      if (rt.keptAt.has(key)) continue;
       watchDrive(drive, rt.record.id, key, "add");
     }
   }
@@ -1175,6 +1186,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Opens a Viewer's drive as it was at `version`, so what they added after
+   * they became a Viewer is never read. A copy never changes: no watcher. */
+  async function openKeptDrive(rt: FolderRuntime, keyHex: string, version: number, name: string) {
+    network.join(deps.drives.discoveryKeyOf(keyHex), { server: false });
+    const [openErr, drive] = await deps.drives.openAt(keyHex, version, { timeoutMs: 10_000 });
+    if (openErr) {
+      log("error", {
+        where: "openKeptDrive",
+        drive: short(keyHex),
+        version,
+        err: errText(openErr),
+      });
+      return;
+    }
+    rt.memberDrives.set(keyHex, drive);
+    rt.keptAt.set(keyHex, version);
+    rt.memberNameCache.set(keyHex, name);
+  }
+
+  /** On a Collaborator's phone: the Admin has moved this phone's person to the
+   * Viewers, so the phone reads like a Viewer's from now on. */
+  function becomeViewerIfListed(rt: FolderRuntime) {
+    if (rt.record.role !== "member") return;
+    if (!rt.viewers[selfKeyOf(rt)]) return;
+    rt.record.role = "reader";
+    rt.record.driveKey = "";
+    rt.record.pending = false;
+    saveState();
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKeyOf(rt) });
+  }
+
   /** Re-reads the Admin's Viewer list. True when it changed. */
   async function refreshViewers(rt: FolderRuntime): Promise<boolean> {
     const file = await readViewers(rt.folderDrive, { log });
@@ -1224,15 +1266,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const live = new Set(entries.map((e) => e.key));
     live.add(selfKeyOf(rt));
-    for (const [key, drive] of rt.memberDrives) {
-      if (live.has(key)) continue;
+    // A Collaborator made a Viewer keeps their photos up to the version the
+    // Admin recorded; their drive is read as a copy at that version.
+    const kept = Object.values(rt.viewers).filter(
+      (v) => v.keptVersion !== undefined && !registry.members[v.key],
+    );
+    for (const [key, drive] of [...rt.memberDrives]) {
+      const keptVersion = kept.find((v) => v.key === key)?.keptVersion;
+      const stays =
+        keptVersion !== undefined
+          ? rt.keptAt.get(key) === keptVersion
+          : live.has(key) && !rt.keptAt.has(key);
+      if (stays) continue;
       rt.memberDrives.delete(key);
+      rt.keptAt.delete(key);
       rt.memberNameCache.delete(key);
       try {
         await deps.drives.release(drive);
       } catch {
         // already closed (teardown): expected, quiet
       }
+    }
+    for (const v of kept) {
+      if (rt.memberDrives.has(v.key)) continue;
+      await openKeptDrive(rt, v.key, v.keptVersion as number, v.name);
     }
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
@@ -2353,6 +2410,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         folderDrive: fd,
         selfDrive,
         memberDrives: new Map(),
+        keptAt: new Map(),
         memberNameCache: new Map(),
         viewers: {},
         mounted: new Set(),
@@ -2480,6 +2538,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       folderDrive: newDrive,
       selfDrive: newDrive,
       memberDrives: new Map(),
+      keptAt: new Map(),
       memberNameCache: new Map(),
       viewers: {},
       mounted: new Set(),
@@ -2915,6 +2974,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             folderDrive: fd,
             selfDrive,
             memberDrives: new Map(),
+            keptAt: new Map(),
             memberNameCache: new Map(),
             viewers: {},
             mounted: new Set(),
@@ -2981,6 +3041,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       folderDrive: drive,
       selfDrive,
       memberDrives: new Map(),
+      keptAt: new Map(),
       memberNameCache: new Map(),
       viewers: {},
       mounted: new Set(),
@@ -3508,6 +3569,42 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async makeViewer(folderId, memberKey) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can make someone a Viewer");
+      if (!isHexKey(memberKey) || memberKey.toLowerCase() === rt.record.shareKey.toLowerCase())
+        return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
+      const key = memberKey.toLowerCase();
+      await refreshViewers(rt);
+      const registry = await readRegistryIn(rt.folderDrive);
+      if (!registry.members[key] && !rt.viewers[key])
+        return err(PhotoError.NOT_FOUND, "No such Collaborator");
+      const drive = rt.memberDrives.get(key) ?? (await openDriveWithTopic(key, { server: false }));
+      // Pick up what the person has added that has reached this phone.
+      await Promise.race([
+        drive.update().catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 5_000)),
+      ]);
+      const [viewerErr] = await makeMemberViewer(rt.folderDrive, {
+        viewers: { version: 1, viewers: rt.viewers },
+        registry,
+        memberKey: key,
+        keptVersion: drive.version(),
+      });
+      if (viewerErr) {
+        if (viewerErr.kind === "no-such-member")
+          return err(PhotoError.NOT_FOUND, "No such Collaborator");
+        return err(ErrorCode.HOST_ERROR, `Cannot make them a Viewer: ${viewerErr.message}`);
+      }
+      await refreshMembersFor(rt);
+      armFolderWatchers(rt);
+      deps.onChanged({ cause: "enroll", folderId, memberKey: key });
+      return ok({ ok: true });
+    },
+
     async removeMember(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -3689,6 +3786,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     setName: refuse,
     requests: fail,
     makeMember: refuse,
+    makeViewer: refuse,
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,

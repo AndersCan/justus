@@ -156,6 +156,10 @@ describe("backend -> web contract, from real backend output", () => {
       folderId: folder.id,
       memberKey: viewerAsk.requests[0].requesterKey,
     });
+    await a("photos.makeViewer", {
+      folderId: folder.id,
+      memberKey: viewerAsk.requests[0].requesterKey,
+    });
 
     // A stranger asks through the album's invite code.
     await c("photos.ask", {

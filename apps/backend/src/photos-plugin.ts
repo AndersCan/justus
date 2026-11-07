@@ -114,6 +114,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
         }
       },
       makeMember: async (args) => deps.store.makeMember(args.folderId, args.memberKey),
+      makeViewer: async (args) => deps.store.makeViewer(args.folderId, args.memberKey),
       removeMember: async (args) => deps.store.removeMember(args.folderId, args.memberKey),
       respond: async (args) =>
         deps.store.respond(args.folderId, args.requesterKey, args.approve, args.role),
