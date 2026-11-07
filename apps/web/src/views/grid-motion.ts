@@ -51,9 +51,12 @@ export function planMotion(change: {
 
 type Measured = Map<string, { el: HTMLElement; box: Box }>;
 
+// A keyed element inside another keyed element moves with it; the inner list's own gridMotion animates it.
 function measure(root: Element): Measured {
   const out: Measured = new Map();
   for (const el of root.querySelectorAll<HTMLElement>("[data-motion-key]")) {
+    const owner = el.parentElement?.closest("[data-motion-key]");
+    if (owner && root.contains(owner)) continue;
     const key = el.getAttribute("data-motion-key");
     if (key === null) continue;
     const r = el.getBoundingClientRect();

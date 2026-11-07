@@ -239,3 +239,21 @@ describe("gridMotion", () => {
     expect(far.isConnected).toBe(false);
   });
 });
+
+describe("nested keys", () => {
+  test("a keyed element inside a keyed element moves only with its parent", async () => {
+    const nested = (keys: string[]) => html`<div ${gridMotion({ keys, settle: "s" })}>
+      ${keys.includes("top") ? html`<section data-motion-key="top"></section>` : null}
+      <section data-motion-key="p">
+        <i data-motion-key="c1"></i><i data-motion-key="c2"></i>
+      </section>
+    </div>`;
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(nested(["p"]), host);
+    await Promise.resolve();
+    render(nested(["top", "p"]), host);
+    await Promise.resolve();
+    expect(calls.map(keyOf).sort()).toEqual(["p", "top"]);
+  });
+});

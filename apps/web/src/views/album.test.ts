@@ -5,7 +5,7 @@ import type { SyncStatus } from "@justus/core";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
-import { requests } from "../machines/requests-machine";
+import { requests, requestsActor } from "../machines/requests-machine";
 import { gateway } from "../gateway";
 import { albumView } from "./album";
 
@@ -236,5 +236,138 @@ describe("album viewer rows", () => {
     expect(row.querySelector("span.h-1\\.5")).toBeNull();
     expect(row.textContent).not.toContain("Remove");
     expect(host.textContent).toContain("Viewers see every photo but can't add any.");
+  });
+});
+
+describe("album requests motion", () => {
+  type Call = { el: Element; keyframes: any; options: any };
+  let calls: Call[];
+  const saved = {
+    animate: Element.prototype.animate,
+    getAnimations: Element.prototype.getAnimations,
+    rect: Element.prototype.getBoundingClientRect,
+    matchMedia: window.matchMedia,
+  };
+
+  beforeEach(() => {
+    calls = [];
+    Element.prototype.animate = function (this: Element, keyframes: any, options: any) {
+      calls.push({ el: this, keyframes, options });
+      return { finished: Promise.resolve() } as any;
+    };
+    Element.prototype.getAnimations = (() => []) as any;
+    // The requests card is one row of 56px per request plus its heading.
+    const height = (el: Element) =>
+      el.matches('[data-motion-key="section:requests"]')
+        ? 56 * (1 + el.querySelectorAll("li").length)
+        : 56;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const before = this.parentElement ? [...this.parentElement.children].indexOf(this) : 0;
+      const top = this.parentElement
+        ? [...this.parentElement.children].slice(0, before).reduce((n, e) => n + height(e), 0)
+        : 0;
+      return { left: 0, top, width: 300, height: height(this) } as any;
+    };
+    window.matchMedia = (() => ({ matches: false })) as any;
+    window.innerWidth = 400;
+    window.innerHeight = 800;
+  });
+
+  afterEach(() => {
+    Element.prototype.animate = saved.animate;
+    Element.prototype.getAnimations = saved.getAnimations;
+    Element.prototype.getBoundingClientRect = saved.rect;
+    window.matchMedia = saved.matchMedia;
+    document.body.replaceChildren();
+    vi.mocked(gateway.requests).mockResolvedValue([null, { requests: [] }] as never);
+  });
+
+  const ask = (requesterKey: string) => ({
+    folderId: "f1",
+    folderName: "Trip",
+    requesterKey,
+    requesterName: requesterKey,
+    shareKey: "s",
+    requestedAt: Date.now(),
+  });
+  const sections = ["invite", "members", "advanced"];
+  const byKey = (host: HTMLElement, key: string) =>
+    host.querySelector<HTMLElement>(`[data-motion-key="${key}"]`)!;
+  const mine = (host: HTMLElement) =>
+    calls.filter((c) => host.contains(c.el) || c.el.parentElement === document.body);
+  const load = async (list: ReturnType<typeof ask>[]) => {
+    vi.mocked(gateway.requests).mockResolvedValue([null, { requests: list }] as never);
+    requests.refresh();
+    await requestsActor.settled();
+  };
+  const mountWith = async (list: ReturnType<typeof ask>[]) => {
+    await load([]);
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(albumView("f1"), host);
+    if (list.length > 0) {
+      await load(list);
+      await vi.waitFor(() => expect(host.textContent).toContain("wants to join"));
+      await Promise.resolve();
+    }
+    calls = [];
+    return host;
+  };
+  const slides = (host: HTMLElement, delay?: number) =>
+    sections.map((s) => {
+      const c = mine(host).find((x) => x.el === byKey(host, `section:${s}`));
+      expect(c, s).toBeDefined();
+      if (delay !== undefined) expect(c!.options.delay).toBe(delay);
+      return c!;
+    });
+
+  test("a join request fades its card in and slides the sections below", async () => {
+    const host = await mountWith([]);
+    const invite = byKey(host, "section:invite");
+    const members = byKey(host, "section:members");
+    const rows = memberRows(host);
+    await load([ask("nils")]);
+    await vi.waitFor(() => expect(host.textContent).toContain("wants to join"));
+    await Promise.resolve();
+    expect(byKey(host, "section:invite")).toBe(invite);
+    expect(byKey(host, "section:members")).toBe(members);
+    memberRows(host).forEach((row, i) => expect(row).toBe(rows[i]));
+    const card = mine(host).find((c) => c.el === byKey(host, "section:requests"))!;
+    expect(card.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    slides(host);
+    rows.forEach((row) => expect(mine(host).some((c) => c.el === row)).toBe(false));
+  });
+
+  test("accepting the last request fades the card out and slides the sections up", async () => {
+    const host = await mountWith([ask("nils")]);
+    const card = byKey(host, "section:requests");
+    vi.mocked(gateway.requests).mockResolvedValue([null, { requests: [] }] as never);
+    [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Accept")!.click();
+    await vi.waitFor(() => expect(host.textContent).not.toContain("wants to join"));
+    await requestsActor.settled();
+    expect(card.inert).toBe(true);
+    const fade = calls.find((c) => c.el === card)!;
+    expect(fade.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    slides(host, 150);
+    memberRows(host).forEach((row) => expect(calls.some((c) => c.el === row)).toBe(false));
+  });
+
+  test("answering one of two requests fades only that row", async () => {
+    const host = await mountWith([ask("nils"), ask("ola")]);
+    const card = byKey(host, "section:requests");
+    const nils = byKey(host, "request:f1/nils");
+    const ola = byKey(host, "request:f1/ola");
+    vi.mocked(gateway.requests).mockResolvedValue([null, { requests: [ask("ola")] }] as never);
+    [...nils.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Decline")!.click();
+    await vi.waitFor(() => expect(host.textContent).not.toContain("nils wants"));
+    await requestsActor.settled();
+    expect(byKey(host, "section:requests")).toBe(card);
+    expect(byKey(host, "request:f1/ola")).toBe(ola);
+    const fade = calls.find((c) => c.el === nils)!;
+    expect(fade.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    slides(host, 0);
+    expect(calls.some((c) => c.el === card)).toBe(false);
   });
 });
