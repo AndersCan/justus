@@ -2,6 +2,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
+import { friendOfferActor } from "../machines/sharing/friend-offer";
 import { joinActor } from "../machines/sharing/join-request";
 import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 
@@ -9,6 +10,7 @@ const mock = vi.hoisted(() => ({
   folders: vi.fn(),
   requests: vi.fn(),
   status: vi.fn(),
+  joinOffer: vi.fn(),
 }));
 vi.mock("../gateway", () => ({
   gateway: {
@@ -16,6 +18,7 @@ vi.mock("../gateway", () => ({
     requests: mock.requests,
     status: mock.status,
     ask: vi.fn(),
+    joinOffer: mock.joinOffer,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -36,10 +39,21 @@ const ask = (status: "waiting" | "declined") => ({
   status,
 });
 
-async function load(ids: string[], asks: ReturnType<typeof ask>[] = []) {
+const offer = {
+  code: "o1",
+  owner: "nils-id",
+  albumName: "Lisbon trip",
+  ownerName: "Nils",
+};
+
+async function load(
+  ids: string[],
+  asks: ReturnType<typeof ask>[] = [],
+  offers: (typeof offer)[] = [],
+) {
   mock.folders.mockResolvedValue([
     null,
-    { folders: ids.map(album), asks, activeFolderId: ids[0] ?? null },
+    { folders: ids.map(album), asks, offers, activeFolderId: ids[0] ?? null },
   ]);
   folders.refresh();
   await vi.waitFor(() =>
@@ -47,6 +61,7 @@ async function load(ids: string[], asks: ReturnType<typeof ask>[] = []) {
   );
   await foldersActor.settled();
   await vi.waitFor(() => expect(foldersActor.snapshot().context.asks).toEqual(asks));
+  await vi.waitFor(() => expect(foldersActor.snapshot().context.offers).toEqual(offers));
 }
 
 const rows = (host: HTMLElement) => [
@@ -179,5 +194,38 @@ describe("join card", () => {
     await load(["a"], [ask("waiting")]);
     expect(host.querySelector("section[aria-label='Waiting to join']")).not.toBeNull();
     expect(host.querySelector("input[aria-label='Invite link']")).not.toBeNull();
+  });
+});
+
+describe("friend invites", () => {
+  test("an invite row shows who invited you and a Join button above the albums", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load(["a"], [], [offer]);
+    const [first, second] = rows(host);
+    expect(first?.textContent).toContain("Lisbon trip");
+    expect(first?.textContent).toContain("Nils invited you");
+    expect(first?.querySelector("button")?.textContent?.trim()).toBe("Join");
+    expect(second?.textContent).toContain("Album a");
+  });
+
+  test("with invites only, the list shows instead of No albums yet", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load([], [], [offer]);
+    expect(host.textContent).not.toContain("No albums yet");
+    expect(rows(host)).toHaveLength(1);
+  });
+
+  test("Join asks the backend and the row shows Joining", async () => {
+    mock.joinOffer.mockReturnValue(new Promise(() => {}));
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load([], [], [offer]);
+    host.querySelector("button")?.click();
+    await vi.waitFor(() => expect(friendOfferActor.snapshot().path[0]).toBe("joiningFriendsAlbum"));
+    expect(mock.joinOffer).toHaveBeenCalledWith("o1", "nils-id");
+    await vi.waitFor(() => expect(host.textContent).toContain("Joining “Lisbon trip”..."));
+    expect(host.querySelector("button")?.hasAttribute("disabled")).toBe(true);
   });
 });

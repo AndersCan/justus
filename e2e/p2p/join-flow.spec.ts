@@ -227,3 +227,61 @@ test("B reloads while waiting, A declines, B sees the decline on Photos", async 
   await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${RELOAD_PHOTO}` })).toHaveCount(0);
 });
+
+test("A adds friend B to a new album without a link; B joins and sees the photo", async ({
+  instancePages,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, FRIEND_ALBUM, PHOTO, 11);
+  const firstLink = await copyInviteLink(a);
+  await askToJoin(b, firstLink, FRIEND_ALBUM);
+  await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept" }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const tap = members
+    .locator("li", { hasText: "connected" })
+    .filter({ hasNot: a.getByText("(you)") })
+    .getByRole("button")
+    .first();
+  await expect(tap).toBeVisible({ timeout: 60_000 });
+  await tap.click();
+  await a.getByRole("button", { name: "Add to friends" }).click();
+  await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
+  await a.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+
+  const lisbon = "Lisbon trip";
+  const lisbonPhoto = "hub-lisbon.png";
+  await createAlbum(a, lisbon, lisbonPhoto, 83);
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  await a.getByRole("button", { name: "Add a friend" }).click();
+  await a.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
+  await expect(a.getByText("Asked Sam to join")).toBeVisible({ timeout: 60_000 });
+
+  await b.goto("/sharing");
+  const invite = b.locator("li", { hasText: "invited you" });
+  await expect(invite).toContainText(lisbon, { timeout: 60_000 });
+  await invite.getByRole("button", { name: "Join" }).click();
+
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  const bImg = b.getByRole("button", { name: `View ${lisbonPhoto}` }).locator("img");
+  await expect(bImg).toBeAttached({ timeout: 60_000 });
+  await expect
+    .poll(() => bImg.evaluate((i: HTMLImageElement) => i.naturalWidth), { timeout: 60_000 })
+    .toBeGreaterThan(0);
+
+  await expect(a.getByText("wants to join")).toHaveCount(0);
+  const lisbonMembers = a.locator("section", {
+    has: a.getByRole("heading", { name: "Members" }),
+  });
+  await expect(lisbonMembers.locator("li", { hasText: "Sam" }).first()).toBeVisible({
+    timeout: 60_000,
+  });
+});

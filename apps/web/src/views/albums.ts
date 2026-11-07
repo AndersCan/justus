@@ -1,6 +1,7 @@
 import { html } from "lit-html";
-import type { AskSummary, FolderSummary } from "@justus/core";
+import type { AskSummary, FolderSummary, OfferSummary } from "@justus/core";
 import { watch } from "@mantaq/lit";
+import { onOutput } from "@mantaq/sugar";
 import { repeat } from "lit-html/directives/repeat.js";
 import {
   FOLDERS_STATES,
@@ -11,11 +12,23 @@ import {
 import { SYNC_STATES, syncActor, syncViewModel } from "../machines/sync-machine";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import { requests, requestsActor } from "../machines/requests-machine";
+import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
+import { friendsActor } from "../machines/friends-machine";
 import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
+
+// A friend's invite opens the album once the Admin's phone lets this phone in;
+// if it never does, the row goes back to Join and says why.
+onOutput(friendOfferActor, (e) => {
+  if (e.type === "openAlbum") open(`/albums/${(e.payload as { folderId: string }).folderId}`);
+  if (e.type === "couldNotJoin") {
+    const { albumName, ownerName } = e.payload as { albumName: string; ownerName: string };
+    toast(`Couldn't join “${albumName}”. ${ownerName} needs Justus open too.`);
+  }
+});
 
 /** User-facing role words (CONTEXT.md "User-facing words"). A pending join is
  * a Reader in code, but to the user it is a request still waiting. */
@@ -148,6 +161,33 @@ function askRow(ask: AskSummary) {
   `;
 }
 
+function offerRow(offer: OfferSummary) {
+  return watch(friendsActor, (f) => {
+    const owner = f.context.friends[offer.owner] ?? offer.ownerName;
+    return watch(friendOfferActor, (s) => {
+      const joining = s.path[0] === "joiningFriendsAlbum";
+      const current = (s.payload as { offer?: OfferSummary } | undefined)?.offer;
+      const busy = joining && current?.code === offer.code && current.owner === offer.owner;
+      return html`<li class="ui-card flex items-center gap-3 p-4">
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-lg font-medium text-fg">${offer.albumName}</span>
+          <span class="mt-0.5 block text-xs text-muted"
+            >${busy ? `Joining “${offer.albumName}”...` : `${owner} invited you`}</span
+          >
+        </span>
+        <button
+          class="ui-btn-primary shrink-0"
+          ?disabled=${joining}
+          aria-label="Join ${offer.albumName}"
+          @click=${() => friendOffer.join(offer)}
+        >
+          Join
+        </button>
+      </li>`;
+    });
+  });
+}
+
 function albumList(view: FoldersViewModel) {
   if (
     view.state === "albumsNotLoaded" ||
@@ -156,7 +196,8 @@ function albumList(view: FoldersViewModel) {
     return html`<p class="text-muted">Loading…</p>`;
   }
   const asks = view.asks;
-  if (view.folders.length === 0 && asks.length === 0) {
+  const offers = view.offers;
+  if (view.folders.length === 0 && asks.length === 0 && offers.length === 0) {
     return html`<div class="ui-card p-5 text-center">
       <p class="text-lg text-fg">No albums yet.</p>
       <p class="mt-1 text-sm text-fg">
@@ -165,6 +206,11 @@ function albumList(view: FoldersViewModel) {
     </div>`;
   }
   return html`<ul class="space-y-3" aria-label="Your albums">
+    ${repeat(
+      offers,
+      (o) => `${o.code}|${o.owner}`,
+      (o) => offerRow(o),
+    )}
     ${repeat(
       view.folders,
       (f) => f.id,
