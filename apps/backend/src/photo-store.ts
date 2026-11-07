@@ -18,6 +18,7 @@ import {
   DRIVE_PATH_REQUESTS,
   openAlbum,
   pendingJoinRequests,
+  acceptJoinRequest,
   readJoinRequests,
   writeJoinRequest,
   type FoundJoinRequest,
@@ -2781,30 +2782,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (alreadyPresent) {
         return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
       }
-      // Prefer the requester's own reported name from its `/requests.json`;
-      // fall back to a neutral label when we can't resolve the outbox.
-      let requesterName = "New member";
-      for (const { request: req } of await readRequestsFromPeers(rt)) {
-        if (req.requesterKey === requesterKey) {
-          requesterName = req.requesterName;
-          break;
-        }
-      }
-      registry.members[requesterKey] = {
-        key: requesterKey,
-        name: requesterName,
-        addedAt: Date.now(),
-      };
+      // The requester's own reported name comes from its `/requests.json`;
+      // acceptJoinRequest falls back to a neutral label.
+      const found = await readRequestsFromPeers(rt);
       // The answer is recorded before the key can leave: if the registry write
       // fails the answer is taken back, so no one holds a key without a seat.
       if (viaInvite && identity) setAnswer(rt, identity, "accepted");
-      try {
-        await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
-      } catch (e) {
+      const [acceptErr, accepted] = await acceptJoinRequest(rt.folderDrive, {
+        registry,
+        requesterKey,
+        requests: found.map((f) => f.request),
+      });
+      if (acceptErr) {
         if (viaInvite && identity) setAnswer(rt, identity, undefined);
-        return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${errMsg(e)}`);
+        if (acceptErr.kind === "already-enrolled")
+          return err(PhotoError.ALREADY_ENROLLED, acceptErr.message);
+        return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
       }
-      await loadMemberDrive(rt, requesterKey, requesterName);
+      await loadMemberDrive(rt, requesterKey, accepted.member.name);
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
       if (viaInvite && identity) void deliverAnswers(identity).catch(answerErr("deliver"));
       return ok({ ok: true });

@@ -9,8 +9,11 @@ import {
   type FakeHub,
   type FakeWorldOptions,
 } from "../fakes/fake-world.ts";
+import { isEnrolled } from "../../src/membership/records.ts";
 import {
   MAX_PEER_JSON_BYTES,
+  acceptJoinRequest,
+  readRegistry,
   openAlbum,
   openWithTopic,
   pendingJoinRequests,
@@ -392,5 +395,127 @@ describe("pendingJoinRequests", () => {
       answers: { i2: "declined" },
     });
     expect(pending.map((r) => r.requesterKey)).toEqual([keys[3], keys[4]]);
+  });
+});
+
+describe("acceptJoinRequest", () => {
+  const registry = { version: 1, members: { k: { key: "k", name: "Ann", addedAt: 1 } } };
+  const asked = (key: string, name: string) => ({
+    folderId: "f1",
+    folderName: "Trip",
+    requesterKey: key,
+    requesterName: name,
+    requestedAt: 5,
+    shareKey: FOLDER.shareKey,
+  });
+
+  it("adds the requester with the name from its request", async () => {
+    const [admin] = devices(1);
+    const folder = await admin.ports.drives.openOwn("folder/a");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1_700_000_000_000);
+    try {
+      const result = await acceptJoinRequest(folder, {
+        registry,
+        requesterKey: KEY_A,
+        requests: [asked(KEY_B, "Other"), asked(KEY_A, "Bo")],
+      });
+      const member = { key: KEY_A, name: "Bo", addedAt: 1_700_000_000_000 };
+      const next = { version: 1, members: { ...registry.members, [KEY_A]: member } };
+      expect({
+        result,
+        stored: await readRegistry(folder, { log: admin.ports.log }),
+        input: registry,
+      }).toEqual({
+        result: [null, { registry: next, member }],
+        stored: next,
+        input: { version: 1, members: { k: { key: "k", name: "Ann", addedAt: 1 } } },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("names a requester without a request New member", async () => {
+    const [admin] = devices(1);
+    const folder = await admin.ports.drives.openOwn("folder/a");
+    const [err, accepted] = await acceptJoinRequest(folder, {
+      registry,
+      requesterKey: KEY_A,
+      requests: [asked(KEY_B, "Other")],
+    });
+    expect({ err, name: accepted?.member.name }).toEqual({ err: null, name: "New member" });
+  });
+
+  it("gives already-enrolled for a member", async () => {
+    const [admin] = devices(1);
+    const folder = await admin.ports.drives.openOwn("folder/a");
+    const result = await acceptJoinRequest(folder, { registry, requesterKey: "k", requests: [] });
+    expect({ result, stored: await readRegistry(folder, { log: admin.ports.log }) }).toEqual({
+      result: [{ kind: "already-enrolled", message: "Member already enrolled" }, null],
+      stored: { version: 1, members: {} },
+    });
+  });
+
+  it("gives write-failed when the registry cannot be written", async () => {
+    const [admin, other] = devices(2);
+    const folder = await admin.ports.drives.openOwn("folder/a");
+    const [openErr, readOnly] = await other.ports.drives.open(folder.key, { timeoutMs: 50 });
+    if (openErr) throw openErr;
+    const result = await acceptJoinRequest(readOnly, {
+      registry,
+      requesterKey: KEY_A,
+      requests: [],
+    });
+    expect(result).toEqual([{ kind: "write-failed", message: "Drive is not writable" }, null]);
+  });
+});
+
+describe("join, request, accept", () => {
+  it("the joiner ends up in the registry it reads", async () => {
+    const [admin, joiner] = devices(2);
+    const album = await admin.ports.drives.openOwn("folder/a");
+    await album.put("/folder.json", json({ version: 1, name: "Trip" }));
+    await album.put("/members.json", json({ version: 1, members: {} }));
+
+    const [openErr, opened] = await openAlbum(joiner.ports, { shareKey: album.key });
+    if (openErr) throw openErr;
+    const identity = await joiner.ports.drives.openOwn("identity");
+    const self = await joiner.ports.drives.openOwn("member/" + album.key);
+    const [writeErr] = await writeJoinRequest(joiner.ports, {
+      identityDrive: identity,
+      folderDrive: opened.folderDrive,
+      shareKey: album.key,
+      requesterKey: self.key,
+      requesterName: "Bo",
+      folderName: opened.folderName,
+    });
+    expect(writeErr).toEqual(null);
+
+    const found = await readJoinRequests(
+      (key) => openWithTopic(admin.ports, { key, server: false }),
+      {
+        identities: [identity.key],
+        folder: { id: "f1", name: "Trip", shareKey: album.key },
+        log: admin.ports.log,
+      },
+    );
+    const registry = await readRegistry(album, { log: admin.ports.log });
+    const pending = pendingJoinRequests(found.requests, {
+      registry,
+      denied: new Set(),
+      answers: undefined,
+    });
+    expect(pending.map((r) => r.requesterKey)).toEqual([self.key]);
+
+    const [acceptErr] = await acceptJoinRequest(album, {
+      registry,
+      requesterKey: self.key,
+      requests: pending,
+    });
+    expect(acceptErr).toEqual(null);
+
+    const seen = await readRegistry(opened.folderDrive, { log: joiner.ports.log });
+    expect(isEnrolled(seen, self.key)).toEqual(true);
   });
 });
