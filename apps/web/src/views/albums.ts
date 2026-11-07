@@ -212,7 +212,7 @@ export function joinError() {
   });
 }
 
-function joinSection(state: string, busy: boolean) {
+function joinSection(settled: boolean, busy: boolean) {
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Join with an invite link</h2>
@@ -249,7 +249,7 @@ function joinSection(state: string, busy: boolean) {
           >
             Paste
           </button>
-          <button class="ui-btn-primary flex-1" type="submit" ?disabled=${busy || state !== "ok"}>
+          <button class="ui-btn-primary flex-1" type="submit" ?disabled=${busy || !settled}>
             Continue
           </button>
         </div>
@@ -281,6 +281,6 @@ export function albumsPanel() {
 export function joinPanel() {
   return watch(syncActor, (s) => {
     const syncVm = syncViewModel(s);
-    return joinSection(syncVm.state, syncVm.busy);
+    return joinSection(syncVm.settled, syncVm.busy);
   });
 }

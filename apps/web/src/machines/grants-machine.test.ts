@@ -74,9 +74,27 @@ describe("grants machine factory", () => {
     await actor.settled();
     actor.send(act("p1", "grant"));
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("couldNotSaveShareChoice");
     expect(actor.snapshot().context.error).toBe("disk full");
     expect(actor.snapshot().context.records.map((r) => r.peerId)).toEqual(["p1"]);
+    expect(grantsViewModel(actor.snapshot()).settled).toBe(true);
+  });
+
+  test("from couldNotSaveShareChoice, ACT saves again and REFRESH reloads", async () => {
+    const { actor } = setup({ act: async () => [new Error("disk full"), null] });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(act("p1", "grant"));
+    await actor.settled();
+    actor.send(act("p1", "grant"));
+    expect(actor.state.name).toBe("acting");
+    expect(actor.snapshot().context.error).toBeNull();
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSaveShareChoice");
+    actor.send(refresh());
+    expect(actor.state.name).toBe("refreshing");
+    await actor.settled();
+    expect(actor.state.name).toBe("ok");
   });
 
   test("retry clears the error and loads again", async () => {
@@ -104,6 +122,7 @@ describe("grantsViewModel", () => {
       dueRecords: [],
       state: "idle",
       acting: false,
+      settled: false,
       error: null,
       fatal: false,
     });

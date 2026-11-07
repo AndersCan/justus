@@ -139,7 +139,7 @@ function membersSection(vm: PeopleVm) {
 
 /** Enrolling by raw drive key: a troubleshooting path, so it lives under
  * Advanced; everyday approval goes through the requests above. */
-function enrollSection(status: Status, state: string, busy: boolean) {
+function enrollSection(status: Status, settled: boolean, busy: boolean) {
   if (status.folder.role !== "creator") return null;
   return html`
     <section class="mt-5">
@@ -173,9 +173,7 @@ function enrollSection(status: Status, state: string, busy: boolean) {
           aria-label="Device name"
           data-n
         />
-        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || state !== "ok"}>
-          Enroll
-        </button>
+        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || !settled}>Enroll</button>
       </form>
     </section>
   `;
@@ -232,7 +230,7 @@ function secretValue(name: string, value: string) {
   </dd>`;
 }
 
-function advancedSection(status: Status, state: string, busy: boolean) {
+function advancedSection(status: Status, settled: boolean, busy: boolean) {
   const driveKey = status.folder.driveKey || status.driveKey;
   return html`<details class="text-xs text-muted">
     <summary class="ui-label cursor-pointer select-none">Advanced</summary>
@@ -272,18 +270,18 @@ function advancedSection(status: Status, state: string, busy: boolean) {
         true,
       )}
     </dl>
-    ${enrollSection(status, state, busy)}
+    ${enrollSection(status, settled, busy)}
   </details>`;
 }
 
 function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewModel>) {
-  const { status, state, busy, error, fatal } = syncVm;
+  const { status, state, busy, settled, error, fatal } = syncVm;
   const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
   if (!status || status.folder.id !== id) {
     return html`<div class="max-w-2xl space-y-4">
       ${back}
       ${
-        state === "ok" || state === "error"
+        settled || state === "error"
           ? html`<p class="text-fg">This album isn't showing right now.</p>
               <button class="ui-btn-primary" @click=${() => folders.switchTo(id)}>
                 Open album
@@ -313,7 +311,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
     )}
     ${requestsSection(vm)}
     ${invitePanel(status.folder, status.name, adminName(status), vm.qrShown, () => people.showQr())}
-    ${membersSection(vm)} ${advancedSection(status, state, busy)} ${friendSheetView()}
+    ${membersSection(vm)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
   </div>`;
 }
 

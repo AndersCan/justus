@@ -12,7 +12,14 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 type GrantActionKind = "grant" | "decline" | "snooze" | "revoke";
 
-const GRANTS_STATES = ["idle", "refreshing", "ok", "acting", "error"] as const;
+const GRANTS_STATES = [
+  "idle",
+  "refreshing",
+  "ok",
+  "acting",
+  "error",
+  "couldNotSaveShareChoice",
+] as const;
 export type GrantsStateName = (typeof GRANTS_STATES)[number];
 
 function dueRecords(records: GrantRecord[], due: string[]): GrantRecord[] {
@@ -28,6 +35,8 @@ const refreshing = state("refreshing")();
 const ok = state("ok")();
 /** Saving the person's choice about someone; buttons are disabled meanwhile. */
 const acting = state("acting")();
+/** The choice about this person was not saved; the list stays and the person sees why. */
+const couldNotSaveShareChoice = state("couldNotSaveShareChoice")();
 /** The list could not be loaded; the person sees the problem and can try again. */
 const error = state("error")();
 
@@ -67,6 +76,7 @@ export function grantsViewModel(s: Snapshot<GrantsContext>) {
     dueRecords: dueRecords(s.context.records, s.context.due),
     state,
     acting: state === "acting",
+    settled: state === "ok" || state === "couldNotSaveShareChoice",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -81,7 +91,7 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
     inputs: [refresh, act, retry],
     internal: [loaded, loadFailed, acted, actFailed],
     outputs: [],
-    states: [idle, refreshing, ok, acting, error],
+    states: [idle, refreshing, ok, acting, error, couldNotSaveShareChoice],
     initial: idle,
     clock,
     context: initialContext,
@@ -95,15 +105,30 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
           return { state: refreshing };
         },
       });
-      /** A reload starts and any old error is cleared. */
-      m.on(ok, {
-        event: refresh,
-        to: [refreshing],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
-        },
-      });
+      for (const at of [ok, couldNotSaveShareChoice]) {
+        /** A reload starts and any old error is cleared. */
+        m.on(at, {
+          event: refresh,
+          to: [refreshing],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: refreshing };
+          },
+        });
+        /** The person's choice starts saving and any earlier error is cleared. */
+        m.on(at, {
+          event: act,
+          to: [acting],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind },
+            });
+            return { state: acting };
+          },
+        });
+      }
       /** A reload after an error starts and the error message goes away. */
       m.on(error, {
         event: refresh,
@@ -168,19 +193,6 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
         },
       });
 
-      /** The person's choice starts saving and any earlier error is cleared. */
-      m.on(ok, {
-        event: act,
-        to: [acting],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind },
-          });
-          return { state: acting };
-        },
-      });
       /** The person's choice (allow, decline, stop sharing or remind me later) is saved; if it cannot be saved, the person sees an error. */
       m.effect(acting, {
         name: "acting",
@@ -219,10 +231,10 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
       /** Saving failed: the person sees an error and the list stays as it was. */
       m.on(acting, {
         event: actFailed,
-        to: [ok],
+        to: [couldNotSaveShareChoice],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), error: e.payload.message, pendingAct: null });
-          return { state: ok };
+          return { state: couldNotSaveShareChoice };
         },
       });
     },
