@@ -55,6 +55,7 @@ import {
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
+import { checkAsk, fileInviteAsk } from "./membership/invites";
 import {
   albumNameUpdate,
   albumSummary,
@@ -2062,24 +2063,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ): Promise<EitherResult<{ ask: AskSummary }>> {
     try {
       const drive = await openSelfDriveIn(`ask/${code}`);
-      const askedAt = Date.now();
-      const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
-      const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
-      file.requests[`invite:${code}`] = {
-        requesterKey: drive.key,
-        requesterName: state.name,
-        invite: code,
-        requestedAt: askedAt,
-      };
-      await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(file)));
-      const ask: AskRecord = {
+      const [askErr, ask] = await fileInviteAsk(ownDrive, {
+        askDriveKey: drive.key,
         code,
         owner,
-        albumName: peerName(albumName, DEFAULT_ASK_ALBUM),
-        ownerName: peerName(ownerName, DEFAULT_ASK_OWNER),
-        askedAt,
-        status: "waiting",
-      };
+        albumName,
+        ownerName,
+        requesterName: state.name,
+        now: Date.now(),
+        log,
+      });
+      if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
       state.asks.push(ask);
       saveState();
       await watchInvite(ask);
@@ -2664,14 +2658,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     async ask(args) {
       await readyPromise;
-      const code = typeof args.code === "string" ? args.code.toLowerCase() : "";
-      const owner = typeof args.owner === "string" ? args.owner.toLowerCase() : "";
-      if (!isHexKey(code) || !isHexKey(owner))
+      const check = checkAsk(args, state);
+      if (check.kind === "invalid")
         return err(PhotoError.INVALID_KEY, "Invite code and owner must be 64-char hex keys");
-      if (state.folders.some((f) => f.invite?.code === code))
+      if (check.kind === "have-album")
         return err(PhotoError.ALREADY_ENROLLED, "You already have this album");
-      const known = state.asks.find((a) => a.code === code);
-      if (known) return ok({ ask: askSummary(known) });
+      if (check.kind === "known") return ok({ ask: askSummary(check.ask) });
+      const { code, owner } = check;
       const pending = askInflight.get(code);
       if (pending) return (await pending) as EitherResult<{ ask: AskSummary }>;
       const filing = fileAsk(code, owner, args.albumName, args.ownerName);
