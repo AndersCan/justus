@@ -24,8 +24,7 @@ export default defineConfig({
           ],
         },
       },
-      // The p2p libraries are reached only through ports (src/ports); only
-      // adapters import them (docs/adr/0002).
+      // The p2p and file libraries are reached only through ports (src/ports); only adapters and the composition root main.core.ts import them (docs/adr/0002 decision 5).
       {
         files: ["apps/backend/src/**/*.ts"],
         rules: {
@@ -34,8 +33,10 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: "^(hyperswarm|hyperdrive|hypercore|corestore|protomux|hyperdht)(/|$)",
-                  message: "Import p2p libraries only in src/adapters; use a port from src/ports.",
+                  regex:
+                    "^(hyperswarm|hyperdrive|hypercore|corestore|protomux|hyperdht|bare-fs|bare-path)(/|$)",
+                  message:
+                    "Import p2p and file libraries only in src/adapters (or main.core.ts); use a port from src/ports.",
                 },
               ],
             },
@@ -43,7 +44,7 @@ export default defineConfig({
         },
       },
       {
-        files: ["apps/backend/src/adapters/**/*.ts"],
+        files: ["apps/backend/src/adapters/**/*.ts", "apps/backend/src/main.core.ts"],
         rules: { "no-restricted-imports": "off" },
       },
     ],
