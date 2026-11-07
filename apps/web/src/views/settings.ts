@@ -10,6 +10,7 @@ import {
 import { avatarBadge } from "./avatar";
 import { errorBanner } from "./error-banner";
 import { logsPanel } from "./logs";
+import { appLockSection, refreshAppLock } from "./app-lock";
 import { densitySetting, themeSetting } from "./theme-toggle";
 import { toast } from "./toast";
 
@@ -119,12 +120,13 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
           : undefined,
         fatal || foldersVm.fatal ? () => window.location.reload() : undefined,
       )}
-      ${profileSection(foldersVm)} ${appearanceSection()} ${advancedSection()}
+      ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${advancedSection()}
     </div>
   `;
 }
 
 export function settingsView() {
+  void refreshAppLock();
   return useStore($foldersViewModel, (foldersVm) =>
     useStore($syncViewModel, (syncVm) => bindingsBody(foldersVm, syncVm)),
   );

@@ -8,3 +8,4 @@ export * from "./logging/events";
 export * from "./grants/types";
 export * from "./grants/events";
 export * from "./media/events";
+export * from "./lock/events";

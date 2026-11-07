@@ -41,6 +41,7 @@ vi.mock("./gateway", () => ({
     upload: vi.fn(),
     removeMember: vi.fn(),
     media: { pickMany: vi.fn(), capture: vi.fn() },
+    lock: { status: vi.fn(), setEnabled: vi.fn() },
     logs: { view: vi.fn(), clear: vi.fn() },
     grants: { view: vi.fn() },
   },
