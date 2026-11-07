@@ -1,8 +1,8 @@
 import { html, render } from "lit-html";
 
-/** Warm inline confirmation sheet. Resolves true when the confirm button is
- * pressed, false on Keep / Escape / backdrop tap. Renders into its own
- * overlay so the calling view keeps its DOM untouched. */
+/** Warm confirmation dialog. Resolves true when the confirm button is
+ * pressed, false on Keep / Escape / backdrop tap / close. Renders into its own
+ * host so the calling view keeps its DOM untouched. */
 
 type ConfirmOptions = {
   title: string;
@@ -17,47 +17,56 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
     document.body.appendChild(host);
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const close = (result: boolean) => {
-      document.removeEventListener("keydown", onKey);
+    let result = false;
+    const dialog = () =>
+      host.querySelector("wa-dialog") as (HTMLElement & { open: boolean }) | null;
+    const finish = (value: boolean) => {
+      result = value;
+      const el = dialog();
+      if (el) el.open = false;
+    };
+    const onAfterHide = (e: Event) => {
+      if (e.target !== e.currentTarget) return;
       render(null, host);
       host.remove();
       previouslyFocused?.focus();
       resolve(result);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const toneClass =
-      options.tone === "danger"
-        ? "ui-btn bg-danger-fg text-on-fill hover:bg-danger-fg/90"
-        : "ui-btn-primary";
+    // without-header: the built-in close X loads a data: icon,
+    // which the CSP blocks. Keep, Escape and a tap outside all close it.
     render(
       html`
-        <div
-          class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-          @click=${() => close(false)}
+        <wa-dialog
+          label=${options.title}
+          without-header
+          light-dismiss
+          open
+          @wa-after-hide=${onAfterHide}
         >
-          <div
-            class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
-            role="dialog"
-            aria-modal="true"
-            aria-label=${options.title}
-            @click=${(e: Event) => e.stopPropagation()}
+          <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
+          ${options.detail ? html`<p class="text-sm text-muted">${options.detail}</p>` : null}
+          <wa-button slot="footer" appearance="filled" autofocus @click=${() => finish(false)}>
+            Keep
+          </wa-button>
+          <wa-button
+            slot="footer"
+            variant=${options.tone === "danger" ? "danger" : "neutral"}
+            appearance="accent"
+            @click=${() => finish(true)}
           >
-            <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
-            ${options.detail ? html`<p class="mt-1 text-sm text-muted">${options.detail}</p>` : null}
-            <div class="mt-4 flex justify-end gap-2">
-              <button class="ui-btn-ghost" @click=${() => close(false)}>Keep</button>
-              <button class=${toneClass} @click=${() => close(true)}>
-                ${options.confirmLabel}
-              </button>
-            </div>
-          </div>
-        </div>
+            ${options.confirmLabel}
+          </wa-button>
+        </wa-dialog>
       `,
       host,
     );
-    host.querySelector<HTMLButtonElement>("button.ui-btn-ghost")?.focus();
+    // The dialog's own autofocus can run before the buttons are upgraded.
+    void customElements.whenDefined("wa-button").then(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() =>
+          host.querySelector<HTMLElement>("wa-button[autofocus]")?.focus(),
+        );
+      });
+    });
   });
 }

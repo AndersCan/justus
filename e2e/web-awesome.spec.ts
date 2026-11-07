@@ -56,6 +56,12 @@ test("no request leaves the device", async ({ page }) => {
   }
   await page.goto("/");
   await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
+  await page.locator("figure").first().click();
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitem", { name: "Remove from album" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 5_000 });
   const violations = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
   expect(external).toEqual([]);
   expect(violations).toEqual([]);

@@ -192,30 +192,58 @@ test("an album page offers the invite at once and keeps the QR behind a tap", as
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toBeVisible();
 });
 
-test("tapping a photo opens the lightbox; Escape closes it; remove asks for confirmation", async ({
-  page,
-}) => {
+test("a photo's Remove sits in its More menu and asks first", async ({ page }) => {
   await page.goto("/");
   const first = page.locator("figure").first();
   await expect(first).toBeAttached({ timeout: 20_000 });
+  const tileCount = await page.locator("figure").count();
+  await expect(page.locator('button[aria-label^="Remove"]')).toHaveCount(0);
 
-  // Open the lightbox from the tile.
   await first.click();
   const close = page.getByRole("button", { name: "Close" });
+  const more = page.getByRole("button", { name: "More options" });
   await expect(close).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByRole("button", { name: "Remove", exact: true })).toBeVisible();
+  await expect(more).toBeVisible();
 
-  // Esc closes it.
+  // Escape closes only the menu.
+  await more.click();
+  const item = page.getByRole("menuitem", { name: "Remove from album" });
+  await expect(item).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(item).toBeHidden();
+  await expect(close).toBeVisible();
+
+  // Remove asks first; Keep leaves the photo alone.
+  await more.click();
+  await expect(item).toHaveCSS("color", "rgb(198, 47, 53)");
+  await item.click();
+  const dialog = page.getByRole("dialog", { name: /^Remove “.+”\?$/ });
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
+  const keep = page.getByRole("button", { name: "Keep" });
+  await expect(keep).toBeFocused();
+  await keep.click();
+  await expect(dialog).toHaveCount(0, { timeout: 5_000 });
+  await expect(close).toBeVisible();
+  await expect(page.locator("figure")).toHaveCount(tileCount);
+
+  // Escape closes the photo view.
   await page.keyboard.press("Escape");
   await expect(close).toHaveCount(0, { timeout: 5_000 });
+});
 
-  // Remove requires the confirmation sheet, and "Keep" leaves the photo alone.
-  const tileName = await first.getAttribute("aria-label");
-  await page.locator('button[aria-label^="Remove"]').first().click();
-  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText(/Remove “.+”?/)).toBeVisible();
-  await page.getByRole("button", { name: "Keep" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 5_000 });
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 5_000 });
-  await expect(page.locator(`figure[aria-label="${tileName}"]`)).toHaveCount(1);
+test.describe("dark", () => {
+  test.use({ colorScheme: "dark" });
+  test("the remove dialog follows the dark surface", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("figure").first()).toBeAttached({ timeout: 20_000 });
+    await page.locator("figure").first().click();
+    await page.getByRole("button", { name: "More options" }).click();
+    await page.getByRole("menuitem", { name: "Remove from album" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const bg = await dialog
+      .locator("xpath=ancestor-or-self::*[1]")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe("rgb(26, 23, 48)");
+  });
 });

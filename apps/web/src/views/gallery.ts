@@ -34,8 +34,6 @@ import {
 } from "../utils/photo-scope";
 import { gridMotion } from "./grid-motion";
 import { errorBanner } from "./error-banner";
-import { confirmAction } from "./confirm";
-import { canRemove, removeDetail, roleFor } from "../utils/can-remove";
 import { startAlbum } from "./start-album";
 import { batchSummary, imageFiles, planAdd } from "../utils/add-photos";
 import { toast } from "./toast";
@@ -298,19 +296,6 @@ function emptyIllustration() {
   </svg>`;
 }
 
-async function confirmRemove(photo: Photo) {
-  if (gallery.state() === "removing") return;
-  const ok = await confirmAction({
-    title: `Remove “${photo.name}”?`,
-    detail: removeDetail(photo),
-    confirmLabel: "Remove",
-    tone: "danger",
-  });
-  if (!ok) return;
-  gallery.remove(photo.id, photo.folderId);
-  toast(`Removed “${photo.name}”`);
-}
-
 /** One grid tile. `within` is the grid it sits in (the lightbox steps through
  * it). */
 function photoTile(photo: Photo, within: Photo[]) {
@@ -336,37 +321,6 @@ function photoTile(photo: Photo, within: Photo[]) {
         referrerpolicy="no-referrer"
         loading="lazy"
       />
-      ${
-        canRemove(photo, roleFor(photo))
-          ? html`<button
-              class="absolute right-1.5 top-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-black/60 text-sm text-white backdrop-blur-sm transition hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 [@media(hover:hover)]:flex [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
-              title="Remove ${photo.name}"
-              aria-label="Remove ${photo.name}"
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                void confirmRemove(photo);
-              }}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 6h18" />
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                <path d="M10 11v6" />
-                <path d="M14 11v6" />
-              </svg>
-            </button>`
-          : null
-      }
     </figure>
   `;
 }
