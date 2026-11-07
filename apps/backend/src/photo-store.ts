@@ -12,6 +12,16 @@ import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { copyAlbumEntries } from "./rotate-album";
 import { inviteTopic } from "./membership/invite";
+import {
+  DRIVE_PATH_FOLDER,
+  DRIVE_PATH_MEMBERS,
+  DRIVE_PATH_REQUESTS,
+  openAlbum,
+  openWithTopic,
+  readRecord,
+  readRegistry,
+  type JoinPorts,
+} from "./membership/join";
 import type { Drive, DriveStore } from "./ports/drive-store";
 import type { DriveEntry } from "./ports/drive-store";
 import {
@@ -25,7 +35,6 @@ import {
   parseDeviceSwarmKey,
   parseFolderName,
   parseJoinRequests,
-  parseRegistry,
   parseRemoved,
   parseRequestsFile,
   peerName,
@@ -246,10 +255,7 @@ const DRIVE_PATH_PHOTOS = "/photos";
  * the gallery derivation never mistakes one for a photo. */
 const DRIVE_PATH_THUMBS = "/thumbs";
 const DRIVE_PATH_DEVICE = "/device.json";
-const DRIVE_PATH_MEMBERS = "/members.json";
 const DRIVE_PATH_REMOVED = "/removed.json";
-const DRIVE_PATH_FOLDER = "/folder.json";
-const DRIVE_PATH_REQUESTS = "/requests.json";
 /** Album name shown until the Admin's `/folder.json` replicates in. */
 const JOINED_PLACEHOLDER_NAME = "Joined folder";
 const STATE_FILE = "justus.json";
@@ -302,12 +308,6 @@ type StreamSource = {
  * collaborator's drive can carry an oversized "photo"; capping it bounds
  * device-storage use. Mirrors the upload cap in the upload route. */
 const MAX_SPOOL_BYTES = 50 * 1024 * 1024;
-
-/** Cap on a small JSON record read off a drive (`/members.json`,
- * `/requests.json`, `/device.json`, ...). Any member, or any peer on an album
- * topic for `/requests.json`, controls these bytes; without a cap one file can
- * exhaust the worklet's memory. 1 MiB holds thousands of members. */
-const MAX_PEER_JSON_BYTES = 1024 * 1024;
 
 /** Pumps a source stream into a file, resolving with the byte count. Pass
  * `maxBytes` to fail (and abort) once the stream exceeds it.
@@ -444,6 +444,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Timers of answer deliveries waiting to retry. */
   const retryTimers = new Set<ReturnType<typeof setTimeout>>();
   const log = createP2pLog(deps.log);
+  const joinPorts: JoinPorts = {
+    drives: deps.drives,
+    network,
+    log,
+    openTimeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+  };
   /** A phone on a newer Justus refused us; for this session only. */
   let updateNeeded = false;
   /** Names of phones on an older Justus we refused; for this session only. */
@@ -628,28 +634,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const PEER_READ = { timeout: 5_000 };
 
   /** Reads a small text record, or null when missing, unreadable, or larger
-   * than {@link MAX_PEER_JSON_BYTES}. */
+   * than the peer-record cap. */
   async function readText(
     drive: Drive,
     drivePath: string,
     opts?: { timeout: number },
   ): Promise<string | null> {
-    try {
-      const text = await drive.readSmall(
-        drivePath,
-        MAX_PEER_JSON_BYTES,
-        opts ? { timeoutMs: opts.timeout } : undefined,
-      );
-      return text ?? null;
-    } catch (e) {
-      log("error", {
-        where: "drive.read",
-        drive: short(drive.key),
-        path: drivePath,
-        err: errText(e),
-      });
-      return null;
-    }
+    return readRecord(drive, { path: drivePath, log, timeoutMs: opts?.timeout });
   }
 
   // --- Presence: which members this device can reach right now. -----------
@@ -919,33 +910,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Opens a drive by key, joining its swarm topic first so peers serve its
    * blocks (a remote `drive.ready()` otherwise waits forever). */
   async function openDriveWithTopic(keyHex: string, opts?: { server?: boolean }): Promise<Drive> {
-    const topic = Buffer.from(deps.drives.discoveryKeyOf(keyHex), "hex");
-    const startedAt = Date.now();
-    log("drive.open.start", { drive: short(keyHex), topic: short(topic) });
-    joinTopic(topic, opts);
-    const [openErr, drive] = await deps.drives.open(keyHex, {
-      timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+    const [openErr, drive] = await openWithTopic(joinPorts, {
+      key: keyHex,
+      server: opts?.server !== false,
     });
-    if (openErr) {
-      log("drive.open.timeout", {
-        drive: short(keyHex),
-        ms: Date.now() - startedAt,
-        err: errText(openErr),
-        conns: network.connectionCount(),
-      });
-      throw openErr;
-    }
-    log("drive.open.ready", {
-      drive: short(keyHex),
-      ms: Date.now() - startedAt,
-      peers: drive.stats().peers,
-    });
-    rediscover(topic, drive);
+    if (openErr) throw openErr;
     return drive;
   }
 
   async function readRegistryIn(drive: Drive): Promise<RegistryFile> {
-    return parseRegistry(await readText(drive, DRIVE_PATH_MEMBERS));
+    return readRegistry(drive, { log });
   }
 
   async function readRemovedIn(drive: Drive): Promise<RemovedFile["removed"]> {
@@ -2502,20 +2476,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok(await computeStatus());
     }
 
-    let drive: Drive;
-    let registry: RegistryFile;
-    let folderName = "";
-    try {
-      // Join the folder topic first so a peer serves the drive's blocks
-      // (a remote `drive.ready()` otherwise waits forever).
-      drive = await openDriveWithTopic(key, { server: false });
-      // The registry tells us whether this device is enrolled as a member.
-      registry = await readRegistryIn(drive);
-      folderName = await readFolderNameIn(drive);
-    } catch (e) {
-      const message = errMsg(e);
-      return err(PhotoError.INVALID_KEY, `Cannot open album: ${message}`);
-    }
+    // Join the folder topic first so a peer serves the drive's blocks
+    // (a remote `drive.ready()` otherwise waits forever).
+    const [openErr, album] = await openAlbum(joinPorts, { shareKey: key });
+    if (openErr) return err(PhotoError.INVALID_KEY, `Cannot open album: ${openErr.message}`);
+    const { folderDrive: drive, registry, folderName } = album;
 
     // The drive this device will add photos to in this album, and the key the
     // Admin enrolls (#195).
