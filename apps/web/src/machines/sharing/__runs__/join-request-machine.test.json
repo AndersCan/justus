@@ -1,0 +1,172 @@
+{
+  "joinRequest": [
+    {
+      "name": "Maya: asks and is accepted",
+      "end": "joined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "answerArrived",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "accepted",
+            "folderId": "f1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: asks and is declined",
+      "end": "declined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "answerArrived",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "declined"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: opens a link from before the new key",
+      "end": "unusableLink",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?n=Spain 2026&a=Nils"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: reopens her ask after a decline",
+      "end": "declined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "answerArrived",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "declined"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "dismissDecline",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "reopenRequest",
+          "payload": {
+            "ask": {
+              "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "owner": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "albumName": "Spain 2026",
+              "ownerName": "Nils",
+              "askedAt": 1,
+              "status": "declined"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: reopens her ask while waiting",
+      "end": "waitingForAnswer",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "closeWaiting",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "reopenRequest",
+          "payload": {
+            "ask": {
+              "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "owner": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "albumName": "Spain 2026",
+              "ownerName": "Nils",
+              "askedAt": 1,
+              "status": "waiting"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

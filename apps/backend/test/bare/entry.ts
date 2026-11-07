@@ -233,23 +233,23 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
       memberKey: entry.requesterKey,
     });
     const states: string[] = [];
-    actor.send({ type: "requestSent", payload: entry });
+    actor.send({ type: "requestArrived", payload: entry });
     await actor.settled();
     states.push(String(actor.state.name));
-    actor.send({ type: "approve", payload: { role: "reader" } });
+    actor.send({ type: "accept", payload: { role: "reader" } });
     await actor.settled();
     states.push(String(actor.state.name));
     actor.send({ type: "changeRole", payload: { role: "member" } });
     await actor.settled();
     states.push(String(actor.state.name));
-    actor.send({ type: "remove" });
+    actor.send({ type: "removeMember" });
     await actor.settled();
     states.push(String(actor.state.name));
     const got = states.join(",");
-    if (got !== "requestPending,enrolled,enrolled,removed")
+    if (got !== "awaitingDecision,joined,joined,removed")
       throw new Error(`unexpected states ${got}`);
     console.log(
-      `ok   membership-machine: request, approve, change role, remove (${Date.now() - started}ms)`,
+      `ok   membership-machine: request, accept, change role, remove (${Date.now() - started}ms)`,
     );
   } catch (e) {
     failed++;
@@ -269,7 +269,7 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
       outputs.push(e.type === "requestQueued" ? e.type : (e.payload as { reason: string }).reason),
     );
     const states: string[] = [];
-    actor.send({ type: "create", payload: { validFor: "10m" } });
+    actor.send({ type: "createLink", payload: { validFor: "10m" } });
     await actor.settled();
     actor.send({ type: "requestArrived", payload: request });
     await actor.settled();
@@ -277,12 +277,13 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
     clock.advance(600_000);
     await actor.settled();
     states.push(String(actor.state.name));
-    actor.send({ type: "cancel" });
+    actor.send({ type: "cancelLink" });
     actor.send({ type: "requestArrived", payload: request });
     await actor.settled();
     states.push(String(actor.state.name));
     const got = `${states.join(",")} ${outputs.join(",")}`;
-    if (got !== "live,expired,expired requestQueued,expired") throw new Error(`unexpected ${got}`);
+    if (got !== "linkActive,expired,expired requestQueued,expired")
+      throw new Error(`unexpected ${got}`);
     console.log(`ok   invite-link-machine: queue, expire, refuse (${Date.now() - started}ms)`);
   } catch (e) {
     failed++;

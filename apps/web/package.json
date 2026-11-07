@@ -23,6 +23,7 @@
     "unocss": "^66.0.0"
   },
   "devDependencies": {
+    "@mantaq/inspect": "catalog:",
     "happy-dom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

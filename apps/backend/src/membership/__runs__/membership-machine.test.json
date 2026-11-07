@@ -1,0 +1,125 @@
+{
+  "membership": [
+    {
+      "name": "Nils: accepts a guest as Collaborator",
+      "end": "joined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Ann",
+            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "folderName": "Trip",
+            "requestedAt": 1
+          }
+        },
+        {
+          "kind": "event",
+          "event": "accept",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "memberListSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils: accepts a relative as Viewer, later makes her a Collaborator",
+      "end": "joined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Ann",
+            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "folderName": "Trip",
+            "requestedAt": 1
+          }
+        },
+        {
+          "kind": "event",
+          "event": "accept",
+          "payload": {
+            "role": "reader"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "memberListSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "changeRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "roleSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils: accepts Maya as Collaborator",
+      "end": "joined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Ann",
+            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "folderName": "Trip",
+            "requestedAt": 1
+          }
+        },
+        {
+          "kind": "event",
+          "event": "accept",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "memberListSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils: declines the request",
+      "end": "declined",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "requestArrived",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Ann",
+            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "folderName": "Trip",
+            "requestedAt": 1
+          }
+        },
+        {
+          "kind": "event",
+          "event": "decline",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}

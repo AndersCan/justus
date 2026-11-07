@@ -8,24 +8,31 @@ import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
 import { $asks, $folders, folders } from "../folders-machine";
 import {
-  answered,
-  ask,
-  close,
+  answerArrived,
+  askToJoin,
+  closeWaiting,
   createJoinRequestActor,
+  dismissDecline,
   notNow,
-  ok,
-  openAsk,
   openLink,
+  reopenRequest,
 } from "./join-request-machine";
 
 /** What the join screens draw: which screen, whose album, and any error. */
 export type JoinView = {
-  state: "idle" | "reviewing" | "sending" | "waiting" | "declined";
+  state:
+    | "noInvite"
+    | "unusableLink"
+    | "joined"
+    | "decidingToAsk"
+    | "sendingRequest"
+    | "waitingForAnswer"
+    | "declined";
   invite: JoinInvite | null;
   error: string;
 };
 
-export const $join = atom<JoinView>({ state: "idle", invite: null, error: "" });
+export const $join = atom<JoinView>({ state: "noInvite", invite: null, error: "" });
 
 export const joinActor = createJoinRequestActor({
   clock: RealClock(),
@@ -44,7 +51,10 @@ joinActor.on("change", {
     const name = snapshot.path[0] as JoinView["state"];
     $join.set({
       state: name,
-      invite: name === "idle" ? null : (snapshot.payload as JoinInvite),
+      invite:
+        name === "noInvite" || name === "unusableLink" || name === "joined"
+          ? null
+          : (snapshot.payload as JoinInvite),
       error: (snapshot.context as { error: string }).error,
     });
   },
@@ -59,13 +69,13 @@ onOutput(joinActor, (e) => {
 export const join = {
   /** Pasted text, a scanned code or a link the host opened. */
   openLink: (text: string) => joinActor.send(openLink.create({ text })),
-  /** A tapped ask row in the albums list. */
-  openAsk: (row: AskSummary) => joinActor.send(openAsk.create({ ask: row })),
-  ask: () => joinActor.send(ask.create()),
+  /** A tapped request row in the albums list. */
+  reopenRequest: (row: AskSummary) => joinActor.send(reopenRequest.create({ ask: row })),
+  askToJoin: () => joinActor.send(askToJoin.create()),
   notNow: () => joinActor.send(notNow.create()),
-  close: () => joinActor.send(close.create()),
-  ok: () => joinActor.send(ok.create()),
+  closeWaiting: () => joinActor.send(closeWaiting.create()),
+  dismissDecline: () => joinActor.send(dismissDecline.create()),
   /** The Admin's answer reached this phone. */
-  answered: (code: string, answer: "accepted" | "declined", folderId?: string) =>
-    joinActor.send(answered.create({ code, answer, folderId })),
+  answerArrived: (code: string, answer: "accepted" | "declined", folderId?: string) =>
+    joinActor.send(answerArrived.create({ code, answer, folderId })),
 };

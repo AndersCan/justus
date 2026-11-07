@@ -160,10 +160,11 @@ function sheet(label: string, body: unknown, onDismiss: () => void) {
  * No photos or counts: the link carries only the names its sender typed. */
 export function joinSheet() {
   return useStore($join, ({ state, invite, error }) => {
-    if (state === "idle" || !invite) return null;
+    if (state === "noInvite" || state === "unusableLink" || state === "joined" || !invite)
+      return null;
     const owner = invite.ownerName;
-    if (state === "reviewing" || state === "sending") {
-      const sending = state === "sending";
+    if (state === "decidingToAsk" || state === "sendingRequest") {
+      const sending = state === "sendingRequest";
       const title = `Ask to join “${invite.album}”?`;
       return sheet(
         title,
@@ -177,7 +178,7 @@ export function joinSheet() {
             <button class="ui-btn-ghost" ?disabled=${sending} @click=${() => join.notNow()}>
               Not now
             </button>
-            <button class="ui-btn-primary" ?disabled=${sending} @click=${() => join.ask()}>
+            <button class="ui-btn-primary" ?disabled=${sending} @click=${() => join.askToJoin()}>
               ${sending ? "Asking…" : "Ask to join"}
             </button>
           </div>`,
@@ -186,7 +187,7 @@ export function joinSheet() {
         },
       );
     }
-    if (state === "waiting") {
+    if (state === "waitingForAnswer") {
       const title = `Waiting for ${owner}`;
       return sheet(
         title,
@@ -196,9 +197,9 @@ export function joinSheet() {
             must be online too: keep Justus open on both phones.
           </p>
           <div class="mt-4 flex justify-end">
-            <button class="ui-btn-primary" @click=${() => join.close()}>Close</button>
+            <button class="ui-btn-primary" @click=${() => join.closeWaiting()}>Close</button>
           </div>`,
-        () => join.close(),
+        () => join.closeWaiting(),
       );
     }
     const title = `${owner} didn't accept your request.`;
@@ -207,9 +208,9 @@ export function joinSheet() {
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
         <p class="mt-3 text-sm text-fg">Nothing was shared with you.</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${() => join.ok()}>OK</button>
+          <button class="ui-btn-primary" @click=${() => join.dismissDecline()}>OK</button>
         </div>`,
-      () => join.ok(),
+      () => join.dismissDecline(),
     );
   });
 }
