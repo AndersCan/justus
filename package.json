@@ -17,7 +17,7 @@
     "test:e2e-hub:plan": "node scripts/e2e-hub.mjs --plan",
     "test:native": "bash scripts/maestro-e2e.sh",
     "prepare": "vp config",
-    "site:build": "astro build --config docs/site/astro.config.mjs",
+    "site:build": "curl -fsSL --retry 3 --create-dirs --output-dir docs/site/src/assets/store-screenshots -O https://github.com/AndersCan/justus/releases/download/store-screenshots/1_album.png -O https://github.com/AndersCan/justus/releases/download/store-screenshots/2_invite.png -O https://github.com/AndersCan/justus/releases/download/store-screenshots/3_photo.png -O https://github.com/AndersCan/justus/releases/download/store-screenshots/4_help.png && astro build --config docs/site/astro.config.mjs",
     "flows:dev": "node scripts/flows-dev.mjs",
     "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev"
   },
