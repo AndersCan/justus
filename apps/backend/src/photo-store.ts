@@ -53,12 +53,10 @@ import {
   isFriendMessageShape,
   isHexKey,
   isTextJSON,
-  parseAnswer,
   parseFriendMessage,
   type FriendMessage,
   type Answer,
   parseDeviceName,
-  parseDeviceSwarmKey,
   parseRemoved,
   parseRequestsFile,
   peerName,
@@ -76,6 +74,7 @@ import {
   withdrawInvite,
   type InvitePorts,
 } from "./membership/invites";
+import { answersOwed, arrivingAnswer, deliverOwed, proveIdentity } from "./membership/answers";
 import {
   albumNameUpdate,
   albumSummary,
@@ -2463,60 +2462,46 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function verifyConn(connId: number): Promise<string | undefined> {
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const c = conns.get(connId);
-      if (!c || closed) return undefined;
-      if (c.verified) return c.identityKey;
-      if (c.identityKey && c.noiseKey && c.identityKey !== ownDrive.key) {
-        try {
-          const drive = await openPeerOutbox(c.identityKey);
-          // `update()` first: the local copy may hold the key of the peer's last boot.
-          await withTimeout(drive.update(), 2_000);
-          const text = await withTimeout(readText(drive, DRIVE_PATH_DEVICE), 5_000);
-          if (text && parseDeviceSwarmKey(text) === c.noiseKey) {
-            c.verified = true;
-            return c.identityKey;
-          }
-        } catch (e) {
-          log("error", { where: "verifiedIdentity", conn: connId, err: errText(e) });
-        }
-      }
-      await sleep(1_000);
-    }
-    return undefined;
+    const proven = await proveIdentity(
+      (key) =>
+        openPeerOutbox(key).then(
+          (drive): OpenResult<Drive> => [null, drive],
+          (e: unknown): OpenResult<Drive> => [e instanceof Error ? e : new Error(String(e)), null],
+        ),
+      {
+        connId,
+        conn: () => {
+          const c = closed ? undefined : conns.get(connId);
+          return c && { identity: c.identityKey, peerKey: c.noiseKey, verified: !!c.verified };
+        },
+        ownIdentity: ownDrive.key,
+        attempts: 8,
+        waitMs: 1_000,
+        log,
+      },
+    );
+    const c = conns.get(connId);
+    if (proven && c && proven === c.identityKey) c.verified = true;
+    return proven;
   }
 
   /** Sends each answer owed to `identity` on every connection proven to be it. */
   async function deliverAnswers(identity: string, attempt = 0): Promise<void> {
     if (closed || !setupDone) return;
-    const owed = [...runtimes.values()].filter(
-      (rt) => rt.record.role === "creator" && rt.record.invite && rt.record.answers?.[identity],
-    );
-    if (owed.length === 0) return;
-    let retry = false;
-    for (const [connId, c] of Array.from(conns)) {
-      if (c.identityKey !== identity) continue;
-      if ((await verifiedIdentity(connId)) !== identity) {
-        log("answer.unverified", { conn: connId, identity: short(identity) });
-        continue;
-      }
-      const targets = owed.flatMap((rt) =>
-        [rt.record.invite!.code, ...(rt.record.retiredInvites ?? [])].map((code) => ({ rt, code })),
+    const owed = () =>
+      answersOwed(
+        [...runtimes.values()].map((rt) => rt.record),
+        identity,
       );
-      for (const { rt, code } of targets) {
-        const answer = rt.record.answers?.[identity];
-        if (!answer || c.sent.has(code)) continue;
-        c.sent.add(code);
-        const message: Answer =
-          answer === "accepted" ? { code, answer, shareKey: rt.record.shareKey } : { code, answer };
-        if (network.sendAnswer(connId, message)) {
-          log("answer.sent", { conn: connId, code: short(code), answer });
-        } else {
-          c.sent.delete(code);
-          retry = true;
-        }
-      }
-    }
+    const { retry } = await deliverOwed(
+      {
+        connections: () =>
+          Array.from(conns, ([conn, c]) => ({ conn, identity: c.identityKey, sent: c.sent })),
+        provenIdentity: verifiedIdentity,
+        sendAnswer: (conn, message) => network.sendAnswer(conn, message),
+      },
+      { identity, owed, log },
+    );
     if (retry && attempt < 5) {
       const timer = setTimeout(() => {
         retryTimers.delete(timer);
@@ -2529,17 +2514,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** An answer arrived on connection `connId`. Only the owner named in the ask,
    * proven by {@link verifiedIdentity}, can settle it. */
   async function onAnswerMessage(connId: number, value: unknown): Promise<void> {
-    if (conns.get(connId)?.refused)
-      return log("answer.ignored", { conn: connId, reason: "version" });
-    const answer = parseAnswer(value);
-    if (!answer) return log("answer.ignored", { conn: connId, reason: "malformed" });
-    const ask = state.asks.find((a) => a.code === answer.code);
-    if (!ask || ask.status !== "waiting")
-      return log("answer.ignored", { conn: connId, reason: "no-waiting-ask" });
-    if ((await verifiedIdentity(connId)) !== ask.owner)
-      return log("answer.ignored", { conn: connId, reason: "unverified" });
-    if (ask.status !== "waiting") return;
-    if (answer.answer === "declined") {
+    const arrival = await arrivingAnswer(
+      { provenIdentity: verifiedIdentity },
+      {
+        conn: connId,
+        value,
+        refused: !!conns.get(connId)?.refused,
+        asks: () => state.asks,
+      },
+    );
+    if (arrival.kind === "ignored") {
+      if (arrival.reason !== "settled")
+        log("answer.ignored", { conn: connId, reason: arrival.reason });
+      return;
+    }
+    const ask = state.asks.find((a) => a.code === arrival.code);
+    if (!ask) return;
+    if (arrival.kind === "declined") {
       ask.status = "declined";
       saveState();
       leaveTopic(hex(inviteTopic(ask.code, crypto)));
@@ -2548,7 +2539,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return;
     }
     ask.status = "accepted";
-    ask.shareKey = answer.shareKey;
+    ask.shareKey = arrival.shareKey;
     saveState();
     await completeAccepted(ask);
   }
