@@ -58,6 +58,14 @@ class ListingScreenshots {
     throw AssertionError(message + " [" + text + "]")
   }
 
+  // The fields are web inputs whose label is only a hint, so take the one EditText on screen.
+  private fun typeInField(text: String) {
+    val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 20000)
+      ?: fail("no text field", text)
+    field.click()
+    type(text)
+  }
+
   private fun type(text: String) {
     device.executeShellCommand("input text " + text)
     device.pressEnter()
@@ -69,11 +77,9 @@ class ListingScreenshots {
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
     target.startActivity(intent)
     find("Skip", 60).click()
-    find("Your name", 20).click()
-    type("Sam")
+    typeInField("Sam")
     find("Start sharing", 20)
-    find("Album name", 20).click()
-    type("Summer%s2026")
+    typeInField("Summer%s2026")
     find("No photos in this album yet.", 20)
     find("Add photos to Summer 2026", 20).click()
 
