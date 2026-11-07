@@ -4,7 +4,7 @@ import { folders } from "../machines/folders-machine";
 import { $peopleViewModel, people } from "../machines/people-machine";
 import { requests } from "../machines/requests-machine";
 import { $syncViewModel, sync } from "../machines/sync-machine";
-import { $router } from "../router";
+import { onPageChange } from "../machines/router-machine";
 import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
 import { formatRelative } from "../utils/time";
@@ -20,7 +20,7 @@ import { toast } from "./toast";
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
 type Status = NonNullable<ReturnType<typeof $syncViewModel.get>["status"]>;
 
-$router.listen((page) => {
+onPageChange((page) => {
   if (page?.route !== "album") hideInviteQr();
 });
 

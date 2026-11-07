@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../gateway", () => ({ gateway: { ask: mocks.ask } }));
-vi.mock("../../router", () => ({ $router: { open: mocks.open } }));
+vi.mock("../router-machine", () => ({ open: mocks.open }));
 vi.mock("../folders-machine", async () => {
   const { atom: a } = await import("nanostores");
   return { $folders: a([]), $asks: a([]), folders: { refresh: mocks.refresh } };

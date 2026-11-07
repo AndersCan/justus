@@ -1,7 +1,8 @@
 import { html } from "lit-html";
-import { atom } from "nanostores";
+import { watch } from "@mantaq/lit";
 import type { Photo } from "@justus/core";
-import { $galleryState, $photos, gallery, samePhoto } from "../machines/gallery-machine";
+import { $galleryState, $photos, gallery } from "../machines/gallery-machine";
+import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { useStore } from "../use-store";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
@@ -10,30 +11,20 @@ import { confirmAction } from "./confirm";
 import { canRemove, removeDetail, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
 
-/** Full-screen photo detail. UI-only state — the machines stay untouched. */
-
-export const $lightbox = atom<Photo | null>(null);
-/** The photos the lightbox steps through: the grid it was opened from (one
- * album, or only yours), else every photo. */
-let sequence: Photo[] | null = null;
+/** Full-screen photo detail. The open photo lives in the lightbox machine. */
 
 export function openLightbox(photo: Photo, within?: Photo[]): void {
-  sequence = within ?? null;
-  $lightbox.set(photo);
+  lightboxActor.send(lightboxEvents.opened.create({ photo, within }));
 }
 
 export function closeLightbox(): void {
-  sequence = null;
-  $lightbox.set(null);
+  lightboxActor.send(lightboxEvents.closed.create());
 }
 
+/** Steps through the grid the lightbox was opened from, else every photo. */
 export function step(dir: 1 | -1): void {
-  const current = $lightbox.get();
-  if (!current) return;
-  const photos = sequence ?? $photos.get();
-  const i = photos.findIndex((p) => samePhoto(p, current));
-  if (i === -1) return;
-  $lightbox.set(photos[(i + dir + photos.length) % photos.length]);
+  const photos = lightboxActor.snapshot().context.sequence ?? $photos.get();
+  lightboxActor.send(lightboxEvents.stepped.create({ dir, photos }));
 }
 
 // A swipe must not also fire the backdrop's click (browsers synthesize a
@@ -45,8 +36,8 @@ let suppressClickUntil = 0;
 // no photo is open.
 if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => {
-    if (!$lightbox.get()) return;
-    if (e.key === "Escape") $lightbox.set(null);
+    if (!lightboxActor.snapshot().context.photo) return;
+    if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") step(-1);
     if (e.key === "ArrowRight") step(1);
   });
@@ -181,5 +172,5 @@ function lightboxBody(photo: Photo) {
 }
 
 export function lightboxView() {
-  return useStore($lightbox, (photo) => (photo ? lightboxBody(photo) : null));
+  return watch(lightboxActor, (s) => (s.context.photo ? lightboxBody(s.context.photo) : null));
 }

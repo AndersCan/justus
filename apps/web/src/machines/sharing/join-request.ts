@@ -2,7 +2,7 @@ import { RealClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { atom } from "nanostores";
 import { gateway } from "../../gateway";
-import { $router } from "../../router";
+import { open } from "../router-machine";
 import { classifyInvite } from "../../utils/classify-invite";
 import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
@@ -62,7 +62,7 @@ joinActor.on("change", {
 
 onOutput(joinActor, (e) => {
   if (e.type === "openAlbum") {
-    $router.open(`/albums/${(e.payload as { folderId: string }).folderId}`);
+    open(`/albums/${(e.payload as { folderId: string }).folderId}`);
   }
 });
 
