@@ -50,10 +50,10 @@ appId: no.cankode.justus
     text: "Settings"
     waitToSettleTimeoutMs: 500
 - scrollUntilVisible:
-    element: "Require unlock to open Justus"
+    element: "Require unlock to open Justus.*"
     timeout: 20000
 - tapOn:
-    text: "Require unlock to open Justus"
+    text: "Require unlock to open Justus.*"
     waitToSettleTimeoutMs: 500
 - inputText: "1111"
 - pressKey: Enter
@@ -64,7 +64,7 @@ appId: no.cankode.justus
 - pressKey: Home
 - launchApp:
     stopApp: false
-- assertVisible: "Require unlock to open Justus"
+- assertVisible: "Require unlock to open Justus.*"
 - assertNotVisible: "Justus is locked"
 # Away over 30s: the lock shows and the app underneath is unreachable.
 - pressKey: Home
@@ -79,21 +79,21 @@ appId: no.cankode.justus
     timeout: 15000
 - pressKey: Back
 - assertVisible: "Justus is locked"
-- assertNotVisible: "Require unlock to open Justus"
+- assertNotVisible: "Require unlock to open Justus.*"
 - tapOn:
     text: "Unlock"
     waitToSettleTimeoutMs: 500
 - inputText: "1111"
 - pressKey: Enter
 - extendedWaitUntil:
-    visible: "Require unlock to open Justus"
+    visible: "Require unlock to open Justus.*"
     timeout: 15000
 # A fresh launch always asks.
 - launchApp
 - extendedWaitUntil:
     visible: "Justus is locked"
     timeout: 60000
-- assertNotVisible: "Require unlock to open Justus"
+- assertNotVisible: "Require unlock to open Justus.*"
 - inputText: "1111"
 - pressKey: Enter
 - extendedWaitUntil:
@@ -104,10 +104,10 @@ appId: no.cankode.justus
     text: "Settings"
     waitToSettleTimeoutMs: 500
 - scrollUntilVisible:
-    element: "Require unlock to open Justus"
+    element: "Require unlock to open Justus.*"
     timeout: 20000
 - tapOn:
-    text: "Require unlock to open Justus"
+    text: "Require unlock to open Justus.*"
     waitToSettleTimeoutMs: 500
 - inputText: "1111"
 - pressKey: Enter
