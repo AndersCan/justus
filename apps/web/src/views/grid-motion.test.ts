@@ -116,6 +116,9 @@ describe("gridMotion", () => {
     expect(b.parentElement).toBe(document.body);
     expect(b.style.left).toBe("100px");
     expect(b.hasAttribute("inert")).toBe(true);
+    // Re-inserting must not replay a CSS insert animation on the ghost.
+    expect(b.style.position).toBe("fixed");
+    expect(b.style.animation).toBe("none");
     const slide = calls.find((x) => x.el === c)!;
     expect(slide.keyframes).toEqual([
       { transform: "translate(100px, 0px)" },
