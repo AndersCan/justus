@@ -37,6 +37,7 @@ import {
   type PhotoScope,
   type PhotoSort,
 } from "../utils/photo-scope";
+import { gridMotion } from "./grid-motion";
 import { errorBanner } from "./error-banner";
 import { confirmAction } from "./confirm";
 import { canRemove, removeDetail, roleFor } from "../utils/can-remove";
@@ -412,7 +413,9 @@ export function albumPhotos(
 ) {
   return watch(actor, (s) => {
     const photos = photosInScope(s.context.photos, { kind: "album", id: view.album.id });
-    return html`<div class="space-y-5" data-album-photos>
+    const keys = sortPhotos(photos, view.sort).map(photoKey);
+    const settle = `${view.album.id}|${view.sort}|${view.density}`;
+    return html`<div class="space-y-5" data-album-photos ${gridMotion({ keys, settle })}>
       ${
         photos.length === 0
           ? view.empty()
