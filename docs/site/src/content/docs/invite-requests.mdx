@@ -1,0 +1,30 @@
+---
+title: "Add a friend to an album"
+description: "The Admin adds a saved friend without a link, and the friend joins from the albums list."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+Two people, two phones. Nils is the Admin; Kari is a saved friend. Both phones must have Justus open.
+
+| Moment                        | Nils (Admin) sees                                                              | Kari sees                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Nils taps "Add a friend"      | His saved friends who are not in the album, by name `addFriend.choosingFriend` | Nothing                                                                                                |
+| Nils has no friend to add     | "No friends yet" `addFriend.noFriendsYet`                                      | Nothing                                                                                                |
+| Nils taps Kari                | "Asking Kari…" and "Kari needs Justus open too." `addFriend.lookingForFriend`  | Nothing yet                                                                                            |
+| Kari's phone takes the invite | "Asked Kari to join"; the sheet closes `addFriend.showingPeopleWithAddFriend`  | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
+| Kari taps Join                | Nothing to do: no Accept step                                                  | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
+| Nils's phone answers          | Kari under Members                                                             | The album opens `friendOffer.showingFriendOffers`                                                      |
+
+**When it goes wrong.**
+
+| What went wrong                                | What the person sees                                                                                      | State                                         |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Kari's phone does not know Nils                | Nils: "Couldn't add Kari from here. Send Kari a link instead."                                            | `addFriend.couldNotReachFriend` (refused)     |
+| Kari's phone is off or does not answer         | Nils: "Couldn't reach Kari. Ask Kari to open Justus, then try again."                                     | `addFriend.couldNotReachFriend` (unreachable) |
+| Nils's phone does not answer within 30 seconds | Kari: the row returns to Join, with "Couldn't join “&lt;album&gt;”. &lt;Admin&gt; needs Justus open too." | `friendOffer.showingFriendOffers`             |
+| Nils took the invite back                      | Kari: the invite row goes away, with no message                                                           | `friendOffer.showingFriendOffers`             |
+
+<Machine src="apps/web/src/machines/sharing/add-friend-machine.ts" />
+
+<Machine src="apps/web/src/machines/sharing/friend-offer-machine.ts" />

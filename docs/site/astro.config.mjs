@@ -23,7 +23,6 @@ export default defineConfig({
   redirects: {
     "/albums": "/justus/make-an-album/",
     "/sharing": "/justus/join-an-album/",
-    "/invite-requests": "/justus/join-an-album/",
     "/app": "/justus/internals/",
   },
   vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
