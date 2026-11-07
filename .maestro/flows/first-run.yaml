@@ -104,7 +104,12 @@ appId: no.cankode.justus
 - launchApp
 - waitForAnimationToEnd:
     timeout: 4000
-- pressKey: Back
+# Back only when the prompt is up (the lock text is unreadable then); on the bare lock screen it would leave the app.
+- runFlow:
+    when:
+      notVisible: "Justus is locked"
+    commands:
+      - pressKey: Back
 - extendedWaitUntil:
     visible: "Justus is locked"
     timeout: 15000
