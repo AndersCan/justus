@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
-import { joinActor } from "../machines/sharing/join-request";
+import { join, joinActor } from "../machines/sharing/join-request";
+import { buildInviteLink } from "../utils/invite-link";
+import { sharingView } from "./sharing";
 import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 
 const mock = vi.hoisted(() => ({
@@ -143,6 +145,62 @@ describe("pending asks", () => {
     await load(["a"], [ask("waiting"), { ...ask("declined"), code: "c2" }]);
     expect(host.textContent).toContain("Waiting for Anna to accept");
     expect(host.textContent).toContain("Not accepted");
+  });
+});
+
+describe("Join tab", () => {
+  test("shows a waiting ask above the link box", async () => {
+    const host = document.createElement("div");
+    render(sharingView("join"), host);
+    await load(["a"], [ask("waiting")]);
+    const sections = host.querySelectorAll("section[aria-label='Waiting to join']");
+    expect(sections).toHaveLength(1);
+    expect(sections[0].textContent).toContain("Summer trip");
+    expect(sections[0].textContent).toContain("Waiting for Anna to accept");
+    const input = host.querySelector("input[aria-label='Invite link']") as Node;
+    expect(
+      sections[0].compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test("shows no waiting heading with nothing waiting or only a declined ask", async () => {
+    const host = document.createElement("div");
+    render(sharingView("join"), host);
+    await load(["a"]);
+    expect(host.querySelector("section[aria-label='Waiting to join']")).toBeNull();
+    await load(["a"], [ask("declined")]);
+    expect(host.querySelector("section[aria-label='Waiting to join']")).toBeNull();
+  });
+
+  const submit = (host: HTMLElement, text: string) => {
+    const input = host.querySelector("input[aria-label='Invite link']") as HTMLInputElement;
+    input.value = text;
+    input.form?.dispatchEvent(new Event("submit", { cancelable: true }));
+    return input;
+  };
+
+  test("Continue with an invite link empties the box", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const link = buildInviteLink({
+      code: "a".repeat(64),
+      owner: "b".repeat(64),
+      album: "Trip",
+      ownerName: "Nils",
+    });
+    const input = submit(host, link);
+    expect(input.value).toBe("");
+    expect(joinActor.snapshot().path[0]).toBe("decidingToAsk");
+    join.notNow();
+  });
+
+  test("Continue with a garbled link keeps the text", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const input = submit(host, "not a link");
+    expect(input.value).toBe("not a link");
+    expect(joinActor.snapshot().path[0]).toBe("showingLinkProblem");
+    join.notNow();
   });
 });
 

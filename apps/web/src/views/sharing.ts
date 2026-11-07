@@ -3,7 +3,7 @@ import type { GrantRecord } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { requestsActor } from "../machines/requests-machine";
 import { grants, grantsActor, grantsViewModel } from "../machines/grants-machine";
-import { albumsPanel, joinPanel } from "./albums";
+import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 import { errorBanner } from "./error-banner";
 import { tabs } from "./tabs";
 import { toast } from "./toast";
@@ -215,7 +215,7 @@ export function sharingView(tab: SharingTab) {
           tab,
         ),
       )}
-      ${tab === "albums" ? albumsPanel() : tab === "join" ? joinPanel() : devicesPanel()}
+      ${tab === "albums" ? albumsPanel() : tab === "join" ? html`${pendingAsks()} ${joinPanel()}` : devicesPanel()}
     </div>
   `;
 }

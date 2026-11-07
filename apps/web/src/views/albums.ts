@@ -17,6 +17,7 @@ import { friendsActor } from "../machines/friends-machine";
 import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
+import { parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
 import { toast } from "./toast";
@@ -294,7 +295,9 @@ function joinSection(settled: boolean, busy: boolean) {
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          join.openLink(input.value);
+          const text = input.value;
+          join.openLink(text);
+          if (parseInviteLink(text).kind === "invite") input.value = "";
         }}
       >
         <input

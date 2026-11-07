@@ -182,6 +182,8 @@ test("B asks from the first-run screen, closes the waiting sheet, A accepts, B o
   await expect(b.getByRole("region", { name: "Waiting to join" })).toContainText(
     /Waiting for .+ to accept/,
   );
+  await expect(b.getByLabel("Invite link")).toHaveValue("");
+  await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(1);
 
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: "Accept" }).click();
@@ -214,6 +216,13 @@ test("B reloads while waiting, A declines, B sees the decline on Photos", async 
     .getByRole("button", { name: "Close" })
     .first()
     .click();
+  const waitingRow = b
+    .getByRole("region", { name: "Waiting to join" })
+    .getByRole("listitem")
+    .filter({ hasText: RELOAD_ALBUM });
+  await expect(waitingRow).toHaveCount(1);
+  await expect(waitingRow).toContainText(/Waiting for .+ to accept/);
+  await expect(b.getByLabel("Invite link")).toHaveValue("");
   await b.goto("/");
   await expect(b.getByRole("region", { name: "Waiting to join" })).toBeVisible({
     timeout: 20_000,
