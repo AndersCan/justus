@@ -34,6 +34,7 @@ vi.mock("./gateway", () => ({
     setActive: vi.fn(),
     setName: vi.fn(),
     respond: vi.fn(),
+    turnOffInvite: vi.fn(),
     remove: vi.fn(),
     add: vi.fn(),
     addFile: vi.fn(),

@@ -14,6 +14,7 @@ import {
   type InviteLinkView,
 } from "../machines/sharing/invite-link";
 import { VALID_FOR_LABEL, type ValidFor } from "../machines/sharing/invite-link-machine";
+import { confirmAction } from "./confirm";
 import { toast } from "./toast";
 
 export async function copyText(value: string): Promise<boolean> {
@@ -44,7 +45,7 @@ export function inviteLinkFor(
 
 /** Makes the album's link (or reuses the one already made) and returns it. */
 function madeLink(folder: FolderSummary, myName: string): string | null {
-  inviteLink.createLink(folder.id);
+  inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
   if (view.expiresAt === undefined) return null;
   return inviteLinkFor(folder, myName, view.expiresAt);
@@ -80,6 +81,18 @@ async function copy(folder: FolderSummary, myName: string, button: HTMLElement) 
   setTimeout(() => {
     button.textContent = label;
   }, 2000);
+}
+
+async function turnOff(folder: FolderSummary) {
+  if (!folder.invite) return;
+  const ok = await confirmAction({
+    title: "Turn off links you sent?",
+    detail:
+      "Links you sent for this album stop working at once. Requests from them you haven't answered disappear. People already in stay in. Your next invite makes a fresh link.",
+    confirmLabel: "Turn off",
+    tone: "danger",
+  });
+  if (ok) inviteLink.turnOffLink(folder.id, folder.invite.code);
 }
 
 function qrCode(link: string) {
@@ -133,6 +146,8 @@ function invitePanelBody(
 ) {
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
+  // Until the album shows its new code, a fresh link would carry the one just turned off.
+  const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
@@ -166,17 +181,23 @@ function invitePanelBody(
       <div class="flex flex-wrap gap-2">
         ${
           canShare
-            ? html`<button class="ui-btn-primary" @click=${() => void shareInvite(folder, myName)}>
+            ? html`<button
+                  class="ui-btn-primary"
+                  ?disabled=${linkBlocked}
+                  @click=${() => void shareInvite(folder, myName)}
+                >
                   Send invite link
                 </button>
                 <button
                   class="ui-btn-ghost"
+                  ?disabled=${linkBlocked}
                   @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
                 >
                   Copy link
                 </button>`
             : html`<button
                 class="ui-btn-primary"
+                ?disabled=${linkBlocked}
                 @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
               >
                 Copy invite link
@@ -198,6 +219,13 @@ function invitePanelBody(
                 With them now? Show a QR code
               </button>`
       }
+      <button
+        class="mt-3 block text-sm text-muted underline underline-offset-2 hover:text-fg"
+        ?disabled=${view.state === "turningOff"}
+        @click=${() => void turnOff(folder)}
+      >
+        Turn off links you sent
+      </button>
       <p class="mt-4 text-xs text-muted">
         Both of you need Justus open for a request to arrive. It shows up here for you to accept or
         decline.

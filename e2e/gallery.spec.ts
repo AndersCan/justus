@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { openAlbum, pickPhotos } from "./add-photos.js";
@@ -195,6 +195,37 @@ test("an album page offers the invite at once and keeps the QR behind a tap", as
   await expect(page.getByText(/This link works until/)).toBeVisible();
   await page.getByRole("button", { name: "With them now? Show a QR code" }).click();
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toBeVisible();
+});
+
+async function openInvitePanel(page: Page) {
+  await page.goto("/sharing");
+  await page
+    .getByRole("link", { name: /^Invite & members of / })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { name: "Members" })).toBeVisible({ timeout: 20_000 });
+}
+
+test("the owner can turn off the links they sent", async ({ page }) => {
+  await openInvitePanel(page);
+  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
+  await expect(page.getByText(/This link works until/)).toBeVisible();
+  await page.getByRole("button", { name: "Turn off links you sent" }).click();
+  await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toBeVisible();
+  await page.getByRole("button", { name: "Turn off", exact: true }).click();
+  await expect(page.getByText("Links turned off")).toBeVisible();
+  await expect(page.getByText("Link works for")).toBeVisible();
+});
+
+test("keeping the links leaves the invite panel as it was", async ({ page }) => {
+  await openInvitePanel(page);
+  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
+  await expect(page.getByText(/This link works until/)).toBeVisible();
+  await page.getByRole("button", { name: "Turn off links you sent" }).click();
+  await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toBeVisible();
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toHaveCount(0);
+  await expect(page.getByText(/This link works until/)).toBeVisible();
 });
 
 test("a photo's Remove sits in its More menu and asks first", async ({ page }) => {

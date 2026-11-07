@@ -137,6 +137,8 @@ describe("backend -> web contract, from real backend output", () => {
       ownerName: "Phone",
     });
     await c("photos.folders");
+    // The Admin turns the links off and the album carries a new code.
+    await a("photos.turnOffInvite", { folderId: folder.id });
 
     // Every result the web reads was exercised, except the legacy direct enroll.
     const untested = Object.keys(photoResultSchemas).filter((n) => !captured[n]);

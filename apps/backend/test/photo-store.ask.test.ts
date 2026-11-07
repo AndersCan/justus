@@ -6,14 +6,18 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPhotoStore } from "../src/photo-store.ts";
+import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
 import type { FakeDrive } from "./fake-drive.ts";
 
-function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {
+function buildStore(
+  name: string,
+  opts: { swarm?: FakeSwarm; own?: FakeDrive[]; deps?: Record<string, unknown> } = {},
+) {
   const own: FakeDrive[] = opts.own ?? [];
   const deps = makeFakeDeps({
     deviceName: name,
+    ...opts.deps,
     ...(opts.swarm ? { makeSwarm: () => opts.swarm! } : {}),
     makeDrive: (cs: unknown, key?: Buffer) => {
       const drive = makeFakeDeps().makeDrive(cs, key);
@@ -25,9 +29,9 @@ function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] }
   return { store: createPhotoStore(deps), deps };
 }
 
-async function scenario() {
+async function scenario(adminDeps?: Record<string, unknown>) {
   const swarm = new FakeSwarm();
-  const admin = buildStore("Admin", { swarm });
+  const admin = buildStore("Admin", { swarm, deps: adminDeps });
   const joinerOwn: FakeDrive[] = [];
   const joiner = buildStore("Joiner", { own: joinerOwn });
   await admin.store.ready();
@@ -203,6 +207,128 @@ describe("ask", () => {
     s.swarm.emit("connection", fakeConnection(s.outbox.key));
     const after = (await s.admin.store.requests()).requests;
     expect(after.some((r) => r.requesterKey !== first[0].requesterKey)).toBe(true);
+    await s.close();
+  });
+});
+
+describe("turning off invite links", () => {
+  async function asked(s: Awaited<ReturnType<typeof scenario>>, code: string) {
+    await s.joiner.store.ask({ code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    return (await s.admin.store.requests()).requests;
+  }
+
+  /** A connection from the joiner that proves its identity: its /device.json names the connection's key. */
+  async function provenConnection(s: Awaited<ReturnType<typeof scenario>>) {
+    const device = JSON.parse((await s.outbox.get("/device.json"))!.toString());
+    return {
+      ...fakeConnection(s.outbox.key),
+      remotePublicKey: Buffer.from(device.swarmKey, "hex"),
+    };
+  }
+
+  it("a request made with a turned-off code never reaches the Admin", async () => {
+    const s = await scenario();
+    const turned = await s.admin.store.turnOffInvite(s.folderId);
+    expect(turned[0]).toBeNull();
+    expect(await asked(s, s.invite.code)).toEqual([]);
+    await s.close();
+  });
+
+  it("a request filed before the turn-off and not answered disappears", async () => {
+    const s = await scenario();
+    expect(await asked(s, s.invite.code)).toHaveLength(1);
+    await s.admin.store.turnOffInvite(s.folderId);
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    await s.close();
+  });
+
+  it("the album gets a new code and a request with it reaches the Admin", async () => {
+    const s = await scenario();
+    const turned = await s.admin.store.turnOffInvite(s.folderId);
+    const { code, owner } = turned[1]!.invite;
+    expect(code).toMatch(/^[0-9a-f]{64}$/);
+    expect(code).not.toBe(s.invite.code);
+    expect(owner).toBe(s.owner);
+    const summary = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId);
+    expect(summary!.invite!.code).toBe(code);
+    expect(await asked(s, code)).toHaveLength(1);
+    await s.close();
+  });
+
+  it("the new code survives a restart", async () => {
+    const s = await scenario();
+    const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+    await s.admin.store.close();
+    const reopened = createPhotoStore({
+      ...makeFakeDeps({
+        storageDir: s.admin.deps.storageDir,
+        cacheDir: s.admin.deps.cacheDir,
+        makeCorestore: s.admin.deps.makeCorestore,
+        makeSwarm: () => s.swarm,
+      }),
+    });
+    await reopened.ready();
+    const summary = (await reopened.folders()).folders.find((f) => f.id === s.folderId);
+    expect(summary!.invite!.code).toBe(code);
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("answers are kept", async () => {
+    const s = await scenario();
+    const first = await asked(s, s.invite.code);
+    await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
+    const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+    expect(await asked(s, code)).toEqual([]);
+    const identity = Buffer.from(s.outbox.key).toString("hex");
+    const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
+    await s.close();
+  });
+
+  it.each([[true], [false]])(
+    "an answer given before the turn-off still reaches the joiner (accept=%s)",
+    async (accept) => {
+      const sent: { code: string; answer: string }[] = [];
+      const s = await scenario({
+        openAnswers: () => ({
+          send: (m: { code: string; answer: string }) => {
+            sent.push(m);
+            return true;
+          },
+        }),
+      });
+      await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+      s.swarm.emit("connection", await provenConnection(s));
+      const first = (await s.admin.store.requests()).requests;
+      await s.admin.store.respond(s.folderId, first[0].requesterKey, accept);
+      const code1 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+      const code2 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+      expect(new Set([s.invite.code, code1, code2]).size).toBe(3);
+      s.swarm.emit("connection", await provenConnection(s));
+      const old = () => sent.filter((m) => m.code === s.invite.code);
+      // Once on the connection before the turn-off, once on the new one.
+      for (let i = 0; i < 100 && old().length < 2; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      const answer = accept ? "accepted" : "declined";
+      expect(old().map((m) => m.answer)).toEqual([answer, answer]);
+      await s.close();
+    },
+  );
+
+  it("only the creator can turn off", async () => {
+    const s = await scenario();
+    await s.joiner.store.join(s.shareKey);
+    const joinedId = (await s.joiner.store.folders()).folders[0].id;
+    expect((await s.joiner.store.turnOffInvite(joinedId))[0]).toMatchObject({
+      code: PhotoError.NOT_CREATOR,
+    });
+    expect((await s.admin.store.turnOffInvite("nope"))[0]).toMatchObject({
+      code: PhotoError.FOLDER_NOT_FOUND,
+    });
     await s.close();
   });
 });
