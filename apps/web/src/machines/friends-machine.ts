@@ -72,7 +72,10 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
           runInvoke(
             signal,
             () => port.list(),
-            (result) => emit(loaded.create({ friends: (result as Friend[] | null) ?? [] })),
+            (result) =>
+              emit(
+                loaded.create({ friends: (result as { friends: Friend[] } | null)?.friends ?? [] }),
+              ),
             (message) => emit(loadFailed.create({ message })),
           ),
       });
@@ -172,7 +175,11 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
             signal,
             () => port.add(identity, name),
             (result) =>
-              emit(saved.create({ friend: (result as Friend | null) ?? { identity, name } })),
+              emit(
+                saved.create({
+                  friend: (result as { friend: Friend } | null)?.friend ?? { identity, name },
+                }),
+              ),
             (message) => emit(saveFailed.create({ message })),
           );
         },

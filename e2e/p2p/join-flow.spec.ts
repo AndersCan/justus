@@ -12,6 +12,7 @@ import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
 
 const ALBUM = "Hub trip";
+const FRIEND_ALBUM = "Friends trip";
 const PHOTO = "hub-join.png";
 
 // The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
@@ -95,10 +96,10 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   test.setTimeout(150_000);
   const [a, b] = instancePages;
   await skipIntro([a, b]);
-  await createAlbum(a, ALBUM, PHOTO, 11);
+  await createAlbum(a, FRIEND_ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
-  await askToJoin(b, link, ALBUM);
-  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await askToJoin(b, link, FRIEND_ALBUM);
+  await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: "Accept" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
@@ -111,7 +112,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   const ownName = ((await tap.locator("p").first().innerText()) ?? "").trim();
   await tap.click();
   await a.getByRole("button", { name: "Add to friends" }).click();
-  await a.getByLabel("Name").fill("Sam");
+  await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
   await a.getByRole("button", { name: "Save", exact: true }).click();
   await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
   await expect(row.getByText("Sam", { exact: false }).first()).toBeVisible();
@@ -119,6 +120,8 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await expect(row.getByText(ownName, { exact: true })).toBeVisible();
 
   await a.reload();
+  await a.goto("/sharing");
+  await a.getByText(FRIEND_ALBUM).click();
   await expect(a.locator("li", { hasText: "Friend" }).getByText("Sam").first()).toBeVisible({
     timeout: 30_000,
   });

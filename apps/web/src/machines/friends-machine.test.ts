@@ -13,8 +13,8 @@ import {
 vi.mock("../gateway", () => ({
   gateway: {
     friends: {
-      list: vi.fn(async () => [null, []]),
-      add: vi.fn(async (identity: string, name: string) => [null, { identity, name }]),
+      list: vi.fn(async () => [null, { friends: [] }]),
+      add: vi.fn(async (identity: string, name: string) => [null, { friend: { identity, name } }]),
     },
   },
 }));
@@ -30,7 +30,7 @@ const close = () => ({ type: "CLOSE" }) as never;
 
 async function setup(options: { list?: Reply; add?: Reply } = {}) {
   const port = {
-    list: vi.fn(options.list ?? (async () => [null, []])),
+    list: vi.fn(options.list ?? (async () => [null, { friends: [] }])),
     add: vi.fn(
       options.add ??
         (async (identity: string, name: string) => [null, { identity, name }] as [null, unknown]),
@@ -46,7 +46,7 @@ async function setup(options: { list?: Reply; add?: Reply } = {}) {
 describe("friends machine", () => {
   test("loads the friends on start", async () => {
     const { actor, port } = await setup({
-      list: async () => [null, [{ identity: "k9", name: "Sam" }]],
+      list: async () => [null, { friends: [{ identity: "k9", name: "Sam" }] }],
     });
     expect(port.list).toHaveBeenCalledTimes(1);
     expect(actor.state.name).toBe("closed");
@@ -117,7 +117,7 @@ describe("friends machine", () => {
 
   test("ADD on an existing friend does nothing", async () => {
     const { actor } = await setup({
-      list: async () => [null, [{ identity: "k1", name: "Kimmy" }]],
+      list: async () => [null, { friends: [{ identity: "k1", name: "Kimmy" }] }],
     });
     actor.send(open());
     actor.send(add());
