@@ -3,6 +3,7 @@ import {
   DRIVE_PATH_PHOTOS,
   DRIVE_PATH_REMOVED,
   DRIVE_PATH_THUMBS,
+  addPhoto,
   galleryDrives,
   listGallery,
 } from "./photos/gallery";
@@ -153,17 +154,6 @@ type FolderRecord = {
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
-};
-
-type PhotoMeta = {
-  addedAt: number;
-  name: string;
-  mime: string;
-  sha256?: string;
-  takenAt?: string;
-  /** The photo has a thumbnail at `/thumbs/<id>.jpg`; unset for photos added
-   * before thumbnails existed. */
-  thumb?: true;
 };
 
 /** The copies an add brings besides the display copy (see `AddExtras` in
@@ -1466,29 +1456,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
     }
     const id = newId(deps.crypto);
-    const drivePath = `${DRIVE_PATH_PHOTOS}/${id}${ext}`;
     // Re-encoding drops EXIF, so the date comes from the original: as the host
     // read it (it can parse HEIC), else from the bytes we hold.
     const takenAt =
       typeof opts.takenAt === "string" && TAKEN_AT_RE.test(opts.takenAt)
         ? opts.takenAt
         : readTakenAt(source);
-    const metadata: PhotoMeta = {
-      addedAt: Date.now(),
+    const [writeErr, added] = await addPhoto(targetDrive, {
+      id,
+      ext,
+      bytes: display.bytes,
+      ...(thumb ? { thumb } : {}),
       name,
       mime,
       sha256,
       ...(takenAt ? { takenAt } : {}),
-      ...(thumb ? { thumb: true as const } : {}),
-    };
-    try {
-      // The thumbnail goes first, so a peer that sees the photo can show it.
-      if (thumb) await targetDrive.put(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`, thumb);
-      await targetDrive.put(drivePath, display.bytes, { metadata });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${message}`);
-    }
+    });
+    if (writeErr) return err(ErrorCode.PLUGIN_ERROR, `Failed to store photo: ${writeErr.message}`);
     // Record the new content in the index so a later re-add dedupes even if this
     // drive is momentarily unreachable at that moment (issue #43).
     indexPhoto({
@@ -1498,7 +1482,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       name,
       mime,
       size: display.size,
-      addedAt: metadata.addedAt,
+      addedAt: added.addedAt,
       sha256,
       ext,
       ...(thumb ? { hasThumb: true as const } : {}),
@@ -1515,7 +1499,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       name,
       mime,
       size: display.size,
-      addedAt: metadata.addedAt,
+      addedAt: added.addedAt,
       ...(takenAt ? { takenAt } : {}),
       member: { key: selfKey, name: state.name },
       folderId: rt.record.id,
