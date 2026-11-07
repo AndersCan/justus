@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
@@ -50,7 +50,7 @@ function build(initial: Rec[], scope: PhotoScope = { kind: "album", id: "f1" }) 
   };
   const tiles = () =>
     new Map(
-      [...host.querySelectorAll<HTMLElement>("[data-motion-key]")].map((el) => [
+      [...host.querySelectorAll<HTMLElement>("figure[data-motion-key]")].map((el) => [
         el.dataset.motionKey!,
         el,
       ]),
@@ -139,6 +139,97 @@ describe("album grid tiles", () => {
     expect(after.size).toBe(3);
     expect(after.get("f1/a")).toBe(before.get("f1/a"));
     expect(after.get("f1/b")).toBe(before.get("f1/b"));
+  });
+});
+
+describe("timeline headings motion", () => {
+  type Call = { el: Element; keyframes: any; options: any };
+  let calls: Call[];
+  const saved = {
+    animate: Element.prototype.animate,
+    getAnimations: Element.prototype.getAnimations,
+    rect: Element.prototype.getBoundingClientRect,
+    matchMedia: window.matchMedia,
+  };
+
+  beforeEach(() => {
+    calls = [];
+    Element.prototype.animate = function (this: Element, keyframes: any, options: any) {
+      calls.push({ el: this, keyframes, options });
+      return { finished: Promise.resolve() } as any;
+    };
+    Element.prototype.getAnimations = (() => []) as any;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const root = this.closest("[data-album-photos]");
+      if (!root) return { top: 0, left: 0, width: 0, height: 0 } as any;
+      const i = [...root.querySelectorAll("[data-motion-key]")].indexOf(this);
+      return { top: i * 60, left: 0, width: 300, height: 50 } as any;
+    };
+    window.matchMedia = (() => ({ matches: false })) as any;
+    window.innerWidth = 400;
+    window.innerHeight = 800;
+  });
+
+  afterEach(() => {
+    Element.prototype.animate = saved.animate;
+    Element.prototype.getAnimations = saved.getAnimations;
+    Element.prototype.getBoundingClientRect = saved.rect;
+    window.matchMedia = saved.matchMedia;
+    document.body.replaceChildren();
+  });
+
+  const settle = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+  const headings = (host: Element) =>
+    new Map(
+      [...host.querySelectorAll<HTMLElement>('h2[data-motion-key^="group:"]')].map((el) => [
+        el.dataset.motionKey!,
+        el,
+      ]),
+    );
+  const keyframesOf = (el: Element) => calls.filter((c) => c.el === el).map((c) => c.keyframes);
+
+  test("a month heading slides with its photos when a photo is added above it", async () => {
+    const old = [rec("o1", 60)];
+    const h = build(old);
+    document.body.append(h.host);
+    await h.reload(old);
+    await settle();
+    const before = headings(h.host);
+    const monthKey = [...before.keys()].find((k) => k !== "group:Recently added")!;
+    calls = [];
+    await h.reload([rec("fresh", 0), ...old]);
+    await settle();
+    const after = headings(h.host);
+    const slide = [{ transform: "translate(0px, -120px)" }, { transform: "none" }];
+    expect(after.get(monthKey)).toBe(before.get(monthKey));
+    expect(keyframesOf(after.get(monthKey)!)).toContainEqual(slide);
+    expect(keyframesOf(h.tiles().get("f1/o1")!)).toContainEqual(slide);
+    expect(keyframesOf(after.get("group:Recently added")!)).toContainEqual([
+      { opacity: 0 },
+      { opacity: 1 },
+    ]);
+  });
+
+  test("the heading of a month whose last photo leaves fades out where it was", async () => {
+    const list = [rec("fresh", 0), rec("o1", 60)];
+    const h = build(list);
+    document.body.append(h.host);
+    await h.reload(list);
+    await settle();
+    calls = [];
+    await h.reload([rec("fresh", 0)]);
+    await settle();
+    const fade = calls.find((c) => c.el.tagName === "H2" && c.keyframes[1]?.opacity === 0);
+    expect(fade).toBeDefined();
+    const ghost = fade!.el as HTMLElement;
+    expect(ghost.dataset.motionKey).not.toBe("group:Recently added");
+    expect(ghost.style.position).toBe("fixed");
+    expect(ghost.hasAttribute("inert")).toBe(true);
+    expect(fade!.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    expect([...headings(h.host).keys()]).toEqual(["group:Recently added"]);
   });
 });
 
