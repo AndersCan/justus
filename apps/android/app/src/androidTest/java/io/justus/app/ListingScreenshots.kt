@@ -118,9 +118,15 @@ class ListingScreenshots {
 
     find("Close", 10).click()
     Thread.sleep(1000)
-    val invite = device.wait(Until.findObject(By.desc("Invite & members")), 10000) ?: fail("invite link", "Invite")
-    invite.click()
-    find("Invite people", 20)
+    var opened = false
+    for (attempt in 1..4) {
+      if (opened) break
+      val invite = device.wait(Until.findObject(By.desc("Invite & members")), 10000) ?: fail("invite link", "Invite")
+      invite.click()
+      opened = device.wait(Until.hasObject(By.text("Invite people")), 5000)
+      Thread.sleep(1000)
+    }
+    find("Invite people", 5)
     var tries = 0
     while (device.findObject(By.text(Pattern.compile("Copy (invite )?link"))) == null && tries++ < 6) {
       device.swipe(540, 1600, 540, 600, 20)
