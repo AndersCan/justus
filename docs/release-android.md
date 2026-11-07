@@ -107,9 +107,9 @@ every release build waits for a click.
    `node apps/android/scripts/render-store-art.mjs`. Phone screenshots are
    generated, not committed: `fastlane screenshots` (emulator attached) runs
    `ListingScreenshots` and writes `images/phoneScreenshots/1_album.png`,
-   `2_photo.png` and `3_desktop.png` (gitignored). Every release takes and
+   `2_invite.png`, `3_photo.png` and `4_qr.png` (gitignored; the capture runs with a clean demo-mode status bar). Every release takes and
    uploads them. The landing page shows copies of `1_album.png` and
-   `2_photo.png` in `docs/site/src/assets/landing/`. Re-copy them from a
+   `3_photo.png` (as `2_photo.png`) in `docs/site/src/assets/landing/`. Re-copy them from a
    `store-screenshots` artifact when the app's look changes.
 
 ### A6. First upload (manual, required once)
@@ -182,7 +182,7 @@ a build. The first bundle must go through the Play Console UI.
      **internal** track with a one-line release note built from the merged PR
      titles since the last tag (`node scripts/release-note.mjs` prints it);
    - then uploads the store listing (text, icon, feature graphic) and the
-     three screenshots from the emulator step. If the screenshots are missing,
+     four screenshots from the emulator step. If the screenshots are missing,
      the run warns and Play keeps its previous ones. If the listing upload
      fails, the build is already on internal and the run turns red.
 3. **Smoke-test** the internal build on a real arm64 phone (install from the

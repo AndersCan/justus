@@ -5,7 +5,7 @@ default_platform(:android)
 AAB = "app/build/outputs/bundle/release/app-release.aab"
 TRACKS = %w[internal alpha beta production].freeze
 # Same names as Screengrab.screenshot(...) in ListingScreenshots.kt.
-SCREENSHOTS = %w[1_album 2_photo 3_desktop].freeze
+SCREENSHOTS = %w[1_album 2_invite 3_photo 4_qr].freeze
 SHOTS_DIR = File.expand_path("metadata/android/en-US/images/phoneScreenshots", __dir__)
 CHANGELOGS_DIR = File.expand_path("metadata/android/en-US/changelogs", __dir__)
 RELEASE_NOTE_SCRIPT = File.expand_path("../../../scripts/release-note.mjs", __dir__)

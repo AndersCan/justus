@@ -16,6 +16,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import java.util.regex.Pattern
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import tools.fastlane.screengrab.FileWritingScreenshotCallback
@@ -32,6 +33,26 @@ class ListingScreenshots {
   private val device = UiDevice.getInstance(instrumentation)
   private val target = instrumentation.targetContext
   private val photos = listOf("happy-dog.jpg", "swing.jpg", "vacation.jpg")
+
+  // System UI demo mode: full battery, no notifications, fixed clock. Shell commands, so no app permission.
+  private fun demo(vararg args: String) {
+    device.executeShellCommand("am broadcast -a com.android.systemui.demo -e command " + args.joinToString(" "))
+  }
+
+  @Before
+  fun cleanStatusBar() {
+    device.executeShellCommand("settings put global sysui_demo_allowed 1")
+    demo("enter")
+    demo("clock -e hhmm 1200")
+    demo("battery -e level 100 -e plugged false")
+    demo("network -e wifi show -e level 4 -e mobile hide")
+    demo("notifications -e visible false")
+  }
+
+  @After
+  fun restoreStatusBar() {
+    demo("exit")
+  }
 
   @Before
   fun seedPhotos() {
@@ -114,7 +135,7 @@ class ListingScreenshots {
     val tile = device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first()
     tile.click()
     Thread.sleep(2000)
-    captioned("2_photo", "You choose who joins. No cloud, no account")
+    captioned("3_photo", "Photos go phone to phone. No cloud, no account")
 
     find("Close", 10).click()
     Thread.sleep(1000)
@@ -127,13 +148,15 @@ class ListingScreenshots {
       Thread.sleep(1000)
     }
     if (!opened) fail("invite page did not open", "Copy link")
-    var tries = 0
-    while (device.findObject(By.text(Pattern.compile("Copy (invite )?link"))) == null && tries++ < 6) {
-      device.swipe(540, 1600, 540, 600, 20)
-    }
-    device.wait(Until.findObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000) ?: fail("copy button", "Copy link")
+    // A real request needs a second phone, so the owner's side is shown by the invite card,
+    // which says they choose who gets in.
+    captioned("2_invite", "You choose who joins. Nobody sees a photo until you accept")
+
+    find("With them now? Show a QR code", 10).click()
+    device.wait(Until.hasObject(By.text("They scan this with their phone's camera.")), 10000)
+      ?: fail("qr code", "QR")
     Thread.sleep(500)
-    captioned("3_desktop", "Albums also open on desktop")
+    captioned("4_qr", "Invite someone in person with a QR code")
   }
 
   private fun captioned(name: String, caption: String) {
