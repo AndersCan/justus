@@ -39,18 +39,32 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   const aImg = a.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
   await expect(aImg).toBeAttached({ timeout: 20_000 });
 
-  // --- A: copy the invite link off the album page ---
+  // --- A: open the invite panel and copy the link ---
+  await a.getByRole("link", { name: /Invite & members/ }).first().click();
+  const copyButton = a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ });
+  await expect(copyButton).toBeVisible({ timeout: 20_000 });
   const link = await a.evaluate(
     () =>
-      new Promise<string>((resolve) => {
+      new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("invite link was never copied")), 10_000);
         Object.defineProperty(navigator, "clipboard", {
-          value: { writeText: async (text: string) => resolve(text) },
+          value: {
+            writeText: async (text: string) => {
+              clearTimeout(timer);
+              resolve(text);
+            },
+          },
           configurable: true,
         });
         const button = [...document.querySelectorAll("button")].find((el) =>
           /^(Copy invite link|Copy link)$/.test(el.textContent?.trim() ?? ""),
         );
-        button?.click();
+        if (!button) {
+          clearTimeout(timer);
+          reject(new Error("no copy button on the page"));
+          return;
+        }
+        button.click();
       }),
   );
   expect(link).toMatch(/^justus:\/\/join\//);
