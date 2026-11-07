@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectFile } from "@mantaq/inspect";
 import { expect, test } from "vite-plus/test";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -35,3 +36,29 @@ test("every manifest file is shown on its feature page", () => {
   });
   expect(missing).toEqual([]);
 });
+
+test("every state a page names exists, and journey pages name some", async () => {
+  const statesOf = new Map<string, Set<string>>();
+  for (const file of listed) {
+    const loaded = await inspectFile(join(root, file), {});
+    for (const machine of loaded.machines) {
+      statesOf.set(machine.id, new Set(machine.states.map((state) => state.id)));
+    }
+  }
+  const problems: string[] = [];
+  for (const key of ["flows", ...Object.keys(manifest)]) {
+    const page = readFileSync(join(root, "docs/site/src/content/docs", `${key}.mdx`), "utf8");
+    const cited = [...page.matchAll(/`([a-z][A-Za-z]*)\.([a-z][A-Za-z]*)`/g)];
+    for (const [, id, state] of cited) {
+      const states = statesOf.get(id);
+      if (states === undefined) problems.push(`${key}: ${id}.${state}: no machine ${id}`);
+      else if (!states.has(state)) {
+        problems.push(`${key}: ${id}.${state}: ${id} has ${[...states].join(", ")}`);
+      }
+    }
+    if (key !== "flows" && key !== "internals" && cited.length === 0) {
+      problems.push(`${key}: names no state`);
+    }
+  }
+  expect(problems).toEqual([]);
+}, 120_000);

@@ -24,9 +24,12 @@ Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus ho
 `pnpm site:build` runs `astro build` with the config in
 `docs/site/astro.config.mjs` and the `@mantaq/inspect` Astro integration over
 every machine file in `docs/flows/manifest.json`. The site lands in `site-dist/`
-(`index.html` plus one folder per feature); this is what CI publishes to Pages.
-Each feature page (`docs/site/src/content/docs/<feature>.mdx`) is a few lines of
-prose followed by one `<Machine src="..." />` per machine file. Each `<Machine>`
+(`index.html` plus one folder per journey and one for Internals); this is what CI publishes to Pages.
+Each manifest key is a page (`docs/site/src/content/docs/<key>.mdx`): five user journeys
+(first-run, make-an-album, invite-someone, join-an-album, share-photos), each a walkthrough
+table of what the person sees, what they do and the state, then one `<Machine src="..." />`
+per machine file. Plumbing (router, prefs, logs, photo viewer, app lock) is on the `internals`
+page. Every `machine.state` a page cites in backticks must exist; `scripts/flows.test.ts` checks it. Each `<Machine>`
 shows its design findings above the diagram. Factory machines are driven live;
 singleton machines stay static walks. The Runs list holds the tests recorded with
 `recordRuns`, read from the `__runs__/` folder next to the machine file.
@@ -43,7 +46,7 @@ key, a page in `docs/site/src/content/docs/` and the sidebar and index pick it u
 
 `pnpm flows:dev [feature|file ...]` serves the live viz page for the named
 machines and redraws it on save. A target is a feature key from
-`manifest.json` (`invite-requests`) or a repo-relative `.ts` machine file
+`manifest.json` (`join-an-album`) or a repo-relative `.ts` machine file
 (`apps/web/src/machines/sharing/invite-link-machine.ts`); the file need not be in
 the manifest yet. No targets means every file in the manifest. An unknown
 target prints the known features to stderr and exits 1.

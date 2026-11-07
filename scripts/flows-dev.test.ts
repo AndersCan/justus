@@ -57,5 +57,5 @@ test("a machine file opens the live page with its recorded runs", async () => {
 test("an unknown target exits 1 and lists the features", () => {
   const result = spawnSync("node", [script, "nope"], { cwd: root, encoding: "utf8" });
   expect(result.status).toBe(1);
-  expect(result.stderr).toContain("Features: albums");
+  expect(result.stderr).toContain("Features: first-run");
 });

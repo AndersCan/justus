@@ -20,6 +20,12 @@ export default defineConfig({
   publicDir: "./docs/site/public",
   site: "https://anderscan.github.io",
   base: "/justus",
+  redirects: {
+    "/albums": "/justus/make-an-album/",
+    "/sharing": "/justus/join-an-album/",
+    "/invite-requests": "/justus/join-an-album/",
+    "/app": "/justus/internals/",
+  },
   vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
   integrations: [
     mantaqViz({ machines: Object.values(manifest).flat() }),
