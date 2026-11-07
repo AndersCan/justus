@@ -39,3 +39,17 @@ test("refreshing the sharing view keeps the honest empty states", async ({ page 
   await expect(page.getByText("No prompts right now.")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Just you — invite someone to share.")).toBeVisible();
 });
+
+test("an expired invite link says so and sends nothing", async ({ page }) => {
+  await page.goto("/join");
+  await page
+    .getByLabel("Invite link")
+    .fill(`justus://join?i=${"a".repeat(64)}&o=${"b".repeat(64)}&e=1&n=Trip&a=Nils`);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "This invite link has expired." });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Ask Nils for a new one.")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Ask to join" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "OK" }).click();
+  await expect(dialog).toBeHidden();
+});

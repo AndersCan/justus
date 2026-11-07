@@ -69,6 +69,36 @@ describe("parseInviteLink old links", () => {
 });
 
 describe("buildInviteLink", () => {
+  test("round-trips the end time in whole seconds", () => {
+    const invite = {
+      code: A,
+      owner: B,
+      album: "Lisbon",
+      ownerName: "Nils",
+      expiresAt: 1_700_000_123_000,
+    };
+    expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
+    expect(buildInviteLink({ ...invite, expiresAt: 1_700_000_123_999 })).toContain("e=1700000123&");
+  });
+
+  test("a link without e never expires", () => {
+    const link = buildInviteLink({ code: A, owner: B, album: "Lisbon", ownerName: "Nils" });
+    expect(link).not.toContain("e=");
+    const parsed = parseInviteLink(link);
+    if (parsed.kind !== "invite") throw new Error("expected invite");
+    expect(parsed.invite.expiresAt).toBeUndefined();
+  });
+
+  test("e=1 is one second after the epoch", () => {
+    const parsed = parseInviteLink(`justus://join?i=${A}&o=${B}&e=1`);
+    if (parsed.kind !== "invite") throw new Error("expected invite");
+    expect(parsed.invite.expiresAt).toBe(1000);
+  });
+
+  test.each(["", "abc", "0", "-5", "1.5", "1e3", "1234567890123"])("garbled e=%s", (e) => {
+    expect(parseInviteLink(`justus://join?i=${A}&o=${B}&e=${e}`)).toEqual({ kind: "garbled" });
+  });
+
   test("round-trips, including awkward names", () => {
     const invite = { code: A, owner: B, album: "Spain & 2026 = fun?", ownerName: "Zoë #1" };
     expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });

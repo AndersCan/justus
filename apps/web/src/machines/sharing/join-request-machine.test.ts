@@ -6,6 +6,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { buildInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
 import {
+  EXPIRED_LINK,
   GARBLED_LINK,
   SEND_FAILED,
   oldLinkMessage,
@@ -264,6 +265,77 @@ describe("waitingForAnswer", () => {
   });
 });
 
+describe("linkExpired", () => {
+  const END = 600_000;
+  const timed = buildInviteLink({ ...INVITE, expiresAt: END });
+
+  test("an open before the end asks to join", async () => {
+    const s = setup();
+    s.clock.advance(END - 1);
+    await s.send("openLink", { text: timed });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+
+  test("an open at the end shows the expired screen and sends nothing", async () => {
+    let asked = 0;
+    const s = setup({ port: { ask: async () => (asked++, [undefined, {}]) } });
+    s.clock.advance(END);
+    await s.send("openLink", { text: timed });
+    expect(s.actor.state.name).toBe("linkExpired");
+    expect(payload(s)).toEqual({ ...INVITE, expiresAt: END });
+    await s.send("askToJoin");
+    expect(s.actor.state.name).toBe("linkExpired");
+    expect(asked).toBe(0);
+    expect(EXPIRED_LINK).toBe("This invite link has expired.");
+  });
+
+  test.each([
+    [{ kind: "own", folderId: "f1" }, "joined"],
+    [{ kind: "member", folderId: "f1" }, "joined"],
+    [{ kind: "waiting" }, "waitingForAnswer"],
+    [{ kind: "declined" }, "declined"],
+  ] as const)("a late link for a known %j shows %s", async (known, name) => {
+    const s = setup({ known });
+    s.clock.advance(END + 1);
+    await s.send("openLink", { text: timed });
+    expect(s.actor.state.name).toBe(name);
+  });
+
+  test("a link without an end opens however late", async () => {
+    const s = setup();
+    s.clock.advance(10 ** 12);
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+
+  test("asked in time, the end passing changes nothing, then accepted joins", async () => {
+    const s = setup();
+    await s.send("openLink", { text: timed });
+    await s.send("askToJoin");
+    s.clock.advance(END * 2);
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+    expect(s.actor.state.name).toBe("joined");
+  });
+
+  test("OK goes to noInvite; a garbled paste keeps the expired screen", async () => {
+    const s = setup();
+    s.clock.advance(END);
+    await s.send("openLink", { text: timed });
+    await s.send("openLink", { text: "nope" });
+    expect(s.actor.state.name).toBe("linkExpired");
+    await s.send("dismissExpired");
+    expect(s.actor.state.name).toBe("noInvite");
+  });
+
+  test("a request row opens from the expired screen", async () => {
+    const s = setup();
+    s.clock.advance(END);
+    await s.send("openLink", { text: timed });
+    await s.send("reopenRequest", { ask: ask("waiting") });
+    expect(s.actor.state.name).toBe("waitingForAnswer");
+  });
+});
+
 describe("declined", () => {
   test("dismissDecline goes to noInvite", async () => {
     const s = setup();
@@ -376,12 +448,59 @@ test("Maya: opens a link from before the new key", async () => {
   expect(actor.state.name).toBe("unusableLink");
 });
 
+test("Maya opens Nils's link after it ended", async () => {
+  const clock = VirtualClock();
+  const actor = make({ clock });
+  const send = async (type: string, payload?: unknown) => {
+    actor.send({ type, payload } as never);
+    await actor.settled();
+  };
+  const timed = buildInviteLink({ ...INVITE, expiresAt: 600_000 });
+  await send("openLink", { text: timed });
+  await send("askToJoin");
+  await send("closeWaiting");
+  clock.advance(600_000);
+  await send("openLink", { text: timed });
+  expect(actor.state.name).toBe("linkExpired");
+});
+
+test("Maya: asks in time, the link ends, Nils accepts", async () => {
+  const clock = VirtualClock();
+  const actor = make({ clock });
+  const send = async (type: string, payload?: unknown) => {
+    actor.send({ type, payload } as never);
+    await actor.settled();
+  };
+  await send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+  await send("askToJoin");
+  clock.advance(700_000);
+  await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+  expect(actor.state.name).toBe("joined");
+});
+
 describe("joiner design", () => {
   const target = {
     id: "joinRequest",
     create: () => createJoinRequestActor({ clock: VirtualClock() }),
+    tests: [
+      {
+        name: "Maya opens Nils's link after it ended",
+        steps: [
+          { kind: "advance" as const, ms: 600_000 },
+          {
+            kind: "event" as const,
+            event: "openLink",
+            payload: { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) },
+          },
+        ],
+      },
+    ],
     payloads: {
-      openLink: [{ text: LINK }, { text: "nope" }],
+      openLink: [
+        { text: LINK },
+        { text: "nope" },
+        { text: buildInviteLink({ ...INVITE, expiresAt: 1 }) },
+      ],
       reopenRequest: [{ ask: { ...ask("waiting") } }, { ask: { ...ask("declined") } }],
       requestAnswered: [
         { code: INVITE.code, answer: "accepted", folderId: "f1" },

@@ -2,6 +2,7 @@ import { html } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
+import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
 import { syncActor } from "../machines/sync-machine";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
@@ -168,6 +169,17 @@ export function joinSheet() {
     if (state === "noInvite" || state === "unusableLink" || state === "joined" || !invite)
       return null;
     const owner = invite.ownerName;
+    if (state === "linkExpired") {
+      return sheet(
+        EXPIRED_LINK,
+        html`<h3 class="break-words text-base font-semibold text-fg">${EXPIRED_LINK}</h3>
+          <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
+          <div class="mt-4 flex justify-end">
+            <button class="ui-btn-primary" @click=${() => join.dismissExpired()}>OK</button>
+          </div>`,
+        () => join.dismissExpired(),
+      );
+    }
     if (state === "decidingToAsk" || state === "sendingRequest") {
       const sending = state === "sendingRequest";
       const title = `Ask to join “${invite.album}”?`;

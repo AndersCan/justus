@@ -33,6 +33,8 @@ export type JoinPort = { ask(invite: JoinInvite): Promise<[unknown, unknown]> };
 export const GARBLED_LINK = "That invite doesn't look right. Check you copied all of it.";
 export const oldLinkMessage = (ownerName: string) =>
   `This link no longer works. Ask ${ownerName} for a new invite link.`;
+export const EXPIRED_LINK = "This invite link has expired.";
+export const expiredBody = (owner: string) => `Ask ${owner} for a new one.`;
 export const SEND_FAILED = "Couldn't send your request. Try again.";
 
 /** No invite is open. */
@@ -47,6 +49,8 @@ const sendingRequest = state("sendingRequest")<JoinInvite>();
 const waitingForAnswer = state("waitingForAnswer")<JoinInvite>();
 /** "<owner> didn't accept your request." The answer is final. */
 const declined = state("declined")<JoinInvite>();
+/** The link's end time has passed; nothing is sent. */
+const linkExpired = state("linkExpired")<JoinInvite>();
 /** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
 const joined = state("joined")();
 
@@ -62,6 +66,8 @@ export const notNow = event("notNow")();
 export const closeWaiting = event("closeWaiting")();
 /** The joiner taps OK on the declined screen. */
 export const dismissDecline = event("dismissDecline")();
+/** The joiner taps OK on the expired screen. */
+export const dismissExpired = event("dismissExpired")();
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<{
   code: string;
@@ -97,6 +103,7 @@ export function createJoinRequestActor(options: {
       notNow,
       closeWaiting,
       dismissDecline,
+      dismissExpired,
       requestAnswered,
     ],
     internal: [requestSent, requestFailed],
@@ -109,6 +116,7 @@ export function createJoinRequestActor(options: {
       sendingRequest,
       waitingForAnswer,
       declined,
+      linkExpired,
     ],
     initial: noInvite,
     clock,
@@ -121,11 +129,12 @@ export function createJoinRequestActor(options: {
         decidingToAsk,
         waitingForAnswer,
         declined,
+        linkExpired,
       ]) {
         /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
           event: openLink,
-          to: [unusableLink, joined, decidingToAsk, waitingForAnswer, declined],
+          to: [unusableLink, joined, decidingToAsk, waitingForAnswer, declined, linkExpired],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
             if (parsed.kind !== "invite") {
@@ -142,6 +151,9 @@ export function createJoinRequestActor(options: {
             }
             if (found.kind === "waiting") return { state: waitingForAnswer.create(invite) };
             if (found.kind === "declined") return { state: declined.create(invite) };
+            if (invite.expiresAt !== undefined && clock.now() >= invite.expiresAt) {
+              return { state: linkExpired.create(invite) };
+            }
             return { state: decidingToAsk.create(invite) };
           },
         });
@@ -227,6 +239,13 @@ export function createJoinRequestActor(options: {
         },
       });
 
+      /** The joiner closes the expired screen. */
+      m.on(linkExpired, {
+        event: dismissExpired,
+        to: [noInvite],
+        handler: () => ({ state: noInvite }),
+      });
+
       /** The joiner acknowledges the answer. */
       m.on(declined, {
         event: dismissDecline,
@@ -248,6 +267,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
       return waitingForAnswer.create(invite);
     case "declined":
       return declined.create(invite);
+    case "linkExpired":
+      return linkExpired.create(invite);
     default:
       return unusableLink;
   }

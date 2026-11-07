@@ -7,6 +7,8 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 
 ## Unreleased · next release after v0.2.1 · peer protocol 2, saved state 2
 
+- **Invite links carry an end time** (`e=`). Who: testers on internal builds. An app
+  from before this change ignores it, and links made before it never expire.
 - **Album keys.** Every album you started moves to a new key on first start; its
   photos stay. Members are dropped. Who: every album owner and member. Do: owners
   send a new invite link; members ask for one.

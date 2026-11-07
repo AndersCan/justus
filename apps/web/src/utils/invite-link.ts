@@ -9,6 +9,8 @@ export type JoinInvite = {
   album: string;
   /** Owner's display name hint. */
   ownerName: string;
+  /** When the link stops working, in ms since the epoch. Absent: never. */
+  expiresAt?: number;
 };
 
 export type ParsedInvite =
@@ -21,6 +23,7 @@ export const MAX_HINT = 80;
 const FALLBACK_ALBUM = "this album";
 const FALLBACK_OWNER = "the Admin";
 const HEX64 = /^[0-9a-f]{64}$/i;
+const SECONDS = /^\d{1,12}$/;
 const LINK = /justus:\/\/join\?([^\s]*)/i;
 const OLD_LINK = /justus:\/\/join\/[0-9a-f]{64}(?![0-9a-f])(?:\?([^\s]*))?/i;
 
@@ -33,6 +36,7 @@ export function buildInviteLink(invite: JoinInvite): string {
   const params = new URLSearchParams({
     i: invite.code.toLowerCase(),
     o: invite.owner.toLowerCase(),
+    ...(invite.expiresAt === undefined ? {} : { e: String(Math.floor(invite.expiresAt / 1000)) }),
     n: invite.album,
     a: invite.ownerName,
   });
@@ -54,6 +58,8 @@ export function parseInviteLink(text: string): ParsedInvite {
   if (code === null || owner === null || !HEX64.test(code) || !HEX64.test(owner)) {
     return { kind: "garbled" };
   }
+  const end = params.get("e");
+  if (end !== null && (!SECONDS.test(end) || Number(end) <= 0)) return { kind: "garbled" };
   return {
     kind: "invite",
     invite: {
@@ -61,6 +67,7 @@ export function parseInviteLink(text: string): ParsedInvite {
       owner: owner.toLowerCase(),
       album: hint(params.get("n"), FALLBACK_ALBUM),
       ownerName: hint(params.get("a"), FALLBACK_OWNER),
+      ...(end === null ? {} : { expiresAt: Number(end) * 1000 }),
     },
   };
 }
