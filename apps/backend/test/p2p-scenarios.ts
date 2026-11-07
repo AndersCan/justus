@@ -856,6 +856,138 @@ export const scenarios: Scenario[] = [
       t.ok(archived?.code === "justus.photos/album-archived", "ALBUM_ARCHIVED");
     },
   },
+  {
+    name: "leave: a Member leaves, drops off the Admin's people list, and needs a new ask to come back",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, joinerFolderId } = await sharedAlbum(net);
+      const joinerDrive = (await albumIn(joiner.store, shareKey))!.driveKey;
+      t.noErr(
+        await joiner.store.addBytes("b.jpg", new Uint8Array([9, 9, 9]), joinerFolderId),
+        "joiner adds a photo",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (photos) => photos.length === 2,
+        "the Member's photo on the Admin",
+      );
+      const purged: string[] = [];
+      const released: string[] = [];
+      const purge = joiner.drives.purge.bind(joiner.drives);
+      const release = joiner.drives.release.bind(joiner.drives);
+      joiner.drives.purge = (key) => (purged.push(key), purge(key));
+      joiner.drives.release = (drive) => (released.push(drive.key), release(drive));
+      t.noErr(await joiner.store.leaveAlbum(joinerFolderId), "leaveAlbum");
+      const after = await joiner.store.folders();
+      t.eq(
+        [after.folders.length, after.archived.length, after.deleted.length],
+        [0, 0, 0],
+        "the album is gone from the Member",
+      );
+      await eventually(
+        () => admin.store.status(),
+        (st: SyncStatus) => !st.members.some((m: Member) => m.key === joinerDrive),
+        "the Member off the Admin's people list",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (photos) => photos.length === 1,
+        "the Member's photo off the Admin",
+      );
+      await eventually(
+        async () => ((await joiner.store.debugState()) as { gone: unknown[] }).gone,
+        (gone) => gone.length === 0,
+        "the Member forgets the album",
+      );
+      t.eq(purged.length, 1, "the album's drive is purged on the Member");
+      t.ok(purged[0] !== joinerDrive, "the purged drive is not the Member's own");
+      t.ok(released.includes(joinerDrive), "the Member's own drive is released");
+      const [cannot] = await admin.store.leaveAlbum(folderId);
+      t.ok(cannot?.code === "justus.photos/admin-cannot-leave", "ADMIN_CANNOT_LEAVE");
+    },
+  },
+  {
+    name: "leave: after the Admin drops a Member, the old invite link starts a fresh ask",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, invite, adminIdentity } = await askedAlbum(net);
+      const first = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, first.requests[0].requesterKey, true), "accept");
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member" && !f.pending,
+        "the joiner is a Member",
+      );
+      const answers = () =>
+        (admin.store.debugState() as { folders: { answers?: Record<string, string> }[] }).folders[0]
+          .answers ?? {};
+      await eventually(
+        async () => Object.values(answers()),
+        (v) => v.length === 1 && v[0] === "accepted",
+        "the Admin records the answer",
+      );
+      t.noErr(await joiner.store.leaveAlbum(album!.id), "leaveAlbum");
+      await eventually(
+        async () => Object.keys(answers()).length,
+        (n) => n === 0,
+        "the Admin takes back the answer",
+      );
+      t.noErr(
+        await joiner.store.ask({ code: invite.code, owner: adminIdentity }),
+        "the old link is used again",
+      );
+      const again = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "a fresh ask on the Admin",
+      );
+      t.eq(again.requests[0].viaInvite, true, "the fresh ask came through the old link");
+    },
+  },
+  {
+    name: "leave: a Member who leaves while the Admin's phone is off is dropped when it comes back",
+    async run(net, t) {
+      const { admin, joiner, shareKey, joinerFolderId } = await sharedAlbum(net);
+      const joinerDrive = (await albumIn(joiner.store, shareKey))!.driveKey;
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (photos) => photos.length === 1,
+        "the first sync",
+      );
+      const adminDir = admin.storageDir;
+      await admin.stop();
+      t.noErr(await joiner.store.leaveAlbum(joinerFolderId), "leaveAlbum");
+      const waiting = (await joiner.store.debugState()) as { gone: Array<{ kind: string }> };
+      t.eq(
+        waiting.gone.map((g) => g.kind),
+        ["waitingForAdminToSeeYouLeft"],
+        "the Member waits for the Admin",
+      );
+      await joiner.stop();
+      const joinerBack = await net.peer("Desktop", joiner.storageDir);
+      const stillWaiting = (await joinerBack.store.debugState()) as {
+        gone: Array<{ kind: string }>;
+      };
+      t.eq(
+        stillWaiting.gone.map((g) => g.kind),
+        ["waitingForAdminToSeeYouLeft"],
+        "the waiting survives a restart",
+      );
+      const adminBack = await net.peer("Phone", adminDir);
+      await eventually(
+        () => adminBack.store.status(),
+        (st: SyncStatus) => !st.members.some((m: Member) => m.key === joinerDrive),
+        "the Member dropped once the Admin is back",
+      );
+      await eventually(
+        async () => ((await joinerBack.store.debugState()) as { gone: unknown[] }).gone,
+        (gone) => gone.length === 0,
+        "the Member forgets the album",
+      );
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */

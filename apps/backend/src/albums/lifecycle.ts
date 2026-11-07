@@ -13,6 +13,7 @@ import { DEFAULT_ASK_OWNER, isTextJSON, peerName } from "../membership/records";
 import type { Drive } from "../ports/drive-store";
 
 export const DRIVE_PATH_DELETED = "/deleted.json";
+export const DRIVE_PATH_LEFT = "/left.json";
 /** Same cap as the other peer records: peers control these bytes. */
 const MAX_NOTE_BYTES = 1024 * 1024;
 /** The directories of an album's drive that hold photo bytes. */
@@ -73,6 +74,75 @@ export async function readDeleteNote(
     options.log("error", { where: "readDeleteNote", err: reasonOf(thrown) });
     return undefined;
   }
+}
+
+/** Member: writes `/left.json` into the member's own drive in the album. */
+export async function writeLeftNote(drive: Drive, options: { at: number }): Promise<NoteResult> {
+  try {
+    const note = { version: 1, leftAt: options.at };
+    await drive.put(DRIVE_PATH_LEFT, Buffer.from(JSON.stringify(note)));
+    return [null, undefined];
+  } catch (thrown: unknown) {
+    return [{ reason: reasonOf(thrown) }, null];
+  }
+}
+
+/** When a left note says the member left, or undefined for a missing or malformed note. */
+export function parseLeftNote(text: string | null): { leftAt: number } | undefined {
+  if (text === null) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (!isTextJSON(parsed) || Array.isArray(parsed)) return undefined;
+  const { leftAt } = parsed;
+  if (typeof leftAt !== "number" || !Number.isFinite(leftAt)) return undefined;
+  return { leftAt };
+}
+
+/** A member's left note from their drive, or undefined when there is none (or it cannot be read yet). */
+export async function readLeftNote(
+  drive: Drive,
+  options: { log: LifecycleLog; timeoutMs?: number },
+): Promise<{ leftAt: number } | undefined> {
+  try {
+    const text = await drive.readSmall(
+      DRIVE_PATH_LEFT,
+      MAX_NOTE_BYTES,
+      options.timeoutMs === undefined ? undefined : { timeoutMs: options.timeoutMs },
+    );
+    return parseLeftNote(text ?? null);
+  } catch (thrown: unknown) {
+    options.log("error", { where: "readLeftNote", err: reasonOf(thrown) });
+    return undefined;
+  }
+}
+
+/** Removes a leftover left note, as when the same drive joins the album again. Never rejects. */
+export async function clearLeftNote(drive: Drive, options: { log: LifecycleLog }): Promise<void> {
+  try {
+    if ((await drive.readSmall(DRIVE_PATH_LEFT, MAX_NOTE_BYTES)) === undefined) return;
+    await drive.del(DRIVE_PATH_LEFT);
+  } catch (thrown: unknown) {
+    options.log("error", { where: "clearLeftNote", err: reasonOf(thrown) });
+  }
+}
+
+/** Whether the Admin's member list (as text) shows this phone gone: the list must exist and not list `memberKey`. */
+export function adminDroppedYou(registryText: string | null, memberKey: string): boolean {
+  if (registryText === null) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(registryText);
+  } catch {
+    return false;
+  }
+  if (!isTextJSON(parsed) || !isTextJSON(parsed.members) || Array.isArray(parsed.members)) {
+    return false;
+  }
+  return !(memberKey in parsed.members);
 }
 
 /** Clears the bytes of every photo and thumbnail in `drive`, then deletes their entries. Safe to run twice. */

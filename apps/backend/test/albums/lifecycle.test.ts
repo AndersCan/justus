@@ -5,11 +5,18 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPhotoStore } from "../../src/photo-store.ts";
-import { deleteOwnPhotos, parseDeleteNote } from "../../src/albums/lifecycle.ts";
+import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
+import {
+  adminDroppedYou,
+  clearLeftNote,
+  deleteOwnPhotos,
+  parseDeleteNote,
+  parseLeftNote,
+} from "../../src/albums/lifecycle.ts";
 import { inviteTopic } from "../../src/membership/invite.ts";
 import type { Drive } from "../../src/ports/drive-store.ts";
 import { FakeDrive, joinAsMember, makeFakeDeps } from "../fake-drive.ts";
+type SyncMember = Awaited<ReturnType<PhotoStore["status"]>>["members"][number];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -276,5 +283,187 @@ describe("deleteOwnPhotos", () => {
       "error",
       expect.objectContaining({ path: "/photos/a", err: "boom" }),
     );
+  });
+});
+
+describe("leave", () => {
+  async function memberOf(
+    album: { id: string; shareKey: string },
+    admin: ReturnType<typeof device>,
+  ) {
+    const member = device("Maya");
+    await member.store.ready();
+    await joinAsMember(admin.store, album.id, member.store, album.shareKey);
+    const mine = (await member.store.folders()).folders.find((f) => f.shareKey === album.shareKey)!;
+    return { member, mine };
+  }
+
+  it("a Viewer's leave tells nobody and keeps nothing", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const viewer = device("Vera");
+    await viewer.store.ready();
+    await viewer.store.join(album.shareKey);
+    const asked = (await viewer.store.folders()).folders.find(
+      (f) => f.shareKey === album.shareKey,
+    )!;
+    expect(asked.role).toBe("reader");
+    const put = vi.spyOn(FakeDrive.prototype, "put");
+    try {
+      expect((await viewer.store.leaveAlbum(asked.id))[0]).toBeNull();
+      expect(put.mock.calls.some((c) => c[0] === "/left.json")).toBe(false);
+    } finally {
+      put.mockRestore();
+    }
+    const view = await viewer.store.folders();
+    expect([...view.folders, ...view.archived, ...view.deleted]).toEqual([]);
+    expect((viewer.store.debugState() as { gone: unknown[] }).gone).toEqual([]);
+    expect((await admin.store.folders()).folders.map((f) => f.id)).toEqual([album.id]);
+  });
+
+  it("a Member who leaves is kept as waiting, and the Admin is the only one who cannot leave", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    const state = member.store.debugState() as { gone: Array<{ kind: string }> };
+    expect(state.gone.map((g) => g.kind)).toEqual(["waitingForAdminToSeeYouLeft"]);
+    expect((await admin.store.leaveAlbum(album.id))[0]?.code).toBe(
+      "justus.photos/admin-cannot-leave",
+    );
+    expect((await member.store.leaveAlbum("nope"))[0]?.code).toBe("justus.photos/folder-not-found");
+  });
+
+  it("keeps the album when the left note cannot be written", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    const put = FakeDrive.prototype.put;
+    const spy = vi.spyOn(FakeDrive.prototype, "put").mockImplementation(function (
+      this: FakeDrive,
+      ...args: Parameters<FakeDrive["put"]>
+    ) {
+      if (args[0] === "/left.json") return Promise.reject(new Error("disk full"));
+      return put.apply(this, args);
+    });
+    try {
+      const [error] = await member.store.leaveAlbum(mine.id);
+      expect(error?.code).toBe("justus.photos/album-not-changed");
+      expect(error?.message).toContain("disk full");
+    } finally {
+      spy.mockRestore();
+    }
+    expect((await member.store.folders()).folders.map((f) => f.id)).toEqual([mine.id]);
+    expect((member.store.debugState() as { gone: unknown[] }).gone).toEqual([]);
+  });
+
+  it("an old left note does not drop a member who joined again", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    const now = vi.spyOn(Date, "now").mockReturnValue(1);
+    try {
+      expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    } finally {
+      now.mockRestore();
+    }
+    await sleep(1_000);
+    const members = (await admin.store.status()).members.filter((m: SyncMember) => !m.admin);
+    expect(members.map((m: SyncMember) => m.key)).toEqual([mine.driveKey]);
+  });
+
+  async function droppedByAdmin(
+    admin: ReturnType<typeof device>,
+    member: ReturnType<typeof device>,
+    mine: { id: string },
+  ) {
+    expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    for (let i = 0; i < 100; i++) {
+      const members = (await admin.store.status()).members.filter((m: SyncMember) => !m.admin);
+      if (members.length === 0) return;
+      await sleep(100);
+    }
+    throw new Error("the Member was not dropped");
+  }
+
+  it("joining again after leaving removes the old left note, and the Member stays", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    await droppedByAdmin(admin, member, mine);
+    const del = vi.spyOn(FakeDrive.prototype, "del");
+    try {
+      await joinAsMember(admin.store, album.id, member.store, album.shareKey);
+      expect(del.mock.calls.some((c) => c[0] === "/left.json")).toBe(true);
+    } finally {
+      del.mockRestore();
+    }
+    await sleep(500);
+    expect((await admin.store.status()).members.filter((m: SyncMember) => !m.admin)).toHaveLength(
+      1,
+    );
+  }, 20_000);
+
+  it("a Member whose note is newer than the join is dropped", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    for (let i = 0; i < 100; i++) {
+      const members = (await admin.store.status()).members.filter((m: SyncMember) => !m.admin);
+      if (members.length === 0) break;
+      await sleep(100);
+    }
+    expect((await admin.store.status()).members.filter((m: SyncMember) => !m.admin)).toEqual([]);
+  });
+});
+
+describe("left note", () => {
+  it("reads when the member left", () => {
+    expect(parseLeftNote(JSON.stringify({ version: 1, leftAt: 5 }))).toEqual({ leftAt: 5 });
+  });
+
+  it("ignores a missing, malformed or wrongly typed note", () => {
+    for (const text of [null, "", "nope", "[]", "{}", '{"leftAt":"5"}', '{"leftAt":null}']) {
+      expect(parseLeftNote(text)).toBeUndefined();
+    }
+  });
+});
+
+describe("clearLeftNote", () => {
+  const log = () => {};
+  const stub = (files: Map<string, string>, readFails = false) =>
+    ({
+      readSmall: async (path: string) => {
+        if (readFails) throw new Error("boom");
+        return files.get(path);
+      },
+      del: async (path: string) => {
+        files.delete(path);
+      },
+    }) as unknown as Drive;
+
+  it("removes a left note", async () => {
+    const files = new Map([["/left.json", '{"version":1,"leftAt":5}']]);
+    await clearLeftNote(stub(files), { log });
+    expect(files.has("/left.json")).toBe(false);
+  });
+
+  it("does nothing when there is no note, and never rejects", async () => {
+    const files = new Map([["/other.json", "{}"]]);
+    await clearLeftNote(stub(files), { log });
+    expect([...files.keys()]).toEqual(["/other.json"]);
+    await expect(clearLeftNote(stub(files, true), { log })).resolves.toBeUndefined();
+  });
+});
+
+describe("adminDroppedYou", () => {
+  const list = (keys: string[]) =>
+    JSON.stringify({ version: 1, members: Object.fromEntries(keys.map((k) => [k, { key: k }])) });
+
+  it("is true only when the list exists and lacks this drive", () => {
+    expect(adminDroppedYou(list(["b"]), "a")).toBe(true);
+    expect(adminDroppedYou(list([]), "a")).toBe(true);
+    expect(adminDroppedYou(list(["a", "b"]), "a")).toBe(false);
+  });
+
+  it("an empty or missing member list file does not count as the Admin dropping you", () => {
+    for (const text of [null, "", "nope", "{}", "[]", '{"members":[]}', '{"members":null}']) {
+      expect(adminDroppedYou(text, "a")).toBe(false);
+    }
   });
 });

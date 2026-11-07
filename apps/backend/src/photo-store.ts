@@ -24,7 +24,15 @@ import {
   type AlbumLifecyclePort,
   type Keep,
 } from "./albums/album-lifecycle-machine";
-import { deleteOwnPhotos, readDeleteNote, writeDeleteNote } from "./albums/lifecycle";
+import {
+  adminDroppedYou,
+  clearLeftNote,
+  deleteOwnPhotos,
+  readDeleteNote,
+  readLeftNote,
+  writeDeleteNote,
+  writeLeftNote,
+} from "./albums/lifecycle";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
@@ -59,6 +67,7 @@ import {
   parseDeviceName,
   parseRemoved,
   parseRequestsFile,
+  parseDeviceIdentity,
   peerName,
   type RegistryFile,
   type ViewersFile,
@@ -142,6 +151,7 @@ export const PhotoError = {
   VIEWER_NEEDS_INVITE: "justus.photos/viewer-needs-invite",
   ALBUM_ARCHIVED: "justus.photos/album-archived",
   ALBUM_NOT_CHANGED: "justus.photos/album-not-changed",
+  ADMIN_CANNOT_LEAVE: "justus.photos/admin-cannot-leave",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -171,12 +181,15 @@ type PersistedState = {
 
 /** An album removed from this phone. `deletedForEveryone`: this phone is the
  * Admin's and keeps only the delete note, to offer it to members who were away.
- * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed. */
+ * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed.
+ * `waitingForAdminToSeeYouLeft`: a Member left; this phone's own drive in the
+ * album (`selfNs`) keeps saying so until the Admin's member list drops it. */
 type GoneRecord = {
   id: string;
   name: string;
   shareKey: string;
-  kind: "deletedForEveryone" | "deletedByAdmin";
+  kind: "deletedForEveryone" | "deletedByAdmin" | "waitingForAdminToSeeYouLeft";
+  selfNs?: string;
   adminName?: string;
   at: number;
 };
@@ -347,6 +360,8 @@ export interface PhotoStore {
   restoreAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: removes the album and its photos from every phone. */
   deleteAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Member or Viewer: takes the album off this phone. A Member's own drive keeps telling the Admin until the Admin's list drops it. */
+  leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
@@ -731,12 +746,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const g of raw as unknown[]) {
       if (!isTextJSON(g)) continue;
       if (typeof g.id !== "string" || typeof g.shareKey !== "string") continue;
-      if (g.kind !== "deletedForEveryone" && g.kind !== "deletedByAdmin") continue;
+      if (
+        g.kind !== "deletedForEveryone" &&
+        g.kind !== "deletedByAdmin" &&
+        g.kind !== "waitingForAdminToSeeYouLeft"
+      ) {
+        continue;
+      }
       out.push({
         id: g.id,
         name: peerName(g.name, DEFAULT_ASK_ALBUM),
         shareKey: g.shareKey,
         kind: g.kind,
+        ...(typeof g.selfNs === "string" ? { selfNs: g.selfNs } : {}),
         ...(typeof g.adminName === "string"
           ? { adminName: peerName(g.adminName, DEFAULT_ASK_OWNER) }
           : {}),
@@ -961,6 +983,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             log("error", { where: "checkDeleteNote", folder: short(folderId), err: errText(e) }),
           );
         }
+        // A member's drive may now carry the note that they left.
+        if (rt && rt.record.role === "creator" && rt.memberDrives.get(label) === drive) {
+          void dropMemberWhoLeft(rt, label).catch((e) =>
+            log("error", { where: "dropMemberWhoLeft", folder: short(folderId), err: errText(e) }),
+          );
+        }
         refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
@@ -1157,6 +1185,33 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return !same;
   }
 
+  const droppingMembers = new Set<string>();
+
+  /** Admin: a member whose drive says they left (after they were added) is taken off the people list, and their old link starts a fresh ask. */
+  async function dropMemberWhoLeft(rt: FolderRuntime, memberKey: string): Promise<void> {
+    const drive = rt.memberDrives.get(memberKey);
+    const busyKey = `${rt.record.id}/${memberKey}`;
+    if (!drive || droppingMembers.has(busyKey)) return;
+    droppingMembers.add(busyKey);
+    try {
+      const addedAt = (await readRegistryIn(rt.folderDrive)).members[memberKey]?.addedAt;
+      if (addedAt === undefined) return;
+      const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
+      if (!note || note.leftAt <= addedAt) return;
+      const identity = parseDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "");
+      const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
+      if (removeErr) {
+        log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
+        return;
+      }
+      if (identity) setAnswer(rt, identity, undefined);
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey });
+    } finally {
+      droppingMembers.delete(busyKey);
+    }
+  }
+
   async function refreshMembersFor(rt: FolderRuntime) {
     await refreshViewers(rt);
     const registry = await readRegistryIn(rt.folderDrive);
@@ -1181,6 +1236,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
+      // A member who left while this phone was off: their note is already here.
+      if (rt.record.role === "creator" && rt.memberDrives.has(entry.key)) {
+        void dropMemberWhoLeft(rt, entry.key).catch((e) =>
+          log("error", {
+            where: "dropMemberWhoLeft",
+            folder: short(rt.record.id),
+            err: errText(e),
+          }),
+        );
+      }
     }
     // Seed the content index from whatever drives are currently reachable. A
     // drive that is offline is skipped (its entries are already indexed from
@@ -1286,8 +1351,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function lifecyclePort(rt: FolderRuntime): AlbumLifecyclePort {
     return {
-      // Leaving an album is the next change (#186).
-      writeLeftNote: async () => Either.left({ reason: "Leaving an album is not available yet" }),
+      writeLeftNote: async () => {
+        const [error] = await writeLeftNote(rt.selfDrive, { at: Date.now() });
+        return error ? Either.left(error) : Either.right();
+      },
       writeDeleteNote: async () => {
         const [error] = await writeDeleteNote(rt.folderDrive, {
           adminName: state.name,
@@ -1296,8 +1363,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return error ? Either.left(error) : Either.right();
       },
       removeCopy: (keep) => removeAlbumCopy(rt, keep),
-      forget: async () => {},
+      forget: () =>
+        forgetDrives(
+          rt.folderDrive,
+          rt.selfDrive,
+          rt.record.selfNs ?? `member/${rt.record.shareKey}`,
+        ),
     };
+  }
+
+  /** Drops what a Member kept after leaving: the album's drive goes, this phone's own drive in it is released (not deleted: the same invite reopens the same key). Never rejects. */
+  async function forgetDrives(album: Drive, self: Drive, selfNs: string): Promise<void> {
+    leaveTopic(hex(topicOf(self)));
+    leaveTopic(hex(topicOf(album)));
+    selfDrives.delete(selfNs);
+    try {
+      await deps.drives.release(self);
+    } catch (e) {
+      log("error", { where: "forget.release", drive: short(self.key), err: errText(e) });
+    }
+    try {
+      await deps.drives.purge(album.key);
+    } catch (e) {
+      log("error", { where: "forget.purge", drive: short(album.key), err: errText(e) });
+    }
   }
 
   /** Removes this phone's copy of an album: the runtime, the other members'
@@ -1325,9 +1414,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       selfDrives.delete(rt.record.selfNs ?? `member/${rt.record.shareKey}`);
     } else {
-      for (const drive of new Set(own.values())) {
-        await deleteOwnPhotos(drive, { log });
-      }
+      // The Admin's album drive is read-only here; only this phone's own drive holds its photos.
+      const mine = rt.record.role === "creator" ? rt.folderDrive : rt.selfDrive;
+      await deleteOwnPhotos(mine, { log });
     }
     if (rt.record.role === "creator") {
       for (const code of [rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])]) {
@@ -1351,7 +1440,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   /** Moves an album from the saved list to the gone records. */
-  function moveToGone(rt: FolderRuntime, kind: GoneRecord["kind"], adminName?: string) {
+  function moveToGone(
+    rt: FolderRuntime,
+    kind: GoneRecord["kind"],
+    adminName?: string,
+    selfNs?: string,
+  ) {
     const id = rt.record.id;
     state.folders = state.folders.filter((f) => f.id !== id);
     state.gone = [
@@ -1362,6 +1456,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         shareKey: rt.record.shareKey,
         kind,
         ...(adminName === undefined ? {} : { adminName }),
+        ...(selfNs === undefined ? {} : { selfNs }),
         at: Date.now(),
       },
     ];
@@ -1397,6 +1492,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       case "deletedForEveryone":
         moveToGone(rt, "deletedForEveryone");
         return;
+      case "waitingForAdminToSeeYouLeft": {
+        const actor = lifecycles.get(id);
+        const selfNs = rt.record.selfNs ?? `member/${rt.record.shareKey}`;
+        moveToGone(rt, "waitingForAdminToSeeYouLeft", undefined, selfNs);
+        if (actor) {
+          lifecycles.set(id, actor);
+          watchForAdmin(id, actor, rt.folderDrive, rt.selfDrive);
+        }
+        return;
+      }
+      case "leftAlbum":
+        finishLeave(id);
+        return;
       case "deletedByAdmin": {
         const adminName =
           isTextJSON(payload) && typeof payload.adminName === "string"
@@ -1406,6 +1514,60 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
     }
+  }
+
+  /** Nothing of a left album is on this phone any more: its saved records go. */
+  function finishLeave(id: string) {
+    const remove = waitingWatchers.get(id);
+    waitingWatchers.delete(id);
+    remove?.();
+    lifecycles.delete(id);
+    const wasShown = state.folders.some((f) => f.id === id);
+    state.folders = state.folders.filter((f) => f.id !== id);
+    state.gone = state.gone.filter((g) => g.id !== id);
+    runtimes.delete(id);
+    if (state.activeFolderId === id) state.activeFolderId = shownFolders()[0]?.id ?? null;
+    saveState();
+    if (wasShown) deps.onChanged({ cause: "remove", folderId: id });
+  }
+
+  /** Albums a Member left, waiting for the Admin's member list to drop this phone: the stop function of each watcher. */
+  const waitingWatchers = new Map<string, () => void>();
+
+  /** Watches the Admin's drive for the member list that drops this phone (or a delete note), and tells the actor. */
+  function watchForAdmin(id: string, actor: LifecycleActor, album: Drive, self: Drive) {
+    waitingWatchers.get(id)?.();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let checking = false;
+    const check = async () => {
+      if (checking || closed || actor.state.name !== "waitingForAdminToSeeYouLeft") return;
+      checking = true;
+      try {
+        const deleted = await readDeleteNote(album, { log, timeoutMs: 2_000 });
+        if (deleted) {
+          actor.send({ type: "deleteHeard", payload: deleted });
+          return;
+        }
+        // Text that is missing reads as "no file": an unreplicated drive is not a drop.
+        const text = await readText(album, DRIVE_PATH_MEMBERS, { timeout: 2_000 });
+        if (adminDroppedYou(text, self.key)) actor.send({ type: "adminSawYouLeave" });
+      } finally {
+        checking = false;
+      }
+    };
+    const run = () =>
+      void check().catch((e) =>
+        log("error", { where: "watchForAdmin", album: short(id), err: errText(e) }),
+      );
+    const off = album.onChange(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(run, 400);
+    });
+    waitingWatchers.set(id, () => {
+      off();
+      if (timer) clearTimeout(timer);
+    });
+    run();
   }
 
   /** The album's actor, started from the saved mark (and a delete note already read). */
@@ -1440,7 +1602,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Sends one input to the album's actor and answers when it is at rest. */
   async function changeLifecycle(
     rt: FolderRuntime,
-    type: "archive" | "restore" | "deleteForEveryone",
+    type: "archive" | "restore" | "deleteForEveryone" | "leave",
   ): Promise<EitherResult<{ ok: boolean }>> {
     const actor = lifecycleOf(rt);
     const name = actor.state.name;
@@ -2220,6 +2382,32 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     // An album this phone deleted is still offered to members who were away.
     for (const gone of state.gone) {
+      if (gone.kind === "waitingForAdminToSeeYouLeft") {
+        try {
+          const self = await openSelfDrive(gone.shareKey, gone.selfNs);
+          const album = await openDriveWithTopic(gone.shareKey, { server: false });
+          const actor = createAlbumLifecycleActor({
+            clock: RealClock(),
+            port: {
+              writeLeftNote: async () => Either.left({ reason: "Already left" }),
+              writeDeleteNote: async () => Either.left({ reason: "Already left" }),
+              removeCopy: async () => {},
+              forget: () => forgetDrives(album, self, gone.selfNs ?? `member/${gone.shareKey}`),
+            },
+            start: lifecycleStart({ role: "member", saved: "waitingForAdmin" }),
+          });
+          lifecycles.set(gone.id, actor);
+          actor.on("change", {
+            fn: (snapshot) => {
+              if (snapshot.path[0] === "leftAlbum") finishLeave(gone.id);
+            },
+          });
+          watchForAdmin(gone.id, actor, album, self);
+        } catch (e) {
+          log("error", { where: "gone.waiting", album: short(gone.id), err: errText(e) });
+        }
+        continue;
+      }
       if (gone.kind !== "deletedForEveryone") continue;
       try {
         let fd: Drive;
@@ -2765,6 +2953,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // The drive this device will add photos to in this album, and the key the
     // Admin enrolls (#195).
     const selfDrive = await openSelfDrive(key, via?.selfNs);
+    // A note from an earlier membership must not drop this one.
+    await clearLeftNote(selfDrive, { log });
+    for (const waiting of state.gone.filter(
+      (g) => g.kind === "waitingForAdminToSeeYouLeft" && g.shareKey === key,
+    )) {
+      waitingWatchers.get(waiting.id)?.();
+      waitingWatchers.delete(waiting.id);
+      lifecycles.delete(waiting.id);
+      state.gone = state.gone.filter((g) => g !== waiting);
+    }
     const selfKey = selfDrive.key;
     const enrolled = isEnrolled(registry, selfKey);
     const role: Role = enrolled ? "member" : "reader";
@@ -3357,6 +3555,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return changeLifecycle(rt, "deleteForEveryone");
     },
 
+    async leaveAlbum(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role === "creator") {
+        return err(
+          PhotoError.ADMIN_CANNOT_LEAVE,
+          "The Admin cannot leave; delete the album instead",
+        );
+      }
+      if (rt.record.lifecycle === "archived") {
+        return err(PhotoError.ALBUM_ARCHIVED, "Restore the album before leaving it");
+      }
+      return changeLifecycle(rt, "leave");
+    },
+
     async dismissAlbumNotice(folderId) {
       await readyPromise;
       const found = state.gone.find((g) => g.id === folderId && g.kind === "deletedByAdmin");
@@ -3408,6 +3622,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           lifecycle: rt.record.lifecycle ?? "shown",
           pending: Boolean(rt.record.pending),
           invited: rt.record.invited ?? [],
+          answers: rt.record.answers ?? {},
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),
           selfDrive: driveInfo(rt.selfDrive),
@@ -3482,6 +3697,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     archiveAlbum: refuse,
     restoreAlbum: refuse,
     deleteAlbum: refuse,
+    leaveAlbum: refuse,
     dismissAlbumNotice: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
