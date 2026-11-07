@@ -13,10 +13,8 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readdirSync, existsSync } from "node:fs";
 import * as nodeFs from "node:fs";
 import { join } from "node:path";
-import { Readable } from "node:stream";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
-import type { PhotoStoreDeps } from "../src/photo-store.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 /** An `fs` whose `createWriteStream` opens the file but fails the first write,
  * modelling a disk-full / write-error mid-spool. The tmp file is created on
@@ -47,22 +45,14 @@ describe("#90/#92 a failed spool must not leak a .tmp staging file", () => {
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
 
-    // Wrap the fake deps so the read stream yields a byte (so the failing
-    // writer actually performs a write) while keeping drive identity stable.
     const server = new FakeLoopbackServer();
-    const base = makeFakeDeps({
+    const base = fakeStoreDeps({
       storageDir: dir,
       cacheDir,
       server,
       fs: failingWriteFs(),
       seedOnEmpty: false,
-    }) as PhotoStoreDeps & { makeDrive: (cs: unknown, key?: Buffer) => any };
-    const innerMakeDrive = base.makeDrive;
-    base.makeDrive = (cs: unknown, key?: Buffer) => {
-      const d = innerMakeDrive(cs, key);
-      d.createReadStream = () => Readable.from(Buffer.from([1, 2, 3, 4, 5]));
-      return d;
-    };
+    });
 
     const store = createPhotoStore(base);
     await store.ready();

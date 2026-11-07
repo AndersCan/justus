@@ -8,23 +8,20 @@
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
-import { FakeCorestore, makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
-
-/** Corestore whose first `ready()` fails once, then succeeds — models a
- * transient startup hiccup that resolves on retry. */
-class FlakyCorestore extends FakeCorestore {
-  attempts = 0;
-  async ready(): Promise<void> {
-    this.attempts += 1;
-    if (this.attempts === 1) throw new Error("transient setup failure");
-  }
-}
 
 describe("#98 ready() must recover after a transient setup failure", () => {
   it("lets a later ready() succeed and the store become usable", async () => {
-    const cs = new FlakyCorestore();
-    const deps = makeFakeDeps({ makeCorestore: () => cs });
+    const deps = fakeStoreDeps();
+    // A transient startup hiccup: the first ready() fails, a retry succeeds.
+    const ready = deps.drives.ready.bind(deps.drives);
+    let attempts = 0;
+    deps.drives.ready = async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("transient setup failure");
+      return ready();
+    };
     // addBytes stages uploads into cacheDir; mirror the production runtime.
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);

@@ -5,17 +5,17 @@
  * instead of recording the host's generated temp staging name
  * (`media-<uuid>.<ext>`, `capture-<ts>.jpg`).
  *
- * Built on the in-memory substitutes from `./fake-drive` — no Bare runtime
+ * Built on the in-memory substitutes from `./fakes/fake-store-deps` — no Bare runtime
  * required.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
-  const deps = makeFakeDeps({ deviceName: "Namer" });
+  const deps = fakeStoreDeps({ deviceName: "Namer" });
   mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   return { store, deps };

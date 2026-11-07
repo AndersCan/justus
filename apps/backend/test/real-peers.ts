@@ -13,7 +13,7 @@ import type { PeerEvent } from "../src/ports/peer-network.ts";
 import type { DriveWorld } from "./contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "./contracts/peer-network.contract.ts";
 import type { WiredNode, WiredWorld } from "./contracts/wired.contract.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 import { trackTmpPath } from "./tmp-dirs.ts";
 import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
 import createTestnet from "hyperdht/testnet";
@@ -53,7 +53,7 @@ export async function realNet(): Promise<Net> {
     const changes: PhotoChanged[] = [];
     const events: P2pEvent[] = [];
     const drives = createHyperDriveStore(join(dir, "corestore"));
-    const deps = makeFakeDeps({
+    const deps = fakeStoreDeps({
       storageDir: dir,
       cacheDir: join(dir, "cache"),
       deviceName: name,

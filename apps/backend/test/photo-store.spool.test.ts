@@ -12,7 +12,7 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 describe("#81/#83/#87 add and list must serve one photo from one spool name", () => {
   it("matches the add-URL to the list-URL and mounts it once", async () => {
@@ -21,7 +21,7 @@ describe("#81/#83/#87 add and list must serve one photo from one spool name", ()
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
     const store = createPhotoStore(
-      makeFakeDeps({ storageDir: dir, cacheDir, server, seedOnEmpty: false }),
+      fakeStoreDeps({ storageDir: dir, cacheDir, server, seedOnEmpty: false }),
     );
     await store.ready();
 
@@ -57,7 +57,7 @@ describe("#81/#83/#87 add and list must serve one photo from one spool name", ()
     const cacheDir = join(dir, "cache");
     mkdirSync(cacheDir, { recursive: true });
     const store = createPhotoStore(
-      makeFakeDeps({ storageDir: dir, cacheDir, server, seedOnEmpty: false }),
+      fakeStoreDeps({ storageDir: dir, cacheDir, server, seedOnEmpty: false }),
     );
     await store.ready();
     const created = await store.createFolder("Holidays");

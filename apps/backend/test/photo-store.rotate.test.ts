@@ -12,17 +12,16 @@ import Hyperdrive from "hyperdrive";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { copyAlbumEntries } from "../src/rotate-album.ts";
 import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function realDeps(storageDir: string) {
   const cacheDir = join(storageDir, "cache");
   mkdirSync(cacheDir, { recursive: true });
   const drives = createHyperDriveStore(join(storageDir, "corestore"));
-  return makeFakeDeps({
+  return fakeStoreDeps({
     storageDir,
     cacheDir,
     drives,
-    replicate: (conn) => drives.replicate(conn),
   });
 }
 

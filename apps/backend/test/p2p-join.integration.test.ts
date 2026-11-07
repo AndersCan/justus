@@ -12,11 +12,11 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
 import { createPhotoStore, type PhotoStore } from "../src/photo-store.ts";
+import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
 import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 import { makeTmpDir } from "./tmp-dirs.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -24,21 +24,17 @@ afterEach(async () => {
   for (const c of cleanups.splice(0).reverse()) await c();
 });
 
-function device(name: string, bootstrap: unknown[]) {
+function device(name: string, bootstrap: string[]) {
   const changes: string[] = [];
   const storageDir = makeTmpDir("justus-real-");
   const drives = createHyperDriveStore(join(storageDir, "corestore"));
-  const deps = makeFakeDeps({
+  const deps = fakeStoreDeps({
     storageDir,
     cacheDir: join(storageDir, "cache"),
     deviceName: name,
     onChanged: (c) => changes.push(c.cause),
     drives,
-    replicate: (conn) => drives.replicate(conn),
-    makeSwarm: () => new Hyperswarm({ bootstrap }),
-    // The real protomux greeting, not the harness fake.
-    greetPeer: undefined,
-    openAnswers: undefined,
+    network: createHyperPeerNetwork({ bootstrap, replicate: (conn) => drives.replicate(conn) }),
     driveOpenTimeoutMs: 10_000,
   });
   mkdirSync(deps.cacheDir, { recursive: true });

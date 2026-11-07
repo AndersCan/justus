@@ -11,7 +11,7 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 // A minimal valid 1x1 PNG (bytes are all that matters for the dedupe/hash path).
 const PNG_BYTES = Buffer.from(
@@ -33,7 +33,7 @@ function makeRoots() {
 }
 
 function buildStore(importRoots: string[]) {
-  const deps = makeFakeDeps({ importRoots });
+  const deps = fakeStoreDeps({ importRoots });
   mkdirSync(deps.cacheDir, { recursive: true });
   return createPhotoStore(deps);
 }

@@ -12,10 +12,10 @@ import { mkdirSync, writeFileSync, symlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
-import { FakeLoopbackServer, makeFakeDeps } from "./fake-drive.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 function buildStore() {
-  const deps = makeFakeDeps({ server: new FakeLoopbackServer() });
+  const deps = fakeStoreDeps({ server: new FakeLoopbackServer() });
   mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
   return { store, deps };
@@ -113,7 +113,7 @@ describe("#93/#97 add(path) must contain imports to allowed roots", () => {
     symlinkSync(realRoot, symAncestor);
     const importRoot = join(symAncestor, "imports");
     mkdirSync(importRoot, { recursive: true });
-    const deps = makeFakeDeps({
+    const deps = fakeStoreDeps({
       server: new FakeLoopbackServer(),
       cacheDir: importRoot,
       importRoots: [importRoot],
