@@ -228,14 +228,14 @@ describe("waitingForAnswer", () => {
 
   test("accepted opens the album", async () => {
     const s = await waitingSetup();
-    await s.send("answerArrived", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
     expect(s.actor.state.name).toBe("joined");
     expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
   });
 
   test("declined shows declined", async () => {
     const s = await waitingSetup();
-    await s.send("answerArrived", { code: INVITE.code, answer: "declined" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
     expect(s.actor.state.name).toBe("declined");
     expect(payload(s)).toEqual(INVITE);
   });
@@ -244,7 +244,7 @@ describe("waitingForAnswer", () => {
     "an answer for another code (%s) changes nothing",
     async (answer) => {
       const s = await waitingSetup();
-      await s.send("answerArrived", { code: "c".repeat(64), answer, folderId: "f9" });
+      await s.send("requestAnswered", { code: "c".repeat(64), answer, folderId: "f9" });
       expect(s.actor.state.name).toBe("waitingForAnswer");
       expect(s.outputs).toEqual([]);
     },
@@ -252,13 +252,13 @@ describe("waitingForAnswer", () => {
 
   test("an accepted answer with no folder keeps waiting", async () => {
     const s = await waitingSetup();
-    await s.send("answerArrived", { code: INVITE.code, answer: "accepted" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted" });
     expect(s.actor.state.name).toBe("waitingForAnswer");
   });
 
   test("answers outside waiting are dropped", async () => {
     const s = setup();
-    await s.send("answerArrived", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
     expect(s.actor.state.name).toBe("noInvite");
     expect(s.outputs).toEqual([]);
   });
@@ -275,7 +275,7 @@ describe("declined", () => {
   test("the decline is final: a later answer does not change it", async () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask("declined") });
-    await s.send("answerArrived", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
     expect(s.actor.state.name).toBe("declined");
   });
 });
@@ -334,7 +334,7 @@ test("Maya: asks and is accepted", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
-    await send("answerArrived", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+    await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
   });
   expect(actor.state.name).toBe("joined");
 });
@@ -343,7 +343,7 @@ test("Maya: asks and is declined", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
-    await send("answerArrived", { code: INVITE.code, answer: "declined" });
+    await send("requestAnswered", { code: INVITE.code, answer: "declined" });
   });
   expect(actor.state.name).toBe("declined");
 });
@@ -362,7 +362,7 @@ test("Maya: reopens her ask after a decline", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
-    await send("answerArrived", { code: INVITE.code, answer: "declined" });
+    await send("requestAnswered", { code: INVITE.code, answer: "declined" });
     await send("dismissDecline");
     await send("reopenRequest", { ask: ROW("declined") });
   });
@@ -383,7 +383,7 @@ describe("joiner design", () => {
     payloads: {
       openLink: [{ text: LINK }, { text: "nope" }],
       reopenRequest: [{ ask: { ...ask("waiting") } }, { ask: { ...ask("declined") } }],
-      answerArrived: [
+      requestAnswered: [
         { code: INVITE.code, answer: "accepted", folderId: "f1" },
         { code: INVITE.code, answer: "declined", folderId: "f1" },
       ],

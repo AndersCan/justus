@@ -233,7 +233,7 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
       memberKey: entry.requesterKey,
     });
     const states: string[] = [];
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     await actor.settled();
     states.push(String(actor.state.name));
     actor.send({ type: "accept", payload: { role: "reader" } });

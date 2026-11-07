@@ -23,7 +23,7 @@
         },
         {
           "kind": "event",
-          "event": "answerArrived",
+          "event": "requestAnswered",
           "payload": {
             "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "answer": "accepted",
@@ -55,7 +55,7 @@
         },
         {
           "kind": "event",
-          "event": "answerArrived",
+          "event": "requestAnswered",
           "payload": {
             "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "answer": "declined"
@@ -99,7 +99,7 @@
         },
         {
           "kind": "event",
-          "event": "answerArrived",
+          "event": "requestAnswered",
           "payload": {
             "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "answer": "declined"

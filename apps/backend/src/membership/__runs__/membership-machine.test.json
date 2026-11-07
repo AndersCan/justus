@@ -6,7 +6,7 @@
       "steps": [
         {
           "kind": "event",
-          "event": "requestArrived",
+          "event": "requestQueued",
           "payload": {
             "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "requesterName": "Ann",
@@ -35,7 +35,7 @@
       "steps": [
         {
           "kind": "event",
-          "event": "requestArrived",
+          "event": "requestQueued",
           "payload": {
             "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "requesterName": "Ann",
@@ -76,7 +76,7 @@
       "steps": [
         {
           "kind": "event",
-          "event": "requestArrived",
+          "event": "requestQueued",
           "payload": {
             "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "requesterName": "Ann",
@@ -105,7 +105,7 @@
       "steps": [
         {
           "kind": "event",
-          "event": "requestArrived",
+          "event": "requestQueued",
           "payload": {
             "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "requesterName": "Ann",

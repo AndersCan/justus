@@ -63,7 +63,7 @@ export const closeWaiting = event("closeWaiting")();
 /** The joiner taps OK on the declined screen. */
 export const dismissDecline = event("dismissDecline")();
 /** The owner's answer reached this phone. */
-export const answerArrived = event("answerArrived")<{
+export const requestAnswered = event("requestAnswered")<{
   code: string;
   answer: "accepted" | "declined";
   folderId?: string;
@@ -97,7 +97,7 @@ export function createJoinRequestActor(options: {
       notNow,
       closeWaiting,
       dismissDecline,
-      answerArrived,
+      requestAnswered,
     ],
     internal: [requestSent, requestFailed],
     outputs: [openAlbum],
@@ -214,7 +214,7 @@ export function createJoinRequestActor(options: {
       });
       /** The owner answered. Only an answer for this request counts. */
       m.on(waitingForAnswer, {
-        event: answerArrived,
+        event: requestAnswered,
         to: [joined, declined, waitingForAnswer],
         handler: (e, { actor }) => {
           const invite = actor.snapshot().payload as JoinInvite;

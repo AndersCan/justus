@@ -116,7 +116,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    join.answerArrived(INVITE.code, "accepted", "f7");
+    join.requestAnswered(INVITE.code, "accepted", "f7");
     await settle();
     expect(mocks.open).toHaveBeenCalledWith("/albums/f7");
   });
@@ -127,7 +127,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    join.answerArrived(INVITE.code, "declined");
+    join.requestAnswered(INVITE.code, "declined");
     await settle();
     expect($join.get().state).toBe("declined");
     expect(mocks.open).not.toHaveBeenCalled();

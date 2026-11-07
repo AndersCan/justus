@@ -8,7 +8,7 @@ import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
 import { $asks, $folders, folders } from "../folders-machine";
 import {
-  answerArrived,
+  requestAnswered,
   askToJoin,
   closeWaiting,
   createJoinRequestActor,
@@ -81,6 +81,6 @@ export const join = {
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
   /** The Admin's answer reached this phone. */
-  answerArrived: (code: string, answer: "accepted" | "declined", folderId?: string) =>
-    joinActor.send(answerArrived.create({ code, answer, folderId })),
+  requestAnswered: (code: string, answer: "accepted" | "declined", folderId?: string) =>
+    joinActor.send(requestAnswered.create({ code, answer, folderId })),
 };
