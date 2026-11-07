@@ -106,9 +106,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("button", { name: "More options" }).click();
   await a.getByRole("menuitem", { name: "Delete" }).click();
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
-  await expect(dialog).toBeVisible();
+  await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(a.getByText("It will be gone from the album for everyone.")).toBeVisible();
-  await dialog.getByRole("button", { name: "Delete" }).click();
+  await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0);
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
   await expect(a.getByText(/Removed|Deleted/)).toHaveCount(0);
@@ -121,7 +121,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("menuitem", { name: "Delete" }).click();
   await b
     .locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` })
-    .getByRole("button", { name: "Delete" })
+    .locator("wa-button", { hasText: "Delete" })
     .click();
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0);
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
@@ -134,7 +134,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("menuitem", { name: "Delete" }).click();
   await a
     .locator("wa-dialog[open]", { hasText: `Delete “${BEN2}”?` })
-    .getByRole("button", { name: "Delete" })
+    .locator("wa-button", { hasText: "Delete" })
     .click();
   await expect(a.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, {
