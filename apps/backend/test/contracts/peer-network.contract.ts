@@ -22,7 +22,7 @@ export type PeerNode = {
 
 export type PeerWorld = {
   /** A started node with no joined topics. */
-  node(): Promise<PeerNode>;
+  node(opts?: { legacy?: boolean }): Promise<PeerNode>;
   /** A fresh random topic (64 hex chars). */
   topic(): string;
   close(): Promise<void>;
