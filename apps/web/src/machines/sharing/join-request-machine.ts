@@ -91,8 +91,10 @@ export function createJoinRequestActor(options: {
   clock: Clock;
   port?: JoinPort;
   known?: Known | ((invite: JoinInvite) => Known);
+  /** The ask this phone stored for an invite code, so an answer that arrives after the sheet closed can name the album. */
+  asked?: (code: string) => AskSummary | undefined;
 }) {
-  const { clock, port = allowAll, known = { kind: "new" } } = options;
+  const { clock, port = allowAll, known = { kind: "new" }, asked = () => undefined } = options;
   const classify = typeof known === "function" ? known : () => known;
 
   return Actor({
@@ -170,12 +172,7 @@ export function createJoinRequestActor(options: {
           to: [waitingForAdminToAccept, declinedByAdmin],
           handler: (e) => {
             const { ask: row } = e.payload;
-            const invite = {
-              code: row.code,
-              owner: row.owner,
-              album: row.albumName,
-              ownerName: row.ownerName,
-            };
+            const invite = inviteOf(row);
             return row.status === "declined"
               ? { state: declinedByAdmin.create(invite) }
               : { state: waitingForAdminToAccept.create(invite) };
@@ -183,7 +180,27 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      /** "Ask to join": the request goes out and the buttons lock. */
+      for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum]) {
+        /** An answer that arrives with no sheet open still counts: accepted opens the album, declined says so. */
+        m.on(from, {
+          event: requestAnswered,
+          to: [joinedAlbum, declinedByAdmin, from],
+          handler: (e) => {
+            if (e.payload.answer === "declined") {
+              const row = asked(e.payload.code);
+              return row === undefined
+                ? { state: from }
+                : { state: declinedByAdmin.create(inviteOf(row)) };
+            }
+            const folderId = e.payload.folderId;
+            return folderId === undefined
+              ? { state: from }
+              : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
+          },
+        });
+      }
+
+      /** "Ask to join":the request goes out and the buttons lock. */
       m.on(decidingToAsk, {
         event: askToJoin,
         to: [sendingRequest],
@@ -266,6 +283,10 @@ export function createJoinRequestActor(options: {
       });
     },
   });
+}
+
+function inviteOf(row: AskSummary): JoinInvite {
+  return { code: row.code, owner: row.owner, album: row.albumName, ownerName: row.ownerName };
 }
 
 /** From a screen with no invite, an unusable link shows its error; from an invite screen, the screen stays. */

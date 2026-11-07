@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../gateway", () => ({ gateway: { ask: mocks.ask } }));
-vi.mock("../router-machine", () => ({ open: mocks.open }));
+vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: () => undefined }));
 vi.mock("../folders-machine", () => {
   const context = { folders: [] as unknown[], asks: [] as unknown[] };
   return {
@@ -96,7 +96,7 @@ describe("join singleton", () => {
     ];
     join.openLink(LINK);
     await settle();
-    expect(mocks.open).toHaveBeenCalledWith("/albums/f9");
+    expect(mocks.open).toHaveBeenCalledWith("/albums/f9", { replace: false });
   });
 
   test("a link whose ask is declined shows the not-accepted screen", async () => {
@@ -121,7 +121,7 @@ describe("join singleton", () => {
     await settle();
     join.requestAnswered(INVITE.code, "accepted", "f7");
     await settle();
-    expect(mocks.open).toHaveBeenCalledWith("/albums/f7");
+    expect(mocks.open).toHaveBeenCalledWith("/albums/f7", { replace: false });
   });
 
   test("a declined answer shows the not-accepted screen", async () => {
