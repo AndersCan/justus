@@ -8,6 +8,7 @@ import {
   photoEvents,
   logEvents,
   grantEvents,
+  justusLockEvents,
   justusMediaEvents,
   type AddExtras,
   type LogLevel,
@@ -92,6 +93,10 @@ export const gateway = {
   media: {
     pickMany: () => invoke(justusMediaEvents.media.pickMany()),
     capture: () => invoke(justusMediaEvents.media.capture()),
+  },
+  lock: {
+    status: () => invoke(justusLockEvents.lock.status()),
+    setEnabled: (enabled: boolean) => invoke(justusLockEvents.lock.setEnabled(enabled)),
   },
   logs: {
     view: (opts?: { tail?: number; level?: LogLevel; sources?: string[] }) =>
