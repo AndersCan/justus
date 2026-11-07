@@ -42,8 +42,8 @@ platform :android do
     sh("jarsigner", "-verify", File.expand_path("../#{AAB}", __dir__)) do |status, result|
       UI.user_error!("#{AAB} is unsigned: set the JUSTUS_UPLOAD_* keystore") unless status.success? && result.include?("jar verified")
     end
-    readelf = Dir[File.join(ENV.fetch("ANDROID_HOME"), "ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf")].max
-    UI.user_error!("llvm-readelf not found under $ANDROID_HOME/ndk") unless readelf
+    readelf = Dir[File.join(ENV.fetch("ANDROID_HOME", ""), "ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf")].max
+    readelf ||= "llvm-readelf"
     sh({ "READELF" => readelf }, File.expand_path("../../../scripts/check-aab-page-size.sh", __dir__), File.expand_path("../#{AAB}", __dir__))
   end
 
