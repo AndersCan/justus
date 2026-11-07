@@ -109,12 +109,12 @@ class ListingScreenshots {
     }
     Thread.sleep(1000)
     Screengrab.setDefaultScreenshotStrategy(UiAutomatorScreenshotStrategy())
-    Screengrab.screenshot("1_album")
+    captioned("1_album", "Only people you accept see your photos")
 
     val tile = device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first()
     tile.click()
     Thread.sleep(2000)
-    Screengrab.screenshot("2_photo")
+    captioned("2_photo", "You choose who joins. No cloud, no account")
 
     find("Close", 10).click()
     Thread.sleep(1000)
@@ -133,12 +133,12 @@ class ListingScreenshots {
     }
     device.wait(Until.findObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000) ?: fail("copy button", "Copy link")
     Thread.sleep(500)
+    captioned("3_desktop", "Albums also open on desktop")
+  }
+
+  private fun captioned(name: String, caption: String) {
     val files = FileWritingScreenshotCallback(target.applicationContext, Screengrab.getLocale())
-    Screengrab.screenshot(
-      "3_desktop",
-      UiAutomatorScreenshotStrategy(),
-      CaptionCallback("Albums also open on desktop", files)
-    )
+    Screengrab.screenshot(name, UiAutomatorScreenshotStrategy(), CaptionCallback(caption, files))
   }
 }
 
