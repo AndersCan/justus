@@ -12,6 +12,7 @@ import type { Drive, DriveEntry, DriveStore, OpenResult } from "../../src/ports/
 import type { PeerEvent, PeerNetwork } from "../../src/ports/peer-network.ts";
 import type { DriveNode, DriveWorld } from "../contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
+import { PEER_PROTOCOL } from "../../src/versions.ts";
 import { createHash, randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
 
@@ -333,6 +334,7 @@ export function fakeDriveWorlds(options: FakeWorldOptions = {}): { world(): Driv
 type NetworkState = {
   peerKey: string;
   identityKey: string;
+  protocol: number;
   onEvent: (e: PeerEvent) => void;
   /** topic to whether this network serves it. */
   joins: Map<string, { server: boolean }>;
@@ -374,6 +376,8 @@ function matchNetworks(hub: FakeHub): void {
         bLink.announced = true;
         a.onEvent({ type: "connected", conn: aConn, peerKey: b.peerKey, initiator: true });
         b.onEvent({ type: "connected", conn: bConn, peerKey: a.peerKey, initiator: false });
+        a.onEvent({ type: "version", conn: aConn, protocol: b.protocol });
+        b.onEvent({ type: "version", conn: bConn, protocol: a.protocol });
         a.onEvent({ type: "identified", conn: aConn, identityKey: b.identityKey });
         b.onEvent({ type: "identified", conn: bConn, identityKey: a.identityKey });
       });
@@ -401,6 +405,7 @@ export function createFakePeerNetwork(options: { hub: FakeHub }): PeerNetwork {
   const state: NetworkState = {
     peerKey: randomBytes(32).toString("hex"),
     identityKey: "",
+    protocol: PEER_PROTOCOL,
     onEvent: () => {},
     joins: new Map(),
     conns: new Map(),
@@ -412,9 +417,16 @@ export function createFakePeerNetwork(options: { hub: FakeHub }): PeerNetwork {
     peerKey() {
       return state.peerKey;
     },
-    start(identityKey, onEvent) {
+    start(identityKey, onEvent, protocol) {
       state.identityKey = identityKey;
       state.onEvent = onEvent;
+      if (protocol !== undefined) state.protocol = protocol;
+    },
+    sendAnswer() {
+      return false;
+    },
+    drop(conn) {
+      dropConn({ state, conn });
     },
     join(topic, opts) {
       if (state.closed) return;

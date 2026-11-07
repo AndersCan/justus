@@ -14,6 +14,7 @@ import { createGrantsPlugin } from "./grants-plugin";
 import { createFileLedgerStore } from "./ledger-store";
 import { createBareFiles } from "./adapters/bare-files";
 import { createHyperDriveStore } from "./adapters/hyper-drive-store";
+import { createHyperPeerNetwork } from "./adapters/hyper-peer-network";
 import { createFriendsPlugin } from "./friends-plugin";
 import { createFriendsStore } from "./friends-store";
 import { createDevInbox } from "./dev-inbox";
@@ -78,6 +79,11 @@ function pushChange(change: PhotoChanged) {
 
 const drives = createHyperDriveStore(path.join(storageDir, "corestore"));
 
+const network = createHyperPeerNetwork({
+  bootstrap: config.bootstrap,
+  replicate: (conn) => drives.replicate(conn),
+});
+
 const store: PhotoStore = createPhotoStore({
   storageDir,
   cacheDir,
@@ -91,12 +97,11 @@ const store: PhotoStore = createPhotoStore({
   deviceName: `Device-${Math.floor(Math.random() * 100000)}`,
   onChanged: pushChange,
   seedOnEmpty: config.dev,
-  bootstrap: config.bootstrap,
   fs,
   path,
   crypto,
   drives,
-  replicate: (conn) => drives.replicate(conn),
+  network,
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store, checkContract: config.dev }));

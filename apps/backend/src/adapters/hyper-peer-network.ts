@@ -1,6 +1,10 @@
 import { errText, short, createP2pLog, type P2pLog } from "../p2p-log";
+import type { Answer } from "../membership/records";
 import type { PeerEvent, PeerNetwork } from "../ports/peer-network";
+import { openAnswers } from "./peer-answer";
 import { greetPeer } from "./peer-identity";
+import { openVersion } from "./peer-version";
+import { PEER_PROTOCOL } from "../versions";
 import Hyperswarm from "hyperswarm";
 
 type Handle = { destroy(): void | Promise<void>; flushed?: () => Promise<void> };
@@ -17,9 +21,15 @@ export function createHyperPeerNetwork(deps: {
   /** Replicates the drive store over a connection (the store adapter's `replicate`). */
   replicate(conn: unknown): unknown;
   log?: P2pLog;
+  /** Tests only: replace the swarm and the per-connection channels. */
+  swarm?: any;
+  greetPeer?: typeof greetPeer;
+  openVersion?: typeof openVersion;
+  openAnswers?: typeof openAnswers;
 }): PeerNetwork {
   const log = deps.log ?? createP2pLog();
-  const swarm: any = new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
+  const swarm: any =
+    deps.swarm ?? new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
   const joins = new Map<string, Handle>();
   const servedTopics = new Set<string>();
   /** Later joins of a topic that upgraded it to serving; left with it. */
@@ -28,10 +38,18 @@ export function createHyperPeerNetwork(deps: {
   const peerIdentities = new Set<string>();
   const conns = new Map<
     number,
-    { noiseKey?: string; identityKey?: string; openedAt: number; initiator?: boolean }
+    {
+      noiseKey?: string;
+      identityKey?: string;
+      openedAt: number;
+      initiator?: boolean;
+      destroy(): void;
+      answers?: { send(answer: Answer): boolean };
+    }
   >();
   let connSeq = 0;
   let ownIdentity = "";
+  let ownProtocol = PEER_PROTOCOL;
   let closed = false;
 
   function logLeave(topic: string) {
@@ -55,7 +73,12 @@ export function createHyperPeerNetwork(deps: {
       ? toHex(conn.remotePublicKey)
       : undefined;
     const openedAt = Date.now();
-    conns.set(connId, { noiseKey, openedAt, initiator: conn.isInitiator });
+    conns.set(connId, {
+      noiseKey,
+      openedAt,
+      initiator: conn.isInitiator,
+      destroy: () => conn.destroy?.(),
+    });
     log("conn.open", { conn: connId, noise: short(noiseKey), initiator: conn.isInitiator });
     conn.on("error", (e: unknown) =>
       log("conn.error", { conn: connId, noise: short(noiseKey), err: errText(e) }),
@@ -79,7 +102,14 @@ export function createHyperPeerNetwork(deps: {
       });
     }
     try {
-      greetPeer(conn, Buffer.from(ownIdentity, "hex"), (key) => {
+      (deps.openVersion ?? openVersion)(conn, ownProtocol, (protocol) =>
+        emit({ type: "version", conn: connId, protocol }),
+      );
+    } catch (e: unknown) {
+      log("error", { where: "version.open", conn: connId, err: errText(e) });
+    }
+    try {
+      (deps.greetPeer ?? greetPeer)(conn, Buffer.from(ownIdentity, "hex"), (key) => {
         const identityKey = toHex(key);
         const isNew = !peerIdentities.has(identityKey) && identityKey !== ownIdentity;
         log("identity.learned", { conn: connId, identity: short(identityKey), new: isNew });
@@ -90,6 +120,15 @@ export function createHyperPeerNetwork(deps: {
       });
     } catch (e: unknown) {
       log("error", { where: "identity.greet", conn: connId, err: errText(e) });
+    }
+    try {
+      const channel = (deps.openAnswers ?? openAnswers)(conn, (value) =>
+        emit({ type: "answer", conn: connId, value }),
+      );
+      const c = conns.get(connId);
+      if (c) c.answers = channel;
+    } catch (e: unknown) {
+      log("error", { where: "answer.open", conn: connId, err: errText(e) });
     }
   }
 
@@ -108,9 +147,16 @@ export function createHyperPeerNetwork(deps: {
     peerKey() {
       return toHex(swarm.keyPair.publicKey);
     },
-    start(identityKey, onEvent) {
+    start(identityKey, onEvent, protocol) {
       ownIdentity = identityKey;
+      if (protocol !== undefined) ownProtocol = protocol;
       swarm.on("connection", (conn: any) => onConnection(conn, onEvent));
+    },
+    sendAnswer(conn, answer) {
+      return conns.get(conn)?.answers?.send(answer) ?? false;
+    },
+    drop(conn) {
+      conns.get(conn)?.destroy();
     },
     join(topic, opts) {
       if (closed) return;
@@ -139,12 +185,17 @@ export function createHyperPeerNetwork(deps: {
         );
     },
     leave,
-    findPeers(topic, hasPeer) {
+    findPeers(topic, hasPeer, info) {
       let attempt = 0;
       function tick() {
         rediscoverTimers.delete(timer);
         if (closed || hasPeer() || !joins.has(topic)) return;
-        log("rediscover.attempt", { topic: short(topic), n: attempt + 1 });
+        log("rediscover.attempt", {
+          drive: short(info?.drive),
+          topic: short(topic),
+          n: attempt + 1,
+          peers: info?.peers?.(),
+        });
         try {
           void Promise.resolve(swarm.status?.(Buffer.from(topic, "hex"))?.refresh()).catch((e) =>
             log("error", { where: "rediscover.refresh", topic: short(topic), err: errText(e) }),
@@ -153,7 +204,7 @@ export function createHyperPeerNetwork(deps: {
           // discovery gone (topic left meanwhile): expected, quiet
         }
         if (++attempt >= REDISCOVER_MS.length) {
-          log("rediscover.giveup", { topic: short(topic) });
+          log("rediscover.giveup", { drive: short(info?.drive), topic: short(topic) });
           return;
         }
         timer = setTimeout(tick, REDISCOVER_MS[attempt]);
