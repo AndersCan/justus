@@ -92,6 +92,19 @@ describe("delete for everyone", () => {
     expect(state.gone.map((g) => g.kind)).toEqual(["deletedForEveryone"]);
   });
 
+  it("forgets the deleted album's photos, so they no longer count as duplicates", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const indexed = () => (admin.store.debugState() as { indexedPhotos: number }).indexedPhotos;
+    expect(indexed()).toBe(1);
+    expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    expect(indexed()).toBe(0);
+    const other = (await admin.store.createFolder("Ny"))[1]!.folder;
+    const [error, added] = await admin.store.addBytes("a.jpg", new Uint8Array([1, 2, 3]), other.id);
+    expect(error).toBeNull();
+    expect(added?.folderId).toBe(other.id);
+    expect(indexed()).toBe(1);
+  });
+
   it("removes nothing when the delete note cannot be written", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const put = FakeDrive.prototype.put;

@@ -3395,6 +3395,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         })),
         peerIdentities: [...peerIdentities],
         gone: state.gone.map((g) => ({ id: g.id, kind: g.kind, shareKey: g.shareKey })),
+        indexedPhotos: [...contentIndex.values()].reduce((n, arr) => n + arr.length, 0),
         asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
         remoteDrives: [
           ...[...peerOutboxDrives].map(([key, d]) => ({

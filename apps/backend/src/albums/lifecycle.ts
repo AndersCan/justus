@@ -3,10 +3,10 @@
  * back from a peer's drive, and clearing an album's photos. photo-store keeps
  * the saved records, the actors and the drives they run on.
  *
- * LIMITATION(#186): a phone hears the delete only while the Admin's phone can
+ * LIMITATION(#376): a phone hears the delete only while the Admin's phone can
  * still be reached. If the Admin uninstalls before an away member comes back,
  * that member keeps the album.
- * LIMITATION(#186): a drive's history keeps old file names and dates after
+ * LIMITATION(#377): a drive's history keeps old file names and dates after
  * `del`; only the bytes are gone. There is no fix short of a new drive.
  */
 import { DEFAULT_ASK_OWNER, isTextJSON, peerName } from "../membership/records";
