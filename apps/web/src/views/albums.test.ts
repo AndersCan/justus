@@ -598,6 +598,21 @@ describe("Your albums page motion", () => {
     expect(callsOn(byKey("section:new"))).toHaveLength(0);
   });
 
+  test("an archived-only change slides the New album section", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: ["y", "z"] });
+    (byKey("section:archived") as HTMLDetailsElement).open = true;
+    await change({ folders: ["a"], archived: ["z"] });
+    const moved = callsOn(byKey("section:new"));
+    expect(moved).toHaveLength(1);
+    expect(moved[0].keyframes[1]).toEqual({ transform: "none" });
+  });
+
+  test("the archived list's first render animates no rows", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: [] });
+    await change({ folders: ["a"], archived: ["z"] });
+    expect(callsOn(byKey("archived:z"))).toHaveLength(0);
+  });
+
   test("the first load and a refresh with the same rows animate nothing", async () => {
     await loadAll({ folders: [] });
     const host = document.createElement("div");
