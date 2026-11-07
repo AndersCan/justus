@@ -103,6 +103,7 @@ export const PhotoError = {
   FRIEND_UNREACHABLE: "justus.photos/friend-unreachable",
   FRIEND_REFUSED: "justus.photos/friend-refused",
   OFFER_GONE: "justus.photos/offer-gone",
+  OFFER_PENDING: "justus.photos/offer-pending",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -2915,6 +2916,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("error", { where: "offerAlbum.open", err: errText(e) }),
       );
       const key = `${identity}:${invite.code}`;
+      if (offerWaiters.has(key))
+        return err(PhotoError.OFFER_PENDING, "This invite is already waiting for that friend");
       const reply = new Promise<"seen" | "refused">((resolve) => offerWaiters.set(key, resolve));
       const deadline = Date.now() + (deps.offerReachMs ?? OFFER_REACH_MS);
       try {
@@ -3007,6 +3010,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           id: rt.record.id,
           role: rt.record.role,
           pending: Boolean(rt.record.pending),
+          invited: rt.record.invited ?? [],
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),
           selfDrive: driveInfo(rt.selfDrive),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { holdOffer, mayShowOfferFrom } from "./offers";
+import { holdOffer, MAX_OFFERS_PER_SENDER, mayShowOfferFrom } from "./offers";
 
 const a = "a".repeat(64);
 const b = "b".repeat(64);
@@ -23,6 +23,25 @@ describe("holdOffer", () => {
   test("the same code from another Admin, or another code, is kept", () => {
     expect(holdOffer([offer("c1", a)], offer("c1", b))).toHaveLength(2);
     expect(holdOffer([offer("c1", a)], offer("c2", a))).toHaveLength(2);
+  });
+});
+
+describe("holdOffer cap", () => {
+  test("one sender cannot hold more than the cap; the oldest go first", () => {
+    let held = [offer("other", b)];
+    for (let i = 0; i < MAX_OFFERS_PER_SENDER + 5; i++) held = holdOffer(held, offer(`c${i}`, a));
+    const fromA = held.filter((o) => o.owner === a);
+    expect(fromA).toHaveLength(MAX_OFFERS_PER_SENDER);
+    expect(fromA[0].code).toBe("c5");
+    expect(fromA.at(-1)?.code).toBe(`c${MAX_OFFERS_PER_SENDER + 4}`);
+    expect(held.filter((o) => o.owner === b)).toHaveLength(1);
+  });
+
+  test("replacing an existing invite at the cap drops nothing", () => {
+    let held: ReturnType<typeof holdOffer> = [];
+    for (let i = 0; i < MAX_OFFERS_PER_SENDER; i++) held = holdOffer(held, offer(`c${i}`, a));
+    held = holdOffer(held, offer("c0", a, "Porto"));
+    expect(held).toHaveLength(MAX_OFFERS_PER_SENDER);
   });
 });
 

@@ -560,6 +560,8 @@ export const scenarios: Scenario[] = [
       );
       t.eq(offers[0].albumName, "Lisbon", "the invite names the album");
       t.eq(offers[0].ownerName, "Phone", "the invite names the Admin");
+      const adminState = admin.store.debugState() as { folders: { invited: string[] }[] };
+      t.eq(adminState.folders[0].invited, [friendIdentity], "the Admin records who was invited");
       t.ok(
         friend.changes.some((c) => c.cause === "offer"),
         "the friend was pushed an offer",
@@ -569,6 +571,21 @@ export const scenarios: Scenario[] = [
           (await admin.store.folders()).folders[0].shareKey,
         ),
         "the invite carries no album key",
+      );
+    },
+  },
+  {
+    name: "friend: a second invite for the same friend and album is turned away while one waits",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      const first = admin.store.offerAlbum(folderId, friendIdentity);
+      const [error] = await admin.store.offerAlbum(folderId, friendIdentity);
+      t.ok(error?.code === "justus.photos/offer-pending", "OFFER_PENDING");
+      t.noErr(await first, "the first invite still completes");
+      await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "one invite on the friend",
       );
     },
   },
@@ -593,8 +610,8 @@ export const scenarios: Scenario[] = [
       const folderId = created[1].folder.id;
       const [error] = await admin.store.offerAlbum(folderId, friendIdentity);
       t.ok(error?.code === "justus.photos/friend-unreachable", "FRIEND_UNREACHABLE");
-      const folder = admin.store.debugState() as { folders?: unknown };
-      t.ok(!JSON.stringify(folder).includes(`"invited"`), "nothing was written");
+      const folder = admin.store.debugState() as { folders: { invited: string[] }[] };
+      t.eq(folder.folders[0].invited, [], "nothing was written");
     },
   },
 ];
