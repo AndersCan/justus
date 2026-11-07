@@ -220,6 +220,85 @@ const changeStates = [
   ["dismiss", dismissingDeletedNotice, dismissDeletedNotice],
 ] as const;
 
+type ChangeKind = (typeof changeStates)[number][0];
+type ChangeState = (typeof changeStates)[number][1];
+
+function startChange<S extends ChangeState>(kind: ChangeKind, inFlight: S) {
+  return (
+    e: { payload: AlbumTarget },
+    opts: { context: { get(): FoldersContext; set(next: FoldersContext): void } },
+  ) => {
+    opts.context.set({
+      ...opts.context.get(),
+      ...noPending,
+      error: null,
+      pendingChange: { kind, ...e.payload },
+    });
+    return { state: inFlight };
+  };
+}
+
+function runChange(
+  port: FoldersPort,
+  {
+    signal,
+    emit,
+    context,
+  }: {
+    signal: AbortSignal;
+    emit: (
+      event: ReturnType<typeof loaded.create> | ReturnType<typeof albumChangeFailed.create>,
+    ) => void;
+    context: { get(): FoldersContext };
+  },
+) {
+  const pending = context.get().pendingChange;
+  if (!pending) {
+    emit(albumChangeFailed.create({ message: "no album to change" }));
+    return;
+  }
+  const calls = {
+    archive: port.archiveAlbum,
+    restore: port.restoreAlbum,
+    leave: port.leaveAlbum,
+    delete: port.deleteAlbum,
+    dismiss: port.dismissAlbumNotice,
+  };
+  const fail = (message: string) => emit(albumChangeFailed.create({ message }));
+  return runInvoke(
+    signal,
+    () => calls[pending.kind](pending.folderId),
+    () =>
+      void runInvoke(
+        signal,
+        () => port.folders(),
+        (result) => {
+          const r = result as {
+            folders?: FolderSummary[];
+            activeFolderId?: string;
+            asks?: AskSummary[];
+            offers?: OfferSummary[];
+            archived?: FolderSummary[];
+            deleted?: DeletedAlbum[];
+          } | null;
+          if (!r?.folders) return fail("albums returned no data");
+          emit(
+            loaded.create({
+              folders: r.folders,
+              asks: r.asks ?? [],
+              offers: r.offers ?? [],
+              activeId: r.activeFolderId ?? null,
+              archived: r.archived ?? [],
+              deleted: r.deleted ?? [],
+            }),
+          );
+        },
+        fail,
+      ),
+    fail,
+  );
+}
+
 /** Album calls run through `gateway` and the clock is injected, so tests and the flow inspector can drive them. */
 export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPort }) {
   const port = options.gateway ?? gateway;
@@ -583,75 +662,77 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
         },
       });
 
-      for (const [kind, inFlight, trigger] of changeStates) {
-        for (const at of settledStates) {
-          /** The person archives, restores, leaves, deletes or dismisses; the screen shows it is busy. */
-          m.on(at, {
-            event: trigger,
-            to: [inFlight],
-            handler: (e, opts) => {
-              opts.context.set({
-                ...opts.context.get(),
-                ...noPending,
-                error: null,
-                pendingChange: { kind, ...e.payload },
-              });
-              return { state: inFlight };
-            },
-          });
-        }
-        /** The change is made, then the lists are loaded again so every list is current. */
-        m.effect(inFlight, {
-          name: inFlight.name,
-          sends: [loaded, albumChangeFailed],
-          fn: ({ signal, emit, context }) => {
-            const pending = context.get().pendingChange;
-            if (!pending) {
-              emit(albumChangeFailed.create({ message: "no album to change" }));
-              return;
-            }
-            const calls = {
-              archive: port.archiveAlbum,
-              restore: port.restoreAlbum,
-              leave: port.leaveAlbum,
-              delete: port.deleteAlbum,
-              dismiss: port.dismissAlbumNotice,
-            };
-            const fail = (message: string) => emit(albumChangeFailed.create({ message }));
-            return runInvoke(
-              signal,
-              () => calls[pending.kind](pending.folderId),
-              () =>
-                void runInvoke(
-                  signal,
-                  () => port.folders(),
-                  (result) => {
-                    const r = result as {
-                      folders?: FolderSummary[];
-                      activeFolderId?: string;
-                      asks?: AskSummary[];
-                      offers?: OfferSummary[];
-                      archived?: FolderSummary[];
-                      deleted?: DeletedAlbum[];
-                    } | null;
-                    if (!r?.folders) return fail("albums returned no data");
-                    emit(
-                      loaded.create({
-                        folders: r.folders,
-                        asks: r.asks ?? [],
-                        offers: r.offers ?? [],
-                        activeId: r.activeFolderId ?? null,
-                        archived: r.archived ?? [],
-                        deleted: r.deleted ?? [],
-                      }),
-                    );
-                  },
-                  fail,
-                ),
-              fail,
-            );
-          },
+      for (const at of settledStates) {
+        /** The person archives an album; the screen shows it is busy. */
+        m.on(at, {
+          event: archiveAlbum,
+          to: [archivingAlbum],
+          handler: startChange("archive", archivingAlbum),
         });
+      }
+      /** The change is made, then the lists are loaded again so every list is current. */
+      m.effect(archivingAlbum, {
+        name: "archivingAlbum",
+        sends: [loaded, albumChangeFailed],
+        fn: (args) => runChange(port, args),
+      });
+      for (const at of settledStates) {
+        /** The person restores an archived album; the screen shows it is busy. */
+        m.on(at, {
+          event: restoreAlbum,
+          to: [restoringAlbum],
+          handler: startChange("restore", restoringAlbum),
+        });
+      }
+      /** The change is made, then the lists are loaded again so every list is current. */
+      m.effect(restoringAlbum, {
+        name: "restoringAlbum",
+        sends: [loaded, albumChangeFailed],
+        fn: (args) => runChange(port, args),
+      });
+      for (const at of settledStates) {
+        /** The person leaves an album; the screen shows it is busy. */
+        m.on(at, {
+          event: leaveAlbum,
+          to: [leavingAlbum],
+          handler: startChange("leave", leavingAlbum),
+        });
+      }
+      /** The change is made, then the lists are loaded again so every list is current. */
+      m.effect(leavingAlbum, {
+        name: "leavingAlbum",
+        sends: [loaded, albumChangeFailed],
+        fn: (args) => runChange(port, args),
+      });
+      for (const at of settledStates) {
+        /** The Admin deletes an album; the screen shows it is busy. */
+        m.on(at, {
+          event: deleteAlbum,
+          to: [deletingAlbum],
+          handler: startChange("delete", deletingAlbum),
+        });
+      }
+      /** The change is made, then the lists are loaded again so every list is current. */
+      m.effect(deletingAlbum, {
+        name: "deletingAlbum",
+        sends: [loaded, albumChangeFailed],
+        fn: (args) => runChange(port, args),
+      });
+      for (const at of settledStates) {
+        /** The person dismisses the deleted-album notice; the screen shows it is busy. */
+        m.on(at, {
+          event: dismissDeletedNotice,
+          to: [dismissingDeletedNotice],
+          handler: startChange("dismiss", dismissingDeletedNotice),
+        });
+      }
+      /** The change is made, then the lists are loaded again so every list is current. */
+      m.effect(dismissingDeletedNotice, {
+        name: "dismissingDeletedNotice",
+        sends: [loaded, albumChangeFailed],
+        fn: (args) => runChange(port, args),
+      });
+      for (const [, inFlight] of changeStates) {
         /** The change is done and the lists are current. */
         m.on(inFlight, {
           event: loaded,
