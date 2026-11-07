@@ -31,6 +31,8 @@ export type Drive = {
     opts?: { metadata?: Record<string, unknown> },
   ): Promise<void>;
   del(path: string): Promise<void>;
+  /** Deletes this device's copy of the file's bytes; the entry stays, and a later read fetches the bytes from a peer again. */
+  clear(path: string): Promise<void>;
   list(dir: string): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
@@ -53,6 +55,8 @@ export type DriveStore = {
   open(key: string, opts: { timeoutMs: number }): Promise<OpenResult<Drive>>;
   /** The topic a drive with this key is served on. Known before the drive opens, so a caller can join it first. */
   discoveryKeyOf(key: string): string;
+  /** Deletes this device's copy of the drive with this key and closes every handle to it. Other devices' copies are untouched; opening the key again starts empty and fills from peers. */
+  purge(key: string): Promise<void>;
   /** Drops one reference; the drive really closes at zero. */
   release(drive: Drive): Promise<void>;
   close(): Promise<void>;

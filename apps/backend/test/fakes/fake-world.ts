@@ -23,7 +23,12 @@ export type FakeWorldOptions = {
   unreachable?: (key: string) => boolean;
 };
 
-type StoredFile = { bytes: Uint8Array; metadata: Record<string, unknown> };
+type StoredFile = {
+  bytes: Uint8Array;
+  metadata: Record<string, unknown>;
+  /** Set when this node dropped the bytes but still knows the entry; the real length. */
+  clearedSize?: number;
+};
 
 type Replica = {
   key: string;
@@ -97,6 +102,15 @@ function replicateKey(options: { hub: FakeHub; key: string }): void {
   }
   if (!source) return;
   for (const target of holders) {
+    for (const [path, file] of target.files) {
+      if (file.clearedSize === undefined) continue;
+      const held = holders
+        .map((h) => h.files.get(path))
+        .find((f) => f && f.clearedSize === undefined);
+      if (!held) continue;
+      target.files.set(path, held);
+      notifyLater(target);
+    }
     if (target.length >= source.length) continue;
     target.files = new Map(source.files);
     target.length = source.length;
@@ -152,13 +166,13 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     async readSmall(path, maxBytes) {
       assertOpen();
       const file = replica.files.get(path);
-      if (!file || file.bytes.length > maxBytes) return undefined;
+      if (!file || file.clearedSize !== undefined || file.bytes.length > maxBytes) return undefined;
       return Buffer.from(file.bytes).toString("utf8");
     },
     async readBytes(path) {
       assertOpen();
       const file = replica.files.get(path);
-      return file ? new Uint8Array(file.bytes) : undefined;
+      return file && file.clearedSize === undefined ? new Uint8Array(file.bytes) : undefined;
     },
     async put(path, bytes, opts) {
       write(() => {
@@ -170,6 +184,17 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
         replica.files.delete(path);
       });
     },
+    async clear(path) {
+      assertOpen();
+      const file = replica.files.get(path);
+      if (!file) return;
+      replica.files.set(path, {
+        bytes: new Uint8Array(),
+        metadata: file.metadata,
+        clearedSize: file.clearedSize ?? file.bytes.length,
+      });
+      replicateKey({ hub, key });
+    },
     async *list(dir) {
       assertOpen();
       if (hub.options.unreachable?.(key)) throw new Error("fake drive unreachable");
@@ -180,7 +205,11 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       for (const path of paths) {
         const file = replica.files.get(path);
         if (!file || path === dir || !path.startsWith(prefix)) continue;
-        const listed: DriveEntry = { path, size: file.bytes.length, metadata: file.metadata };
+        const listed: DriveEntry = {
+          path,
+          size: file.clearedSize ?? file.bytes.length,
+          metadata: file.metadata,
+        };
         yield listed;
       }
     },
@@ -290,6 +319,19 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       if (!entry || entry.drive !== drive) return;
       entry.refs--;
       if (entry.refs <= 0) closeEntry({ entry, key: drive.key });
+    },
+    async purge(key) {
+      assertOpen();
+      const entry = entries.get(key);
+      if (entry) closeEntry({ entry, key });
+      const replica = node.replicas.get(key);
+      if (!replica) return;
+      if (replica.writable) {
+        replica.files = new Map();
+        replica.length = 0;
+      } else {
+        node.replicas.delete(key);
+      }
     },
     async close() {
       closed = true;
