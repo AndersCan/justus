@@ -118,6 +118,14 @@ class ListingScreenshots {
     type(text)
   }
 
+  // The first tap can land before the web view binds its handlers, so tap Skip until the name field shows.
+  private fun skipIntro() {
+    repeat(5) {
+      find("Skip", 60).click()
+      if (device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 5000)) return
+    }
+  }
+
   private fun type(text: String) {
     device.executeShellCommand("input text " + text)
     device.pressEnter()
@@ -128,7 +136,7 @@ class ListingScreenshots {
     val intent = target.packageManager.getLaunchIntentForPackage(target.packageName)!!
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
     target.startActivity(intent)
-    find("Skip", 60).click()
+    skipIntro()
     typeInField("Sam")
     find("Start sharing", 20)
     typeInField("Summer%s2026")
