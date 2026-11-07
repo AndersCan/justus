@@ -13,11 +13,11 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 type GrantActionKind = "grant" | "decline" | "snooze" | "revoke";
 
 const GRANTS_STATES = [
-  "idle",
-  "refreshing",
-  "ok",
-  "acting",
-  "error",
+  "shareListNotLoaded",
+  "loadingShareList",
+  "showingShareList",
+  "savingShareChoice",
+  "couldNotLoadShareList",
   "couldNotSaveShareChoice",
 ] as const;
 export type GrantsStateName = (typeof GRANTS_STATES)[number];
@@ -28,17 +28,17 @@ function dueRecords(records: GrantRecord[], due: string[]): GrantRecord[] {
 }
 
 /** The list of people this device shares photos with has not been loaded yet. */
-const idle = state("idle")();
+const shareListNotLoaded = state("shareListNotLoaded")();
 /** Loading who the person shares photos with and who is due a prompt. */
-const refreshing = state("refreshing")();
+const loadingShareList = state("loadingShareList")();
 /** The list of people is shown and the person can grant, decline, snooze or revoke. */
-const ok = state("ok")();
+const showingShareList = state("showingShareList")();
 /** Saving the person's choice about someone; buttons are disabled meanwhile. */
-const acting = state("acting")();
+const savingShareChoice = state("savingShareChoice")();
 /** The choice about this person was not saved; the list stays and the person sees why. */
 const couldNotSaveShareChoice = state("couldNotSaveShareChoice")();
 /** The list could not be loaded; the person sees the problem and can try again. */
-const error = state("error")();
+const couldNotLoadShareList = state("couldNotLoadShareList")();
 
 /** The person opens the share screen or asks it to reload. */
 const refresh = event("REFRESH")();
@@ -75,8 +75,8 @@ export function grantsViewModel(s: Snapshot<GrantsContext>) {
     due: s.context.due,
     dueRecords: dueRecords(s.context.records, s.context.due),
     state,
-    acting: state === "acting",
-    settled: state === "ok" || state === "couldNotSaveShareChoice",
+    acting: state === "savingShareChoice",
+    settled: state === "showingShareList" || state === "couldNotSaveShareChoice",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -91,66 +91,73 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
     inputs: [refresh, act, retry],
     internal: [loaded, loadFailed, acted, actFailed],
     outputs: [],
-    states: [idle, refreshing, ok, acting, error, couldNotSaveShareChoice],
-    initial: idle,
+    states: [
+      shareListNotLoaded,
+      loadingShareList,
+      showingShareList,
+      savingShareChoice,
+      couldNotLoadShareList,
+      couldNotSaveShareChoice,
+    ],
+    initial: shareListNotLoaded,
     clock,
     context: initialContext,
     setup: (m) => {
       /** The first load starts and any old error is cleared. */
-      m.on(idle, {
+      m.on(shareListNotLoaded, {
         event: refresh,
-        to: [refreshing],
+        to: [loadingShareList],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingShareList };
         },
       });
-      for (const at of [ok, couldNotSaveShareChoice]) {
+      for (const at of [showingShareList, couldNotSaveShareChoice]) {
         /** A reload starts and any old error is cleared. */
         m.on(at, {
           event: refresh,
-          to: [refreshing],
+          to: [loadingShareList],
           handler: (_e, opts) => {
             opts.context.set({ ...opts.context.get(), error: null });
-            return { state: refreshing };
+            return { state: loadingShareList };
           },
         });
         /** The person's choice starts saving and any earlier error is cleared. */
         m.on(at, {
           event: act,
-          to: [acting],
+          to: [savingShareChoice],
           handler: (e, opts) => {
             opts.context.set({
               ...opts.context.get(),
               error: null,
               pendingAct: { peerId: e.payload.peerId, kind: e.payload.kind },
             });
-            return { state: acting };
+            return { state: savingShareChoice };
           },
         });
       }
       /** A reload after an error starts and the error message goes away. */
-      m.on(error, {
+      m.on(couldNotLoadShareList, {
         event: refresh,
-        to: [refreshing],
+        to: [loadingShareList],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingShareList };
         },
       });
       /** Try again after an error: loading starts again and the error message goes away. */
-      m.on(error, {
+      m.on(couldNotLoadShareList, {
         event: retry,
-        to: [refreshing],
+        to: [loadingShareList],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
+          return { state: loadingShareList };
         },
       });
 
       /** The people and the prompts due today are fetched; if that fails, loading fails and the person sees an error. */
-      m.effect(refreshing, {
-        name: "refreshing",
+      m.effect(loadingShareList, {
+        name: "loadingShareList",
         sends: [loaded, loadFailed],
         fn: ({ signal, emit }) => {
           return runInvoke(
@@ -170,9 +177,9 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
         },
       });
       /** The people and the prompts due today are shown. */
-      m.on(refreshing, {
+      m.on(loadingShareList, {
         event: loaded,
-        to: [ok],
+        to: [showingShareList],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
@@ -180,22 +187,22 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
             due: e.payload.due,
             error: null,
           });
-          return { state: ok };
+          return { state: showingShareList };
         },
       });
       /** Loading failed: the person sees an error and can try again. */
-      m.on(refreshing, {
+      m.on(loadingShareList, {
         event: loadFailed,
-        to: [error],
+        to: [couldNotLoadShareList],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), error: e.payload.message });
-          return { state: error };
+          return { state: couldNotLoadShareList };
         },
       });
 
       /** The person's choice (allow, decline, stop sharing or remind me later) is saved; if it cannot be saved, the person sees an error. */
-      m.effect(acting, {
-        name: "acting",
+      m.effect(savingShareChoice, {
+        name: "savingShareChoice",
         sends: [acted, actFailed],
         fn: ({ signal, emit, context }) => {
           const pending = context.get().pendingAct;
@@ -220,16 +227,16 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
         },
       });
       /** The choice is saved, so the list reloads to show the new situation. */
-      m.on(acting, {
+      m.on(savingShareChoice, {
         event: acted,
-        to: [refreshing],
+        to: [loadingShareList],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null, pendingAct: null });
-          return { state: refreshing };
+          return { state: loadingShareList };
         },
       });
       /** Saving failed: the person sees an error and the list stays as it was. */
-      m.on(acting, {
+      m.on(savingShareChoice, {
         event: actFailed,
         to: [couldNotSaveShareChoice],
         handler: (e, opts) => {

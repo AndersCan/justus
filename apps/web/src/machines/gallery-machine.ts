@@ -12,12 +12,12 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
  */
 
 const GALLERY_STATES = [
-  "booting",
-  "loading",
-  "ready",
-  "error",
-  "adding",
-  "removing",
+  "photosNotLoaded",
+  "loadingPhotos",
+  "showingPhotos",
+  "couldNotLoadPhotos",
+  "addingPhotos",
+  "removingPhoto",
   "couldNotRemovePhoto",
 ] as const;
 export type GalleryStateName = (typeof GALLERY_STATES)[number];
@@ -53,9 +53,9 @@ export function galleryViewModel(s: Snapshot<GalleryContext>, status: SyncStatus
   const fatal = fatalErrorOf(s);
   return {
     state,
-    busy: state === "adding" || state === "removing",
+    busy: state === "addingPhotos" || state === "removingPhoto",
     /** The photos are shown and nothing is in flight: fine, or the last remove failed. */
-    settled: state === "ready" || state === "couldNotRemovePhoto",
+    settled: state === "showingPhotos" || state === "couldNotRemovePhoto",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
     photos: s.context.photos,
@@ -77,17 +77,17 @@ export function photoKey(photo: { id: string; folderId?: string }): string {
 }
 
 /** The app has just started and no photos are loaded. */
-const booting = state("booting")();
+const photosNotLoaded = state("photosNotLoaded")();
 /** The photo list is loading. */
-const loading = state("loading")();
+const loadingPhotos = state("loadingPhotos")();
 /** Photos are shown and the person can add or remove them. */
-const ready = state("ready")();
+const showingPhotos = state("showingPhotos")();
 /** The photos could not be loaded; the person can try again. */
-const error = state("error")();
+const couldNotLoadPhotos = state("couldNotLoadPhotos")();
 /** Photos are being added to the album one by one with progress. */
-const adding = state("adding")();
+const addingPhotos = state("addingPhotos")();
 /** A photo is being removed. */
-const removing = state("removing")();
+const removingPhoto = state("removingPhoto")();
 
 /** The photo was not removed; it stays and the person sees why. */
 const couldNotRemovePhoto = state("couldNotRemovePhoto")();
@@ -169,8 +169,16 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
     inputs: [load, addMany, remove, retry, retryFailed, dismissBatch, synced],
     internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
     outputs: [],
-    states: [booting, loading, ready, error, adding, removing, couldNotRemovePhoto],
-    initial: booting,
+    states: [
+      photosNotLoaded,
+      loadingPhotos,
+      showingPhotos,
+      couldNotLoadPhotos,
+      addingPhotos,
+      removingPhoto,
+      couldNotRemovePhoto,
+    ],
+    initial: photosNotLoaded,
     clock: options.clock,
     context: idleContext({ photos: [], batch: null, error: null } as unknown as GalleryContext),
     setup: (m) => {
@@ -183,47 +191,47 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** The first load of photos starts. */
-      m.on(booting, {
+      m.on(photosNotLoaded, {
         event: load,
-        to: [loading],
+        to: [loadingPhotos],
         handler: (_e, opts) => {
           opts.context.set(idleContext(opts.context.get(), { error: null }));
-          return { state: loading };
+          return { state: loadingPhotos };
         },
       });
-      for (const at of [ready, couldNotRemovePhoto]) {
+      for (const at of [showingPhotos, couldNotRemovePhoto]) {
         /** Refreshing the photos starts a reload. */
         m.on(at, {
           event: load,
-          to: [loading],
+          to: [loadingPhotos],
           handler: (_e, opts) => {
             opts.context.set(idleContext(opts.context.get(), { error: null }));
-            return { state: loading };
+            return { state: loadingPhotos };
           },
         });
       }
       /** After an error, reloading starts again and clears the error. */
-      m.on(error, {
+      m.on(couldNotLoadPhotos, {
         event: load,
-        to: [loading],
+        to: [loadingPhotos],
         handler: (_e, opts) => {
           opts.context.set(idleContext(opts.context.get(), { error: null }));
-          return { state: loading };
+          return { state: loadingPhotos };
         },
       });
       /** Try again after an error reloads the photos. */
-      m.on(error, {
+      m.on(couldNotLoadPhotos, {
         event: retry,
-        to: [loading],
+        to: [loadingPhotos],
         handler: (_e, opts) => {
           opts.context.set(idleContext(opts.context.get(), { error: null }));
-          return { state: loading };
+          return { state: loadingPhotos };
         },
       });
 
       /** The photos are fetched from the album. */
-      m.effect(loading, {
-        name: "loading",
+      m.effect(loadingPhotos, {
+        name: "loadingPhotos",
         sends: [loaded, loadFailed],
         fn: ({ signal, emit }) => {
           return runInvoke(
@@ -243,33 +251,33 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       });
 
       /** The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload. */
-      m.on(loading, {
+      m.on(loadingPhotos, {
         event: loaded,
-        to: [loading, ready, adding],
+        to: [loadingPhotos, showingPhotos, addingPhotos],
         handler: (e, opts) => {
           const c = opts.context.get();
           // Photos picked while the list was loading start adding now.
           if (c.pendingAdd) {
             opts.context.set({ ...c, photos: e.payload.photos, error: null });
-            return { state: adding };
+            return { state: addingPhotos };
           }
           // A push during the load may name photos this list predates.
           opts.context.set(idleContext(c, { photos: e.payload.photos, error: null }));
-          return { state: c.reloadAfterAdd ? loading : ready };
+          return { state: c.reloadAfterAdd ? loadingPhotos : showingPhotos };
         },
       });
       /** Loading failed and an error is shown; photos already picked still start adding. */
-      m.on(loading, {
+      m.on(loadingPhotos, {
         event: loadFailed,
-        to: [error, adding],
+        to: [couldNotLoadPhotos, addingPhotos],
         handler: (e, opts) => {
           const c = opts.context.get();
           if (c.pendingAdd) {
             opts.context.set({ ...c, error: e.payload.message });
-            return { state: adding };
+            return { state: addingPhotos };
           }
           opts.context.set(idleContext(c, { error: e.payload.message }));
-          return { state: error };
+          return { state: couldNotLoadPhotos };
         },
       });
 
@@ -301,20 +309,20 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         opts: { context: { get(): GalleryContext; set(c: GalleryContext): void } },
       ) => {
         queueBatch(sources, folderId, opts, { error: null });
-        return { state: adding };
+        return { state: addingPhotos };
       };
-      for (const at of [ready, couldNotRemovePhoto]) {
+      for (const at of [showingPhotos, couldNotRemovePhoto]) {
         /** The person adds photos and sees progress through the batch. */
         m.on(at, {
           event: addMany,
-          to: [adding],
+          to: [addingPhotos],
           handler: (e, opts) => startBatch(e.payload.sources, e.payload.folderId, opts),
         });
       }
       // A `photos.changed` push reloads the list often (every sync). Photos
       // picked meanwhile must not be dropped: queue them, shown as adding, and
       // start once the list is in.
-      for (const at of [booting, loading]) {
+      for (const at of [photosNotLoaded, loadingPhotos]) {
         /** Photos picked while the list is still loading are queued and start once it arrives. */
         m.on(at, {
           event: addMany,
@@ -325,7 +333,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           },
         });
       }
-      for (const at of [ready, couldNotRemovePhoto]) {
+      for (const at of [showingPhotos, couldNotRemovePhoto]) {
         /** Retrying adds only the photos that failed earlier, if none are still being added. */
         m.on(at, {
           event: retryFailed,
@@ -342,7 +350,14 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       }
       // A finished batch can be dismissed whatever the gallery is doing (an
       // upload batch ends in a reload); only the running one stays.
-      for (const at of [booting, loading, ready, error, removing, couldNotRemovePhoto]) {
+      for (const at of [
+        photosNotLoaded,
+        loadingPhotos,
+        showingPhotos,
+        couldNotLoadPhotos,
+        removingPhoto,
+        couldNotRemovePhoto,
+      ]) {
         /** The add summary can be closed at any time, unless photos are still being added. */
         m.on(at, {
           event: dismissBatch,
@@ -356,8 +371,8 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       // One photo at a time: the worklet writes each to the album's drive in
       // turn, and the progress count stays honest.
       /** Each picked photo is added in turn, and the progress count goes up after each. */
-      m.effect(adding, {
-        name: "adding",
+      m.effect(addingPhotos, {
+        name: "addingPhotos",
         sends: [itemAdded, itemFailed, batchDone],
         fn: ({ signal, emit, context }) => {
           const batch = context.get().pendingAdd;
@@ -407,7 +422,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         });
       };
       /** A photo is added to the top of the list, or counted as already in the album. */
-      m.on(adding, {
+      m.on(addingPhotos, {
         event: itemAdded,
         handler: (e, opts) => {
           const { photo, duplicate } = e.payload;
@@ -422,7 +437,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** A photo failed to add: it is kept in the summary for retry and the rest carry on. */
-      m.on(adding, {
+      m.on(addingPhotos, {
         event: itemFailed,
         handler: (e, opts) => {
           tally(opts, (b) => ({ failed: [...b.failed, e.payload] }));
@@ -430,7 +445,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** The album synced while loading: the photos reload once more afterwards. */
-      m.on(loading, {
+      m.on(loadingPhotos, {
         event: load,
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
@@ -438,7 +453,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** The album synced while photos are adding: the photos reload when adding ends. */
-      m.on(adding, {
+      m.on(addingPhotos, {
         event: load,
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), reloadAfterAdd: true });
@@ -446,9 +461,9 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** Adding ended: the summary shows the result and the photos reload if uploads or syncs need it. */
-      m.on(adding, {
+      m.on(addingPhotos, {
         event: batchDone,
-        to: [loading, ready],
+        to: [loadingPhotos, showingPhotos],
         handler: (_e, opts) => {
           const c = opts.context.get();
           // Uploads come back as bare ids: reload for the full photos.
@@ -456,26 +471,26 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           opts.context.set(
             idleContext(c, { batch: c.batch ? { ...c.batch, running: false } : null }),
           );
-          return { state: c.reloadAfterAdd || uploaded ? loading : ready };
+          return { state: c.reloadAfterAdd || uploaded ? loadingPhotos : showingPhotos };
         },
       });
 
-      for (const at of [ready, couldNotRemovePhoto]) {
+      for (const at of [showingPhotos, couldNotRemovePhoto]) {
         /** The person removes a photo; the screen shows it is busy. */
         m.on(at, {
           event: remove,
-          to: [removing],
+          to: [removingPhoto],
           handler: (e, opts) => {
             opts.context.set(
               idleContext(opts.context.get(), { error: null, pendingRemove: { ...e.payload } }),
             );
-            return { state: removing };
+            return { state: removingPhoto };
           },
         });
       }
       /** The photo is deleted from the album. */
-      m.effect(removing, {
-        name: "removing",
+      m.effect(removingPhoto, {
+        name: "removingPhoto",
         sends: [removed, removeFailed],
         fn: ({ signal, emit, context }) => {
           const pending = context.get().pendingRemove;
@@ -492,9 +507,9 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
         },
       });
       /** The photo disappears from the list. */
-      m.on(removing, {
+      m.on(removingPhoto, {
         event: removed,
-        to: [ready],
+        to: [showingPhotos],
         handler: (e, opts) => {
           const c = opts.context.get();
           opts.context.set(
@@ -503,11 +518,11 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
               photos: c.photos.filter((p) => !samePhoto(p, e.payload)),
             }),
           );
-          return { state: ready };
+          return { state: showingPhotos };
         },
       });
       /** Removing failed: the photo stays and the person sees why. */
-      m.on(removing, {
+      m.on(removingPhoto, {
         event: removeFailed,
         to: [couldNotRemovePhoto],
         handler: (e, opts) => {

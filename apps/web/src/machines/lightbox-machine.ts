@@ -14,42 +14,42 @@ const closed = event("CLOSE")();
 const stepped = event("STEP")<{ dir: 1 | -1; photos: Photo[] }>();
 
 /** No photo is open. */
-const closedState = state("closed")();
+const noPhotoOpen = state("noPhotoOpen")();
 /** A photo is open full-screen. */
-const openState = state("open")();
+const showingPhoto = state("showingPhoto")();
 
 export function createLightboxActor(options: { clock: Clock }) {
   return Actor({
     inputs: [opened, closed, stepped],
     internal: [],
     outputs: [],
-    states: [closedState, openState],
-    initial: closedState,
+    states: [noPhotoOpen, showingPhoto],
+    initial: noPhotoOpen,
     clock: options.clock,
     context: { photo: undefined, sequence: undefined } as LightboxContext,
     setup: (m) => {
-      for (const at of [closedState, openState]) {
+      for (const at of [noPhotoOpen, showingPhoto]) {
         /** Opening a photo works from any state; it also replaces the open photo. */
         m.on(at, {
           event: opened,
-          to: [openState],
+          to: [showingPhoto],
           handler: (e, opts) => {
             opts.context.set({ photo: e.payload.photo, sequence: e.payload.within });
-            return { state: openState };
+            return { state: showingPhoto };
           },
         });
       }
       /** Closing forgets the photo and its grid. */
-      m.on(openState, {
+      m.on(showingPhoto, {
         event: closed,
-        to: [closedState],
+        to: [noPhotoOpen],
         handler: (_e, opts) => {
           opts.context.set({ photo: undefined, sequence: undefined });
-          return { state: closedState };
+          return { state: noPhotoOpen };
         },
       });
       /** Stepping stays open; a photo that is no longer in the list is left as it is. */
-      m.on(openState, {
+      m.on(showingPhoto, {
         event: stepped,
         handler: (e, opts) => {
           const c = opts.context.get();

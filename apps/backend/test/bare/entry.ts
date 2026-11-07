@@ -244,7 +244,7 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
     await actor.settled();
     states.push(String(actor.state.name));
     const got = states.join(",");
-    if (got !== "awaitingDecision,joined,joined,removed")
+    if (got !== "requestWaitingForAdmin,memberOfAlbum,memberOfAlbum,removedFromAlbum")
       throw new Error(`unexpected states ${got}`);
     console.log(
       `ok   membership-machine: request, accept, change role, remove (${Date.now() - started}ms)`,

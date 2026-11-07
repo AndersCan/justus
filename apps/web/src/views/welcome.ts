@@ -45,7 +45,7 @@ export function markWelcomeSeen(): void {
 
 // A saved profile means the device is set up; a relaunch must not replay the intro.
 onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
-  if (state === "choose") markWelcomeSeen();
+  if (state === "choosingCreateOrJoin") markWelcomeSeen();
 });
 
 // Creating an album finishes onboarding: open it once the create lands, so the
@@ -53,7 +53,12 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
 // join listener.
 onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   const { error, activeId } = foldersActor.snapshot().context;
-  if (prev === "creating" && next === "ok" && !error && currentPage()?.route === "welcome") {
+  if (
+    prev === "creatingAlbum" &&
+    next === "showingAlbums" &&
+    !error &&
+    currentPage()?.route === "welcome"
+  ) {
     open(activeId ? `/albums/${activeId}` : "/", { replace: true });
   }
 });
@@ -192,7 +197,7 @@ function chooseStep() {
               required
             />
             <wa-button variant="brand" class="w-full" type="submit" ?disabled=${busy}>
-              ${vm.state === "creating" ? "Creating…" : "Create an album"}
+              ${vm.state === "creatingAlbum" ? "Creating…" : "Create an album"}
             </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
@@ -239,15 +244,15 @@ export function welcomeView() {
           // The first card carries the logo itself, so the header would double it.
           // md+: the rail already shows the wordmark; one coral dot per screen.
           const header =
-            vm.state === "cards" && vm.card === 0
+            vm.state === "showingIntroCards" && vm.card === 0
               ? null
               : html`<h1 class="flex justify-center md:hidden">
                   ${wordmark("h-14 w-auto", true)}
                 </h1>`;
           const step =
-            vm.state === "cards"
+            vm.state === "showingIntroCards"
               ? cardsStep(vm.card)
-              : vm.state === "choose"
+              : vm.state === "choosingCreateOrJoin"
                 ? chooseStep()
                 : profileStep(vm);
           return html`${header}${step}`;

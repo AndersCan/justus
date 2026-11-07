@@ -34,7 +34,7 @@ function build(fakes: Fakes = {}) {
 
 async function ready(h: ReturnType<typeof build>) {
   h.send("LOAD");
-  await vi.waitFor(() => expect(h.stateOf()).toBe("ready"));
+  await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
 }
 
 const finished = (h: ReturnType<typeof build>) =>
@@ -52,7 +52,7 @@ describe("gallery factory", () => {
     await ready(h);
     h.send("ADD_MANY", { sources: [path("beach.jpg")], folderId: "f1" });
     await finished(h);
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
     expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p1", "p0"]);
   });
 
@@ -67,7 +67,7 @@ describe("gallery factory", () => {
         ),
     );
     h.send("LOAD");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("loading"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
     h.send("ADD_MANY", { sources: [path("beach.jpg")], folderId: "f1" });
     expect(h.ctx().batch?.running).toBe(true);
     land();
@@ -89,11 +89,11 @@ describe("gallery factory", () => {
       )
       .mockResolvedValueOnce([null, { photos: [photo("p9")] }]);
     h.send("LOAD");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("loading"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
     h.send("LOAD");
     land();
     await vi.waitFor(() => expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p9"]));
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
   });
 
   test("an add failure is recorded on the batch and returns to ready", async () => {
@@ -101,7 +101,7 @@ describe("gallery factory", () => {
     await ready(h);
     h.send("ADD_MANY", { sources: [path("beach.jpg")], folderId: "f1" });
     await finished(h);
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
     expect(h.ctx().batch?.failed[0]?.message).toMatch(/rejected/i);
     expect(h.ctx().photos).toEqual([]);
   });
@@ -190,7 +190,7 @@ describe("gallery factory", () => {
     const h = build();
     await ready(h);
     h.send("RETRY_FAILED");
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
     expect(h.ctx().batch).toBeNull();
   });
 
@@ -236,7 +236,7 @@ describe("gallery factory", () => {
     release();
     await vi.waitFor(() => expect(h.ctx().photos).toHaveLength(2));
     expect(h.port.list).toHaveBeenCalledTimes(1);
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
   });
 
   test("browser uploads reload the gallery once the batch ends", async () => {
@@ -257,7 +257,7 @@ describe("gallery factory", () => {
     h.send("ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" });
     await finished(h);
     h.send("LOAD");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("ready"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
     expect(h.ctx().batch).toMatchObject({ running: false, added: 1 });
   });
 
@@ -270,7 +270,7 @@ describe("gallery factory", () => {
     await vi.waitFor(() => expect(h.ctx().photos).toHaveLength(1));
     expect(h.port.remove).toHaveBeenCalledWith("p1", "f1");
     expect(h.ctx().photos[0]).toMatchObject({ id: "p1", folderId: "f2" });
-    expect(h.stateOf()).toBe("ready");
+    expect(h.stateOf()).toBe("showingPhotos");
   });
 
   test("a failed removal keeps the photo and shows the error", async () => {
@@ -307,9 +307,9 @@ describe("gallery factory", () => {
     });
 
     test.each([
-      ["LOAD", undefined, "loading"],
-      ["ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" }, "adding"],
-      ["REMOVE", { id: "p1", folderId: "f1" }, "removing"],
+      ["LOAD", undefined, "loadingPhotos"],
+      ["ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" }, "addingPhotos"],
+      ["REMOVE", { id: "p1", folderId: "f1" }, "removingPhoto"],
     ] as const)("%s enters the same state as from ready", async (type, payload, next) => {
       const h = await failed();
       h.send(type, payload);
@@ -328,7 +328,7 @@ describe("gallery factory", () => {
       h.send("REMOVE", { id: "p1", folderId: "f1" });
       await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
       h.send("RETRY_FAILED");
-      expect(h.stateOf()).toBe("adding");
+      expect(h.stateOf()).toBe("addingPhotos");
     });
 
     test("DISMISS_BATCH closes the add summary and stays", async () => {
@@ -350,17 +350,17 @@ describe("gallery factory", () => {
     const h = build();
     h.port.list.mockResolvedValueOnce([new Error("no data"), null]);
     h.send("LOAD");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("error"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotLoadPhotos"));
     expect(h.ctx().error).toBe("no data");
     h.send("RETRY");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("ready"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
     expect(h.ctx().error).toBeNull();
   });
 
   test("a list with no photos is a load failure", async () => {
     const h = build({ list: async () => [null, {}] });
     h.send("LOAD");
-    await vi.waitFor(() => expect(h.stateOf()).toBe("error"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotLoadPhotos"));
     expect(h.ctx().error).toMatch(/no photos/);
   });
 });
@@ -372,7 +372,7 @@ describe("gallery idle reset", () => {
     h.send("LOAD");
     h.send("ADD_MANY", { sources: [path("beach.jpg")], folderId: "f1" });
     await finished(h);
-    await vi.waitFor(() => expect(h.stateOf()).not.toBe("adding"));
+    await vi.waitFor(() => expect(h.stateOf()).not.toBe("addingPhotos"));
     expect(h.ctx().error).toMatch(/no data/);
   });
 });
@@ -381,14 +381,14 @@ const single = () => galleryActor.snapshot().context;
 
 describe("gallery singleton", () => {
   test("holds photos, add summary and error in its context", async () => {
-    expect(gallery.state()).toBe("booting");
+    expect(gallery.state()).toBe("photosNotLoaded");
     expect(single().photos).toEqual([]);
     expect(single().batch).toBeNull();
     expect(single().error).toBeNull();
 
     hoisted.gateway.list.mockResolvedValueOnce([null, { photos: [photo("p0")] }]);
     gallery.load();
-    await vi.waitFor(() => expect(gallery.state()).toBe("ready"));
+    await vi.waitFor(() => expect(gallery.state()).toBe("showingPhotos"));
     expect(single().photos).toEqual([photo("p0")]);
 
     hoisted.gateway.add.mockResolvedValueOnce([null, photo("p1")]);
@@ -402,7 +402,7 @@ describe("gallery singleton", () => {
 
     hoisted.gateway.list.mockResolvedValueOnce([new Error("no data"), null]);
     gallery.load();
-    await vi.waitFor(() => expect(gallery.state()).toBe("error"));
+    await vi.waitFor(() => expect(gallery.state()).toBe("couldNotLoadPhotos"));
     expect(single().error).toMatch(/no data/);
   });
 });
@@ -425,7 +425,7 @@ describe("gallery last synced and view model", () => {
   test("galleryViewModel: initial snapshot, role from the passed status", () => {
     const h = build();
     expect(galleryViewModel(h.actor.snapshot(), null)).toEqual({
-      state: "booting",
+      state: "photosNotLoaded",
       busy: false,
       settled: false,
       error: null,
@@ -445,7 +445,7 @@ describe("gallery last synced and view model", () => {
     await ready(h);
     h.send("REMOVE", { id: "p1", folderId: "f1" });
     const vm = galleryViewModel(h.actor.snapshot(), null);
-    expect(vm.state).toBe("removing");
+    expect(vm.state).toBe("removingPhoto");
     expect(vm.busy).toBe(true);
   });
 });

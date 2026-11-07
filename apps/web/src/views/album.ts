@@ -281,7 +281,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
     return html`<div class="max-w-2xl space-y-4">
       ${back}
       ${
-        settled || state === "error"
+        settled || state === "couldNotCheckAlbum" || fatal
           ? html`<p class="text-fg">This album isn't showing right now.</p>
               <button class="ui-btn-primary" @click=${() => folders.switchTo(id)}>
                 Open album
@@ -306,7 +306,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
     >
     ${errorBanner(
       error,
-      state === "error" && !fatal ? () => sync.retry() : undefined,
+      state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
     ${requestsSection(vm)}

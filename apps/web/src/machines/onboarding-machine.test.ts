@@ -25,21 +25,21 @@ beforeEach(() => {
 
 describe("onboarding machine", () => {
   test("steps through the intro cards, then reaches the profile", () => {
-    expect(onboarding.state()).toBe("cards");
+    expect(onboarding.state()).toBe("showingIntroCards");
     onboarding.next();
     expect(vm().card).toBe(1);
     onboarding.back();
     expect(vm().card).toBe(0);
     for (let i = 0; i < INTRO_CARD_COUNT; i++) onboarding.next();
-    expect(onboarding.state()).toBe("profile");
+    expect(onboarding.state()).toBe("askingForName");
   });
 
   test("back from the profile returns to the last card", () => {
     onboarding.back();
-    expect(onboarding.state()).toBe("cards");
+    expect(onboarding.state()).toBe("showingIntroCards");
     expect(vm().card).toBe(INTRO_CARD_COUNT - 1);
     onboarding.skip();
-    expect(onboarding.state()).toBe("profile");
+    expect(onboarding.state()).toBe("askingForName");
   });
 
   test("the profile field is not prefilled with the generated device name", () => {
@@ -50,19 +50,19 @@ describe("onboarding machine", () => {
     expect(vm().draftName).toBe("");
     onboarding.editName("Maya Lin");
     expect(vm().draftName).toBe("Maya Lin");
-    expect(onboarding.state()).toBe("profile");
+    expect(onboarding.state()).toBe("askingForName");
   });
 
   test("a failed save stays on the profile with the error", async () => {
     mock.setName.mockResolvedValue([new Error("disk full"), null]);
     onboarding.saveProfile("Maya");
-    await vi.waitFor(() => expect(onboarding.state()).toBe("profile"));
+    await vi.waitFor(() => expect(onboarding.state()).toBe("askingForName"));
     expect(vm().error).toBe("disk full");
   });
 
   test("saving the profile stores the name and moves to the choice", async () => {
     onboarding.saveProfile("  Maya ");
-    await vi.waitFor(() => expect(onboarding.state()).toBe("choose"));
+    await vi.waitFor(() => expect(onboarding.state()).toBe("choosingCreateOrJoin"));
     expect(mock.setName).toHaveBeenLastCalledWith("Maya");
     expect(userName()).toBe("Maya");
   });
@@ -82,16 +82,16 @@ describe("onboarding actor factory", () => {
   test("six nexts reach the profile", () => {
     const { actor } = setup();
     for (let i = 0; i < INTRO_CARD_COUNT - 1; i++) send(actor, "NEXT");
-    expect(actor.state.name).toBe("cards");
+    expect(actor.state.name).toBe("showingIntroCards");
     expect(actor.snapshot().context.card).toBe(INTRO_CARD_COUNT - 1);
     send(actor, "NEXT");
-    expect(actor.state.name).toBe("profile");
+    expect(actor.state.name).toBe("askingForName");
   });
 
   test("back on the first card stays put", () => {
     const { actor } = setup();
     send(actor, "BACK");
-    expect(actor.state.name).toBe("cards");
+    expect(actor.state.name).toBe("showingIntroCards");
     expect(actor.snapshot().context.card).toBe(0);
   });
 
@@ -99,7 +99,7 @@ describe("onboarding actor factory", () => {
     const { actor } = setup();
     send(actor, "SKIP");
     send(actor, "BACK");
-    expect(actor.state.name).toBe("cards");
+    expect(actor.state.name).toBe("showingIntroCards");
     expect(actor.snapshot().context.card).toBe(INTRO_CARD_COUNT - 1);
   });
 
@@ -115,7 +115,7 @@ describe("onboarding actor factory", () => {
     send(actor, "SKIP");
     send(actor, "SAVE_PROFILE", { name: "   " });
     await actor.settled();
-    expect(actor.state.name).toBe("profile");
+    expect(actor.state.name).toBe("askingForName");
     expect(actor.snapshot().context.error).toBe("Enter a name to continue");
     expect(setName).not.toHaveBeenCalled();
   });
@@ -125,7 +125,7 @@ describe("onboarding actor factory", () => {
     send(actor, "SKIP");
     send(actor, "SAVE_PROFILE", { name: "Maya" });
     await actor.settled();
-    expect(actor.state.name).toBe("profile");
+    expect(actor.state.name).toBe("askingForName");
     expect(actor.snapshot().context.error).toBe("disk full");
   });
 
@@ -135,7 +135,7 @@ describe("onboarding actor factory", () => {
     send(actor, "SAVE_PROFILE", { name: "  Maya " });
     await actor.settled();
     expect(setName).toHaveBeenCalledWith("Maya");
-    expect(actor.state.name).toBe("choose");
+    expect(actor.state.name).toBe("choosingCreateOrJoin");
     expect(outputs.map((o) => [o.type, o.payload])).toEqual([["NAME_SAVED", { name: "Maya" }]]);
   });
 
@@ -151,7 +151,7 @@ describe("onboarding actor factory", () => {
     send(actor, "SAVE_PROFILE", { name: "Maya" });
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
-    expect(actor.state.name).toBe("choose");
+    expect(actor.state.name).toBe("choosingCreateOrJoin");
   });
 });
 
@@ -164,7 +164,7 @@ describe("onboardingViewModel", () => {
     expect(onboardingViewModel(build().snapshot(), "Quiet Otter")).toEqual({
       card: 0,
       cardCount: INTRO_CARD_COUNT,
-      state: "cards",
+      state: "showingIntroCards",
       saving: false,
       error: null,
       fatal: false,
@@ -179,7 +179,7 @@ describe("onboardingViewModel", () => {
     send(actor, "SKIP");
     send(actor, "SAVE_PROFILE", { name: "Maya" });
     const vm = onboardingViewModel(actor.snapshot(), "");
-    expect(vm.state).toBe("saving");
+    expect(vm.state).toBe("savingName");
     expect(vm.saving).toBe(true);
   });
 });

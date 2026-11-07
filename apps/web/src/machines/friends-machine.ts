@@ -16,15 +16,15 @@ export const FRIEND_NAME_LIMIT = 40;
 export const SAVE_FAILED_COPY = "Couldn't save. Try again.";
 
 /** The saved friends are being read from this device; the sheet cannot open yet. */
-const loading = state("loading")();
+const loadingFriends = state("loadingFriends")();
 /** No friend sheet is showing. */
-const closed = state("closed")();
+const friendSheetClosed = state("friendSheetClosed")();
 /** The sheet shows one person from the album and whether they are already a friend. */
-const viewing = state("viewing")<FriendTarget>();
+const showingMember = state("showingMember")<FriendTarget>();
 /** The person is typing the name to give this friend. */
-const naming = state("naming")<FriendTarget & { draft: string }>();
+const namingFriend = state("namingFriend")<FriendTarget & { draft: string }>();
 /** The name is being saved on this device; the buttons wait. */
-const saving = state("saving")<FriendTarget & { name: string }>();
+const savingFriend = state("savingFriend")<FriendTarget & { name: string }>();
 
 /** The person taps a member to see them in the friend sheet. */
 const open = event("OPEN")<{ target: FriendTarget }>();
@@ -58,14 +58,14 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
     inputs: [open, add, type, save, close],
     internal: [loaded, loadFailed, saved, saveFailed],
     outputs: [friendSaved],
-    states: [loading, closed, viewing, naming, saving],
-    initial: loading,
+    states: [loadingFriends, friendSheetClosed, showingMember, namingFriend, savingFriend],
+    initial: loadingFriends,
     clock,
     context: initialContext,
     setup: (m) => {
       /** The saved friends are read from this device; if that fails, the app carries on with no friends. */
-      m.effect(loading, {
-        name: "loading",
+      m.effect(loadingFriends, {
+        name: "loadingFriends",
         sends: [loaded, loadFailed],
         fn: ({ signal, emit }) =>
           runInvoke(
@@ -79,73 +79,73 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
           ),
       });
       /** The friends are known, so the sheet can open. */
-      m.on(loading, {
+      m.on(loadingFriends, {
         event: loaded,
-        to: [closed],
+        to: [friendSheetClosed],
         handler: (e, opts) => {
           const friends: Record<string, string> = {};
           for (const f of e.payload.friends) friends[f.identity] = f.name;
           opts.context.set({ friends, error: null });
-          return { state: closed };
+          return { state: friendSheetClosed };
         },
       });
       /** Reading the friends failed; nobody is shown as a friend and no error is shown. */
-      m.on(loading, {
+      m.on(loadingFriends, {
         event: loadFailed,
-        to: [closed],
+        to: [friendSheetClosed],
         handler: (e) => {
           console.error("friends: could not load", e.payload.message);
-          return { state: closed };
+          return { state: friendSheetClosed };
         },
       });
 
       /** The person taps a member and the friend sheet opens for them. */
-      m.on(closed, {
+      m.on(friendSheetClosed, {
         event: open,
-        to: [viewing],
+        to: [showingMember],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: viewing.create(e.payload.target) };
+          return { state: showingMember.create(e.payload.target) };
         },
       });
       /** The person starts naming a member who is not a friend yet, with their own name as the first draft. */
-      m.on(viewing, {
+      m.on(showingMember, {
         event: add,
-        to: [naming, viewing],
+        to: [namingFriend, showingMember],
         handler: (_e, opts) => {
           const target = opts.state.payload;
           if (opts.context.get().friends[target.identity] !== undefined) {
-            return { state: viewing.create(target) };
+            return { state: showingMember.create(target) };
           }
-          return { state: naming.create({ ...target, draft: target.ownName }) };
+          return { state: namingFriend.create({ ...target, draft: target.ownName }) };
         },
       });
       /** Closing the sheet from the member view hides it. */
-      m.on(viewing, {
+      m.on(showingMember, {
         event: close,
-        to: [closed],
+        to: [friendSheetClosed],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: closed };
+          return { state: friendSheetClosed };
         },
       });
       /** Closing the sheet while naming throws the draft away. */
-      m.on(naming, {
+      m.on(namingFriend, {
         event: close,
-        to: [closed],
+        to: [friendSheetClosed],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
-          return { state: closed };
+          return { state: friendSheetClosed };
         },
       });
       /** Typing changes the draft, cut to the longest name allowed, and clears any save error. */
-      m.on(naming, {
+      m.on(namingFriend, {
         event: type,
-        to: [naming],
+        to: [namingFriend],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), error: null });
           return {
-            state: naming.create({
+            state: namingFriend.create({
               ...opts.state.payload,
               draft: e.payload.text.slice(0, FRIEND_NAME_LIMIT),
             }),
@@ -153,20 +153,20 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
         },
       });
       /** Save starts only when the draft has something other than spaces in it. */
-      m.on(naming, {
+      m.on(namingFriend, {
         event: save,
-        to: [saving, naming],
+        to: [savingFriend, namingFriend],
         handler: (_e, opts) => {
           const { identity, ownName, draft } = opts.state.payload;
           const name = draft.trim();
-          if (name === "") return { state: naming.create(opts.state.payload) };
-          return { state: saving.create({ identity, ownName, name }) };
+          if (name === "") return { state: namingFriend.create(opts.state.payload) };
+          return { state: savingFriend.create({ identity, ownName, name }) };
         },
       });
 
       /** The name is saved on this device; if that fails, the person sees why and can try again. */
-      m.effect(saving, {
-        name: "saving",
+      m.effect(savingFriend, {
+        name: "savingFriend",
         sends: [saved, saveFailed],
         fn: ({ signal, emit, state: current }) => {
           const { identity, name } = current.payload;
@@ -184,26 +184,29 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
         },
       });
       /** The friend is kept, the sheet closes and the app is told the name. */
-      m.on(saving, {
+      m.on(savingFriend, {
         event: saved,
-        to: [closed],
+        to: [friendSheetClosed],
         handler: (e, opts) => {
           const ctx = opts.context.get();
           opts.context.set({
             friends: { ...ctx.friends, [e.payload.friend.identity]: e.payload.friend.name },
             error: null,
           });
-          return { state: closed, emit: [friendSaved.create({ name: e.payload.friend.name })] };
+          return {
+            state: friendSheetClosed,
+            emit: [friendSaved.create({ name: e.payload.friend.name })],
+          };
         },
       });
       /** Saving failed: the person is back at the name with their draft and a short message. */
-      m.on(saving, {
+      m.on(savingFriend, {
         event: saveFailed,
-        to: [naming],
+        to: [namingFriend],
         handler: (_e, opts) => {
           const { identity, ownName, name } = opts.state.payload;
           opts.context.set({ ...opts.context.get(), error: SAVE_FAILED_COPY });
-          return { state: naming.create({ identity, ownName, draft: name }) };
+          return { state: namingFriend.create({ identity, ownName, draft: name }) };
         },
       });
     },
@@ -211,7 +214,7 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
 }
 
 export type FriendSheet = {
-  state: "loading" | "closed" | "viewing" | "naming" | "saving";
+  state: "loadingFriends" | "friendSheetClosed" | "showingMember" | "namingFriend" | "savingFriend";
   target: FriendTarget | null;
   draft: string;
   error: string | null;
@@ -234,7 +237,7 @@ export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
     target,
     draft,
     error: snapshot.context.error,
-    canSave: name === "naming" && draft.trim() !== "",
+    canSave: name === "namingFriend" && draft.trim() !== "",
   };
 }
 

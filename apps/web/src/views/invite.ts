@@ -258,7 +258,12 @@ function sheet(label: string, body: unknown, onDismiss: () => void) {
 export function joinSheet() {
   return watch(joinActor, (snapshot) => {
     const { state, invite, error } = joinViewOf(snapshot);
-    if (state === "noInvite" || state === "unusableLink" || state === "joined" || !invite)
+    if (
+      state === "noInviteOpen" ||
+      state === "showingLinkProblem" ||
+      state === "joinedAlbum" ||
+      !invite
+    )
       return null;
     const owner = invite.ownerName;
     if (state === "linkExpired") {
@@ -296,7 +301,7 @@ export function joinSheet() {
         },
       );
     }
-    if (state === "waitingForAnswer") {
+    if (state === "waitingForAdminToAccept") {
       const title = `Waiting for ${owner}`;
       return sheet(
         title,

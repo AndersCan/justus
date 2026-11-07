@@ -45,7 +45,7 @@ if (typeof document !== "undefined") {
 }
 
 async function removeFromLightbox(photo: Photo) {
-  if (gallery.state() === "removing") return;
+  if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
     detail: removeDetail(photo),
@@ -154,7 +154,7 @@ function lightboxBody(photo: Photo) {
             ${
               canRemove(photo, roleFor(photo))
                 ? watch(galleryActor, (s) => {
-                    const removing = galleryViewModel(s, null).state === "removing";
+                    const removing = galleryViewModel(s, null).state === "removingPhoto";
                     return html`<wa-dropdown
                       placement="top-end"
                       @wa-select=${(e: CustomEvent<{ item: { value: string } }>) => {

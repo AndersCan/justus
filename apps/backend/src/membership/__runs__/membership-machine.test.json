@@ -2,7 +2,7 @@
   "membership": [
     {
       "name": "Nils: accepts a guest as Collaborator",
-      "end": "joined",
+      "end": "memberOfAlbum",
       "steps": [
         {
           "kind": "event",
@@ -31,7 +31,7 @@
     },
     {
       "name": "Nils: accepts a relative as Viewer, later makes her a Collaborator",
-      "end": "joined",
+      "end": "memberOfAlbum",
       "steps": [
         {
           "kind": "event",
@@ -72,7 +72,7 @@
     },
     {
       "name": "Nils: accepts Maya as Collaborator",
-      "end": "joined",
+      "end": "memberOfAlbum",
       "steps": [
         {
           "kind": "event",
@@ -101,7 +101,7 @@
     },
     {
       "name": "Nils: declines the request",
-      "end": "declined",
+      "end": "requestDeclined",
       "steps": [
         {
           "kind": "event",

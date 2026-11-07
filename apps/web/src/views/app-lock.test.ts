@@ -18,7 +18,7 @@ const status = (s: LockStatus) => () => ok(s);
 const view = () =>
   appLockView({
     status: appLockActor.snapshot().context.status,
-    busy: appLockActor.snapshot().path[0] === "saving",
+    busy: appLockActor.snapshot().path[0] === "savingLockChoice",
   });
 
 beforeEach(() => {
@@ -97,10 +97,10 @@ describe("app lock busy state", () => {
     const pending = toggleAppLock(
       () => new Promise<[null, { enabled: boolean }]>((r) => (release = r)),
     );
-    expect(appLockActor.snapshot().path[0]).toBe("saving");
+    expect(appLockActor.snapshot().path[0]).toBe("savingLockChoice");
     expect(view()?.disabled).toBe(true);
     release([null, { enabled: true }]);
     await pending;
-    expect(appLockActor.snapshot().path[0]).toBe("idle");
+    expect(appLockActor.snapshot().path[0]).toBe("showingLockSwitch");
   });
 });

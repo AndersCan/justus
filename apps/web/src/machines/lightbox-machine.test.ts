@@ -26,7 +26,7 @@ const id = (a: ReturnType<typeof make>) => a.snapshot().context.photo?.id;
 describe("lightbox machine", () => {
   test("starts closed", () => {
     const a = make();
-    expect(a.snapshot().path[0]).toBe("closed");
+    expect(a.snapshot().path[0]).toBe("noPhotoOpen");
     expect(id(a)).toBeUndefined();
   });
 
@@ -34,7 +34,7 @@ describe("lightbox machine", () => {
     const a = make();
     const ps = [photo("a"), photo("b")];
     open(a, ps[0], ps);
-    expect(a.snapshot().path[0]).toBe("open");
+    expect(a.snapshot().path[0]).toBe("showingPhoto");
     expect(a.snapshot().context.sequence).toBe(ps);
   });
 
@@ -75,7 +75,7 @@ describe("lightbox machine", () => {
   test("stepping while closed does nothing", () => {
     const a = make();
     step(a, 1, [photo("a")]);
-    expect(a.snapshot().path[0]).toBe("closed");
+    expect(a.snapshot().path[0]).toBe("noPhotoOpen");
     expect(id(a)).toBeUndefined();
   });
 
@@ -83,7 +83,7 @@ describe("lightbox machine", () => {
     const a = make();
     open(a, photo("a"), [photo("a")]);
     a.send(lightboxEvents.closed.create());
-    expect(a.snapshot().path[0]).toBe("closed");
+    expect(a.snapshot().path[0]).toBe("noPhotoOpen");
     expect(a.snapshot().context).toEqual({ photo: undefined, sequence: undefined });
   });
 

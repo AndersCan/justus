@@ -48,14 +48,14 @@ describe("friends machine", () => {
       list: async () => [null, { friends: [{ identity: "k9", name: "Sam" }] }],
     });
     expect(port.list).toHaveBeenCalledTimes(1);
-    expect(actor.state.name).toBe("closed");
+    expect(actor.state.name).toBe("friendSheetClosed");
     expect(actor.snapshot().context.friends).toEqual({ k9: "Sam" });
   });
 
   test("a failed load leaves the sheet closed with no friends and no error", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { actor } = await setup({ list: async () => [new Error("disk"), null] });
-    expect(actor.state.name).toBe("closed");
+    expect(actor.state.name).toBe("friendSheetClosed");
     expect(actor.snapshot().context.friends).toEqual({});
     expect(actor.snapshot().context.error).toBeNull();
     expect(spy).toHaveBeenCalled();
@@ -69,15 +69,15 @@ describe("friends machine", () => {
       port: port as unknown as FriendsPort,
     });
     actor.send(open());
-    expect(actor.state.name).toBe("loading");
+    expect(actor.state.name).toBe("loadingFriends");
   });
 
   test("the full add path stores the name and says so", async () => {
     const { actor, port, outputs } = await setup();
     actor.send(open());
-    expect(actor.state.name).toBe("viewing");
+    expect(actor.state.name).toBe("showingMember");
     actor.send(add());
-    expect(actor.state.name).toBe("naming");
+    expect(actor.state.name).toBe("namingFriend");
     expect(actor.snapshot().payload).toEqual({
       identity: "k1",
       ownName: "Kim",
@@ -85,10 +85,10 @@ describe("friends machine", () => {
     });
     actor.send(type("  Kimmy  "));
     actor.send(save());
-    expect(actor.state.name).toBe("saving");
+    expect(actor.state.name).toBe("savingFriend");
     await actor.settled();
     expect(port.add).toHaveBeenCalledWith("k1", "Kimmy");
-    expect(actor.state.name).toBe("closed");
+    expect(actor.state.name).toBe("friendSheetClosed");
     expect(actor.snapshot().context.friends).toEqual({ k1: "Kimmy" });
     expect(outputs).toEqual([
       expect.objectContaining({ type: "FRIEND_SAVED", payload: { name: "Kimmy" } }),
@@ -110,7 +110,7 @@ describe("friends machine", () => {
     actor.send(type("   "));
     actor.send(save());
     await actor.settled();
-    expect(actor.state.name).toBe("naming");
+    expect(actor.state.name).toBe("namingFriend");
     expect(port.add).not.toHaveBeenCalled();
   });
 
@@ -120,7 +120,7 @@ describe("friends machine", () => {
     });
     actor.send(open());
     actor.send(add());
-    expect(actor.state.name).toBe("viewing");
+    expect(actor.state.name).toBe("showingMember");
   });
 
   test("a failed save returns to naming with the draft and the error", async () => {
@@ -130,7 +130,7 @@ describe("friends machine", () => {
     actor.send(type("Kimmy"));
     actor.send(save());
     await actor.settled();
-    expect(actor.state.name).toBe("naming");
+    expect(actor.state.name).toBe("namingFriend");
     expect((actor.snapshot().payload as { draft: string }).draft).toBe("Kimmy");
     expect(actor.snapshot().context.error).toBe(SAVE_FAILED_COPY);
     expect(outputs).toEqual([]);
@@ -142,11 +142,11 @@ describe("friends machine", () => {
     const { actor } = await setup();
     actor.send(open());
     actor.send(close());
-    expect(actor.state.name).toBe("closed");
+    expect(actor.state.name).toBe("friendSheetClosed");
     actor.send(open());
     actor.send(add());
     actor.send(close());
-    expect(actor.state.name).toBe("closed");
+    expect(actor.state.name).toBe("friendSheetClosed");
   });
 
   test("the draft is kept at exactly 40 characters and cut at 41", async () => {
@@ -164,11 +164,11 @@ describe("friends machine", () => {
     actor.send(open());
     actor.send(add());
     actor.send(save());
-    expect(actor.state.name).toBe("saving");
+    expect(actor.state.name).toBe("savingFriend");
     actor.send(close());
     actor.send(open("k2", "Zed"));
     await Promise.resolve();
-    expect(actor.state.name).toBe("saving");
+    expect(actor.state.name).toBe("savingFriend");
     expect((actor.snapshot().payload as { identity: string }).identity).toBe("k1");
   });
 });
@@ -176,12 +176,12 @@ describe("friends machine", () => {
 describe("friends singleton", () => {
   test("the sheet follows the machine through open, add, type and save", async () => {
     await friendsActor.settled();
-    expect(friendSheetOf(friendsActor.snapshot()).state).toBe("closed");
+    expect(friendSheetOf(friendsActor.snapshot()).state).toBe("friendSheetClosed");
     expect(friendsActor.snapshot().context.friends).toEqual({});
 
     friends.open({ identity: "k1", ownName: "Kim" });
     expect(friendSheetOf(friendsActor.snapshot())).toEqual({
-      state: "viewing",
+      state: "showingMember",
       target: { identity: "k1", ownName: "Kim" },
       draft: "",
       error: null,
@@ -190,14 +190,14 @@ describe("friends singleton", () => {
 
     friends.add();
     expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
-      state: "naming",
+      state: "namingFriend",
       draft: "Kim",
       canSave: true,
     });
 
     friends.type("   ");
     expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
-      state: "naming",
+      state: "namingFriend",
       draft: "   ",
       canSave: false,
     });
@@ -207,12 +207,15 @@ describe("friends singleton", () => {
 
     friends.save();
     expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
-      state: "saving",
+      state: "savingFriend",
       draft: "Kimmy",
       canSave: false,
     });
     await friendsActor.settled();
-    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({ state: "closed", error: null });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
+      state: "friendSheetClosed",
+      error: null,
+    });
     expect(friendsActor.snapshot().context.friends).toEqual({ k1: "Kimmy" });
   });
 });
@@ -220,7 +223,10 @@ describe("friends singleton", () => {
 describe("friendSheetOf", () => {
   test("initial snapshot is the loading sheet", async () => {
     const { actor } = await setup();
-    expect(friendSheetOf(actor.snapshot())).toMatchObject({ state: "closed", target: null });
+    expect(friendSheetOf(actor.snapshot())).toMatchObject({
+      state: "friendSheetClosed",
+      target: null,
+    });
   });
 
   test("naming carries the target and the draft, and canSave follows the draft", async () => {
@@ -228,7 +234,7 @@ describe("friendSheetOf", () => {
     actor.send(open());
     actor.send(add());
     expect(friendSheetOf(actor.snapshot())).toMatchObject({
-      state: "naming",
+      state: "namingFriend",
       target: { identity: "k1", ownName: "Kim" },
       draft: "Kim",
       canSave: true,
@@ -246,7 +252,7 @@ describe("friendSheetOf", () => {
     actor.send(type("Kimmy"));
     actor.send(save());
     expect(friendSheetOf(actor.snapshot())).toMatchObject({
-      state: "saving",
+      state: "savingFriend",
       draft: "Kimmy",
       canSave: false,
     });

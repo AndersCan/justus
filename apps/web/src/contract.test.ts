@@ -112,7 +112,7 @@ describe("machines on real backend payloads", () => {
   test("folders: a fresh device (empty active id) and a populated one", async () => {
     mock.folders.mockResolvedValue([null, results["photos.folders"][0]]);
     folders.refresh();
-    await vi.waitFor(() => expect(folders.state(), foldersNow().error ?? "").toBe("ok"));
+    await vi.waitFor(() => expect(folders.state(), foldersNow().error ?? "").toBe("showingAlbums"));
     expect(foldersNow().folders).toEqual([]);
 
     const populated = withData("photos.folders");
@@ -126,7 +126,7 @@ describe("machines on real backend payloads", () => {
     const status = results["photos.status"][0];
     mock.status.mockResolvedValue([null, status]);
     sync.refresh();
-    await vi.waitFor(() => expect(sync.state()).toBe("ok"));
+    await vi.waitFor(() => expect(sync.state()).toBe("showingAlbum"));
     expect(syncNow().status?.folder.id).toBe(status.folder.id);
     expect(syncNow().status?.members.length).toBe(status.members.length);
   });
@@ -135,7 +135,7 @@ describe("machines on real backend payloads", () => {
     const inbox = withData("photos.requests");
     mock.requests.mockResolvedValue([null, inbox]);
     requests.refresh();
-    await vi.waitFor(() => expect(requests.state()).toBe("ok"));
+    await vi.waitFor(() => expect(requests.state()).toBe("showingRequests"));
     expect(requestsNow().requests.map((r) => r.requesterKey)).toEqual(
       inbox.requests.map((r: any) => r.requesterKey),
     );

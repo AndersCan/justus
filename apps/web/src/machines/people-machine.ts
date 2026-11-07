@@ -12,15 +12,20 @@ import type { JoinRequest, SyncStatus } from "@justus/core";
  * pending requests from the requests machine.
  */
 
-const PEOPLE_STATES = ["closed", "open", "removing", "couldNotRemoveMember"] as const;
+const PEOPLE_STATES = [
+  "peopleSheetClosed",
+  "showingPeople",
+  "removingMember",
+  "couldNotRemoveMember",
+] as const;
 export type PeopleStateName = (typeof PEOPLE_STATES)[number];
 
 /** The People sheet is hidden. */
-const closed = state("closed")();
+const peopleSheetClosed = state("peopleSheetClosed")();
 /** The People sheet is showing the album's members and anyone waiting to join. */
-const open = state("open")();
+const showingPeople = state("showingPeople")();
 /** The Admin has asked to remove someone and the sheet waits for that to finish. */
-const removing = state("removing")();
+const removingMember = state("removingMember")();
 /** Removing the member failed; the sheet stays open, says why, and the member stays in the album. */
 const couldNotRemoveMember = state("couldNotRemoveMember")();
 
@@ -58,8 +63,8 @@ export function peopleViewModel(
   const state = nameOf(s);
   return {
     ...buildPeople(deps.status, deps.requests, deps.friends),
-    open: state !== "closed",
-    removing: state === "removing",
+    open: state !== "peopleSheetClosed",
+    removing: state === "removingMember",
     qrShown: s.context.qrShown,
     error: fatalErrorOf(s)?.message ?? s.context.error,
     isAdmin: deps.status?.folder.role === "creator",
@@ -77,28 +82,28 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
     inputs: [openSheet, closeSheet, removeMember, showQr],
     internal: [removed, removeFailed],
     outputs: [sheetOpened],
-    states: [closed, open, removing, couldNotRemoveMember],
-    initial: closed,
+    states: [peopleSheetClosed, showingPeople, removingMember, couldNotRemoveMember],
+    initial: peopleSheetClosed,
     clock: options.clock,
     context: { pending: null, error: null, qrShown: false } as PeopleContext,
     setup: (m) => {
       /** Opening the sheet clears any old error and asks for the latest join requests. */
-      m.on(closed, {
+      m.on(peopleSheetClosed, {
         event: openSheet,
-        to: [open],
+        to: [showingPeople],
         handler: (_e, opts) => {
           opts.context.set({ pending: null, error: null, qrShown: false });
-          return { state: open, emit: [sheetOpened.create()] };
+          return { state: showingPeople, emit: [sheetOpened.create()] };
         },
       });
-      for (const at of [open, couldNotRemoveMember]) {
+      for (const at of [showingPeople, couldNotRemoveMember]) {
         /** Closing the sheet hides it again. */
         m.on(at, {
           event: closeSheet,
-          to: [closed],
+          to: [peopleSheetClosed],
           handler: (_e, opts) => {
             opts.context.set({ ...opts.context.get(), qrShown: false });
-            return { state: closed };
+            return { state: peopleSheetClosed };
           },
         });
         /** The person asks for the invite QR code; it stays up until the sheet closes. */
@@ -112,15 +117,15 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         /** The Admin picks a member to remove; the sheet shows that it is working. */
         m.on(at, {
           event: removeMember,
-          to: [removing],
+          to: [removingMember],
           handler: (e, opts) => {
             opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
-            return { state: removing };
+            return { state: removingMember };
           },
         });
       }
       /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
-      m.on(removing, {
+      m.on(removingMember, {
         event: showQr,
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), qrShown: true });
@@ -128,8 +133,8 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         },
       });
       /** The member is taken out of the album. */
-      m.effect(removing, {
-        name: "removing",
+      m.effect(removingMember, {
+        name: "removingMember",
         sends: [removed, removeFailed],
         fn: ({ signal, emit, context }) => {
           const pending = context.get().pending;
@@ -146,16 +151,16 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         },
       });
       /** The member is gone and the sheet shows the updated list. */
-      m.on(removing, {
+      m.on(removingMember, {
         event: removed,
-        to: [open],
+        to: [showingPeople],
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          return { state: open };
+          return { state: showingPeople };
         },
       });
       /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
-      m.on(removing, {
+      m.on(removingMember, {
         event: removeFailed,
         to: [couldNotRemoveMember],
         handler: (e, opts) => {

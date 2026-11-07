@@ -86,7 +86,7 @@ describe("membership machine", () => {
     actor.send({ type: "removeMember" });
     await actor.settled();
     expect({ state: actor.state.name, added, dropped, outputs }).toEqual({
-      state: "removed",
+      state: "removedFromAlbum",
       added: [entry],
       dropped: [key],
       outputs: ["memberJoined", "requestAnswered", "memberRemoved"],
@@ -108,7 +108,7 @@ describe("membership machine", () => {
     }).toEqual({
       afterRequest: false,
       afterAccept: true,
-      state: "joined",
+      state: "memberOfAlbum",
       joined: true,
     });
   });
@@ -118,7 +118,7 @@ describe("membership machine", () => {
     actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "decline" });
     await actor.settled();
-    expect(actor.state.name).toBe("declined");
+    expect(actor.state.name).toBe("requestDeclined");
     expect(outputs).toEqual(["requestAnswered"]);
   });
 
@@ -127,7 +127,7 @@ describe("membership machine", () => {
     actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("awaitingDecision");
+    expect(actor.state.name).toBe("requestWaitingForAdmin");
     expect(outputs).toEqual([]);
   });
 
@@ -135,7 +135,7 @@ describe("membership machine", () => {
     const { actor, outputs } = setup({ records: enrolledRecords, failure: { reason: "disk" } });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    expect(actor.state.name).toBe("joined");
+    expect(actor.state.name).toBe("memberOfAlbum");
     expect(outputs).toEqual([]);
   });
 
@@ -146,7 +146,7 @@ describe("membership machine", () => {
     actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("awaitingDecision");
+    expect(actor.state.name).toBe("requestWaitingForAdmin");
     expect(outputs).toEqual([]);
   });
 
@@ -157,7 +157,7 @@ describe("membership machine", () => {
     });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    expect(actor.state.name).toBe("joined");
+    expect(actor.state.name).toBe("memberOfAlbum");
     expect(outputs).toEqual([]);
   });
 
@@ -172,7 +172,7 @@ describe("membership machine", () => {
     actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("awaitingDecision");
+    expect(actor.state.name).toBe("requestWaitingForAdmin");
     expect(outputs).toEqual([]);
   });
 
@@ -187,7 +187,7 @@ describe("membership machine", () => {
     });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    expect(actor.state.name).toBe("joined");
+    expect(actor.state.name).toBe("memberOfAlbum");
     expect(outputs).toEqual([]);
   });
 
@@ -206,7 +206,7 @@ describe("membership machine", () => {
     await actor.settled();
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("joined");
+    expect(actor.state.name).toBe("memberOfAlbum");
     expect(outputs).toEqual(["memberJoined", "requestAnswered"]);
   });
 
@@ -217,7 +217,7 @@ describe("membership machine", () => {
     const { actor, added, outputs } = setup({ records: { ...empty, requests: { s: malformed } } });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("awaitingDecision");
+    expect(actor.state.name).toBe("requestWaitingForAdmin");
     expect(added).toEqual([]);
     expect(outputs).toEqual([]);
   });
@@ -238,7 +238,7 @@ describe("membership machine", () => {
     actor.send({ type: "decline" });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    expect(actor.state.name).toBe("noRequest");
+    expect(actor.state.name).toBe("noRequestYet");
     expect(added).toEqual([]);
     expect(dropped).toEqual([]);
   });
@@ -248,7 +248,7 @@ describe("membership machine", () => {
     actor.send({ type: "decline" });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect(actor.state.name).toBe("joined");
+    expect(actor.state.name).toBe("memberOfAlbum");
     expect(added).toEqual([]);
   });
 
@@ -259,13 +259,13 @@ describe("membership machine", () => {
     actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    expect(actor.state.name).toBe("removed");
+    expect(actor.state.name).toBe("removedFromAlbum");
     expect(dropped).toEqual([key]);
   });
 
   test("returns noRequest for empty records", () => {
     expect(stateName(initialStateFromRecords({ records: empty, memberKey: key }))).toBe(
-      "noRequest",
+      "noRequestYet",
     );
   });
 
@@ -274,12 +274,12 @@ describe("membership machine", () => {
       records: { ...empty, requests: { s: entry } },
       memberKey: key,
     });
-    expect(stateName(initial)).toBe("awaitingDecision");
+    expect(stateName(initial)).toBe("requestWaitingForAdmin");
   });
 
   test("returns joined for a registry member", () => {
     expect(stateName(initialStateFromRecords({ records: enrolledRecords, memberKey: key }))).toBe(
-      "joined",
+      "memberOfAlbum",
     );
   });
 
@@ -289,7 +289,9 @@ describe("membership machine", () => {
       requests: { s: entry },
       removed: { version: 1, removed: { x: { memberKey: key, removedAt: 2 } } },
     };
-    expect(stateName(initialStateFromRecords({ records, memberKey: key }))).toBe("removed");
+    expect(stateName(initialStateFromRecords({ records, memberKey: key }))).toBe(
+      "removedFromAlbum",
+    );
   });
 
   test("accept as reader and as member both enroll with that role", async () => {
@@ -323,7 +325,7 @@ describe("membership machine", () => {
     actor.send({ type: "changeRole", payload: { role: "member" } });
     await actor.settled();
     expect({ state: actor.state.name, payload: actor.snapshot().payload, roles }).toEqual({
-      state: "joined",
+      state: "memberOfAlbum",
       payload: { role: "member" },
       roles: ["reader", "member"],
     });
@@ -338,7 +340,7 @@ describe("membership machine", () => {
       actor.send({ type: "changeRole", payload: { role: "reader" } });
       await actor.settled();
       expect({ state: actor.state.name, payload: actor.snapshot().payload }).toEqual({
-        state: "joined",
+        state: "memberOfAlbum",
         payload: { role: "member" },
       });
     }
@@ -370,7 +372,7 @@ describe("membership machine", () => {
     removedRun.actor.send({ type: "changeRole", payload: { role: "reader" } });
     await removedRun.actor.settled();
     expect({ state: removedRun.actor.state.name, roles: removedRun.roles }).toEqual({
-      state: "removed",
+      state: "removedFromAlbum",
       roles: [],
     });
   });
@@ -379,7 +381,7 @@ describe("membership machine", () => {
     const { actor, added } = setup();
     actor.send({ type: "accept", payload: { role: "reader" } });
     await actor.settled();
-    expect({ state: actor.state.name, added }).toEqual({ state: "noRequest", added: [] });
+    expect({ state: actor.state.name, added }).toEqual({ state: "noRequestYet", added: [] });
   });
 });
 
@@ -406,7 +408,7 @@ test("Nils: accepts Maya as Collaborator", async () => {
     await receive(a);
     await acceptAs(a, "member");
   });
-  expect(actor.state.name).toBe("joined");
+  expect(actor.state.name).toBe("memberOfAlbum");
   expect(actor.snapshot().payload).toEqual({ role: "member" });
 });
 
@@ -416,7 +418,7 @@ test("Nils: declines the request", async () => {
     a.send({ type: "decline" });
     await a.settled();
   });
-  expect(actor.state.name).toBe("declined");
+  expect(actor.state.name).toBe("requestDeclined");
 });
 
 test("Nils: accepts a guest as Collaborator", async () => {
@@ -424,7 +426,7 @@ test("Nils: accepts a guest as Collaborator", async () => {
     await receive(a);
     await acceptAs(a, "member");
   });
-  expect(actor.state.name).toBe("joined");
+  expect(actor.state.name).toBe("memberOfAlbum");
   expect(actor.snapshot().payload).toEqual({ role: "member" });
 });
 
@@ -435,7 +437,7 @@ test("Nils: accepts a relative as Viewer, later makes her a Collaborator", async
     a.send({ type: "changeRole", payload: { role: "member" } });
     await a.settled();
   });
-  expect(actor.state.name).toBe("joined");
+  expect(actor.state.name).toBe("memberOfAlbum");
   expect(actor.snapshot().payload).toEqual({ role: "member" });
 });
 
@@ -446,10 +448,10 @@ describe("membership after a decline", () => {
     actor.send({ type: "decline" });
     actor.send({ type: "requestQueued", payload: entry });
     await actor.settled();
-    expect(actor.state.name).toBe("awaitingDecision");
+    expect(actor.state.name).toBe("requestWaitingForAdmin");
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
-    expect({ state: actor.state.name, added }).toEqual({ state: "joined", added: [entry] });
+    expect({ state: actor.state.name, added }).toEqual({ state: "memberOfAlbum", added: [entry] });
   });
 
   test("accept, changeRole and removeMember are ignored", async () => {
@@ -461,7 +463,7 @@ describe("membership after a decline", () => {
     actor.send({ type: "removeMember" });
     await actor.settled();
     expect({ state: actor.state.name, added, roles, dropped }).toEqual({
-      state: "declined",
+      state: "requestDeclined",
       added: [],
       roles: [],
       dropped: [],

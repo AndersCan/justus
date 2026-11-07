@@ -38,7 +38,9 @@ export function friendSheetView() {
     const sheet = friendSheetOf(snapshot);
     const names = snapshot.context.friends;
     if (
-      (sheet.state !== "viewing" && sheet.state !== "naming" && sheet.state !== "saving") ||
+      (sheet.state !== "showingMember" &&
+        sheet.state !== "namingFriend" &&
+        sheet.state !== "savingFriend") ||
       !sheet.target
     ) {
       return null;
@@ -46,9 +48,9 @@ export function friendSheetView() {
     const target = sheet.target;
     const known = names[target.identity];
     const title = known ?? target.ownName;
-    const busy = sheet.state === "saving";
+    const busy = sheet.state === "savingFriend";
     let body;
-    if (sheet.state === "viewing") {
+    if (sheet.state === "showingMember") {
       focusOnRender("[data-friend-primary]");
       body = html` ${known !== undefined ? html`<p class="mt-1 text-sm text-muted">Saved as a friend</p>` : null}
         <div class="mt-4 flex justify-end gap-2">

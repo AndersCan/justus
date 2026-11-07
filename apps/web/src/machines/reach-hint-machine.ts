@@ -12,22 +12,22 @@ import { syncActor, type SyncActor } from "./sync-machine";
 
 type ReachContext = { name: string };
 
-const REACH_STATES = ["reachable", "trying", "hint"] as const;
+const REACH_STATES = ["noWifiHint", "waitingBeforeWifiHint", "showingWifiHint"] as const;
 export type ReachStateName = (typeof REACH_STATES)[number];
 
 const nameOf = stateNameOf(REACH_STATES);
 
 /** The hint line to show, or null while there is nothing to say. */
 export function reachHintOf(s: Snapshot<ReachContext>): string | null {
-  return nameOf(s) === "hint" ? reachHintText(s.context.name) : null;
+  return nameOf(s) === "showingWifiHint" ? reachHintText(s.context.name) : null;
 }
 
 /** Everyone in the album can be reached, or there is nobody else yet; no hint is shown. */
-const reachable = state("reachable")();
+const noWifiHint = state("noWifiHint")();
 /** Every other member is out of reach; a short wait runs before a hint appears. */
-const trying = state("trying")();
+const waitingBeforeWifiHint = state("waitingBeforeWifiHint")();
 /** The wait is over and a calm line suggests checking WiFi. */
-const hint = state("hint")();
+const showingWifiHint = state("showingWifiHint")();
 
 /** The other members cannot be reached right now. */
 const unreachable = event("UNREACHABLE")<{ name: string }>();
@@ -42,52 +42,64 @@ export function createReachActor(options: { clock: Clock }) {
     inputs: [unreachable, reached],
     internal: [due],
     outputs: [],
-    states: [reachable, trying, hint],
-    initial: reachable,
+    states: [noWifiHint, waitingBeforeWifiHint, showingWifiHint],
+    initial: noWifiHint,
     clock: options.clock,
     context: { name: "" } as ReachContext,
     setup: (m) => {
       /** Nobody else can be reached: the wait starts and no hint is shown yet. */
-      m.on(reachable, {
+      m.on(noWifiHint, {
         event: unreachable,
-        to: [trying],
+        to: [waitingBeforeWifiHint],
         handler: (e, opts) => {
           opts.context.set({ name: e.payload.name });
-          return { state: trying };
+          return { state: waitingBeforeWifiHint };
         },
       });
       // Keep the timer running; only the name to mention may change.
       /** Still nobody reachable: the wait carries on and the member named in the hint may change. */
-      m.on(trying, {
+      m.on(waitingBeforeWifiHint, {
         event: unreachable,
-        to: [trying],
+        to: [waitingBeforeWifiHint],
         handler: (e, opts) => {
           opts.context.set({ name: e.payload.name });
-          return { state: trying };
+          return { state: waitingBeforeWifiHint };
         },
       });
       /** Still nobody reachable: the hint stays up and may name a different member. */
-      m.on(hint, {
+      m.on(showingWifiHint, {
         event: unreachable,
-        to: [hint],
+        to: [showingWifiHint],
         handler: (e, opts) => {
           opts.context.set({ name: e.payload.name });
-          return { state: hint };
+          return { state: showingWifiHint };
         },
       });
       /** Someone is reachable again before the wait ends: nothing is shown. */
-      m.on(trying, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
+      m.on(waitingBeforeWifiHint, {
+        event: reached,
+        to: [noWifiHint],
+        handler: () => ({ state: noWifiHint }),
+      });
       /** Someone is reachable again: the WiFi hint goes away. */
-      m.on(hint, { event: reached, to: [reachable], handler: () => ({ state: reachable }) });
+      m.on(showingWifiHint, {
+        event: reached,
+        to: [noWifiHint],
+        handler: () => ({ state: noWifiHint }),
+      });
 
       /** A 30 second wait runs; it is cancelled if someone becomes reachable. */
-      m.effect(trying, {
-        name: "trying",
+      m.effect(waitingBeforeWifiHint, {
+        name: "waitingBeforeWifiHint",
         sends: [due],
         fn: (input) => withTimeout(REACH_HINT_AFTER_MS, { input, event: () => due.create() }),
       });
       /** Nobody was reachable for the whole wait: the WiFi hint appears. */
-      m.on(trying, { event: due, to: [hint], handler: () => ({ state: hint }) });
+      m.on(waitingBeforeWifiHint, {
+        event: due,
+        to: [showingWifiHint],
+        handler: () => ({ state: showingWifiHint }),
+      });
     },
   });
 }

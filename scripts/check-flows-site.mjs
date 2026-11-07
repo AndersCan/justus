@@ -207,17 +207,17 @@ for (const name of pages) {
 // The state each walk is told to end in. Written by hand, so the check does not
 // trust the viewer or the recorded run to say where the cursor should land.
 const WALK_ENDS = {
-  "Maya: asks and is accepted": "joined",
-  "Maya: asks and is declined": "declined",
-  "Maya: reopens her ask while waiting": "waitingForAnswer",
-  "Maya: reopens her ask after a decline": "declined",
-  "Maya: opens a link from before the new key": "unusableLink",
+  "Maya: asks and is accepted": "joinedAlbum",
+  "Maya: asks and is declined": "declinedByAdmin",
+  "Maya: reopens her ask while waiting": "waitingForAdminToAccept",
+  "Maya: reopens her ask after a decline": "declinedByAdmin",
+  "Maya: opens a link from before the new key": "showingLinkProblem",
   "Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends":
     "noLinkYet",
-  "Nils: accepts Maya as Collaborator": "joined",
-  "Nils: declines the request": "declined",
-  "Nils: accepts a guest as Collaborator": "joined",
-  "Nils: accepts a relative as Viewer, later makes her a Collaborator": "joined",
+  "Nils: accepts Maya as Collaborator": "memberOfAlbum",
+  "Nils: declines the request": "requestDeclined",
+  "Nils: accepts a guest as Collaborator": "memberOfAlbum",
+  "Nils: accepts a relative as Viewer, later makes her a Collaborator": "memberOfAlbum",
 };
 for (const [, text, href] of walkLinks) {
   const url = new URL(href);

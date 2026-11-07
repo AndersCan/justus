@@ -36,9 +36,9 @@ describe("grants machine factory", () => {
   test("refresh loads the records and due prompts", async () => {
     const { actor } = setup();
     actor.send(refresh());
-    expect(actor.state.name).toBe("refreshing");
+    expect(actor.state.name).toBe("loadingShareList");
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingShareList");
     expect(actor.snapshot().context.records.map((r) => r.peerId)).toEqual(["p1"]);
     expect(actor.snapshot().context.due).toEqual(["p1"]);
   });
@@ -47,7 +47,7 @@ describe("grants machine factory", () => {
     const { actor } = setup({ view: async () => [new Error("ledger unreachable"), null] });
     actor.send(refresh());
     await actor.settled();
-    expect(actor.state.name).toBe("error");
+    expect(actor.state.name).toBe("couldNotLoadShareList");
     expect(actor.snapshot().context.error).toBe("ledger unreachable");
   });
 
@@ -61,9 +61,9 @@ describe("grants machine factory", () => {
     actor.send(refresh());
     await actor.settled();
     actor.send(act("p1", kind));
-    expect(actor.state.name).toBe("acting");
+    expect(actor.state.name).toBe("savingShareChoice");
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingShareList");
     expect(port.grants[method]).toHaveBeenCalledWith(...args);
     expect(port.grants.view).toHaveBeenCalledTimes(2);
   });
@@ -87,14 +87,14 @@ describe("grants machine factory", () => {
     actor.send(act("p1", "grant"));
     await actor.settled();
     actor.send(act("p1", "grant"));
-    expect(actor.state.name).toBe("acting");
+    expect(actor.state.name).toBe("savingShareChoice");
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSaveShareChoice");
     actor.send(refresh());
-    expect(actor.state.name).toBe("refreshing");
+    expect(actor.state.name).toBe("loadingShareList");
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingShareList");
   });
 
   test("retry clears the error and loads again", async () => {
@@ -105,11 +105,11 @@ describe("grants machine factory", () => {
     });
     actor.send(refresh());
     await actor.settled();
-    expect(actor.state.name).toBe("error");
+    expect(actor.state.name).toBe("couldNotLoadShareList");
     actor.send(retry());
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("showingShareList");
   });
 });
 
@@ -120,7 +120,7 @@ describe("grantsViewModel", () => {
       records: [],
       due: [],
       dueRecords: [],
-      state: "idle",
+      state: "shareListNotLoaded",
       acting: false,
       settled: false,
       error: null,
@@ -135,7 +135,7 @@ describe("grantsViewModel", () => {
     expect(grantsViewModel(actor.snapshot()).dueRecords.map((r) => r.peerId)).toEqual(["p1"]);
     actor.send(act("p1", "grant"));
     const vm = grantsViewModel(actor.snapshot());
-    expect(vm.state).toBe("acting");
+    expect(vm.state).toBe("savingShareChoice");
     expect(vm.acting).toBe(true);
   });
 });

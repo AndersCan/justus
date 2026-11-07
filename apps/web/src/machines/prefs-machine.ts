@@ -19,15 +19,15 @@ const themeChosen = event("THEME_CHOSEN")<{ theme: Theme }>();
 const pictureSet = event("PICTURE_SET")<{ dataUrl: string }>();
 
 /** Preferences are loaded and can be changed at any time. */
-const ready = state("ready")();
+const holdingPreferences = state("holdingPreferences")();
 
 export function createPrefsActor(options: { clock: Clock }) {
   return Actor({
     inputs: [sortChosen, densityChosen, themeChosen, pictureSet],
     internal: [],
     outputs: [],
-    states: [ready],
-    initial: ready,
+    states: [holdingPreferences],
+    initial: holdingPreferences,
     clock: options.clock,
     context: {
       sort: readPhotoSort(),
