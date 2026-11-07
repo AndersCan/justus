@@ -219,7 +219,19 @@ fi
 # 5b. Albums survive "Clear cache", and an old cache-folder install is moved
 # ----------------------------------------------------------------------------
 APP=no.cankode.justus
-SURVIVE="$MAESTRO_DIR/survive/albums-survive.yaml"
+# The web layer's intro-seen flag is keyed by the loopback origin, whose port changes every launch,
+# so the UI cannot tell "albums survived" apart. Ask the worklet: after a relaunch it logs
+# "rediscover.attempt" for every album drive it reopened from the store.
+albums_reopened() {
+  "$ADB" -s "$SERIAL" shell am force-stop "$APP"
+  run_as 'rm -f cache/bare-cache/*.jsonl'
+  "$ADB" -s "$SERIAL" shell monkey -p "$APP" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+  for _ in $(seq 1 45); do
+    if run_as 'cat cache/bare-cache/*.jsonl 2>/dev/null || true' | grep -q 'rediscover.attempt'; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
 run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
 survive_fail() {
   echo "✗ Survive check FAILED: $1"
@@ -237,12 +249,12 @@ echo "▶ Survive check: clear cache, reopen..."
 "$ADB" -s "$SERIAL" shell am force-stop "$APP"
 run_as 'rm -rf cache/*' || survive_fail "could not clear cache"
 run_as 'test -d files/bare/corestore' || survive_fail "store is not in app storage (files/bare)"
-maestro --device "$SERIAL" test "$SURVIVE" || survive_fail "albums gone after clearing cache"
+albums_reopened || survive_fail "albums gone after clearing cache"
 
 echo "▶ Survive check: old install (store in cache folder) is moved..."
 "$ADB" -s "$SERIAL" shell am force-stop "$APP"
 run_as 'rm -rf cache/bare && mv files/bare cache/bare' || survive_fail "could not recreate the old layout"
-maestro --device "$SERIAL" test "$SURVIVE" || survive_fail "albums gone after upgrade from cache folder"
+albums_reopened || survive_fail "albums gone after upgrade from cache folder"
 run_as 'test -d files/bare/corestore && ! test -e cache/bare' || survive_fail "store was not moved to files/bare"
 echo "✓ Albums survive cache clearing and the upgrade move."
 
