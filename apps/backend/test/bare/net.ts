@@ -26,8 +26,6 @@ import type { DriveWorld } from "../contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
 import type { AnswerNode, AnswerWorld } from "../contracts/peer-answer.contract.ts";
 import { makeAnswerNode } from "../answer-node.ts";
-import type { VersionNode, VersionWorld } from "../contracts/peer-version.contract.ts";
-import { makeVersionNode } from "../version-node.ts";
 import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
 import { createP2pLog, type P2pEvent } from "../../src/p2p-log.ts";
 
@@ -211,24 +209,30 @@ export async function bareWorld(root: string): Promise<{
  * Bare twin of `realPeerWorlds` in `../real-peers.ts`: real PeerNetworks on one
  * in-process `hyperdht/testnet`. Each `world()` is its own set of nodes and topics.
  */
-export async function barePeerWorlds(): Promise<{
+export async function barePeerWorlds(root: string): Promise<{
   world(): PeerWorld;
   destroy(): Promise<void>;
 }> {
   const testnet = await createTestnet(3);
   const worlds: PeerWorld[] = [];
+  let dirs = 0;
 
   function world(): PeerWorld {
-    const nodes: PeerNode[] = [];
+    const nodes: Array<{ node: PeerNode; drives: HyperDriveStore }> = [];
     return {
-      async node() {
+      async node(opts) {
+        const dir = path.join(root, `peer-${dirs++}`, "corestore");
+        fs.mkdirSync(dir, { recursive: true });
+        const drives = createHyperDriveStore(dir);
+        await drives.ready();
         const identityKey = Buffer.from(crypto.randomBytes(32)).toString("hex");
         const events: PeerEvent[] = [];
         const build = () => {
           const network = createHyperPeerNetwork({
             bootstrap: testnet.bootstrap,
-            replicate: () => {},
+            replicate: (conn) => drives.replicate(conn),
             log: () => {},
+            ...(opts?.legacy ? { openVersion: () => {} } : {}),
           });
           network.start(identityKey, (e: PeerEvent) => events.push(e));
           return network;
@@ -246,12 +250,13 @@ export async function barePeerWorlds(): Promise<{
             return network;
           },
         };
-        nodes.push(node);
+        nodes.push({ node, drives });
         return node;
       },
       topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
       async close() {
-        for (const n of nodes) await n.network.close();
+        for (const n of nodes) await n.node.network.close();
+        for (const n of nodes) await n.drives.close();
       },
     };
   }
@@ -291,47 +296,6 @@ export async function bareAnswerWorlds(
               bootstrap: testnet.bootstrap as never,
             },
             dir,
-          );
-          nodes.push(node);
-          return node;
-        },
-        topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
-        async close() {
-          for (const node of nodes) await node.close().catch(() => {});
-        },
-      };
-      worlds.push(w);
-      return w;
-    },
-    async destroy() {
-      for (const w of worlds) await w.close();
-      await testnet.destroy();
-    },
-  };
-}
-
-/** Bare twin of `realVersionWorlds` in `../real-version-world.ts`. */
-export async function bareVersionWorlds(
-  root: string,
-): Promise<{ world(): VersionWorld; destroy(): Promise<void> }> {
-  const testnet = await createTestnet(3);
-  const worlds: VersionWorld[] = [];
-  let n = 0;
-  return {
-    world() {
-      const nodes: VersionNode[] = [];
-      const w: VersionWorld = {
-        async node(own) {
-          const dir = path.join(root, `version-${n++}`);
-          fs.mkdirSync(dir, { recursive: true });
-          const node = makeVersionNode(
-            {
-              Corestore: Corestore as never,
-              Hyperswarm: Hyperswarm as never,
-              bootstrap: testnet.bootstrap as never,
-            },
-            dir,
-            own,
           );
           nodes.push(node);
           return node;

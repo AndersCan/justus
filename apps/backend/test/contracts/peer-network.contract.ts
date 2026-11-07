@@ -6,7 +6,9 @@
  * Portable on purpose: no test-runner or Node built-in imports, so esbuild can bundle
  * it for Bare. A runtime supplies a {@link PeerWorld} and a `Check`.
  */
+import { parseAnswer } from "../../src/membership/records.ts";
 import type { PeerEvent, PeerNetwork } from "../../src/ports/peer-network.ts";
+import { PEER_PROTOCOL } from "../../src/versions.ts";
 import { eventually, type Check } from "../p2p-scenarios.ts";
 
 export type PeerNode = {
@@ -37,6 +39,30 @@ const connected = (n: PeerNode) => n.events.flatMap((e) => (e.type === "connecte
 const identified = (n: PeerNode) => n.events.flatMap((e) => (e.type === "identified" ? [e] : []));
 const disconnected = (n: PeerNode) =>
   n.events.flatMap((e) => (e.type === "disconnected" ? [e] : []));
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** The newest connection to `peerKey` with no later `disconnected` for the same conn. */
+function liveConn(n: PeerNode, peerKey: string): number | undefined {
+  const closed = new Set(disconnected(n).map((e) => e.conn));
+  return connected(n)
+    .filter((e) => e.peerKey === peerKey && !closed.has(e.conn))
+    .at(-1)?.conn;
+}
+
+/** Values of `answer` events whose connection went to `peerKey`. */
+function answersFrom(n: PeerNode, peerKey: string): unknown[] {
+  const conns = new Set(connected(n).flatMap((e) => (e.peerKey === peerKey ? [e.conn] : [])));
+  return n.events.flatMap((e) => (e.type === "answer" && conns.has(e.conn) ? [e.value] : []));
+}
+
+/** Connections with both a `version` and an `identified` event; a doomed duplicate dial has fewer. */
+function bothEvents(n: PeerNode): number[] {
+  const conns = (type: PeerEvent["type"]) =>
+    new Set(n.events.flatMap((e) => (e.type === type ? [e.conn] : [])));
+  const versions = conns("version");
+  return [...conns("identified")].filter((c) => versions.has(c));
+}
 
 async function seesPeer(n: PeerNode, peerKey: string, ms = 10_000) {
   await eventually(
@@ -196,7 +222,7 @@ export const cases: PeerCase[] = [
     },
   },
   {
-    name: "N8 closing right after joining never reports disconnected without connected",
+    name: "N9 closing right after joining never reports disconnected without connected",
     async run(world, t) {
       const a = await world.node();
       const b = await world.node();
@@ -213,6 +239,112 @@ export const cases: PeerCase[] = [
         }
         t.ok(ok, "every disconnected follows a connected for the same peer");
       }
+    },
+  },
+  {
+    name: "N10 an answer travels both ways on one connection and arrives on its sender's connection",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      meet(a, b, world.topic());
+      await eventually(
+        async () => [liveConn(a, b.network.peerKey()), liveConn(b, a.network.peerKey())],
+        (conns) => conns.every((c) => c !== undefined),
+        "live connection both ways",
+        10_000,
+      );
+      const accepted = { code: "ab".repeat(32), answer: "accepted", shareKey: "cd".repeat(32) };
+      const declined = { code: "ab".repeat(32), answer: "declined" };
+      // A dial dropped as a duplicate loses what it carried, so keep sending until it lands.
+      const sendUntilReceived = (
+        from: PeerNode,
+        to: PeerNode,
+        message: typeof accepted | typeof declined,
+      ) =>
+        eventually(
+          async () => {
+            const conn = liveConn(from, to.network.peerKey());
+            if (conn !== undefined) from.network.sendAnswer(conn, message);
+            await sleep(200);
+            return answersFrom(to, from.network.peerKey());
+          },
+          (got) => got.length > 0,
+          "answer received",
+          10_000,
+        );
+      const atB = await sendUntilReceived(a, b, accepted);
+      const atA = await sendUntilReceived(b, a, declined);
+      t.eq(parseAnswer(atB[0]), accepted, "b read a's accepted answer");
+      t.eq(parseAnswer(atA[0]), declined, "a read b's declined answer");
+    },
+  },
+  {
+    name: "N11 a server that joins a topic later still meets the one already waiting",
+    async run(world, t) {
+      const x = await world.node();
+      const y = await world.node();
+      const topic = world.topic();
+      x.network.join(topic, { server: true });
+      await sleep(3_000);
+      y.network.join(topic, { server: true });
+      await seesPeer(x, y.network.peerKey(), 10_000);
+      t.ok(true, "x and y connected within 10s");
+    },
+  },
+  {
+    name: "N12 version arrives before identified on every connection, 20 connections",
+    async run(world, t) {
+      for (let round = 0; round < 4; round++) {
+        await Promise.all(
+          Array.from({ length: 5 }, async (_, i) => {
+            const a = await world.node();
+            const b = await world.node();
+            meet(a, b, world.topic());
+            for (const node of [a, b]) {
+              await eventually(
+                async () => bothEvents(node).length,
+                (n) => n >= 1,
+                "version and identified",
+                10_000,
+              );
+              for (const conn of bothEvents(node)) {
+                const order = node.events.flatMap((e) =>
+                  e.conn === conn && (e.type === "version" || e.type === "identified")
+                    ? [e.type]
+                    : [],
+                );
+                t.eq(order[0], "version", `round ${round} pair ${i}: version first`);
+                const version = node.events.find((e) => e.type === "version" && e.conn === conn);
+                t.eq(
+                  version?.type === "version" ? version.protocol : undefined,
+                  PEER_PROTOCOL,
+                  `round ${round} pair ${i}: protocol`,
+                );
+              }
+            }
+          }),
+        );
+      }
+    },
+  },
+  {
+    name: "N13 a protocol 1 peer delivers identified and never a version",
+    async run(world, t) {
+      const newer = await world.node();
+      const older = await world.node({ legacy: true });
+      meet(newer, older, world.topic());
+      const greeting = await eventually(
+        async () => identified(newer).find((e) => e.identityKey === older.identityKey),
+        (e) => e !== undefined,
+        "identified from the older peer",
+        10_000,
+      );
+      await sleep(2_000);
+      t.ok(
+        !newer.events.some((e) => e.type === "version" && e.conn === greeting?.conn),
+        "newer side got no version on that connection",
+      );
+      t.ok(!older.events.some((e) => e.type === "version"), "older side got no version");
     },
   },
 ];

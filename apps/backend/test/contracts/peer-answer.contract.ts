@@ -1,14 +1,13 @@
 /**
- * Assumptions behind private sharing, pinned against the real libraries:
- * A1 an invite-topic peer cannot read the album, A2 the answer channel carries
- * a message tied to the connection, A3 a restarted peer's `/device.json`
- * is readable under its new key, A4 two servers that join a topic at different
- * times still meet.
+ * Assumptions behind private sharing, pinned against the real libraries: A1 an
+ * invite-topic peer cannot read the album, A3 a restarted peer's `/device.json` is
+ * readable under its new key. (The answer channel and late-joining servers are N10
+ * and N11 in peer-network.contract.ts.)
  *
  * Portable: no test-runner or Node built-in imports, so esbuild can bundle it
  * for Bare. A runtime supplies an {@link AnswerWorld} and a `Check`.
  */
-import { parseAnswer, type Answer } from "../../src/membership/records.ts";
+import type { Answer } from "../../src/membership/records.ts";
 import { eventually, type Check } from "../p2p-scenarios.ts";
 
 export type AnswerConn = {
@@ -71,8 +70,6 @@ async function connectedTo(a: AnswerNode, b: AnswerNode, ms = 10_000) {
   return a.conns.find((c) => c.remoteKey === b.swarmKey())!;
 }
 
-const hex = (n: number) => "ab".repeat(n);
-
 export const cases: AnswerCase[] = [
   {
     name: "A1 a peer that met the owner only on an invite topic cannot replicate the album",
@@ -91,47 +88,6 @@ export const cases: AnswerCase[] = [
       t.ok(
         !(await stranger.hasCore(album.discoveryKey)),
         "stranger's store holds no core with the album key",
-      );
-    },
-  },
-  {
-    name: "A2 an answer travels both ways on a connection and is tied to its swarm key",
-    async run(world, t) {
-      const a = await world.node();
-      const b = await world.node();
-      const topic = world.topic();
-      a.join(topic, { server: true, rediscover: true });
-      b.join(topic, { server: true, rediscover: true });
-      const accepted: Answer = { code: hex(32), answer: "accepted", shareKey: "cd".repeat(32) };
-      const declined: Answer = { code: hex(32), answer: "declined" };
-      await connectedTo(a, b);
-      await connectedTo(b, a);
-      // A dial that Hyperswarm drops as a duplicate loses what it carried, so keep sending until it lands.
-      const landed = (n: AnswerNode, from: AnswerNode) =>
-        n.conns.flatMap((c) => (c.remoteKey === from.swarmKey() ? c.received : []));
-      const sendUntilReceived = (from: AnswerNode, to: AnswerNode, answer: Answer) =>
-        eventually(
-          async () => {
-            from.conns.find((c) => c.remoteKey === to.swarmKey())?.send(answer);
-            await sleep(200);
-            return landed(to, from).map(parseAnswer);
-          },
-          (got) => got.length > 0,
-          "answer received",
-          10_000,
-        );
-      const atB = await sendUntilReceived(a, b, accepted);
-      const atA = await sendUntilReceived(b, a, declined);
-      t.eq(atB[0], accepted, "b read a's accepted answer");
-      t.eq(atA[0], declined, "a read b's declined answer");
-      // Both are looked up by the sender's swarm key: the receiver knows who sent it.
-      t.ok(
-        b.conns.some((c) => c.remoteKey === a.swarmKey() && c.received.length > 0),
-        "b ties it to a's swarm key",
-      );
-      t.ok(
-        a.conns.some((c) => c.remoteKey === b.swarmKey() && c.received.length > 0),
-        "a ties it to b's swarm key",
       );
     },
   },
@@ -178,19 +134,6 @@ export const cases: AnswerCase[] = [
         await eventually(read, (k) => k === peer.swarmKey(), "get after update", 5_000);
       }
       t.eq(await read(), peer.swarmKey(), "reader sees the new swarm key within 5s");
-    },
-  },
-  {
-    name: "A4 a server that joins a topic later still meets the one already waiting",
-    async run(world, t) {
-      const x = await world.node();
-      const y = await world.node();
-      const topic = world.topic();
-      x.join(topic, { server: true });
-      await sleep(3_000);
-      y.join(topic, { server: true });
-      const seen = await connectedTo(x, y, 10_000);
-      t.ok(seen !== undefined, "x and y connected within 10s");
     },
   },
 ];
