@@ -102,7 +102,10 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await a.getByRole("button", { name: "Accept" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
-  const row = a.locator("li", { hasText: "connected" }).filter({ hasNot: a.getByText("(you)") });
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const row = members
+    .locator("li", { hasText: "connected" })
+    .filter({ hasNot: a.getByText("(you)") });
   const tap = row.getByRole("button").first();
   await expect(tap).toBeVisible({ timeout: 60_000 });
   const ownName = ((await tap.locator("p").first().innerText()) ?? "").trim();
