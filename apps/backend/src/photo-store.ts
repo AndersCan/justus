@@ -1,19 +1,16 @@
-import Hyperswarm from "hyperswarm";
 import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
 import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
 import type { Files, Paths } from "./ports/files";
+import type { PeerEvent, PeerNetwork } from "./ports/peer-network";
 import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
-import { greetPeer } from "./adapters/peer-identity";
-import { openVersion } from "./adapters/peer-version";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { copyAlbumEntries } from "./rotate-album";
-import { openAnswers } from "./adapters/peer-answer";
 import { inviteTopic } from "./membership/invite";
 import type { Drive, DriveStore } from "./ports/drive-store";
 import type { DriveEntry } from "./ports/drive-store";
@@ -48,26 +45,6 @@ import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
  * Production (`main.core.ts`) passes the real `bare-*` implementations; the
  * only behavior that changes is *where* the constructors are chosen.
  */
-type SwarmLike = {
-  join(
-    topic: Buffer,
-    opts?: { server?: boolean },
-  ): {
-    flushed?: () => Promise<void>;
-    destroy(): void | Promise<void>;
-  };
-  on(event: "connection", handler: (conn: unknown) => void): void;
-  connections: Set<unknown>;
-  /** The topic's discovery; `refresh()` re-runs its lookup and announce. */
-  status?(topic: Buffer): { refresh(): Promise<void> | void } | null;
-  /** This swarm's noise identity; absent on test fakes. */
-  keyPair?: { publicKey: Buffer };
-  destroy(): void | Promise<void>;
-};
-
-/** Default swarm factory (used when `deps.makeSwarm` is omitted). */
-const defaultSwarm = (opts?: { bootstrap?: string[] }): SwarmLike =>
-  new Hyperswarm(opts) as unknown as SwarmLike;
 import type {
   AskSummary,
   FolderNotice,
@@ -195,8 +172,6 @@ export type PhotoStoreDeps = {
   /** Dev only: a fresh install starts a "Sample photos" album, and every new
    * album gets sample photos. */
   seedOnEmpty: boolean;
-  /** Hyperswarm DHT bootstrap servers (dev/test: local DHT node). */
-  bootstrap?: string[];
   /** Filesystem access. Injected so the store loads under Node/vitest without
    * the Bare runtime; production passes `bare-fs`. */
   fs: Files;
@@ -206,25 +181,14 @@ export type PhotoStoreDeps = {
   crypto: typeof import("bare-crypto");
   /** Where drives live (Corestore and Hyperdrive in production). */
   drives: DriveStore;
-  /** Replicates every drive over a swarm connection. Temporary: the peer network takes this over. */
-  replicate: (conn: unknown) => void;
-  /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
-  makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
+  /** Peers: topics, connections, and the identity, version and answer channels. */
+  network: PeerNetwork;
   /** Max ms to wait for a remote drive to become ready before giving up on it
    * (e.g. when reading a peer's join-request outbox in `requests()`). Defaults
    * to 45_000. Test seams lower it so latency regressions surface quickly. */
   driveOpenTimeoutMs?: number;
-  /** Exchanges identity drive keys with the peer on a swarm connection.
-   * Defaults to {@link greetPeer} (a protomux channel); test fakes swap it. */
-  greetPeer?: typeof greetPeer;
-  /** Exchanges peer protocol numbers on a swarm connection. Defaults to
-   * {@link openVersion}; test fakes swap it. */
-  openVersion?: typeof openVersion;
   /** Peer protocol this device announces. Tests only: plays a newer or older peer. */
   peerProtocol?: number;
-  /** Opens the answer channel on a swarm connection. Defaults to
-   * {@link openAnswers}; test fakes swap it. */
-  openAnswers?: typeof openAnswers;
   /** Receives structured p2p boundary events (see `p2p-log.ts`). Defaults to a
    * console line per event; tests inject a sink to assert on them. */
   log?: P2pLogSink;
@@ -450,9 +414,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   };
   const lazyMedia = createLazyMedia(deps.server, fs);
-  const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
-    deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
-  );
+  const network = deps.network;
   const stateFile = path.join(deps.storageDir, STATE_FILE);
 
   /** The saved state was written by a newer Justus: touch nothing. */
@@ -479,19 +441,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * core exclusively, so a second open of the same key waits for the first to
    * close. Watched so a request that replicates in refreshes the inbox. */
   const peerOutboxes = new Map<string, Promise<Drive>>();
-  // Swarm topic joins keyed by discoveryKey hex (issue #95). A Map (not an
-  // array) lets us make `joinTopic` idempotent — the same topic always returns
-  // the same handle — and lets `leaveTopic` reclaim a handle on unmount so a
-  // folder switch / re-enroll doesn't leak one join per member drive.
-  const joins = new Map<string, { destroy(): void | Promise<void> }>();
-  /** Topics this device announces on (joined without `server: false`). */
-  const servedTopics = new Set<string>();
-  /** Later joins of a topic that upgraded it to serving; left with it. */
-  const extraJoins = new Map<string, Array<{ destroy(): void | Promise<void> }>>();
-  const rediscoverTimers = new Set<ReturnType<typeof setTimeout>>();
+  /** Timers of answer deliveries waiting to retry. */
+  const retryTimers = new Set<ReturnType<typeof setTimeout>>();
   const log = createP2pLog(deps.log);
-  /** Per-store monotonic id naming a swarm connection in log lines. */
-  let connSeq = 0;
   /** A phone on a newer Justus refused us; for this session only. */
   let updateNeeded = false;
   /** Names of phones on an older Justus we refused; for this session only. */
@@ -511,8 +463,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       /** The remote speaks another protocol: nothing but its name is read. */
       refused?: "newer" | "older";
       noted?: boolean;
-      destroy?: () => void;
-      answers?: { send(answer: Answer): boolean };
       /** `code` of each answer already sent on this connection. */
       sent: Set<string>;
     }
@@ -798,7 +748,28 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       .catch((e) => console.error(`[justus] presence refresh failed: ${errMsg(e)}`));
   }
 
-  function onSwarmConnection(conn: any, swarmKeyHex: string) {
+  function onPeerEvent(e: PeerEvent) {
+    if (e.type === "connected") {
+      conns.set(e.conn, {
+        noiseKey: e.peerKey,
+        openedAt: Date.now(),
+        initiator: e.initiator,
+        sent: new Set(),
+      });
+      onPeerUp(e.peerKey);
+    } else if (e.type === "version") {
+      onPeerVersion(e.conn, e.protocol);
+    } else if (e.type === "identified") {
+      onPeerIdentity(e.identityKey, e.conn);
+    } else if (e.type === "answer") {
+      void onAnswerMessage(e.conn, e.value).catch(answerErr("answer"));
+    } else {
+      conns.delete(e.conn);
+      onPeerDown(e.peerKey);
+    }
+  }
+
+  function onPeerUp(swarmKeyHex: string) {
     const now = (connectedSwarmKeys.get(swarmKeyHex) ?? 0) + 1;
     connectedSwarmKeys.set(swarmKeyHex, now);
     if (now === 1) {
@@ -811,26 +782,27 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     announcePresence();
     refreshPresence();
-    conn.on("close", () => {
-      const left = (connectedSwarmKeys.get(swarmKeyHex) ?? 1) - 1;
-      if (left > 0) {
-        connectedSwarmKeys.set(swarmKeyHex, left);
-        return;
-      }
-      connectedSwarmKeys.delete(swarmKeyHex);
-      const member = memberKeyForSwarmKey(swarmKeyHex);
-      log("presence.change", {
-        swarmkey: short(swarmKeyHex),
-        member: short(member),
-        state: "down",
-        conns: 0,
-      });
-      if (member) {
-        lastSeen.set(member, Date.now());
-        saveLastSeen();
-      }
-      announcePresence();
+  }
+
+  function onPeerDown(swarmKeyHex: string) {
+    const left = (connectedSwarmKeys.get(swarmKeyHex) ?? 1) - 1;
+    if (left > 0) {
+      connectedSwarmKeys.set(swarmKeyHex, left);
+      return;
+    }
+    connectedSwarmKeys.delete(swarmKeyHex);
+    const member = memberKeyForSwarmKey(swarmKeyHex);
+    log("presence.change", {
+      swarmkey: short(swarmKeyHex),
+      member: short(member),
+      state: "down",
+      conns: 0,
     });
+    if (member) {
+      lastSeen.set(member, Date.now());
+      saveLastSeen();
+    }
+    announcePresence();
   }
 
   async function readDeviceName(drive: Drive): Promise<string> {
@@ -841,8 +813,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * key, not by its drive key, so each device publishes it in `/device.json`
    * and peers use it to tell which member a connection belongs to. */
   function ownSwarmKey(): string | undefined {
-    const pk = swarm.keyPair?.publicKey;
-    return pk ? hex(pk) : undefined;
+    return network.peerKey() || undefined;
   }
 
   function deviceJson(name: string): Buffer {
@@ -928,120 +899,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
-  async function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
-    const key = hex(topic);
-    const existing = joins.get(key);
-    // A topic first joined as a client only (`server: false`, opening a remote
-    // drive) must still announce when a later caller asks to serve on it (a
-    // joiner serving its request outbox on the album topic). Hyperswarm adds
-    // the second join as a session of the same discovery and re-announces.
-    if (existing && !(opts?.server && !servedTopics.has(key))) return existing;
-    const handle = swarm.join(topic, opts);
-    if (opts?.server !== false) servedTopics.add(key);
-    if (existing) {
-      log("topic.upgrade", { topic: short(key) });
-      extraJoins.set(key, [...(extraJoins.get(key) ?? []), handle]);
-      return existing;
-    }
-    joins.set(key, handle);
-    log("topic.join", { topic: short(key), served: opts?.server !== false });
-    // Fire-and-forget: never block setup on DHT bootstrap — the app must
-    // boot and serve the gallery even when the swarm is unreachable.
-    const joinedAt = Date.now();
-    void handle
-      .flushed?.()
-      .then(() => log("topic.flushed", { topic: short(key), ms: Date.now() - joinedAt }))
-      .catch((e) => log("error", { where: "topic.flushed", topic: short(key), err: errText(e) }));
-    return handle;
+  /** Joins a topic; serves it unless told otherwise. */
+  function joinTopic(topic: Buffer, opts?: { server?: boolean }) {
+    network.join(hex(topic), { server: opts?.server !== false });
   }
 
-  /** Leaves a previously-joined swarm topic, releasing its handle. No-op if the
-   * topic was never joined (or was already left). */
   function leaveTopic(keyHex: string) {
-    const handle = joins.get(keyHex);
-    if (!handle) return;
-    joins.delete(keyHex);
-    servedTopics.delete(keyHex);
-    log("topic.leave", { topic: short(keyHex) });
-    for (const extra of extraJoins.get(keyHex) ?? []) {
-      try {
-        void Promise.resolve(extra.destroy?.()).catch(logLeave(keyHex));
-      } catch {
-        // already destroyed (sync throw on teardown): expected, quiet
-      }
-    }
-    extraJoins.delete(keyHex);
-    try {
-      const d = handle.destroy?.();
-      // `destroy` may return a promise; swallow a rejection so leaving a topic
-      // can't raise an unhandled rejection. A sync throw (already destroyed) is
-      // already caught by the surrounding try/catch.
-      if (d instanceof Promise) d.catch(logLeave(keyHex));
-    } catch {
-      // already destroyed (sync throw on teardown): expected, quiet
-    }
+    network.leave(keyHex);
   }
 
-  function logLeave(keyHex: string) {
-    return (e: unknown) =>
-      log("error", { where: "topic.leave", topic: short(keyHex), err: errText(e) });
-  }
-
-  /** Backoff for {@link rediscover}: about two minutes in all, after which
-   * Hyperswarm's own 10-minute refresh takes over. */
-  const REDISCOVER_MS = [500, 1000, 2000, 4000, 8000, 15000, 30000, 60000];
-
-  /**
-   * Hyperswarm looks a topic up once, then again only every 10 minutes
-   * (`REFRESH_INTERVAL` in hyperswarm/lib/peer-discovery.js). A lookup that ran
-   * before the peer's announce reached the DHT (a joiner opening an album the
-   * Admin created a moment ago) would find no one for that long. Re-run the
-   * lookup with backoff until the drive has a peer.
-   */
+  /** Re-runs the topic lookup until the drive has a peer. */
   function rediscover(topic: Buffer, drive: Drive) {
-    rediscoverUntil(
-      topic,
-      drive.key,
-      () => drive.stats().peers > 0,
-      () => drive.stats().peers,
-    );
-  }
-
-  /** {@link rediscover} for a topic with no drive behind it: runs until
-   * `done()` holds. `label` names it in the log. */
-  function rediscoverUntil(
-    topic: Buffer,
-    label: Uint8Array | string,
-    done: () => boolean,
-    peerCount: () => number | undefined = () => undefined,
-  ) {
-    const key = hex(topic);
-    let attempt = 0;
-    const tick = () => {
-      rediscoverTimers.delete(timer);
-      if (closed || done() || !joins.has(key)) return;
-      log("rediscover.attempt", {
-        drive: short(label),
-        topic: short(key),
-        n: attempt + 1,
-        peers: peerCount(),
-      });
-      try {
-        void Promise.resolve(swarm.status?.(topic)?.refresh()).catch((e) =>
-          log("error", { where: "rediscover.refresh", topic: short(key), err: errText(e) }),
-        );
-      } catch {
-        // discovery gone (topic left meanwhile): expected, quiet
-      }
-      if (++attempt >= REDISCOVER_MS.length) {
-        log("rediscover.giveup", { drive: short(label), topic: short(key) });
-        return;
-      }
-      timer = setTimeout(tick, REDISCOVER_MS[attempt]);
-      rediscoverTimers.add(timer);
-    };
-    let timer = setTimeout(tick, REDISCOVER_MS[0]);
-    rediscoverTimers.add(timer);
+    network.findPeers(hex(topic), () => drive.stats().peers > 0, {
+      drive: drive.key,
+      peers: () => drive.stats().peers,
+    });
   }
 
   /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -1050,7 +922,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const topic = Buffer.from(deps.drives.discoveryKeyOf(keyHex), "hex");
     const startedAt = Date.now();
     log("drive.open.start", { drive: short(keyHex), topic: short(topic) });
-    await joinTopic(topic, opts);
+    joinTopic(topic, opts);
     const [openErr, drive] = await deps.drives.open(keyHex, {
       timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
     });
@@ -1059,7 +931,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         drive: short(keyHex),
         ms: Date.now() - startedAt,
         err: errText(openErr),
-        conns: swarm.connections.size,
+        conns: network.connectionCount(),
       });
       throw openErr;
     }
@@ -1160,7 +1032,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const drive = await deps.drives.openOwn(ns);
         // Presence reads the swarm key from here, and it changes every boot.
         await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-        await joinTopic(topicOf(drive));
+        joinTopic(topicOf(drive));
         rediscover(topicOf(drive), drive);
         return drive;
       })();
@@ -1770,7 +1642,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         name: state.name,
         driveKey: "",
         discoveryKey: ownDrive.discoveryKey,
-        peers: swarm.connections.size,
+        peers: network.connectionCount(),
         photos: 0,
         members: [],
         updateNeeded,
@@ -1821,7 +1693,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       name: state.name,
       driveKey: role === "reader" ? "" : selfKey,
       discoveryKey: ownDrive.discoveryKey,
-      peers: swarm.connections.size,
+      peers: network.connectionCount(),
       photos,
       members: memberList,
       updateNeeded,
@@ -1834,7 +1706,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * drive and read `/requests.json` from it. */
   async function announceOwnDriveOnTopic(drive: Drive, label: string) {
     try {
-      await joinTopic(topicOf(drive), { server: true });
+      joinTopic(topicOf(drive), { server: true });
       rediscover(topicOf(drive), drive);
     } catch (e) {
       const message = errMsg(e);
@@ -1975,12 +1847,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         updateNeeded = true;
         deps.onChanged({ cause: "version" });
       }
-      c.destroy?.();
+      network.drop(connId);
       return;
     }
     c.refused = "older";
     // Its identity greeting names it; without one, give up after 5 s.
-    const timer = setTimeout(() => c.destroy?.(), 5_000);
+    const timer = setTimeout(() => network.drop(connId), 5_000);
     timer.unref?.();
   }
 
@@ -2005,18 +1877,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       peersBehind.push(name);
       deps.onChanged({ cause: "version" });
     }
-    c.destroy?.();
+    network.drop(connId);
   }
 
   /** A peer told us its identity drive. An Admin may have a join request
    * waiting there: tell the web layer to refresh its request inbox. */
-  function onPeerIdentity(key: Uint8Array, connId?: number) {
-    const keyHex = hex(Buffer.from(key));
+  function onPeerIdentity(keyHex: string, connId: number) {
     if (!isHexKey(keyHex)) return;
     const isNew = !peerIdentities.has(keyHex) && keyHex !== ownDrive.key;
-    log("identity.learned", { conn: connId, identity: short(keyHex), new: isNew });
-    const c = connId === undefined ? undefined : conns.get(connId);
-    if (c && connId !== undefined && keyHex !== ownDrive.key) {
+    const c = conns.get(connId);
+    if (c && keyHex !== ownDrive.key) {
       // A greeting with no version before it comes from protocol 1.
       if (c.protocol === undefined && !c.refused) c.refused = "older";
       if (c.refused) {
@@ -2146,62 +2016,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await ensureOwnDriveIdentity();
     await migrateFromV1();
 
-    // Swarm: seed our own identity drive; replicate everything over each conn.
     // Registered before any topic join so early connections replicate too.
-    swarm.on("connection", (conn: any) => {
-      const connId = ++connSeq;
-      const noiseKey = Buffer.isBuffer(conn.remotePublicKey)
-        ? hex(conn.remotePublicKey)
-        : undefined;
-      const openedAt = Date.now();
-      conns.set(connId, {
-        noiseKey,
-        openedAt,
-        initiator: conn.isInitiator,
-        sent: new Set(),
-        destroy: () => conn.destroy?.(),
-      });
-      log("conn.open", { conn: connId, noise: short(noiseKey), initiator: conn.isInitiator });
-      conn.on("error", (e: unknown) =>
-        log("conn.error", { conn: connId, noise: short(noiseKey), err: errText(e) }),
-      );
-      conn.on("close", () => {
-        conns.delete(connId);
-        log("conn.close", { conn: connId, noise: short(noiseKey), ms: Date.now() - openedAt });
-      });
-      try {
-        deps.replicate(conn);
-      } catch (e) {
-        const message = errMsg(e);
-        console.error(`[justus] replicate failed: ${message}`);
-      }
-      const peerKey = conn.remotePublicKey;
-      if (peerKey && Buffer.isBuffer(peerKey)) onSwarmConnection(conn, hex(peerKey));
-      try {
-        (deps.openVersion ?? openVersion)(conn, deps.peerProtocol ?? PEER_PROTOCOL, (remote) =>
-          onPeerVersion(connId, remote),
-        );
-      } catch (e) {
-        console.error(`[justus] version channel failed: ${errMsg(e)}`);
-      }
-      try {
-        (deps.greetPeer ?? greetPeer)(conn, Buffer.from(ownDrive.key, "hex"), (key) =>
-          onPeerIdentity(key, connId),
-        );
-      } catch (e) {
-        console.error(`[justus] identity greeting failed: ${errMsg(e)}`);
-      }
-      try {
-        const channel = (deps.openAnswers ?? openAnswers)(conn, (value) => {
-          void onAnswerMessage(connId, value).catch(answerErr("answer"));
-        });
-        const entry = conns.get(connId);
-        if (entry) entry.answers = channel;
-      } catch (e) {
-        console.error(`[justus] answer channel failed: ${errMsg(e)}`);
-      }
-    });
-    await joinTopic(topicOf(ownDrive));
+    network.start(ownDrive.key, onPeerEvent, deps.peerProtocol);
+    joinTopic(topicOf(ownDrive));
     rediscover(topicOf(ownDrive), ownDrive);
 
     // Reopen every persisted folder so their drives stay warm.
@@ -2226,7 +2043,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           if (openErr) throw openErr;
           fd = opened;
         }
-        await joinTopic(topicOf(fd), { server: true });
+        joinTopic(topicOf(fd), { server: true });
         rediscover(topicOf(fd), fd);
         if (!record.invite) {
           record.invite = { code: newInviteCode() };
@@ -2322,7 +2139,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     state.folders.push(rt.record);
     state.activeFolderId = folderId;
     saveState();
-    await joinTopic(topicOf(newDrive), { server: true });
+    joinTopic(topicOf(newDrive), { server: true });
     rediscover(topicOf(newDrive), newDrive);
     serveInvite(rt.record.invite!.code);
     watchDrive(newDrive, folderId, newDrive.key, "enroll");
@@ -2413,21 +2230,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** The Admin serves an album's invite topic; a link holder meets only this device. */
   function serveInvite(code: string) {
     const topic = inviteTopic(code, crypto);
-    joinTopic(topic, { server: true }).catch((e) =>
-      log("error", { where: "invite.join", code: short(code), err: errText(e) }),
-    );
-    rediscoverUntil(topic, code, () => false);
+    joinTopic(topic, { server: true });
+    network.findPeers(hex(topic), () => false, { drive: code });
   }
 
   /** The joiner serves the same topic until its owner connects. */
   async function watchInvite(ask: AskRecord) {
     const topic = inviteTopic(ask.code, crypto);
-    await joinTopic(topic, { server: true });
-    rediscoverUntil(
-      topic,
-      ask.code,
+    joinTopic(topic, { server: true });
+    network.findPeers(
+      hex(topic),
       () =>
         ask.status !== "waiting" || [...conns.values()].some((c) => c.identityKey === ask.owner),
+      { drive: ask.code },
     );
   }
 
@@ -2542,7 +2357,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         c.sent.add(code);
         const message: Answer =
           answer === "accepted" ? { code, answer, shareKey: rt.record.shareKey } : { code, answer };
-        if (c.answers?.send(message)) {
+        if (network.sendAnswer(connId, message)) {
           log("answer.sent", { conn: connId, code: short(code), answer });
         } else {
           c.sent.delete(code);
@@ -2552,10 +2367,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (retry && attempt < 5) {
       const timer = setTimeout(() => {
-        rediscoverTimers.delete(timer);
+        retryTimers.delete(timer);
         void deliverAnswers(identity, attempt + 1).catch(answerErr("deliver"));
       }, 1_000);
-      rediscoverTimers.add(timer);
+      retryTimers.add(timer);
     }
   }
 
@@ -3124,9 +2939,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       return {
         now: Date.now(),
+        ...network.debug(),
         swarmKey: ownSwarmKey() ?? null,
         identityDrive: ownDrive ? ownDrive.key : null,
-        swarmConnections: swarm.connections.size,
         connections: [...conns].map(([conn, c]) => ({
           conn,
           noiseKey: c.noiseKey ?? null,
@@ -3136,11 +2951,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         })),
         peerIdentities: [...peerIdentities],
         asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
-        joins: [...joins.keys()].map((topic) => ({
-          topic,
-          served: servedTopics.has(topic),
-          extraJoins: extraJoins.get(topic)?.length ?? 0,
-        })),
         remoteDrives: [
           ...[...peerOutboxDrives].map(([key, d]) => ({
             role: "peer-outbox",
@@ -3172,26 +2982,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             connected: isMemberConnected(rt.record.shareKey),
           },
         })),
-        rediscoverTimers: rediscoverTimers.size,
       };
     },
 
     async close() {
       closed = true;
-      for (const t of rediscoverTimers) clearTimeout(t);
-      rediscoverTimers.clear();
+      for (const t of retryTimers) clearTimeout(t);
+      retryTimers.clear();
       // Tear down every folder: drop update watchers, unmount loopback routes,
       // and remove the per-folder spool dir so a shutdown leaves no mounts or
       // stale cache behind (#101).
       for (const rt of runtimes.values()) {
         await unmountRuntime(rt);
       }
-      // Defensively release any remaining joins (e.g. the device-identity
-      // `ownDrive` join that `unmountRuntime` never leaves) before tearing down
-      // the swarm (issue #95).
-      for (const key of joins.keys()) leaveTopic(key);
       try {
-        await swarm.destroy();
+        await network.close();
       } catch {
         // already closed
       }

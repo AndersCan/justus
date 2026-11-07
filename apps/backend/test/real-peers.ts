@@ -7,7 +7,7 @@
  */
 import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
 import { createHyperDriveStore, type HyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
-import type { P2pEvent } from "../src/p2p-log.ts";
+import { createP2pLog, type P2pEvent } from "../src/p2p-log.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
 import type { PeerEvent } from "../src/ports/peer-network.ts";
 import type { DriveWorld } from "./contracts/drive-store.contract.ts";
@@ -53,14 +53,14 @@ export async function realNet(): Promise<Net> {
       deviceName: name,
       onChanged: (c) => changes.push(c),
       drives,
-      replicate: (conn) => drives.replicate(conn),
-      makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap }),
-      // The real protomux greeting, not the harness fake.
-      greetPeer: undefined,
-      // A legacy phone never opens the version channel.
-      openVersion: opts.legacy ? () => {} : undefined,
+      network: createHyperPeerNetwork({
+        bootstrap: testnet.bootstrap,
+        replicate: (conn) => drives.replicate(conn),
+        log: createP2pLog((e: P2pEvent) => events.push(e)),
+        // A legacy phone never opens the version channel.
+        openVersion: opts.legacy ? () => {} : undefined,
+      }),
       peerProtocol: opts.peerProtocol,
-      openAnswers: undefined,
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });

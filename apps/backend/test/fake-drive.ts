@@ -18,6 +18,9 @@ import * as nodePath from "node:path";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
+import { createHyperPeerNetwork } from "../src/adapters/hyper-peer-network.ts";
+import { createP2pLog } from "../src/p2p-log.ts";
+import type { PeerNetwork } from "../src/ports/peer-network.ts";
 import { createLegacyDriveStore, type LegacyHooks } from "./fakes/legacy-drive-store.ts";
 
 function sha256Hex(input: string): string {
@@ -178,6 +181,7 @@ export class FakeCorestore {
 /** In-memory Hyperswarm. No peers by default; `connections` is an empty set. */
 export class FakeSwarm extends Emitter {
   readonly connections = new Set<unknown>();
+  keyPair: { publicKey: Buffer } = { publicKey: nodeCrypto.randomBytes(32) };
   join(
     _topic: Buffer,
     _opts?: { server?: boolean },
@@ -265,14 +269,57 @@ const driveCache = new Map<string, FakeDrive>();
 /** Temporary (T11 removes it): the old drive hooks, which `drives` is built from. */
 export type LegacyDriveHooks = Pick<LegacyHooks, "makeCorestore" | "makeDrive">;
 
-export type FakeDeps = PhotoStoreDeps & LegacyDriveHooks;
+/** Temporary (T11 removes it): the old swarm and channel hooks, which `network` is built from. */
+export type LegacyNetworkHooks = {
+  replicate?: (conn: any) => void;
+  makeSwarm?: () => unknown;
+  greetPeer?: (conn: unknown, own: Uint8Array, onIdentity: (key: Uint8Array) => void) => void;
+  openVersion?: (conn: unknown, own: number, onVersion: (remote: number) => void) => void;
+  openAnswers?: any;
+};
 
-/** Rebuilds `deps.drives` from the hooks in `deps`, after a test replaced `makeDrive` on a copy. */
+export type FakeDeps = PhotoStoreDeps & LegacyDriveHooks & LegacyNetworkHooks;
+
+/** A PeerNetwork over the old hooks, built on first use so a test may replace them first. */
+function createLegacyNetwork(deps: () => FakeDeps): PeerNetwork {
+  let inner: PeerNetwork | undefined;
+  function net(): PeerNetwork {
+    if (inner) return inner;
+    const created = createHyperPeerNetwork({
+      swarm: deps().makeSwarm?.(),
+      replicate: (conn) => {
+        const d = deps();
+        if (d.replicate) d.replicate(conn);
+        else (d.drives as { replicate?(conn: unknown): void }).replicate?.(conn);
+      },
+      greetPeer: deps().greetPeer,
+      openVersion: deps().openVersion,
+      openAnswers: deps().openAnswers,
+      log: createP2pLog(deps().log),
+    });
+    inner = created;
+    return created;
+  }
+  return {
+    peerKey: () => net().peerKey(),
+    start: (identityKey, onEvent, protocol) => net().start(identityKey, onEvent, protocol),
+    sendAnswer: (conn, answer) => net().sendAnswer(conn, answer),
+    drop: (conn) => net().drop(conn),
+    join: (topic, opts) => net().join(topic, opts),
+    leave: (topic) => net().leave(topic),
+    findPeers: (topic, hasPeer, info) => net().findPeers(topic, hasPeer, info),
+    connectionCount: () => net().connectionCount(),
+    debug: () => net().debug(),
+    close: () => (inner ? inner.close() : Promise.resolve()),
+  };
+}
+
+/** Rebuilds `deps.drives` and `deps.network` from the hooks in `deps`, after a test replaced a hook or `log` on a copy. */
 export function withDriveHooks(deps: FakeDeps, hooks: Partial<LegacyDriveHooks>): FakeDeps {
   const next = { ...deps, ...hooks } as FakeDeps;
   const drives = createLegacyDriveStore(() => next);
   next.drives = drives;
-  next.replicate = (conn) => drives.replicate(conn);
+  next.network = createLegacyNetwork(() => next);
   return next;
 }
 
@@ -280,7 +327,7 @@ export function withDriveHooks(deps: FakeDeps, hooks: Partial<LegacyDriveHooks>)
  * constructs above. Pass it straight to `createPhotoStore`. A test may still
  * override `makeCorestore` / `makeDrive`; `drives` is then built from them. */
 export function makeFakeDeps(
-  overrides: Partial<PhotoStoreDeps> & Partial<LegacyDriveHooks> = {},
+  overrides: Partial<PhotoStoreDeps> & Partial<LegacyDriveHooks> & LegacyNetworkHooks = {},
 ): FakeDeps {
   const dir = makeTmpDir("justus-fake-");
   const corestore = new FakeCorestore();
@@ -321,6 +368,7 @@ export function makeFakeDeps(
     },
     ...overrides,
   } as FakeDeps;
+  if (!overrides.network) deps.network = createLegacyNetwork(() => deps);
   if (overrides.drives) return deps;
   return withDriveHooks(deps, {});
 }

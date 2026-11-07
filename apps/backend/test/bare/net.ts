@@ -29,7 +29,7 @@ import { makeAnswerNode } from "../answer-node.ts";
 import type { VersionNode, VersionWorld } from "../contracts/peer-version.contract.ts";
 import { makeVersionNode } from "../version-node.ts";
 import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
-import type { P2pEvent } from "../../src/p2p-log.ts";
+import { createP2pLog, type P2pEvent } from "../../src/p2p-log.ts";
 
 /** Stand-in for the loopback server: the store only mounts routes on it. */
 const stubServer = {
@@ -69,13 +69,16 @@ export async function bareNet(root: string): Promise<Net> {
       onChanged: (c) => changes.push(c),
       seedOnEmpty: false,
       peerProtocol: opts.peerProtocol,
-      ...(opts.legacy ? { openVersion: () => {} } : {}),
       fs,
       path,
       crypto,
       drives,
-      replicate: (conn) => drives.replicate(conn),
-      makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap as never }),
+      network: createHyperPeerNetwork({
+        bootstrap: testnet.bootstrap as never,
+        replicate: (conn) => drives.replicate(conn),
+        log: createP2pLog((e: P2pEvent) => events.push(e)),
+        ...(opts.legacy ? { openVersion: () => {} } : {}),
+      }),
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });
