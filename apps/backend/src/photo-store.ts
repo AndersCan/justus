@@ -279,6 +279,8 @@ export interface PhotoStore {
   ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
   /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. */
   offerAlbum(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
+  joinOffer(code: string, owner: string): Promise<EitherResult<{ ask: AskSummary }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -1830,6 +1832,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (c) c.identityKey = keyHex;
     if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
+      // A Join tapped while we were offline: the friend is here, finish it.
+      if (state.folders.some((f) => f.role === "creator" && f.invited?.includes(keyHex))) {
+        void acceptOfferedFriend(keyHex).catch(answerErr("acceptOffered"));
+      }
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
         if (ask.status === "accepted" && ask.owner === keyHex) {
@@ -2346,7 +2352,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
       state.asks = state.asks.filter((a) => a.code !== ask.code);
+      const heldBefore = state.offers.length;
+      state.offers = state.offers.filter((o) => !(o.code === ask.code && o.owner === ask.owner));
       saveState();
+      if (state.offers.length !== heldBefore) deps.onChanged({ cause: "offer" });
       leaveTopic(hex(inviteTopic(ask.code, crypto)));
       await pruneJoinRequests();
       const album = state.folders.find((f) => f.shareKey === ask.shareKey);
@@ -2373,8 +2382,54 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       offerWaiters.get(key)?.(message.kind === "offerSeen" ? "seen" : "refused");
       return;
     }
+    if (message.kind === "offerWithdrawn") {
+      const before = state.offers.length;
+      state.offers = state.offers.filter((o) => !(o.code === message.code && o.owner === sender));
+      if (state.offers.length !== before) {
+        saveState();
+        deps.onChanged({ cause: "offer" });
+      }
+      return;
+    }
+    if (message.kind === "offerTaken") {
+      void acceptOfferedFriend(sender).catch(answerErr("acceptOffered"));
+      return;
+    }
     if (message.kind !== "offer") return;
     receiveOffer(connId, sender, message);
+  }
+
+  /** Identities whose auto-accept is running, so a repeated Join tap doesn't start a second one. */
+  const acceptingFriends = new Set<string>();
+
+  /** The friend tapped Join: find their link request on their own identity drive and accept it. */
+  async function acceptOfferedFriend(identity: string): Promise<void> {
+    if (acceptingFriends.has(identity)) return;
+    acceptingFriends.add(identity);
+    try {
+      for (let attempt = 0; attempt < 5 && !closed; attempt++) {
+        for (const rt of Array.from(runtimes.values())) {
+          if (rt.record.role !== "creator" || !rt.record.invited?.includes(identity)) continue;
+          await openPeerOutbox(identity).catch(() => undefined);
+          await withTimeout(peerOutboxDrives.get(identity)?.update() ?? Promise.resolve(), 2_000);
+          const found = (await readRequestsFromPeers(rt)).find(
+            (f) => f.identity === identity && f.viaInvite,
+          );
+          if (!found) continue;
+          const [error] = await store.respond(rt.record.id, found.request.requesterKey, true);
+          if (error && error.code !== PhotoError.ALREADY_ENROLLED) continue;
+          for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
+            if (target) target.invited = target.invited?.filter((i) => i !== identity);
+          }
+          saveState();
+          deps.onChanged({ cause: "offer", folderId: rt.record.id });
+        }
+        if (![...runtimes.values()].some((rt) => rt.record.invited?.includes(identity))) return;
+        await sleep(1_000);
+      }
+    } finally {
+      acceptingFriends.delete(identity);
+    }
   }
 
   /** The friend side of an invite: show it, or turn it down when the sender is a stranger. */
@@ -2726,7 +2781,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return {
         folders,
         activeFolderId: activeFolderId() ?? "",
-        asks: state.asks.map(askSummary),
+        asks: state.asks
+          .filter((a) => !state.offers.some((o) => o.code === a.code && o.owner === a.owner))
+          .map(askSummary),
         offers: state.offers,
       };
     },
@@ -2813,12 +2870,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (rt.record.role !== "creator") continue;
         // Enrolled, denied and answered invite requests are not pending (#84, #85).
         const registry = await readRegistryIn(rt.folderDrive);
+        const invited = new Set(rt.record.invited ?? []);
         out.push(
-          ...pendingJoinRequests(await readRequestsFromPeers(rt), {
-            registry,
-            denied: deniedRequesters,
-            answers: rt.record.answers,
-          }),
+          ...pendingJoinRequests(
+            (await readRequestsFromPeers(rt)).filter((f) => !invited.has(f.identity)),
+            { registry, denied: deniedRequesters, answers: rt.record.answers },
+          ),
         );
       }
       return { requests: out };
@@ -2887,12 +2944,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can turn off invite links");
       const old = rt.record.invite?.code;
+      if (old) {
+        for (const identity of rt.record.invited ?? []) {
+          for (const [connId, c] of Array.from(conns)) {
+            if (c.identityKey !== identity) continue;
+            if ((await withTimeout(verifiedIdentity(connId), 2_000)) !== identity) continue;
+            network.sendAnswer(connId, { kind: "offerWithdrawn", code: old });
+          }
+        }
+      }
+      rt.record.invited = undefined;
       const code = newInviteCode();
       rt.record.invite = { code };
       if (old) rt.record.retiredInvites = [...(rt.record.retiredInvites ?? []), old];
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted) {
         persisted.invite = { code };
+        persisted.invited = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
@@ -2952,6 +3020,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       } finally {
         offerWaiters.delete(key);
       }
+    },
+
+    async joinOffer(code, owner) {
+      await readyPromise;
+      const offer = state.offers.find((o) => o.code === code && o.owner === owner);
+      if (!offer) return err(PhotoError.OFFER_GONE, "This invite was taken back");
+      let ask = state.asks.find((a) => a.code === code);
+      if (!ask || ask.status === "declined") {
+        const filed = await fileAsk(code, owner, offer.albumName, offer.ownerName);
+        if (filed[0]) return filed;
+        ask = state.asks.find((a) => a.code === code);
+      }
+      for (const [connId, c] of Array.from(conns)) {
+        if (c.identityKey !== owner) continue;
+        if ((await withTimeout(verifiedIdentity(connId), 2_000)) !== owner) continue;
+        network.sendAnswer(connId, { kind: "offerTaken", code });
+      }
+      return ok({ ask: askSummary(ask as AskRecord) });
     },
 
     async removeMember(folderId, memberKey) {
@@ -3080,6 +3166,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     respond: refuse,
     turnOffInvite: refuse,
     offerAlbum: refuse,
+    joinOffer: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };

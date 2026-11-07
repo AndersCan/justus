@@ -142,6 +142,18 @@ describe("backend -> web contract, from real backend output", () => {
       folderId: folder.id,
       identity: (asker.store.debugState() as { identityDrive: string }).identityDrive,
     });
+    // The asker taps Join on it and lands in the album.
+    const { offers } = await eventually(
+      () => c("photos.folders"),
+      (r: any) => r.offers.length === 1,
+      "the invite on the asker",
+    );
+    await c("photos.joinOffer", { code: offers[0].code, owner: offers[0].owner });
+    await eventually(
+      () => c("photos.folders"),
+      (r: any) => r.folders.length === 1 && !r.folders[0].pending,
+      "the asker in the album",
+    );
     // The Admin turns the links off and the album carries a new code.
     await a("photos.turnOffInvite", { folderId: folder.id });
 
