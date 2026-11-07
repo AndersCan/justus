@@ -55,7 +55,7 @@ export const HELP_QA: { q: string; a: string[] }[] = [
   {
     q: "Who can add photos?",
     a: [
-      "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too. The Admin can let a Viewer add photos later, from Members.",
+      "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too.",
     ],
   },
   {

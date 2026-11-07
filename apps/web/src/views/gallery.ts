@@ -512,7 +512,7 @@ export function viewerLine(page: { status: SyncStatus | null }, album: { id: str
   const known = page.status?.folder.id === album.id;
   const admin = known ? adminName(page.status) : "the Admin";
   const who = admin === "the Admin" ? "The Admin" : admin;
-  return `You're a Viewer: you see every photo here. ${who} can let you add photos.`;
+  return `You're a Viewer: you see every photo here. ${who} decides who adds photos.`;
 }
 
 /** The album's add row: the picker, the camera, and who gets the photos. Or,

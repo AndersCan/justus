@@ -165,12 +165,12 @@ describe("viewerLine", () => {
 
   test("names the Admin of the album on screen", () => {
     expect(viewerLine({ status }, { id: "f1" })).toBe(
-      "You're a Viewer: you see every photo here. Maya can let you add photos.",
+      "You're a Viewer: you see every photo here. Maya decides who adds photos.",
     );
   });
 
   test("says The Admin when the status is for another album or missing", () => {
-    const line = "You're a Viewer: you see every photo here. The Admin can let you add photos.";
+    const line = "You're a Viewer: you see every photo here. The Admin decides who adds photos.";
     expect(viewerLine({ status }, { id: "f2" })).toBe(line);
     expect(viewerLine({ status: null }, { id: "f1" })).toBe(line);
   });
