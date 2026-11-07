@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Drive } from "../../src/ports/drive-store.ts";
 import {
   addFakeNode,
@@ -7,7 +7,7 @@ import {
   setFakeNodeConnected,
   type FakeWorldOptions,
 } from "../fakes/fake-world.ts";
-import { galleryDrives, listGallery } from "../../src/photos/gallery.ts";
+import { addPhoto, galleryDrives, listGallery } from "../../src/photos/gallery.ts";
 
 type LogEntry = { event: string; fields?: Record<string, unknown> };
 
@@ -36,6 +36,31 @@ async function photoAt(drive: Drive, photo: { id: string; addedAt: number; name?
 
 const json = (value: unknown) => Buffer.from(JSON.stringify(value));
 const noName = () => undefined;
+
+function nextChange(drive: Drive, ms = 1000): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error(`no change event from drive ${drive.key.slice(0, 8)} within ${ms} ms`));
+    }, ms);
+    const unsubscribe = drive.onChange(() => {
+      clearTimeout(timer);
+      unsubscribe();
+      resolve();
+    });
+  });
+}
+
+function newPhoto(id: string) {
+  return {
+    id,
+    ext: ".jpg",
+    bytes: Buffer.from(`bytes-${id}`),
+    name: `${id}.jpg`,
+    mime: "image/jpeg",
+    sha256: "a".repeat(64),
+  };
+}
 
 describe("galleryDrives", () => {
   it("lists the Admin's drive first, then this device's, then the other members'", async () => {
@@ -166,5 +191,127 @@ describe("listGallery", () => {
         log: a.log,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("addPhoto", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(1_700_000_000_000);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("writes the photo with its metadata and gives the entry the gallery will show", async () => {
+    const [ann] = devices(1);
+    const drive = await ann.drives.openOwn("folder/a");
+    const [writeErr, added] = await addPhoto(drive, newPhoto("p1"));
+    const listed = await listGallery([{ key: drive.key, drive }], {
+      removedFrom: drive,
+      memberName: () => "Ann",
+      log: ann.log,
+    });
+    expect({ writeErr, listed, bytes: await drive.readBytes("/photos/p1.jpg") }).toEqual({
+      writeErr: null,
+      listed: [{ ...added, memberName: "Ann" }],
+      bytes: new Uint8Array(Buffer.from("bytes-p1")),
+    });
+  });
+
+  it("writes the thumbnail before the photo", async () => {
+    const [ann] = devices(1);
+    const drive = await ann.drives.openOwn("folder/a");
+    const paths: string[] = [];
+    const spy: Drive = {
+      ...drive,
+      put: async (path, bytes, opts) => {
+        paths.push(path);
+        return drive.put(path, bytes, opts);
+      },
+    };
+    const [, added] = await addPhoto(spy, { ...newPhoto("p1"), thumb: Buffer.from("t") });
+    expect({ paths, hasThumb: added?.hasThumb }).toEqual({
+      paths: ["/thumbs/p1.jpg", "/photos/p1.jpg"],
+      hasThumb: true,
+    });
+  });
+
+  it("gives write-failed on a drive this device cannot write", async () => {
+    const [admin, member] = devices(2);
+    const folder = await admin.drives.openOwn("folder/a");
+    const [openErr, copy] = await member.drives.open(folder.key, { timeoutMs: 50 });
+    expect(openErr).toBeNull();
+    expect(await addPhoto(copy!, newPhoto("p1"))).toEqual([
+      { kind: "write-failed", message: "Drive is not writable" },
+      null,
+    ]);
+  });
+
+  it("a photo the Admin adds shows in a member's gallery once the member's copy reports a change", async () => {
+    const [admin, member] = devices(2);
+    const folder = await admin.drives.openOwn("folder/a");
+    const selfDrive = await member.drives.openOwn(`member/${folder.key}`);
+    const [, memberCopy] = await member.drives.open(folder.key, { timeoutMs: 50 });
+    const changed = nextChange(memberCopy!);
+    const [, added] = await addPhoto(folder, newPhoto("p1"));
+    await changed;
+    const gallery = await listGallery(
+      galleryDrives({
+        role: "member",
+        folderDrive: memberCopy!,
+        selfDrive,
+        memberDrives: new Map(),
+      }),
+      { removedFrom: memberCopy!, memberName: () => "Admin", log: member.log },
+    );
+    expect(gallery).toEqual([{ ...added, memberName: "Admin" }]);
+  });
+
+  it("a photo a member adds shows in the Admin's gallery", async () => {
+    const [admin, member] = devices(2);
+    const folder = await admin.drives.openOwn("folder/a");
+    const selfDrive = await member.drives.openOwn(`member/${folder.key}`);
+    const [, memberCopy] = await admin.drives.open(selfDrive.key, { timeoutMs: 50 });
+    const changed = nextChange(memberCopy!);
+    const [, added] = await addPhoto(selfDrive, newPhoto("p2"));
+    await changed;
+    const gallery = await listGallery(
+      galleryDrives({
+        role: "creator",
+        folderDrive: folder,
+        selfDrive: folder,
+        memberDrives: new Map([[selfDrive.key, memberCopy!]]),
+      }),
+      { removedFrom: folder, memberName: () => "Bo", log: admin.log },
+    );
+    expect(gallery).toEqual([{ ...added, memberName: "Bo" }]);
+  });
+
+  it("a member who was offline sees the photo once it reconnects", async () => {
+    const [admin, member] = devices(2);
+    const folder = await admin.drives.openOwn("folder/a");
+    const selfDrive = await member.drives.openOwn(`member/${folder.key}`);
+    const [, memberCopy] = await member.drives.open(folder.key, { timeoutMs: 50 });
+    setFakeNodeConnected({ hub: member.hub, node: member.node, connected: false });
+    const [, added] = await addPhoto(folder, newPhoto("p1"));
+    const read = () =>
+      listGallery(
+        galleryDrives({
+          role: "member",
+          folderDrive: memberCopy!,
+          selfDrive,
+          memberDrives: new Map(),
+        }),
+        { removedFrom: memberCopy!, memberName: () => "Admin", log: member.log },
+      );
+    const before = await read();
+    const changed = nextChange(memberCopy!);
+    setFakeNodeConnected({ hub: member.hub, node: member.node, connected: true });
+    await changed;
+    expect({ before, after: await read() }).toEqual({
+      before: [],
+      after: [{ ...added, memberName: "Admin" }],
+    });
   });
 });
