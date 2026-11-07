@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
@@ -251,5 +251,132 @@ describe("friend invites", () => {
         "Couldn't join “Lisbon trip”. Nils needs Justus open too.",
       ),
     );
+  });
+});
+
+describe("albums list motion", () => {
+  type Call = { el: Element; keyframes: any; options: any };
+  let calls: Call[];
+  const saved = {
+    animate: Element.prototype.animate,
+    getAnimations: Element.prototype.getAnimations,
+    rect: Element.prototype.getBoundingClientRect,
+    matchMedia: window.matchMedia,
+  };
+
+  beforeEach(() => {
+    calls = [];
+    Element.prototype.animate = function (this: Element, keyframes: any, options: any) {
+      calls.push({ el: this, keyframes, options });
+      return { finished: Promise.resolve() } as any;
+    };
+    Element.prototype.getAnimations = (() => []) as any;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const i = this.parentElement ? [...this.parentElement.children].indexOf(this) : 0;
+      return { left: 0, top: i * 56, width: 300, height: 56 } as any;
+    };
+    window.matchMedia = (() => ({ matches: false })) as any;
+    window.innerWidth = 400;
+    window.innerHeight = 800;
+  });
+
+  afterEach(() => {
+    Element.prototype.animate = saved.animate;
+    Element.prototype.getAnimations = saved.getAnimations;
+    Element.prototype.getBoundingClientRect = saved.rect;
+    window.matchMedia = saved.matchMedia;
+    document.body.replaceChildren();
+  });
+
+  const mount = async (...args: Parameters<typeof load>) => {
+    await load(...args);
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(albumsPanel(), host);
+    const before = rows(host);
+    calls = [];
+    return { host, before };
+  };
+  // Hosts from earlier tests stay subscribed to the shared actors.
+  const own = (host: HTMLElement) => calls.filter((c) => host.contains(c.el));
+
+  test("a new album fades in and the rows already there keep their elements", async () => {
+    const { host, before } = await mount(["a", "b"]);
+    await load(["a", "b", "c"]);
+    await Promise.resolve();
+    rows(host)
+      .slice(0, 2)
+      .forEach((row, i) => expect(row).toBe(before[i]));
+    const mine = own(host);
+    expect(mine).toHaveLength(1);
+    expect((mine[0].el as HTMLElement).dataset.motionKey).toBe("album:c");
+    expect(mine[0].keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+  });
+
+  test("a row that leaves fades out in place and the rows below slide up", async () => {
+    const { host, before } = await mount(["a", "b", "c"]);
+    // Hold the animations open: load() awaits long enough for them to finish.
+    let finish = () => {};
+    const open = new Promise<void>((resolve) => (finish = resolve));
+    Element.prototype.animate = function (this: Element, keyframes: any, options: any) {
+      calls.push({ el: this, keyframes, options });
+      return { finished: open } as any;
+    };
+    await load(["a", "c"]);
+    await Promise.resolve();
+    expect(rows(host)[1]).toBe(before[2]);
+    expect(before[1].parentElement).toBe(document.body);
+    expect(before[1].inert).toBe(true);
+    const fade = calls.find((c) => c.el === before[1])!;
+    expect(fade.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    const slide = calls.find((c) => c.el === before[2])!;
+    expect(slide.keyframes).toEqual([{ transform: "translate(0px, 56px)" }, { transform: "none" }]);
+    expect(slide.options.delay).toBe(150);
+    finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(before[1].isConnected).toBe(false);
+  });
+
+  test("an accepted request turns into an album row without rebuilding the list, even with no albums yet", async () => {
+    const { host, before } = await mount([], [ask("waiting")]);
+    const list = host.querySelector("ul[aria-label='Your albums']");
+    expect(list).not.toBeNull();
+    await load(["x"], []);
+    await Promise.resolve();
+    expect(host.querySelector("ul[aria-label='Your albums']")).toBe(list);
+    expect(host.textContent).not.toContain("Loading…");
+    expect(calls.find((c) => c.el === before[0])!.keyframes).toEqual([
+      { opacity: 1 },
+      { opacity: 0 },
+    ]);
+    const enter = own(host).find((c) => (c.el as HTMLElement).dataset.motionKey === "album:x")!;
+    expect(enter.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+  });
+
+  test("an invite arriving at the top slides the albums down", async () => {
+    const { host, before } = await mount(["a", "b"]);
+    await load(["a", "b"], [], [offer]);
+    await Promise.resolve();
+    const now = rows(host);
+    expect(now[1]).toBe(before[0]);
+    expect(now[2]).toBe(before[1]);
+    const enter = own(host).find((c) =>
+      (c.el as HTMLElement).dataset.motionKey?.startsWith("invite:"),
+    )!;
+    expect(enter.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    const slide = calls.find((c) => c.el === before[0])!;
+    expect(slide.keyframes).toEqual([
+      { transform: "translate(0px, -56px)" },
+      { transform: "none" },
+    ]);
+  });
+
+  test("a refresh with the same rows animates nothing", async () => {
+    const { host, before } = await mount(["a", "b"]);
+    await load(["a", "b"]);
+    await Promise.resolve();
+    expect(own(host)).toHaveLength(0);
+    rows(host).forEach((row, i) => expect(row).toBe(before[i]));
   });
 });

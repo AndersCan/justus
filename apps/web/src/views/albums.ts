@@ -18,6 +18,7 @@ import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
 import { errorBanner } from "./error-banner";
+import { gridMotion } from "./grid-motion";
 import { toast } from "./toast";
 
 // A friend's invite opens the album once the Admin's phone lets this phone in;
@@ -103,7 +104,10 @@ function roleAndCount(folder: FolderSummary): string {
 
 function albumRow(folder: FolderSummary) {
   return html`
-    <li class="flex items-center gap-3 rounded-2xl border border-line p-4">
+    <li
+      class="flex items-center gap-3 rounded-2xl border border-line p-4"
+      data-motion-key=${"album:" + folder.id}
+    >
       <a
         class="ui-focus min-w-0 flex-1"
         href="/sharing/${folder.id}"
@@ -142,7 +146,7 @@ function albumRow(folder: FolderSummary) {
 function askRow(ask: AskSummary) {
   const declined = ask.status === "declined";
   return html`
-    <li>
+    <li data-motion-key=${"ask:" + ask.code}>
       <button
         class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
         aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName + " to accept"}: ${ask.albumName}"
@@ -168,7 +172,10 @@ function offerRow(offer: OfferSummary) {
       const joining = s.path[0] === "joiningFriendsAlbum";
       const current = (s.payload as { offer?: OfferSummary } | undefined)?.offer;
       const busy = joining && current?.code === offer.code && current.owner === offer.owner;
-      return html`<li class="ui-card flex items-center gap-3 p-4">
+      return html`<li
+        class="ui-card flex items-center gap-3 p-4"
+        data-motion-key=${"invite:" + offerKey(offer)}
+      >
         <span class="min-w-0 flex-1">
           <span class="block truncate text-lg font-medium text-fg">${offer.albumName}</span>
           <span class="mt-0.5 block text-xs text-muted"
@@ -188,16 +195,25 @@ function offerRow(offer: OfferSummary) {
   });
 }
 
+const offerKey = (o: OfferSummary) => `${o.code}|${o.owner}`;
+
+/** Row keys in the order albumList renders them, for the motion directive. */
+function albumListKeys(view: FoldersViewModel): string[] {
+  return [
+    ...view.offers.map((o) => "invite:" + offerKey(o)),
+    ...view.folders.map((f) => "album:" + f.id),
+    ...view.asks.map((a) => "ask:" + a.code),
+  ];
+}
+
 function albumList(view: FoldersViewModel) {
-  if (
-    view.state === "albumsNotLoaded" ||
-    (view.state === "loadingAlbums" && view.folders.length === 0)
-  ) {
+  const empty = view.folders.length === 0 && view.asks.length === 0 && view.offers.length === 0;
+  if (empty && (view.state === "albumsNotLoaded" || view.state === "loadingAlbums")) {
     return html`<p class="text-muted">Loading…</p>`;
   }
   const asks = view.asks;
   const offers = view.offers;
-  if (view.folders.length === 0 && asks.length === 0 && offers.length === 0) {
+  if (empty) {
     return html`<div class="ui-card p-5 text-center">
       <p class="text-lg text-fg">No albums yet.</p>
       <p class="mt-1 text-sm text-fg">
@@ -205,12 +221,12 @@ function albumList(view: FoldersViewModel) {
       </p>
     </div>`;
   }
-  return html`<ul class="space-y-3" aria-label="Your albums">
-    ${repeat(
-      offers,
-      (o) => `${o.code}|${o.owner}`,
-      (o) => offerRow(o),
-    )}
+  return html`<ul
+    class="space-y-3"
+    aria-label="Your albums"
+    ${gridMotion({ keys: albumListKeys(view), settle: "albums" })}
+  >
+    ${repeat(offers, offerKey, (o) => offerRow(o))}
     ${repeat(
       view.folders,
       (f) => f.id,
