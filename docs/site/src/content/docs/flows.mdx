@@ -3,6 +3,7 @@ title: Flows
 description: How the app behaves, drawn from its state machines.
 ---
 
+import Machines from "@mantaq/inspect/astro/Machines.astro";
 import manifest from "../../../../flows/manifest.json";
 
 export const features = Object.entries(manifest).map(([feature, files]) => ({
@@ -20,3 +21,5 @@ How the app behaves, drawn from its state machines.
     </li>
   ))}
 </ul>
+
+<Machines pages={manifest} />

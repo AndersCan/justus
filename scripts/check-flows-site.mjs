@@ -110,6 +110,30 @@ if (walkLinks.length === 0) {
   failed = true;
 }
 
+const overview = readFileSync(join(dir, "flows", "index.html"), "utf8");
+if (!overview.includes("mantaq-machines")) {
+  console.error("check-flows-site: flows/index.html has no .mantaq-machines overview");
+  failed = true;
+}
+for (const [, tag] of overview.matchAll(/<a\b([^>]*\bclass="[^"]*\bbox\b[^"]*"[^>]*)>/g)) {
+  const href = /\bhref="([^"]*)"/.exec(tag)?.[1] ?? "";
+  const path = href.replace(/[?#].*$/, "").replace(/^\/justus/, "");
+  if (!existsSync(join(dir, path, "index.html"))) {
+    console.error(`check-flows-site: flows overview box links to ${href}, which is not built`);
+    failed = true;
+  }
+}
+for (const [from, to] of [
+  ["inviteLink", "membership"],
+  ["membership", "joinRequest"],
+]) {
+  const link = new RegExp(`class="[^"]*\\blink\\b[^"]*" data-from="${from}" data-to="${to}"`);
+  if (!link.test(overview)) {
+    console.error(`check-flows-site: flows overview has no link from ${from} to ${to}`);
+    failed = true;
+  }
+}
+
 const BASE = "/justus";
 const TYPES = {
   ".html": "text/html",
