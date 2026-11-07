@@ -104,7 +104,12 @@ appId: no.cankode.justus
 - launchApp
 - waitForAnimationToEnd:
     timeout: 4000
-- pressKey: Back
+# Back only when the prompt is up (the lock text is unreadable then); on the bare lock screen it would leave the app.
+- runFlow:
+    when:
+      notVisible: "Justus is locked"
+    commands:
+      - pressKey: Back
 - extendedWaitUntil:
     visible: "Justus is locked"
     timeout: 15000
@@ -117,7 +122,13 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "Settings"
     timeout: 30000
-# Turn it off (asks again).
+# Turn it off (asks again). A fresh launch has the same late lock card, so re-enter Settings first.
+- tapOn:
+    text: "Settings"
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Help"
+    waitToSettleTimeoutMs: 500
 - tapOn:
     text: "Settings"
     waitToSettleTimeoutMs: 500
