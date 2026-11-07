@@ -12,7 +12,7 @@ import { $syncState, $syncViewModel, type SyncStateName } from "../machines/sync
 import { $join, join } from "../machines/sharing/join-request";
 import { $requests, requests } from "../machines/requests-machine";
 import { people } from "../machines/people-machine";
-import { $router } from "../router";
+import { currentPage, onPageChange, open } from "../machines/router-machine";
 import { useStore } from "../use-store";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
@@ -51,10 +51,10 @@ $foldersState.listen((state) => {
     prevFoldersState === "creating" &&
     state === "ok" &&
     !$foldersError.get() &&
-    $router.get()?.route === "sharing"
+    currentPage()?.route === "sharing"
   ) {
     const id = $activeFolderId.get();
-    $router.open(id ? `/albums/${id}` : "/albums");
+    open(id ? `/albums/${id}` : "/albums");
   }
   prevFoldersState = state;
 });
@@ -62,7 +62,7 @@ $foldersState.listen((state) => {
 /** Pages about one album (its photos, its people) make it the active album,
  * so presence, invite and requests describe the album on screen. */
 function followRouteAlbum() {
-  const page = $router.get();
+  const page = currentPage();
   const id = page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
   if (!id || id === $activeFolderId.get() || $foldersState.get() !== "ok") return;
   if ($folders.get().some((f) => f.id === id)) folders.switchTo(id);
@@ -71,7 +71,7 @@ $foldersState.listen(followRouteAlbum);
 
 // The album page is the people sheet's home: open/close its machine with the
 // route, and keep the join-request inbox fresh on the sharing pages.
-$router.listen((page, old) => {
+onPageChange((page, old) => {
   if (page?.route === "album") people.open();
   else if (old?.route === "album") people.close();
   if (page?.route === "album" || page?.route === "sharing") requests.refresh();

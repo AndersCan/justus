@@ -1,8 +1,7 @@
 import { html, render } from "lit-html";
 import { cache } from "lit-html/directives/cache.js";
 import { unsafeSVG } from "lit-html/directives/unsafe-svg.js";
-import { getPagePath } from "@nanostores/router";
-import { computed } from "nanostores";
+import { watch } from "@mantaq/lit";
 import "uno.css";
 import { messenger, transport } from "./gateway";
 import { handleMessage } from "./handle-message";
@@ -11,7 +10,7 @@ import { gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
 import { $syncStatus, sync } from "./machines/sync-machine";
 import { updateBanner, updateLines } from "./views/notices";
-import { $router, type AppPage } from "./router";
+import { open, pathFor, routerActor, type AppPage } from "./machines/router-machine";
 import { useStore } from "./use-store";
 import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
@@ -29,12 +28,12 @@ import { wordmark } from "./views/wordmark";
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
 if (window.location.pathname.endsWith("/index.html")) {
-  $router.open("/", true);
+  open("/", { replace: true });
 }
 
 // First run: show the "no servers" welcome screen once per install.
 if (!hasSeenWelcome()) {
-  $router.open("/welcome", true);
+  open("/welcome", { replace: true });
 }
 
 // Capture web-layer diagnostics (console + page errors) into the shared log
@@ -149,7 +148,7 @@ function navLink(
       : "text-muted";
   return html`<a
     class="${base} ${tone}"
-    href="${getPagePath($router, item.route)}"
+    href="${pathFor(item.route)}"
     aria-current=${active ? "page" : undefined}
     ><span class="relative inline-flex"
       >${icon(item.paths)}${
@@ -165,11 +164,11 @@ function navLink(
   >`;
 }
 
-const $nav = computed([$router, $requests], (page, reqs) => ({ page, waiting: reqs.length }));
-
 function navLinks(layout: "rail" | "tab") {
-  return useStore($nav, ({ page, waiting }) =>
-    NAV.map((item) => navLink(page, item, layout, waiting)),
+  return watch(routerActor, (r) =>
+    useStore($requests, (reqs) =>
+      NAV.map((item) => navLink(r.context.page, item, layout, reqs.length)),
+    ),
   );
 }
 
@@ -198,11 +197,11 @@ render(
                 class="mb-4 rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
                 role="status"
               >
-                ${hint} <a class="underline" href="${getPagePath($router, "help")}">More help</a>
+                ${hint} <a class="underline" href="${pathFor("help")}">More help</a>
               </p>`
             : null,
         )}
-        ${useStore($router, (page) => cache(routeView(page)))}
+        ${watch(routerActor, (s) => cache(routeView(s.context.page)))}
       </main>
       <nav
         class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"

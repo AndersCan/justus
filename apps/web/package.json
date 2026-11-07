@@ -16,7 +16,6 @@
     "@mantaq/core": "catalog:",
     "@mantaq/lit": "catalog:",
     "@mantaq/sugar": "catalog:",
-    "@nanostores/router": "^1.0.0",
     "lit-html": "^3.3.2",
     "nanostores": "^1.2.0",
     "qrcode-generator": "catalog:",

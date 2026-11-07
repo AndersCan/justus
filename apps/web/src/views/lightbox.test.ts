@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vite-plus/test";
-import { $lightbox, openLightbox, closeLightbox, step } from "./lightbox";
+import { openLightbox, closeLightbox, step } from "./lightbox";
+import { lightboxActor } from "../machines/lightbox-machine";
 import { $photos } from "../machines/gallery-machine";
 import type { Photo } from "@justus/core";
 
@@ -26,11 +27,11 @@ describe("lightbox navigation", () => {
     $photos.set(photos);
     openLightbox(photos[0]);
     step(1);
-    expect($lightbox.get()?.id).toBe("b");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
     step(1);
-    expect($lightbox.get()?.id).toBe("c");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
     step(1);
-    expect($lightbox.get()?.id).toBe("a");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("a");
   });
 
   it("steps backward and wraps from the first photo to the last", () => {
@@ -38,9 +39,9 @@ describe("lightbox navigation", () => {
     $photos.set(photos);
     openLightbox(photos[0]);
     step(-1);
-    expect($lightbox.get()?.id).toBe("b");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
     step(-1);
-    expect($lightbox.get()?.id).toBe("a");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("a");
   });
 
   it("leaves the open photo unchanged when it is no longer in the gallery", () => {
@@ -48,12 +49,25 @@ describe("lightbox navigation", () => {
     $photos.set(photos);
     openLightbox(photo("ghost"));
     step(1);
-    expect($lightbox.get()?.id).toBe("ghost");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("ghost");
   });
 
   it("does nothing and throws nothing with no open photo", () => {
     $photos.set([photo("a")]);
     expect(() => step(1)).not.toThrow();
-    expect($lightbox.get()).toBeNull();
+    expect(lightboxActor.snapshot().context.photo).toBeUndefined();
+  });
+  it("steps within the grid it was opened from, not every photo", () => {
+    const all = [photo("a"), photo("b"), photo("c")];
+    $photos.set(all);
+    openLightbox(all[0], [all[0], all[2]]);
+    step(1);
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
+  });
+
+  it("close clears the photo", () => {
+    openLightbox(photo("a"));
+    closeLightbox();
+    expect(lightboxActor.snapshot().context.photo).toBeUndefined();
   });
 });

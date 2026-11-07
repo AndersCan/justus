@@ -9,7 +9,7 @@ import {
 import { $onboardingState, $onboardingViewModel, onboarding } from "../machines/onboarding-machine";
 import { join } from "../machines/sharing/join-request";
 import { joinError } from "./albums";
-import { $router } from "../router";
+import { currentPage, open } from "../machines/router-machine";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
@@ -52,10 +52,10 @@ $foldersState.listen((state) => {
     prevFoldersState === "creating" &&
     state === "ok" &&
     !$foldersError.get() &&
-    $router.get()?.route === "welcome"
+    currentPage()?.route === "welcome"
   ) {
     const id = $activeFolderId.get();
-    $router.open(id ? `/albums/${id}` : "/", true);
+    open(id ? `/albums/${id}` : "/", { replace: true });
   }
   prevFoldersState = state;
 });

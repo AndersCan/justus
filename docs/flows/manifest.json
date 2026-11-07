@@ -18,5 +18,6 @@
     "apps/backend/src/membership/invite-link-machine.ts",
     "apps/backend/src/membership/membership-machine.ts",
     "apps/web/src/machines/sharing/join-request-machine.ts"
-  ]
+  ],
+  "app": ["apps/web/src/machines/router-machine.ts", "apps/web/src/machines/lightbox-machine.ts"]
 }

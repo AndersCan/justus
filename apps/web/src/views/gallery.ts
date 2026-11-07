@@ -24,7 +24,7 @@ import { $requests } from "../machines/requests-machine";
 import { useStore } from "../use-store";
 import { formatRelative } from "../utils/time";
 import { $photoSort } from "../utils/photo-sort";
-import { $router } from "../router";
+import { currentPage, open } from "../machines/router-machine";
 import { memberColor } from "../utils/palette";
 import { $density, gridColsFor, type Density } from "../utils/gallery-density";
 import {
@@ -80,7 +80,7 @@ async function newAlbum() {
     "Start one per trip, family or group. You can invite people next.",
     "Create album",
   );
-  if (id) $router.open(`/albums/${id}`);
+  if (id) open(`/albums/${id}`);
 }
 
 /** The album, if photos can go into it; otherwise tells the user why not. */
@@ -150,7 +150,7 @@ function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefin
   }
   if (scope.kind !== "album") {
     toast("Open an album to add photos to it", {
-      action: { label: "Albums", run: () => $router.open("/albums") },
+      action: { label: "Albums", run: () => open("/albums") },
     });
     return;
   }
@@ -195,7 +195,7 @@ function dropHandlers(scope: PhotoScope) {
 
 /** The Photos page in view, as an add scope (null elsewhere). */
 function routeScope(): PhotoScope | null {
-  const page = $router.get();
+  const page = currentPage();
   if (!page) return null;
   if (page.route === "gallery" || page.route === "photoAlbums") return { kind: "all" };
   if (page.route === "mine") return { kind: "mine" };
