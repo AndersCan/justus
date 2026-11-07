@@ -170,7 +170,7 @@ function chooseStep() {
       <h1 class="text-center text-xl font-bold text-fg">Start sharing</h1>
       ${watch(foldersActor, (s) => {
         const vm = foldersViewModel(s);
-        const busy = vm.state !== "ok";
+        const busy = !vm.settled;
         return html`
           <form
             class="ui-card space-y-3 p-5"

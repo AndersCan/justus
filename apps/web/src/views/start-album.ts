@@ -1,5 +1,10 @@
 import { html, render } from "lit-html";
-import { FOLDERS_STATES, folders, foldersActor } from "../machines/folders-machine";
+import {
+  FOLDERS_STATES,
+  folders,
+  foldersActor,
+  foldersViewModel,
+} from "../machines/folders-machine";
 import { onStateChange } from "../machines/actor-utils";
 
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
@@ -67,7 +72,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
 /** Creates an album through the folders actor and resolves its id once the
  * create lands (null if it fails or the actor is busy). */
 function createAlbum(name: string): Promise<string | null> {
-  if (folders.state() !== "ok") return Promise.resolve(null);
+  if (!foldersViewModel(foldersActor.snapshot()).settled) return Promise.resolve(null);
   return new Promise((resolve) => {
     let started = false;
     const stop = onStateChange(foldersActor, FOLDERS_STATES, (state) => {
