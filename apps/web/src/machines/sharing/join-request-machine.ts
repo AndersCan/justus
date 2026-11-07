@@ -200,7 +200,21 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      /** "Ask to join":the request goes out and the buttons lock. */
+      for (const from of [decidingToAsk, sendingRequest, linkExpired]) {
+        /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. A decline already on screen is final, so declinedByAdmin takes no answer. */
+        m.on(from, {
+          event: requestAnswered,
+          to: [joinedAlbum, from],
+          handler: (e, { actor }) => {
+            const folderId = e.payload.folderId;
+            return e.payload.answer === "accepted" && folderId !== undefined
+              ? { state: joinedAlbum, emit: [openAlbum.create({ folderId })] }
+              : { state: from.create(actor.snapshot().payload as JoinInvite) };
+          },
+        });
+      }
+
+      /** "Ask to join": the request goes out and the buttons lock. */
       m.on(decidingToAsk, {
         event: askToJoin,
         to: [sendingRequest],

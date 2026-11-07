@@ -7,10 +7,11 @@ const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
   open: vi.fn(),
   refresh: vi.fn(),
+  currentPage: vi.fn(() => undefined as { route: string } | undefined),
 }));
 
 vi.mock("../../gateway", () => ({ gateway: { ask: mocks.ask } }));
-vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: () => undefined }));
+vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: mocks.currentPage }));
 vi.mock("../folders-machine", () => {
   const context = { folders: [] as unknown[], asks: [] as unknown[] };
   return {
@@ -38,6 +39,7 @@ const settle = () => joinActor.settled();
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mocks.currentPage.mockReturnValue(undefined);
   foldersContext.folders = [];
   foldersContext.asks = [];
   join.closeWaiting();
@@ -97,6 +99,20 @@ describe("join singleton", () => {
     join.openLink(LINK);
     await settle();
     expect(mocks.open).toHaveBeenCalledWith("/albums/f9", { replace: false });
+  });
+
+  test("an album opened from the welcome screen replaces it; elsewhere it is pushed", async () => {
+    foldersContext.folders = [
+      { id: "f9", role: "member", invite: { code: INVITE.code, owner: INVITE.owner } },
+    ];
+    mocks.currentPage.mockReturnValue({ route: "welcome" });
+    join.openLink(LINK);
+    await settle();
+    expect(mocks.open).toHaveBeenLastCalledWith("/albums/f9", { replace: true });
+    mocks.currentPage.mockReturnValue({ route: "albums" });
+    join.openLink(LINK);
+    await settle();
+    expect(mocks.open).toHaveBeenLastCalledWith("/albums/f9", { replace: false });
   });
 
   test("a link whose ask is declined shows the not-accepted screen", async () => {

@@ -454,14 +454,31 @@ describe("answers with no sheet open", () => {
     expect(s.outputs.map((o) => o.payload)).toEqual([{ folderId: "f9" }, { folderId: "f10" }]);
   });
 
-  test("an answer in decidingToAsk is ignored", async () => {
+  test("a decline in decidingToAsk leaves the sheet alone", async () => {
     const s = setup({ asked: found });
     await s.send("openLink", { text: LINK });
-    await s.send("requestAnswered", accepted);
     await s.send("requestAnswered", declinedAnswer);
     expect(s.actor.state.name).toBe("decidingToAsk");
     expect(payload(s)).toEqual(INVITE);
     expect(s.outputs).toEqual([]);
+  });
+
+  test("an accept in decidingToAsk opens the album", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
+  });
+
+  test("an accept in linkExpired opens the album", async () => {
+    const s = setup();
+    s.clock.advance(600_000);
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    expect(s.actor.state.name).toBe("linkExpired");
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
   });
 });
 
