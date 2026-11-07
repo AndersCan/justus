@@ -1,15 +1,22 @@
 /**
  * What an album's own drives hold, and the drive work of creating, naming,
- * listing and removing a member, over the drive port. photo-store keeps the
+ * listing, moving to a new key and removing a member, over the drive port. photo-store keeps the
  * saved records, swarm topics, invites and notifications.
  */
 import type { Drive, DriveStore } from "../ports/drive-store";
 import type { FolderNotice, FolderSummary, Role } from "@justus/core";
-import { parseFolderName, parseRegistry, type RegistryFile } from "../membership/records";
+import {
+  parseFolderName,
+  parseRegistry,
+  parseRemoved,
+  type RegistryFile,
+} from "../membership/records";
+import { copyAlbumEntries } from "../rotate-album";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 const DRIVE_PATH_FOLDER = "/folder.json";
 const DRIVE_PATH_MEMBERS = "/members.json";
+const DRIVE_PATH_REMOVED = "/removed.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
 const MAX_RECORD_BYTES = 1024 * 1024;
 
@@ -20,7 +27,8 @@ export type AlbumLog = (
 
 export type AlbumError =
   | { kind: "write-failed"; message: string }
-  | { kind: "no-such-member"; message: string };
+  | { kind: "no-such-member"; message: string }
+  | { kind: "rotate-failed"; message: string };
 /** The repo's error tuple (ADR 0002 decision 8). */
 export type AlbumResult<T> = [AlbumError, null] | [null, T];
 
@@ -145,4 +153,90 @@ export async function removeAlbumMember(
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }
   return [null, registry];
+}
+
+export type AlbumPorts = { drives: DriveStore; log: AlbumLog; openTimeoutMs: number };
+
+/** What an album this device started takes on when it moves to a new key. */
+export type RotatedAlbum = {
+  shareKey: string;
+  driveKey: string;
+  invite: { code: string };
+  earlier: Array<{ key: string; name: string }>;
+  notice: { kind: "newKey" };
+  rotatedAt: number;
+};
+
+/** Moves an album this device started to a new drive (saved state 1 to 2):
+ * copies its own photos, keeps the old members' drives as read-only sources and
+ * their tombstones, and names the album. Nothing is returned until every write
+ * succeeded, so a failure leaves the record as it was. */
+export async function rotateAlbum(
+  ports: AlbumPorts,
+  options: {
+    record: { id: string; name: string; shareKey: string };
+    /** The identity drive. An album from before #195 lives on it; it is never released. */
+    ownDrive: Drive;
+    device: Uint8Array;
+    inviteCode: string;
+    now: number;
+  },
+): Promise<AlbumResult<RotatedAlbum>> {
+  const { drives, log, openTimeoutMs } = ports;
+  const { record, ownDrive, device, inviteCode, now } = options;
+  const legacy = record.shareKey === ownDrive.key;
+  let old: Drive | null = null;
+  let fresh: Drive | null = null;
+  try {
+    if (legacy) {
+      old = ownDrive;
+    } else {
+      const [openErr, opened] = await drives.open(record.shareKey, { timeoutMs: openTimeoutMs });
+      if (openErr) return [{ kind: "rotate-failed", message: openErr.message }, null];
+      old = opened;
+    }
+    const target = await drives.openOwn(`album/${record.id}`);
+    fresh = target;
+    await copyAlbumEntries(old, target);
+    const registry = parseRegistry(await readText(old, { path: DRIVE_PATH_MEMBERS, log }));
+    const earlier = Object.values(registry.members)
+      .filter((m) => m.key !== target.key)
+      .map((m) => ({ key: m.key, name: m.name }));
+    const keys = new Set(earlier.map((e) => e.key));
+    const removed = Object.fromEntries(
+      Object.entries(parseRemoved(await readText(old, { path: DRIVE_PATH_REMOVED, log }))).filter(
+        ([id]) => keys.has(id.split(":")[0]),
+      ),
+    );
+    await target.put(DRIVE_PATH_DEVICE, device);
+    await target.put(
+      DRIVE_PATH_FOLDER,
+      Buffer.from(JSON.stringify({ version: 1, name: record.name })),
+    );
+    await target.put(DRIVE_PATH_REMOVED, Buffer.from(JSON.stringify({ version: 1, removed })));
+    return [
+      null,
+      {
+        shareKey: target.key,
+        driveKey: target.key,
+        invite: { code: inviteCode },
+        earlier,
+        notice: { kind: "newKey" },
+        rotatedAt: now,
+      },
+    ];
+  } catch (thrown: unknown) {
+    return [{ kind: "rotate-failed", message: errText(thrown) }, null];
+  } finally {
+    try {
+      if (old && !legacy) await drives.release(old);
+    } catch {
+      // already closed
+    }
+    try {
+      if (fresh) await drives.release(fresh);
+    } catch {
+      // already closed
+    }
+  }
 }

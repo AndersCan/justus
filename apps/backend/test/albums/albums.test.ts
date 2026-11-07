@@ -11,6 +11,7 @@ import {
   albumSummary,
   createAlbumDrive,
   removeAlbumMember,
+  rotateAlbum,
   type AlbumSummarySource,
 } from "../../src/albums/albums.ts";
 import { isEnrolled, parseRegistry } from "../../src/membership/records.ts";
@@ -262,5 +263,200 @@ describe("remove", () => {
     expect(result[0]?.kind, "Trip: remove: replica refuses the write").toBe("write-failed");
     const still = parseRegistry((await drive.readSmall("/members.json", 1e6)) ?? null);
     expect(isEnrolled(still, M), "Trip: remove: Admin's registry keeps M").toBe(true);
+  });
+});
+
+describe("rotate", () => {
+  const M = "m".repeat(64);
+  const N = "n".repeat(64);
+  const device = json({ name: "Maya" });
+
+  async function oldAlbum(admin: ReturnType<typeof devices>[number]) {
+    const drive = await created(admin.drives, "f1", "Trip");
+    await drive.put("/photos/a.jpg", Buffer.from("photo-a"), { metadata: { sha256: "aa" } });
+    await drive.put("/thumbs/a.jpg", Buffer.from("thumb-a"));
+    await drive.put(
+      "/members.json",
+      json({
+        version: 1,
+        members: {
+          [M]: { key: M, name: "Ben", addedAt: 1 },
+          [N]: { key: N, name: "Cy", addedAt: 2 },
+        },
+      }),
+    );
+    await drive.put(
+      "/removed.json",
+      json({ version: 1, removed: { [`${M}:1`]: { at: 1 }, [`${"z".repeat(64)}:1`]: { at: 2 } } }),
+    );
+    return drive;
+  }
+
+  const ports = (d: ReturnType<typeof devices>[number]) => ({
+    drives: d.drives,
+    log: d.log,
+    openTimeoutMs: 500,
+  });
+
+  it("an album moves to a new key and keeps its photos, members and tombstones", async () => {
+    const [admin] = devices(1);
+    const old = await oldAlbum(admin);
+    const [err, rotated] = await rotateAlbum(ports(admin), {
+      record: { id: "f1", name: "Trip", shareKey: old.key },
+      ownDrive: await admin.drives.openOwn(),
+      device,
+      inviteCode: "code-1",
+      now: 42,
+    });
+    expect(err, "Trip: rotate: succeeds").toBeNull();
+    expect(rotated!.shareKey, "Trip: rotate: the album moves to a new key").not.toBe(old.key);
+    expect(Object.keys(rotated!), "Trip: rotate: result key order").toEqual([
+      "shareKey",
+      "driveKey",
+      "invite",
+      "earlier",
+      "notice",
+      "rotatedAt",
+    ]);
+    expect(rotated, "Trip: rotate: result").toMatchObject({
+      driveKey: rotated!.shareKey,
+      invite: { code: "code-1" },
+      earlier: [
+        { key: M, name: "Ben" },
+        { key: N, name: "Cy" },
+      ],
+      notice: { kind: "newKey" },
+      rotatedAt: 42,
+    });
+    const target = await admin.drives.openOwn("album/f1");
+    expect(target.key, "Trip: rotate: lands on album/<id>").toBe(rotated!.shareKey);
+    expect(await target.readSmall("/folder.json", 1e6), "Trip: rotate: names the album").toBe(
+      '{"version":1,"name":"Trip"}',
+    );
+    expect(await target.readSmall("/device.json", 1e6), "Trip: rotate: names the device").toBe(
+      device.toString(),
+    );
+    expect(
+      Buffer.from((await target.readBytes("/photos/a.jpg")) ?? []).toString(),
+      "Trip: rotate: photo",
+    ).toBe("photo-a");
+    expect(
+      Buffer.from((await target.readBytes("/thumbs/a.jpg")) ?? []).toString(),
+      "Trip: rotate: thumb",
+    ).toBe("thumb-a");
+  });
+
+  it("tombstones of people who are not earlier members are dropped", async () => {
+    const [admin] = devices(1);
+    const old = await oldAlbum(admin);
+    await rotateAlbum(ports(admin), {
+      record: { id: "f1", name: "Trip", shareKey: old.key },
+      ownDrive: await admin.drives.openOwn(),
+      device,
+      inviteCode: "c",
+      now: 1,
+    });
+    const target = await admin.drives.openOwn("album/f1");
+    const removed = JSON.parse((await target.readSmall("/removed.json", 1e6)) ?? "{}");
+    expect(Object.keys(removed.removed), "Trip: rotate: only earlier members' tombstones").toEqual([
+      `${M}:1`,
+    ]);
+  });
+
+  it("an album on the identity drive moves without releasing it", async () => {
+    const [admin] = devices(1);
+    const own = await admin.drives.openOwn();
+    await own.put("/photos/a.jpg", Buffer.from("photo-a"));
+    let released = 0;
+    const counting: DriveStore = {
+      ...admin.drives,
+      release: async (d) => {
+        if (d.key === own.key) released++;
+        return admin.drives.release(d);
+      },
+    };
+    const [err, rotated] = await rotateAlbum(
+      { ...ports(admin), drives: counting },
+      {
+        record: { id: "f1", name: "Trip", shareKey: own.key },
+        ownDrive: own,
+        device,
+        inviteCode: "c",
+        now: 1,
+      },
+    );
+    expect(err, "Trip: rotate: identity-drive album moves").toBeNull();
+    expect(rotated!.shareKey, "Trip: rotate: new key").not.toBe(own.key);
+    expect(released, "Trip: rotate: identity drive stays open").toBe(0);
+  });
+
+  it("a failed copy returns an error, and running it again finishes the move", async () => {
+    const [admin] = devices(1);
+    const old = await oldAlbum(admin);
+    const record = { id: "f1", name: "Trip", shareKey: old.key };
+    const own = await admin.drives.openOwn();
+    let failures = 1;
+    const flaky: DriveStore = {
+      ...admin.drives,
+      openOwn: async (ns) => {
+        const drive = await admin.drives.openOwn(ns);
+        if (ns !== "album/f1") return drive;
+        return {
+          ...drive,
+          key: drive.key,
+          put: async (...args: Parameters<Drive["put"]>) => {
+            if (failures-- > 0) throw new Error("disk full");
+            return drive.put(...args);
+          },
+        } as Drive;
+      },
+    };
+    const first = await rotateAlbum(
+      { ...ports(admin), drives: flaky },
+      { record, ownDrive: own, device, inviteCode: "c", now: 1 },
+    );
+    expect(first, "Trip: rotate: failure is returned").toEqual([
+      { kind: "rotate-failed", message: "disk full" },
+      null,
+    ]);
+    expect(record.shareKey, "Trip: rotate: record is untouched").toBe(old.key);
+    const [err, rotated] = await rotateAlbum(ports(admin), {
+      record,
+      ownDrive: own,
+      device,
+      inviteCode: "c",
+      now: 2,
+    });
+    expect(err, "Trip: rotate: second run succeeds").toBeNull();
+    const target = await admin.drives.openOwn("album/f1");
+    expect(rotated!.shareKey, "Trip: rotate: same new key").toBe(target.key);
+    expect(
+      Buffer.from((await target.readBytes("/photos/a.jpg")) ?? []).toString(),
+      "Trip: rotate: photo",
+    ).toBe("photo-a");
+  });
+
+  it("an old drive that cannot be opened is an error value", async () => {
+    const [admin] = devices(1);
+    const own = await admin.drives.openOwn();
+    const unreachable: DriveStore = {
+      ...admin.drives,
+      open: async () => [new Error("drive not ready"), null],
+    };
+    const [err, rotated] = await rotateAlbum(
+      { ...ports(admin), drives: unreachable },
+      {
+        record: { id: "f1", name: "Trip", shareKey: "ab".repeat(32) },
+        ownDrive: own,
+        device,
+        inviteCode: "c",
+        now: 1,
+      },
+    );
+    expect(err, "Trip: rotate: open failure").toEqual({
+      kind: "rotate-failed",
+      message: "drive not ready",
+    });
+    expect(rotated, "Trip: rotate: nothing returned").toBeNull();
   });
 });
