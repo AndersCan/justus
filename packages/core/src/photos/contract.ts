@@ -201,6 +201,7 @@ export const photoResultSchemas = {
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
   "photos.offerAlbum": s.object({ ok: s.boolean }),
+  "photos.joinOffer": s.object({ ask: askSummarySchema }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
 } as const;
 

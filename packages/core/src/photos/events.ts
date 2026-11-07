@@ -142,6 +142,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; identity: string },
     result: {} as { ok: boolean },
   },
+  joinOffer: {
+    pluginId: "justus.photos",
+    name: "photos.joinOffer",
+    args: {} as { code: string; owner: string },
+    result: {} as { ask: AskSummary },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -316,6 +322,12 @@ export const photoEvents = {
         null,
         PHOTOS_OFFER_TIMEOUT_MS,
       );
+    },
+    joinOffer(
+      code: string,
+      owner: string,
+    ): InvokeEnvelope<"photos.joinOffer", { code: string; owner: string }, { ask: AskSummary }> {
+      return invokeEvent(photoSpecs.joinOffer, { code, owner }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
   },
 } as const;

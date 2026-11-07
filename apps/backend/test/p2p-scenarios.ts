@@ -614,6 +614,61 @@ export const scenarios: Scenario[] = [
       t.eq(folder.folders[0].invited, [], "nothing was written");
     },
   },
+  {
+    name: "friend: the friend taps Join and is in the album, no Accept on the Admin",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.setActive(folderId), "setActive");
+      const added = await admin.store.addBytes("a.jpg", new Uint8Array([1, 2, 3, 4]), folderId);
+      if (added[0]) throw added[0];
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      t.noErr(await friend.store.joinOffer(offers[0].code, offers[0].owner), "joinOffer");
+      let sawRequest = false;
+      await eventually(
+        async () => {
+          if ((await admin.store.requests()).requests.length) sawRequest = true;
+          return friend.store.folders();
+        },
+        (f) => f.folders.length === 1 && !f.folders[0].pending,
+        "the friend is in the album",
+      );
+      t.ok(!sawRequest, "the Admin never saw a request to accept");
+      t.eq((await admin.store.requests()).requests, [], "no request is left");
+      await eventually(
+        () => friend.store.list({ all: true }),
+        (l) => l.length === 1,
+        "the friend gets the photo",
+      );
+      const after = await friend.store.folders();
+      t.eq(after.offers, [], "the invite is gone");
+      t.eq(after.asks, [], "no ask is left");
+    },
+  },
+  {
+    name: "friend: turning off links takes back open friend invites",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      t.noErr(await admin.store.turnOffInvite(folderId), "turnOffInvite");
+      await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 0,
+        "the invite is taken back",
+      );
+      const [error] = await friend.store.joinOffer(offers[0].code, offers[0].owner);
+      t.ok(error?.code === "justus.photos/offer-gone", "OFFER_GONE");
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
