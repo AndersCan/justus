@@ -51,7 +51,12 @@ describe("presence dots motion", () => {
   });
 
   const dots = (host: Element) =>
-    new Map([...host.querySelectorAll("[data-motion-key]")].map((el) => [el.getAttribute("data-motion-key")!, el]));
+    new Map(
+      [...host.querySelectorAll("[data-motion-key]")].map((el) => [
+        el.getAttribute("data-motion-key")!,
+        el,
+      ]),
+    );
   const inner = (el: Element) => el.firstElementChild!;
 
   const mount = (members: SyncMember[]) => {
@@ -92,7 +97,10 @@ describe("presence dots motion", () => {
     expect(inner(ghost).getAttribute("style")).toContain(memberColor("k1"));
     expect(calls.find((c) => c.el === ghost)?.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
     const slide = calls.find((c) => c.el === after.get("k2"));
-    expect(slide?.keyframes).toEqual([{ transform: "translate(18px, 0px)" }, { transform: "none" }]);
+    expect(slide?.keyframes).toEqual([
+      { transform: "translate(18px, 0px)" },
+      { transform: "none" },
+    ]);
     expect(slide?.options.delay).toBe(150);
     expect(calls.some((c) => c.el === after.get("k0"))).toBe(false);
     await Promise.resolve();
