@@ -52,8 +52,8 @@ any of it.
    vitest, no `node:*`) and runs against the real adapter in Node and in Bare,
    and against the in-memory fake. A fake that fails the contract is wrong; the
    fake is fixed, never the contract bent to fit it. This applies to every new fake under
-   `apps/backend/test/fakes/`. `apps/backend/test/fake-drive.ts` predates the
-   rule and is phased out as use cases move (T11 of #200). Failure-injection
+   `apps/backend/test/fakes/`. The older drive fake predated the
+   rule; T11 of #200 removed it. Failure-injection
    hooks such as `readyDelayMs` and unreachable peers stay, as ADR 0001
    decision 1 allows, and sit on top of a fake that passes the contract.
 7. **Contracts start from real adapters.** The first PR for a port includes the
