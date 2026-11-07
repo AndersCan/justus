@@ -6,6 +6,8 @@ import android.provider.OpenableColumns
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.view.View
 import android.util.Log
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -73,6 +75,13 @@ class MainActivity : AppCompatActivity() {
     private var pendingInvite: String? = null
     private var pageLoaded = false
 
+    // App lock state (main thread only). See AppLock.kt for the 30s rule.
+    private var locked = false
+    private var stoppedAt: Long? = null
+    private var ownScreenOpen = false
+    private var promptShownThisLock = false
+    private var pendingToggle: (() -> Unit)? = null
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,12 +118,19 @@ class MainActivity : AppCompatActivity() {
             ipc = IPC(worklet)
             registerDefaultHostPlugins(hostPlugins)
             registerMediaHostPlugins(hostPlugins)
+            registerLockHostPlugins(hostPlugins)
             HostIpcCoordinator(ipc, hostPlugins).start()
         } catch (e: Exception) {
             Log.e("JUSTUS_ANDROID", "Failed to start worklet", e)
         }
 
         webView = findViewById(R.id.webview)
+        stoppedAt = savedInstanceState?.takeIf { it.containsKey(K_STOPPED) }?.getLong(K_STOPPED)
+        locked = savedInstanceState?.getBoolean(K_LOCKED) == true ||
+            lockDue(lockEnabled(this), stoppedAt, SystemClock.elapsedRealtime())
+        findViewById<View>(R.id.lock_unlock).setOnClickListener { requestUnlock() }
+        Log.i("JUSTUS_ANDROID", "lock create locked=$locked pref=${readLockPref(this)} secure=${isDeviceSecure(this)} stoppedAt=$stoppedAt")
+        renderLock()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -135,6 +151,10 @@ class MainActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (locked) {
+                        moveTaskToBack(true)
+                        return
+                    }
                     if (!::webView.isInitialized) {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -150,6 +170,106 @@ class MainActivity : AppCompatActivity() {
                 }
             },
         )
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (!::webView.isInitialized) return
+        val now = SystemClock.elapsedRealtime()
+        if (locked && !isDeviceSecure(this)) {
+            locked = false
+        } else if (!locked && stoppedAt != null && lockDue(lockEnabled(this), stoppedAt, now, if (ownScreenOpen) OWN_SCREEN_LOCK_AFTER_MS else LOCK_AFTER_MS)) {
+            locked = true
+            promptShownThisLock = false
+        }
+        ownScreenOpen = false
+        stoppedAt = null
+        renderLock()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.i("JUSTUS_ANDROID", "lock resume locked=$locked prompted=$promptShownThisLock")
+        if (locked && !promptShownThisLock) {
+            promptShownThisLock = true
+            mainHandler.post { if (locked) requestUnlock() }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stoppedAt = SystemClock.elapsedRealtime()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(K_LOCKED, locked)
+        stoppedAt?.let { outState.putLong(K_STOPPED, it) }
+    }
+
+    private fun renderLock() {
+        findViewById<View>(R.id.lock_screen).visibility = if (locked) View.VISIBLE else View.GONE
+        webView.visibility = if (locked) View.INVISIBLE else View.VISIBLE
+    }
+
+    private fun requestUnlock() {
+        ownScreenOpen = true
+        showUnlockPrompt(this) { result ->
+            ownScreenOpen = false
+            if (result is UnlockResult.Success) {
+                locked = false
+                renderLock()
+            }
+        }
+    }
+
+    /** justus.lock host handlers: status and the (prompt-guarded) on/off switch. */
+    private fun registerLockHostPlugins(registry: HostPluginRegistry) {
+        registry.register("justus.lock", "lock.status") { _, _, respond ->
+            mainHandler.post {
+                val available = isDeviceSecure(this)
+                respond(
+                    HostPluginRegistry.HostInvokeOutcome.Ok(
+                        JSONObject().put("available", available).put("enabled", available && readLockPref(this)),
+                    ),
+                )
+            }
+        }
+        registry.register("justus.lock", "lock.setEnabled") { args, _, respond ->
+            mainHandler.post {
+                val fail = { msg: String ->
+                    respond(HostPluginRegistry.HostInvokeOutcome.Fail(ErrorCodes.HOST_ERROR, msg))
+                }
+                val requested = args?.opt("enabled") as? Boolean
+                val old = readLockPref(this)
+                if (requested == null) {
+                    fail("Missing enabled")
+                } else if (!isDeviceSecure(this)) {
+                    fail("No screen lock set")
+                } else if (requested == old) {
+                    respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", old)))
+                } else if (pendingToggle != null) {
+                    fail("Unlock already in progress")
+                } else {
+                    pendingToggle = { respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", old))) }
+                    ownScreenOpen = true
+                    showUnlockPrompt(this) { result ->
+                        if (pendingToggle == null) return@showUnlockPrompt
+                        pendingToggle = null
+                        ownScreenOpen = false
+                        when (result) {
+                            is UnlockResult.Success -> {
+                                writeLockPref(this, requested)
+                                respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", requested)))
+                            }
+                            is UnlockResult.Cancelled ->
+                                respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", old)))
+                            is UnlockResult.Failed -> fail(result.message)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -249,6 +369,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // A recreated activity (e.g. rotation) drops the prompt; answer the web side now.
+        pendingToggle?.let { cancel ->
+            pendingToggle = null
+            cancel()
+        }
         super.onDestroy()
         stagingExecutor.shutdown()
         mainHandler.removeCallbacksAndMessages(null)
@@ -337,7 +462,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     ActivityResultContracts.PickVisualMedia.ImageOnly
                 }
-            mainHandler.post { pickLauncher.launch(PickVisualMediaRequest(selector)) }
+            mainHandler.post { ownScreenOpen = true; pickLauncher.launch(PickVisualMediaRequest(selector)) }
         }
         registry.register("vendor.media", "media.capture") { args, _, respond ->
             launchCapture(args?.optString("kind") ?: "image", respond, named = false)
@@ -345,7 +470,7 @@ class MainActivity : AppCompatActivity() {
         registry.register("justus.media", "media.pickMany") { _, _, respond ->
             pendingMedia = respond
             val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-            mainHandler.post { pickManyLauncher.launch(request) }
+            mainHandler.post { ownScreenOpen = true; pickManyLauncher.launch(request) }
         }
         registry.register("justus.media", "media.capture") { args, _, respond ->
             launchCapture(args?.optString("kind") ?: "image", respond, named = true)
@@ -367,6 +492,7 @@ class MainActivity : AppCompatActivity() {
         pendingCaptureFile = file
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         mainHandler.post {
+            ownScreenOpen = true
             if (kind == "video") videoCaptureLauncher.launch(uri) else imageCaptureLauncher.launch(uri)
         }
     }
@@ -473,5 +599,7 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         /** Mirrors `MAX_PICK` in packages/core/src/media/events.ts. */
         const val MAX_PICK = 50
+        const val K_LOCKED = "app_lock_locked"
+        const val K_STOPPED = "app_lock_stopped_at"
     }
 }

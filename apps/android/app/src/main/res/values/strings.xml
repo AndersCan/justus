@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Justus</string>
+    <string name="lock_title">Justus is locked</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_prompt_title">Unlock Justus</string>
 </resources>

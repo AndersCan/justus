@@ -45,3 +45,90 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "No photos in this album yet."
     timeout: 15000
+# App lock: the phone has PIN 1111 (set by scripts/maestro-e2e.sh). Turning the lock on asks for it.
+- tapOn:
+    text: "Settings"
+    waitToSettleTimeoutMs: 500
+# The lock card arrives after the status call; the WebView's accessibility tree can miss a node
+# added late, so leave and re-enter Settings and read the card from a fresh render.
+- tapOn:
+    text: "Help"
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Settings"
+    waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element: "Require unlock to open Justus.*"
+    timeout: 20000
+- tapOn:
+    text: "Require unlock to open Justus.*"
+    waitToSettleTimeoutMs: 500
+- inputText: "1111"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "App lock is on"
+    timeout: 15000
+# Away under 30s: back in, no lock.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- scrollUntilVisible:
+    element: "Require unlock to open Justus.*"
+    timeout: 15000
+- assertNotVisible: "Justus is locked"
+# Away over 30s: the lock shows and the app underneath is unreachable.
+- pressKey: Home
+- extendedWaitUntil:
+    visible: "Justus is locked"
+    timeout: 31000
+    optional: true
+- launchApp:
+    stopApp: false
+# The system PIN prompt (secure, unreadable) opens over the lock screen; the app behind it is hidden.
+- assertNotVisible: "Require unlock to open Justus.*"
+- pressKey: Back
+- launchApp:
+    stopApp: false
+- assertVisible: "Justus is locked"
+- assertNotVisible: "Require unlock to open Justus.*"
+- tapOn:
+    text: "Unlock"
+    waitToSettleTimeoutMs: 500
+- inputText: "1111"
+- pressKey: Enter
+- scrollUntilVisible:
+    element: "Require unlock to open Justus.*"
+    timeout: 15000
+# A fresh launch always asks: the system PIN prompt opens over the lock screen at once. Let it
+# open, close it, and unlock from the lock screen the same way as above.
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 4000
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Justus is locked"
+    timeout: 15000
+- assertNotVisible: "Require unlock to open Justus.*"
+- tapOn:
+    text: "Unlock"
+    waitToSettleTimeoutMs: 500
+- inputText: "1111"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 30000
+# Turn it off (asks again).
+- tapOn:
+    text: "Settings"
+    waitToSettleTimeoutMs: 500
+- scrollUntilVisible:
+    element: "Require unlock to open Justus.*"
+    timeout: 20000
+- tapOn:
+    text: "Require unlock to open Justus.*"
+    waitToSettleTimeoutMs: 500
+- inputText: "1111"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "App lock is off"
+    timeout: 15000

@@ -179,6 +179,11 @@ echo "✓ APK installed."
 # Keep the screen awake so it never sleeps into a keyguard.
 "$ADB" -s "$SERIAL" shell svc power stayon true || true
 
+# The App lock flow needs a phone screen lock. Restore the device on exit so a local emulator
+# is not left with a PIN.
+"$ADB" -s "$SERIAL" shell locksettings set-pin 1111 || true
+trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 || true' EXIT
+
 # ----------------------------------------------------------------------------
 # 5. Run the Maestro flow suite
 #    `--device` must come BEFORE `test` (Maestro CLI convention).
@@ -186,13 +191,13 @@ echo "✓ APK installed."
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
-if ! maestro --device "$SERIAL" test "$FLOWS_DIR"; then
+if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; then
   echo
   echo "✗ Maestro suite FAILED — capturing diagnostics..."
   mkdir -p "$OUT_DIR"
 
   logcat_file="$OUT_DIR/logcat-JUSTUS_ANDROID.txt"
-  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID >"$logcat_file" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$logcat_file" 2>/dev/null || true
 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"

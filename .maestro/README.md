@@ -35,3 +35,11 @@ out even though the text is on screen.
   (`notVisible` on our own text), then visible again after `back`.
 - Adding happens only inside an album: its button is `Add photos to <album name>`.
 - An empty album says `No photos in this album yet.`
+
+## App lock strings
+
+`scripts/maestro-e2e.sh` sets the emulator PIN to `1111` for the run and clears it on exit.
+
+- `Require unlock to open Justus`: the Settings switch (page-unique). Tapping it opens the system credential prompt.
+- `Justus is locked`, `Unlock`: the native lock screen. While it shows, the WebView is invisible, so no web text (`Settings`, the switch) is in the accessibility tree.
+- Toasts: `App lock is on`, `App lock is off`.
