@@ -5,7 +5,7 @@ default_platform(:android)
 AAB = "app/build/outputs/bundle/release/app-release.aab"
 TRACKS = %w[internal alpha beta production].freeze
 # Same names as Screengrab.screenshot(...) in ListingScreenshots.kt.
-SCREENSHOTS = %w[1_album].freeze
+SCREENSHOTS = %w[1_album 2_photo 3_desktop].freeze
 SHOTS_DIR = File.expand_path("metadata/android/en-US/images/phoneScreenshots", __dir__)
 
 platform :android do
