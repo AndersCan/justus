@@ -134,7 +134,14 @@ export function createJoinRequestActor(options: {
         /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
           event: openLink,
-          to: [showingLinkProblem, joinedAlbum, decidingToAsk, waitingForAdminToAccept, declinedByAdmin, linkExpired],
+          to: [
+            showingLinkProblem,
+            joinedAlbum,
+            decidingToAsk,
+            waitingForAdminToAccept,
+            declinedByAdmin,
+            linkExpired,
+          ],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
             if (parsed.kind !== "invite") {

@@ -104,7 +104,7 @@
     },
     {
       "name": "Maya: asks in time, the link ends, Nils accepts",
-      "end": "joined",
+      "end": "joinedAlbum",
       "steps": [
         {
           "kind": "event",

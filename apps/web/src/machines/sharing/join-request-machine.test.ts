@@ -292,10 +292,10 @@ describe("linkExpired", () => {
   });
 
   test.each([
-    [{ kind: "own", folderId: "f1" }, "joined"],
-    [{ kind: "member", folderId: "f1" }, "joined"],
-    [{ kind: "waiting" }, "waitingForAnswer"],
-    [{ kind: "declined" }, "declined"],
+    [{ kind: "own", folderId: "f1" }, "joinedAlbum"],
+    [{ kind: "member", folderId: "f1" }, "joinedAlbum"],
+    [{ kind: "waiting" }, "waitingForAdminToAccept"],
+    [{ kind: "declined" }, "declinedByAdmin"],
   ] as const)("a late link for a known %j shows %s", async (known, name) => {
     const s = setup({ known });
     s.clock.advance(END + 1);
@@ -316,7 +316,7 @@ describe("linkExpired", () => {
     await s.send("askToJoin");
     s.clock.advance(END * 2);
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
-    expect(s.actor.state.name).toBe("joined");
+    expect(s.actor.state.name).toBe("joinedAlbum");
   });
 
   test("OK goes to noInvite; a garbled paste keeps the expired screen", async () => {
@@ -326,7 +326,7 @@ describe("linkExpired", () => {
     await s.send("openLink", { text: "nope" });
     expect(s.actor.state.name).toBe("linkExpired");
     await s.send("dismissExpired");
-    expect(s.actor.state.name).toBe("noInvite");
+    expect(s.actor.state.name).toBe("noInviteOpen");
   });
 
   test("a request row opens from the expired screen", async () => {
@@ -334,7 +334,7 @@ describe("linkExpired", () => {
     s.clock.advance(END);
     await s.send("openLink", { text: timed });
     await s.send("reopenRequest", { ask: ask("waiting") });
-    expect(s.actor.state.name).toBe("waitingForAnswer");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
   });
 });
 
@@ -477,7 +477,7 @@ test("Maya: asks in time, the link ends, Nils accepts", async () => {
   await send("askToJoin");
   clock.advance(700_000);
   await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
-  expect(actor.state.name).toBe("joined");
+  expect(actor.state.name).toBe("joinedAlbum");
 });
 
 describe("joiner design", () => {

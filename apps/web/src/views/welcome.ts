@@ -197,7 +197,7 @@ function chooseStep() {
               required
             />
             <wa-button variant="brand" class="w-full" type="submit" ?disabled=${busy}>
-              ${vm.state === "creating" ? "Creating…" : "Create an album"}
+              ${vm.state === "creatingAlbum" ? "Creating…" : "Create an album"}
             </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
