@@ -7,6 +7,8 @@ TRACKS = %w[internal alpha beta production].freeze
 # Same names as Screengrab.screenshot(...) in ListingScreenshots.kt.
 SCREENSHOTS = %w[1_album 2_photo 3_desktop].freeze
 SHOTS_DIR = File.expand_path("metadata/android/en-US/images/phoneScreenshots", __dir__)
+CHANGELOGS_DIR = File.expand_path("metadata/android/en-US/changelogs", __dir__)
+RELEASE_NOTE_SCRIPT = File.expand_path("../../../scripts/release-note.mjs", __dir__)
 
 # nil when dir holds exactly the expected PNGs at sizes Play accepts, else the reason.
 def screenshot_problem(dir)
@@ -42,9 +44,19 @@ platform :android do
     end
   end
 
-  desc "Build and upload to the internal track. Options: version_name"
+  desc "Write the one-line release note for a version code to changelogs/<code>.txt"
+  private_lane :write_release_note do |options|
+    note = sh("node", RELEASE_NOTE_SCRIPT, log: false).strip
+    FileUtils.mkdir_p(CHANGELOGS_DIR)
+    File.write(File.join(CHANGELOGS_DIR, "#{options[:code]}.txt"), "#{note}\n")
+    UI.message("Release note for #{options[:code]}: #{note}")
+  end
+
+  desc "Build and upload to the internal track, then the listing. Options: version_name"
   lane :internal do |options|
-    build(version_code: next_version_code, version_name: options[:version_name])
+    code = next_version_code
+    build(version_code: code, version_name: options[:version_name])
+    write_release_note(code: code)
     upload_to_play_store(
       track: "internal",
       aab: AAB,
@@ -52,10 +64,15 @@ platform :android do
       # Play only accepts drafts until the app has been reviewed and published once.
       release_status: ENV.fetch("PLAY_RELEASE_STATUS", "completed"),
       skip_upload_metadata: true,
-      skip_upload_changelogs: true,
+      skip_upload_changelogs: false,
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
+    begin
+      listing
+    rescue StandardError => e
+      UI.user_error!("Build #{code} is on the internal track, but the listing upload failed: #{e.message}")
+    end
   end
 
   desc "Take the Play listing screenshots on the attached emulator. Options: serial"
@@ -83,6 +100,8 @@ platform :android do
 
   desc "Upload the store listing (text, icon, screenshots) from fastlane/metadata (no build)"
   lane :listing do
+    problem = screenshot_problem(SHOTS_DIR)
+    UI.important("Skipping screenshots: #{problem}. Play keeps its current screenshots.") if problem
     # supply looks up a release even when changelogs are skipped, and a blank
     # version_code slips through its empty-check (supply/uploader.rb:90). Point
     # it at the newest internal build; nothing about that release changes.
@@ -91,7 +110,8 @@ platform :android do
       version_code: google_play_track_version_codes(track: "internal").max,
       skip_upload_aab: true,
       skip_upload_apk: true,
-      skip_upload_changelogs: true
+      skip_upload_changelogs: true,
+      skip_upload_screenshots: !problem.nil?
     )
   end
 
