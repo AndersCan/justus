@@ -2,7 +2,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
-import { friendOfferActor } from "../machines/sharing/friend-offer";
+import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
 import { joinActor } from "../machines/sharing/join-request";
 import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 
@@ -227,5 +227,29 @@ describe("friend invites", () => {
     expect(mock.joinOffer).toHaveBeenCalledWith("o1", "nils-id");
     await vi.waitFor(() => expect(host.textContent).toContain("Joining “Lisbon trip”..."));
     expect(host.querySelector("button")?.hasAttribute("disabled")).toBe(true);
+  });
+
+  test("an accepted answer opens the album", async () => {
+    mock.joinOffer.mockReturnValue(new Promise(() => {}));
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load([], [], [offer]);
+    host.querySelector("button")?.click();
+    await vi.waitFor(() => expect(friendOfferActor.snapshot().path[0]).toBe("joiningFriendsAlbum"));
+    friendOffer.askAnswered("o1", "accepted", "f9");
+    await vi.waitFor(() => expect(location.pathname + location.hash).toContain("/albums/f9"));
+  });
+
+  test("a failed join says why in a toast", async () => {
+    mock.joinOffer.mockRejectedValue(new Error("boom"));
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load([], [], [offer]);
+    host.querySelector("button")?.click();
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "Couldn't join “Lisbon trip”. Nils needs Justus open too.",
+      ),
+    );
   });
 });
