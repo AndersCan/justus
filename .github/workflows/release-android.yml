@@ -104,6 +104,26 @@ jobs:
           name: maestro-out
           path: .maestro/out
           retention-days: 14
+      # Play listing screenshots: a second emulator boot (wiped), the real app and the sample photos.
+      - name: Store screenshots
+        id: screenshots
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -wipe-data
+          working-directory: apps/android
+          script: bundle exec fastlane screenshots serial:emulator-5554 || { adb logcat -d -s ListingShots TestRunner AndroidRuntime; exit 1; }
+      - name: Upload store screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: store-screenshots
+          path: apps/android/fastlane/metadata/android/en-US/images/phoneScreenshots/*.png
+          retention-days: 14
       - name: Write upload keystore and Play key
         env:
           UPLOAD_KEYSTORE_BASE64: ${{ secrets.JUSTUS_UPLOAD_KEYSTORE_BASE64 }}
