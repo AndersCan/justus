@@ -59,6 +59,12 @@ export const HELP_QA: { q: string; a: string[] }[] = [
     ],
   },
   {
+    q: "How do I get rid of an album?",
+    a: [
+      "Archive hides it on this phone and you can bring it back from Archived. Leave takes it off your phone and off the people list. The Admin can delete it for everyone, with every photo in it.",
+    ],
+  },
+  {
     q: "Who can delete a photo?",
     a: [
       "Whoever added a photo can delete it, and so can the Admin. Collaborators can't delete other people's photos, and Viewers can't delete anything.",

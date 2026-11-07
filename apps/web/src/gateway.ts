@@ -97,6 +97,14 @@ export const gateway = {
     invoke(photoEvents.photos.offerAlbum(folderId, identity)),
   /** Joins the album a friend's invite offers; the Admin's phone lets this phone in without an Accept step. */
   joinOffer: (code: string, owner: string) => invoke(photoEvents.photos.joinOffer(code, owner)),
+  /** Hides an album on this phone only; it keeps syncing. */
+  archiveAlbum: (folderId: string) => invoke(photoEvents.photos.archiveAlbum(folderId)),
+  restoreAlbum: (folderId: string) => invoke(photoEvents.photos.restoreAlbum(folderId)),
+  /** Takes the album and the photos this phone added off the phone; the Admin cannot leave. */
+  leaveAlbum: (folderId: string) => invoke(photoEvents.photos.leaveAlbum(folderId)),
+  /** Admin only: removes the album and every photo in it from every member's phone. */
+  deleteAlbum: (folderId: string) => invoke(photoEvents.photos.deleteAlbum(folderId)),
+  dismissAlbumNotice: (folderId: string) => invoke(photoEvents.photos.dismissAlbumNotice(folderId)),
   makeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.makeMember(folderId, memberKey)),
   removeMember: (folderId: string, memberKey: string) =>

@@ -1,5 +1,11 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import type { AskSummary, FolderSummary, OfferSummary, SyncStatus } from "@justus/core";
+import type {
+  AskSummary,
+  DeletedAlbum,
+  FolderSummary,
+  OfferSummary,
+  SyncStatus,
+} from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { statusSeen, syncActor, type SyncActor } from "./sync-machine";
@@ -17,10 +23,16 @@ export const FOLDERS_STATES = [
   "creatingAlbum",
   "openingAlbum",
   "savingName",
+  "archivingAlbum",
+  "restoringAlbum",
+  "leavingAlbum",
+  "deletingAlbum",
+  "dismissingDeletedNotice",
   "couldNotLoadAlbums",
   "couldNotCreateAlbum",
   "couldNotOpenAlbum",
   "couldNotSaveName",
+  "couldNotChangeAlbum",
 ] as const;
 export type FoldersStateName = (typeof FOLDERS_STATES)[number];
 
@@ -34,17 +46,29 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
   return {
     userName: s.context.userName,
     folders: s.context.folders,
+    archived: s.context.archived,
+    deleted: s.context.deleted,
+    pendingChange: s.context.pendingChange,
     asks: s.context.asks,
     offers: s.context.offers,
     activeFolderId: s.context.activeId,
     state,
-    busy: state === "creatingAlbum" || state === "openingAlbum" || state === "savingName",
+    busy:
+      state === "creatingAlbum" ||
+      state === "openingAlbum" ||
+      state === "savingName" ||
+      state === "archivingAlbum" ||
+      state === "restoringAlbum" ||
+      state === "leavingAlbum" ||
+      state === "deletingAlbum" ||
+      state === "dismissingDeletedNotice",
     /** The albums are listed and nothing is in flight: fine, or the last action failed. */
     settled:
       state === "showingAlbums" ||
       state === "couldNotCreateAlbum" ||
       state === "couldNotOpenAlbum" ||
-      state === "couldNotSaveName",
+      state === "couldNotSaveName" ||
+      state === "couldNotChangeAlbum",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -62,6 +86,16 @@ const creatingAlbum = state("creatingAlbum")();
 const openingAlbum = state("openingAlbum")();
 /** The person's name is being changed. */
 const savingName = state("savingName")();
+/** The album is being hidden on this phone. */
+const archivingAlbum = state("archivingAlbum")();
+/** The album is being brought back from Archived. */
+const restoringAlbum = state("restoringAlbum")();
+/** The person confirmed Leave and the album is being removed from this phone. */
+const leavingAlbum = state("leavingAlbum")();
+/** The Admin confirmed Delete and the album is being removed for everyone. */
+const deletingAlbum = state("deletingAlbum")();
+/** The notice about a deleted album is being dismissed. */
+const dismissingDeletedNotice = state("dismissingDeletedNotice")();
 /** The albums could not be loaded; the person can try again. */
 const couldNotLoadAlbums = state("couldNotLoadAlbums")();
 
@@ -72,6 +106,9 @@ const couldNotOpenAlbum = state("couldNotOpenAlbum")();
 /** The new name was not saved; the old name stays and the person sees why. */
 const couldNotSaveName = state("couldNotSaveName")();
 
+/** The album did not change (archive, restore, leave, delete or dismiss); it stays where it was and the context keeps what failed. */
+const couldNotChangeAlbum = state("couldNotChangeAlbum")();
+
 /** The app asks for the latest list of albums. */
 const refresh = event("REFRESH")();
 /** The album list arrived. */
@@ -80,7 +117,21 @@ const loaded = event("ALBUMS_LOADED")<{
   asks: AskSummary[];
   offers: OfferSummary[];
   activeId: string | null;
+  archived?: FolderSummary[];
+  deleted?: DeletedAlbum[];
 }>();
+/** The person archives an album on this phone. */
+const archiveAlbum = event("ARCHIVE_ALBUM")<AlbumTarget>();
+/** The person brings an archived album back. */
+const restoreAlbum = event("RESTORE_ALBUM")<AlbumTarget>();
+/** The person confirmed leaving an album. */
+const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
+/** The Admin confirmed deleting an album for everyone. */
+const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();
+/** The person dismisses the notice about a deleted album. */
+const dismissDeletedNotice = event("DISMISS_DELETED_NOTICE")<AlbumTarget>();
+/** Archiving, restoring, leaving, deleting or dismissing did not work. */
+const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string }>();
 /** The album list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person names and creates a new album. */
@@ -111,19 +162,39 @@ const switchedTo = event("SWITCHED_TO")<{ status: SyncStatus }>();
 /** The new name was saved and should be shown everywhere. */
 const renamed = event("RENAMED")<{ name: string }>();
 
+type AlbumTarget = { folderId: string; name: string };
+type AlbumChange = "archive" | "restore" | "leave" | "delete" | "dismiss";
+
 type FoldersContext = {
   /** The name others see; the backend holds it, so status and onboarding report it here. */
   userName: string;
   folders: FolderSummary[];
   asks: AskSummary[];
   offers: OfferSummary[];
+  /** Albums archived on this phone. */
+  archived: FolderSummary[];
+  /** Albums the Admin deleted, until dismissed. */
+  deleted: DeletedAlbum[];
   activeId: string | null;
   error: string | null;
   pendingCreate: string | null;
   pendingActive: string | null;
   pendingName: string | null;
+  /** The last archive, restore, leave, delete or dismiss, kept after it ends so the screen can toast it. */
+  pendingChange: (AlbumTarget & { kind: AlbumChange }) | null;
 };
-type FoldersPort = Pick<typeof gateway, "folders" | "createFolder" | "setActive" | "setName">;
+type FoldersPort = Pick<
+  typeof gateway,
+  | "folders"
+  | "createFolder"
+  | "setActive"
+  | "setName"
+  | "archiveAlbum"
+  | "restoreAlbum"
+  | "leaveAlbum"
+  | "deleteAlbum"
+  | "dismissAlbumNotice"
+>;
 
 /** The states where the album list is shown and the person can act on it. */
 const settledStates = [
@@ -131,15 +202,41 @@ const settledStates = [
   couldNotCreateAlbum,
   couldNotOpenAlbum,
   couldNotSaveName,
+  couldNotChangeAlbum,
 ] as const;
 
-const noPending = { pendingCreate: null, pendingActive: null, pendingName: null };
+const noPending = {
+  pendingCreate: null,
+  pendingActive: null,
+  pendingName: null,
+  pendingChange: null,
+};
+
+const changeStates = [
+  ["archive", archivingAlbum, archiveAlbum],
+  ["restore", restoringAlbum, restoreAlbum],
+  ["leave", leavingAlbum, leaveAlbum],
+  ["delete", deletingAlbum, deleteAlbum],
+  ["dismiss", dismissingDeletedNotice, dismissDeletedNotice],
+] as const;
 
 /** Album calls run through `gateway` and the clock is injected, so tests and the flow inspector can drive them. */
 export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [refresh, createFolder, setActive, setName, retry, nameSeen],
+    inputs: [
+      refresh,
+      createFolder,
+      setActive,
+      setName,
+      retry,
+      nameSeen,
+      archiveAlbum,
+      restoreAlbum,
+      leaveAlbum,
+      deleteAlbum,
+      dismissDeletedNotice,
+    ],
     internal: [
       loaded,
       loadFailed,
@@ -149,6 +246,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       switchFailed,
       nameSaved,
       renameFailed,
+      albumChangeFailed,
     ],
     outputs: [switchedTo, renamed],
     states: [
@@ -158,10 +256,16 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       creatingAlbum,
       openingAlbum,
       savingName,
+      archivingAlbum,
+      restoringAlbum,
+      leavingAlbum,
+      deletingAlbum,
+      dismissingDeletedNotice,
       couldNotLoadAlbums,
       couldNotCreateAlbum,
       couldNotOpenAlbum,
       couldNotSaveName,
+      couldNotChangeAlbum,
     ],
     initial: albumsNotLoaded,
     clock: options.clock,
@@ -170,6 +274,8 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       folders: [],
       asks: [],
       offers: [],
+      archived: [],
+      deleted: [],
       activeId: null,
       error: null,
       ...noPending,
@@ -236,6 +342,8 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
                 activeFolderId?: string;
                 asks?: AskSummary[];
                 offers?: OfferSummary[];
+                archived?: FolderSummary[];
+                deleted?: DeletedAlbum[];
               } | null;
               // `activeFolderId` may legitimately be null (a fresh device with no
               // folder chosen yet) — only a missing folder list is a real load
@@ -251,6 +359,8 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
                   asks: r.asks ?? [],
                   offers: r.offers ?? [],
                   activeId: r.activeFolderId ?? null,
+                  archived: r.archived ?? [],
+                  deleted: r.deleted ?? [],
                 }),
               );
             },
@@ -268,6 +378,8 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             folders: e.payload.folders,
             asks: e.payload.asks,
             offers: e.payload.offers,
+            archived: e.payload.archived ?? [],
+            deleted: e.payload.deleted ?? [],
             activeId: e.payload.activeId,
             error: null,
           });
@@ -470,6 +582,104 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
           return { state: couldNotSaveName };
         },
       });
+
+      for (const [kind, inFlight, trigger] of changeStates) {
+        for (const at of settledStates) {
+          /** The person archives, restores, leaves, deletes or dismisses; the screen shows it is busy. */
+          m.on(at, {
+            event: trigger,
+            to: [inFlight],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                ...noPending,
+                error: null,
+                pendingChange: { kind, ...e.payload },
+              });
+              return { state: inFlight };
+            },
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(inFlight, {
+          name: inFlight.name,
+          sends: [loaded, albumChangeFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pendingChange;
+            if (!pending) {
+              emit(albumChangeFailed.create({ message: "no album to change" }));
+              return;
+            }
+            const calls = {
+              archive: port.archiveAlbum,
+              restore: port.restoreAlbum,
+              leave: port.leaveAlbum,
+              delete: port.deleteAlbum,
+              dismiss: port.dismissAlbumNotice,
+            };
+            const fail = (message: string) => emit(albumChangeFailed.create({ message }));
+            return runInvoke(
+              signal,
+              () => calls[pending.kind](pending.folderId),
+              () =>
+                void runInvoke(
+                  signal,
+                  () => port.folders(),
+                  (result) => {
+                    const r = result as {
+                      folders?: FolderSummary[];
+                      activeFolderId?: string;
+                      asks?: AskSummary[];
+                      offers?: OfferSummary[];
+                      archived?: FolderSummary[];
+                      deleted?: DeletedAlbum[];
+                    } | null;
+                    if (!r?.folders) return fail("albums returned no data");
+                    emit(
+                      loaded.create({
+                        folders: r.folders,
+                        asks: r.asks ?? [],
+                        offers: r.offers ?? [],
+                        activeId: r.activeFolderId ?? null,
+                        archived: r.archived ?? [],
+                        deleted: r.deleted ?? [],
+                      }),
+                    );
+                  },
+                  fail,
+                ),
+              fail,
+            );
+          },
+        });
+        /** The change is done and the lists are current. */
+        m.on(inFlight, {
+          event: loaded,
+          to: [showingAlbums],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              folders: e.payload.folders,
+              asks: e.payload.asks,
+              offers: e.payload.offers,
+              archived: e.payload.archived ?? [],
+              deleted: e.payload.deleted ?? [],
+              activeId: e.payload.activeId,
+              error: null,
+            });
+            return { state: showingAlbums };
+          },
+        });
+        /** The change failed: the album stays where it was and the context keeps what failed. */
+        m.on(inFlight, {
+          event: albumChangeFailed,
+          to: [couldNotChangeAlbum],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: e.payload.message });
+            return { state: couldNotChangeAlbum };
+          },
+        });
+      }
     },
   });
 }
@@ -512,4 +722,14 @@ export const folders = {
   switchTo: (folderId: string) => foldersActor.send(setActive.create({ folderId })),
   rename: (name: string) => foldersActor.send(setName.create({ name })),
   retry: () => foldersActor.send(retry.create()),
+  archive: (folderId: string, name: string) =>
+    foldersActor.send(archiveAlbum.create({ folderId, name })),
+  restore: (folderId: string, name: string) =>
+    foldersActor.send(restoreAlbum.create({ folderId, name })),
+  leave: (folderId: string, name: string) =>
+    foldersActor.send(leaveAlbum.create({ folderId, name })),
+  delete: (folderId: string, name: string) =>
+    foldersActor.send(deleteAlbum.create({ folderId, name })),
+  dismissNotice: (folderId: string, name: string) =>
+    foldersActor.send(dismissDeletedNotice.create({ folderId, name })),
 };

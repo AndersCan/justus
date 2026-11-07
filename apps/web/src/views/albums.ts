@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import type { AskSummary, FolderSummary, OfferSummary } from "@justus/core";
+import type { AskSummary, DeletedAlbum, FolderSummary, OfferSummary } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { repeat } from "lit-html/directives/repeat.js";
@@ -20,6 +20,7 @@ import { onStateChange } from "../machines/actor-utils";
 import { parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
+import { deletedNoticeText } from "./notices";
 import { toast } from "./toast";
 
 // A friend's invite opens the album once the Admin's phone lets this phone in;
@@ -70,6 +71,68 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   ) {
     open(activeId ? `/albums/${activeId}` : "/albums");
   }
+});
+
+const changeVerbs = {
+  archive: "archive",
+  restore: "restore",
+  leave: "leave",
+  delete: "delete",
+  dismiss: "dismiss the notice for",
+} as const;
+
+// Archive, restore, leave and delete end with a toast; leaving the album page
+// goes to Your albums. A failure toasts and the album stays where it was.
+onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
+  const change = foldersActor.snapshot().context.pendingChange;
+  if (!change) return;
+  const { kind, folderId, name } = change;
+  if (next === "couldNotChangeAlbum") {
+    toast(`Couldn't ${changeVerbs[kind]} “${name}”. Try again.`);
+    return;
+  }
+  if (next !== "showingAlbums") return;
+  if (prev === "archivingAlbum") {
+    open("/sharing");
+    toast(`Archived “${name}”`, {
+      action: { label: "Undo", run: () => folders.restore(folderId, name) },
+    });
+  }
+  if (prev === "restoringAlbum") toast(`“${name}” is back in your albums`);
+  if (prev === "leavingAlbum") {
+    open("/sharing");
+    toast(`You left “${name}”`);
+  }
+  if (prev === "deletingAlbum") {
+    open("/sharing");
+    toast(`Deleted “${name}”`);
+  }
+});
+
+/** True when the open page is an album that was listed before and is in no list now. */
+export function albumVanished(
+  before: ReadonlySet<string>,
+  listedNow: readonly string[],
+  pageAlbumId: string | null,
+): boolean {
+  return pageAlbumId !== null && before.has(pageAlbumId) && !listedNow.includes(pageAlbumId);
+}
+
+// An album can disappear under an open page (the Admin deleted it); the person
+// lands on Your albums, where the notice explains.
+let listedBefore = new Set<string>();
+foldersActor.on("change", {
+  fn: (snapshot) => {
+    if (foldersViewModel(snapshot).state !== "showingAlbums") return;
+    const { folders: shown, archived } = snapshot.context;
+    const listedNow = [...shown, ...archived].map((f) => f.id);
+    const page = currentPage();
+    const pageAlbumId =
+      page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
+    const vanished = albumVanished(listedBefore, listedNow, pageAlbumId);
+    listedBefore = new Set(listedNow);
+    if (vanished) open("/sharing");
+  },
 });
 
 /** Pages about one album (its photos, its people) make it the active album,
@@ -142,6 +205,67 @@ function albumRow(folder: FolderSummary) {
       <span class="text-muted" aria-hidden="true">›</span>
     </li>
   `;
+}
+
+/** The Archived section: only when something is archived; the count adds the Admin's waiting requests. */
+function archivedSection(view: FoldersViewModel) {
+  if (view.archived.length === 0) return null;
+  return watch(requestsActor, (q) => {
+    const ids = new Set(view.archived.map((f) => f.id));
+    const waiting = q.context.requests.filter((r) => ids.has(r.folderId)).length;
+    return html`<details class="ui-card p-4" data-motion-key="section:archived">
+      <summary class="ui-label cursor-pointer select-none">
+        ${archivedSummary(view.archived.length, waiting)}
+      </summary>
+      <ul class="mt-3 space-y-3" aria-label="Archived albums">
+        ${repeat(
+          view.archived,
+          (f) => f.id,
+          (f) => html`<li class="flex items-center gap-3 rounded-2xl border border-line p-4">
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-lg font-medium text-fg">${f.name}</span>
+              <span class="mt-0.5 block text-xs text-muted">${roleAndCount(f)}</span>
+            </span>
+            <button
+              class="ui-btn-ghost shrink-0"
+              aria-label="Restore ${f.name}"
+              ?disabled=${!view.settled}
+              @click=${() => folders.restore(f.id, f.name)}
+            >
+              Restore
+            </button>
+          </li>`,
+        )}
+      </ul>
+    </details>`;
+  });
+}
+
+/** "Archived (2)", with " · 1 waiting" when the Admin has requests on archived albums. */
+export function archivedSummary(count: number, waiting: number): string {
+  return `Archived (${count})${waiting > 0 ? ` · ${waiting} waiting` : ""}`;
+}
+
+/** One notice per album the Admin deleted, newest first, until dismissed. */
+function deletedNotices(view: FoldersViewModel) {
+  const newestFirst: DeletedAlbum[] = [...view.deleted].reverse();
+  return repeat(
+    newestFirst,
+    (d) => d.id,
+    (d) => html`<div
+      class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
+    >
+      <p class="min-w-0 flex-1 text-sm text-fg" role="status">${deletedNoticeText(d)}</p>
+      <button
+        class="ui-btn-ghost shrink-0"
+        aria-label="Dismiss notice about ${d.name}"
+        ?disabled=${!view.settled}
+        @click=${() => folders.dismissNotice(d.id, d.name)}
+      >
+        Dismiss
+      </button>
+    </div>`,
+  );
 }
 
 function askRow(ask: AskSummary) {
@@ -342,10 +466,11 @@ export function albumsPanel() {
         view.state === "couldNotLoadAlbums" && !view.fatal ? () => folders.retry() : undefined,
         view.fatal ? () => window.location.reload() : undefined,
       )}
+      ${deletedNotices(view)}
       <p class="text-sm text-muted">
         Tap an album to invite people or see who's in it. Each album has its own invite link.
       </p>
-      ${albumList(view)} ${newAlbumSection(view)}
+      ${albumList(view)} ${archivedSection(view)} ${newAlbumSection(view)}
     `;
   });
 }
