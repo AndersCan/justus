@@ -194,15 +194,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        // A recreated activity (e.g. rotation) drops the prompt; answer the web side now.
-        pendingToggle?.let { cancel ->
-            pendingToggle = null
-            cancel()
-        }
-        super.onDestroy()
-    }
-
     override fun onStop() {
         super.onStop()
         stoppedAt = SystemClock.elapsedRealtime()
@@ -376,6 +367,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // A recreated activity (e.g. rotation) drops the prompt; answer the web side now.
+        pendingToggle?.let { cancel ->
+            pendingToggle = null
+            cancel()
+        }
         super.onDestroy()
         stagingExecutor.shutdown()
         mainHandler.removeCallbacksAndMessages(null)
