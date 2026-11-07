@@ -5,12 +5,15 @@
  * connections and notifications.
  */
 import type { Drive } from "../ports/drive-store";
+import type { PeerNetwork } from "../ports/peer-network";
+import type { OfferSummary } from "@justus/core";
 import {
   DEFAULT_ASK_ALBUM,
   DEFAULT_ASK_OWNER,
   isHexKey,
   parseRequestsFile,
   peerName,
+  type ChannelMessage,
   type RequestsFile,
 } from "./records";
 
@@ -146,4 +149,137 @@ export function replyTo(
   }
   if (request.enrolled) return { kind: "already-enrolled" };
   return request.askedBy ? { kind: "accept", identity: request.askedBy } : { kind: "accept" };
+}
+
+/** What invites need from the answer channel. photo-store fills it from its
+ * connections, `verifiedIdentity` and the peer network. */
+export type InvitePorts = {
+  /** Open connections and the identity each claims (unproven). */
+  connections(): Array<{ conn: number; identity: string | undefined }>;
+  /** The identity `conn` proved, or undefined when it did not within `timeoutMs`. */
+  provenIdentity(conn: number, options: { timeoutMs: number }): Promise<string | undefined>;
+  sendAnswer: PeerNetwork["sendAnswer"];
+};
+
+/** Sends `message` on every connection proven to be `identity`, one at a time.
+ * Returns how many sends the channel took. */
+export async function tellIdentity(
+  ports: InvitePorts,
+  options: { identity: string; message: ChannelMessage; timeoutMs: number },
+): Promise<number> {
+  const { identity, message, timeoutMs } = options;
+  let sent = 0;
+  for (const c of ports.connections()) {
+    if (c.identity !== identity) continue;
+    if ((await ports.provenIdentity(c.conn, { timeoutMs })) !== identity) continue;
+    if (ports.sendAnswer(c.conn, message) === true) sent += 1;
+  }
+  return sent;
+}
+
+/** Offers an album to a friend's phone, resending every `resendMs`, until it
+ * says it saw or refused the invite, the app closes, or `reachMs` passes. */
+export async function offerAlbumTo(
+  ports: InvitePorts,
+  options: {
+    identity: string;
+    offer: { code: string; albumName: string; ownerName: string };
+    reply: Promise<"seen" | "refused">;
+    reachMs: number;
+    resendMs: number;
+    isClosed: () => boolean;
+  },
+): Promise<InviteResult<"seen">> {
+  const { identity, offer, reply, resendMs, isClosed } = options;
+  const deadline = Date.now() + options.reachMs;
+  let got: "seen" | "refused" | undefined;
+  void reply.then((r) => (got = r));
+  while (!got && !isClosed() && Date.now() < deadline) {
+    await tellIdentity(ports, {
+      identity,
+      message: {
+        kind: "offer",
+        code: offer.code,
+        albumName: offer.albumName,
+        ownerName: offer.ownerName,
+      },
+      timeoutMs: deadline - Date.now(),
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        reply,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, resendMs);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  if (got === "seen") return [null, "seen"];
+  if (got === "refused")
+    return [{ kind: "refused", message: "The friend's phone turned the invite down" }, null];
+  return [{ kind: "unreachable", message: "The friend's phone did not answer" }, null];
+}
+
+export type OfferTake<A> =
+  | { kind: "gone" }
+  | { kind: "file-ask"; offer: OfferSummary }
+  | { kind: "asked"; ask: A };
+
+/** What taking a held invite needs: it is gone (taken back), it needs an ask
+ * (none yet, or the last one was declined), or the ask already went out. */
+export function offerToTake<A extends { code: string; status: string }>(
+  held: { offers: readonly OfferSummary[]; asks: readonly A[] },
+  wanted: { code: string; owner: string },
+): OfferTake<A> {
+  const offer = held.offers.find((o) => o.code === wanted.code && o.owner === wanted.owner);
+  if (!offer) return { kind: "gone" };
+  const ask = held.asks.find((a) => a.code === wanted.code);
+  if (!ask || ask.status === "declined") return { kind: "file-ask", offer };
+  return { kind: "asked", ask };
+}
+
+export type NewInvite = {
+  invite: { code: string };
+  /** The code turned off, when the album had one. */
+  retired?: string;
+  retiredInvites?: string[];
+};
+
+/** Turns an album's link off: every friend with an open invite is told it was
+ * withdrawn, and the album gets `newCode`; the old code is kept so a joiner who
+ * asked through it still gets an answer. Does not change `album`. */
+export async function withdrawInvite(
+  ports: InvitePorts,
+  options: {
+    album: {
+      invite?: { code: string };
+      invited?: readonly string[];
+      retiredInvites?: readonly string[];
+    };
+    newCode: string;
+  },
+): Promise<NewInvite> {
+  const { album, newCode } = options;
+  const old = album.invite?.code;
+  if (!old) {
+    return {
+      invite: { code: newCode },
+      retiredInvites: album.retiredInvites && [...album.retiredInvites],
+    };
+  }
+  for (const identity of album.invited ?? []) {
+    await tellIdentity(ports, {
+      identity,
+      message: { kind: "offerWithdrawn", code: old },
+      timeoutMs: 2_000,
+    });
+  }
+  return {
+    invite: { code: newCode },
+    retired: old,
+    retiredInvites: [...(album.retiredInvites ?? []), old],
+  };
 }

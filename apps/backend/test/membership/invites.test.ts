@@ -9,7 +9,17 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { checkAsk, fileInviteAsk, replyTo } from "../../src/membership/invites.ts";
+import {
+  checkAsk,
+  fileInviteAsk,
+  offerAlbumTo,
+  offerToTake,
+  replyTo,
+  tellIdentity,
+  withdrawInvite,
+  type InvitePorts,
+} from "../../src/membership/invites.ts";
+import type { ChannelMessage } from "../../src/membership/records.ts";
 import { isEnrolled } from "../../src/membership/records.ts";
 import {
   acceptJoinRequest,
@@ -294,5 +304,183 @@ describe("invites: the Admin's reply", () => {
       pendingJoinRequests(found, { ...none, answers: undefined }),
       "list: without invited it is listed",
     ).toHaveLength(1);
+  });
+});
+
+function stubPorts(conns: Array<{ conn: number; identity: string; proves?: string | null }>) {
+  const sent: Array<{ conn: number; message: ChannelMessage }> = [];
+  const hooks: { onSend?: () => void } = {};
+  const ports: InvitePorts = {
+    connections: () => conns.map(({ conn, identity }) => ({ conn, identity })),
+    provenIdentity: async (conn) => {
+      const c = conns.find((x) => x.conn === conn);
+      return c?.proves === null ? undefined : (c?.proves ?? c?.identity);
+    },
+    sendAnswer: (conn: number, message: ChannelMessage) => {
+      sent.push({ conn, message });
+      hooks.onSend?.();
+      return true;
+    },
+  };
+  return { ports, sent, hooks };
+}
+
+const F = hex("f");
+const G = hex("9");
+const offer = { code: C, albumName: "Trip", ownerName: "Maya" };
+
+describe("invites: friends and turning a link off", () => {
+  it("send: only on connections proven to be that identity", async () => {
+    const { ports, sent } = stubPorts([
+      { conn: 1, identity: F },
+      { conn: 2, identity: F, proves: null },
+      { conn: 3, identity: hex("e") },
+    ]);
+    const count = await tellIdentity(ports, {
+      identity: F,
+      message: { kind: "offerTaken", code: C },
+      timeoutMs: 50,
+    });
+    expect(count, "send: one send taken").toBe(1);
+    expect(sent, "send: only the proven connection").toEqual([
+      { conn: 1, message: { kind: "offerTaken", code: C } },
+    ]);
+  });
+
+  it("offer: the friend's phone seeing it ends the wait", async () => {
+    const { ports, sent, hooks } = stubPorts([{ conn: 1, identity: F }]);
+    let resolve: (r: "seen" | "refused") => void = () => {};
+    const reply = new Promise<"seen" | "refused">((r) => (resolve = r));
+    hooks.onSend = () => resolve("seen");
+    const result = await offerAlbumTo(ports, {
+      identity: F,
+      offer,
+      reply,
+      reachMs: 500,
+      resendMs: 20,
+      isClosed: () => false,
+    });
+    expect(result, "offer: seen").toEqual([null, "seen"]);
+    expect(sent.length, "offer: sent once").toBe(1);
+    expect(sent[0]?.message, "offer: the message").toEqual({ kind: "offer", ...offer });
+    expect(Object.keys(sent[0]?.message ?? {}), "offer: key order").toEqual([
+      "kind",
+      "code",
+      "albumName",
+      "ownerName",
+    ]);
+  });
+
+  it("offer: a refusal is reported as one", async () => {
+    const { ports } = stubPorts([{ conn: 1, identity: F }]);
+    const result = await offerAlbumTo(ports, {
+      identity: F,
+      offer,
+      reply: Promise.resolve("refused"),
+      reachMs: 500,
+      resendMs: 20,
+      isClosed: () => false,
+    });
+    expect(result, "offer: refused").toEqual([
+      { kind: "refused", message: "The friend's phone turned the invite down" },
+      null,
+    ]);
+  });
+
+  it("offer: resent until the deadline, then the phone did not answer", async () => {
+    const { ports, sent } = stubPorts([{ conn: 1, identity: F }]);
+    const started = Date.now();
+    const result = await offerAlbumTo(ports, {
+      identity: F,
+      offer,
+      reply: new Promise(() => {}),
+      reachMs: 60,
+      resendMs: 20,
+      isClosed: () => false,
+    });
+    expect(result, "offer: unreachable").toEqual([
+      { kind: "unreachable", message: "The friend's phone did not answer" },
+      null,
+    ]);
+    expect(sent.length, "offer: resent").toBeGreaterThanOrEqual(2);
+    expect(sent.length, "offer: not resent forever").toBeLessThanOrEqual(4);
+    expect(Date.now() - started, "offer: stops at the deadline").toBeLessThan(200);
+  });
+
+  it("offer: a closing app stops at once", async () => {
+    const { ports, sent } = stubPorts([{ conn: 1, identity: F }]);
+    const [error] = await offerAlbumTo(ports, {
+      identity: F,
+      offer,
+      reply: new Promise(() => {}),
+      reachMs: 500,
+      resendMs: 20,
+      isClosed: () => true,
+    });
+    expect(error?.kind, "offer: unreachable when closing").toBe("unreachable");
+    expect(sent, "offer: nothing sent").toEqual([]);
+  });
+
+  it("turn off: every invited friend is told and the old code is kept", async () => {
+    const { ports, sent } = stubPorts([
+      { conn: 1, identity: F },
+      { conn: 2, identity: G },
+    ]);
+    const A = hex("a");
+    const B = hex("b");
+    const album = { invite: { code: A }, invited: [F, G], retiredInvites: [hex("1")] };
+    const before = structuredClone(album);
+    const next = await withdrawInvite(ports, { album, newCode: B });
+    expect(next, "turn off: new code, old kept").toEqual({
+      invite: { code: B },
+      retired: A,
+      retiredInvites: [hex("1"), A],
+    });
+    expect(sent, "turn off: both friends told").toEqual([
+      { conn: 1, message: { kind: "offerWithdrawn", code: A } },
+      { conn: 2, message: { kind: "offerWithdrawn", code: A } },
+    ]);
+    expect(album, "turn off: album untouched").toEqual(before);
+  });
+
+  it("turn off: an album without a link sends nothing", async () => {
+    const { ports, sent } = stubPorts([{ conn: 1, identity: F }]);
+    const next = await withdrawInvite(ports, { album: { invited: [F] }, newCode: hex("b") });
+    expect(next, "turn off: only a new code").toEqual({
+      invite: { code: hex("b") },
+      retiredInvites: undefined,
+    });
+    expect("retired" in next, "turn off: no retired key").toBe(false);
+    expect(sent, "turn off: nothing sent").toEqual([]);
+  });
+
+  it("turn off: an ask with the old code no longer reaches the Admin", async () => {
+    const { adminReads, ask } = await askWorld();
+    await ask();
+    expect((await adminReads(C)).requests, "turn off: found before").toHaveLength(1);
+    const { ports } = stubPorts([]);
+    const next = await withdrawInvite(ports, {
+      album: { invite: { code: C } },
+      newCode: hex("b"),
+    });
+    expect((await adminReads(next.invite.code)).requests, "turn off: not found after").toEqual([]);
+  });
+
+  it("take: a held invite needs an ask unless one is already out", () => {
+    const held = { code: C, owner: hex("a"), albumName: "Trip", ownerName: "Maya" };
+    const waiting = { code: C, status: "waiting" };
+    const declined = { code: C, status: "declined" };
+    expect(
+      offerToTake({ offers: [held], asks: [] }, { code: C, owner: hex("b") }).kind,
+      "take: other owner",
+    ).toBe("gone");
+    const fresh = offerToTake({ offers: [held], asks: [] }, { code: C, owner: hex("a") });
+    expect(fresh.kind === "file-ask" && fresh.offer, "take: no ask yet").toBe(held);
+    expect(
+      offerToTake({ offers: [held], asks: [declined] }, { code: C, owner: hex("a") }).kind,
+      "take: declined ask is refiled",
+    ).toBe("file-ask");
+    const out = offerToTake({ offers: [held], asks: [waiting] }, { code: C, owner: hex("a") });
+    expect(out.kind === "asked" && out.ask, "take: ask already out").toBe(waiting);
   });
 });
