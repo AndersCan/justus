@@ -130,3 +130,18 @@ describe("pending asks", () => {
     expect(host.textContent).toContain("Not accepted");
   });
 });
+
+describe("Photos page wiring", () => {
+  test("shows the waiting row at all scope and hides it inside an album", async () => {
+    const { galleryView } = await import("./gallery");
+    const all = document.createElement("div");
+    render(galleryView({ kind: "all" } as any), all);
+    const inAlbum = document.createElement("div");
+    render(galleryView({ kind: "album", id: "zzz" } as any), inAlbum);
+    await load(["a"], [ask("waiting")]);
+    await vi.waitFor(() =>
+      expect(all.querySelector("section[aria-label='Waiting to join']")).not.toBeNull(),
+    );
+    expect(inAlbum.querySelector("section[aria-label='Waiting to join']")).toBeNull();
+  });
+});

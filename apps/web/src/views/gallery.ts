@@ -239,6 +239,19 @@ galleryActor.on("change", {
   },
 });
 
+/** The album list has not arrived yet; a failed or busy list is not loading. */
+function foldersLoadingOf(f: Parameters<typeof foldersViewModel>[0]) {
+  const { state } = foldersViewModel(f);
+  return state === "albumsNotLoaded" || state === "loadingAlbums";
+}
+
+/** What an album page says when the album is not in the list. */
+export function missingAlbumText(page: { folders: unknown[]; foldersLoading: boolean }) {
+  return page.folders.length === 0 || page.foldersLoading
+    ? "Loading…"
+    : "This album isn't on this phone.";
+}
+
 /** Everything the Photos page reads, as one plain value. */
 function photosPageOf(
   g: Parameters<typeof galleryViewModel>[0],
@@ -246,12 +259,12 @@ function photosPageOf(
   status: SyncStatus | null,
   requests: JoinRequest[],
   prefs: { density: Density; sort: PhotoSort },
-  foldersSettled: boolean,
+  foldersLoading: boolean,
 ) {
   return {
     ...galleryViewModel(g, status),
     folders,
-    foldersSettled,
+    foldersLoading,
     status,
     lastSync: g.context.lastSyncAt ?? null,
     batch: g.context.batch,
@@ -278,7 +291,7 @@ function pageView(body: (page: PhotosPage) => unknown) {
                   density: p.context.density,
                   sort: p.context.sort,
                 },
-                foldersViewModel(f).settled,
+                foldersLoadingOf(f),
               ),
             ),
           ),
@@ -747,9 +760,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
           ? album
             ? albumHeader(page, album)
             : html`<a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
-                <p class="text-muted">
-                  ${page.folders.length === 0 || !page.foldersSettled ? "Loading…" : "This album isn't on this phone."}
-                </p>`
+                <p class="text-muted">${missingAlbumText(page)}</p>`
           : null
       }
       ${errorBanner(
