@@ -117,13 +117,15 @@ class ListingScreenshots {
     Screengrab.screenshot("2_photo")
 
     find("Close", 10).click()
-    find("Invite & members", 10).click()
+    Thread.sleep(1000)
+    val invite = device.wait(Until.findObject(By.desc("Invite & members")), 10000) ?: fail("invite link", "Invite")
+    invite.click()
     find("Invite people", 20)
     var tries = 0
-    while (device.findObject(By.text("Copy link")) == null && tries++ < 6) {
+    while (device.findObject(By.text(Pattern.compile("Copy (invite )?link"))) == null && tries++ < 6) {
       device.swipe(540, 1600, 540, 600, 20)
     }
-    find("Copy link", 5)
+    device.wait(Until.findObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000) ?: fail("copy button", "Copy link")
     Thread.sleep(500)
     val files = FileWritingScreenshotCallback(target.applicationContext, Screengrab.getLocale())
     Screengrab.screenshot(
