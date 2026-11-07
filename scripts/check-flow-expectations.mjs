@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isAbsolute, relative, resolve } from "node:path";
 import { inspectFile } from "@mantaq/inspect";
@@ -78,14 +79,53 @@ export async function checkFlowExpectations({ root, machines }) {
   return { lines: ["check-flow-expectations: expectations held"], failed: false };
 }
 
-function main() {
+/**
+ * @param {{ root: string, files: string[] }} options  paths relative to root or absolute
+ * @returns {Promise<{ lines: string[], failed: boolean }>}
+ */
+export async function checkFlowNames({ root, files }) {
+  const lines = [];
+  const seen = new Set();
+  for (const file of files) {
+    const absolute = isAbsolute(file) ? file : resolve(root, file);
+    if (seen.has(absolute)) continue;
+    seen.add(absolute);
+    const rel = relative(root, absolute);
+    const loaded = await inspectFile(absolute, { fuzz: false });
+    if (loaded.failed) {
+      lines.push(`check-flow-expectations: could not load ${rel}: ${loaded.warnings.join("; ")}`);
+      continue;
+    }
+    for (const machine of loaded.machines) {
+      for (const finding of machineFindings(machine)) {
+        if (finding.kind !== "vagueName" && finding.kind !== "undocumented") continue;
+        lines.push(`check-flow-expectations: ${machine.id}: ${finding.message} (${rel})`);
+      }
+    }
+  }
+  return { lines, failed: lines.length > 0 };
+}
+
+async function main() {
+  process.env.VITE_TRANSPORT_MODE ??= "mock";
   const root = resolve(fileURLToPath(import.meta.url), "../..");
-  return checkFlowExpectations({ root, machines: REQUIRED }).then(({ lines, failed }) => {
-    const out = lines.join("\n") + "\n";
-    if (failed) process.stderr.write(out);
-    else process.stdout.write(out);
-    process.exit(failed ? 1 : 0);
-  });
+  const manifest = JSON.parse(readFileSync(resolve(root, "docs/flows/manifest.json"), "utf8"));
+  const expectations = await checkFlowExpectations({ root, machines: REQUIRED });
+  const names = await checkFlowNames({ root, files: Object.values(manifest).flat() });
+  if (expectations.failed || names.failed) {
+    const detail = [
+      ...expectations.lines.filter((l) => !l.endsWith(" problem(s); see above")),
+      ...names.lines,
+    ];
+    const total = detail.filter((l) => !l.startsWith("  ")).length;
+    const summary = `check-flow-expectations: ${total} problem(s); see above`;
+    process.stderr.write([...detail, summary].join("\n") + "\n");
+    process.exit(1);
+  }
+  process.stdout.write(
+    "check-flow-expectations: expectations held; no vague or undocumented names\n",
+  );
+  process.exit(0);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
