@@ -250,6 +250,11 @@ describe("nested keys", () => {
     </div>`;
     const host = document.createElement("div");
     document.body.append(host);
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const shifted = host.querySelector('[data-motion-key="top"]') !== null;
+      const isTop = this.getAttribute("data-motion-key") === "top";
+      return { left: 0, top: isTop || !shifted ? 0 : 100, width: 100, height: 100 } as any;
+    };
     render(nested(["p"]), host);
     await Promise.resolve();
     render(nested(["top", "p"]), host);
