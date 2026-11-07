@@ -73,3 +73,6 @@ apps/android/vendor/bundle
 site-dist/
 
 .astro/
+
+# Play listing screenshots (taken by `fastlane screenshots`)
+apps/android/fastlane/metadata/android/*/images/phoneScreenshots/*.png
