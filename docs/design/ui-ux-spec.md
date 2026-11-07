@@ -180,7 +180,7 @@ photos) carries the color; chrome stays quiet.
   (the shared albums list), Sharing, Settings; Help is a row in Settings.
   Requests live in the People sheet.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
-  hover for pointer devices. Detail and remove live in the lightbox on touch.
+  hover for pointer devices. Detail and Delete live in the photo's full view (More options).
 - **Theme:** follows the system by default; a header/rail toggle cycles
   Auto → Light → Dark and persists to `localStorage` (`utils/theme.ts`, applied
   to `<html data-theme>` before first paint).

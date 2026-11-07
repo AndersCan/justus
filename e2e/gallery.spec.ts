@@ -228,12 +228,12 @@ test("keeping the links leaves the invite panel as it was", async ({ page }) => 
   await expect(page.getByText(/This link works until/)).toBeVisible();
 });
 
-test("a photo's Remove sits in its More menu and asks first", async ({ page }) => {
+test("a photo's Delete sits in its More menu and asks first", async ({ page }) => {
   await page.goto("/");
   const first = page.locator("figure").first();
   await expect(first).toBeAttached({ timeout: 20_000 });
   const tileCount = await page.locator("figure").count();
-  await expect(page.locator('button[aria-label^="Remove"]')).toHaveCount(0);
+  await expect(page.locator('button[aria-label^="Delete"]')).toHaveCount(0);
 
   await first.click();
   const close = page.getByRole("button", { name: "Close" });
@@ -243,17 +243,17 @@ test("a photo's Remove sits in its More menu and asks first", async ({ page }) =
 
   // Escape closes only the menu.
   await more.click();
-  const item = page.getByRole("menuitem", { name: "Remove from album" });
+  const item = page.getByRole("menuitem", { name: "Delete" });
   await expect(item).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(item).toBeHidden();
   await expect(close).toBeVisible();
 
-  // Remove asks first; Keep leaves the photo alone.
+  // Delete asks first; Keep leaves the photo alone.
   await more.click();
   await expect(item).toHaveCSS("color", "rgb(198, 47, 53)");
   await item.click();
-  const dialog = page.getByRole("dialog", { name: /^Remove “.+”\?$/ });
+  const dialog = page.getByRole("dialog", { name: /^Delete “.+”\?$/ });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   const keep = page.getByRole("button", { name: "Keep" });
   await expect(keep).toBeFocused();
@@ -269,12 +269,12 @@ test("a photo's Remove sits in its More menu and asks first", async ({ page }) =
 
 test.describe("dark", () => {
   test.use({ colorScheme: "dark" });
-  test("the remove dialog follows the dark surface", async ({ page }) => {
+  test("the delete dialog follows the dark surface", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("figure").first()).toBeAttached({ timeout: 20_000 });
     await page.locator("figure").first().click();
     await page.getByRole("button", { name: "More options" }).click();
-    await page.getByRole("menuitem", { name: "Remove from album" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     const bg = await dialog

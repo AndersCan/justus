@@ -11,7 +11,7 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
  * never an unhandled rejection (which would wedge the machine in `busy`).
  */
 
-const GALLERY_STATES = [
+export const GALLERY_STATES = [
   "photosNotLoaded",
   "loadingPhotos",
   "showingPhotos",
@@ -45,6 +45,17 @@ export type AddBatch = {
 
 const nameOf = stateNameOf(GALLERY_STATES);
 
+/** The backend's code for a photo that is not in the album (already deleted). */
+export const PHOTO_GONE_CODE = "justus.photos/not-found";
+
+/** The backend's error code, or "" when the error carries none. */
+function codeOf(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    return typeof error.code === "string" ? error.code : "";
+  }
+  return "";
+}
+
 /** The gallery UI's view model as a pure function of the actor snapshot.
  * `busy` is exactly "an add or remove is in flight"; `role` comes from the
  * sync status passed in, so the empty state can be reader-aware. */
@@ -56,7 +67,8 @@ export function galleryViewModel(s: Snapshot<GalleryContext>, status: SyncStatus
     busy: state === "addingPhotos" || state === "removingPhoto",
     /** The photos are shown and nothing is in flight: fine, or the last remove failed. */
     settled: state === "showingPhotos" || state === "couldNotRemovePhoto",
-    error: fatal?.message ?? s.context.error,
+    // A failed delete is told by the full view; the reason stays in context.
+    error: state === "couldNotRemovePhoto" ? null : (fatal?.message ?? s.context.error),
     fatal: fatal !== null,
     photos: s.context.photos,
     role: status?.folder?.role ?? null,
@@ -500,7 +512,13 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           }
           return runInvoke(
             signal,
-            () => port.remove(pending.id, pending.folderId),
+            // Already deleted (often by someone else) counts as deleted; a role race is restored by the next reload.
+            () =>
+              port
+                .remove(pending.id, pending.folderId)
+                .then(([error, result]) =>
+                  codeOf(error) === PHOTO_GONE_CODE ? [null, result] : [error, result],
+                ),
             () => emit(removed.create(pending)),
             (message) => emit(removeFailed.create({ message })),
           );

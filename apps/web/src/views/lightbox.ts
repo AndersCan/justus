@@ -1,13 +1,20 @@
 import { html } from "lit-html";
 import { watch } from "@mantaq/lit";
 import type { Photo } from "@justus/core";
-import { gallery, galleryActor, galleryViewModel } from "../machines/gallery-machine";
+import {
+  GALLERY_STATES,
+  gallery,
+  galleryActor,
+  galleryViewModel,
+} from "../machines/gallery-machine";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
-import { canRemove, removeDetail, roleFor } from "../utils/can-remove";
+import { onStateChange } from "../machines/actor-utils";
+import { foldersActor } from "../machines/folders-machine";
+import { canRemove, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
 
 /** Full-screen photo detail. The open photo lives in the lightbox machine. */
@@ -56,18 +63,22 @@ if (typeof document !== "undefined") {
   });
 }
 
-async function removeFromLightbox(photo: Photo) {
+export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
-    title: `Remove “${photo.name}”?`,
-    detail: removeDetail(photo),
-    confirmLabel: "Remove",
+    title: `Delete “${photo.name}”?`,
+    detail: "It will be gone from the album for everyone.",
+    confirmLabel: "Delete",
     tone: "danger",
   });
   if (!ok) return;
   gallery.remove(photo.id, photo.folderId);
-  closeLightbox();
-  toast(`Removed “${photo.name}”`);
+  // The view stays open until the album answers: success drops the photo and closes it.
+  const stop = onStateChange(galleryActor, GALLERY_STATES, (next) => {
+    if (next === "removingPhoto") return;
+    stop();
+    if (next === "couldNotRemovePhoto") toast(`Couldn't delete “${photo.name}”. Try again.`);
+  });
 }
 
 function lightboxBody(photo: Photo) {
@@ -163,14 +174,14 @@ function lightboxBody(photo: Photo) {
                   : null
               }
             </div>
-            ${
-              canRemove(photo, roleFor(photo))
+            ${watch(foldersActor, (f) =>
+              canRemove(photo, roleFor(photo, f.context.folders))
                 ? watch(galleryActor, (s) => {
                     const removing = galleryViewModel(s, null).state === "removingPhoto";
                     return html`<wa-dropdown
                       placement="top-end"
                       @wa-select=${(e: CustomEvent<{ item: { value: string } }>) => {
-                        if (e.detail.item.value === "remove") void removeFromLightbox(photo);
+                        if (e.detail.item.value === "delete") void deleteFromLightbox(photo);
                       }}
                     >
                       <button
@@ -190,7 +201,7 @@ function lightboxBody(photo: Photo) {
                           <circle cx="19" cy="12" r="2" />
                         </svg>
                       </button>
-                      <wa-dropdown-item value="remove" variant="danger" ?disabled=${removing}>
+                      <wa-dropdown-item value="delete" variant="danger" ?disabled=${removing}>
                         <svg
                           slot="icon"
                           width="16"
@@ -209,12 +220,12 @@ function lightboxBody(photo: Photo) {
                           <path d="M10 11v6" />
                           <path d="M14 11v6" />
                         </svg>
-                        ${removing ? "Removing…" : "Remove from album"}
+                        ${removing ? "Deleting…" : "Delete"}
                       </wa-dropdown-item>
                     </wa-dropdown>`;
                   })
-                : null
-            }
+                : null,
+            )}
           </div>
         </div>
       </div>
