@@ -8,7 +8,6 @@ import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
-import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./adapters/peer-identity";
 import { openVersion } from "./adapters/peer-version";
 import { PEER_PROTOCOL } from "./versions";
@@ -16,7 +15,7 @@ import { STATE_VERSION, stateVersionOf } from "./versions";
 import { copyAlbumEntries } from "./rotate-album";
 import { openAnswers } from "./adapters/peer-answer";
 import { inviteTopic } from "./membership/invite";
-import { toDriveEntry } from "./adapters/hyper-drive-store";
+import type { Drive, DriveStore } from "./ports/drive-store";
 import type { DriveEntry } from "./ports/drive-store";
 import {
   isEnrolled,
@@ -41,21 +40,14 @@ import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 
 /**
  * Dependency-injection seam. `photo-store.ts` used to import the full p2p
- * stack (`bare-fs` / `bare-path` / `bare-crypto` / `corestore` / `hyperdrive`)
+ * stack (`bare-fs` / `bare-path` / `bare-crypto` and the drive storage)
  * at module top, which pulls in native addons and makes the module impossible
  * to load under Node/vitest (no Bare runtime). Those symbols are now injected
  * through {@link PhotoStoreDeps}, so the module loads without Bare and the
- * drives/corestore/swarm can be substituted with in-memory fakes in tests.
+ * drives/swarm can be substituted with in-memory fakes in tests.
  * Production (`main.core.ts`) passes the real `bare-*` implementations; the
  * only behavior that changes is *where* the constructors are chosen.
  */
-type CorestoreLike = {
-  ready(): Promise<void>;
-  replicate(conn: unknown): void;
-  close(): Promise<void>;
-  namespace(name: string): CorestoreLike;
-};
-
 type SwarmLike = {
   join(
     topic: Buffer,
@@ -104,9 +96,6 @@ export const PhotoError = {
   UNSUPPORTED_FORMAT: "justus.photos/unsupported-format",
   UPDATE_REQUIRED: "justus.photos/update-required",
 } as const;
-
-/** Any drive handle (the p2p packages ship no types). */
-type Drive = any;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
 type EitherResult<T> = [CoreError, null] | [null, T];
@@ -215,10 +204,10 @@ export type PhotoStoreDeps = {
   path: Paths;
   /** Crypto helpers. Injected; production passes `bare-crypto`. */
   crypto: typeof import("bare-crypto");
-  /** Builds the Corestore for a storage directory (no Node equivalent). */
-  makeCorestore: (dir: string) => CorestoreLike;
-  /** Builds a Hyperdrive over a corestore + optional root key. */
-  makeDrive: (corestore: unknown, key?: Buffer) => Drive;
+  /** Where drives live (Corestore and Hyperdrive in production). */
+  drives: DriveStore;
+  /** Replicates every drive over a swarm connection. Temporary: the peer network takes this over. */
+  replicate: (conn: unknown) => void;
   /** Builds the Hyperswarm DHT client. Optional; defaults to `new Hyperswarm`. */
   makeSwarm?: (opts?: { bootstrap?: string[] }) => SwarmLike;
   /** Max ms to wait for a remote drive to become ready before giving up on it
@@ -309,6 +298,11 @@ function newId(c: typeof import("bare-crypto")): string {
 
 function hex(buffer: Buffer): string {
   return buffer.toString("hex");
+}
+
+/** The swarm topic of a drive. */
+function topicOf(drive: Drive): Buffer {
+  return Buffer.from(drive.discoveryKey, "hex");
 }
 
 /** Decodes standard base64 to bytes. Purpose-built rather than
@@ -456,7 +450,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   };
   const lazyMedia = createLazyMedia(deps.server, fs);
-  const corestore = deps.makeCorestore(path.join(deps.storageDir, "corestore"));
   const swarm: SwarmLike = (deps.makeSwarm ?? defaultSwarm)(
     deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined,
   );
@@ -685,27 +678,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const PEER_READ = { timeout: 5_000 };
 
   /** Reads a small text record, or null when missing, unreadable, or larger
-   * than {@link MAX_PEER_JSON_BYTES}. The size is checked on the entry before
-   * the blob downloads, and again on the bytes (drives without `entry`). */
-  async function getText(
+   * than {@link MAX_PEER_JSON_BYTES}. */
+  async function readText(
     drive: Drive,
     drivePath: string,
     opts?: { timeout: number },
   ): Promise<string | null> {
     try {
-      if (typeof drive.entry === "function") {
-        const node = await (opts ? drive.entry(drivePath, opts) : drive.entry(drivePath));
-        const size = node?.value?.blob?.byteLength;
-        if (typeof size === "number" && size > MAX_PEER_JSON_BYTES) return null;
-      }
-      const value = await (opts ? drive.get(drivePath, opts) : drive.get(drivePath));
-      if (value === null || value === undefined) return null;
-      if ((value as Uint8Array).byteLength > MAX_PEER_JSON_BYTES) return null;
-      // Not `new TextDecoder()`: Bare has no global TextDecoder, so it threw
-      // ReferenceError into the catch below and every peer record read as
-      // missing on a device (join requests never arrived). Found by
-      // `pnpm test:bare` (#200).
-      return Buffer.from(value as Uint8Array).toString("utf8");
+      const text = await drive.readSmall(
+        drivePath,
+        MAX_PEER_JSON_BYTES,
+        opts ? { timeoutMs: opts.timeout } : undefined,
+      );
+      return text ?? null;
     } catch (e) {
       log("error", {
         where: "drive.read",
@@ -767,7 +752,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * restarts. Returns true when the key is new or changed. */
   async function learnSwarmKey(memberKey: string, drive: Drive): Promise<boolean> {
     const text = await Promise.race([
-      getText(drive, DRIVE_PATH_DEVICE),
+      readText(drive, DRIVE_PATH_DEVICE),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
     ]);
     if (!text) return false;
@@ -849,7 +834,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readDeviceName(drive: Drive): Promise<string> {
-    return parseDeviceName(await getText(drive, DRIVE_PATH_DEVICE));
+    return parseDeviceName(await readText(drive, DRIVE_PATH_DEVICE));
   }
 
   /** The swarm's noise public key. Swarm connections identify a peer by this
@@ -862,12 +847,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function deviceJson(name: string): Buffer {
     return Buffer.from(
-      JSON.stringify({ name, swarmKey: ownSwarmKey(), identityKey: hex(ownDrive.key) }),
+      JSON.stringify({ name, swarmKey: ownSwarmKey(), identityKey: ownDrive.key }),
     );
   }
 
   async function ensureOwnDriveIdentity() {
-    const text = await getText(ownDrive, DRIVE_PATH_DEVICE);
+    const text = await readText(ownDrive, DRIVE_PATH_DEVICE);
     // The swarm key is random per boot, so rewrite whenever it differs.
     if (text === null || !text.includes(`"swarmKey":"${ownSwarmKey()}"`)) {
       await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
@@ -879,7 +864,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const handler = () => {
       log("drive.change", {
         drive: short(drive.key),
-        length: drive.core?.length,
+        length: drive.stats().length,
         folder: short(folderId),
       });
       if (timer) clearTimeout(timer);
@@ -909,7 +894,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deps.onChanged({ cause, folderId, memberKey: label });
       }, 400);
     };
-    const off = onDriveChange(drive, handler);
+    const off = drive.onChange(handler);
     const remove = () => {
       off();
       if (timer) clearTimeout(timer);
@@ -930,13 +915,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     watchDrive(
       rt.folderDrive,
       rt.record.id,
-      hex(rt.folderDrive.key),
+      rt.folderDrive.key,
       rt.record.role === "creator" ? "enroll" : "add",
     );
     // A creator's own drive *is* the folder drive; watching it twice would
     // push every change twice.
     if (rt.selfDrive && rt.selfDrive !== rt.folderDrive) {
-      watchDrive(rt.selfDrive, rt.record.id, hex(rt.selfDrive.key), "enroll");
+      watchDrive(rt.selfDrive, rt.record.id, rt.selfDrive.key, "enroll");
     }
     for (const [key, drive] of rt.memberDrives) {
       watchDrive(drive, rt.record.id, key, "add");
@@ -1017,11 +1002,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rediscoverUntil(
       topic,
       drive.key,
-      () => {
-        const peers = drive.core?.peers;
-        return !Array.isArray(peers) || peers.length > 0 || Boolean(drive.closed);
-      },
-      () => drive.core?.peers?.length,
+      () => drive.stats().peers > 0,
+      () => drive.stats().peers,
     );
   }
 
@@ -1065,50 +1047,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Opens a drive by key, joining its swarm topic first so peers serve its
    * blocks (a remote `drive.ready()` otherwise waits forever). */
   async function openDriveWithTopic(keyHex: string, opts?: { server?: boolean }): Promise<Drive> {
-    const drive = deps.makeDrive(corestore, Buffer.from(keyHex, "hex"));
-    const topic = drive.discoveryKey;
+    const topic = Buffer.from(deps.drives.discoveryKeyOf(keyHex), "hex");
     const startedAt = Date.now();
     log("drive.open.start", { drive: short(keyHex), topic: short(topic) });
     await joinTopic(topic, opts);
-    try {
-      await Promise.race([
-        drive.ready(),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("timeout opening remote drive")),
-            deps.driveOpenTimeoutMs ?? 45_000,
-          ),
-        ),
-      ]);
-    } catch (e) {
+    const [openErr, drive] = await deps.drives.open(keyHex, {
+      timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+    });
+    if (openErr) {
       log("drive.open.timeout", {
         drive: short(keyHex),
         ms: Date.now() - startedAt,
-        err: errText(e),
+        err: errText(openErr),
         conns: swarm.connections.size,
       });
-      // A Hyperdrive holds its core exclusively: an abandoned one would make
-      // every later open of this key wait forever.
-      void Promise.resolve(drive.close?.()).catch((e2) =>
-        log("error", { where: "drive.close", drive: short(keyHex), err: errText(e2) }),
-      );
-      throw e;
+      throw openErr;
     }
     log("drive.open.ready", {
       drive: short(keyHex),
       ms: Date.now() - startedAt,
-      peers: drive.core?.peers?.length,
+      peers: drive.stats().peers,
     });
     rediscover(topic, drive);
     return drive;
   }
 
   async function readRegistryIn(drive: Drive): Promise<RegistryFile> {
-    return parseRegistry(await getText(drive, DRIVE_PATH_MEMBERS));
+    return parseRegistry(await readText(drive, DRIVE_PATH_MEMBERS));
   }
 
   async function readRemovedIn(drive: Drive): Promise<RemovedFile["removed"]> {
-    return parseRemoved(await getText(drive, DRIVE_PATH_REMOVED));
+    return parseRemoved(await readText(drive, DRIVE_PATH_REMOVED));
   }
 
   /** An album we joined is named by its Admin's `/folder.json`; until that
@@ -1130,7 +1099,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function readFolderNameIn(drive: Drive): Promise<string> {
-    return parseFolderName(await getText(drive, DRIVE_PATH_FOLDER));
+    return parseFolderName(await readText(drive, DRIVE_PATH_FOLDER));
   }
 
   function activeFolderId(): string | null {
@@ -1163,7 +1132,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const list = drive.list(DRIVE_PATH_PHOTOS);
       for await (const entry of list) {
-        keys.push((entry as { key: string }).key.slice(DRIVE_PATH_PHOTOS.length + 1));
+        keys.push(entry.path.slice(DRIVE_PATH_PHOTOS.length + 1));
       }
     } catch {
       // Drive not downloaded yet — empty.
@@ -1173,7 +1142,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** Key of the drive this device writes to in `rt` (see `selfDrive`). */
   function selfKeyOf(rt: FolderRuntime): string {
-    return hex(rt.selfDrive.key);
+    return rt.selfDrive.key;
   }
 
   /** This device's drive inside the album with `shareKey` (#195). One per
@@ -1188,12 +1157,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     let opening = selfDrives.get(ns);
     if (!opening) {
       opening = (async () => {
-        const drive = deps.makeDrive(corestore.namespace(ns));
-        await drive.ready();
+        const drive = await deps.drives.openOwn(ns);
         // Presence reads the swarm key from here, and it changes every boot.
         await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-        await joinTopic(drive.discoveryKey);
-        rediscover(drive.discoveryKey, drive);
+        await joinTopic(topicOf(drive));
+        rediscover(topicOf(drive), drive);
         return drive;
       })();
       opening.catch(() => selfDrives.delete(ns));
@@ -1232,7 +1200,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.memberDrives.delete(key);
       rt.memberNameCache.delete(key);
       try {
-        await drive.close();
+        await deps.drives.release(drive);
       } catch {
         // already closed (teardown): expected, quiet
       }
@@ -1281,8 +1249,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       try {
         const entries: DriveEntry[] = [];
         const list = d.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) entries.push(toDriveEntry(entry));
-        scans.push({ key: hex(d.key), entries });
+        for await (const entry of list) entries.push(entry);
+        scans.push({ key: d.key, entries });
       } catch (e) {
         // Unreachable drive — its entries are already indexed; skip, don't evict.
         log("error", { where: "drive.scan", drive: short(d.key), err: errText(e) });
@@ -1343,9 +1311,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // here — `loadMemberDrive` skips selfKey — so it is preserved across
     // folder switches.
     for (const drive of rt.memberDrives.values()) {
-      leaveTopic(hex(drive.discoveryKey));
+      leaveTopic(drive.discoveryKey);
       try {
-        await drive.close();
+        await deps.drives.release(drive);
       } catch {
         // already closed (teardown): expected, quiet
       }
@@ -1363,7 +1331,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
     const removed = await readRemovedIn(rt.folderDrive);
     const role = rt.record.role;
-    const creatorKey = hex(rt.folderDrive.key);
+    const creatorKey = rt.folderDrive.key;
     const selfKey = selfKeyOf(rt);
 
     // drivesToScan collects every drive whose /photos dir makes up the derived
@@ -1402,7 +1370,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       try {
         const entries: DriveEntry[] = [];
         const list = drive.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) entries.push(toDriveEntry(entry));
+        for await (const entry of list) entries.push(entry);
         scans.push({ key, entries });
       } catch (e) {
         // Drive not downloaded yet — skip.
@@ -1778,7 +1746,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ? {
             invite: {
               code: rt.record.invite.code,
-              owner: rt.record.invite.owner ?? hex(ownDrive.key),
+              owner: rt.record.invite.owner ?? ownDrive.key,
             },
           }
         : {}),
@@ -1801,7 +1769,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         },
         name: state.name,
         driveKey: "",
-        discoveryKey: hex(ownDrive.discoveryKey),
+        discoveryKey: ownDrive.discoveryKey,
         peers: swarm.connections.size,
         photos: 0,
         members: [],
@@ -1836,7 +1804,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         name: state.name,
         admin: isAdmin,
         connected: true,
-        identity: hex(ownDrive.key),
+        identity: ownDrive.key,
       },
       // A member sees the Admin too: the registry only lists enrolled writers.
       ...(!isAdmin && selfKey !== adminKey
@@ -1852,7 +1820,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       folder: toSummary(rt),
       name: state.name,
       driveKey: role === "reader" ? "" : selfKey,
-      discoveryKey: hex(ownDrive.discoveryKey),
+      discoveryKey: ownDrive.discoveryKey,
       peers: swarm.connections.size,
       photos,
       members: memberList,
@@ -1866,8 +1834,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * drive and read `/requests.json` from it. */
   async function announceOwnDriveOnTopic(drive: Drive, label: string) {
     try {
-      await joinTopic(drive.discoveryKey, { server: true });
-      rediscover(drive.discoveryKey, drive);
+      await joinTopic(topicOf(drive), { server: true });
+      rediscover(topicOf(drive), drive);
     } catch (e) {
       const message = errMsg(e);
       console.error(`[justus] failed to announce drive on ${label} topic: ${message}`);
@@ -1906,7 +1874,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         );
         return { peerKeyHex, found: [], invited: new Set() };
       }
-      const text = await getText(peerDrive, DRIVE_PATH_REQUESTS, PEER_READ);
+      const text = await readText(peerDrive, DRIVE_PATH_REQUESTS, PEER_READ);
       if (text === null) return { peerKeyHex, found: [], invited: new Set() };
       const found = parseJoinRequests(text, {
         shareKey,
@@ -1981,7 +1949,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!opening) {
       opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
         peerOutboxDrives.set(keyHex, drive);
-        onDriveChange(drive, () => {
+        drive.onChange(() => {
           announceRequestInbox();
           void deliverAnswers(keyHex).catch(answerErr("deliver"));
         });
@@ -2025,9 +1993,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       (await withTimeout(
         openPeerOutbox(identity).then(async (drive) => {
           // The file may not have replicated yet: wait for it.
-          for (;;) {
-            await drive.update?.();
-            if ((await getText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
+          while (!closed) {
+            await drive.update();
+            if ((await readText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
             await sleep(100);
           }
         }),
@@ -2045,10 +2013,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   function onPeerIdentity(key: Uint8Array, connId?: number) {
     const keyHex = hex(Buffer.from(key));
     if (!isHexKey(keyHex)) return;
-    const isNew = !peerIdentities.has(keyHex) && keyHex !== hex(ownDrive.key);
+    const isNew = !peerIdentities.has(keyHex) && keyHex !== ownDrive.key;
     log("identity.learned", { conn: connId, identity: short(keyHex), new: isNew });
     const c = connId === undefined ? undefined : conns.get(connId);
-    if (c && connId !== undefined && keyHex !== hex(ownDrive.key)) {
+    if (c && connId !== undefined && keyHex !== ownDrive.key) {
       // A greeting with no version before it comes from protocol 1.
       if (c.protocol === undefined && !c.refused) c.refused = "older";
       if (c.refused) {
@@ -2057,7 +2025,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     }
     if (c) c.identityKey = keyHex;
-    if (keyHex !== hex(ownDrive.key)) {
+    if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
@@ -2103,15 +2071,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function ownerNameOf(shareKey: string): Promise<string> {
     let drive: Drive | null = null;
     try {
-      drive = deps.makeDrive(corestore.namespace("probe"), Buffer.from(shareKey, "hex"));
-      await drive.ready();
-      const text = await withTimeout(getText(drive, DRIVE_PATH_DEVICE), 2_000);
+      const [openErr, opened] = await deps.drives.open(shareKey, { timeoutMs: 2_000 });
+      if (openErr) return DEFAULT_ASK_OWNER;
+      drive = opened;
+      const text = await withTimeout(readText(drive, DRIVE_PATH_DEVICE), 2_000);
       return text ? peerName(parseDeviceName(text), DEFAULT_ASK_OWNER) : DEFAULT_ASK_OWNER;
     } catch {
       return DEFAULT_ASK_OWNER;
     } finally {
       try {
-        await drive?.close();
+        if (drive) await deps.drives.release(drive);
       } catch {
         // already closed
       }
@@ -2119,31 +2088,38 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function rotateAlbum(record: FolderRecord): Promise<void> {
-    const legacy = record.shareKey === hex(ownDrive.key);
-    const old: Drive = legacy
-      ? ownDrive
-      : deps.makeDrive(corestore.namespace("probe"), Buffer.from(record.shareKey, "hex"));
-    const fresh: Drive = deps.makeDrive(corestore.namespace(`album/${record.id}`));
+    const legacy = record.shareKey === ownDrive.key;
+    let old: Drive | null = null;
+    let fresh: Drive | null = null;
     try {
-      await old.ready();
-      await fresh.ready();
-      await copyAlbumEntries(old, fresh);
+      if (legacy) {
+        old = ownDrive;
+      } else {
+        const [openErr, opened] = await deps.drives.open(record.shareKey, {
+          timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+        });
+        if (openErr) throw openErr;
+        old = opened;
+      }
+      const target = await deps.drives.openOwn(`album/${record.id}`);
+      fresh = target;
+      await copyAlbumEntries(old, target);
       const registry = await readRegistryIn(old);
       const earlier = Object.values(registry.members)
-        .filter((m) => m.key !== hex(fresh.key))
+        .filter((m) => m.key !== target.key)
         .map((m) => ({ key: m.key, name: m.name }));
       const keys = new Set(earlier.map((e) => e.key));
       const removed = Object.fromEntries(
         Object.entries(await readRemovedIn(old)).filter(([id]) => keys.has(id.split(":")[0])),
       );
-      await fresh.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-      await fresh.put(
+      await target.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+      await target.put(
         DRIVE_PATH_FOLDER,
         Buffer.from(JSON.stringify({ version: 1, name: record.name })),
       );
-      await fresh.put(DRIVE_PATH_REMOVED, Buffer.from(JSON.stringify({ version: 1, removed })));
-      record.shareKey = hex(fresh.key);
-      record.driveKey = hex(fresh.key);
+      await target.put(DRIVE_PATH_REMOVED, Buffer.from(JSON.stringify({ version: 1, removed })));
+      record.shareKey = target.key;
+      record.driveKey = target.key;
       record.invite = { code: newInviteCode() };
       delete record.answers;
       record.earlier = earlier;
@@ -2151,12 +2127,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       record.rotatedAt = Date.now();
     } finally {
       try {
-        if (!legacy) await old.close();
+        if (old && !legacy) await deps.drives.release(old);
       } catch {
         // already closed
       }
       try {
-        await fresh.close();
+        if (fresh) await deps.drives.release(fresh);
       } catch {
         // already closed
       }
@@ -2164,10 +2140,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function setup(): Promise<void> {
-    await corestore.ready();
+    await deps.drives.ready();
     if (tooNew) return;
-    ownDrive = deps.makeDrive(corestore);
-    await ownDrive.ready();
+    ownDrive = await deps.drives.openOwn();
     await ensureOwnDriveIdentity();
     await migrateFromV1();
 
@@ -2195,7 +2170,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("conn.close", { conn: connId, noise: short(noiseKey), ms: Date.now() - openedAt });
       });
       try {
-        corestore.replicate(conn);
+        deps.replicate(conn);
       } catch (e) {
         const message = errMsg(e);
         console.error(`[justus] replicate failed: ${message}`);
@@ -2210,7 +2185,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         console.error(`[justus] version channel failed: ${errMsg(e)}`);
       }
       try {
-        (deps.greetPeer ?? greetPeer)(conn, ownDrive.key, (key) => onPeerIdentity(key, connId));
+        (deps.greetPeer ?? greetPeer)(conn, Buffer.from(ownDrive.key, "hex"), (key) =>
+          onPeerIdentity(key, connId),
+        );
       } catch (e) {
         console.error(`[justus] identity greeting failed: ${errMsg(e)}`);
       }
@@ -2224,8 +2201,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         console.error(`[justus] answer channel failed: ${errMsg(e)}`);
       }
     });
-    await joinTopic(ownDrive.discoveryKey);
-    rediscover(ownDrive.discoveryKey, ownDrive);
+    await joinTopic(topicOf(ownDrive));
+    rediscover(topicOf(ownDrive), ownDrive);
 
     // Reopen every persisted folder so their drives stay warm.
     for (const record of state.folders) {
@@ -2240,14 +2217,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // so invitees can find it. An album created before #195 *is* the device
         // identity drive; a second Hyperdrive on the same key never becomes
         // ready, so reuse the open one.
-        if (record.shareKey === hex(ownDrive.key)) {
+        if (record.shareKey === ownDrive.key) {
           fd = ownDrive;
         } else {
-          fd = deps.makeDrive(corestore, Buffer.from(record.shareKey, "hex"));
-          await fd.ready();
+          const [openErr, opened] = await deps.drives.open(record.shareKey, {
+            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+          });
+          if (openErr) throw openErr;
+          fd = opened;
         }
-        await joinTopic(fd.discoveryKey, { server: true });
-        rediscover(fd.discoveryKey, fd);
+        await joinTopic(topicOf(fd), { server: true });
+        rediscover(topicOf(fd), fd);
         if (!record.invite) {
           record.invite = { code: newInviteCode() };
           saveState();
@@ -2257,7 +2237,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
-      const selfKey = hex(selfDrive.key);
+      const selfKey = selfDrive.key;
       const enrolled = !isCreator && !record.moved && isEnrolled(await readRegistryIn(fd), selfKey);
       const role: Role = isCreator ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
@@ -2284,7 +2264,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
       }
       await refreshMembersFor(rt);
-      watchDrive(fd, record.id, hex(fd.key), isCreator ? "enroll" : "add");
+      watchDrive(fd, record.id, fd.key, isCreator ? "enroll" : "add");
     }
     // Asks still waiting go back on their topic; an accepted one retries its join.
     for (const ask of state.asks) {
@@ -2315,10 +2295,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * drive of its own, and makes it active. */
   async function startFolder(name: string): Promise<FolderRuntime> {
     const folderId = newId(deps.crypto);
-    // A keyless drive is its corestore's default core, so it needs its own
-    // namespace: on the root corestore it would be the device's own drive.
-    const newDrive = deps.makeDrive(corestore.namespace(`folder/${folderId}`));
-    await newDrive.ready();
+    // The album gets a namespace of its own: without one, `openOwn()` is the
+    // device's own identity drive.
+    const newDrive = await deps.drives.openOwn(`folder/${folderId}`);
     await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
     await newDrive.put(DRIVE_PATH_FOLDER, Buffer.from(JSON.stringify({ version: 1, name })));
 
@@ -2327,8 +2306,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         id: folderId,
         name,
         role: "creator",
-        shareKey: hex(newDrive.key),
-        driveKey: hex(newDrive.key),
+        shareKey: newDrive.key,
+        driveKey: newDrive.key,
         createdAt: Date.now(),
         invite: { code: newInviteCode() },
       },
@@ -2343,10 +2322,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     state.folders.push(rt.record);
     state.activeFolderId = folderId;
     saveState();
-    await joinTopic(newDrive.discoveryKey, { server: true });
-    rediscover(newDrive.discoveryKey, newDrive);
+    await joinTopic(topicOf(newDrive), { server: true });
+    rediscover(topicOf(newDrive), newDrive);
     serveInvite(rt.record.invite!.code);
-    watchDrive(newDrive, folderId, hex(newDrive.key), "enroll");
+    watchDrive(newDrive, folderId, newDrive.key, "enroll");
     if (deps.seedOnEmpty) await seedSamplePhotos(newDrive);
     return rt;
   }
@@ -2356,7 +2335,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * of a pre-#195 album can read (its share key *is* the identity drive key),
    * so a stale entry hands them read access to another album. */
   async function pruneJoinRequests(): Promise<void> {
-    const text = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+    const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
     if (!text) return;
     const file = parseRequestsFile(text);
     const entries = file?.requests ?? {};
@@ -2388,7 +2367,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * that outbox on the album's topic so the Admin (`requests()`) can read it. */
   async function fileJoinRequest(rt: FolderRuntime, folderName: string) {
     rt.record.pending = true;
-    const existingText = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+    const existingText = await readText(ownDrive, DRIVE_PATH_REQUESTS);
     const requests: RequestsFile = (existingText && parseRequestsFile(existingText)) || {
       version: 1,
       requests: {},
@@ -2461,10 +2440,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const drive = await openSelfDriveIn(`ask/${code}`);
       const askedAt = Date.now();
-      const text = await getText(ownDrive, DRIVE_PATH_REQUESTS);
+      const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
       const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
       file.requests[`invite:${code}`] = {
-        requesterKey: hex(drive.key),
+        requesterKey: drive.key,
         requesterName: state.name,
         invite: code,
         requestedAt: askedAt,
@@ -2523,12 +2502,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const c = conns.get(connId);
       if (!c || closed) return undefined;
       if (c.verified) return c.identityKey;
-      if (c.identityKey && c.noiseKey && c.identityKey !== hex(ownDrive.key)) {
+      if (c.identityKey && c.noiseKey && c.identityKey !== ownDrive.key) {
         try {
           const drive = await openPeerOutbox(c.identityKey);
           // `update()` first: the local copy may hold the key of the peer's last boot.
-          await withTimeout(Promise.resolve(drive.update?.()), 2_000);
-          const text = await withTimeout(getText(drive, DRIVE_PATH_DEVICE), 5_000);
+          await withTimeout(drive.update(), 2_000);
+          const text = await withTimeout(readText(drive, DRIVE_PATH_DEVICE), 5_000);
           if (text && parseDeviceSwarmKey(text) === c.noiseKey) {
             c.verified = true;
             return c.identityKey;
@@ -2649,7 +2628,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ): Promise<EitherResult<SyncStatus>> {
     if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
     if (
-      key === hex(ownDrive.key) ||
+      key === ownDrive.key ||
       state.folders.some((f) => f.role === "creator" && f.shareKey === key)
     )
       return err(PhotoError.INVALID_KEY, "You already own this album");
@@ -2667,7 +2646,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         try {
           const fd = await openDriveWithTopic(key, { server: false });
           const selfDrive = await openSelfDrive(key, existing.selfNs);
-          const selfKey = hex(selfDrive.key);
+          const selfKey = selfDrive.key;
           const enrolled = isEnrolled(await readRegistryIn(fd), selfKey);
           const role: Role = enrolled ? "member" : "reader";
           rt = {
@@ -2686,7 +2665,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           };
           runtimes.set(existing.id, rt);
           await refreshMembersFor(rt);
-          watchDrive(fd, rt.record.id, hex(fd.key), "add");
+          watchDrive(fd, rt.record.id, fd.key, "add");
           // The Admin's drive may have replicated in while we joined, before the
           // watcher existed: catch up on its name now.
           void refreshAlbumName(rt).catch(nameErr(rt));
@@ -2726,7 +2705,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // The drive this device will add photos to in this album, and the key the
     // Admin enrolls (#195).
     const selfDrive = await openSelfDrive(key, via?.selfNs);
-    const selfKey = hex(selfDrive.key);
+    const selfKey = selfDrive.key;
     const enrolled = isEnrolled(registry, selfKey);
     const role: Role = enrolled ? "member" : "reader";
     const folderId = newId(deps.crypto);
@@ -2765,7 +2744,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // Watch the folder (creator) drive so replication updates — including
       // the creator's approval that flips this device reader → member — reach
       // this store in-session (issue #52).
-      watchDrive(drive, folderId, hex(drive.key), "add");
+      watchDrive(drive, folderId, drive.key, "add");
       // The Admin's drive may have replicated in while we joined, before the
       // watcher existed: catch up on its name now.
       void refreshAlbumName(rt).catch(nameErr(rt));
@@ -2778,7 +2757,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     state.activeFolderId = folderId;
     saveState();
     await refreshMembersFor(rt);
-    watchDrive(drive, folderId, hex(drive.key), "add");
+    watchDrive(drive, folderId, drive.key, "add");
     // The Admin's drive may have replicated in while we joined, before the
     // watcher existed: catch up on its name now.
     void refreshAlbumName(rt).catch(nameErr(rt));
@@ -2789,7 +2768,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const store: PhotoStore = {
     async ready() {
       if (readyPromise) return readyPromise;
-      // A transient `setup()` failure (e.g. a flaky corestore/swarm) must not
+      // A transient `setup()` failure (e.g. a flaky drive store or swarm) must not
       // permanently poison the store: clear the memoized promise on rejection so
       // the next `ready()` re-runs setup instead of re-throwing the same stale
       // error forever (issue #98).
@@ -2929,7 +2908,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can enroll members");
       if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Drive key must be a 64-char hex key");
-      if (key === hex(rt.folderDrive.key))
+      if (key === rt.folderDrive.key)
         return err(PhotoError.INVALID_KEY, "You cannot enroll yourself");
       const registry = await readRegistryIn(rt.folderDrive);
       if (registry.members[key]) {
@@ -3140,14 +3119,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     debugState() {
       const driveInfo = (drive: Drive) => ({
-        key: hex(drive.key),
-        length: drive.core?.length ?? null,
-        peers: Array.isArray(drive.core?.peers) ? drive.core.peers.length : null,
+        key: drive.key,
+        ...drive.stats(),
       });
       return {
         now: Date.now(),
         swarmKey: ownSwarmKey() ?? null,
-        identityDrive: ownDrive ? hex(ownDrive.key) : null,
+        identityDrive: ownDrive ? ownDrive.key : null,
         swarmConnections: swarm.connections.size,
         connections: [...conns].map(([conn, c]) => ({
           conn,
@@ -3218,7 +3196,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // already closed
       }
       try {
-        await corestore.close();
+        await deps.drives.close();
       } catch {
         // already closed
       }

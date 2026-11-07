@@ -23,6 +23,7 @@
     "bare-pipe": "^4.4.0",
     "compact-encoding": "^3.3.0",
     "corestore": "7.12.0",
+    "hypercore": "11.35.1",
     "hyperdrive": "13.3.3",
     "hyperswarm": "4.17.0",
     "protomux": "3.11.0"

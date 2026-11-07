@@ -60,6 +60,7 @@ export async function bareNet(root: string): Promise<Net> {
     fs.mkdirSync(cacheDir, { recursive: true });
     const changes: PhotoChanged[] = [];
     const events: P2pEvent[] = [];
+    const drives = createHyperDriveStore(path.join(dir, "corestore"));
     const store = createPhotoStore({
       storageDir: dir,
       cacheDir,
@@ -72,8 +73,8 @@ export async function bareNet(root: string): Promise<Net> {
       fs,
       path,
       crypto,
-      makeCorestore: (d) => new Corestore(d),
-      makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
+      drives,
+      replicate: (conn) => drives.replicate(conn),
       makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap as never }),
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),

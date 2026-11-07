@@ -47,6 +47,6 @@ try {
 } finally {
   if (child && child.exitCode === null) child.kill("SIGKILL");
   rmSync(scratch, { recursive: true, force: true });
-  rmSync(bundle, { force: true });
+  if (!process.env.KEEP_BUNDLE) rmSync(bundle, { force: true });
 }
 process.exit(exitCode);

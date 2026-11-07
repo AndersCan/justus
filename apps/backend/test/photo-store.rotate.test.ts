@@ -11,17 +11,39 @@ import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { copyAlbumEntries } from "../src/rotate-album.ts";
+import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 
 function realDeps(storageDir: string) {
   const cacheDir = join(storageDir, "cache");
   mkdirSync(cacheDir, { recursive: true });
+  const drives = createHyperDriveStore(join(storageDir, "corestore"));
   return makeFakeDeps({
     storageDir,
     cacheDir,
-    makeCorestore: (dir) => new Corestore(dir),
-    makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
+    drives,
+    replicate: (conn) => drives.replicate(conn),
   });
+}
+
+/** Deps whose own drives fail the `nth` photo write, counted across all of them. */
+function failingPut(deps: ReturnType<typeof realDeps>, nth: number) {
+  let puts = 0;
+  return {
+    ...deps,
+    drives: {
+      ...deps.drives,
+      async openOwn(namespace?: string) {
+        const d = await deps.drives.openOwn(namespace);
+        const put = d.put.bind(d);
+        d.put = async (...a: Parameters<typeof put>) => {
+          if (a[0].startsWith("/photos/") && ++puts === nth) throw new Error("disk full");
+          return put(...a);
+        };
+        return d;
+      },
+    },
+  };
 }
 
 const bytes = (s: string) => Buffer.from(s);
@@ -232,21 +254,7 @@ describe("saved state 1 → 2", () => {
     const dir = makeTmpDir("justus-rotate-");
     const { albumKey } = await seedV1(dir);
     const deps = realDeps(dir);
-    let puts = 0;
-    const flaky = {
-      ...deps,
-      makeDrive: (cs: unknown, key?: Buffer) => {
-        const d = new Hyperdrive(cs as never, key);
-        if (key) return d;
-        const put = d.put.bind(d);
-        d.put = (async (...a: Parameters<typeof put>) => {
-          if (String(a[0]).startsWith("/photos/") && ++puts === 2) throw new Error("disk full");
-          return put(...a);
-        }) as typeof d.put;
-        return d;
-      },
-    };
-    const broken = createPhotoStore(flaky);
+    const broken = createPhotoStore(failingPut(deps, 2));
     await broken.ready();
     await broken.close();
     const mid = readState(dir);
@@ -290,21 +298,7 @@ describe("more rotation cases", () => {
     const dir = makeTmpDir("justus-rotate-");
     const { albumKey } = await seedV1(dir, { extraCreator: true });
     const deps = realDeps(dir);
-    let puts = 0;
-    const flaky = {
-      ...deps,
-      makeDrive: (cs: unknown, key?: Buffer) => {
-        const d = new Hyperdrive(cs as never, key);
-        if (key) return d;
-        const put = d.put.bind(d);
-        d.put = (async (...a: Parameters<typeof put>) => {
-          if (String(a[0]).startsWith("/photos/") && ++puts === 4) throw new Error("disk full");
-          return put(...a);
-        }) as typeof d.put;
-        return d;
-      },
-    };
-    const broken = createPhotoStore(flaky);
+    const broken = createPhotoStore(failingPut(deps, 4));
     await broken.ready();
     await broken.close();
     const mid = readState(dir);
@@ -362,16 +356,10 @@ describe("more rotation cases", () => {
 describe("copyAlbumEntries", () => {
   async function pair() {
     const dir = makeTmpDir("justus-rotate-");
-    const cs = new Corestore(dir);
-    const from = new Hyperdrive(cs.namespace("a"));
-    const to = new Hyperdrive(cs.namespace("b"));
-    await Promise.all([from.ready(), to.ready()]);
-    const close = async () => {
-      await from.close();
-      await to.close();
-      await cs.close();
-    };
-    return { from, to, close };
+    const store = createHyperDriveStore(dir);
+    const from = await store.openOwn("a");
+    const to = await store.openOwn("b");
+    return { from, to, close: () => store.close() };
   }
   const withHash = (name: string, sha256: string) => ({ ...meta(name), sha256 });
 
@@ -387,23 +375,18 @@ describe("copyAlbumEntries", () => {
     const { from, to, close } = await pair();
     await from.put("/photos/p1.jpg", bytes("one"), { metadata: withHash("p1.jpg", "aa") });
     await to.put("/photos/p1.jpg", bytes("one"), { metadata: withHash("p1.jpg", "aa") });
-    const length = to.core.length;
+    const length = to.stats().length;
     await expect(copyAlbumEntries(from, to)).resolves.toEqual({ photos: 1, thumbs: 0 });
-    expect(to.core.length).toBe(length);
+    expect(to.stats().length).toBe(length);
     await close();
   });
 
   it("reports a copy that is not complete", async () => {
-    const dir = makeTmpDir("justus-rotate-");
-    const cs = new Corestore(dir);
-    const from = new Hyperdrive(cs.namespace("a"));
-    const to = new Hyperdrive(cs.namespace("b"));
+    const { from, to, close } = await pair();
     await putPhoto(from, "p1", "one", true);
     await putPhoto(from, "p2", "two", false);
-    to.put = (async () => undefined) as typeof to.put;
+    to.put = async () => undefined;
     await expect(copyAlbumEntries(from, to)).rejects.toThrow(/copy incomplete 2 of 2/);
-    await from.close();
-    await to.close();
-    await cs.close();
+    await close();
   });
 });

@@ -6,6 +6,11 @@ declare module "corestore" {
   export default Corestore;
 }
 
+declare module "hypercore" {
+  const Hypercore: any;
+  export default Hypercore;
+}
+
 declare module "hyperdrive" {
   const Hyperdrive: any;
   export default Hyperdrive;

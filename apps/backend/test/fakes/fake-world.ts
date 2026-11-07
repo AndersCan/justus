@@ -197,6 +197,9 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       unsubscribers.add(unsubscribe);
       return unsubscribe;
     },
+    async update() {
+      assertOpen();
+    },
     stats() {
       assertOpen();
       if (!node.connected) return { length: replica.length, peers: 0 };
@@ -248,6 +251,7 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
     async ready() {
       assertOpen();
     },
+    discoveryKeyOf: (key) => sha256Hex(`disc:${key}`),
     async openOwn(namespace = "") {
       assertOpen();
       let key = node.ownKeys.get(namespace);

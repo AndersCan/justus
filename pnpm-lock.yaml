@@ -327,6 +327,9 @@ importers:
       corestore:
         specifier: 7.12.0
         version: 7.12.0(bare-buffer@3.7.0)(bare-url@2.5.2)
+      hypercore:
+        specifier: 11.35.1
+        version: 11.35.1(bare-buffer@3.7.0)(bare-url@2.5.2)
       hyperdrive:
         specifier: 13.3.3
         version: 13.3.3(bare-buffer@3.7.0)(bare-url@2.5.2)
