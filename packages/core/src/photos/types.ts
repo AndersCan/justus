@@ -47,6 +47,9 @@ export type SyncMember = {
   connected: boolean;
   /** Last time the member was reachable (ms epoch); unset if never seen. */
   lastSeenAt?: number;
+  /** The member's identity drive key: the same in every album. Unset until their
+   * `/device.json` names it (older apps never do). */
+  identity?: string;
 };
 
 /** A call A device's view of one folder it belongs to. A device can hold many
