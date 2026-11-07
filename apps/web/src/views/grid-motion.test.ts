@@ -9,7 +9,7 @@ const viewport = { width: 400, height: 800 };
 const row = (keys: string[]) => new Map(keys.map((k, i) => [k, box(i * 100, 0)]));
 
 describe("planMotion", () => {
-  test("a photo added at the top fades in and the tiles after it slide over", () => {
+  test("fades in a photo added at the top and slides the tiles after it over", () => {
     expect(planMotion({ first: row(["a", "b"]), last: row(["n", "a", "b"]), viewport })).toEqual({
       moves: [
         { key: "a", dx: -100, dy: 0 },
@@ -21,7 +21,7 @@ describe("planMotion", () => {
     });
   });
 
-  test("a removed photo fades out where it was and the rest close the gap after it", () => {
+  test("fades a removed photo out in place and closes the gap after the fade", () => {
     expect(planMotion({ first: row(["a", "b", "c"]), last: row(["a", "c"]), viewport })).toEqual({
       moves: [{ key: "c", dx: 100, dy: 0 }],
       enters: [],
@@ -30,7 +30,7 @@ describe("planMotion", () => {
     });
   });
 
-  test("tiles that kept their place are left alone", () => {
+  test("leaves tiles that kept their place alone", () => {
     expect(planMotion({ first: row(["a", "b"]), last: row(["a", "b"]), viewport })).toEqual({
       moves: [],
       enters: [],
@@ -39,7 +39,7 @@ describe("planMotion", () => {
     });
   });
 
-  test("tiles off screen are not animated", () => {
+  test("skips tiles that are off screen", () => {
     const far = new Map([["z", box(0, 5000)]]);
     expect(planMotion({ first: new Map(), last: far, viewport }).enters).toEqual([]);
   });
@@ -99,19 +99,20 @@ function mount(keys: string[]) {
 const keyOf = (c: Call) => (c.el as HTMLElement).dataset.photoKey;
 
 describe("gridMotion", () => {
-  test("the first render of an album animates nothing", async () => {
+  test("animates nothing on the first render of an album", async () => {
     mount(["a", "b"]);
     await Promise.resolve();
     expect(calls).toEqual([]);
   });
 
-  test("removing a tile fades that same element out in place and slides the next tiles after the fade", async () => {
+  test("fades the removed element out in place and slides the next tiles after the fade", async () => {
     const { tile, again } = mount(["a", "b", "c"]);
     const b = tile("b");
     const c = tile("c");
     await again(["a", "c"]);
     const fade = calls.find((x) => x.el === b)!;
     expect(fade.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    expect(fade.options).toEqual({ duration: 150, easing: "linear", fill: "forwards" });
     expect(b.parentElement).toBe(document.body);
     expect(b.style.left).toBe("100px");
     expect(b.hasAttribute("inert")).toBe(true);
@@ -120,29 +121,40 @@ describe("gridMotion", () => {
       { transform: "translate(100px, 0px)" },
       { transform: "none" },
     ]);
-    expect(slide.options.delay).toBe(150);
+    expect(slide.options).toEqual({
+      delay: 150,
+      fill: "backwards",
+      easing: "cubic-bezier(.22,1,.36,1)",
+      duration: 250,
+    });
     expect(calls).toHaveLength(2);
     await Promise.resolve();
     await Promise.resolve();
     expect(b.isConnected).toBe(false);
   });
 
-  test("adding a photo fades in only the new tile", async () => {
+  test("fades in only the new tile when a photo is added", async () => {
     const { tile, again } = mount(["a", "b"]);
     await again(["a", "b", "n"]);
     expect(calls.map(keyOf)).toEqual(["n"]);
     expect(calls[0]!.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    expect(calls[0]!.options).toEqual({
+      delay: 0,
+      fill: "backwards",
+      easing: "cubic-bezier(.22,1,.36,1)",
+      duration: 200,
+    });
     expect(tile("n")).toBe(calls[0]!.el);
   });
 
-  test("changing album, sort or density animates nothing", async () => {
+  test("animates nothing when the album, sort or density changes", async () => {
     const { again } = mount(["a", "b"]);
     await again(["b", "n"], "other-album");
     await again(["n", "b"], "other-sort");
     expect(calls).toEqual([]);
   });
 
-  test("with reduced motion nothing animates and the tiles stay the same elements", async () => {
+  test("animates nothing with reduced motion and keeps the same elements", async () => {
     reduced = true;
     const { tile, again } = mount(["a", "b", "c"]);
     const a = tile("a");
@@ -153,11 +165,74 @@ describe("gridMotion", () => {
     expect(tile("c")).toBe(c);
   });
 
-  test("a change mid-animation settles running tile animations before measuring", async () => {
+  test("settles running tile animations before measuring a mid-animation change", async () => {
     const { again } = mount(["a", "b"]);
     const anim = { finish: vi.fn() };
     running = [anim];
     await again(["a", "b", "n"]);
     expect(anim.finish).toHaveBeenCalled();
+  });
+
+  test("animates nothing when the same keys are rendered again", async () => {
+    const { again } = mount(["a", "b"]);
+    const measure = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    await again(["a", "b"]);
+    expect(measure).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
+  test("treats a re-created element for the same key as an enter, not a move", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const grid = (keys: string[], tag: string) =>
+      html`<div ${gridMotion({ keys, settle: "album" })}>
+        <div class="grid">
+          ${keys.map((k) =>
+            tag === "figure"
+              ? html`<figure data-photo-key=${k}></figure>`
+              : html`<article data-photo-key=${k}></article>`,
+          )}
+        </div>
+      </div>`;
+    render(grid(["x", "a"], "figure"), host);
+    render(grid(["a"], "article"), host);
+    await Promise.resolve();
+    expect(calls.map(keyOf).sort()).toEqual(["a", "x"]);
+    expect(calls.find((c) => keyOf(c) === "a")?.keyframes).toEqual([
+      { opacity: 0 },
+      { opacity: 1 },
+    ]);
+  });
+
+  test("animates once when two changes land in one tick", async () => {
+    const { host } = mount(["a", "b"]);
+    render(view(["a", "b", "n"]), host);
+    render(view(["a", "b", "n", "m"]), host);
+    await Promise.resolve();
+    expect(calls.map(keyOf)).toEqual(["n", "m"]);
+  });
+
+  test("animates nothing after the grid disconnects and reconnects", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = render(view(["a", "b"]), host);
+    root.setConnected(false);
+    root.setConnected(true);
+    render(view(["a", "b", "n"]), host);
+    await Promise.resolve();
+    expect(calls).toEqual([]);
+  });
+
+  test("drops a removed tile that is off screen without a ghost", async () => {
+    const keys = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const { tile, again } = mount(keys);
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const index = this.parentElement ? [...this.parentElement.children].indexOf(this) : 0;
+      return { left: 0, top: index * 1000, width: 100, height: 100 } as any;
+    };
+    const far = tile("j");
+    await again(keys.slice(0, 9));
+    expect(calls.map(keyOf)).not.toContain("j");
+    expect(far.isConnected).toBe(false);
   });
 });

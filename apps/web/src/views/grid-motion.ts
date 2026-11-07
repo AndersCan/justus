@@ -97,9 +97,7 @@ class GridMotion extends AsyncDirective {
     }
     if (signature === this.#signature) return noChange;
     this.#signature = signature;
-    if (this.#pending || reducedMotion() || typeof part.element.animate !== "function") {
-      return noChange;
-    }
+    if (this.#pending || reducedMotion()) return noChange;
     const root = part.element;
     // A change can land mid-animation: settle running tile animations so
     // positions are read at rest.
