@@ -13,7 +13,7 @@ const record = (peerId: string, over: Record<string, unknown> = {}) =>
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
 const act = (peerId: string, kind: "grant" | "decline" | "snooze" | "revoke") =>
-  ({ type: "ACT", payload: { peerId, kind } }) as never;
+  ({ type: "SHARE_CHOICE_MADE", payload: { peerId, kind } }) as never;
 
 type Reply = () => Promise<[unknown, unknown]>;
 
@@ -80,7 +80,7 @@ describe("grants machine factory", () => {
     expect(grantsViewModel(actor.snapshot()).settled).toBe(true);
   });
 
-  test("from couldNotSaveShareChoice, ACT saves again and REFRESH reloads", async () => {
+  test("from couldNotSaveShareChoice, SHARE_CHOICE_MADE saves again and REFRESH reloads", async () => {
     const { actor } = setup({ act: async () => [new Error("disk full"), null] });
     actor.send(refresh());
     await actor.settled();
