@@ -215,8 +215,8 @@ catalogs:
       specifier: ^0.6.0
       version: 0.6.0
     '@mantaq/inspect':
-      specifier: ^0.6.0
-      version: 0.6.0
+      specifier: ^0.6.1
+      version: 0.6.1
     '@mantaq/lit':
       specifier: ^0.1.0
       version: 0.1.0
@@ -227,8 +227,8 @@ catalogs:
       specifier: ^0.0.5
       version: 0.0.5
     '@mantaq/viz':
-      specifier: ^0.5.0
-      version: 0.5.0
+      specifier: ^0.6.0
+      version: 0.6.0
     '@playwright/test':
       specifier: ^1.62.1
       version: 1.62.1
@@ -269,10 +269,10 @@ importers:
         version: 0.42.9(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(typescript@7.0.2)
       '@mantaq/inspect':
         specifier: 'catalog:'
-        version: 0.6.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)
+        version: 0.6.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)
       '@mantaq/viz':
         specifier: 'catalog:'
-        version: 0.5.0
+        version: 0.6.0
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.62.1
@@ -342,7 +342,7 @@ importers:
     devDependencies:
       '@mantaq/inspect':
         specifier: 'catalog:'
-        version: 0.6.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4))
+        version: 0.6.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4))
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -411,7 +411,7 @@ importers:
     devDependencies:
       '@mantaq/inspect':
         specifier: 'catalog:'
-        version: 0.6.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)
+        version: 0.6.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)
       happy-dom:
         specifier: 'catalog:'
         version: 21.0.4
@@ -1046,8 +1046,8 @@ packages:
   '@mantaq/core@0.6.0':
     resolution: {integrity: sha512-BQ+MYzZwgzPzyFaXD5VtrUfnwnjhr342des0GjNweLEOTJDNqwG1Y2ajlzcelOgIi6kY0A+Lq5A6CrPz079PCQ==}
 
-  '@mantaq/inspect@0.6.0':
-    resolution: {integrity: sha512-OfXvzRIPPlcOzD6xFEtVoicamn4owjFR1hV9ULr5gDbvcPKnT4+v9CstOP+tjiCYNyf+JSDmPmiYX2RHk9SApg==}
+  '@mantaq/inspect@0.6.1':
+    resolution: {integrity: sha512-jZTd80HnkG5VTUdLiSfbM6RuGs5g50MtRSYPbmKp8+s1ZGwBvGhUcRJGb+BE0e4QXml5Opd3kw7jga5J/UMTZg==}
     peerDependencies:
       astro: ^7.0.0
       vite: '*'
@@ -1079,8 +1079,8 @@ packages:
   '@mantaq/utils@0.0.5':
     resolution: {integrity: sha512-Ih3spOq5tD0PGE7sTxkdLnrRAFTrGRTjPJwm0Jrt8rVb2397Jh+6RKGr7NILhF7EwtMg0T8r6qV6Inhup/BPLA==}
 
-  '@mantaq/viz@0.5.0':
-    resolution: {integrity: sha512-Pwzg/pM3IuDL1XU6kuglZvKPGTTr0/syKxWxofPJWkePOBsc5v4Md4tAT2dbUET0xaMFqVpHLNhhxDiziqyqjQ==}
+  '@mantaq/viz@0.6.0':
+    resolution: {integrity: sha512-UHCY6Nqlhf4ZW/o0SQu2lBRLjHqDlE09tl44APVrJCktdNH67LPWuhXwvKy6Y4MjTtdBv9CViyK0sbDcWxqDYw==}
 
   '@nanostores/router@1.1.0':
     resolution: {integrity: sha512-C0PyfI/4R+d6w53SBFiYzGWowsMZgVeC/7lox59g3KzhcpgvgCheYA0DlBH46z5BdgBZ3qLIlNIttGs9Kl9Wzg==}
@@ -4683,26 +4683,26 @@ snapshots:
     dependencies:
       '@mantaq/utils': 0.0.5
 
-  '@mantaq/inspect@0.6.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4))':
+  '@mantaq/inspect@0.6.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4))':
     dependencies:
       '@mantaq/core': 0.6.0
       '@mantaq/pbt': 0.0.4
       '@mantaq/traversal': 0.3.5
       '@mantaq/utils': 0.0.5
-      '@mantaq/viz': 0.5.0
+      '@mantaq/viz': 0.6.0
       typescript: 6.0.3
       vite: '@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
     optionalDependencies:
       astro: 7.4.6(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
       vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4)
 
-  '@mantaq/inspect@0.6.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)':
+  '@mantaq/inspect@0.6.1(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)':
     dependencies:
       '@mantaq/core': 0.6.0
       '@mantaq/pbt': 0.0.4
       '@mantaq/traversal': 0.3.5
       '@mantaq/utils': 0.0.5
-      '@mantaq/viz': 0.5.0
+      '@mantaq/viz': 0.6.0
       typescript: 6.0.3
       vite: '@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
     optionalDependencies:
@@ -4732,7 +4732,7 @@ snapshots:
 
   '@mantaq/utils@0.0.5': {}
 
-  '@mantaq/viz@0.5.0':
+  '@mantaq/viz@0.6.0':
     dependencies:
       '@dagrejs/dagre': 3.1.3
       '@mantaq/utils': 0.0.5

@@ -102,7 +102,8 @@ for (const [, text, href] of walkLinks) {
     fail(`machine ${machineId} on ${page} has no run with this name`);
   }
   const run = url.searchParams.get("run");
-  if (run !== null && run !== text) fail(`run "${run}" differs from the link text`);
+  if (run === null) fail("the link has no run");
+  else if (run !== text) fail(`run "${run}" differs from the link text`);
 }
 if (walkLinks.length === 0) {
   console.error("check-flows-site: no walk links found under the Walks heading");
@@ -181,6 +182,65 @@ for (const name of pages) {
     failed = true;
   }
   await page.close();
+}
+// The state each walk is told to end in. Written by hand, so the check does not
+// trust the viewer or the recorded run to say where the cursor should land.
+const WALK_ENDS = {
+  "Maya: asks and is accepted": "joined",
+  "Maya: asks and is declined": "declined",
+  "Maya: reopens her ask while waiting": "waitingForAnswer",
+  "Maya: reopens her ask after a decline": "declined",
+  "Maya: opens a link from before the new key": "unusableLink",
+  "Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one":
+    "expired",
+  "Nils: accepts Maya as Collaborator": "joined",
+  "Nils: declines the request": "declined",
+  "Nils's link: a 7 day link, then the week is over": "expired",
+  "Nils's link: a stranger is in the chat, so he cancels": "cancelled",
+  "Nils: accepts a guest as Collaborator": "joined",
+  "Nils's link: a 1 hour link for the family expires": "expired",
+  "Nils: accepts a relative as Viewer, later makes her a Collaborator": "joined",
+};
+for (const [, text, href] of walkLinks) {
+  const url = new URL(href);
+  const machineId = url.searchParams.get("machine");
+  const page = url.pathname.slice(new URL(SITE).pathname.length).replace(/\/$/, "");
+  const end = WALK_ENDS[text];
+  if (end === undefined) {
+    console.error(`check-flows-site: walk "${text}": no expected end state in WALK_ENDS`);
+    failed = true;
+    continue;
+  }
+  const tab = await browser.newPage();
+  await tab.goto(`${origin}${url.pathname}${url.search}`);
+  const reason = await (async () => {
+    try {
+      await tab.waitForSelector(".mantaq-machine .explore", { timeout: 10_000 });
+    } catch {
+      return "the page did not show a machine";
+    }
+    const roots = tab.locator(".mantaq-machine");
+    const index = await roots.evaluateAll(
+      (nodes, id) =>
+        nodes.findIndex((node) =>
+          JSON.parse(node.dataset.mantaqViz ?? '{"machines":[]}').machines.some(
+            (machine) => machine.id === id,
+          ),
+        ),
+      machineId,
+    );
+    if (index < 0) return `no viewer holds machine ${machineId}`;
+    const root = roots.nth(index);
+    if ((await root.locator("[data-run-missing]").count()) > 0)
+      return "the page says the run is missing";
+    const current = await root.locator(".explore").first().getAttribute("data-current");
+    return current === end ? null : `the cursor is on "${current}", the run ends in "${end}"`;
+  })();
+  if (reason !== null) {
+    console.error(`check-flows-site: walk "${text}": ${reason}`);
+    failed = true;
+  }
+  await tab.close();
 }
 await browser.close();
 server.close();
