@@ -9,6 +9,7 @@ const mock = gateway as any;
 vi.mock("../gateway", () => ({
   gateway: {
     removeMember: vi.fn(),
+    makeMember: vi.fn(),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     respond: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
@@ -16,6 +17,7 @@ vi.mock("../gateway", () => ({
 }));
 
 beforeEach(() => {
+  mock.makeMember.mockReset().mockResolvedValue([null, { ok: true }]);
   mock.removeMember.mockReset().mockResolvedValue([null, { ok: true }]);
   people.close();
 });
@@ -53,6 +55,46 @@ describe("people machine", () => {
     people.remove("f1", "k1");
     await vi.waitFor(() => expect(peopleActor.snapshot().context.error).toBe("not the Admin"));
     expect(peopleActor.snapshot().path[0]).toBe("couldNotRemoveMember");
+  });
+});
+
+describe("letting a Viewer add photos", () => {
+  test("success returns to the open sheet", async () => {
+    people.open();
+    people.letViewerAddPhotos("f1", "k1");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
+    expect(mock.makeMember).toHaveBeenCalledWith("f1", "k1");
+  });
+
+  test("an already-enrolled error counts as success", async () => {
+    mock.makeMember.mockResolvedValue([new Error("Member already enrolled"), null]);
+    people.open();
+    people.letViewerAddPhotos("f1", "k1");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
+    expect(peopleActor.snapshot().context.error).toBeNull();
+  });
+
+  test("a failure keeps the sheet open with the error", async () => {
+    mock.makeMember.mockResolvedValue([new Error("not the Admin"), null]);
+    people.open();
+    people.letViewerAddPhotos("f1", "k1");
+    await vi.waitFor(() => expect(peopleActor.snapshot().context.error).toBe("not the Admin"));
+    expect(peopleActor.snapshot().path[0]).toBe("couldNotLetViewerAddPhotos");
+  });
+
+  test("the view model is busy while saving", () => {
+    const actor = createPeopleActor({
+      clock: VirtualClock(),
+      gateway: { makeMember: () => new Promise(() => {}) } as any,
+    });
+    actor.send({ type: "OPEN" } as never);
+    actor.send({
+      type: "LET_VIEWER_ADD_PHOTOS",
+      payload: { folderId: "f1", memberKey: "k" },
+    } as never);
+    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    expect(actor.snapshot().path[0]).toBe("lettingViewerAddPhotos");
+    expect(vm.busy).toBe(true);
   });
 });
 
@@ -144,7 +186,7 @@ describe("peopleViewModel", () => {
     const actor = createPeopleActor({ clock: VirtualClock(), gateway: {} as any });
     const vm = peopleViewModel(actor.snapshot(), deps);
     expect(vm.open).toBe(false);
-    expect(vm.removing).toBe(false);
+    expect(vm.busy).toBe(false);
     expect(vm.error).toBeNull();
     expect(vm.isAdmin).toBe(true);
     expect(vm.myName).toBe("Ann");
@@ -160,7 +202,7 @@ describe("peopleViewModel", () => {
     expect(peopleViewModel(actor.snapshot(), { ...deps, status: null }).open).toBe(true);
     actor.send({ type: "REMOVE_MEMBER", payload: { folderId: "f1", memberKey: "k" } } as never);
     const vm = peopleViewModel(actor.snapshot(), { ...deps, status: null });
-    expect(vm.removing).toBe(true);
+    expect(vm.busy).toBe(true);
     expect(vm.isAdmin).toBe(false);
     expect(vm.folder).toBeNull();
     expect(vm.myName).toBe("");

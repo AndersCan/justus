@@ -97,6 +97,8 @@ export const gateway = {
     invoke(photoEvents.photos.offerAlbum(folderId, identity)),
   /** Joins the album a friend's invite offers; the Admin's phone lets this phone in without an Accept step. */
   joinOffer: (code: string, owner: string) => invoke(photoEvents.photos.joinOffer(code, owner)),
+  makeMember: (folderId: string, memberKey: string) =>
+    invoke(photoEvents.photos.makeMember(folderId, memberKey)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

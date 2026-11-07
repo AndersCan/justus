@@ -8,6 +8,9 @@ import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests } from "../machines/requests-machine";
 import { gateway } from "../gateway";
 import { albumView } from "./album";
+import { toast } from "./toast";
+
+vi.mock("./toast", () => ({ toast: vi.fn() }));
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -17,6 +20,7 @@ vi.mock("../gateway", () => ({
     },
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
+    makeMember: vi.fn().mockResolvedValue([null, { ok: true }]),
     respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
   },
@@ -236,5 +240,65 @@ describe("album viewer rows", () => {
     expect(row.querySelector("span.h-1\\.5")).toBeNull();
     expect(row.textContent).not.toContain("Remove");
     expect(host.textContent).toContain("Viewers see every photo but can't add any.");
+  });
+
+  test("the Admin taps Let add photos on a Viewer and gets a toast", async () => {
+    const viewerStatus = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: viewerStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const button = host.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Let "][aria-label$=" add photos"]',
+    );
+    expect(button?.textContent).toContain("Let add photos");
+    button?.click();
+    await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalledWith("f1", "k1"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Kimmy can add photos now"));
+  });
+
+  test("both member buttons are disabled while Let add photos is in progress", async () => {
+    vi.mocked(gateway.makeMember).mockReturnValue(new Promise(() => {}));
+    const busyStatus = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
+        { key: "k2", name: "Ada", admin: false, connected: false, identity: "i2" },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: busyStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const letButton = () =>
+      host.querySelector<HTMLButtonElement>(
+        'button[aria-label^="Let "][aria-label$=" add photos"]',
+      );
+    const removeButton = () =>
+      [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
+        b.textContent?.includes("Remove"),
+      );
+    expect(letButton()?.disabled).toBe(false);
+    expect(removeButton()?.disabled).toBe(false);
+    letButton()?.click();
+    await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalled());
+    render(albumView("f1"), host);
+    expect(letButton()?.disabled).toBe(true);
+    expect(removeButton()?.disabled).toBe(true);
+  });
+
+  test("non-Viewers have no Let add photos button", () => {
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    expect(host.textContent).not.toContain("Let add photos");
   });
 });
