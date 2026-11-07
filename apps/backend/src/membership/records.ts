@@ -9,7 +9,16 @@ export type RegistryFile = {
  * Their own drive is never read, so nothing they write reaches the album. */
 export type ViewersFile = {
   version: 1;
-  viewers: Record<string, { key: string; name: string; addedAt: number }>;
+  viewers: Record<
+    string,
+    {
+      key: string;
+      name: string;
+      addedAt: number;
+      /** Set when a Collaborator became a Viewer: their drive is read up to this version. */
+      keptVersion?: number;
+    }
+  >;
 };
 
 export type RemovedFile = {
@@ -87,10 +96,17 @@ export function parseViewers(text: string | null): ViewersFile {
       if (!isTextJSON(raw) || !isHexKey(recordKey)) continue;
       if (raw.key !== recordKey) continue;
       if (typeof raw.addedAt !== "number" || !Number.isFinite(raw.addedAt)) continue;
+      const keptVersion =
+        typeof raw.keptVersion === "number" &&
+        Number.isInteger(raw.keptVersion) &&
+        raw.keptVersion >= 0
+          ? raw.keptVersion
+          : undefined;
       viewers[recordKey] = {
         key: recordKey,
         name: peerName(raw.name, "New member"),
         addedAt: raw.addedAt,
+        ...(keptVersion === undefined ? {} : { keptVersion }),
       };
     }
     return { version: 1, viewers };

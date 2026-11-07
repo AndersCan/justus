@@ -8,7 +8,10 @@ import type { Drive } from "../ports/drive-store";
 import { DRIVE_PATH_MEMBERS, DRIVE_PATH_VIEWERS, type JoinError } from "./join";
 import type { RegistryFile, ViewersFile } from "./records";
 
-export type ViewerError = JoinError | { kind: "no-such-viewer"; message: string };
+export type ViewerError =
+  | JoinError
+  | { kind: "no-such-viewer"; message: string }
+  | { kind: "no-such-member"; message: string };
 export type ViewerResult<T> = [ViewerError, null] | [null, T];
 
 function errText(thrown: unknown): string {
@@ -61,7 +64,10 @@ export async function makeViewerMember(
   }
   const nextRegistry: RegistryFile = {
     ...registry,
-    members: { ...registry.members, [memberKey]: { ...viewer, addedAt: Date.now() } },
+    members: {
+      ...registry.members,
+      [memberKey]: { key: viewer.key, name: viewer.name, addedAt: Date.now() },
+    },
   };
   try {
     await folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(nextRegistry)));
@@ -76,4 +82,48 @@ export async function makeViewerMember(
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }
   return [null, { viewers: nextViewers, registry: nextRegistry }];
+}
+
+/** Admin only: lists a Collaborator as a Viewer whose drive is read at
+ * `keptVersion`, then takes them out of `/members.json`. If the second write
+ * fails they are in both files and the registry wins, so they are still a
+ * Collaborator and a retry finishes the job. The inputs are not changed. */
+export async function makeMemberViewer(
+  folderDrive: Drive,
+  options: {
+    viewers: ViewersFile;
+    registry: RegistryFile;
+    memberKey: string;
+    keptVersion: number;
+  },
+): Promise<ViewerResult<{ viewers: ViewersFile; registry: RegistryFile; changed: boolean }>> {
+  const { viewers, registry, memberKey, keptVersion } = options;
+  const member = registry.members[memberKey];
+  if (!member) {
+    if (viewers.viewers[memberKey]) return [null, { viewers, registry, changed: false }];
+    return [{ kind: "no-such-member", message: "No such member" }, null];
+  }
+  let nextViewers = viewers;
+  if (!viewers.viewers[memberKey]) {
+    nextViewers = {
+      ...viewers,
+      viewers: {
+        ...viewers.viewers,
+        [memberKey]: { key: memberKey, name: member.name, addedAt: Date.now(), keptVersion },
+      },
+    };
+    try {
+      await folderDrive.put(DRIVE_PATH_VIEWERS, Buffer.from(JSON.stringify(nextViewers)));
+    } catch (thrown: unknown) {
+      return [{ kind: "write-failed", message: errText(thrown) }, null];
+    }
+  }
+  const { [memberKey]: _moved, ...rest } = registry.members;
+  const nextRegistry: RegistryFile = { ...registry, members: rest };
+  try {
+    await folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(nextRegistry)));
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+  return [null, { viewers: nextViewers, registry: nextRegistry, changed: true }];
 }
