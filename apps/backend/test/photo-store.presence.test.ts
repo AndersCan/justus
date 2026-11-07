@@ -6,28 +6,20 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeSwarm, makeFakeDeps } from "./fake-drive.ts";
+import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
 
-function buildStore(name: string, swarmKey: Buffer, changes: string[] = []) {
-  const swarm = new FakeSwarm() as FakeSwarm & { keyPair?: { publicKey: Buffer } };
-  swarm.keyPair = { publicKey: swarmKey };
-  const deps = makeFakeDeps({
+function buildStore(name: string, hub: FakeHub, changes: string[] = []) {
+  const deps = fakeStoreDeps({
+    hub,
     deviceName: name,
-    makeSwarm: () => swarm,
     onChanged: (c) => changes.push(c.cause),
   });
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { store: createPhotoStore(deps), swarm };
-}
-
-/** A fake connection whose `close` can be fired by the test. */
-function connection(remote: Buffer) {
-  const handlers: Record<string, () => void> = {};
-  return {
-    remotePublicKey: remote,
-    on: (event: string, fn: () => void) => void (handlers[event] = fn),
-    close: () => handlers.close?.(),
-  };
+  const store = createPhotoStore(deps);
+  const topic = () =>
+    deps.drives.discoveryKeyOf((store.debugState() as { identityDrive: string }).identityDrive);
+  return { store, deps, topic };
 }
 
 const waitFor = async (check: () => Promise<boolean>) => {
@@ -40,11 +32,10 @@ const waitFor = async (check: () => Promise<boolean>) => {
 
 describe("member presence", () => {
   it("marks a member connected while its swarm connection is open, then records last seen", async () => {
-    const adminKey = Buffer.alloc(32, 1);
-    const memberKey = Buffer.alloc(32, 2);
+    const hub = createFakeHub();
     const adminChanges: string[] = [];
-    const admin = buildStore("Maya", adminKey, adminChanges);
-    const member = buildStore("Nils", memberKey);
+    const admin = buildStore("Maya", hub, adminChanges);
+    const member = buildStore("Nils", hub);
     await admin.store.ready();
     await member.store.ready();
 
@@ -62,16 +53,21 @@ describe("member presence", () => {
       connected: true,
     });
 
-    // The member's device connects to the Admin's swarm identity.
-    const conn = connection(adminKey);
-    member.swarm.emit("connection", conn);
+    // The Admin's own network meets the member, so the connection carries the
+    // swarm key the Admin published in /device.json.
+    admin.deps.network.join(member.topic(), { server: false });
     await waitFor(
       async () =>
         (await member.store.status()).members.find((m: { admin: boolean }) => m.admin)
           ?.connected === true,
     );
 
-    conn.close();
+    await admin.deps.network.close();
+    await waitFor(
+      async () =>
+        (await member.store.status()).members.find((m: { admin: boolean }) => m.admin)
+          ?.connected === false,
+    );
     const after = (await member.store.status()).members.find((m: { admin: boolean }) => m.admin)!;
     expect(after.connected).toBe(false);
     expect(after.lastSeenAt).toBeGreaterThan(0);
@@ -82,17 +78,20 @@ describe("member presence", () => {
 
   it("pushes a presence change when a connection opens", async () => {
     const changes: string[] = [];
-    const { store, swarm } = buildStore("Maya", Buffer.alloc(32, 3), changes);
+    const hub = createFakeHub();
+    const { store, topic } = buildStore("Maya", hub, changes);
     await store.ready();
     await store.createFolder("Trip");
-    swarm.emit("connection", connection(Buffer.alloc(32, 9)));
+    peerPhone(hub, { identityKey: "9".repeat(64) }).meet(topic());
+    await waitFor(async () => changes.includes("presence"));
     expect(changes).toContain("presence");
     await store.close();
   });
 
   it("lets the Admin remove an approved member", async () => {
-    const admin = buildStore("Maya", Buffer.alloc(32, 4));
-    const member = buildStore("Nils", Buffer.alloc(32, 5));
+    const hub = createFakeHub();
+    const admin = buildStore("Maya", hub);
+    const member = buildStore("Nils", hub);
     await admin.store.ready();
     await member.store.ready();
     const folder = (await admin.store.createFolder("Trip"))[1]!.folder;

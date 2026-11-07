@@ -9,39 +9,38 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
-import type { FakeDrive } from "./fake-drive.ts";
+import type { Drive } from "../src/ports/drive-store.ts";
+import { createFakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
 
-function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {
-  const own: FakeDrive[] = opts.own ?? [];
-  const deps = makeFakeDeps({
-    deviceName: name,
-    ...(opts.swarm ? { makeSwarm: () => opts.swarm! } : {}),
-    makeDrive: (cs: unknown, key?: Buffer) => {
-      const drive = makeFakeDeps().makeDrive(cs, key);
-      if (!key) own.push(drive);
-      return drive;
-    },
-  });
+function buildStore(name: string, hub: ReturnType<typeof createFakeHub>) {
+  const deps = fakeStoreDeps({ hub, deviceName: name });
   mkdirSync(deps.cacheDir, { recursive: true });
-  return createPhotoStore(deps);
+  const store = createPhotoStore(deps);
+  const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
+  return { store, deps, identity };
 }
 
 /** A creator with one album and one requester that has filed a join request
  * and been announced on the album's topic. */
 async function scenario() {
-  const swarm = new FakeSwarm();
-  const creator = buildStore("Creator", { swarm });
-  const requesterOwn: FakeDrive[] = [];
-  const requester = buildStore("Requester", { own: requesterOwn });
+  const hub = createFakeHub();
+  const creatorBuilt = buildStore("Creator", hub);
+  const requesterBuilt = buildStore("Requester", hub);
+  const creator = creatorBuilt.store;
+  const requester = requesterBuilt.store;
   await creator.ready();
   await requester.ready();
   const created = await creator.createFolder("Trip");
   const folderId = created[1]!.folder.id;
   const shareKey = created[1]!.folder.shareKey;
   expect((await requester.join(shareKey))[0]).toBeNull();
-  const outbox = requesterOwn[0];
-  swarm.emit("connection", fakeConnection(outbox.key));
+  const outbox = await requesterBuilt.deps.drives.openOwn();
+  const phone = peerPhone(hub, { identityKey: requesterBuilt.identity() });
+  phone.meet(creatorBuilt.deps.drives.discoveryKeyOf(creatorBuilt.identity()));
+  for (let i = 0; i < 200 && !phone.events.some((e) => e.type === "identified"); i++) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
   const close = async () => {
     await creator.close();
     await requester.close();
@@ -49,11 +48,9 @@ async function scenario() {
   return { creator, requester, outbox, folderId, shareKey, close };
 }
 
-async function readOutbox(drive: FakeDrive): Promise<Record<string, unknown>> {
-  const bytes = await drive.get("/requests.json");
-  return bytes
-    ? (JSON.parse(bytes.toString()) as { requests: Record<string, unknown> }).requests
-    : {};
+async function readOutbox(drive: Drive): Promise<Record<string, unknown>> {
+  const text = await drive.readSmall("/requests.json", 1 << 20);
+  return text ? (JSON.parse(text) as { requests: Record<string, unknown> }).requests : {};
 }
 
 describe("join-request intake", () => {

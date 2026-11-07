@@ -7,50 +7,58 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
-import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
-import type { FakeDrive } from "./fake-drive.ts";
+import type { Drive } from "../src/ports/drive-store.ts";
+import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
+import { createFakeHub, createFakePeerNetwork } from "./fakes/fake-world.ts";
+import {
+  fakeStoreDeps,
+  peerPhone,
+  restarted,
+  type FakeStoreDeps,
+} from "./fakes/fake-store-deps.ts";
+import type { FakeHub } from "./fakes/fake-world.ts";
 
-function buildStore(
-  name: string,
-  opts: { swarm?: FakeSwarm; own?: FakeDrive[]; deps?: Record<string, unknown> } = {},
-) {
-  const own: FakeDrive[] = opts.own ?? [];
-  const deps = makeFakeDeps({
-    deviceName: name,
-    ...opts.deps,
-    ...(opts.swarm ? { makeSwarm: () => opts.swarm! } : {}),
-    makeDrive: (cs: unknown, key?: Buffer) => {
-      const drive = makeFakeDeps().makeDrive(cs, key);
-      if (!key) own.push(drive);
-      return drive;
-    },
-  });
-  mkdirSync(deps.cacheDir, { recursive: true });
-  return { store: createPhotoStore(deps), deps };
+function buildStore(name: string, hub: FakeHub, deps: Partial<FakeStoreDeps> = {}) {
+  const full = fakeStoreDeps({ hub, deviceName: name, ...deps });
+  mkdirSync(full.cacheDir, { recursive: true });
+  return { store: createPhotoStore(full), deps: full };
 }
 
-async function scenario(adminDeps?: Record<string, unknown>) {
-  const swarm = new FakeSwarm();
-  const adminOwn: FakeDrive[] = [];
-  const admin = buildStore("Admin", { swarm, own: adminOwn, deps: adminDeps });
-  const joinerOwn: FakeDrive[] = [];
-  const joiner = buildStore("Joiner", { own: joinerOwn });
+const identityOf = (s: { store: { debugState(): unknown } }) =>
+  (s.store.debugState() as { identityDrive: string }).identityDrive;
+
+async function until(done: () => boolean | Promise<boolean>, ms = 2_000): Promise<void> {
+  for (let waited = 0; waited < ms && !(await done()); waited += 10) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+async function scenario(
+  adminDeps?: Partial<FakeStoreDeps>,
+  joinerDeps?: Partial<FakeStoreDeps>,
+  hub = createFakeHub(),
+) {
+  const admin = buildStore("Admin", hub, adminDeps);
+  const joiner = buildStore("Joiner", hub, joinerDeps);
   await admin.store.ready();
   await joiner.store.ready();
   const created = await admin.store.createFolder("Trip");
   const { id: folderId, shareKey, invite } = created[1]!.folder;
-  const owner = (admin.store.debugState() as { identityDrive: string }).identityDrive;
-  const outbox = joinerOwn[0];
+  const owner = identityOf(admin);
+  const outboxKey = identityOf(joiner);
+  const outbox = await openDrive(joiner, outboxKey);
+  const adminTopic = admin.deps.drives.discoveryKeyOf(owner);
   const close = async () => {
     await admin.store.close();
     await joiner.store.close();
   };
   return {
+    hub,
     admin,
-    adminOwn,
     joiner,
     outbox,
-    swarm,
+    outboxKey,
+    adminTopic,
     folderId,
     shareKey,
     invite: invite!,
@@ -59,9 +67,31 @@ async function scenario(adminDeps?: Record<string, unknown>) {
   };
 }
 
-async function outboxText(drive: FakeDrive): Promise<string> {
-  return (await drive.get("/requests.json"))?.toString() ?? "";
+/** The drive object the store itself holds, so a test can replace its methods. */
+async function openDrive(on: { deps: FakeStoreDeps }, key: string): Promise<Drive> {
+  const [err, drive] = await on.deps.drives.open(key, { timeoutMs: 1_000 });
+  if (err || !drive) throw err ?? new Error("drive did not open");
+  return drive;
 }
+
+async function albumDriveOf(s: Awaited<ReturnType<typeof scenario>>): Promise<Drive> {
+  const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+  return openDrive(s.admin, folder.driveKey);
+}
+
+/** A phone with `identityKey` meets the Admin; resolves once the Admin has been greeted. */
+async function connect(s: Awaited<ReturnType<typeof scenario>>, identityKey = s.outboxKey) {
+  const phone = peerPhone(s.hub, { identityKey });
+  phone.meet(s.adminTopic);
+  await until(() => phone.events.some((e) => e.type === "identified"));
+  return phone;
+}
+
+async function outboxText(drive: Drive): Promise<string> {
+  return (await drive.readSmall("/requests.json", 1 << 20)) ?? "";
+}
+
+const readText = async (drive: Drive, path: string) => drive.readSmall(path, 1 << 20);
 
 describe("ask", () => {
   it("every album the Admin creates carries an invite code", async () => {
@@ -137,7 +167,7 @@ describe("ask", () => {
   it("the Admin sees the ask, and a decline is final", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({ folderId: s.folderId, shareKey: s.shareKey });
@@ -146,7 +176,7 @@ describe("ask", () => {
     expect(declined[0]).toBeNull();
     expect((await s.admin.store.requests()).requests).toEqual([]);
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
-    const identity = Buffer.from(s.outbox.key).toString("hex");
+    const identity = s.outboxKey;
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
     await s.close();
   });
@@ -154,7 +184,7 @@ describe("ask", () => {
   it("accepting enrolls the asker and records the answer", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     const accepted = await s.admin.store.respond(s.folderId, requests[0].requesterKey, true);
     expect(accepted[0]).toBeNull();
@@ -162,7 +192,7 @@ describe("ask", () => {
       (await s.admin.store.status(),
       readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8")),
     );
-    const identity = Buffer.from(s.outbox.key).toString("hex");
+    const identity = s.outboxKey;
     expect(saved.folders[0].answers).toEqual({ [identity]: "accepted" });
     expect((await s.admin.store.requests()).requests).toEqual([]);
     await s.close();
@@ -171,7 +201,7 @@ describe("ask", () => {
   it("an old-style request still behaves as before", async () => {
     const s = await scenario();
     await s.joiner.store.join(s.shareKey);
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     expect(requests).toHaveLength(1);
     await s.admin.store.respond(s.folderId, requests[0].requesterKey, false);
@@ -183,20 +213,21 @@ describe("ask", () => {
   it("a requester key listed by two outboxes is dropped, in either read order", async () => {
     for (const aliceLast of [true, false]) {
       const s = await scenario();
-      const mallOwn: FakeDrive[] = [];
-      const mallory = buildStore("Mallory", { own: mallOwn });
+      const mallory = buildStore("Mallory", s.hub);
       await mallory.store.ready();
+      const mallKey = identityOf(mallory);
+      const mallBox = await openDrive(mallory, mallKey);
       await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
       await mallory.store.ask({ code: s.invite.code, owner: s.owner });
       const aliceKey = Object.values(JSON.parse(await outboxText(s.outbox)).requests as object)[0]
         .requesterKey as string;
-      const file = JSON.parse(await outboxText(mallOwn[0]!));
+      const file = JSON.parse(await outboxText(mallBox));
       for (const entry of Object.values(file.requests) as { requesterKey: string }[])
         entry.requesterKey = aliceKey;
-      await mallOwn[0]!.put("/requests.json", Buffer.from(JSON.stringify(file)));
+      await mallBox.put("/requests.json", Buffer.from(JSON.stringify(file)));
 
-      const order = aliceLast ? [mallOwn[0]!, s.outbox] : [s.outbox, mallOwn[0]!];
-      for (const d of order) s.swarm.emit("connection", fakeConnection(d.key));
+      const order = aliceLast ? [mallKey, s.outboxKey] : [s.outboxKey, mallKey];
+      for (const key of order) await connect(s, key);
       const { requests } = await s.admin.store.requests();
       expect(requests.filter((r) => r.requesterKey === aliceKey)).toEqual([]);
 
@@ -212,11 +243,11 @@ describe("ask", () => {
   it("a declined identity's old-style request is not hidden", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const first = (await s.admin.store.requests()).requests;
     await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
     await s.joiner.store.join(s.shareKey);
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const after = (await s.admin.store.requests()).requests;
     expect(after.some((r) => r.requesterKey !== first[0].requesterKey)).toBe(true);
     await s.close();
@@ -227,7 +258,7 @@ describe("accepting as a Viewer", () => {
   async function asked() {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     return { ...s, key: requests[0].requesterKey, request: requests[0] };
   }
@@ -237,14 +268,14 @@ describe("accepting as a Viewer", () => {
     expect(s.request.viaInvite).toBe(true);
     const done = await s.admin.store.respond(s.folderId, s.key, true, "reader");
     expect(done[0]).toBeNull();
-    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
-    const file = JSON.parse((await albumDrive.get("/viewers.json"))!.toString());
+    const albumDrive = await albumDriveOf(s);
+    const file = JSON.parse((await readText(albumDrive, "/viewers.json"))!);
     expect(Object.keys(file.viewers)).toEqual([s.key]);
-    expect(await albumDrive.get("/members.json")).toBeNull();
+    expect(await readText(albumDrive, "/members.json")).toBeUndefined();
     expect((await s.admin.store.requests()).requests).toEqual([]);
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
     expect(saved.folders[0].answers).toEqual({
-      [Buffer.from(s.outbox.key).toString("hex")]: "accepted",
+      [s.outboxKey]: "accepted",
     });
     const status = await s.admin.store.status();
     expect(
@@ -262,16 +293,16 @@ describe("accepting as a Viewer", () => {
   it("a Collaborator is still the default", async () => {
     const s = await asked();
     expect((await s.admin.store.respond(s.folderId, s.key, true))[0]).toBeNull();
-    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
-    expect(await albumDrive.get("/viewers.json")).toBeNull();
-    expect(await albumDrive.get("/members.json")).not.toBeNull();
+    const albumDrive = await albumDriveOf(s);
+    expect(await readText(albumDrive, "/viewers.json")).toBeUndefined();
+    expect(await readText(albumDrive, "/members.json")).not.toBeUndefined();
     await s.close();
   });
 
   it("an old-style request cannot be a Viewer", async () => {
     const s = await scenario();
     await s.joiner.store.join(s.shareKey);
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     expect(requests[0].viaInvite).toBeUndefined();
     const refused = await s.admin.store.respond(
@@ -297,7 +328,7 @@ describe("accepting as a Viewer", () => {
 
   it("a failed write takes the answer back, so the request can be retried", async () => {
     const s = await asked();
-    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
+    const albumDrive = await albumDriveOf(s);
     const put = albumDrive.put.bind(albumDrive);
     albumDrive.put = (async (path: string, data: Buffer) => {
       if (path === "/viewers.json") throw new Error("disk full");
@@ -318,19 +349,19 @@ describe("letting a Viewer add photos", () => {
   async function viewer() {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     const key = requests[0].requesterKey;
     expect((await s.admin.store.respond(s.folderId, key, true, "reader"))[0]).toBeNull();
-    return { ...s, key, albumDrive: s.adminOwn[s.adminOwn.length - 1] };
+    return { ...s, key, albumDrive: await albumDriveOf(s) };
   }
 
   it("moves the key from /viewers.json to /members.json and loads the drive", async () => {
     const s = await viewer();
     const done = await s.admin.store.makeMember(s.folderId, s.key);
     expect(done[0]).toBeNull();
-    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
-    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    const viewers = JSON.parse((await readText(s.albumDrive, "/viewers.json"))!);
+    const members = JSON.parse((await readText(s.albumDrive, "/members.json"))!);
     expect(Object.keys(viewers.viewers)).toEqual([]);
     expect(Object.keys(members.members)).toEqual([s.key]);
     const debug = s.admin.store.debugState() as { remoteDrives: { role: string }[] };
@@ -368,7 +399,7 @@ describe("letting a Viewer add photos", () => {
     const changes: unknown[] = [];
     const s = await scenario({ onChanged: (c: unknown) => changes.push(c) });
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const key = (await s.admin.store.requests()).requests[0].requesterKey;
     await s.admin.store.respond(s.folderId, key, true, "reader");
     changes.length = 0;
@@ -380,7 +411,7 @@ describe("letting a Viewer add photos", () => {
   it("accepts an uppercase key and normalises it", async () => {
     const s = await viewer();
     expect((await s.admin.store.makeMember(s.folderId, s.key.toUpperCase()))[0]).toBeNull();
-    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    const members = JSON.parse((await readText(s.albumDrive, "/members.json"))!);
     expect(Object.keys(members.members)).toEqual([s.key]);
     await s.close();
   });
@@ -395,9 +426,9 @@ describe("letting a Viewer add photos", () => {
     const failed = await s.admin.store.makeMember(s.folderId, s.key);
     expect(failed[0]?.message).toContain("disk full");
     s.albumDrive.put = put;
-    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
+    const viewers = JSON.parse((await readText(s.albumDrive, "/viewers.json"))!);
     expect(Object.keys(viewers.viewers)).toEqual([s.key]);
-    expect(await s.albumDrive.get("/members.json")).toBeNull();
+    expect(await readText(s.albumDrive, "/members.json")).toBeUndefined();
     await s.close();
   });
 
@@ -416,7 +447,7 @@ describe("letting a Viewer add photos", () => {
       undefined,
       undefined,
     ]);
-    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    const members = JSON.parse((await readText(s.albumDrive, "/members.json"))!);
     expect(Object.keys(members.members)).toEqual([s.key]);
     expect((await s.admin.store.makeMember(s.folderId, s.key))[0]?.code).toBe(
       PhotoError.ALREADY_ENROLLED,
@@ -428,17 +459,8 @@ describe("letting a Viewer add photos", () => {
 describe("turning off invite links", () => {
   async function asked(s: Awaited<ReturnType<typeof scenario>>, code: string) {
     await s.joiner.store.ask({ code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     return (await s.admin.store.requests()).requests;
-  }
-
-  /** A connection from the joiner that proves its identity: its /device.json names the connection's key. */
-  async function provenConnection(s: Awaited<ReturnType<typeof scenario>>) {
-    const device = JSON.parse((await s.outbox.get("/device.json"))!.toString());
-    return {
-      ...fakeConnection(s.outbox.key),
-      remotePublicKey: Buffer.from(device.swarmKey, "hex"),
-    };
   }
 
   it("a request made with a turned-off code never reaches the Admin", async () => {
@@ -453,7 +475,7 @@ describe("turning off invite links", () => {
     const s = await scenario();
     expect(await asked(s, s.invite.code)).toHaveLength(1);
     await s.admin.store.turnOffInvite(s.folderId);
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     expect((await s.admin.store.requests()).requests).toEqual([]);
     await s.close();
   });
@@ -475,14 +497,7 @@ describe("turning off invite links", () => {
     const s = await scenario();
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
     await s.admin.store.close();
-    const reopened = createPhotoStore({
-      ...makeFakeDeps({
-        storageDir: s.admin.deps.storageDir,
-        cacheDir: s.admin.deps.cacheDir,
-        makeCorestore: s.admin.deps.makeCorestore,
-        makeSwarm: () => s.swarm,
-      }),
-    });
+    const reopened = createPhotoStore(restarted(s.admin.deps));
     await reopened.ready();
     const summary = (await reopened.folders()).folders.find((f) => f.id === s.folderId);
     expect(summary!.invite!.code).toBe(code);
@@ -496,7 +511,7 @@ describe("turning off invite links", () => {
     await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
     expect(await asked(s, code)).toEqual([]);
-    const identity = Buffer.from(s.outbox.key).toString("hex");
+    const identity = s.outboxKey;
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
     await s.close();
@@ -505,28 +520,45 @@ describe("turning off invite links", () => {
   it.each([[true], [false]])(
     "an answer given before the turn-off still reaches the joiner (accept=%s)",
     async (accept) => {
-      const sent: { code: string; answer: string }[] = [];
-      const s = await scenario({
-        openAnswers: () => ({
-          send: (m: { code: string; answer: string }) => {
-            sent.push(m);
-            return true;
-          },
-        }),
-      });
+      // I8: a tee on the joiner's network records the connections and the
+      // answers that reach it.
+      const hub = createFakeHub();
+      const net = createFakePeerNetwork({ hub });
+      const arrived: { code: string; answer: string }[] = [];
+      const conns: number[] = [];
+      const joinerNetwork: PeerNetwork = {
+        ...net,
+        start: (identity, on, protocol) =>
+          net.start(
+            identity,
+            (e: PeerEvent) => {
+              if (e.type === "connected") conns.push(e.conn);
+              if (e.type === "answer") arrived.push(e.value as { code: string; answer: string });
+              on(e);
+            },
+            protocol,
+          ),
+      };
+      const s = await scenario({}, { network: joinerNetwork }, hub);
       await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-      s.swarm.emit("connection", await provenConnection(s));
+      // Proven: the joiner's own network meets the Admin, so its noise key is
+      // the one its /device.json publishes.
+      joinerNetwork.join(s.adminTopic, { server: false });
+      await until(() => conns.length > 0);
+      await until(async () => (await s.admin.store.requests()).requests.length > 0);
       const first = (await s.admin.store.requests()).requests;
       await s.admin.store.respond(s.folderId, first[0].requesterKey, accept);
+      await until(() => arrived.length >= 1, 4_000);
+      expect(arrived).toHaveLength(1);
       const code1 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
       const code2 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
       expect(new Set([s.invite.code, code1, code2]).size).toBe(3);
-      s.swarm.emit("connection", await provenConnection(s));
-      const old = () => sent.filter((m) => m.code === s.invite.code);
+      for (const conn of conns) joinerNetwork.drop(conn);
+      joinerNetwork.leave(s.adminTopic);
+      joinerNetwork.join(s.adminTopic, { server: false });
+      const old = () => arrived.filter((m) => m.code === s.invite.code);
       // Once on the connection before the turn-off, once on the new one.
-      for (let i = 0; i < 100 && old().length < 2; i++) {
-        await new Promise((r) => setTimeout(r, 20));
-      }
+      await until(() => old().length >= 2, 4_000);
       const answer = accept ? "accepted" : "declined";
       expect(old().map((m) => m.answer)).toEqual([answer, answer]);
       await s.close();

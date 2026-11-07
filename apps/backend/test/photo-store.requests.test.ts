@@ -7,55 +7,51 @@
  * `readRequestsFromPeers` returned every peer request), and a denied request
  * reappeared on every refresh (#84/#85).
  *
- * The fake harness shares drives by key across stores (see `./fake-drive`), so
+ * Stores on one hub share drives by key (see `./fakes/fake-world`), so
  * the creator's `openDriveWithTopic(requesterKey)` resolves to the requester's
  * own drive and can read its `/requests.json` outbox.
  */
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeSwarm, fakeConnection, makeFakeDeps } from "./fake-drive.ts";
-import type { FakeDrive } from "./fake-drive.ts";
+import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
 
-/** Build a store on the in-memory harness, recording its keyless (identity)
- * drive so a scenario can act as the swarm peer that announced it. */
-function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {
-  const own: FakeDrive[] = opts.own ?? [];
+/** Build a store on the checked fakes; `identity` is the key of its outbox drive. */
+function buildStore(name: string, hub: FakeHub) {
   const changes: Array<{ folderId: string }> = [];
-  const deps = makeFakeDeps({
+  const deps = fakeStoreDeps({
+    hub,
     deviceName: name,
     onChanged: (c) => changes.push({ folderId: c.folderId }),
-    ...(opts.swarm ? { makeSwarm: () => opts.swarm! } : {}),
-    // Wrap the default (shared-cache) makeDrive so we can capture the identity
-    // drive without breaking cross-store drive resolution.
-    makeDrive: (cs: unknown, key?: Buffer) => {
-      const drive = makeFakeDeps().makeDrive(cs, key);
-      if (!key) own.push(drive);
-      return drive;
-    },
   });
   mkdirSync(deps.cacheDir, { recursive: true });
   const store = createPhotoStore(deps);
-  return { store, changes };
+  const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
+  return { store, changes, deps, identity };
+}
+
+async function until(done: () => boolean, ms = 2_000): Promise<void> {
+  for (let waited = 0; waited < ms && !done(); waited += 10) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
 }
 
 describe("#84/#85 a resolved join request must not resurface as pending", () => {
   it("drops an approved or denied requester from requests()", async () => {
-    const creatorSwarm = new FakeSwarm();
-    const creatorOwn: FakeDrive[] = [];
-    const creator = buildStore("Creator", { swarm: creatorSwarm, own: creatorOwn });
-    const requesterOwn: FakeDrive[] = [];
-    const requester = buildStore("Requester", { own: requesterOwn });
-    const requester2Own: FakeDrive[] = [];
-    const requester2 = buildStore("Requester2", { own: requester2Own });
+    const hub = createFakeHub();
+    const creator = buildStore("Creator", hub);
+    const requester = buildStore("Requester", hub);
+    const requester2 = buildStore("Requester2", hub);
 
     await creator.store.ready();
     await requester.store.ready();
     await requester2.store.ready();
 
     // Each requester tells the creator its identity drive, which holds its outbox.
-    const requesterPeer = requesterOwn[0].key.toString("hex");
-    const requester2Peer = requester2Own[0].key.toString("hex");
+    const requesterPeer = requester.identity();
+    const requester2Peer = requester2.identity();
+    const creatorTopic = creator.deps.drives.discoveryKeyOf(creator.identity());
 
     // Creator makes a folder; requesters file join requests.
     const created = await creator.store.createFolder("Trip");
@@ -68,10 +64,13 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
 
     // Each requester connects and greets the creator with its identity drive
     // (which `requests()` reads).
-    const announce = (key: string) =>
-      creatorSwarm.emit("connection", fakeConnection(Buffer.from(key, "hex")));
-    announce(requesterPeer);
-    announce(requester2Peer);
+    const announce = async (key: string) => {
+      const phone = peerPhone(hub, { identityKey: key });
+      phone.meet(creatorTopic);
+      await until(() => phone.events.some((e) => e.type === "identified"));
+    };
+    await announce(requesterPeer);
+    await announce(requester2Peer);
 
     // Before any response, both requests are pending. Each asks to be enrolled
     // with its drive for this album, not the identity drive (#195).
@@ -102,7 +101,7 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     // Even after the denied requester re-files (re-join rewrites the outbox),
     // the denial is remembered for the session.
     expect((await requester2.store.join(folderKey))[0]).toBeNull();
-    announce(requester2Peer);
+    await announce(requester2Peer);
     expect((await creator.store.requests()).requests.length).toBe(0);
 
     await creator.store.close();
