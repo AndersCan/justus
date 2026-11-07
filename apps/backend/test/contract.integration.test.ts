@@ -127,6 +127,9 @@ describe("backend -> web contract, from real backend output", () => {
     await a("photos.status");
     await a("photos.remove", { id: photo.id, folderId: folder.id });
     await a("photos.removeMember", { folderId: folder.id, memberKey: requests[0].requesterKey });
+    // The removed phone takes the album off itself.
+    const joinerAlbum = (await b("photos.folders")).folders[0];
+    await b("photos.leaveAlbum", { folderId: joinerAlbum.id });
 
     const { folders } = await a("photos.folders");
     const invite = folders[0].invite;

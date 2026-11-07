@@ -178,6 +178,12 @@ export const photoSpecs = {
     args: {} as { folderId: string },
     result: {} as { ok: boolean },
   },
+  leaveAlbum: {
+    pluginId: "justus.photos",
+    name: "photos.leaveAlbum",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
   dismissAlbumNotice: {
     pluginId: "justus.photos",
     name: "photos.dismissAlbumNotice",
@@ -399,6 +405,11 @@ export const photoEvents = {
       folderId: string,
     ): InvokeEnvelope<"photos.deleteAlbum", { folderId: string }, { ok: boolean }> {
       return invokeEvent(photoSpecs.deleteAlbum, { folderId }, null, PHOTOS_OFFER_TIMEOUT_MS);
+    },
+    leaveAlbum(
+      folderId: string,
+    ): InvokeEnvelope<"photos.leaveAlbum", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.leaveAlbum, { folderId }, null, PHOTOS_OFFER_TIMEOUT_MS);
     },
     dismissAlbumNotice(
       folderId: string,

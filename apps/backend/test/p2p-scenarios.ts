@@ -856,6 +856,83 @@ export const scenarios: Scenario[] = [
       t.ok(archived?.code === "justus.photos/album-archived", "ALBUM_ARCHIVED");
     },
   },
+  {
+    name: "leave: a Member leaves, drops off the Admin's people list, and needs a new ask to come back",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, joinerFolderId } = await sharedAlbum(net);
+      const joinerDrive = (await albumIn(joiner.store, shareKey))!.driveKey;
+      t.noErr(
+        await joiner.store.addBytes("b.jpg", new Uint8Array([9, 9, 9]), joinerFolderId),
+        "joiner adds a photo",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (photos) => photos.length === 2,
+        "the Member's photo on the Admin",
+      );
+      t.noErr(await joiner.store.leaveAlbum(joinerFolderId), "leaveAlbum");
+      const after = await joiner.store.folders();
+      t.eq(
+        [after.folders.length, after.archived.length, after.deleted.length],
+        [0, 0, 0],
+        "the album is gone from the Member",
+      );
+      await eventually(
+        () => admin.store.status(),
+        (st: SyncStatus) => !st.members.some((m: Member) => m.key === joinerDrive),
+        "the Member off the Admin's people list",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (photos) => photos.length === 1,
+        "the Member's photo off the Admin",
+      );
+      const [cannot] = await admin.store.leaveAlbum(folderId);
+      t.ok(cannot?.code === "justus.photos/admin-cannot-leave", "ADMIN_CANNOT_LEAVE");
+    },
+  },
+  {
+    name: "leave: a Member who leaves while the Admin's phone is off is dropped when it comes back",
+    async run(net, t) {
+      const { admin, joiner, shareKey, joinerFolderId } = await sharedAlbum(net);
+      const joinerDrive = (await albumIn(joiner.store, shareKey))!.driveKey;
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (photos) => photos.length === 1,
+        "the first sync",
+      );
+      const adminDir = admin.storageDir;
+      await admin.stop();
+      t.noErr(await joiner.store.leaveAlbum(joinerFolderId), "leaveAlbum");
+      const waiting = (await joiner.store.debugState()) as { gone: Array<{ kind: string }> };
+      t.eq(
+        waiting.gone.map((g) => g.kind),
+        ["waitingForAdminToSeeYouLeft"],
+        "the Member waits for the Admin",
+      );
+      await joiner.stop();
+      const joinerBack = await net.peer("Desktop", joiner.storageDir);
+      const stillWaiting = (await joinerBack.store.debugState()) as {
+        gone: Array<{ kind: string }>;
+      };
+      t.eq(
+        stillWaiting.gone.map((g) => g.kind),
+        ["waitingForAdminToSeeYouLeft"],
+        "the waiting survives a restart",
+      );
+      const adminBack = await net.peer("Phone", adminDir);
+      await eventually(
+        () => adminBack.store.status(),
+        (st: SyncStatus) => !st.members.some((m: Member) => m.key === joinerDrive),
+        "the Member dropped once the Admin is back",
+      );
+      await eventually(
+        async () => ((await joinerBack.store.debugState()) as { gone: unknown[] }).gone,
+        (gone) => gone.length === 0,
+        "the Member forgets the album",
+      );
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
