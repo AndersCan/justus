@@ -1,8 +1,13 @@
 import { describe, it, expect, afterEach, vi } from "vite-plus/test";
 import { openLightbox, closeLightbox, step } from "./lightbox";
 import { lightboxActor } from "../machines/lightbox-machine";
-import { galleryActor } from "../machines/gallery-machine";
+import { galleryActor, gallery } from "../machines/gallery-machine";
 import type { Photo } from "@justus/core";
+
+const hoisted = vi.hoisted(() => ({
+  gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
+}));
+vi.mock("../gateway", () => ({ gateway: hoisted.gateway }));
 
 function photo(id: string): Photo {
   return {
@@ -72,5 +77,34 @@ describe("lightbox navigation", () => {
     openLightbox(photo("a"));
     closeLightbox();
     expect(lightboxActor.snapshot().context.photo).toBeUndefined();
+  });
+});
+
+describe("lightbox follows the album", () => {
+  const reload = async (photos: Photo[]) => {
+    hoisted.gateway.list.mockResolvedValueOnce([null, { photos }]);
+    gallery.load();
+    await vi.waitFor(() => expect(galleryActor.snapshot().context.photos).toEqual(photos));
+  };
+
+  afterEach(() => {
+    closeLightbox();
+  });
+
+  it("a photo deleted elsewhere closes the open view", async () => {
+    const [a, b, c] = [photo("a"), photo("b"), photo("c")];
+    await reload([a, b, c]);
+    openLightbox(b, [a, b, c]);
+    await reload([a, c]);
+    await vi.waitFor(() => expect(lightboxActor.snapshot().context.photo).toBeUndefined());
+  });
+
+  it("after a delete elsewhere, stepping skips the deleted photo", async () => {
+    const [a, b, c] = [photo("a"), photo("b"), photo("c")];
+    await reload([a, b, c]);
+    openLightbox(a, [a, b, c]);
+    await reload([a, c]);
+    step(1);
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
   });
 });

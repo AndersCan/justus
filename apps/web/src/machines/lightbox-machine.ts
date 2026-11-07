@@ -13,6 +13,9 @@ const closed = event("CLOSE")();
 /** Move to the next or previous photo, wrapping around. */
 const stepped = event("STEP")<{ dir: 1 | -1; photos: Photo[] }>();
 
+/** The album's photos were loaded again; a photo deleted elsewhere is no longer in them. */
+const photoListChanged = event("PHOTO_LIST_CHANGED")<{ photos: Photo[] }>();
+
 /** No photo is open. */
 const noPhotoOpen = state("noPhotoOpen")();
 /** A photo is open full-screen. */
@@ -20,7 +23,7 @@ const showingPhoto = state("showingPhoto")();
 
 export function createLightboxActor(options: { clock: Clock }) {
   return Actor({
-    inputs: [opened, closed, stepped],
+    inputs: [opened, closed, stepped, photoListChanged],
     internal: [],
     outputs: [],
     states: [noPhotoOpen, showingPhoto],
@@ -48,6 +51,25 @@ export function createLightboxActor(options: { clock: Clock }) {
           return { state: noPhotoOpen };
         },
       });
+      /** A new photo list: the view closes when its photo is gone from it, and the photos it steps through drop the ones that are gone. */
+      m.on(showingPhoto, {
+        event: photoListChanged,
+        to: [noPhotoOpen],
+        handler: (e, opts) => {
+          const c = opts.context.get();
+          const { photos } = e.payload;
+          const current = c.photo;
+          if (!current || !photos.some((p) => samePhoto(p, current))) {
+            opts.context.set({ photo: undefined, sequence: undefined });
+            return { state: noPhotoOpen };
+          }
+          opts.context.set({
+            ...c,
+            sequence: c.sequence?.filter((s) => photos.some((p) => samePhoto(p, s))),
+          });
+          return {};
+        },
+      });
       /** Stepping stays open; a photo that is no longer in the list is left as it is. */
       m.on(showingPhoto, {
         event: stepped,
@@ -68,4 +90,4 @@ export function createLightboxActor(options: { clock: Clock }) {
 
 export const lightboxActor = createLightboxActor({ clock: RealClock() });
 
-export const lightboxEvents = { opened, closed, stepped };
+export const lightboxEvents = { opened, closed, stepped, photoListChanged };

@@ -93,4 +93,47 @@ describe("lightbox machine", () => {
     open(a, photo("b"));
     expect(id(a)).toBe("b");
   });
+
+  const listChanged = (a: ReturnType<typeof make>, photos: Photo[]) =>
+    a.send(lightboxEvents.photoListChanged.create({ photos }));
+
+  test("a new photo list without the open photo closes the view", () => {
+    const a = make();
+    const [pa, pb, pc] = [photo("a"), photo("b"), photo("c")];
+    open(a, pb, [pa, pb, pc]);
+    listChanged(a, [pa, pc]);
+    expect(a.snapshot().path[0]).toBe("noPhotoOpen");
+    expect(a.snapshot().context.photo).toBeUndefined();
+    expect(a.snapshot().context.sequence).toBeUndefined();
+  });
+
+  test("a new photo list drops deleted photos from the steps", () => {
+    const a = make();
+    const [pa, pb, pc] = [photo("a"), photo("b"), photo("c")];
+    open(a, pa, [pa, pb, pc]);
+    listChanged(a, [pa, pc]);
+    expect(a.snapshot().path[0]).toBe("showingPhoto");
+    step(a, 1, a.snapshot().context.sequence ?? []);
+    expect(id(a)).toBe("c");
+  });
+
+  test("the same id in another album keeps the view open", () => {
+    const a = make();
+    open(a, photo("a", "f1"));
+    listChanged(a, [photo("a", "f2"), photo("a", "f1")]);
+    expect(a.snapshot().path[0]).toBe("showingPhoto");
+  });
+
+  test("a new photo list while closed does nothing", () => {
+    const a = make();
+    listChanged(a, [photo("a")]);
+    expect(a.snapshot().path[0]).toBe("noPhotoOpen");
+  });
+
+  test("a view opened without a grid keeps stepping through every photo", () => {
+    const a = make();
+    open(a, photo("a"));
+    listChanged(a, [photo("a"), photo("b")]);
+    expect(a.snapshot().context.sequence).toBeUndefined();
+  });
 });

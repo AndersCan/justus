@@ -27,6 +27,18 @@ export function step(dir: 1 | -1): void {
   lightboxActor.send(lightboxEvents.stepped.create({ dir, photos }));
 }
 
+// A photo deleted elsewhere must not stay open: tell the lightbox whenever the album's list is replaced.
+let lastPhotos = galleryActor.snapshot().context.photos;
+galleryActor.on("change", {
+  fn: (s) => {
+    if (s.context.photos === lastPhotos) return;
+    lastPhotos = s.context.photos;
+    if (lightboxActor.snapshot().context.photo) {
+      lightboxActor.send(lightboxEvents.photoListChanged.create({ photos: s.context.photos }));
+    }
+  },
+});
+
 // A swipe must not also fire the backdrop's click (browsers synthesize a
 // click after touchend on the touched element).
 let suppressClickUntil = 0;
