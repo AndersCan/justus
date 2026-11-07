@@ -197,7 +197,7 @@ if ! maestro --device "$SERIAL" test "$FLOWS_DIR"; then
   mkdir -p "$OUT_DIR"
 
   logcat_file="$OUT_DIR/logcat-JUSTUS_ANDROID.txt"
-  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID >"$logcat_file" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$logcat_file" 2>/dev/null || true
 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
