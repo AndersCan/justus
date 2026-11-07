@@ -3,6 +3,7 @@ import { onOutput } from "@mantaq/sugar";
 import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
+import { $friends } from "./friends-machine";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
 import { $requests, requests } from "./requests-machine";
 import { $syncStatus } from "./sync-machine";
@@ -21,9 +22,9 @@ export const $peopleError = atom<string | null>(null);
 export const $peopleFatal = atom(false);
 
 export const $peopleViewModel = computed(
-  [$syncStatus, $requests, $peopleState, $peopleError],
-  (status, reqs, state, error) => ({
-    ...buildPeople(status, reqs),
+  [$syncStatus, $requests, $peopleState, $peopleError, $friends],
+  (status, reqs, state, error, friendNames) => ({
+    ...buildPeople(status, reqs, friendNames),
     open: state !== "closed",
     removing: state === "removing",
     error,
