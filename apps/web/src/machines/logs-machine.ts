@@ -15,9 +15,9 @@ export type LogsContext = {
 };
 
 /** A fetch started. */
-const loadingStarted = event("LOADING")();
+const loadingStarted = event("LOGS_FETCH_STARTED")();
 /** A fetch returned these entries. */
-const loaded = event("LOADED")<{ entries: LogEntry[]; at: number }>();
+const loaded = event("LOGS_FETCHED")<{ entries: LogEntry[]; at: number }>();
 /** A fetch failed. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The minimum severity was changed. */

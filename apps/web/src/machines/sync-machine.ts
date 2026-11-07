@@ -64,9 +64,9 @@ const couldNotCheckAlbum = state("couldNotCheckAlbum")();
 /** The person opens the sharing screen or asks it to reload. */
 const refresh = event("REFRESH")();
 /** The album status came back. */
-const status = event("STATUS")<{ status: SyncStatus }>();
+const status = event("ALBUM_CHECKED")<{ status: SyncStatus }>();
 /** The album status could not be read (no answer, or the app could not reach it). */
-const statusFailed = event("STATUS_FAILED")<{ message: string }>();
+const statusFailed = event("ALBUM_CHECK_FAILED")<{ message: string }>();
 /** The person chooses an album of their own to share, with a name. */
 const enroll = event("ENROLL")<{ key: string; name: string }>();
 /** The album is now set up for sharing. */

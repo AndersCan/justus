@@ -43,15 +43,15 @@ const couldNotLoadShareList = state("couldNotLoadShareList")();
 /** The person opens the share screen or asks it to reload. */
 const refresh = event("REFRESH")();
 /** The people list and the people due a prompt came back. */
-const loaded = event("LOADED")<{ records: GrantRecord[]; due: string[] }>();
+const loaded = event("SHARE_LIST_LOADED")<{ records: GrantRecord[]; due: string[] }>();
 /** The people list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person lets someone see their photos, declines, snoozes the daily prompt, or stops sharing with someone. */
-const act = event("ACT")<{ peerId: string; kind: GrantActionKind }>();
+const act = event("SHARE_CHOICE_MADE")<{ peerId: string; kind: GrantActionKind }>();
 /** The choice was saved. */
-const acted = event("ACTED")();
+const acted = event("SHARE_CHOICE_SAVED")();
 /** The choice could not be saved. */
-const actFailed = event("ACT_FAILED")<{ message: string }>();
+const actFailed = event("SHARE_CHOICE_NOT_SAVED")<{ message: string }>();
 /** The person taps Try again after an error. */
 const retry = event("RETRY")();
 
