@@ -63,6 +63,9 @@ function wrap(raw: any): Drive {
       // A drive that does not track peers counts as served, so nothing re-runs its lookup.
       return { length: raw.core?.length ?? 0, peers: Array.isArray(peers) ? peers.length : 1 };
     },
+    version() {
+      return raw.version ?? raw.core?.length ?? 0;
+    },
     async update() {
       await raw.update?.();
     },
@@ -127,6 +130,9 @@ export function createLegacyDriveStore(hooks: () => LegacyHooks): DriveStore & {
         clearTimeout(timer);
       }
       return [null, hold(raw)];
+    },
+    async openAt(): Promise<OpenResult<Drive>> {
+      return [new Error("openAt is not supported by the legacy drive store"), null];
     },
     async release(drive) {
       const entry = held.get(drive.key);

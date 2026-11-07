@@ -1,5 +1,5 @@
 import { short, type P2pLog } from "../p2p-log";
-import type { Drive, DriveEntry, DriveStore } from "../ports/drive-store";
+import type { Drive, DriveEntry, DriveStore, OpenResult } from "../ports/drive-store";
 import Corestore from "corestore";
 import Hypercore from "hypercore";
 import Hyperdrive from "hyperdrive";
@@ -28,7 +28,12 @@ export function toDriveEntry(e: any): DriveEntry {
   };
 }
 
-function wrap(raw: any): Drive {
+function readOnlyCopy(): never {
+  throw new Error("read-only copy");
+}
+
+function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
+  const readOnly = wrapOpts.readOnly === true;
   return {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
@@ -51,12 +56,15 @@ function wrap(raw: any): Drive {
       return bytes ?? undefined;
     },
     async put(path, bytes, opts) {
+      if (readOnly) readOnlyCopy();
       await raw.put(path, Buffer.from(bytes), opts?.metadata ? { metadata: opts.metadata } : {});
     },
     async del(path) {
+      if (readOnly) readOnlyCopy();
       await raw.del(path);
     },
     async clear(path) {
+      if (readOnly) readOnlyCopy();
       await raw.clear(path);
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
@@ -69,12 +77,16 @@ function wrap(raw: any): Drive {
     },
     /** Hyperdrive emits no "update": its index core emits "append" (and "truncate" when a writer forks). */
     onChange(cb) {
+      if (readOnly) return () => {};
       raw.core.on("append", cb);
       raw.core.on("truncate", cb);
       return () => {
         raw.core.removeListener("append", cb);
         raw.core.removeListener("truncate", cb);
       };
+    },
+    version() {
+      return raw.version;
     },
     stats() {
       return { length: raw.core.length, peers: raw.core.peers?.length ?? 0 };
@@ -120,6 +132,68 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
     }
   }
 
+  /** Copies at a version: the checkout to close and the live drive whose ref it holds. */
+  const copies = new Map<Drive, { raw: any; live: Drive }>();
+
+  async function open(key: string, timeoutMs: number): Promise<OpenResult<Drive>> {
+    try {
+      return [null, await acquire(key, () => openRemote(key, timeoutMs))];
+    } catch (e: unknown) {
+      return [e instanceof Error ? e : new Error(String(e)), null];
+    }
+  }
+
+  async function release(drive: Drive): Promise<void> {
+    const copy = copies.get(drive);
+    if (copy) {
+      copies.delete(drive);
+      await copy.raw.close().catch((e: unknown) => {
+        log("error", { where: "drive.close", drive: short(drive.key), err: errText(e) });
+      });
+      await release(copy.live);
+      return;
+    }
+    const entry = await byKey.get(drive.key);
+    if (!entry || entry.drive !== drive) return;
+    entry.refs--;
+    if (entry.refs <= 0) await closeEntry(entry);
+  }
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function openAt(
+    key: string,
+    version: number,
+    timeoutMs: number,
+  ): Promise<OpenResult<Drive>> {
+    const deadline = Date.now() + timeoutMs;
+    const [err, live] = await open(key, timeoutMs);
+    if (err || !live) return [err ?? new Error("open returned no drive"), null];
+    const raw = (await byKey.get(key))?.raw;
+    while (raw.core.length < version) {
+      const left = deadline - Date.now();
+      if (left <= 0) {
+        await release(live);
+        return [new Error(`drive ${short(key)} did not reach version ${version}`), null];
+      }
+      await Promise.race([raw.update().catch(() => {}), sleep(Math.min(left, 200))]);
+      if (raw.core.length < version) await sleep(50);
+    }
+    const checkout = raw.checkout(version);
+    try {
+      await checkout.ready();
+    } catch (e: unknown) {
+      await checkout.close().catch(() => {});
+      await release(live);
+      return [e instanceof Error ? e : new Error(String(e)), null];
+    }
+    const copy = wrap(checkout, { readOnly: true });
+    copies.set(copy, { raw: checkout, live });
+    return [null, copy];
+  }
+
   function track(raw: any): Entry {
     return { raw, drive: wrap(raw), refs: 0 };
   }
@@ -139,19 +213,9 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
         return track(raw);
       });
     },
-    async open(key, { timeoutMs }) {
-      try {
-        return [null, await acquire(key, () => openRemote(key, timeoutMs))];
-      } catch (e: unknown) {
-        return [e instanceof Error ? e : new Error(String(e)), null];
-      }
-    },
-    async release(drive) {
-      const entry = await byKey.get(drive.key);
-      if (!entry || entry.drive !== drive) return;
-      entry.refs--;
-      if (entry.refs <= 0) await closeEntry(entry);
-    },
+    open: (key, { timeoutMs }) => open(key, timeoutMs),
+    openAt: (key, version, { timeoutMs }) => openAt(key, version, timeoutMs),
+    release,
     async purge(key) {
       const pending = byKey.get(key);
       const entry = pending ? await pending.catch(() => undefined) : undefined;

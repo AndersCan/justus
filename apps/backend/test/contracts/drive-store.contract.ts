@@ -604,4 +604,115 @@ export const cases: DriveCase[] = [
       t.eq(await again.readSmall("/c", 10), "3", "purged drive writable again");
     },
   },
+  {
+    name: "D22 a copy at version v hides a file put after v, and refuses writes",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      await drive.put("/a", bytes("1"));
+      const v = drive.version();
+      await drive.put("/b", bytes("2"));
+      const [err, copy] = await store.openAt(drive.key, v, { timeoutMs: 5_000 });
+      t.noErr([err], "openAt");
+      if (!copy) throw new Error("no copy");
+      t.eq(copy.version(), v, "copy version");
+      t.eq(await copy.readSmall("/a", 10), "1", "earlier file");
+      t.eq(await copy.readSmall("/b", 10), undefined, "later file hidden");
+      const found = [];
+      for await (const e of copy.list("/")) found.push(e.path);
+      t.eq(found, ["/a"], "list at v");
+      t.eq(await drive.readSmall("/b", 10), "2", "live drive keeps the later file");
+      const failed = await Promise.all([
+        copy.put("/c", bytes("3")).then(
+          () => false,
+          (e: Error) => e.message === "read-only copy",
+        ),
+        copy.del("/a").then(
+          () => false,
+          (e: Error) => e.message === "read-only copy",
+        ),
+        copy.clear("/a").then(
+          () => false,
+          (e: Error) => e.message === "read-only copy",
+        ),
+      ]);
+      t.eq(failed, [true, true, true], "put, del and clear throw");
+    },
+  },
+  {
+    name: "D23 a copy opened on a node that never read the drive lists and reads a photo put before v",
+    async run(world, t) {
+      const { own, b } = await pair(world, t);
+      await own.put("/photos/p", bytes("old photo"));
+      const v = own.version();
+      await own.put("/photos/q", bytes("new photo"));
+      const c = await world.node();
+      await c.connect();
+      const [err, copy] = await c.store.openAt(own.key, v, { timeoutMs: 20_000 });
+      t.noErr([err], "openAt on c");
+      if (!copy) throw new Error("no copy");
+      t.eq(
+        await eventually(
+          () => copy.readSmall("/photos/p", 20, { timeoutMs: 1_000 }),
+          (x) => x === "old photo",
+          "bytes at v",
+          30_000,
+        ),
+        "old photo",
+        "photo bytes",
+      );
+      const found = [];
+      for await (const e of copy.list("/photos")) found.push(e.path);
+      t.eq(found, ["/photos/p"], "later photo hidden");
+      t.ok(b.store, "b untouched");
+    },
+  },
+  {
+    name: "D24 releasing a copy leaves the live drive readable and writable",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      await drive.put("/a", bytes("1"));
+      const [err, copy] = await store.openAt(drive.key, drive.version(), { timeoutMs: 5_000 });
+      t.noErr([err], "openAt");
+      if (!copy) throw new Error("no copy");
+      await store.release(copy);
+      t.eq(await drive.readSmall("/a", 10), "1", "live reads");
+      await drive.put("/b", bytes("2"));
+      t.eq(await drive.readSmall("/b", 10), "2", "live writes");
+    },
+  },
+  {
+    name: "D25 openAt past the reachable length gives an error value within the timeout, and the drive stays usable",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      await drive.put("/a", bytes("1"));
+      const started = Date.now();
+      const [err, copy] = await store.openAt(drive.key, drive.version() + 5, { timeoutMs: 500 });
+      t.ok(err !== null && copy === null, "error value");
+      t.ok(Date.now() - started < 3_000, "bounded by the timeout");
+      await drive.put("/b", bytes("2"));
+      t.eq(await drive.readSmall("/b", 10), "2", "drive still writes");
+    },
+  },
+  {
+    name: "D26 openAt on a key this node already holds does not hang",
+    async run(world, t) {
+      const { b, own, remote } = await pair(world, t);
+      await own.put("/a", bytes("1"));
+      const v = own.version();
+      await eventually(
+        () => remote.readSmall("/a", 10),
+        (x) => x === "1",
+        "replicated",
+      );
+      const [err, copy] = await b.store.openAt(own.key, v, { timeoutMs: 10_000 });
+      t.noErr([err], "openAt on a held key");
+      if (!copy) throw new Error("no copy");
+      t.eq(await copy.readSmall("/a", 10), "1", "copy reads");
+      await b.store.release(copy);
+      t.eq(await remote.readSmall("/a", 10), "1", "held handle still reads");
+    },
+  },
 ];
