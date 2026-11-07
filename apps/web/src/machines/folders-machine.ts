@@ -1,5 +1,5 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import type { AskSummary, FolderSummary, SyncStatus } from "@justus/core";
+import type { AskSummary, FolderSummary, OfferSummary, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { statusSeen, syncActor, type SyncActor } from "./sync-machine";
@@ -35,6 +35,7 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
     userName: s.context.userName,
     folders: s.context.folders,
     asks: s.context.asks,
+    offers: s.context.offers,
     activeFolderId: s.context.activeId,
     state,
     busy: state === "creatingAlbum" || state === "openingAlbum" || state === "savingName",
@@ -77,6 +78,7 @@ const refresh = event("REFRESH")();
 const loaded = event("ALBUMS_LOADED")<{
   folders: FolderSummary[];
   asks: AskSummary[];
+  offers: OfferSummary[];
   activeId: string | null;
 }>();
 /** The album list could not be loaded. */
@@ -114,6 +116,7 @@ type FoldersContext = {
   userName: string;
   folders: FolderSummary[];
   asks: AskSummary[];
+  offers: OfferSummary[];
   activeId: string | null;
   error: string | null;
   pendingCreate: string | null;
@@ -166,6 +169,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       userName: "",
       folders: [],
       asks: [],
+      offers: [],
       activeId: null,
       error: null,
       ...noPending,
@@ -231,6 +235,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
                 folders?: FolderSummary[];
                 activeFolderId?: string;
                 asks?: AskSummary[];
+                offers?: OfferSummary[];
               } | null;
               // `activeFolderId` may legitimately be null (a fresh device with no
               // folder chosen yet) — only a missing folder list is a real load
@@ -244,6 +249,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
                 loaded.create({
                   folders: r.folders,
                   asks: r.asks ?? [],
+                  offers: r.offers ?? [],
                   activeId: r.activeFolderId ?? null,
                 }),
               );
@@ -261,6 +267,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             ...opts.context.get(),
             folders: e.payload.folders,
             asks: e.payload.asks,
+            offers: e.payload.offers,
             activeId: e.payload.activeId,
             error: null,
           });

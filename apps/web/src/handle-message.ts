@@ -4,6 +4,7 @@ import { guardPush } from "./contract-guard";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
+import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import { sync } from "./machines/sync-machine";
 
@@ -51,7 +52,10 @@ export function handleMessage(msg: WireMessage) {
     folders.refresh();
     requests.refresh();
     const answer = askAnswer(h.args);
-    if (answer) join.requestAnswered(answer.code, answer.answer, answer.folderId);
+    if (answer) {
+      join.requestAnswered(answer.code, answer.answer, answer.folderId);
+      friendOffer.askAnswered(answer.code, answer.answer, answer.folderId);
+    }
   } else if (h.type === "INVOKE_RESPONSE" && h.error) {
     console.error("Plugin invoke failed:", h.pluginId, h.event, h.error.message);
   }

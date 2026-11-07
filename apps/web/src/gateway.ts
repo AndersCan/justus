@@ -95,6 +95,8 @@ export const gateway = {
   /** Asks a saved friend's phone, by key alone, to offer them the album. Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
   offerAlbum: (folderId: string, identity: string) =>
     invoke(photoEvents.photos.offerAlbum(folderId, identity)),
+  /** Joins the album a friend's invite offers; the Admin's phone lets this phone in without an Accept step. */
+  joinOffer: (code: string, owner: string) => invoke(photoEvents.photos.joinOffer(code, owner)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

@@ -62,6 +62,17 @@ describe("folders machine", () => {
     expect(ctx().activeId).toBe("f1");
   });
 
+  test("refresh also loads the friend invites, and treats a missing list as none", async () => {
+    const offer = { code: "c", owner: "o", albumName: "Trip", ownerName: "Nils" };
+    mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null, offers: [offer] }]);
+    folders.refresh();
+    await vi.waitFor(() => expect(ctx().offers).toEqual([offer]));
+
+    mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
+    folders.refresh();
+    await vi.waitFor(() => expect(ctx().offers).toEqual([]));
+  });
+
   test("refresh also loads the asks, and treats a missing list as none", async () => {
     const ask = { code: "c", status: "waiting" };
     mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null, asks: [ask] }]);
@@ -368,6 +379,7 @@ describe("folders single owner", () => {
       userName: "",
       folders: [],
       asks: [],
+      offers: [],
       activeFolderId: null,
       state: "albumsNotLoaded",
       busy: false,
