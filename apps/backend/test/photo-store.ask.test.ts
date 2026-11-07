@@ -314,6 +314,79 @@ describe("accepting as a Viewer", () => {
   });
 });
 
+describe("letting a Viewer add photos", () => {
+  async function viewer() {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const { requests } = await s.admin.store.requests();
+    const key = requests[0].requesterKey;
+    expect((await s.admin.store.respond(s.folderId, key, true, "reader"))[0]).toBeNull();
+    return { ...s, key, albumDrive: s.adminOwn[s.adminOwn.length - 1] };
+  }
+
+  it("moves the key from /viewers.json to /members.json and loads the drive", async () => {
+    const s = await viewer();
+    const done = await s.admin.store.makeMember(s.folderId, s.key);
+    expect(done[0]).toBeNull();
+    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
+    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    expect(Object.keys(viewers.viewers)).toEqual([]);
+    expect(Object.keys(members.members)).toEqual([s.key]);
+    const debug = s.admin.store.debugState() as { remoteDrives: { role: string }[] };
+    expect(debug.remoteDrives.filter((d) => d.role === "member")).toHaveLength(1);
+    const status = await s.admin.store.status();
+    expect(status.members.map((m: { viewer?: boolean }) => m.viewer)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    await s.close();
+  });
+
+  it("refuses with the Spec's codes, in order", async () => {
+    const s = await viewer();
+    const code = async (folderId: string, key: string) =>
+      (await s.admin.store.makeMember(folderId, key))[0]?.code;
+    expect(await code("nope", s.key)).toBe(PhotoError.FOLDER_NOT_FOUND);
+    expect(await code(s.folderId, "xyz")).toBe(PhotoError.INVALID_KEY);
+    expect(await code(s.folderId, s.shareKey)).toBe(PhotoError.INVALID_KEY);
+    expect(await code(s.folderId, "ab".repeat(32))).toBe(PhotoError.NOT_FOUND);
+    expect(await code(s.folderId, s.key)).toBeUndefined();
+    expect(await code(s.folderId, s.key)).toBe(PhotoError.NOT_FOUND);
+    await s.close();
+  });
+
+  it("only the Admin may do it", async () => {
+    const s = await viewer();
+    const refused = await s.joiner.store.makeMember(s.folderId, s.key);
+    expect(refused[0]?.code).toBeDefined();
+    await s.close();
+  });
+
+  it("a failed second write leaves the person a Collaborator", async () => {
+    const s = await viewer();
+    const put = s.albumDrive.put.bind(s.albumDrive);
+    s.albumDrive.put = (async (path: string, data: Buffer) => {
+      if (path === "/viewers.json") throw new Error("disk full");
+      return put(path, data);
+    }) as typeof s.albumDrive.put;
+    const failed = await s.admin.store.makeMember(s.folderId, s.key);
+    expect(failed[0]?.message).toContain("disk full");
+    s.albumDrive.put = put;
+    const status = await s.admin.store.status();
+    expect(status.members.map((m: { viewer?: boolean }) => m.viewer)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    expect(Object.keys(members.members)).toEqual([s.key]);
+    expect((await s.admin.store.makeMember(s.folderId, s.key))[0]?.code).toBe(
+      PhotoError.ALREADY_ENROLLED,
+    );
+    await s.close();
+  });
+});
+
 describe("turning off invite links", () => {
   async function asked(s: Awaited<ReturnType<typeof scenario>>, code: string) {
     await s.joiner.store.ask({ code, owner: s.owner });

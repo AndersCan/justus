@@ -200,6 +200,7 @@ export const photoResultSchemas = {
   "photos.setActive": syncStatusSchema,
   "photos.setName": s.object({ name: s.string }),
   "photos.requests": s.object({ requests: s.array(joinRequestSchema) }),
+  "photos.makeMember": s.object({ ok: s.boolean }),
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
   "photos.offerAlbum": s.object({ ok: s.boolean }),
