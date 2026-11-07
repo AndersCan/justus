@@ -1,8 +1,12 @@
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// @ts-expect-error plain .mjs script
-import { checkFlowExpectations, checkFlowNames } from "./check-flow-expectations.mjs";
+import {
+  checkFlowExpectations,
+  checkFlowNames,
+  summarizeFlowChecks,
+  // @ts-expect-error plain .mjs script
+} from "./check-flow-expectations.mjs";
 import { afterAll, expect, test } from "vite-plus/test";
 
 const root = resolve(fileURLToPath(import.meta.url), "../..");
@@ -33,7 +37,6 @@ test("a handler that skips the Admin's accept is reported as a never-see hit", a
     machines: { membership: file },
   })) as { lines: string[]; failed: boolean };
 
-  console.log(lines.join("\n"));
   expect(failed).toBe(true);
   expect(lines).toContain("check-flow-expectations: membership: never-see hit");
   expect(lines).toContain('  state addingMember reached never-see context {"accepted":false}');
@@ -80,7 +83,6 @@ export function createPlantedActor(options: { clock: Clock }) {
     failed: boolean;
   };
 
-  console.log(lines.join("\n"));
   const rel = "node_modules/.cache/check-flow-expectations/planted-names/planted-machine.ts";
   expect(failed).toBe(true);
   expect(lines).toContain(
@@ -99,3 +101,52 @@ test("every machine in the flow manifest has clear, documented names", async () 
   expect(lines).toEqual([]);
   expect(failed).toBe(false);
 }, 60_000);
+
+test("a file that cannot load is reported as a problem", async () => {
+  const names = (await checkFlowNames({ root, files: ["scripts/does-not-exist.ts"] })) as {
+    lines: string[];
+    failed: boolean;
+    problems: number;
+  };
+  expect(names.failed).toBe(true);
+  expect(names.problems).toBe(1);
+  expect(names.lines[0]).toContain("could not load scripts/does-not-exist.ts");
+});
+
+test("when only a name fails the report has no success line and counts one problem", () => {
+  const report = summarizeFlowChecks(
+    { lines: ["check-flow-expectations: expectations held"], failed: false, problems: 0 },
+    { lines: ["check-flow-expectations: x: vague"], failed: true, problems: 1 },
+  );
+  expect(report.failed).toBe(true);
+  expect(report.lines).toEqual([
+    "check-flow-expectations: x: vague",
+    "check-flow-expectations: 1 problem(s); see above",
+  ]);
+});
+
+test("when both checks fail the count is the sum of real problems", () => {
+  const report = summarizeFlowChecks(
+    {
+      lines: [
+        "check-flow-expectations: m: never-see hit",
+        "  detail",
+        "check-flow-expectations: 1 problem(s); see above",
+      ],
+      failed: true,
+      problems: 1,
+    },
+    {
+      lines: ["check-flow-expectations: a", "check-flow-expectations: b"],
+      failed: true,
+      problems: 2,
+    },
+  );
+  expect(report.lines.at(-1)).toBe("check-flow-expectations: 3 problem(s); see above");
+  expect(report.lines).toHaveLength(5);
+});
+
+test("when both checks hold the report succeeds", () => {
+  const ok = { lines: [], failed: false, problems: 0 };
+  expect(summarizeFlowChecks(ok, ok).failed).toBe(false);
+});

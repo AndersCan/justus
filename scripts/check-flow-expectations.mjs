@@ -19,7 +19,7 @@ function describeSteps(steps) {
 
 /**
  * @param {{ root: string, machines: Record<string, string> }} options  paths relative to root or absolute
- * @returns {Promise<{ lines: string[], failed: boolean }>}
+ * @returns {Promise<{ lines: string[], failed: boolean, problems: number }>}
  */
 export async function checkFlowExpectations({ root, machines }) {
   const lines = [];
@@ -74,17 +74,18 @@ export async function checkFlowExpectations({ root, machines }) {
 
   if (problems > 0) {
     lines.push(`check-flow-expectations: ${problems} problem(s); see above`);
-    return { lines, failed: true };
+    return { lines, failed: true, problems };
   }
-  return { lines: ["check-flow-expectations: expectations held"], failed: false };
+  return { lines: ["check-flow-expectations: expectations held"], failed: false, problems: 0 };
 }
 
 /**
  * @param {{ root: string, files: string[] }} options  paths relative to root or absolute
- * @returns {Promise<{ lines: string[], failed: boolean }>}
+ * @returns {Promise<{ lines: string[], failed: boolean, problems: number }>}
  */
 export async function checkFlowNames({ root, files }) {
   const lines = [];
+  let problems = 0;
   const seen = new Set();
   for (const file of files) {
     const absolute = isAbsolute(file) ? file : resolve(root, file);
@@ -93,39 +94,58 @@ export async function checkFlowNames({ root, files }) {
     const rel = relative(root, absolute);
     const loaded = await inspectFile(absolute, { fuzz: false });
     if (loaded.failed) {
+      problems += 1;
       lines.push(`check-flow-expectations: could not load ${rel}: ${loaded.warnings.join("; ")}`);
       continue;
     }
     for (const machine of loaded.machines) {
       for (const finding of machineFindings(machine)) {
         if (finding.kind !== "vagueName" && finding.kind !== "undocumented") continue;
+        problems += 1;
         lines.push(`check-flow-expectations: ${machine.id}: ${finding.message} (${rel})`);
       }
     }
   }
-  return { lines, failed: lines.length > 0 };
+  return { lines, failed: problems > 0, problems };
+}
+
+/**
+ * Merge both checks into one report with a single, accurate problem count.
+ * @param {{ lines: string[], failed: boolean, problems: number }} expectations
+ * @param {{ lines: string[], failed: boolean, problems: number }} names
+ * @returns {{ lines: string[], failed: boolean }}
+ */
+export function summarizeFlowChecks(expectations, names) {
+  if (!expectations.failed && !names.failed) {
+    return {
+      lines: ["check-flow-expectations: expectations held; no vague or undocumented names"],
+      failed: false,
+    };
+  }
+  const detail = [
+    ...(expectations.failed
+      ? expectations.lines.filter((l) => !l.endsWith(" problem(s); see above"))
+      : []),
+    ...names.lines,
+  ];
+  const total = expectations.problems + names.problems;
+  return {
+    lines: [...detail, `check-flow-expectations: ${total} problem(s); see above`],
+    failed: true,
+  };
 }
 
 async function main() {
+  // The web machines read the transport mode when loaded; mock avoids real network setup.
   process.env.VITE_TRANSPORT_MODE ??= "mock";
   const root = resolve(fileURLToPath(import.meta.url), "../..");
   const manifest = JSON.parse(readFileSync(resolve(root, "docs/flows/manifest.json"), "utf8"));
   const expectations = await checkFlowExpectations({ root, machines: REQUIRED });
   const names = await checkFlowNames({ root, files: Object.values(manifest).flat() });
-  if (expectations.failed || names.failed) {
-    const detail = [
-      ...expectations.lines.filter((l) => !l.endsWith(" problem(s); see above")),
-      ...names.lines,
-    ];
-    const total = detail.filter((l) => !l.startsWith("  ")).length;
-    const summary = `check-flow-expectations: ${total} problem(s); see above`;
-    process.stderr.write([...detail, summary].join("\n") + "\n");
-    process.exit(1);
-  }
-  process.stdout.write(
-    "check-flow-expectations: expectations held; no vague or undocumented names\n",
-  );
-  process.exit(0);
+  const report = summarizeFlowChecks(expectations, names);
+  const out = report.failed ? process.stderr : process.stdout;
+  out.write(report.lines.join("\n") + "\n");
+  process.exit(report.failed ? 1 : 0);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
