@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { pathFor } from "../machines/router-machine";
 
 const QA: { q: string; a: string[] }[] = [
   {
@@ -58,6 +59,7 @@ const QA: { q: string; a: string[] }[] = [
 export function helpView() {
   return html`
     <div class="mx-auto max-w-2xl space-y-6">
+      <a class="text-sm text-muted hover:text-fg" href=${pathFor("settings")}>← Settings</a>
       <h1 class="text-2xl font-semibold tracking-tight text-fg">Help</h1>
 
       <section class="space-y-2" aria-label="Frequently asked questions">
