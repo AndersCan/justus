@@ -2,6 +2,11 @@ package io.justus.app
 
 import android.content.ContentValues
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.provider.MediaStore
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
@@ -13,7 +18,9 @@ import androidx.test.uiautomator.Until
 import java.util.regex.Pattern
 import org.junit.Before
 import org.junit.Test
+import tools.fastlane.screengrab.FileWritingScreenshotCallback
 import tools.fastlane.screengrab.Screengrab
+import tools.fastlane.screengrab.ScreenshotCallback
 import tools.fastlane.screengrab.UiAutomatorScreenshotStrategy
 
 // Play listing screenshots. The names here must match SCREENSHOTS in fastlane/Fastfile.
@@ -103,5 +110,59 @@ class ListingScreenshots {
     Thread.sleep(1000)
     Screengrab.setDefaultScreenshotStrategy(UiAutomatorScreenshotStrategy())
     Screengrab.screenshot("1_album")
+
+    val tile = device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first()
+    tile.click()
+    Thread.sleep(2000)
+    Screengrab.screenshot("2_photo")
+
+    find("Close", 10).click()
+    Thread.sleep(1000)
+    var opened = false
+    for (attempt in 1..4) {
+      if (opened) break
+      val invite = device.wait(Until.findObject(By.desc("Invite & members")), 10000) ?: fail("invite link", "Invite")
+      invite.click()
+      opened = device.wait(Until.hasObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000)
+      Thread.sleep(1000)
+    }
+    if (!opened) fail("invite page did not open", "Copy link")
+    var tries = 0
+    while (device.findObject(By.text(Pattern.compile("Copy (invite )?link"))) == null && tries++ < 6) {
+      device.swipe(540, 1600, 540, 600, 20)
+    }
+    device.wait(Until.findObject(By.text(Pattern.compile("Copy (invite )?link"))), 5000) ?: fail("copy button", "Copy link")
+    Thread.sleep(500)
+    val files = FileWritingScreenshotCallback(target.applicationContext, Screengrab.getLocale())
+    Screengrab.screenshot(
+      "3_desktop",
+      UiAutomatorScreenshotStrategy(),
+      CaptionCallback("Albums also open on desktop", files)
+    )
+  }
+}
+
+// A plain caption band above the capture, which is scaled to fit under it.
+private class CaptionCallback(private val caption: String, private val next: ScreenshotCallback) :
+  ScreenshotCallback {
+  override fun screenshotCaptured(screenshotName: String, screenshot: Bitmap) {
+    val w = screenshot.width
+    val h = screenshot.height
+    val band = Math.round(h * 0.12f)
+    val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(out)
+    canvas.drawColor(Color.parseColor("#1B1B1F"))
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.WHITE
+      typeface = Typeface.DEFAULT_BOLD
+      textSize = band * 0.32f
+      textAlign = Paint.Align.CENTER
+    }
+    while (paint.measureText(caption) > w * 0.9f) paint.textSize -= 1f
+    canvas.drawText(caption, w / 2f, band / 2f - (paint.ascent() + paint.descent()) / 2f, paint)
+    val scaledW = Math.round(w * (h - band).toFloat() / h)
+    val scaled = Bitmap.createScaledBitmap(screenshot, scaledW, h - band, true)
+    canvas.drawBitmap(scaled, (w - scaledW) / 2f, band.toFloat(), null)
+    next.screenshotCaptured(screenshotName, out)
   }
 }

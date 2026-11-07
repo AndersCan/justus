@@ -5,8 +5,21 @@ default_platform(:android)
 AAB = "app/build/outputs/bundle/release/app-release.aab"
 TRACKS = %w[internal alpha beta production].freeze
 # Same names as Screengrab.screenshot(...) in ListingScreenshots.kt.
-SCREENSHOTS = %w[1_album].freeze
+SCREENSHOTS = %w[1_album 2_photo 3_desktop].freeze
 SHOTS_DIR = File.expand_path("metadata/android/en-US/images/phoneScreenshots", __dir__)
+
+# nil when dir holds exactly the expected PNGs at sizes Play accepts, else the reason.
+def screenshot_problem(dir)
+  found = Dir.exist?(dir) ? Dir.children(dir).sort : []
+  expected = SCREENSHOTS.map { |name| "#{name}.png" }
+  return "Store screenshots: expected #{expected.join(", ")} in #{dir}; found #{found.join(", ")}" unless found == expected
+  expected.each do |file|
+    w, h = File.binread(File.join(dir, file), 24).unpack("@16N2")
+    next if w && h && [w, h].all? { |side| side.between?(320, 3840) } && [w, h].max <= 2 * [w, h].min
+    return "Store screenshot #{file} is #{w}x#{h}; Play needs 320-3840 px per side and the long side at most twice the short side"
+  end
+  nil
+end
 
 platform :android do
   desc "Next versionCode: one above the highest code on any Play track"
@@ -64,9 +77,8 @@ platform :android do
       skip_open_summary: true,
       specific_device: options[:serial]
     )
-    found = Dir.children(SHOTS_DIR).select { |f| f.end_with?(".png") }.sort
-    expected = SCREENSHOTS.map { |name| "#{name}.png" }
-    UI.user_error!("Store screenshots: expected #{expected.join(", ")} in #{SHOTS_DIR}; found #{found.join(", ")}") unless found == expected
+    problem = screenshot_problem(SHOTS_DIR)
+    UI.user_error!(problem) if problem
   end
 
   desc "Upload the store listing (text, icon, screenshots) from fastlane/metadata (no build)"
