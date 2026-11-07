@@ -55,7 +55,7 @@ import {
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
-import { checkAsk, fileInviteAsk } from "./membership/invites";
+import { checkAsk, fileInviteAsk, replyTo } from "./membership/invites";
 import {
   albumNameUpdate,
   albumSummary,
@@ -2737,12 +2737,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (rt.record.role !== "creator") continue;
         // Enrolled, denied and answered invite requests are not pending (#84, #85).
         const registry = await readRegistryIn(rt.folderDrive);
-        const invited = new Set(rt.record.invited ?? []);
+        const found = await readRequestsFromPeers(rt);
         out.push(
-          ...pendingJoinRequests(
-            (await readRequestsFromPeers(rt)).filter((f) => !invited.has(f.identity)),
-            { registry, denied: deniedRequesters, answers: rt.record.answers },
-          ),
+          ...pendingJoinRequests(found, {
+            registry,
+            denied: deniedRequesters,
+            answers: rt.record.answers,
+            invited: new Set(rt.record.invited ?? []),
+          }),
         );
       }
       return { requests: out };
@@ -2759,18 +2761,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       requesterKey = requesterKey.toLowerCase();
       if (!requesterIdentity.has(requesterKey)) await readRequestsFromPeers(rt);
       const identity = requesterIdentity.get(requesterKey);
-      const viaInvite = Boolean(identity && rt.record.invite && inviteRequesters.has(requesterKey));
+      const askedBy =
+        identity && rt.record.invite && inviteRequesters.has(requesterKey) ? identity : undefined;
       const registry = await readRegistryIn(rt.folderDrive);
-      const alreadyPresent = Boolean(registry.members[requesterKey]);
-      if (!approve && viaInvite && identity) {
+      const reply = replyTo(
+        { askedBy, enrolled: Boolean(registry.members[requesterKey]) },
+        { approve },
+      );
+      if (reply.kind === "decline-ask") {
         // Final: the joiner is told, and asking again changes nothing.
-        setAnswer(rt, identity, "declined");
+        setAnswer(rt, reply.identity, "declined");
         deniedRequesters.add(requesterKey);
         deps.onChanged({ cause: "request", folderId });
-        void deliverAnswers(identity).catch(answerErr("deliver"));
+        void deliverAnswers(reply.identity).catch(answerErr("deliver"));
         return ok({ ok: true });
       }
-      if (!approve) {
+      if (reply.kind === "decline") {
         // Denials have no state to write — the request just stays on the
         // requester's own drive until it is superseded. Remember it for the
         // session so a re-filed request doesn't resurface as pending (#85).
@@ -2778,7 +2784,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deps.onChanged({ cause: "request", folderId });
         return ok({ ok: true });
       }
-      if (alreadyPresent) {
+      if (reply.kind === "already-enrolled") {
         return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
       }
       // The requester's own reported name comes from its `/requests.json`;
@@ -2786,21 +2792,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const found = await readRequestsFromPeers(rt);
       // The answer is recorded before the key can leave: if the registry write
       // fails the answer is taken back, so no one holds a key without a seat.
-      if (viaInvite && identity) setAnswer(rt, identity, "accepted");
+      const seated = reply.kind === "accept" ? reply.identity : undefined;
+      if (seated) setAnswer(rt, seated, "accepted");
       const [acceptErr, accepted] = await acceptJoinRequest(rt.folderDrive, {
         registry,
         requesterKey,
         requests: found.map((f) => f.request),
       });
       if (acceptErr) {
-        if (viaInvite && identity) setAnswer(rt, identity, undefined);
+        if (seated) setAnswer(rt, seated, undefined);
         if (acceptErr.kind === "already-enrolled")
           return err(PhotoError.ALREADY_ENROLLED, acceptErr.message);
         return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
       }
       await loadMemberDrive(rt, requesterKey, accepted.member.name);
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-      if (viaInvite && identity) void deliverAnswers(identity).catch(answerErr("deliver"));
+      if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
       return ok({ ok: true });
     },
 
