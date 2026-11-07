@@ -425,6 +425,71 @@ describe("letting a Viewer add photos", () => {
   });
 });
 
+describe("making a Collaborator a Viewer", () => {
+  async function collaborator() {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const { requests } = await s.admin.store.requests();
+    const key = requests[0].requesterKey;
+    expect((await s.admin.store.respond(s.folderId, key, true))[0]).toBeNull();
+    return { ...s, key, albumDrive: s.adminOwn[s.adminOwn.length - 1] };
+  }
+
+  it("moves them to /viewers.json with a kept version and shows them as a Viewer", async () => {
+    const s = await collaborator();
+    expect((await s.admin.store.makeViewer(s.folderId, s.key.toUpperCase()))[0]).toBeNull();
+    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
+    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    expect(Object.keys(members.members)).toEqual([]);
+    expect(Number.isInteger(viewers.viewers[s.key].keptVersion)).toBe(true);
+    const status = await s.admin.store.status();
+    expect(status.members.map((m: { viewer?: boolean }) => m.viewer)).toEqual([undefined, true]);
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    await s.close();
+  });
+
+  it("a Viewer can be made a Collaborator again", async () => {
+    const s = await collaborator();
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    expect((await s.admin.store.makeMember(s.folderId, s.key))[0]).toBeNull();
+    const status = await s.admin.store.status();
+    expect(status.members.map((m: { viewer?: boolean }) => m.viewer)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    await s.close();
+  });
+
+  it("refuses a stranger, a bad key and a non-Admin", async () => {
+    const s = await collaborator();
+    expect((await s.admin.store.makeViewer(s.folderId, "ab".repeat(32)))[0]).toMatchObject({
+      code: PhotoError.NOT_FOUND,
+    });
+    expect((await s.admin.store.makeViewer(s.folderId, "nope"))[0]).toMatchObject({
+      code: PhotoError.INVALID_KEY,
+    });
+    expect((await s.admin.store.makeViewer("missing", s.key))[0]).toMatchObject({
+      code: PhotoError.FOLDER_NOT_FOUND,
+    });
+    await s.close();
+  });
+
+  it("a failed write is reported", async () => {
+    const s = await collaborator();
+    const put = s.albumDrive.put.bind(s.albumDrive);
+    s.albumDrive.put = (async (path: string, data: Buffer) => {
+      if (path === "/viewers.json") throw new Error("disk full");
+      return put(path, data);
+    }) as typeof s.albumDrive.put;
+    const failed = await s.admin.store.makeViewer(s.folderId, s.key);
+    expect(failed[0]?.message).toContain("disk full");
+    s.albumDrive.put = put;
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    await s.close();
+  });
+});
+
 describe("turning off invite links", () => {
   async function asked(s: Awaited<ReturnType<typeof scenario>>, code: string) {
     await s.joiner.store.ask({ code, owner: s.owner });
