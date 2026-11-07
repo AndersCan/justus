@@ -79,6 +79,7 @@ export async function realNet(): Promise<Net> {
       name,
       storageDir: dir,
       store,
+      drives,
       changes,
       events,
       async stop() {

@@ -12,6 +12,7 @@ import {
   parseRegistry,
   parseRemoved,
   parseRequestsFile,
+  parseViewers,
   peerName,
 } from "./records";
 import { describe, expect, test } from "vite-plus/test";
@@ -311,5 +312,51 @@ describe("parseFriendMessage", () => {
     expect(isFriendMessageShape({ kind: "offer", code })).toBe(true);
     expect(isFriendMessageShape({ code, answer: "declined" })).toBe(false);
     expect(parseAnswer({ kind: "offerSeen", code })).toBeUndefined();
+  });
+});
+
+describe("parseViewers", () => {
+  const empty = { version: 1, viewers: {} };
+  const entry = { key: KEY_A, name: "Nils", addedAt: 5 };
+
+  test("reads a good file", () => {
+    const text = JSON.stringify({ version: 1, viewers: { [KEY_A]: entry } });
+    expect(parseViewers(text)).toEqual({ version: 1, viewers: { [KEY_A]: entry } });
+  });
+
+  test("a missing, malformed or wrong-version file lists no one", () => {
+    expect(parseViewers(null)).toEqual(empty);
+    expect(parseViewers("not json")).toEqual(empty);
+    expect(parseViewers("[]")).toEqual(empty);
+    expect(parseViewers(JSON.stringify({ version: 2, viewers: { [KEY_A]: entry } }))).toEqual(
+      empty,
+    );
+    expect(parseViewers(JSON.stringify({ version: 1, viewers: "x" }))).toEqual(empty);
+  });
+
+  test("drops a bad key, a key that does not match its record and a bad time", () => {
+    const text = JSON.stringify({
+      version: 1,
+      viewers: {
+        nothex: { key: "nothex", name: "A", addedAt: 1 },
+        [KEY_A]: { key: KEY_B, name: "B", addedAt: 1 },
+        [KEY_B]: { key: KEY_B, name: "C", addedAt: "soon" },
+        ["c".repeat(64)]: null,
+      },
+    });
+    expect(parseViewers(text)).toEqual(empty);
+  });
+
+  test("clips a long name and falls back for a missing one", () => {
+    const text = JSON.stringify({
+      version: 1,
+      viewers: {
+        [KEY_A]: { key: KEY_A, name: "x".repeat(500), addedAt: 1 },
+        [KEY_B]: { key: KEY_B, addedAt: 2 },
+      },
+    });
+    const { viewers } = parseViewers(text);
+    expect(viewers[KEY_A].name).toHaveLength(80);
+    expect(viewers[KEY_B].name).toBe("New member");
   });
 });

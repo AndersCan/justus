@@ -95,6 +95,7 @@ export async function bareNet(root: string): Promise<Net> {
       name,
       storageDir: dir,
       store,
+      drives,
       changes,
       events,
       async stop() {

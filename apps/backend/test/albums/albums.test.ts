@@ -68,6 +68,7 @@ const readerSource = (
   },
   selfDrive: { key: "self" },
   memberDrives: new Map(),
+  viewers: {},
 });
 
 describe("create", () => {
@@ -181,6 +182,7 @@ describe("list", () => {
         earlier: [{ key: "old", name: "x" }],
         notice: undefined,
       }),
+      selfDrive: { key: "share" },
       memberDrives: new Map([
         ["a", 1],
         ["b", 1],
@@ -192,7 +194,7 @@ describe("list", () => {
       { ownIdentity: "me" },
     );
     expect(summary.members, "Trip: list: an Admin counts itself").toBe(3);
-    expect(summary.driveKey, "Trip: list: Admin shows its drive").toBe("self");
+    expect(summary.driveKey, "Trip: list: Admin shows its drive").toBe("share");
     expect(summary.invite?.owner, "Trip: list: owner defaults to this identity").toBe("me");
     expect("notice" in summary, "Trip: list: no notice key").toBe(false);
     const owned = albumSummary(
@@ -206,7 +208,7 @@ describe("list", () => {
     const members = new Map([["a", 1]]);
     const plain = albumSummary({ ...readerSource(), memberDrives: members }, { ownIdentity: "me" });
     expect(plain.driveKey, "Trip: list: reader has no drive").toBe("");
-    expect(plain.members, "Trip: list: reader counts visible writers").toBe(1);
+    expect(plain.members, "Trip: list: reader counts the Admin, itself and writers").toBe(3);
     const pending = albumSummary(readerSource({ pending: true }), { ownIdentity: "me" });
     expect(pending.driveKey, "Trip: list: pending reader shows its drive").toBe("self");
     expect(pending.pending, "Trip: list: pending flag").toBe(true);
@@ -214,6 +216,46 @@ describe("list", () => {
       ownIdentity: "me",
     });
     expect(moved.notice, "Trip: list: notice kept").toEqual({ kind: "moved", ownerName: "Maya" });
+  });
+});
+
+describe("list: Viewers are counted", () => {
+  const adminAlbum = (memberKeys: string[], viewers: string[]): AlbumSummarySource => ({
+    ...readerSource({ role: "creator" }),
+    selfDrive: { key: "share" },
+    memberDrives: new Map(memberKeys.map((k) => [k, 1])),
+    viewers: Object.fromEntries(viewers.map((k) => [k, {}])),
+  });
+  const count = (source: AlbumSummarySource) => albumSummary(source, { ownIdentity: "me" }).members;
+
+  it("the Admin alone is 1", () => {
+    expect(count(adminAlbum([], []))).toBe(1);
+  });
+
+  it("the Admin, a Collaborator and a Viewer are 3 on all three phones", () => {
+    expect(count(adminAlbum(["c"], ["v"]))).toBe(3);
+    const collaborator: AlbumSummarySource = {
+      ...readerSource({ role: "member" }),
+      selfDrive: { key: "c" },
+      memberDrives: new Map(),
+      viewers: { v: {} },
+    };
+    expect(count(collaborator)).toBe(3);
+    const viewer: AlbumSummarySource = {
+      ...readerSource(),
+      selfDrive: { key: "v" },
+      memberDrives: new Map([["c", 1]]),
+      viewers: { v: {} },
+    };
+    expect(count(viewer)).toBe(3);
+  });
+
+  it("a pending reader with the Admin only is 2", () => {
+    expect(count(readerSource({ pending: true }))).toBe(2);
+  });
+
+  it("a key in both lists counts once", () => {
+    expect(count(adminAlbum(["c"], ["c"]))).toBe(2);
   });
 });
 

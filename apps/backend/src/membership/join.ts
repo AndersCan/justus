@@ -12,11 +12,14 @@ import {
   parseJoinRequests,
   parseRegistry,
   parseRequestsFile,
+  parseViewers,
   type RegistryFile,
   type RequestsFile,
+  type ViewersFile,
 } from "./records";
 
 export const DRIVE_PATH_MEMBERS = "/members.json";
+export const DRIVE_PATH_VIEWERS = "/viewers.json";
 export const DRIVE_PATH_FOLDER = "/folder.json";
 export const DRIVE_PATH_REQUESTS = "/requests.json";
 /** Cap on a small JSON record read off a drive. Any member, or any peer on an album
@@ -92,6 +95,10 @@ export async function readRecord(
 
 export async function readRegistry(drive: Drive, options: { log: JoinLog }): Promise<RegistryFile> {
   return parseRegistry(await readRecord(drive, { path: DRIVE_PATH_MEMBERS, log: options.log }));
+}
+
+export async function readViewers(drive: Drive, options: { log: JoinLog }): Promise<ViewersFile> {
+  return parseViewers(await readRecord(drive, { path: DRIVE_PATH_VIEWERS, log: options.log }));
 }
 
 /** Opens a drive by key, joining its swarm topic first so peers serve its
@@ -278,6 +285,8 @@ export function pendingJoinRequests(
     /** Identities with an open friend invite to this album: the Admin's phone lets
      * them in itself (`acceptOfferedFriend`), so they are not listed. */
     invited?: ReadonlySet<string>;
+    /** Keys accepted as Viewers: no longer pending. */
+    viewers?: ReadonlySet<string>;
   },
 ): JoinRequest[] {
   const enrolled = new Set(Object.values(options.registry.members).map((m) => m.key));
@@ -286,11 +295,12 @@ export function pendingJoinRequests(
       const key = f.request.requesterKey;
       if (options.invited?.has(f.identity)) return false;
       if (enrolled.has(key)) return false;
+      if (options.viewers?.has(key)) return false;
       if (options.denied.has(key)) return false;
       if (f.viaInvite && options.answers?.[f.identity]) return false;
       return true;
     })
-    .map((f) => f.request);
+    .map((f) => (f.viaInvite ? { ...f.request, viaInvite: true } : f.request));
 }
 
 /** Add the requester to the registry. The name comes from the requester's own

@@ -31,7 +31,8 @@ function buildStore(
 
 async function scenario(adminDeps?: Record<string, unknown>) {
   const swarm = new FakeSwarm();
-  const admin = buildStore("Admin", { swarm, deps: adminDeps });
+  const adminOwn: FakeDrive[] = [];
+  const admin = buildStore("Admin", { swarm, own: adminOwn, deps: adminDeps });
   const joinerOwn: FakeDrive[] = [];
   const joiner = buildStore("Joiner", { own: joinerOwn });
   await admin.store.ready();
@@ -44,7 +45,18 @@ async function scenario(adminDeps?: Record<string, unknown>) {
     await admin.store.close();
     await joiner.store.close();
   };
-  return { admin, joiner, outbox, swarm, folderId, shareKey, invite: invite!, owner, close };
+  return {
+    admin,
+    adminOwn,
+    joiner,
+    outbox,
+    swarm,
+    folderId,
+    shareKey,
+    invite: invite!,
+    owner,
+    close,
+  };
 }
 
 async function outboxText(drive: FakeDrive): Promise<string> {
@@ -207,6 +219,97 @@ describe("ask", () => {
     s.swarm.emit("connection", fakeConnection(s.outbox.key));
     const after = (await s.admin.store.requests()).requests;
     expect(after.some((r) => r.requesterKey !== first[0].requesterKey)).toBe(true);
+    await s.close();
+  });
+});
+
+describe("accepting as a Viewer", () => {
+  async function asked() {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const { requests } = await s.admin.store.requests();
+    return { ...s, key: requests[0].requesterKey, request: requests[0] };
+  }
+
+  it("lists the asker in /viewers.json, loads no drive and leaves the request list", async () => {
+    const s = await asked();
+    expect(s.request.viaInvite).toBe(true);
+    const done = await s.admin.store.respond(s.folderId, s.key, true, "reader");
+    expect(done[0]).toBeNull();
+    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
+    const file = JSON.parse((await albumDrive.get("/viewers.json"))!.toString());
+    expect(Object.keys(file.viewers)).toEqual([s.key]);
+    expect(await albumDrive.get("/members.json")).toBeNull();
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    expect(saved.folders[0].answers).toEqual({
+      [Buffer.from(s.outbox.key).toString("hex")]: "accepted",
+    });
+    const status = await s.admin.store.status();
+    expect(
+      status.members.map((m: { admin: boolean; viewer?: boolean }) => [m.admin, m.viewer]),
+    ).toEqual([
+      [true, undefined],
+      [false, true],
+    ]);
+    expect(status.folder.members, "Admin and one Viewer").toBe(2);
+    const again = await s.admin.store.respond(s.folderId, s.key, true, "reader");
+    expect(again[0]).toMatchObject({ code: PhotoError.ALREADY_ENROLLED });
+    await s.close();
+  });
+
+  it("a Collaborator is still the default", async () => {
+    const s = await asked();
+    expect((await s.admin.store.respond(s.folderId, s.key, true))[0]).toBeNull();
+    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
+    expect(await albumDrive.get("/viewers.json")).toBeNull();
+    expect(await albumDrive.get("/members.json")).not.toBeNull();
+    await s.close();
+  });
+
+  it("an old-style request cannot be a Viewer", async () => {
+    const s = await scenario();
+    await s.joiner.store.join(s.shareKey);
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const { requests } = await s.admin.store.requests();
+    expect(requests[0].viaInvite).toBeUndefined();
+    const refused = await s.admin.store.respond(
+      s.folderId,
+      requests[0].requesterKey,
+      true,
+      "reader",
+    );
+    expect(refused[0]).toMatchObject({ code: PhotoError.VIEWER_NEEDS_INVITE });
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    await s.close();
+  });
+
+  it("a role other than reader or member is refused", async () => {
+    const s = await asked();
+    for (const role of ["creator", "admin", ""]) {
+      const refused = await s.admin.store.respond(s.folderId, s.key, true, role as never);
+      expect(refused[0], role).toMatchObject({ code: PhotoError.INVALID_ROLE });
+    }
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    await s.close();
+  });
+
+  it("a failed write takes the answer back, so the request can be retried", async () => {
+    const s = await asked();
+    const albumDrive = s.adminOwn[s.adminOwn.length - 1];
+    const put = albumDrive.put.bind(albumDrive);
+    albumDrive.put = (async (path: string, data: Buffer) => {
+      if (path === "/viewers.json") throw new Error("disk full");
+      return put(path, data);
+    }) as typeof albumDrive.put;
+    const failed = await s.admin.store.respond(s.folderId, s.key, true, "reader");
+    expect(failed[0]?.message).toContain("disk full");
+    const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    expect(saved.folders[0].answers ?? {}).toEqual({});
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    albumDrive.put = put;
+    expect((await s.admin.store.respond(s.folderId, s.key, true, "reader"))[0]).toBeNull();
     await s.close();
   });
 });

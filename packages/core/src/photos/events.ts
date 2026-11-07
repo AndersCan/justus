@@ -6,6 +6,7 @@ import type {
   OfferSummary,
   Photo,
   PhotoChanged,
+  Role,
   SyncStatus,
 } from "./types";
 
@@ -127,7 +128,7 @@ export const photoSpecs = {
   respond: {
     pluginId: "justus.photos",
     name: "photos.respond",
-    args: {} as { folderId: string; requesterKey: string; approve: boolean },
+    args: {} as { folderId: string; requesterKey: string; approve: boolean; role?: Role },
     result: {} as { ok: boolean },
   },
   turnOffInvite: {
@@ -287,14 +288,17 @@ export const photoEvents = {
       folderId: string,
       requesterKey: string,
       approve: boolean,
+      role?: Role,
     ): InvokeEnvelope<
       "photos.respond",
-      { folderId: string; requesterKey: string; approve: boolean },
+      { folderId: string; requesterKey: string; approve: boolean; role?: Role },
       { ok: boolean }
     > {
       return invokeEvent(
         photoSpecs.respond,
-        { folderId, requesterKey, approve },
+        role === undefined
+          ? { folderId, requesterKey, approve }
+          : { folderId, requesterKey, approve, role },
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );

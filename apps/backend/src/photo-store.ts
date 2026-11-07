@@ -19,9 +19,11 @@ import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
+import { seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_REQUESTS,
+  readViewers,
   openAlbum,
   pendingJoinRequests,
   acceptJoinRequest,
@@ -52,6 +54,7 @@ import {
   parseRequestsFile,
   peerName,
   type RegistryFile,
+  type ViewersFile,
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
@@ -127,6 +130,8 @@ export const PhotoError = {
   FRIEND_REFUSED: "justus.photos/friend-refused",
   OFFER_GONE: "justus.photos/offer-gone",
   OFFER_PENDING: "justus.photos/offer-pending",
+  INVALID_ROLE: "justus.photos/invalid-role",
+  VIEWER_NEEDS_INVITE: "justus.photos/viewer-needs-invite",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -294,6 +299,8 @@ export interface PhotoStore {
     folderId: string,
     requesterKey: string,
     approve: boolean,
+    /** "reader" accepts as a Viewer; "member" (the default) as a Collaborator. */
+    role?: Role,
   ): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: every link sent for the album stops working at once. The album
    * gets a new invite code; answers already given are kept. */
@@ -400,6 +407,8 @@ type FolderRuntime = {
   /** Registered writer drives other than this device, opened read-only. */
   memberDrives: Map<string, Drive>;
   memberNameCache: Map<string, string>;
+  /** Viewers the Admin listed in `/viewers.json`; their drives are never opened. */
+  viewers: ViewersFile["viewers"];
   /** Loopback routes served for this folder's photos (see `lazyMedia`). */
   mounted: Set<string>;
   /** `remove` closures for this folder's `onDriveChange` watchers, drained
@@ -865,6 +874,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // The Admin's drive changed (or first replicated in after we joined
         // with only the invite's name): take the album name from it.
         if (rt && drive === rt.folderDrive) {
+          void refreshViewers(rt)
+            .then((changed) => {
+              if (changed) deps.onChanged({ cause: "enroll", folderId });
+            })
+            .catch((e) =>
+              log("error", { where: "refreshViewers", folder: short(folderId), err: errText(e) }),
+            );
           void refreshAlbumName(rt).catch((e) =>
             log("error", { where: "refreshAlbumName", folder: short(folderId), err: errText(e) }),
           );
@@ -1049,7 +1065,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Re-reads the Admin's Viewer list. True when it changed. */
+  async function refreshViewers(rt: FolderRuntime): Promise<boolean> {
+    const file = await readViewers(rt.folderDrive, { log });
+    const same =
+      JSON.stringify(Object.entries(file.viewers).sort()) ===
+      JSON.stringify(Object.entries(rt.viewers).sort());
+    rt.viewers = file.viewers;
+    return !same;
+  }
+
   async function refreshMembersFor(rt: FolderRuntime) {
+    await refreshViewers(rt);
     const registry = await readRegistryIn(rt.folderDrive);
     const entries = Object.values(registry.members).map((m) => ({
       key: m.key,
@@ -1582,6 +1609,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         admin: isAdmin,
         connected: true,
         identity: ownDrive.key,
+        ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
       },
       // A member sees the Admin too: the registry only lists enrolled writers.
       ...(!isAdmin && selfKey !== adminKey
@@ -1590,6 +1618,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       ...Object.values(registry.members)
         .filter((m) => m.key !== selfKey && m.key !== adminKey)
         .map((m) => peer(m.key, m.name, false)),
+      ...Object.values(rt.viewers)
+        .filter((v) => v.key !== selfKey && v.key !== adminKey && !registry.members[v.key])
+        .sort((a, b) => a.addedAt - b.addedAt)
+        .map((v) => ({ ...peer(v.key, v.name, false), viewer: true })),
     ];
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
@@ -1888,6 +1920,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         selfDrive,
         memberDrives: new Map(),
         memberNameCache: new Map(),
+        viewers: {},
         mounted: new Set(),
         watcherRemoves: new Set(),
       };
@@ -1956,6 +1989,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       selfDrive: newDrive,
       memberDrives: new Map(),
       memberNameCache: new Map(),
+      viewers: {},
       mounted: new Set(),
       watcherRemoves: new Set(),
     };
@@ -2398,6 +2432,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             selfDrive,
             memberDrives: new Map(),
             memberNameCache: new Map(),
+            viewers: {},
             mounted: new Set(),
             watcherRemoves: new Set(),
           };
@@ -2453,6 +2488,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       selfDrive,
       memberDrives: new Map(),
       memberNameCache: new Map(),
+      viewers: {},
       mounted: new Set(),
       watcherRemoves: new Set(),
     };
@@ -2758,14 +2794,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             denied: deniedRequesters,
             answers: rt.record.answers,
             invited: new Set(rt.record.invited ?? []),
+            viewers: new Set(Object.keys(rt.viewers)),
           }),
         );
       }
       return { requests: out };
     },
 
-    async respond(folderId, requesterKey, approve) {
+    async respond(folderId, requesterKey, approve, role = "member") {
       await readyPromise;
+      if (role !== "reader" && role !== "member")
+        return err(PhotoError.INVALID_ROLE, "Role must be reader or member");
       const rt = runtimes.get(folderId);
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
@@ -2798,12 +2837,40 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deps.onChanged({ cause: "request", folderId });
         return ok({ ok: true });
       }
-      if (reply.kind === "already-enrolled") {
+      if (reply.kind === "already-enrolled" || rt.viewers[requesterKey]) {
         return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
       }
       // The requester's own reported name comes from its `/requests.json`;
       // acceptJoinRequest falls back to a neutral label.
       const found = await readRequestsFromPeers(rt);
+      if (role === "reader") {
+        if (reply.kind !== "accept" || !reply.identity) {
+          return err(
+            PhotoError.VIEWER_NEEDS_INVITE,
+            "Only someone who asked through an invite link can join as a Viewer",
+          );
+        }
+        // Same order as a Collaborator: the answer is recorded first and taken
+        // back if the seat cannot be written. A Viewer's drive is never loaded.
+        const asker = reply.identity;
+        setAnswer(rt, asker, "accepted");
+        const [seatErr, seated] = await seatViewer(rt.folderDrive, {
+          viewers: { version: 1, viewers: rt.viewers },
+          registry,
+          requesterKey,
+          requests: found.map((f) => f.request),
+        });
+        if (seatErr) {
+          setAnswer(rt, asker, undefined);
+          if (seatErr.kind === "already-enrolled")
+            return err(PhotoError.ALREADY_ENROLLED, seatErr.message);
+          return err(ErrorCode.HOST_ERROR, `Cannot add the Viewer: ${seatErr.message}`);
+        }
+        rt.viewers = seated.viewers.viewers;
+        deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
+        void deliverAnswers(asker).catch(answerErr("deliver"));
+        return ok({ ok: true });
+      }
       // The answer is recorded before the key can leave: if the registry write
       // fails the answer is taken back, so no one holds a key without a seat.
       const seated = reply.kind === "accept" ? reply.identity : undefined;

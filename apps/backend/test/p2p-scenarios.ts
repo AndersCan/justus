@@ -10,6 +10,7 @@
  */
 import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
 import type { P2pEvent } from "../src/p2p-log.ts";
+import type { DriveStore } from "../src/ports/drive-store.ts";
 
 export type PhotoChanged = Parameters<PhotoStoreDeps["onChanged"]>[0];
 export type SyncStatus = Awaited<ReturnType<PhotoStore["status"]>>;
@@ -18,6 +19,8 @@ export type Peer = {
   name: string;
   storageDir: string;
   store: PhotoStore;
+  /** The device's drive store, for writes the app itself would never make. */
+  drives: DriveStore;
   changes: PhotoChanged[];
   /** Every structured p2p event this device logged (`src/p2p-log.ts`). */
   events: P2pEvent[];
@@ -429,6 +432,60 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "viewer: accepted as a Viewer, sees the Admin's photo, and a photo in their own drive never reaches the Admin",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, invite } = await askedAlbum(net);
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.eq(requests[0].viaInvite, true, "the ask came through the invite link");
+      t.noErr(
+        await admin.store.respond(folderId, requests[0].requesterKey, true, "reader"),
+        "accept as a Viewer",
+      );
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "reader" && !f.pending && f.members === 2,
+        "the joiner is a Viewer",
+      );
+      t.eq(album?.role, "reader", "a Viewer, not a Collaborator");
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (l) => l.some((p) => p.name === "a.jpg"),
+        "the Admin's photo on the Viewer",
+      );
+      const refused = await joiner.store.addBytes("v.jpg", new Uint8Array([7, 7, 7]), album!.id);
+      t.ok(refused[0], "a Viewer cannot add a photo");
+
+      const status = await eventually(
+        () => admin.store.status(),
+        (s) => s.members.some((m: Member) => m.viewer),
+        "the Viewer on the Admin's list",
+      );
+      t.eq(
+        status.members.map((m: Member) => Boolean(m.viewer)),
+        [false, true],
+        "Admin, then the Viewer",
+      );
+      t.eq((await admin.store.folders()).folders[0].members, 2, "the Admin counts the Viewer");
+
+      // A modified app can still put a file in its own drive. Nobody reads it.
+      const own = await joiner.drives.openOwn(`ask/${invite.code}`);
+      await own.put("/photos/forged.jpg", new Uint8Array([6, 6, 6]), {
+        metadata: { addedAt: Date.now(), name: "forged.jpg", mime: "image/jpeg" },
+      });
+      await new Promise((r) => setTimeout(r, 1500));
+      const seen = await admin.store.list({ all: true });
+      t.eq(
+        seen.map((p) => p.name),
+        ["a.jpg"],
+        "the Viewer's file never shows on the Admin",
+      );
+    },
+  },
+  {
     name: "ask: a declined ask stays declined, across a restart and a second ask",
     async run(net, t) {
       const { admin, joiner, folderId, invite } = await askedAlbum(net);
@@ -529,7 +586,7 @@ export const scenarios: Scenario[] = [
   {
     name: "V1b: a peer on a newer version is refused and flagged",
     async run(net, t) {
-      const ahead = await net.peer("Ahead", undefined, { peerProtocol: 3 });
+      const ahead = await net.peer("Ahead", undefined, { peerProtocol: 4 });
       const current = await net.peer("Current");
       const created = await ahead.store.createFolder("Shared");
       if (created[0]) throw created[0];
