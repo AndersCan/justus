@@ -53,7 +53,7 @@ sync.refresh();
 folders.refresh();
 requests.refresh();
 
-// Small shared animations for confirm sheets and toasts (respects reduced
+// Small shared animations for confirm sheets, toasts and new log lines (respects reduced
 // motion). Injected once; lit-html only plays them on element insert.
 const motionStyle = document.createElement("style");
 motionStyle.textContent = `
@@ -62,8 +62,9 @@ motionStyle.textContent = `
   .justus-backdrop { animation: justus-fade 180ms ease-out; }
   .justus-sheet { animation: justus-rise 260ms cubic-bezier(.22,1,.36,1); }
   .justus-toast { animation: justus-rise 240ms cubic-bezier(.22,1,.36,1); }
+  .justus-log-line { animation: justus-fade 200ms ease-out; }
   @media (prefers-reduced-motion: reduce) {
-    .justus-backdrop, .justus-sheet, .justus-toast { animation: none; }
+    .justus-backdrop, .justus-sheet, .justus-toast, .justus-log-line { animation: none; }
   }
 `;
 document.head.appendChild(motionStyle);

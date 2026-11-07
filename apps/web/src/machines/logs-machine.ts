@@ -58,15 +58,16 @@ export function createLogsActor(options: { clock: Clock }) {
           return {};
         },
       });
-      /** Fresh entries replace the old ones and any error is cleared. */
+      /** Fresh entries replace the old ones (lines already held keep their objects) and any error is cleared. */
       m.onAny({
         event: loaded,
         handler: (e, opts) => {
+          const c = opts.context.get();
           opts.context.set({
-            ...opts.context.get(),
+            ...c,
             loading: false,
             error: undefined,
-            entries: e.payload.entries,
+            entries: keepSeenEntries(c.entries, e.payload.entries),
             updatedAt: e.payload.at,
           });
           return {};
@@ -162,4 +163,18 @@ export function visibleEntries(s: Snapshot<LogsContext>): LogEntry[] {
 /** The sources to offer as filters. */
 export function availableSources(s: Snapshot<LogsContext>): string[] {
   return collectSources(s.context.entries);
+}
+
+/** One log line's identity: its sequence number and time, both set once by the backend. */
+export function logKey(e: LogEntry): string {
+  return `${e.seq}:${e.ts}`;
+}
+
+/** The fetched lines, reusing the objects already held for lines seen before;
+ * the held array itself when nothing changed. */
+export function keepSeenEntries(held: readonly LogEntry[], fetched: LogEntry[]): LogEntry[] {
+  const byKey = new Map(held.map((e) => [logKey(e), e]));
+  const kept = fetched.map((e) => byKey.get(logKey(e)) ?? e);
+  const same = kept.length === held.length && kept.every((e, i) => e === held[i]);
+  return same ? (held as LogEntry[]) : kept;
 }
