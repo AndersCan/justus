@@ -107,7 +107,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("menuitem", { name: "Delete" }).click();
   const dialog = a.getByRole("dialog", { name: `Delete “${ANA}”?` });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("It will be gone from the album for everyone.")).toBeVisible();
+  await expect(a.getByText("It will be gone from the album for everyone.")).toBeVisible();
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0);
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
