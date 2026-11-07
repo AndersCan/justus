@@ -2374,7 +2374,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ) {
     const known = {
       isFriend: deps.isFriend?.(sender) ?? false,
-      coMembers: new Set(memberIdentity.values()),
+      coMembers: new Set(presence.identities.values()),
       albumAdmins: new Set([
         ...state.folders.flatMap((f) => (f.invite?.owner ? [f.invite.owner] : [])),
         ...state.asks.map((a) => a.owner),
