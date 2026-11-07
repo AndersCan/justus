@@ -14,6 +14,8 @@ import { pngOf, runColour } from "../add-photos.js";
 const ALBUM = "Hub trip";
 const FRIEND_ALBUM = "Friends trip";
 const PHOTO = "hub-join.png";
+const RELOAD_ALBUM = "Reload trip";
+const RELOAD_PHOTO = "hub-reload.png";
 
 // The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
 // album creator cannot NAT-sample enough nodes, aborts the joiner's holepunch,
@@ -146,4 +148,82 @@ test("B asks to join A's album by link, A declines, B sees no photo", async ({ i
   await expect(b.getByText("Not accepted")).toBeVisible();
   await expect(b.locator("img")).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${PHOTO}` })).toHaveCount(0);
+});
+
+test("B asks from the first-run screen, closes the waiting sheet, A accepts, B opens the album by itself", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a]);
+  await createAlbum(a, ALBUM, PHOTO, 31);
+  const link = await copyInviteLink(a);
+
+  await b.goto("/");
+  await expect(b).toHaveURL(/\/welcome/);
+  await b.getByRole("button", { name: "Skip" }).click();
+  await b.getByLabel("Your name").fill("Ben");
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(b.getByRole("heading", { name: "Start sharing" })).toBeVisible();
+
+  await b.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await b.evaluate((l) => navigator.clipboard.writeText(l), link);
+  await b.getByRole("button", { name: "Paste from clipboard" }).click();
+  await expect(b.getByLabel("Invite link")).toHaveValue(link);
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
+  const ask = b.getByRole("dialog", { name: `Ask to join “${ALBUM}”?` });
+  await expect(ask).toBeVisible();
+  await ask.getByRole("button", { name: "Ask to join" }).click();
+  const waiting = b.getByRole("dialog", { name: /^Waiting for / });
+  await expect(waiting).toBeVisible({ timeout: 20_000 });
+  await waiting.getByRole("button", { name: "Close" }).first().click();
+  await expect(b.getByRole("dialog")).toHaveCount(0);
+  await expect(b).toHaveURL(/\/welcome/);
+  await expect(b.getByRole("region", { name: "Waiting to join" })).toContainText(
+    /Waiting for .+ to accept/,
+  );
+
+  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept" }).click();
+  const t0 = Date.now();
+
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
+  await expect(bImg).toBeAttached({ timeout: 60_000 });
+  await expect
+    .poll(() => bImg.evaluate((i: HTMLImageElement) => i.naturalWidth), { timeout: 60_000 })
+    .toBeGreaterThan(0);
+  await expect(b.getByText("This album isn't on this phone.")).toHaveCount(0);
+  test.info().annotations.push({
+    type: "accept-to-album-ms",
+    description: String(Date.now() - t0),
+  });
+});
+
+test("B reloads while waiting, A declines, B sees the decline on Photos", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, RELOAD_ALBUM, RELOAD_PHOTO, 47);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, RELOAD_ALBUM);
+  await b
+    .getByRole("dialog", { name: /^Waiting for / })
+    .getByRole("button", { name: "Close" })
+    .first()
+    .click();
+  await b.goto("/");
+  await expect(b.getByRole("region", { name: "Waiting to join" })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await expect(a.getByText(`wants to join “${RELOAD_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Decline" }).click();
+
+  await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
+  await b.getByRole("button", { name: "OK" }).click();
+  await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: `View ${RELOAD_PHOTO}` })).toHaveCount(0);
 });
