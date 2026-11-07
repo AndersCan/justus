@@ -216,9 +216,47 @@ for (const name of pages) {
   }
   await page.close();
 }
+<<<<<<< HEAD
 if (liveCount === 0) {
   console.error("check-flows-site: no live machine found on any page, so no live loop ran");
   failed = true;
+=======
+// A running effect can be answered with its failure: the requests load.
+{
+  const page = await browser.newPage();
+  await page.goto(`${origin}${BASE}/join-an-album/`);
+  const root = page.locator(
+    '.mantaq-machine[data-mantaq-src="apps/web/src/machines/requests-machine.ts"]',
+  );
+  const current = () => root.locator(".explore").first().getAttribute("data-current");
+  const fail = (message) => {
+    console.error(`check-flows-site: requests: ${message}`);
+    failed = true;
+  };
+  try {
+    await root.locator(".explore").first().waitFor({ timeout: 10_000 });
+    await root.locator('[data-send="REFRESH"]').first().click();
+    const loading = await current();
+    if (loading !== "loadingRequests")
+      fail(`expected loadingRequests after REFRESH, got ${loading}`);
+    else {
+      await page.waitForTimeout(500);
+      const held = await current();
+      if (held !== "loadingRequests")
+        fail("the load answered by itself, so the page cannot show its failure");
+      else {
+        await root.locator('[data-group="effect"] [data-send="LOAD_FAILED"]').first().click();
+        await root.locator('[data-payload-send="LOAD_FAILED"]').first().click();
+        const after = await current();
+        if (after !== "couldNotLoadRequests")
+          fail(`expected couldNotLoadRequests after LOAD_FAILED, got ${after}`);
+      }
+    }
+  } catch (error) {
+    fail(`could not answer the load: ${error.message.split("\n")[0]}`);
+  }
+  await page.close();
+>>>>>>> 8477dd6 (Take mantaq viz 0.13 and inspect 0.12.1; site check fails the requests load)
 }
 // The state each walk is told to end in. Written by hand, so the check does not
 // trust the viewer or the recorded run to say where the cursor should land.
