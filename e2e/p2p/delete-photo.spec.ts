@@ -75,6 +75,8 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await askToJoin(b, link, ALBUM);
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: "Accept" }).click();
+  // Accepting happens on the members page; the photos are one tap away.
+  await a.getByRole("link", { name: "See photos in this album" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toBeVisible({ timeout: 60_000 });
   // Ben is a Viewer until the Admin's enrolment reaches his phone; adds before that are refused.
