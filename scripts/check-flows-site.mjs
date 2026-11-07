@@ -20,21 +20,6 @@ if (pages.length === 0) {
   process.exit(1);
 }
 
-// Factory machines run on an injected clock, so the inspector can fuzz them.
-const FUZZED = [
-  "inviteLink",
-  "membership",
-  "joinRequest",
-  "reach",
-  "onboarding",
-  "people",
-  "requests",
-  "grants",
-  "sync",
-  "gallery",
-  "folders",
-];
-
 function vizDocuments(name) {
   const html = readFileSync(join(dir, name, "index.html"), "utf8");
   const unescape = (text) =>
@@ -49,14 +34,10 @@ function vizDocuments(name) {
   );
 }
 
-const fuzzedSeen = new Set();
-const allMachines = [];
 for (const name of pages) {
   const machines = vizDocuments(name);
-  allMachines.push(...machines);
   for (const machine of machines) {
-    if (machine.fuzz !== null) fuzzedSeen.add(machine.id);
-    const missing = [...machine.states, ...machine.events, ...machine.edges]
+    const missing = machine.edges
       // initial edges are probed, not declared with m.on, so inspect has no doc for them
       .filter((item) => item.kind !== "initial" && !item.doc?.trim())
       .map((item) => item.id);
@@ -67,10 +48,6 @@ for (const name of pages) {
       failed = true;
     }
   }
-}
-for (const id of FUZZED.filter((id) => !fuzzedSeen.has(id))) {
-  console.error(`check-flows-site: factory machine ${id} is not fuzzed (or missing)`);
-  failed = true;
 }
 const SITE = "https://anderscan.github.io/justus/";
 const flows = readFileSync(new URL("../docs/design/sharing-flows.md", import.meta.url), "utf8");

@@ -38,8 +38,10 @@ To add a machine, list its file under its feature in `manifest.json` and add a
 `<Machine src>` for it on that feature's page. To add a feature, add a manifest
 key, a page in `docs/site/src/content/docs/` and the sidebar and index pick it up.
 
-`node scripts/check-flows-site.mjs site-dist` checks the justus rules from the
-built files (documented items, fuzzed machines, walk links, the overview arrow).
+The build fails on any design finding, an unfuzzed machine or a broken expectation, and
+prints the events that lead there (`failOnFindings` in `docs/site/astro.config.mjs`).
+`node scripts/check-flows-site.mjs site-dist` checks the rest from the built files
+(arrow notes, walk links, the overview arrow).
 `pnpm exec mantaq-check-site site-dist --base /justus` serves the site and checks
 it in a browser: every machine draws, every live machine handles an event, every
 overview box opens a built page that shows its machine (needs Chromium; set
