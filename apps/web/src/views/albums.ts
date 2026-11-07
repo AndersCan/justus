@@ -194,9 +194,9 @@ function newAlbumSection(view: FoldersViewModel) {
           aria-label="Album name"
           maxlength="60"
         />
-        <button class="ui-btn-primary" type="submit" ?disabled=${busy || !view.settled}>
+        <wa-button variant="brand" type="submit" ?disabled=${busy || !view.settled}>
           ${busy ? "Creating…" : "Create album"}
-        </button>
+        </wa-button>
       </form>
     </section>
   `;

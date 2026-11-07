@@ -58,7 +58,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
             />
             <div class="mt-4 flex justify-end gap-2">
               <button class="ui-btn-ghost" type="button" @click=${() => close(null)}>Cancel</button>
-              <button class="ui-btn-primary" type="submit">${confirmLabel}</button>
+              <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>
             </div>
           </form>
         </div>

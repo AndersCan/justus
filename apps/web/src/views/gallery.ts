@@ -495,19 +495,18 @@ function emptyState(title: string, body: string, actions: unknown) {
 /** "Add photos to <album>": the only way in, so the album is always named. */
 function addButton(page: PhotosPage, album: FolderSummary) {
   const running = page.batch?.running ?? false;
-  return html`<button
-    class="ui-btn-primary min-w-0 max-w-full"
+  return html`<wa-button
+    variant="brand"
+    class="min-w-0 max-w-full"
     ?disabled=${page.busy || !page.settled || running}
     @click=${() => void startAdd(album.id)}
   >
-    <span class="block truncate">
-      ${
-        running && page.batch
-          ? `Adding ${page.batch.done + 1}/${page.batch.total}…`
-          : `Add photos to ${album.name}`
-      }
-    </span>
-  </button>`;
+    ${
+      running && page.batch
+        ? `Adding ${page.batch.done + 1}/${page.batch.total}…`
+        : `Add photos to ${album.name}`
+    }
+  </wa-button>`;
 }
 
 /** Native shell only: snap a photo straight into the album. */
@@ -670,7 +669,7 @@ function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSumma
     return emptyState(
       "No photos yet.",
       "Start an album for a trip, a family or a group, or join someone's with their invite link.",
-      html`<button class="ui-btn-primary" @click=${() => void newAlbum()}>Start an album</button>
+      html`<wa-button variant="brand" @click=${() => void newAlbum()}>Start an album</wa-button>
         <a class="ui-btn-ghost inline-flex items-center" href="/join">Join with an invite link</a>`,
     );
   }
@@ -890,10 +889,10 @@ function albumGridBody(page: PhotosPage) {
               )}
               <li>
                 <button
-                  class="ui-focus flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line text-sm text-muted hover:border-accent hover:text-accent"
+                  class="ui-focus flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-brand/70 text-sm text-fg hover:border-brand hover:bg-brand/10"
                   @click=${() => void newAlbum()}
                 >
-                  <span class="text-2xl" aria-hidden="true">＋</span>
+                  <span class="text-2xl text-brand" aria-hidden="true">＋</span>
                   New album
                 </button>
               </li>
