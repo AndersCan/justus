@@ -176,6 +176,8 @@ if ! "$ADB" -s "$SERIAL" install "$REPO_ROOT/$APK"; then
   exit 1
 fi
 echo "✓ APK installed."
+# Keep the screen awake so it never sleeps into a keyguard.
+"$ADB" -s "$SERIAL" shell svc power stayon true || true
 
 # ----------------------------------------------------------------------------
 # 5. Run the Maestro flow suite
