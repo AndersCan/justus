@@ -358,8 +358,46 @@ describe("letting a Viewer add photos", () => {
 
   it("only the Admin may do it", async () => {
     const s = await viewer();
-    const refused = await s.joiner.store.makeMember(s.folderId, s.key);
-    expect(refused[0]?.code).toBeDefined();
+    const joined = await s.joiner.store.join(s.shareKey);
+    const refused = await s.joiner.store.makeMember(joined[1]!.folder.id, s.key);
+    expect(refused[0]?.code).toBe(PhotoError.NOT_CREATOR);
+    await s.close();
+  });
+
+  it("tells the UI with an enroll change", async () => {
+    const changes: unknown[] = [];
+    const s = await scenario({ onChanged: (c: unknown) => changes.push(c) });
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    const key = (await s.admin.store.requests()).requests[0].requesterKey;
+    await s.admin.store.respond(s.folderId, key, true, "reader");
+    changes.length = 0;
+    expect((await s.admin.store.makeMember(s.folderId, key))[0]).toBeNull();
+    expect(changes).toContainEqual({ cause: "enroll", folderId: s.folderId, memberKey: key });
+    await s.close();
+  });
+
+  it("accepts an uppercase key and normalises it", async () => {
+    const s = await viewer();
+    expect((await s.admin.store.makeMember(s.folderId, s.key.toUpperCase()))[0]).toBeNull();
+    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    expect(Object.keys(members.members)).toEqual([s.key]);
+    await s.close();
+  });
+
+  it("a first write failing leaves both files untouched", async () => {
+    const s = await viewer();
+    const put = s.albumDrive.put.bind(s.albumDrive);
+    s.albumDrive.put = (async (path: string, data: Buffer) => {
+      if (path === "/members.json") throw new Error("disk full");
+      return put(path, data);
+    }) as typeof s.albumDrive.put;
+    const failed = await s.admin.store.makeMember(s.folderId, s.key);
+    expect(failed[0]?.message).toContain("disk full");
+    s.albumDrive.put = put;
+    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
+    expect(Object.keys(viewers.viewers)).toEqual([s.key]);
+    expect(await s.albumDrive.get("/members.json")).toBeNull();
     await s.close();
   });
 

@@ -3002,10 +3002,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return err(PhotoError.ALREADY_ENROLLED, upErr.message);
         return err(ErrorCode.HOST_ERROR, `Cannot let the Viewer add photos: ${upErr.message}`);
       }
-      rt.viewers = upgraded.viewers.viewers;
-      await loadMemberDrive(rt, key, upgraded.registry.members[key].name);
       await refreshMembersFor(rt);
-      deniedRequesters.delete(key);
       deps.onChanged({ cause: "enroll", folderId, memberKey: key });
       return ok({ ok: true });
     },
