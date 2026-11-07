@@ -24,6 +24,28 @@ export default defineConfig({
           ],
         },
       },
+      // The p2p libraries are reached only through ports (src/ports); only
+      // adapters import them (docs/adr/0002).
+      {
+        files: ["apps/backend/src/**/*.ts"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  regex: "^(hyperswarm|hyperdrive|hypercore|corestore|protomux|hyperdht)(/|$)",
+                  message: "Import p2p libraries only in src/adapters; use a port from src/ports.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ["apps/backend/src/adapters/**/*.ts"],
+        rules: { "no-restricted-imports": "off" },
+      },
     ],
   },
   run: {
