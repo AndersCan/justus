@@ -1,6 +1,7 @@
 import { html } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
+import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { folders } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
@@ -21,6 +22,15 @@ import { gridMotion } from "./grid-motion";
 
 type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
+
+const letNames = new Map<string, string>();
+
+onOutput(peopleActor, (e) => {
+  if (e.type !== "viewerLetAddPhotos" && e.type !== "VIEWER_LET_ADD_PHOTOS") return;
+  const key = (e.payload as { memberKey: string }).memberKey;
+  toast(`${letNames.get(key) ?? "They"} can add photos now`);
+  letNames.delete(key);
+});
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const body = html`${avatarBadge(p.name)}
@@ -64,10 +74,26 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         : html`<div class="flex min-w-0 flex-1 items-center gap-3">${body}</div>`
     }
     ${
+      vm.isAdmin && !p.you && !p.admin && p.viewer
+        ? html`<button
+            class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
+            aria-label="Let ${p.name} add photos"
+            ?disabled=${vm.busy}
+            @click=${() => {
+              if (!vm.folder) return;
+              letNames.set(p.key, p.name);
+              people.letViewerAddPhotos(vm.folder.id, p.key);
+            }}
+          >
+            Let add photos
+          </button>`
+        : null
+    }
+    ${
       vm.isAdmin && !p.you && !p.admin && !p.viewer
         ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
-            ?disabled=${vm.removing}
+            ?disabled=${vm.busy}
             @click=${async () => {
               const ok = await confirmAction({
                 title: `Remove ${p.name}?`,

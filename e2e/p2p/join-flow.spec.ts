@@ -122,6 +122,11 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const row = members.locator("li", { hasText: "Viewer" });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row).toContainText("can only look");
+
+  await row.getByRole("button", { name: /^Let .* add photos$/ }).click();
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
+    timeout: 60_000,
+  });
 });
 
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
