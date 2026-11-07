@@ -7,12 +7,13 @@ import { albumsPanel } from "./albums";
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
   requests: vi.fn(),
+  status: vi.fn(),
 }));
 vi.mock("../gateway", () => ({
   gateway: {
     folders: mock.folders,
     requests: mock.requests,
-    status: vi.fn(),
+    status: mock.status,
     ask: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
   },
@@ -60,5 +61,32 @@ describe("albums list", () => {
     expect(rows(host)).toHaveLength(3);
     expect(rows(host)[0]).toBe(first);
     expect(rows(host)[1]).toBe(last);
+  });
+});
+
+describe("albums wiring", () => {
+  test("sync-state changes after the first refresh requests", async () => {
+    const { sync, syncActor } = await import("../machines/sync-machine");
+    const { requests } = await import("../machines/requests-machine");
+    const refresh = vi.spyOn(requests, "refresh").mockImplementation(() => {});
+    mock.status.mockResolvedValue([null, { name: "Me", members: [] }]);
+    // idle -> refreshing is the first change and is only remembered; refreshing -> ok refreshes
+    sync.refresh();
+    await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("ok"));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    sync.refresh();
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(3));
+  });
+
+  test("moving from one album to another closes the people sheet", async () => {
+    const { people, peopleActor } = await import("../machines/people-machine");
+    const { open } = await import("../machines/router-machine");
+    open("/sharing/a");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("open"));
+    people.showQr();
+    expect(peopleActor.snapshot().context.qrShown).toBe(true);
+    open("/sharing/b");
+    await vi.waitFor(() => expect(peopleActor.snapshot().context.qrShown).toBe(false));
+    expect(peopleActor.snapshot().path[0]).toBe("open");
   });
 });

@@ -106,6 +106,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
           return {};
         },
       });
+      /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
       m.on(removing, {
         event: showQr,
         handler: (_e, opts) => {
