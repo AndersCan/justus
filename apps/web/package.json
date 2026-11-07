@@ -11,6 +11,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@awesome.me/webawesome": "catalog:",
     "@ekrooh/bare": "^0.6.2",
     "@justus/core": "workspace:*",
     "@mantaq/core": "catalog:",

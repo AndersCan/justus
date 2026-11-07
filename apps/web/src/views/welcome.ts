@@ -191,9 +191,9 @@ function chooseStep() {
               maxlength="60"
               required
             />
-            <button class="ui-btn-primary w-full" type="submit" ?disabled=${busy}>
+            <wa-button variant="brand" class="w-full" type="submit" ?disabled=${busy}>
               ${vm.state === "creating" ? "Creating…" : "Create an album"}
-            </button>
+            </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
           <form

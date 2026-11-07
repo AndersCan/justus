@@ -6,7 +6,8 @@ import { defineConfig, presetUno } from "unocss";
 // literal color. Green/amber/red `trust-*` is reserved for connection state.
 // Status colors come in pairs: `danger` / `ok` / `warn` for fills and dots,
 // `*-fg` for text (the fills are too light for text on white). Text on a solid
-// accent or danger fill is `on-fill`. `brand` (coral) is the wordmark dot only.
+// accent or danger fill is `on-fill`. `brand` (coral) is the wordmark dot and the one add/create action per screen
+// (a `<wa-button variant="brand">`, dark text).
 const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
 
 export default defineConfig({

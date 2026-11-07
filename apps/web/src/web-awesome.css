@@ -1,0 +1,63 @@
+/* Maps Web Awesome tokens onto Justus's RGB tokens (index.html), so light, dark
+   and the in-app theme override follow without a .wa-dark class. */
+:root {
+  --wa-color-surface-raised: rgb(var(--surface));
+  --wa-color-surface-default: rgb(var(--surface));
+  --wa-color-surface-lowered: rgb(var(--subtle));
+  --wa-color-surface-border: rgb(var(--line));
+  --wa-color-text-normal: rgb(var(--fg));
+  --wa-color-text-quiet: rgb(var(--muted));
+  --wa-color-text-link: rgb(var(--accent));
+  --wa-color-focus: rgb(var(--accent));
+
+  --wa-color-brand-fill-loud: rgb(var(--brand));
+  --wa-color-brand-on-loud: rgb(var(--on-brand));
+  --wa-color-brand-fill-quiet: rgb(var(--brand) / 0.12);
+  --wa-color-brand-fill-normal: rgb(var(--brand) / 0.2);
+  --wa-color-brand-on-quiet: rgb(var(--fg));
+  --wa-color-brand-on-normal: rgb(var(--fg));
+  --wa-color-brand-border-quiet: rgb(var(--brand));
+  --wa-color-brand-border-normal: rgb(var(--brand));
+  --wa-color-brand-border-loud: rgb(var(--brand));
+
+  --wa-color-danger-fill-loud: rgb(var(--danger-fg));
+  --wa-color-danger-on-loud: rgb(var(--on-fill));
+  --wa-color-danger-fill-quiet: rgb(var(--danger) / 0.1);
+  --wa-color-danger-fill-normal: rgb(var(--danger) / 0.16);
+  --wa-color-danger-on-quiet: rgb(var(--danger-fg));
+  --wa-color-danger-on-normal: rgb(var(--danger-fg));
+  --wa-color-danger-border-quiet: rgb(var(--danger));
+  --wa-color-danger-border-normal: rgb(var(--danger));
+  --wa-color-danger-border-loud: rgb(var(--danger));
+
+  --wa-color-neutral-fill-loud: rgb(var(--accent));
+  --wa-color-neutral-on-loud: rgb(var(--on-fill));
+  --wa-color-neutral-fill-quiet: rgb(var(--subtle));
+  --wa-color-neutral-fill-normal: rgb(var(--subtle));
+  --wa-color-neutral-on-quiet: rgb(var(--fg));
+  --wa-color-neutral-on-normal: rgb(var(--fg));
+  --wa-color-neutral-border-quiet: rgb(var(--line));
+  --wa-color-neutral-border-normal: rgb(var(--line));
+  --wa-color-neutral-border-loud: rgb(var(--muted));
+
+  --wa-color-shadow: rgb(0 0 0 / 0.15);
+  --wa-font-family-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --wa-font-family-heading: var(--wa-font-family-body);
+  --wa-form-control-height: 2.75rem;
+  --wa-form-control-border-radius: 0.75rem;
+  --wa-border-radius-m: 0.75rem;
+  --wa-border-radius-l: 1rem;
+  --wa-panel-border-radius: 1rem;
+}
+
+/* Long album names inside "Add photos to …". */
+wa-button::part(label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+wa-dialog::part(title) {
+  overflow-wrap: anywhere;
+}

@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#1a1730" media="(prefers-color-scheme: dark)" />
     <style>
       /* Design tokens (space-separated RGB, consumed by uno.config.ts). Brand
-         palette: indigo #4B3FD6, coral #FF8A5B (wordmark dot only). The dark
+         palette: indigo #4B3FD6, coral #FF8A5B (wordmark dot and the one add/create button per screen, with dark --on-brand text). The dark
          block is repeated for the system preference and the in-app override. */
       :root {
         --canvas: 246 245 250;
@@ -22,6 +22,7 @@
         --accent-soft: 233 231 251;
         --on-fill: 255 255 255;
         --brand: 255 138 91;
+        --on-brand: 20 18 31;
         --danger: 229 72 77;
         --danger-fg: 198 47 53;
         --ok: 14 143 130;
@@ -148,6 +149,7 @@
   </head>
   <body>
     <div id="render-root"></div>
+    <script type="module" src="./src/web-awesome.ts"></script>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

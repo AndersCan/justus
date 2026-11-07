@@ -103,7 +103,7 @@ function generateProjectYml() {
 options:
   bundleIdPrefix: no.cankode
   deploymentTarget:
-    iOS: "14.0"
+    iOS: "16.4"
   createIntermediateGroups: true
 packages:
   # The ekrooh root package exports both BareHost and BareKit (Worklet/IPC);
@@ -116,7 +116,7 @@ targets:
   Justus:
     type: application
     platform: iOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "16.4"
     sources:
       - path: app
       - path: Resources/main.core.bundle
