@@ -256,5 +256,11 @@ export function installWebLogCapture(options: LogCaptureOptions = {}): LogCaptur
 export function startWebLogCapture(): LogCaptureHandle | null {
   if (isMockTransport()) return null;
   // Browser dev with several peers: post to this tab's own worklet.
-  return installWebLogCapture({ path: `${workletBase()}/__logs` });
+  return installWebLogCapture({
+    path: `${workletBase()}/__logs`,
+    scheduler: {
+      setInterval: (cb, ms) => globalThis.setInterval(cb, ms),
+      clearInterval: (handle) => globalThis.clearInterval(handle as number),
+    },
+  });
 }
