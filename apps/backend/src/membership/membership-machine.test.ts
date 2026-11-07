@@ -79,7 +79,7 @@ function setup(
 describe("membership machine", () => {
   test("enrolls then removes a member and emits both outputs", async () => {
     const { actor, outputs, added, dropped } = setup();
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     await actor.settled();
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
@@ -89,21 +89,22 @@ describe("membership machine", () => {
       state: "removed",
       added: [entry],
       dropped: [key],
-      outputs: ["memberJoined", "memberRemoved"],
+      outputs: ["memberJoined", "requestAnswered", "memberRemoved"],
     });
   });
 
   test("decline ends in declined", async () => {
-    const { actor } = setup();
-    actor.send({ type: "requestArrived", payload: entry });
+    const { actor, outputs } = setup();
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "decline" });
     await actor.settled();
     expect(actor.state.name).toBe("declined");
+    expect(outputs).toEqual(["requestAnswered"]);
   });
 
   test("registry write failure returns to awaitingDecision", async () => {
     const { actor, outputs } = setup({ failure: { reason: "disk" } });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("awaitingDecision");
@@ -122,7 +123,7 @@ describe("membership machine", () => {
     const { actor, outputs } = setup({
       port: { addMember: () => Promise.reject(new Error("boom")) },
     });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("awaitingDecision");
@@ -148,7 +149,7 @@ describe("membership machine", () => {
         },
       },
     });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("awaitingDecision");
@@ -180,13 +181,13 @@ describe("membership machine", () => {
         },
       },
     });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     expect(actor.state.name).toBe("joined");
-    expect(outputs).toEqual(["memberJoined"]);
+    expect(outputs).toEqual(["memberJoined", "requestAnswered"]);
   });
 
   test("ignores accept when the pending request is malformed", async () => {
@@ -201,11 +202,11 @@ describe("membership machine", () => {
     expect(outputs).toEqual([]);
   });
 
-  test("a second requestArrived while pending keeps the first entry", async () => {
+  test("a second requestQueued while pending keeps the first entry", async () => {
     const { actor, added } = setup();
     const other = { ...entry, folderName: "Other" };
-    actor.send({ type: "requestArrived", payload: entry });
-    actor.send({ type: "requestArrived", payload: other });
+    actor.send({ type: "requestQueued", payload: entry });
+    actor.send({ type: "requestQueued", payload: other });
     actor.send({ type: "accept", payload: { role: "member" } });
     await actor.settled();
     expect(added).toEqual([entry]);
@@ -235,7 +236,7 @@ describe("membership machine", () => {
     const { actor, dropped } = setup({ records: enrolledRecords });
     actor.send({ type: "removeMember" });
     await actor.settled();
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "removeMember" });
     await actor.settled();
     expect(actor.state.name).toBe("removed");
@@ -283,7 +284,7 @@ describe("membership machine", () => {
           },
         },
       });
-      actor.send({ type: "requestArrived", payload: entry });
+      actor.send({ type: "requestQueued", payload: entry });
       actor.send({ type: "accept", payload: { role } });
       await actor.settled();
       seen.push({ role: roles[0] as Role, state: actor.snapshot().payload });
@@ -327,7 +328,7 @@ describe("membership machine", () => {
     const { actor } = setup({
       port: { setRole: () => Promise.resolve(Either.left({ reason: "disk" })) },
     });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "accept", payload: { role: "reader" } });
     await actor.settled();
     actor.send({ type: "changeRole", payload: { role: "member" } });
@@ -371,7 +372,7 @@ async function walkTo(steps: (actor: ReturnType<typeof make>) => Promise<void>) 
 }
 
 async function receive(actor: ReturnType<typeof make>) {
-  actor.send({ type: "requestArrived", payload: entry });
+  actor.send({ type: "requestQueued", payload: entry });
   await actor.settled();
 }
 
@@ -421,9 +422,9 @@ test("Nils: accepts a relative as Viewer, later makes her a Collaborator", async
 describe("membership after a decline", () => {
   test("a new request makes the Admin decide again", async () => {
     const { actor, added } = setup();
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "decline" });
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     await actor.settled();
     expect(actor.state.name).toBe("awaitingDecision");
     actor.send({ type: "accept", payload: { role: "member" } });
@@ -433,7 +434,7 @@ describe("membership after a decline", () => {
 
   test("accept, changeRole and removeMember are ignored", async () => {
     const { actor, added, roles, dropped } = setup();
-    actor.send({ type: "requestArrived", payload: entry });
+    actor.send({ type: "requestQueued", payload: entry });
     actor.send({ type: "decline" });
     actor.send({ type: "accept", payload: { role: "member" } });
     actor.send({ type: "changeRole", payload: { role: "member" } });
@@ -453,7 +454,7 @@ describe("membership design", () => {
     id: "membership",
     create: () => createMembershipActor({ clock: VirtualClock() }),
     payloads: {
-      requestArrived: [entry],
+      requestQueued: [entry],
       accept: [{ role: "member" }],
       changeRole: [{ role: "reader" }],
     },

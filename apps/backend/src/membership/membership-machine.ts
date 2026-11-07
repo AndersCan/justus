@@ -43,7 +43,7 @@ const removedState = state("removed")();
 const removed = removedState.final();
 
 /** The person's request to join reached the Admin. */
-const requestArrived = event("requestArrived")<RequestEntry>();
+const requestQueued = event("requestQueued")<RequestEntry>();
 /** The Admin accepts the request with the role the person joins with. */
 const accept = event("accept")<{ role: Role }>();
 /** The owner gives a member a different role. */
@@ -71,6 +71,8 @@ const removalFailed = event("removalFailed")<{ reason: string }>();
 
 /** Tells the rest of the app that the person is now a member. */
 const memberJoined = event("memberJoined")<{ memberKey: string }>();
+/** Tells the joiner's side that the Admin accepted or declined. */
+const requestAnswered = event("requestAnswered")<{ answer: "accepted" | "declined" }>();
 /** Tells the rest of the app that the person is no longer a member. */
 const memberRemoved = event("memberRemoved")<{ memberKey: string }>();
 
@@ -143,7 +145,7 @@ export function createMembershipActor(options: {
 }) {
   const { clock, port = previewPort, records = noRecords, memberKey = "" } = options;
   return Actor({
-    inputs: [requestArrived, accept, decline, changeRole, removeMember],
+    inputs: [requestQueued, accept, decline, changeRole, removeMember],
     internal: [
       memberListSaved,
       memberListSaveFailed,
@@ -152,7 +154,7 @@ export function createMembershipActor(options: {
       removalSaved,
       removalFailed,
     ],
-    outputs: [memberJoined, memberRemoved],
+    outputs: [memberJoined, memberRemoved, requestAnswered],
     states: [
       noRequest,
       awaitingDecision,
@@ -168,7 +170,7 @@ export function createMembershipActor(options: {
     setup: (m) => {
       /** A request arrives and waits for the owner's decision. */
       m.on(noRequest, {
-        event: requestArrived,
+        event: requestQueued,
         to: [awaitingDecision],
         handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
       });
@@ -176,11 +178,14 @@ export function createMembershipActor(options: {
       m.on(awaitingDecision, {
         event: decline,
         to: [declined],
-        handler: () => ({ state: declined }),
+        handler: () => ({
+          state: declined,
+          emit: [requestAnswered.create({ answer: "declined" })],
+        }),
       });
       /** After a decline, a new request waits for the Admin to decide again. */
       m.on(declined, {
-        event: requestArrived,
+        event: requestQueued,
         to: [awaitingDecision],
         handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
       });
@@ -231,7 +236,13 @@ export function createMembershipActor(options: {
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
           const role = isApproved(payload) ? payload.role : "member";
-          return { state: joined.create({ role }), emit: [memberJoined.create({ memberKey })] };
+          return {
+            state: joined.create({ role }),
+            emit: [
+              memberJoined.create({ memberKey }),
+              requestAnswered.create({ answer: "accepted" }),
+            ],
+          };
         },
       });
       /** The member list could not be saved, so the request goes back to waiting. */

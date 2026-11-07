@@ -51,7 +51,7 @@ export function handleMessage(msg: WireMessage) {
     folders.refresh();
     requests.refresh();
     const answer = askAnswer(h.args);
-    if (answer) join.answerArrived(answer.code, answer.answer, answer.folderId);
+    if (answer) join.requestAnswered(answer.code, answer.answer, answer.folderId);
   } else if (h.type === "INVOKE_RESPONSE" && h.error) {
     console.error("Plugin invoke failed:", h.pluginId, h.event, h.error.message);
   }
