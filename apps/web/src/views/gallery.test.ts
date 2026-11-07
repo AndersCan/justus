@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { scopePhotos } from "./gallery";
+import { missingAlbumText, scopePhotos } from "./gallery";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -139,5 +139,17 @@ describe("album grid tiles", () => {
     expect(after.size).toBe(3);
     expect(after.get("f1/a")).toBe(before.get("f1/a"));
     expect(after.get("f1/b")).toBe(before.get("f1/b"));
+  });
+});
+
+describe("missingAlbumText", () => {
+  test("loading while the list is loading or empty", () => {
+    expect(missingAlbumText({ folders: [{}], foldersLoading: true })).toBe("Loading…");
+    expect(missingAlbumText({ folders: [], foldersLoading: false })).toBe("Loading…");
+  });
+  test("says the album is missing once loaded, even after a failed refresh", () => {
+    expect(missingAlbumText({ folders: [{}], foldersLoading: false })).toBe(
+      "This album isn't on this phone.",
+    );
   });
 });

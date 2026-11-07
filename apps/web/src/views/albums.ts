@@ -132,14 +132,14 @@ function askRow(ask: AskSummary) {
     <li>
       <button
         class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
-        aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName}: ${ask.albumName}"
+        aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName + " to accept"}: ${ask.albumName}"
         @click=${() => join.reopenRequest(ask)}
       >
         <span class="min-w-0 flex-1">
           <span class="block truncate text-lg font-medium text-fg">${ask.albumName}</span>
           <span
             class="mt-0.5 block text-xs ${declined ? "text-muted" : "font-semibold text-warn-fg"}"
-            >${declined ? "Not accepted" : `Waiting for ${ask.ownerName}`}</span
+            >${declined ? "Not accepted" : `Waiting for ${ask.ownerName} to accept`}</span
           >
         </span>
         <span class="text-muted" aria-hidden="true">›</span>
@@ -282,6 +282,24 @@ export function albumsPanel() {
       </p>
       ${albumList(view)} ${newAlbumSection(view)}
     `;
+  });
+}
+
+/** Requests still waiting for an answer, shown on the start screen and on Photos. */
+export function pendingAsks() {
+  return watch(foldersActor, (s) => {
+    const waiting = s.context.asks.filter((a) => a.status === "waiting");
+    if (waiting.length === 0) return null;
+    return html`<section aria-label="Waiting to join">
+      <h2 class="ui-label mb-2">Waiting to join</h2>
+      <ul class="space-y-3">
+        ${repeat(
+          waiting,
+          (a) => a.code,
+          (a) => askRow(a),
+        )}
+      </ul>
+    </section>`;
   });
 }
 

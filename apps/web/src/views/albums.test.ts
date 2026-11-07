@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
-import { render } from "lit-html";
+import { html, render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
-import { albumsPanel } from "./albums";
+import { joinActor } from "../machines/sharing/join-request";
+import { albumsPanel, joinPanel, pendingAsks } from "./albums";
 
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
@@ -27,16 +28,25 @@ const album = (id: string) => ({
   pending: false,
 });
 
-async function load(ids: string[]) {
+const ask = (status: "waiting" | "declined") => ({
+  code: "c1",
+  owner: "anna-id",
+  ownerName: "Anna",
+  albumName: "Summer trip",
+  status,
+});
+
+async function load(ids: string[], asks: ReturnType<typeof ask>[] = []) {
   mock.folders.mockResolvedValue([
     null,
-    { folders: ids.map(album), asks: [], activeFolderId: ids[0] ?? null },
+    { folders: ids.map(album), asks, activeFolderId: ids[0] ?? null },
   ]);
   folders.refresh();
   await vi.waitFor(() =>
     expect(foldersActor.snapshot().context.folders.map((f) => f.id)).toEqual(ids),
   );
   await foldersActor.settled();
+  await vi.waitFor(() => expect(foldersActor.snapshot().context.asks).toEqual(asks));
 }
 
 const rows = (host: HTMLElement) => [
@@ -88,5 +98,86 @@ describe("albums wiring", () => {
     open("/sharing/b");
     await vi.waitFor(() => expect(peopleActor.snapshot().context.qrShown).toBe(false));
     expect(peopleActor.snapshot().path[0]).toBe("showingPeople");
+  });
+});
+
+describe("pending asks", () => {
+  test("renders nothing with no asks, or only a declined one", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"]);
+    expect(host.querySelector("section")).toBeNull();
+    await load(["a"], [ask("declined")]);
+    expect(host.querySelector("section")).toBeNull();
+  });
+
+  test("a waiting ask shows one row that reopens the waiting sheet", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"], [ask("waiting")]);
+    const section = host.querySelector("section[aria-label='Waiting to join']");
+    expect(section?.textContent).toContain("Waiting for Anna to accept");
+    expect(section?.querySelectorAll("li")).toHaveLength(1);
+    section?.querySelector("button")?.click();
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
+  });
+
+  test("the albums panel still lists waiting and declined rows", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load(["a"], [ask("waiting"), { ...ask("declined"), code: "c2" }]);
+    expect(host.textContent).toContain("Waiting for Anna to accept");
+    expect(host.textContent).toContain("Not accepted");
+  });
+});
+
+describe("Photos page wiring", () => {
+  test("shows the waiting row at all scope and hides it inside an album", async () => {
+    const { galleryView } = await import("./gallery");
+    const all = document.createElement("div");
+    render(galleryView({ kind: "all" } as any), all);
+    const inAlbum = document.createElement("div");
+    render(galleryView({ kind: "album", id: "zzz" } as any), inAlbum);
+    await load(["a"], [ask("waiting")]);
+    await vi.waitFor(() =>
+      expect(all.querySelector("section[aria-label='Waiting to join']")).not.toBeNull(),
+    );
+    expect(inAlbum.querySelector("section[aria-label='Waiting to join']")).toBeNull();
+  });
+});
+
+describe("join card", () => {
+  test("has the invite input, a Paste button and a Continue button", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    await vi.waitFor(() =>
+      expect(host.querySelector("input[aria-label='Invite link']")).not.toBeNull(),
+    );
+    expect(host.querySelector("button[aria-label='Paste from clipboard']")?.textContent).toContain(
+      "Paste",
+    );
+    expect(host.querySelector("button[type='submit']")?.textContent).toContain("Continue");
+    expect(host.querySelectorAll("section")).toHaveLength(1);
+  });
+
+  test("Continue is enabled once sync has settled", async () => {
+    const { sync, syncActor } = await import("../machines/sync-machine");
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    mock.status.mockResolvedValue([null, { name: "Me", members: [] }]);
+    sync.refresh();
+    await vi.waitFor(() => expect(syncActor.snapshot().path[0]).toBe("showingAlbum"));
+    await syncActor.settled();
+    await vi.waitFor(() =>
+      expect(host.querySelector<HTMLButtonElement>("button[type='submit']")?.disabled).toBe(false),
+    );
+  });
+
+  test("the start screen pairs the waiting row with the join card", async () => {
+    const host = document.createElement("div");
+    render(html`${pendingAsks()}${joinPanel()}`, host);
+    await load(["a"], [ask("waiting")]);
+    expect(host.querySelector("section[aria-label='Waiting to join']")).not.toBeNull();
+    expect(host.querySelector("input[aria-label='Invite link']")).not.toBeNull();
   });
 });

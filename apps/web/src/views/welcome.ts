@@ -13,8 +13,7 @@ import {
   onboardingViewModel,
 } from "../machines/onboarding-machine";
 import { onStateChange } from "../machines/actor-utils";
-import { join } from "../machines/sharing/join-request";
-import { joinError } from "./albums";
+import { joinPanel, pendingAsks } from "./albums";
 import { currentPage, open } from "../machines/router-machine";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { friendlyError } from "../utils/friendly-error";
@@ -49,8 +48,8 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
 });
 
 // Creating an album finishes onboarding: open it once the create lands, so the
-// first thing on screen is where photos go. Joining navigates from the albums
-// join listener.
+// first thing on screen is where photos go. Joining opens the album when the
+// Admin accepts (join-request.ts).
 onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   const { error, activeId } = foldersActor.snapshot().context;
   if (
@@ -173,6 +172,7 @@ function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4">
       <h1 class="text-center text-xl font-bold text-fg">Start sharing</h1>
+      ${pendingAsks()}
       ${watch(foldersActor, (s) => {
         const vm = foldersViewModel(s);
         const busy = !vm.settled;
@@ -201,31 +201,9 @@ function chooseStep() {
             </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
-          <form
-            class="ui-card space-y-3 p-5"
-            @submit=${(e: SubmitEvent) => {
-              e.preventDefault();
-              const input = (e.target as HTMLFormElement).querySelector(
-                "input",
-              ) as HTMLInputElement;
-              join.openLink(input.value);
-            }}
-          >
-            <h2 class="ui-label">Join with an invite link</h2>
-            <input
-              class="ui-input"
-              placeholder="Paste the invite link"
-              aria-label="Invite link"
-              spellcheck="false"
-              autocapitalize="none"
-              autocomplete="off"
-              autocorrect="off"
-            />
-            ${joinError()}
-            <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>Ask to join</button>
-          </form>
         `;
       })}
+      ${joinPanel()}
     </div>
   `;
 }
