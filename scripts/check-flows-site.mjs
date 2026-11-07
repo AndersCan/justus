@@ -216,11 +216,10 @@ for (const name of pages) {
   }
   await page.close();
 }
-<<<<<<< HEAD
 if (liveCount === 0) {
   console.error("check-flows-site: no live machine found on any page, so no live loop ran");
   failed = true;
-=======
+}
 // A running effect can be answered with its failure: the requests load.
 {
   const page = await browser.newPage();
@@ -256,7 +255,6 @@ if (liveCount === 0) {
     fail(`could not answer the load: ${error.message.split("\n")[0]}`);
   }
   await page.close();
->>>>>>> 8477dd6 (Take mantaq viz 0.13 and inspect 0.12.1; site check fails the requests load)
 }
 // The state each walk is told to end in. Written by hand, so the check does not
 // trust the viewer or the recorded run to say where the cursor should land.
