@@ -12,6 +12,7 @@ import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
 import { adminName, hideInviteQr, invitePanel } from "./invite";
+import { albumNotice } from "./notices";
 import { toast } from "./toast";
 
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
@@ -275,6 +276,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
         ${roleLabel(status.folder.role, status.folder.pending)}
       </span>
     </div>
+    ${albumNotice(status.folder.notice)}
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
       >See photos in this album</a
     >

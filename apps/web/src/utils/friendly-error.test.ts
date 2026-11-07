@@ -10,6 +10,12 @@ describe("friendlyError", () => {
     expect(friendlyError("Only the creator can respond to requests")).toMatch(/^Only the Admin/);
   });
 
+  it("keeps the update line", () => {
+    expect(friendlyError("Update Justus to open your albums.")).toBe(
+      "Update Justus to open your albums.",
+    );
+  });
+
   it("never shows code words or internals", () => {
     for (const raw of [
       "Internal error (effect): boom",
