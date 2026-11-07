@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check flow expectations
+        run: pnpm flows:check
+
       - name: Build site
         run: pnpm site:build
 
