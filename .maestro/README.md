@@ -51,6 +51,7 @@ state. First after wiping the app's cache dir (as Settings → Clear cache does)
 `files/bare` back to `cache/bare` (an install from before albums moved to app storage). Both
 times the relaunched worklet must reopen album "M" from `first-run.yaml` from the store. The UI
 cannot show this: the intro-seen flag lives in web storage keyed by the loopback port, which
+
 ## Survive check
 
 Not a Maestro flow: `scripts/maestro-e2e.sh` runs it after the suite, twice, without clearing
