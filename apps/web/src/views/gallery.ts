@@ -20,7 +20,6 @@ import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
 import { currentPage, open } from "../machines/router-machine";
-import { memberColor } from "../utils/palette";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
   addTargets,
@@ -33,6 +32,7 @@ import {
   type PhotoSort,
 } from "../utils/photo-scope";
 import { gridMotion } from "./grid-motion";
+import { presenceDots } from "./presence-dots";
 import { errorBanner } from "./error-banner";
 import { startAlbum } from "./start-album";
 import { batchSummary, imageFiles, planAdd } from "../utils/add-photos";
@@ -445,15 +445,7 @@ function presenceStrip(status: SyncStatus, lastSync: number | null) {
       </span>
       ${others > 0 ? html`<span>shared with ${others} other${others === 1 ? "" : "s"}</span>` : null}
       ${lastSync ? html`<span class="text-xs">updated ${formatRelative(lastSync)}</span>` : null}
-      <span class="flex items-center gap-1.5" aria-hidden="true">
-        ${status.members.map(
-          (m) => html`<span
-            class="inline-block h-3 w-3 rounded-full ring-2 ring-white"
-            style="background: ${memberColor(m.key)}"
-            title="${m.name}"
-          ></span>`,
-        )}
-      </span>
+      ${presenceDots(status.members, status.folder.id)}
     </div>
   `;
 }
