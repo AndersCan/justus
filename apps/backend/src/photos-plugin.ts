@@ -120,6 +120,10 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
       turnOffInvite: async (args) => deps.store.turnOffInvite(args.folderId),
       offerAlbum: async (args) => deps.store.offerAlbum(args.folderId, args.identity),
       joinOffer: async (args) => deps.store.joinOffer(args.code, args.owner),
+      archiveAlbum: async (args) => deps.store.archiveAlbum(args.folderId),
+      restoreAlbum: async (args) => deps.store.restoreAlbum(args.folderId),
+      deleteAlbum: async (args) => deps.store.deleteAlbum(args.folderId),
+      dismissAlbumNotice: async (args) => deps.store.dismissAlbumNotice(args.folderId),
     }),
   });
 }

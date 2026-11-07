@@ -40,6 +40,14 @@ _Avoid_: share key, link
 A device's request to join an album through an invite code. It waits until the Admin answers: accepted, the share key travels to the asker over a verified connection and the asker joins; declined, the answer is final for that device. Both devices must be online at once to deliver the answer.
 _Avoid_: join request (the older request made with a share key)
 
+**Delete note**:
+`/deleted.json` in the album's own drive. Only the Admin's device can write it. A phone that reads it removes the album and its photos.
+_Avoid_: tombstone
+
+**Archive**:
+Hides an album on this phone only. It leaves Your albums and the timeline, and keeps syncing.
+_Avoid_: hide, mute
+
 **Gallery**:
 The app's view over a folder's photos, ordered and rendered for browsing.
 _Avoid_: photo list, feed

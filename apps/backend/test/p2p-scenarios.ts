@@ -782,6 +782,80 @@ export const scenarios: Scenario[] = [
       t.ok(error?.code === "justus.photos/offer-gone", "OFFER_GONE");
     },
   },
+  {
+    name: "delete: the Admin deletes an album and it leaves the Member's phone, photos and all",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey, joinerFolderId } = await sharedAlbum(net);
+      t.noErr(
+        await joiner.store.addBytes("b.jpg", new Uint8Array([9, 9, 9]), joinerFolderId),
+        "joiner adds a photo",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (photos) => photos.length === 2,
+        "the Member's photo on the Admin",
+      );
+      t.noErr(await admin.store.deleteAlbum(folderId), "deleteAlbum");
+      const after = await eventually(
+        () => joiner.store.folders(),
+        (f) => f.deleted.length === 1,
+        "the delete notice on the Member",
+      );
+      t.ok(!after.folders.some((f) => f.shareKey === shareKey), "album gone from the Member");
+      t.eq(
+        after.deleted.map((d) => ({ name: d.name, adminName: d.adminName })),
+        [{ name: "Shared", adminName: "Phone" }],
+        "the notice",
+      );
+      t.eq(await joiner.store.list({ all: true }), [], "the Member has no photos");
+      const adminAlbums = await admin.store.folders();
+      t.ok(
+        ![...adminAlbums.folders, ...adminAlbums.archived].some((f) => f.shareKey === shareKey),
+        "album gone from the Admin",
+      );
+      t.eq(adminAlbums.deleted, [], "the Admin has no notice");
+      t.eq(await admin.store.list({ all: true }), [], "the Admin has no photos");
+    },
+  },
+  {
+    name: "delete: a Member who was offline loses the album when it comes back",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey } = await sharedAlbum(net);
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (photos) => photos.length === 1,
+        "the first sync",
+      );
+      await joiner.stop();
+      t.noErr(await admin.store.deleteAlbum(folderId), "deleteAlbum");
+      const back = await net.peer("Desktop", joiner.storageDir);
+      const after = await eventually(
+        () => back.store.folders(),
+        (f) => f.deleted.length === 1,
+        "the delete notice after coming back",
+      );
+      t.ok(!after.folders.some((f) => f.shareKey === shareKey), "album gone after coming back");
+      t.eq(await back.store.list({ all: true }), [], "no photos after coming back");
+      await back.stop();
+      const again = await net.peer("Desktop", joiner.storageDir);
+      const restarted = await again.store.folders();
+      t.eq(restarted.folders, [], "still gone after a restart");
+      t.eq(restarted.deleted.length, 1, "the notice survives a restart");
+      t.noErr(await again.store.dismissAlbumNotice(restarted.deleted[0].id), "dismiss");
+      t.eq((await again.store.folders()).deleted, [], "the notice is dismissed");
+    },
+  },
+  {
+    name: "delete: only the Admin can delete, and an archived album is restored first",
+    async run(net, t) {
+      const { admin, joiner, folderId, joinerFolderId } = await sharedAlbum(net);
+      const [notAdmin] = await joiner.store.deleteAlbum(joinerFolderId);
+      t.ok(notAdmin?.code === "justus.photos/not-creator", "NOT_CREATOR");
+      t.noErr(await admin.store.archiveAlbum(folderId), "archiveAlbum");
+      const [archived] = await admin.store.deleteAlbum(folderId);
+      t.ok(archived?.code === "justus.photos/album-archived", "ALBUM_ARCHIVED");
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
