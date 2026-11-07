@@ -79,7 +79,7 @@ const view = (keys: string[], settle = "album") => html`<div ${gridMotion({ keys
     ${repeat(
       keys,
       (k) => k,
-      (k) => html`<figure data-photo-key=${k}></figure>`,
+      (k) => html`<figure data-motion-key=${k}></figure>`,
     )}
   </div>
 </div>`;
@@ -88,7 +88,7 @@ function mount(keys: string[]) {
   const host = document.createElement("div");
   document.body.append(host);
   render(view(keys), host);
-  const tile = (k: string) => host.querySelector<HTMLElement>(`[data-photo-key="${k}"]`)!;
+  const tile = (k: string) => host.querySelector<HTMLElement>(`[data-motion-key="${k}"]`)!;
   const again = async (next: string[], settle = "album") => {
     render(view(next, settle), host);
     await Promise.resolve();
@@ -96,7 +96,7 @@ function mount(keys: string[]) {
   return { host, tile, again };
 }
 
-const keyOf = (c: Call) => (c.el as HTMLElement).dataset.photoKey;
+const keyOf = (c: Call) => (c.el as HTMLElement).dataset.motionKey;
 
 describe("gridMotion", () => {
   test("animates nothing on the first render of an album", async () => {
@@ -189,8 +189,8 @@ describe("gridMotion", () => {
         <div class="grid">
           ${keys.map((k) =>
             tag === "figure"
-              ? html`<figure data-photo-key=${k}></figure>`
-              : html`<article data-photo-key=${k}></article>`,
+              ? html`<figure data-motion-key=${k}></figure>`
+              : html`<article data-motion-key=${k}></article>`,
           )}
         </div>
       </div>`;

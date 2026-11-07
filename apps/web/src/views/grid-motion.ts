@@ -22,7 +22,7 @@ function isVisible(b: Box, vp: Viewport): boolean {
   return b.top < vp.height && b.top + b.height > 0 && b.left < vp.width && b.left + b.width > 0;
 }
 
-/** What to animate when tiles went from `first` to `last` boxes (screen coordinates). */
+/** What to animate when tiles or rows went from `first` to `last` boxes (screen coordinates). */
 export function planMotion(change: {
   first: Map<string, Box>;
   last: Map<string, Box>;
@@ -53,8 +53,8 @@ type Measured = Map<string, { el: HTMLElement; box: Box }>;
 
 function measure(root: Element): Measured {
   const out: Measured = new Map();
-  for (const el of root.querySelectorAll<HTMLElement>("[data-photo-key]")) {
-    const key = el.getAttribute("data-photo-key");
+  for (const el of root.querySelectorAll<HTMLElement>("[data-motion-key]")) {
+    const key = el.getAttribute("data-motion-key");
     if (key === null) continue;
     const r = el.getBoundingClientRect();
     out.set(key, { el, box: { top: r.top, left: r.left, width: r.width, height: r.height } });
@@ -101,7 +101,7 @@ class GridMotion extends AsyncDirective {
     const root = part.element;
     // A change can land mid-animation: settle running tile animations so
     // positions are read at rest.
-    for (const el of root.querySelectorAll("[data-photo-key]")) {
+    for (const el of root.querySelectorAll("[data-motion-key]")) {
       for (const a of el.getAnimations()) a.finish();
     }
     this.#root = root;
