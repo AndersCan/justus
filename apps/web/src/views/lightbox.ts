@@ -36,6 +36,7 @@ let suppressClickUntil = 0;
 // no photo is open.
 if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => {
+    if (document.querySelector("wa-dropdown[open], wa-dialog[open]")) return;
     if (!lightboxActor.snapshot().context.photo) return;
     if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") step(-1);
@@ -154,13 +155,51 @@ function lightboxBody(photo: Photo) {
               canRemove(photo, roleFor(photo))
                 ? watch(galleryActor, (s) => {
                     const removing = galleryViewModel(s, null).state === "removing";
-                    return html`<button
-                      class="ui-btn-ghost !bg-transparent !px-3 !text-danger-fg hover:!bg-danger/10"
-                      ?disabled=${removing}
-                      @click=${() => void removeFromLightbox(photo)}
+                    return html`<wa-dropdown
+                      placement="top-end"
+                      @wa-select=${(e: CustomEvent<{ item: { value: string } }>) => {
+                        if (e.detail.item.value === "remove") void removeFromLightbox(photo);
+                      }}
                     >
-                      ${removing ? "Removing…" : "Remove"}
-                    </button>`;
+                      <button
+                        slot="trigger"
+                        class="ui-focus flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-subtle"
+                        aria-label="More options"
+                      >
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <circle cx="5" cy="12" r="2" />
+                          <circle cx="12" cy="12" r="2" />
+                          <circle cx="19" cy="12" r="2" />
+                        </svg>
+                      </button>
+                      <wa-dropdown-item value="remove" variant="danger" ?disabled=${removing}>
+                        <svg
+                          slot="icon"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                        </svg>
+                        ${removing ? "Removing…" : "Remove from album"}
+                      </wa-dropdown-item>
+                    </wa-dropdown>`;
                   })
                 : null
             }
