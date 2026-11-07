@@ -115,7 +115,8 @@ runtime.pluginRegistry.register(createGrantsPlugin({ ledger: grantLedger }));
 const bareFiles = createBareFiles();
 // Per-device friends: names this device gave to people, keyed by identity key.
 // Local only, so a file in `storageDir` (not localStorage: the web origin's
-// port changes on every start).
+// port can change, the desktop host falls back to a random one when its fixed
+// port is taken).
 runtime.pluginRegistry.register(
   createFriendsPlugin({
     store: createFriendsStore({ dir: storageDir, files: bareFiles.fs, paths: bareFiles.path }),

@@ -46,6 +46,9 @@ const handoff_max_bytes = 4096;
 const shutdown_grace_ms = 5_000;
 const shutdown_poll_ms = 50;
 const origin_prefix = "http://127.0.0.1:";
+/// Fixed so the page origin (and its localStorage) survives restarts; outside
+/// the macOS (49152+) and Linux (32768-60999) ephemeral ranges.
+const preferred_port: u16 = 29417;
 
 const Handoff = struct {
     origin: []const u8,
@@ -165,7 +168,27 @@ const Spawned = struct {
     handoff: posix.fd_t,
 };
 
+/// `port` when it is free on 127.0.0.1, else 0 (the backend picks any free one).
+fn pickPort(port: u16) u16 {
+    const fd = std.c.socket(std.c.AF.INET, std.c.SOCK.STREAM, 0);
+    if (fd < 0) return 0;
+    defer _ = std.c.close(fd);
+    // The backend's listener sets SO_REUSEADDR; without it here, a port left
+    // in TIME_WAIT by the previous run would read as taken.
+    const one: c_int = 1;
+    _ = std.c.setsockopt(fd, std.c.SOL.SOCKET, std.c.SO.REUSEADDR, &one, @sizeOf(c_int));
+    var addr: std.c.sockaddr.in = .{
+        .family = std.c.AF.INET,
+        .port = std.mem.nativeToBig(u16, port),
+        .addr = std.mem.nativeToBig(u32, 0x7f000001),
+    };
+    if (std.c.bind(fd, @ptrCast(&addr), @sizeOf(std.c.sockaddr.in)) != 0) return 0;
+    return port;
+}
+
 fn spawnBackend(io: Io, arena: std.mem.Allocator, opts: Options, storage_dir: Io.Dir, lock: Io.File) !Spawned {
+    const port = pickPort(preferred_port);
+    if (port == 0) std.log.warn("port {d} is in use; starting on a random port (settings saved in the page will not carry over)", .{preferred_port});
     var fds: [2]posix.fd_t = undefined;
     if (std.c.pipe(&fds) != 0) return error.PipeFailed;
     // Only the write end crosses into the backend, through `inherit_files`;
@@ -189,7 +212,7 @@ fn spawnBackend(io: Io, arena: std.mem.Allocator, opts: Options, storage_dir: Io
             try std.fmt.allocPrint(arena, "storage={s}", .{opts.storage}),
             try std.fmt.allocPrint(arena, "cache={s}", .{try std.fs.path.join(arena, &.{ opts.storage, "cache" })}),
             "auth=on",
-            "port=0",
+            try std.fmt.allocPrint(arena, "port={d}", .{port}),
             try std.fmt.allocPrint(arena, "handoff={d}", .{fds[1]}),
         },
         // The packed bundle resolves its offloaded addons relative to itself.
@@ -448,6 +471,24 @@ fn errorPage(a: std.mem.Allocator, what: []const u8, log_path: []const u8) ![:0]
     return std.fmt.allocPrintSentinel(a, "<!doctype html>{s}<h2>Justus {s}</h2>" ++
         "<p>Close this window and open Justus again. If it keeps happening, " ++
         "the backend log is at <code>{s}</code>.</p>", .{ page_style, what, log_html.items }, 0);
+}
+
+test "pickPort falls back to 0 when the port is taken" {
+    const fd = std.c.socket(std.c.AF.INET, std.c.SOCK.STREAM, 0);
+    try std.testing.expect(fd >= 0);
+    var addr: std.c.sockaddr.in = .{
+        .family = std.c.AF.INET,
+        .port = 0,
+        .addr = std.mem.nativeToBig(u32, 0x7f000001),
+    };
+    try std.testing.expectEqual(0, std.c.bind(fd, @ptrCast(&addr), @sizeOf(std.c.sockaddr.in)));
+    try std.testing.expectEqual(0, std.c.listen(fd, 1));
+    var len: std.c.socklen_t = @sizeOf(std.c.sockaddr.in);
+    try std.testing.expectEqual(0, std.c.getsockname(fd, @ptrCast(&addr), &len));
+    const p = std.mem.bigToNative(u16, addr.port);
+    try std.testing.expectEqual(@as(u16, 0), pickPort(p));
+    _ = std.c.close(fd);
+    try std.testing.expectEqual(p, pickPort(p));
 }
 
 test "parseHandoff reads origin and bootstrap, ignores the rest" {
