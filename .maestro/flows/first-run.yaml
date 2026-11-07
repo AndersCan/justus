@@ -99,10 +99,19 @@ appId: no.cankode.justus
 - scrollUntilVisible:
     element: "Require unlock to open Justus.*"
     timeout: 15000
-# A fresh launch always asks: the system PIN prompt opens over the lock screen at once (and is
-# secure, so it cannot be read), so answer it; reaching Settings proves the app was behind it.
+# A fresh launch always asks: the system PIN prompt opens over the lock screen at once. Let it
+# open, close it, and unlock from the lock screen the same way as above.
 - launchApp
-- assertNotVisible: "Settings"
+- waitForAnimationToEnd:
+    timeout: 4000
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Justus is locked"
+    timeout: 15000
+- assertNotVisible: "Require unlock to open Justus.*"
+- tapOn:
+    text: "Unlock"
+    waitToSettleTimeoutMs: 500
 - inputText: "1111"
 - pressKey: Enter
 - extendedWaitUntil:
