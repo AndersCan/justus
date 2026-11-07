@@ -44,7 +44,7 @@ key, a page in `docs/site/src/content/docs/` and the sidebar and index pick it u
 `pnpm flows:dev [feature|file ...]` serves the live viz page for the named
 machines and redraws it on save. A target is a feature key from
 `manifest.json` (`invite-requests`) or a repo-relative `.ts` machine file
-(`apps/backend/src/membership/invite-link-machine.ts`); the file need not be in
+(`apps/web/src/machines/sharing/invite-link-machine.ts`); the file need not be in
 the manifest yet. No targets means every file in the manifest. An unknown
 target prints the known features to stderr and exits 1.
 

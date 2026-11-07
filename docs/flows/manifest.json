@@ -15,7 +15,7 @@
     "apps/web/src/machines/reach-hint-machine.ts"
   ],
   "invite-requests": [
-    "apps/backend/src/membership/invite-link-machine.ts",
+    "apps/web/src/machines/sharing/invite-link-machine.ts",
     "apps/backend/src/membership/membership-machine.ts",
     "apps/web/src/machines/sharing/join-request-machine.ts"
   ],

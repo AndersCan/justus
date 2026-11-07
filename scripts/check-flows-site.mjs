@@ -123,10 +123,7 @@ for (const [, tag] of overview.matchAll(/<a\b([^>]*\bclass="[^"]*\bbox\b[^"]*"[^
     failed = true;
   }
 }
-for (const [from, to] of [
-  ["inviteLink", "membership"],
-  ["membership", "joinRequest"],
-]) {
+for (const [from, to] of [["membership", "joinRequest"]]) {
   const link = new RegExp(`class="[^"]*\\blink\\b[^"]*" data-from="${from}" data-to="${to}"`);
   if (!link.test(overview)) {
     console.error(`check-flows-site: flows overview has no link from ${from} to ${to}`);
@@ -215,14 +212,11 @@ const WALK_ENDS = {
   "Maya: reopens her ask while waiting": "waitingForAnswer",
   "Maya: reopens her ask after a decline": "declined",
   "Maya: opens a link from before the new key": "unusableLink",
-  "Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one":
-    "expired",
+  "Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends":
+    "noLinkYet",
   "Nils: accepts Maya as Collaborator": "joined",
   "Nils: declines the request": "declined",
-  "Nils's link: a 7 day link, then the week is over": "expired",
-  "Nils's link: a stranger is in the chat, so he cancels": "cancelled",
   "Nils: accepts a guest as Collaborator": "joined",
-  "Nils's link: a 1 hour link for the family expires": "expired",
   "Nils: accepts a relative as Viewer, later makes her a Collaborator": "joined",
 };
 for (const [, text, href] of walkLinks) {
