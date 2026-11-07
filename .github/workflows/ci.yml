@@ -40,6 +40,9 @@ jobs:
       - name: Typecheck, lint, and format check
         run: pnpm exec vp check
 
+      - name: Play listing text fits Play's limits
+        run: node scripts/check-play-listing.mjs
+
       - name: Run test suites
         run: pnpm exec vp run -r test
 

@@ -99,7 +99,9 @@ every release build waits for a click.
    - **Government / financial / health apps:** No.
 3. **Store listing:** the text lives in the repo, in
    `apps/android/fastlane/metadata/android/en-US/` (`title.txt` max 30 chars,
-   `short_description.txt` max 80, `full_description.txt` max 4000). Edit it
+   `short_description.txt` max 80, `full_description.txt` max 4000, each
+   release note max 500). CI fails a PR that goes over these (`pnpm
+check:play-listing`). Edit it
    there and push it with `fastlane listing` (needs A6 and A7). Until then,
    paste the same text into Play Console by hand. The 512×512 icon
    (`images/icon.png`) and 1024×500 feature graphic (`images/featureGraphic.png`)

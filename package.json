@@ -8,6 +8,7 @@
     "dev": "pnpm --parallel --filter './apps/*' run dev",
     "start:mac": "node apps/desktop/scripts/build.mjs && open apps/desktop/dist/Justus.app",
     "check:issue-refs": "node scripts/check-issue-refs.mjs",
+    "check:play-listing": "node scripts/check-play-listing.mjs",
     "test": "vp test run scripts",
     "test:e2e": "playwright test",
     "test:bare": "pnpm --filter @justus/backend run test:bare",
