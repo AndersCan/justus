@@ -186,7 +186,7 @@ test("an album page offers the invite at once and keeps the QR behind a tap", as
   await expect(
     page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }),
   ).toBeVisible();
-  await expect(page.getByText(/Anyone with it can see every photo/)).toBeVisible();
+  await expect(page.getByText(/They see no photos until you accept/)).toBeVisible();
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toHaveCount(0);
   await page.getByRole("button", { name: "With them now? Show a QR code" }).click();
   await expect(page.getByRole("img", { name: "QR code for the invite" })).toBeVisible();

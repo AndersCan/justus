@@ -6,11 +6,12 @@ import { $syncViewModel, sync } from "../machines/sync-machine";
 import { $router } from "../router";
 import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
+import { formatRelative } from "../utils/time";
 import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
-import { hideInviteQr, invitePanel } from "./invite";
+import { adminName, hideInviteQr, invitePanel } from "./invite";
 import { toast } from "./toast";
 
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
@@ -62,12 +63,9 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
 function requestRow(r: PeopleVm["requests"][number]) {
   return html`<li class="rounded-xl bg-subtle p-3">
     <p class="text-sm text-fg">
-      <span class="font-semibold">${r.requesterName}</span> wants to add photos
+      <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
     </p>
-    <p class="mt-1 text-xs text-muted">
-      They already have the invite link, so they can see the album. Approving lets them add their
-      own photos too.
-    </p>
+    <p class="mt-1 text-xs text-muted">Asked ${formatRelative(r.requestedAt)}</p>
     <div class="mt-2 flex gap-2">
       <button
         class="ui-btn-ghost"
@@ -79,10 +77,10 @@ function requestRow(r: PeopleVm["requests"][number]) {
         class="ui-btn-primary"
         @click=${() => {
           requests.respond(r.folderId, r.requesterKey, true);
-          toast(`${r.requesterName} can now add photos`);
+          toast(`${r.requesterName} is in`);
         }}
       >
-        Let them add
+        Accept
       </button>
     </div>
   </li>`;
@@ -91,7 +89,7 @@ function requestRow(r: PeopleVm["requests"][number]) {
 function requestsSection(vm: PeopleVm) {
   if (vm.requests.length === 0) return null;
   return html`<section class="ui-card border-l-4 border-l-warn p-5">
-    <h2 class="ui-label mb-3">Asking to add photos</h2>
+    <h2 class="ui-label mb-3">Asking to join</h2>
     <ul class="space-y-2">
       ${vm.requests.map((r) => requestRow(r))}
     </ul>
@@ -285,8 +283,8 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       state === "error" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
-    ${requestsSection(vm)} ${invitePanel(status.folder, status.name)} ${membersSection(vm)}
-    ${advancedSection(status, state, busy)}
+    ${requestsSection(vm)} ${invitePanel(status.folder, status.name, adminName(status))}
+    ${membersSection(vm)} ${advancedSection(status, state, busy)}
   </div>`;
 }
 

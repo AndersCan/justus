@@ -1,7 +1,7 @@
 import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { atom, computed } from "nanostores";
-import type { FolderSummary, SyncStatus } from "@justus/core";
+import type { AskSummary, FolderSummary, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { bindStateAtoms, runInvoke } from "./actor-utils";
 import { $syncStatus } from "./sync-machine";
@@ -25,16 +25,19 @@ export type FoldersStateName = (typeof FOLDERS_STATES)[number];
 
 export const $userName = atom<string>("");
 export const $folders = atom<FolderSummary[]>([]);
+/** Requests this phone made that the Admin has not accepted: waiting, or declined. */
+export const $asks = atom<AskSummary[]>([]);
 export const $activeFolderId = atom<string | null>(null);
 export const $foldersState = atom<FoldersStateName>("idle");
 export const $foldersError = atom<string | null>(null);
 export const $foldersFatal = atom(false);
 
 export const $foldersViewModel = computed(
-  [$userName, $folders, $activeFolderId, $foldersState, $foldersError, $foldersFatal],
-  (userName, folders, activeFolderId, state, error, fatal) => ({
+  [$userName, $folders, $asks, $activeFolderId, $foldersState, $foldersError, $foldersFatal],
+  (userName, folders, asks, activeFolderId, state, error, fatal) => ({
     userName,
     folders,
+    asks,
     activeFolderId,
     state,
     busy: state === "creating" || state === "switching" || state === "renaming",
@@ -69,6 +72,7 @@ const refresh = event("REFRESH")();
 /** The album list arrived. */
 const loaded = event("LOADED")<{
   folders: FolderSummary[];
+  asks: AskSummary[];
   activeId: string | null;
 }>();
 /** The album list could not be loaded. */
@@ -101,6 +105,7 @@ const renamed = event("RENAMED")<{ name: string }>();
 
 type FoldersContext = {
   folders: FolderSummary[];
+  asks: AskSummary[];
   activeId: string | null;
   error: string | null;
   pendingCreate: string | null;
@@ -132,6 +137,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
     clock: options.clock,
     context: {
       folders: [],
+      asks: [],
       activeId: null,
       error: null,
       ...noPending,
@@ -183,7 +189,11 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             signal,
             () => port.folders(),
             (result) => {
-              const r = result as { folders?: FolderSummary[]; activeFolderId?: string } | null;
+              const r = result as {
+                folders?: FolderSummary[];
+                activeFolderId?: string;
+                asks?: AskSummary[];
+              } | null;
               // `activeFolderId` may legitimately be null (a fresh device with no
               // folder chosen yet) — only a missing folder list is a real load
               // failure. Treating null as an error wedged first-run users on the
@@ -192,7 +202,13 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
                 emit(loadFailed.create({ message: "albums returned no data" }));
                 return;
               }
-              emit(loaded.create({ folders: r.folders, activeId: r.activeFolderId ?? null }));
+              emit(
+                loaded.create({
+                  folders: r.folders,
+                  asks: r.asks ?? [],
+                  activeId: r.activeFolderId ?? null,
+                }),
+              );
             },
             (message) => emit(loadFailed.create({ message })),
           );
@@ -206,6 +222,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
           opts.context.set({
             ...opts.context.get(),
             folders: e.payload.folders,
+            asks: e.payload.asks,
             activeId: e.payload.activeId,
             error: null,
           });
@@ -406,6 +423,7 @@ export const foldersActor = createFoldersActor({ clock: RealClock() });
 foldersActor.on("change", {
   fn: (snapshot) => {
     $folders.set(snapshot.context.folders);
+    $asks.set(snapshot.context.asks);
     $activeFolderId.set(snapshot.context.activeId);
     $foldersError.set(snapshot.context.error);
   },

@@ -21,7 +21,7 @@ import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
 import { $reachHint } from "./machines/reach-hint-machine";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
-import { inviteConsentSheet, listenForHostInvites } from "./views/invite";
+import { joinSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
 
@@ -209,7 +209,7 @@ render(
         ${navLinks("tab")}
       </nav>
     </div>
-    ${lightboxView()} ${inviteConsentSheet()}
+    ${lightboxView()} ${joinSheet()}
   `,
   renderRoot!,
 );

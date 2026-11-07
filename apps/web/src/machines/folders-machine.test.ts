@@ -1,5 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import {
+  $asks,
   $folders,
   $activeFolderId,
   $foldersState,
@@ -27,6 +28,7 @@ vi.mock("../gateway", () => {
     enroll: vi.fn(),
     status: vi.fn(),
     folders: vi.fn(),
+    ask: vi.fn(),
     createFolder: vi.fn(),
     setActive: vi.fn(),
     setName: vi.fn(),
@@ -61,6 +63,17 @@ describe("folders machine", () => {
     await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
     expect($folders.get().map((f) => f.id)).toContain("f1");
     expect($activeFolderId.get()).toBe("f1");
+  });
+
+  test("refresh also loads the asks, and treats a missing list as none", async () => {
+    const ask = { code: "c", status: "waiting" };
+    mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null, asks: [ask] }]);
+    folders.refresh();
+    await vi.waitFor(() => expect($asks.get()).toEqual([ask]));
+
+    mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
+    folders.refresh();
+    await vi.waitFor(() => expect($asks.get()).toEqual([]));
   });
 
   test("create appends the folder and makes it the active folder", async () => {

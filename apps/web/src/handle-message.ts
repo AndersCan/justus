@@ -4,12 +4,32 @@ import { guardPush } from "./contract-guard";
 import { folders } from "./machines/folders-machine";
 import { $lastSyncAt, gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
+import { join } from "./machines/sharing/join-request";
 import { sync } from "./machines/sync-machine";
 
 /** The `cause` carried in a `photos.changed` dispatch, if any. */
 export function changeCause(header: unknown): string | undefined {
   const args = (header as { args?: { cause?: unknown } }).args;
   return typeof args?.cause === "string" ? args.cause : undefined;
+}
+
+type AskAnswer = { code: string; answer: "accepted" | "declined"; folderId: string | undefined };
+
+/** The Admin's answer carried by a `photos.changed` push with cause "ask". */
+export function askAnswer(args: unknown): AskAnswer | undefined {
+  const a = (args ?? {}) as {
+    cause?: unknown;
+    code?: unknown;
+    answer?: unknown;
+    folderId?: unknown;
+  };
+  if (a.cause !== "ask" || typeof a.code !== "string") return undefined;
+  if (a.answer !== "accepted" && a.answer !== "declined") return undefined;
+  return {
+    code: a.code,
+    answer: a.answer,
+    folderId: typeof a.folderId === "string" ? a.folderId : undefined,
+  };
 }
 
 /** Routes inbound wire messages: backend→web pushes refresh the actors;
@@ -30,6 +50,8 @@ export function handleMessage(msg: WireMessage) {
     sync.refresh();
     folders.refresh();
     requests.refresh();
+    const answer = askAnswer(h.args);
+    if (answer) join.answered(answer.code, answer.answer, answer.folderId);
   } else if (h.type === "INVOKE_RESPONSE" && h.error) {
     console.error("Plugin invoke failed:", h.pluginId, h.event, h.error.message);
   }

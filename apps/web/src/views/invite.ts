@@ -1,10 +1,10 @@
 import { html } from "lit-html";
 import { atom } from "nanostores";
 import type { FolderSummary } from "@justus/core";
-import { $inviteViewModel, invites } from "../machines/invite-machine";
+import { $join, join } from "../machines/sharing/join-request";
 import { $syncStatus } from "../machines/sync-machine";
 import { useStore } from "../use-store";
-import { buildInvite } from "../utils/invite";
+import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
 import { toast } from "./toast";
 
@@ -17,21 +17,23 @@ export async function copyText(value: string): Promise<boolean> {
   }
 }
 
-/** The invite link for a folder; the Admin's name is only known on the Admin's
- * own device, so other members' invites carry the album name and count alone. */
-export function inviteLinkFor(folder: FolderSummary, myName: string): string {
-  return buildInvite({
-    key: folder.shareKey,
-    name: folder.name,
-    admin: folder.role === "creator" ? myName : undefined,
-    members: folder.members,
+/** The invite link for an album this phone made. Only the Admin's phone can
+ * answer a request, so only the Admin's phone has a link; everyone else gets null. */
+export function inviteLinkFor(folder: FolderSummary, myName: string): string | null {
+  if (folder.role !== "creator" || !folder.invite) return null;
+  return buildInviteLink({
+    code: folder.invite.code,
+    owner: folder.invite.owner,
+    album: folder.name,
+    ownerName: myName,
   });
 }
 
 /** Native share sheet when available, otherwise copy. */
 export async function shareInvite(folder: FolderSummary, myName: string) {
   const link = inviteLinkFor(folder, myName);
-  const text = `Join my Justus album “${folder.name}”: ${link}`;
+  if (!link) return;
+  const text = `Ask to join my Justus album “${folder.name}”: ${link}`;
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: `Justus album “${folder.name}”`, text });
@@ -73,16 +75,26 @@ function qrCode(link: string) {
 
 /** Invite surface: one tap sends the link (share sheet, or copy where there is
  * none). The link itself is never drawn; the QR, for someone standing next to
- * you, only after a tap. The raw share key lives under Advanced. */
-export function invitePanel(folder: FolderSummary, myName: string) {
+ * you, only after a tap. Only the Admin has a link; members are told who to ask. */
+export function invitePanel(folder: FolderSummary, myName: string, admin: string) {
   const link = inviteLinkFor(folder, myName);
+  if (!link) {
+    return html`
+      <section class="ui-card p-5">
+        <h2 class="ui-label mb-1">Invite people</h2>
+        <p class="text-sm text-fg">
+          Ask ${admin} for the invite link to “${folder.name}”. Only ${admin} can let new people in.
+        </p>
+      </section>
+    `;
+  }
   const canShare = typeof navigator.share === "function";
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
       <p class="mb-4 text-sm text-fg">
-        Send the link to people you want in “${folder.name}”. Anyone with it can see every photo, so
-        don't post it in public.
+        Send the link to people you want in “${folder.name}”. They ask to join and you choose who
+        gets in. They see no photos until you accept.
       </p>
       ${useStore(
         $copied,
@@ -118,55 +130,87 @@ export function invitePanel(folder: FolderSummary, myName: string) {
             </button>`,
       )}
       <p class="mt-4 text-xs text-muted">
-        They can see the photos right away.
-        ${
-          folder.role === "creator"
-            ? "You choose who can add their own photos: their request shows up here."
-            : "The Admin chooses who can add their own photos."
-        }
+        Both of you need Justus open for a request to arrive. It shows up here for you to accept or
+        decline.
       </p>
     </section>
   `;
 }
 
-/** The consent text from the join flow (ui-ux-spec §2.3), shown before any
- * join request is sent. Rendered once, app-wide. */
-export function inviteConsentSheet() {
-  return useStore($inviteViewModel, ({ invite }) => {
-    if (!invite) return null;
-    const title = invite.name ? `Join “${invite.name}”?` : "Join this album?";
-    const meta = [
-      invite.admin ? `Admin: ${invite.admin}` : null,
-      invite.members != null ? `${invite.members} member${invite.members === 1 ? "" : "s"}` : null,
-    ].filter(Boolean);
-    return html`
+function sheet(label: string, body: unknown, onDismiss: () => void) {
+  return html`
+    <div
+      class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
+      @click=${onDismiss}
+    >
       <div
-        class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-        @click=${() => invites.cancel()}
+        class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label=${label}
+        @click=${(e: Event) => e.stopPropagation()}
       >
-        <div
-          class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
-          role="dialog"
-          aria-modal="true"
-          aria-label=${title}
-          @click=${(e: Event) => e.stopPropagation()}
-        >
-          <h3 class="break-words text-base font-semibold text-fg">${title}</h3>
-          ${meta.length > 0 ? html`<p class="mt-1 text-xs text-muted">${meta.join(" · ")}</p>` : null}
-          <p class="mt-3 text-sm text-fg">
-            You’ll see every photo in this album, old and new, and a copy is kept on this phone.
-            People in the album can see when you have Justus open.
-          </p>
-          <p class="mt-2 text-sm text-muted">
-            To add your own photos, ${invite.admin ?? "the Admin"} needs to approve you.
-          </p>
-          <div class="mt-4 flex justify-end gap-2">
-            <button class="ui-btn-ghost" @click=${() => invites.cancel()}>Cancel</button>
-            <button class="ui-btn-primary" @click=${() => invites.confirm()}>Join album</button>
-          </div>
-        </div>
+        ${body}
       </div>
-    `;
+    </div>
+  `;
+}
+
+/** The joiner's screens: ask, waiting, not accepted. Rendered once, app-wide.
+ * No photos or counts: the link carries only the names its sender typed. */
+export function joinSheet() {
+  return useStore($join, ({ state, invite, error }) => {
+    if (state === "idle" || !invite) return null;
+    const owner = invite.ownerName;
+    if (state === "reviewing" || state === "sending") {
+      const sending = state === "sending";
+      const title = `Ask to join “${invite.album}”?`;
+      return sheet(
+        title,
+        html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
+          <p class="mt-3 text-sm text-fg">
+            ${owner} will see your name and can accept or decline. You'll see the photos if they
+            accept.
+          </p>
+          ${error ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>` : null}
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="ui-btn-ghost" ?disabled=${sending} @click=${() => join.notNow()}>
+              Not now
+            </button>
+            <button class="ui-btn-primary" ?disabled=${sending} @click=${() => join.ask()}>
+              ${sending ? "Asking…" : "Ask to join"}
+            </button>
+          </div>`,
+        () => {
+          if (!sending) join.notNow();
+        },
+      );
+    }
+    if (state === "waiting") {
+      const title = `Waiting for ${owner}`;
+      return sheet(
+        title,
+        html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
+          <p class="mt-3 text-sm text-fg">
+            Request to join sent to ${owner}. You'll see “${invite.album}” when accepted. ${owner}
+            must be online too: keep Justus open on both phones.
+          </p>
+          <div class="mt-4 flex justify-end">
+            <button class="ui-btn-primary" @click=${() => join.close()}>Close</button>
+          </div>`,
+        () => join.close(),
+      );
+    }
+    const title = `${owner} didn't accept your request.`;
+    return sheet(
+      title,
+      html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
+        <p class="mt-3 text-sm text-fg">Nothing was shared with you.</p>
+        <div class="mt-4 flex justify-end">
+          <button class="ui-btn-primary" @click=${() => join.ok()}>OK</button>
+        </div>`,
+      () => join.ok(),
+    );
   });
 }
 
@@ -204,11 +248,11 @@ export function waitingForAdmin() {
 export function listenForHostInvites() {
   const w = window as unknown as { __justusInvite?: string };
   if (w.__justusInvite) {
-    invites.receive(w.__justusInvite);
+    join.openLink(w.__justusInvite);
     delete w.__justusInvite;
   }
   window.addEventListener("justus:invite", (e) => {
     const text = (e as CustomEvent<string>).detail;
-    if (typeof text === "string") invites.receive(text);
+    if (typeof text === "string") join.openLink(text);
   });
 }

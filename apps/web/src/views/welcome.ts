@@ -7,7 +7,8 @@ import {
   folders,
 } from "../machines/folders-machine";
 import { $onboardingState, $onboardingViewModel, onboarding } from "../machines/onboarding-machine";
-import { $inviteError, invites } from "../machines/invite-machine";
+import { join } from "../machines/sharing/join-request";
+import { joinError } from "./albums";
 import { $router } from "../router";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { useStore } from "../use-store";
@@ -203,7 +204,7 @@ function chooseStep() {
               const input = (e.target as HTMLFormElement).querySelector(
                 "input",
               ) as HTMLInputElement;
-              invites.receive(input.value);
+              join.openLink(input.value);
             }}
           >
             <h2 class="ui-label">Join with an invite link</h2>
@@ -215,14 +216,9 @@ function chooseStep() {
               autocapitalize="none"
               autocomplete="off"
               autocorrect="off"
-              @input=${() => invites.clearError()}
             />
-            ${useStore($inviteError, (err) =>
-              err
-                ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(err)}</p>`
-                : null,
-            )}
-            <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>Join album</button>
+            ${joinError()}
+            <button class="ui-btn-ghost w-full" type="submit" ?disabled=${busy}>Ask to join</button>
           </form>
         `;
       })}

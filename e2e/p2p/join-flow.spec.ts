@@ -18,7 +18,7 @@ const PHOTO = "hub-join.png";
 // album creator cannot NAT-sample enough nodes, aborts the joiner's holepunch,
 // and the joiner times out. On failure the fixture attaches each instance's
 // /__state and /__logs.
-test("B joins A's album by invite, A approves, B sees the photo", async ({ instancePages }) => {
+test("B asks to join A's album by link, A accepts, B sees the photo", async ({ instancePages }) => {
   test.setTimeout(150_000);
   const [a, b] = instancePages;
   // Skip the first-run intro on both instances.
@@ -39,33 +39,54 @@ test("B joins A's album by invite, A approves, B sees the photo", async ({ insta
   const aImg = a.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
   await expect(aImg).toBeAttached({ timeout: 20_000 });
 
-  // --- A: read the share key off the album's Advanced section ---
-  // (Nested paths can't be loaded directly: assets are relative. Navigate in-app.)
-  await a.goto("/sharing");
-  await a.getByRole("link", { name: `Invite & members of ${ALBUM}` }).click();
-  await a.getByText("Advanced", { exact: true }).click();
-  await a.getByLabel("Show share key").check({ force: true });
-  const shareKey = (await a.locator("dd.group span.break-all").first().innerText()).trim();
-  expect(shareKey).toMatch(/^[0-9a-f]{64}$/);
-
-  // --- B: join with the invite link ---
-  await b.goto("/join");
-  await b
-    .getByLabel("Invite link")
-    .fill(`justus://join/${shareKey}?n=${encodeURIComponent(ALBUM)}`);
-  await b.getByRole("button", { name: "Join", exact: true }).click();
-  await b.getByRole("dialog").getByRole("button", { name: "Join album" }).click();
-
-  // --- A: the request shows up in the UI; approve it ---
-  await expect(a.getByText("wants to add photos")).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Let them add" }).click();
-
-  // --- B: the album and its photo arrive, decodable ---
-  await b.goto("/albums");
-  await b
-    .getByRole("list", { name: "Albums" })
-    .getByRole("link", { name: new RegExp(`^${ALBUM}, `) })
+  // --- A: open the invite panel and copy the link ---
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
     .click();
+  const copyButton = a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ });
+  await expect(copyButton).toBeVisible({ timeout: 20_000 });
+  const link = await a.evaluate(
+    () =>
+      new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("invite link was never copied")), 10_000);
+        Object.defineProperty(navigator, "clipboard", {
+          value: {
+            writeText: async (text: string) => {
+              clearTimeout(timer);
+              resolve(text);
+            },
+          },
+          configurable: true,
+        });
+        const button = [...document.querySelectorAll("button")].find((el) =>
+          /^(Copy invite link|Copy link)$/.test(el.textContent?.trim() ?? ""),
+        );
+        if (!button) {
+          clearTimeout(timer);
+          reject(new Error("no copy button on the page"));
+          return;
+        }
+        button.click();
+      }),
+  );
+  expect(link).toMatch(/^justus:\/\/join\?/);
+
+  // --- B: open the link, see the ask, send it ---
+  await b.goto("/join");
+  await b.getByLabel("Invite link").fill(link);
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(b.getByRole("dialog", { name: `Ask to join “${ALBUM}”?` })).toBeVisible();
+  await b.getByRole("dialog").getByRole("button", { name: "Ask to join" }).click();
+  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
+
+  // --- A: the request shows up in the UI; accept it ---
+  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept" }).click();
+
+  // --- B: the album opens on its own ---
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  // --- B: the album and its photo arrive, decodable ---
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
   await expect(bImg).toBeAttached({ timeout: 60_000 });
   await expect
