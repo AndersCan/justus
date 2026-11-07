@@ -50,7 +50,6 @@ import {
   type Answer,
   parseDeviceName,
   parseDeviceSwarmKey,
-  parseFolderName,
   parseRemoved,
   parseRequestsFile,
   peerName,
@@ -58,6 +57,12 @@ import {
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
+import {
+  albumNameUpdate,
+  albumSummary,
+  createAlbumDrive,
+  removeAlbumMember,
+} from "./albums/albums";
 import {
   createPresence,
   learnDevices,
@@ -940,17 +945,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   async function refreshAlbumName(rt: FolderRuntime) {
     if (rt.record.role === "creator") return;
-    const name = await readFolderNameIn(rt.folderDrive);
-    if (!name || name === rt.record.name) return;
+    const name = await albumNameUpdate(rt.folderDrive, {
+      role: rt.record.role,
+      current: rt.record.name,
+      log,
+    });
+    if (name === undefined) return;
     rt.record.name = name;
     const persisted = state.folders.find((f) => f.id === rt.record.id);
     if (persisted) persisted.name = name;
     saveState();
     deps.onChanged({ cause: "add", folderId: rt.record.id });
-  }
-
-  async function readFolderNameIn(drive: Drive): Promise<string> {
-    return parseFolderName(await readText(drive, DRIVE_PATH_FOLDER));
   }
 
   function activeFolderId(): string | null {
@@ -1520,38 +1525,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function toSummary(rt: FolderRuntime): FolderSummary {
-    const role = rt.record.role;
-    // A pending reader reports the drive it asked to be enrolled with.
-    const driveKey = role !== "reader" || rt.record.pending ? selfKeyOf(rt) : "";
-    // The member drives `refreshMembersFor` opened are exactly the other
-    // enrolled members' drives (self is skipped in `loadMemberDrive`). For a
-    // reader the same set is the writers it can see — so derive the count from
-    // it rather than hard-coding 0 (issue #89). `memberDrives` is a `Map`, so
-    // use `.size` (not `Object.values`, which is always empty for a Map).
-    const earlier = (rt.record.earlier ?? []).filter((e) => rt.memberDrives.has(e.key)).length;
-    const memberCount =
-      role === "creator" || role === "member"
-        ? rt.memberDrives.size - earlier + 1
-        : rt.memberDrives.size;
-    return {
-      id: rt.record.id,
-      name: rt.record.name,
-      role,
-      pending: Boolean(rt.record.pending),
-      shareKey: rt.record.shareKey,
-      driveKey,
-      members: memberCount,
-      addedAt: rt.record.createdAt,
-      ...(rt.record.notice ? { notice: rt.record.notice } : {}),
-      ...(rt.record.invite
-        ? {
-            invite: {
-              code: rt.record.invite.code,
-              owner: rt.record.invite.owner ?? ownDrive.key,
-            },
-          }
-        : {}),
-    };
+    return albumSummary(rt, { ownIdentity: ownDrive.key });
   }
 
   async function computeStatus(): Promise<SyncStatus> {
@@ -1988,9 +1962,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const folderId = newId(deps.crypto);
     // The album gets a namespace of its own: without one, `openOwn()` is the
     // device's own identity drive.
-    const newDrive = await deps.drives.openOwn(`folder/${folderId}`);
-    await newDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-    await newDrive.put(DRIVE_PATH_FOLDER, Buffer.from(JSON.stringify({ version: 1, name })));
+    const [createErr, newDrive] = await createAlbumDrive(deps.drives, {
+      id: folderId,
+      name,
+      device: deviceJson(state.name),
+    });
+    if (createErr) throw new Error(createErr.message);
 
     const rt: FolderRuntime = {
       record: {
@@ -2982,10 +2959,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
       if (!isHexKey(memberKey))
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
-      const registry = await readRegistryIn(rt.folderDrive);
-      if (!registry.members[memberKey]) return err(PhotoError.NOT_FOUND, "No such member");
-      delete registry.members[memberKey];
-      await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
+      const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
+      if (removeErr?.kind === "no-such-member") return err(PhotoError.NOT_FOUND, "No such member");
+      if (removeErr) throw new Error(removeErr.message);
       // Stop loading their drive; a re-filed request must not resurface at once.
       deniedRequesters.add(memberKey);
       await refreshMembersFor(rt);
