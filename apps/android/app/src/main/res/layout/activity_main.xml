@@ -8,4 +8,37 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <LinearLayout
+        android:id="@+id/lock_screen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/lock_background"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:importantForAccessibility="no"
+            android:src="@mipmap/ic_launcher" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/lock_title"
+            android:textColor="@color/lock_text"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/lock_unlock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/lock_unlock" />
+    </LinearLayout>
+
 </FrameLayout>

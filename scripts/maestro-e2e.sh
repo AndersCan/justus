@@ -179,6 +179,11 @@ echo "✓ APK installed."
 # Keep the screen awake so it never sleeps into a keyguard.
 "$ADB" -s "$SERIAL" shell svc power stayon true || true
 
+# The App lock flow needs a phone screen lock. Restore the device on exit so a local emulator
+# is not left with a PIN.
+"$ADB" -s "$SERIAL" shell locksettings set-pin 1111 || true
+trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 || true' EXIT
+
 # ----------------------------------------------------------------------------
 # 5. Run the Maestro flow suite
 #    `--device` must come BEFORE `test` (Maestro CLI convention).

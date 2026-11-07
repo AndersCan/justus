@@ -1,0 +1,4 @@
+<resources>
+    <color name="lock_background">#FFFFFF</color>
+    <color name="lock_text">#1B1B1F</color>
+</resources>
