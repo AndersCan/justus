@@ -102,7 +102,8 @@ for (const [, text, href] of walkLinks) {
     fail(`machine ${machineId} on ${page} has no run with this name`);
   }
   const run = url.searchParams.get("run");
-  if (run !== null && run !== text) fail(`run "${run}" differs from the link text`);
+  if (run === null) fail("the link has no run");
+  else if (run !== text) fail(`run "${run}" differs from the link text`);
 }
 if (walkLinks.length === 0) {
   console.error("check-flows-site: no walk links found under the Walks heading");
@@ -181,6 +182,45 @@ for (const name of pages) {
     failed = true;
   }
   await page.close();
+}
+for (const [, text, href] of walkLinks) {
+  const url = new URL(href);
+  const machineId = url.searchParams.get("machine");
+  const page = url.pathname.slice(new URL(SITE).pathname.length).replace(/\/$/, "");
+  const end = vizDocuments(page)
+    .find((each) => each.id === machineId)
+    ?.runs?.find((run) => run.name === text)?.end;
+  if (end === undefined) continue;
+  const tab = await browser.newPage();
+  await tab.goto(`${origin}${url.pathname}${url.search}`);
+  const reason = await (async () => {
+    try {
+      await tab.waitForSelector(".mantaq-machine .explore", { timeout: 10_000 });
+    } catch {
+      return "the page did not show a machine";
+    }
+    const roots = tab.locator(".mantaq-machine");
+    const index = await roots.evaluateAll(
+      (nodes, id) =>
+        nodes.findIndex((node) =>
+          JSON.parse(node.dataset.mantaqViz ?? '{"machines":[]}').machines.some(
+            (machine) => machine.id === id,
+          ),
+        ),
+      machineId,
+    );
+    if (index < 0) return `no viewer holds machine ${machineId}`;
+    const root = roots.nth(index);
+    if ((await root.locator("[data-run-missing]").count()) > 0)
+      return "the page says the run is missing";
+    const current = await root.locator(".explore").first().getAttribute("data-current");
+    return current === end ? null : `the cursor is on "${current}", the run ends in "${end}"`;
+  })();
+  if (reason !== null) {
+    console.error(`check-flows-site: walk "${text}": ${reason}`);
+    failed = true;
+  }
+  await tab.close();
 }
 await browser.close();
 server.close();
