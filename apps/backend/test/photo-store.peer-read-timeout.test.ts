@@ -5,47 +5,39 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeDrive, FakeSwarm, fakeConnection, makeFakeDeps } from "./fake-drive.ts";
+import { createFakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
 
 describe("peer record read timeout", () => {
   it("requests() passes a timeout for the peer outbox read; a hung peer reads as no requests", async () => {
     const peer = "b".repeat(64);
     const seen: { path: string; timeout: number | undefined }[] = [];
-    const cache = new Map<string, FakeDrive>();
-    let swarm: FakeSwarm | null = null;
-    const deps = makeFakeDeps({
-      deviceName: "Creator",
-      makeSwarm: () => {
-        swarm = new FakeSwarm();
-        return swarm;
-      },
-      makeDrive: (_cs: unknown, key?: Buffer): FakeDrive => {
-        const seed = key ? key.toString("hex") : `seed-${cache.size}`;
-        const drive = new FakeDrive(seed);
-        const id = drive.key.toString("hex");
-        const cached = cache.get(id);
-        if (cached) return cached;
-        cache.set(id, drive);
-        if (id === peer) {
-          // Behaves like a block only a departed peer had: never resolves
-          // unless the caller bounded the read.
-          const hang = (path: string, opts?: { timeout?: number }): Promise<never> => {
-            seen.push({ path, timeout: opts?.timeout });
-            return opts?.timeout === undefined
-              ? new Promise<never>(() => {})
-              : Promise.reject(new Error("timed out"));
-          };
-          Object.assign(drive, { get: hang, entry: hang });
-        }
-        return drive;
-      },
-    });
+    const hub = createFakeHub();
+    const deps = fakeStoreDeps({ hub, deviceName: "Creator" });
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();
+
+    // Opened on the store first, so it hands this same drive to `requests()`.
+    // It behaves like a block only a departed peer had: never resolves unless
+    // the caller bounded the read.
+    const [openErr, drive] = await deps.drives.open(peer, { timeoutMs: 1_000 });
+    if (openErr || !drive) throw openErr ?? new Error("peer drive did not open");
+    drive.readSmall = (path: string, _maxBytes: number, opts?: { timeoutMs: number }) => {
+      seen.push({ path, timeout: opts?.timeoutMs });
+      return opts?.timeoutMs === undefined
+        ? new Promise<never>(() => {})
+        : Promise.reject(new Error("timed out"));
+    };
+
     const created = await store.createFolder("Family");
     expect(created[0]).toBeNull();
-    swarm!.emit("connection", fakeConnection(Buffer.from(peer, "hex")));
+    const identity = (store.debugState() as { identityDrive: string }).identityDrive;
+    const phone = peerPhone(hub, { identityKey: peer });
+    phone.meet(deps.drives.discoveryKeyOf(identity));
+    for (let i = 0; i < 200 && !phone.events.some((e) => e.type === "identified"); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
 
     const { requests } = await store.requests();
     expect(requests).toEqual([]);
