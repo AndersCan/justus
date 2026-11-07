@@ -75,7 +75,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   // --- B: open the link, see the ask, send it ---
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(b.getByRole("dialog", { name: `Ask to join “${ALBUM}”?` })).toBeVisible();
   await b.getByRole("dialog").getByRole("button", { name: "Ask to join" }).click();
   await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
