@@ -35,40 +35,44 @@ export const oldLinkMessage = (ownerName: string) =>
   `This link no longer works. Ask ${ownerName} for a new invite link.`;
 export const SEND_FAILED = "Couldn't send your request. Try again.";
 
-/** No link is open. */
-const idle = state("idle")();
+/** No invite is open. */
+const noInvite = state("noInvite")();
+/** The opened text is not a link that works; the reason shows under the paste box. */
+const unusableLink = state("unusableLink")();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
-const reviewing = state("reviewing")<JoinInvite>();
+const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 /** The request is being sent; the buttons are disabled. */
-const sending = state("sending")<JoinInvite>();
+const sendingRequest = state("sendingRequest")<JoinInvite>();
 /** "Waiting for <owner>". Shown with no timer until an answer comes. */
-const waiting = state("waiting")<JoinInvite>();
+const waitingForAnswer = state("waitingForAnswer")<JoinInvite>();
 /** "<owner> didn't accept your request." The answer is final. */
 const declined = state("declined")<JoinInvite>();
+/** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
+const joined = state("joined")();
 
 /** The joiner opens a link or pastes text. */
 export const openLink = event("openLink")<{ text: string }>();
-/** The joiner taps an ask row in the albums list. */
-export const openAsk = event("openAsk")<{ ask: AskSummary }>();
+/** The joiner taps a request row in the albums list. */
+export const reopenRequest = event("reopenRequest")<{ ask: AskSummary }>();
 /** The joiner taps "Ask to join". */
-export const ask = event("ask")();
+export const askToJoin = event("askToJoin")();
 /** The joiner taps "Not now". */
 export const notNow = event("notNow")();
-/** The joiner closes the waiting screen; the ask stays. */
-export const close = event("close")();
+/** The joiner closes the waiting screen; the request stays. */
+export const closeWaiting = event("closeWaiting")();
 /** The joiner taps OK on the declined screen. */
-export const ok = event("ok")();
+export const dismissDecline = event("dismissDecline")();
 /** The owner's answer reached this phone. */
-export const answered = event("answered")<{
+export const answerArrived = event("answerArrived")<{
   code: string;
   answer: "accepted" | "declined";
   folderId?: string;
 }>();
 
 /** The request was sent. */
-const sent = event("sent")();
+const requestSent = event("requestSent")();
 /** The request could not be sent. */
-const sendFailed = event("sendFailed")<{ message: string }>();
+const requestFailed = event("requestFailed")<{ message: string }>();
 
 /** Asks the app to show the album: the joiner is already in, or was just accepted. */
 const openAlbum = event("openAlbum")<{ folderId: string }>();
@@ -86,42 +90,65 @@ export function createJoinRequestActor(options: {
   const classify = typeof known === "function" ? known : () => known;
 
   return Actor({
-    inputs: [openLink, openAsk, ask, notNow, close, ok, answered],
-    internal: [sent, sendFailed],
+    inputs: [
+      openLink,
+      reopenRequest,
+      askToJoin,
+      notNow,
+      closeWaiting,
+      dismissDecline,
+      answerArrived,
+    ],
+    internal: [requestSent, requestFailed],
     outputs: [openAlbum],
-    states: [idle, reviewing, sending, waiting, declined],
-    initial: idle,
+    states: [
+      noInvite,
+      unusableLink,
+      joined,
+      decidingToAsk,
+      sendingRequest,
+      waitingForAnswer,
+      declined,
+    ],
+    initial: noInvite,
     clock,
     context: { error: "" } as JoinContext,
     setup: (m) => {
-      for (const from of [idle, reviewing, waiting, declined]) {
+      for (const from of [
+        noInvite,
+        unusableLink,
+        joined,
+        decidingToAsk,
+        waitingForAnswer,
+        declined,
+      ]) {
         /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
           event: openLink,
-          to: [idle, reviewing, waiting, declined],
+          to: [unusableLink, joined, decidingToAsk, waitingForAnswer, declined],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
             if (parsed.kind !== "invite") {
               context.set({
                 error: parsed.kind === "old" ? oldLinkMessage(parsed.ownerName) : GARBLED_LINK,
               });
-              return { state: actor.snapshot().path[0] === "idle" ? idle : stay(actor) };
+              return { state: unusableOrStay(actor) };
             }
             context.set({ error: "" });
             const invite = parsed.invite;
             const found = classify(invite);
             if (found.kind === "own" || found.kind === "member") {
-              return { state: idle, emit: [openAlbum.create({ folderId: found.folderId })] };
+              return { state: joined, emit: [openAlbum.create({ folderId: found.folderId })] };
             }
-            if (found.kind === "waiting") return { state: waiting.create(invite) };
+            if (found.kind === "waiting") return { state: waitingForAnswer.create(invite) };
             if (found.kind === "declined") return { state: declined.create(invite) };
-            return { state: reviewing.create(invite) };
+            return { state: decidingToAsk.create(invite) };
           },
         });
-        /** A tapped ask row shows its current answer. */
+        /** A tapped request row shows its current answer. */
         m.on(from, {
-          event: openAsk,
-          to: [waiting, declined],
+          event: reopenRequest,
+          to: [waitingForAnswer, declined],
           handler: (e) => {
             const { ask: row } = e.payload;
             const invite = {
@@ -132,85 +159,96 @@ export function createJoinRequestActor(options: {
             };
             return row.status === "declined"
               ? { state: declined.create(invite) }
-              : { state: waiting.create(invite) };
+              : { state: waitingForAnswer.create(invite) };
           },
         });
       }
 
       /** "Ask to join": the request goes out and the buttons lock. */
-      m.on(reviewing, {
-        event: ask,
-        to: [sending],
+      m.on(decidingToAsk, {
+        event: askToJoin,
+        to: [sendingRequest],
         handler: (_e, { actor, context }) => {
           context.set({ error: "" });
-          return { state: sending.create(actor.snapshot().payload as JoinInvite) };
+          return { state: sendingRequest.create(actor.snapshot().payload as JoinInvite) };
         },
       });
       /** "Not now": nothing was sent. */
-      m.on(reviewing, { event: notNow, to: [idle], handler: () => ({ state: idle }) });
+      m.on(decidingToAsk, { event: notNow, to: [noInvite], handler: () => ({ state: noInvite }) });
 
       /** The request is handed to the phone's sharing layer. */
-      m.effect(sending, {
-        name: "sending",
-        sends: [sent, sendFailed],
+      m.effect(sendingRequest, {
+        name: "sendRequest",
+        sends: [requestSent, requestFailed],
         fn: ({ signal, emit, state: current }) =>
           runInvoke(
             signal,
             () => port.ask(current.payload as JoinInvite),
-            () => emit(sent.create()),
-            () => emit(sendFailed.create({ message: SEND_FAILED })),
+            () => emit(requestSent.create()),
+            () => emit(requestFailed.create({ message: SEND_FAILED })),
           ),
       });
       /** The request is on its way: "Waiting for <owner>". */
-      m.on(sending, {
-        event: sent,
-        to: [waiting],
+      m.on(sendingRequest, {
+        event: requestSent,
+        to: [waitingForAnswer],
         handler: (_e, { actor }) => ({
-          state: waiting.create(actor.snapshot().payload as JoinInvite),
+          state: waitingForAnswer.create(actor.snapshot().payload as JoinInvite),
         }),
       });
       /** The send failed: back to the question, with the error shown. */
-      m.on(sending, {
-        event: sendFailed,
-        to: [reviewing],
+      m.on(sendingRequest, {
+        event: requestFailed,
+        to: [decidingToAsk],
         handler: (e, { actor, context }) => {
           context.set({ error: e.payload.message });
-          return { state: reviewing.create(actor.snapshot().payload as JoinInvite) };
+          return { state: decidingToAsk.create(actor.snapshot().payload as JoinInvite) };
         },
       });
 
       /** The joiner closes the screen; the request stays pending. */
-      m.on(waiting, { event: close, to: [idle], handler: () => ({ state: idle }) });
+      m.on(waitingForAnswer, {
+        event: closeWaiting,
+        to: [noInvite],
+        handler: () => ({ state: noInvite }),
+      });
       /** The owner answered. Only an answer for this request counts. */
-      m.on(waiting, {
-        event: answered,
-        to: [idle, declined, waiting],
+      m.on(waitingForAnswer, {
+        event: answerArrived,
+        to: [joined, declined, waitingForAnswer],
         handler: (e, { actor }) => {
           const invite = actor.snapshot().payload as JoinInvite;
-          if (e.payload.code !== invite.code) return { state: waiting.create(invite) };
+          if (e.payload.code !== invite.code) return { state: waitingForAnswer.create(invite) };
           if (e.payload.answer === "declined") return { state: declined.create(invite) };
           const folderId = e.payload.folderId;
           return folderId === undefined
-            ? { state: waiting.create(invite) }
-            : { state: idle, emit: [openAlbum.create({ folderId })] };
+            ? { state: waitingForAnswer.create(invite) }
+            : { state: joined, emit: [openAlbum.create({ folderId })] };
         },
       });
 
       /** The joiner acknowledges the answer. */
-      m.on(declined, { event: ok, to: [idle], handler: () => ({ state: idle }) });
+      m.on(declined, {
+        event: dismissDecline,
+        to: [noInvite],
+        handler: () => ({ state: noInvite }),
+      });
     },
   });
 }
 
-function stay(actor: { snapshot(): { path: string[]; payload?: unknown } }) {
+/** From a screen with no invite, an unusable link shows its error; from an invite screen, the screen stays. */
+function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown } }) {
   const snap = actor.snapshot();
   const invite = snap.payload as JoinInvite;
   switch (snap.path[0]) {
-    case "reviewing":
-      return reviewing.create(invite);
-    case "waiting":
-      return waiting.create(invite);
-    default:
+    case "decidingToAsk":
+      return decidingToAsk.create(invite);
+    case "waitingForAnswer":
+      return waitingForAnswer.create(invite);
+    case "declined":
       return declined.create(invite);
+    default:
+      return unusableLink;
   }
 }

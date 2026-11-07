@@ -130,7 +130,7 @@ function askRow(ask: AskSummary) {
       <button
         class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
         aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName}: ${ask.albumName}"
-        @click=${() => join.openAsk(ask)}
+        @click=${() => join.reopenRequest(ask)}
       >
         <span class="min-w-0 flex-1">
           <span class="block truncate text-lg font-medium text-fg">${ask.albumName}</span>
@@ -198,7 +198,7 @@ function newAlbumSection(view: FoldersViewModel) {
 /** The "doesn't look right" message for a pasted link that could not be read. */
 export function joinError() {
   return useStore($join, ({ state, error }) =>
-    state === "idle" && error
+    state === "unusableLink" && error
       ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
       : null,
   );

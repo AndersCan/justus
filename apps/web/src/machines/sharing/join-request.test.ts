@@ -35,8 +35,8 @@ beforeEach(async () => {
   vi.clearAllMocks();
   $folders.set([]);
   $asks.set([]);
-  join.close();
-  join.ok();
+  join.closeWaiting();
+  join.dismissDecline();
   await settle();
 });
 
@@ -44,26 +44,26 @@ describe("join singleton", () => {
   test("a link shows the ask screen for that album", async () => {
     join.openLink(LINK);
     await settle();
-    expect($join.get()).toMatchObject({ state: "reviewing", invite: INVITE, error: "" });
+    expect($join.get()).toMatchObject({ state: "decidingToAsk", invite: INVITE, error: "" });
   });
 
   test("asking sends the request and moves to waiting", async () => {
     mocks.ask.mockResolvedValue([null, {}]);
     join.openLink(LINK);
     await settle();
-    join.ask();
+    join.askToJoin();
     await settle();
     expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils");
-    expect($join.get().state).toBe("waiting");
+    expect($join.get().state).toBe("waitingForAnswer");
   });
 
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {
     mocks.ask.mockResolvedValue([new Error("offline"), null]);
     join.openLink(LINK);
     await settle();
-    join.ask();
+    join.askToJoin();
     await settle();
-    expect($join.get().state).toBe("reviewing");
+    expect($join.get().state).toBe("decidingToAsk");
     expect($join.get().error).not.toBe("");
     expect(mocks.refresh).not.toHaveBeenCalled();
   });
@@ -72,7 +72,7 @@ describe("join singleton", () => {
     mocks.ask.mockResolvedValue([null, {}]);
     join.openLink(LINK);
     await settle();
-    join.ask();
+    join.askToJoin();
     await settle();
     expect(mocks.refresh).toHaveBeenCalledTimes(1);
   });
@@ -82,7 +82,7 @@ describe("join singleton", () => {
     await settle();
     join.notNow();
     await settle();
-    expect($join.get()).toEqual({ state: "idle", invite: null, error: "" });
+    expect($join.get()).toEqual({ state: "noInvite", invite: null, error: "" });
   });
 
   test("a link for an album I already joined opens it", async () => {
@@ -105,16 +105,16 @@ describe("join singleton", () => {
     $asks.set([{ code: INVITE.code, status: "waiting" }]);
     join.openLink(LINK);
     await settle();
-    expect($join.get().state).toBe("waiting");
+    expect($join.get().state).toBe("waitingForAnswer");
   });
 
   test("an accepted answer opens the album", async () => {
     mocks.ask.mockResolvedValue([null, {}]);
     join.openLink(LINK);
     await settle();
-    join.ask();
+    join.askToJoin();
     await settle();
-    join.answered(INVITE.code, "accepted", "f7");
+    join.answerArrived(INVITE.code, "accepted", "f7");
     await settle();
     expect(mocks.open).toHaveBeenCalledWith("/albums/f7");
   });
@@ -123,9 +123,9 @@ describe("join singleton", () => {
     mocks.ask.mockResolvedValue([null, {}]);
     join.openLink(LINK);
     await settle();
-    join.ask();
+    join.askToJoin();
     await settle();
-    join.answered(INVITE.code, "declined");
+    join.answerArrived(INVITE.code, "declined");
     await settle();
     expect($join.get().state).toBe("declined");
     expect(mocks.open).not.toHaveBeenCalled();

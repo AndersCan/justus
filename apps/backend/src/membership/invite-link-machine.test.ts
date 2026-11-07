@@ -1,6 +1,7 @@
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { recordRuns } from "@mantaq/inspect/record";
+import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { describe, expect, test } from "vite-plus/test";
 import {
   createInviteLinkActor,
@@ -13,7 +14,7 @@ const request: LinkRequest = { requesterKey: "a".repeat(64), requesterName: "May
 
 function setup() {
   const clock = VirtualClock();
-  const actor = recordRuns(createInviteLinkActor)({ clock });
+  const actor = createInviteLinkActor({ clock });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) => outputs.push({ type: e.type, payload: e.payload }));
   return { clock, actor, outputs };
@@ -31,13 +32,13 @@ describe("invite link machine", () => {
   ] as [ValidFor, number][])("validFor %s expires after %i ms", async (validFor, ms) => {
     const { clock, actor } = setup();
     clock.advance(1_000);
-    actor.send({ type: "create", payload: { validFor } });
+    actor.send({ type: "createLink", payload: { validFor } });
     await actor.settled();
     expect(VALID_FOR_MS[validFor]).toBe(ms);
     expect(expiresAt(actor)).toBe(1_000 + ms);
     clock.advance(ms - 1);
     await actor.settled();
-    expect(actor.state.name).toBe("live");
+    expect(actor.state.name).toBe("linkActive");
     clock.advance(1);
     await actor.settled();
     expect(actor.state.name).toBe("expired");
@@ -45,17 +46,17 @@ describe("invite link machine", () => {
 
   test("a request before expiry is queued", async () => {
     const { clock, actor, outputs } = setup();
-    actor.send({ type: "create", payload: { validFor: "1h" } });
+    actor.send({ type: "createLink", payload: { validFor: "1h" } });
     clock.advance(1_000);
     actor.send({ type: "requestArrived", payload: request });
     await actor.settled();
-    expect(actor.state.name).toBe("live");
+    expect(actor.state.name).toBe("linkActive");
     expect(outputs).toEqual([{ type: "requestQueued", payload: request }]);
   });
 
   test("a request after expiry is refused as expired", async () => {
     const { clock, actor, outputs } = setup();
-    actor.send({ type: "create", payload: { validFor: "10m" } });
+    actor.send({ type: "createLink", payload: { validFor: "10m" } });
     clock.advance(VALID_FOR_MS["10m"]);
     await actor.settled();
     actor.send({ type: "requestArrived", payload: request });
@@ -63,10 +64,10 @@ describe("invite link machine", () => {
     expect(outputs).toEqual([{ type: "requestRefused", payload: { reason: "expired", request } }]);
   });
 
-  test("a request after cancel is refused as cancelled", async () => {
+  test("a request after cancelling is refused as cancelled", async () => {
     const { actor, outputs } = setup();
-    actor.send({ type: "create", payload: { validFor: "1d" } });
-    actor.send({ type: "cancel" });
+    actor.send({ type: "createLink", payload: { validFor: "1d" } });
+    actor.send({ type: "cancelLink" });
     await actor.settled();
     expect(actor.state.name).toBe("cancelled");
     actor.send({ type: "requestArrived", payload: request });
@@ -76,12 +77,12 @@ describe("invite link machine", () => {
     ]);
   });
 
-  test("cancel after expiry is ignored", async () => {
+  test("cancelling after expiry is ignored", async () => {
     const { clock, actor, outputs } = setup();
-    actor.send({ type: "create", payload: { validFor: "10m" } });
+    actor.send({ type: "createLink", payload: { validFor: "10m" } });
     clock.advance(VALID_FOR_MS["10m"]);
     await actor.settled();
-    actor.send({ type: "cancel" });
+    actor.send({ type: "cancelLink" });
     await actor.settled();
     expect(actor.state.name).toBe("expired");
     actor.send({ type: "requestArrived", payload: request });
@@ -91,63 +92,70 @@ describe("invite link machine", () => {
 
   test("a cancelled link never expires", async () => {
     const { clock, actor } = setup();
-    actor.send({ type: "create", payload: { validFor: "10m" } });
-    actor.send({ type: "cancel" });
+    actor.send({ type: "createLink", payload: { validFor: "10m" } });
+    actor.send({ type: "cancelLink" });
     clock.advance(VALID_FOR_MS["7d"]);
     await actor.settled();
     expect(actor.state.name).toBe("cancelled");
   });
 });
 
-/** Each walk is the same steps as the link in docs/design/sharing-flows.md (Walks). */
-const REQUEST = `requestArrived=${JSON.stringify(request)}`;
-const LINK_WALKS: [string, string[], string][] = [
-  [
-    "Story 1, Nils: a 1 day link queues Maya's request, then expires",
-    ['create={"validFor":"1d"}', REQUEST, "@86400000", REQUEST],
-    "expired",
-  ],
-  [
-    "Story 2, Nils: a 7 day link for the wedding",
-    ['create={"validFor":"7d"}', REQUEST, "@604800000", REQUEST],
-    "expired",
-  ],
-  [
-    "Story 2, Nils: a stranger is in the chat, so he cancels the link",
-    ['create={"validFor":"7d"}', REQUEST, "cancel", REQUEST],
-    "cancelled",
-  ],
-  [
-    "Story 3, Nils: a 1 hour link for the family",
-    ['create={"validFor":"1h"}', REQUEST, "@3600000", REQUEST],
-    "expired",
-  ],
-];
+const walkTarget = () => createInviteLinkActor({ clock: VirtualClock() });
+const make = recordRuns(createInviteLinkActor);
 
-describe("invite link walks", () => {
-  test.each(LINK_WALKS)("%s", async (_name, steps, finalState) => {
-    const { actor, clock } = setup();
-    for (const step of steps) {
-      if (step.startsWith("@")) clock.advance(Number(step.slice(1)));
-      else {
-        const cut = step.indexOf("=");
-        if (cut === -1) actor.send({ type: step } as never);
-        else
-          actor.send({
-            type: step.slice(0, cut),
-            payload: JSON.parse(step.slice(cut + 1)),
-          } as never);
-      }
-      await actor.settled();
-    }
-    expect(actor.state.name).toBe(finalState);
-  });
+async function walk(options: {
+  validFor: ValidFor;
+  closing: "time" | "cancel";
+}): Promise<ReturnType<typeof make>> {
+  const clock = VirtualClock();
+  const actor = make({ clock });
+  actor.send({ type: "createLink", payload: { validFor: options.validFor } });
+  await actor.settled();
+  actor.send({ type: "requestArrived", payload: request });
+  await actor.settled();
+  if (options.closing === "time") clock.advance(VALID_FOR_MS[options.validFor]);
+  else actor.send({ type: "cancelLink" });
+  await actor.settled();
+  actor.send({ type: "requestArrived", payload: request });
+  await actor.settled();
+  return actor;
+}
 
+test("Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one", async () => {
+  const actor = await walk({ validFor: "1d", closing: "time" });
+  expect(actor.state.name).toBe("expired");
+});
+
+test("Nils's link: a 7 day link, then the week is over", async () => {
+  const actor = await walk({ validFor: "7d", closing: "time" });
+  expect(actor.state.name).toBe("expired");
+});
+
+test("Nils's link: a stranger is in the chat, so he cancels", async () => {
+  const actor = await walk({ validFor: "7d", closing: "cancel" });
+  expect(actor.state.name).toBe("cancelled");
+});
+
+test("Nils's link: a 1 hour link for the family expires", async () => {
+  const actor = await walk({ validFor: "1h", closing: "time" });
+  expect(actor.state.name).toBe("expired");
+});
+
+describe("invite link edge cases", () => {
   test("a link with an unknown validity expires at once instead of throwing", async () => {
     const { clock, actor } = setup();
-    actor.send({ type: "create", payload: { validFor: "forever" as ValidFor } });
+    actor.send({ type: "createLink", payload: { validFor: "forever" as ValidFor } });
     clock.advance(0);
     await actor.settled();
     expect(actor.state.name).toBe("expired");
+  });
+});
+
+describe("invite link design", () => {
+  test("has no design errors", () => {
+    expectNoDesignErrors({ id: "inviteLink", create: walkTarget });
+  });
+  test("reaches every state", () => {
+    expectAllStatesReached({ id: "inviteLink", create: walkTarget });
   });
 });

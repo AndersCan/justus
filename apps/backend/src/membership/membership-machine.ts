@@ -24,58 +24,61 @@ export type MembershipRecords = {
   requests: RequestsFile["requests"];
 };
 
-/** This person has no request and is not in the album's member list. */
-const notMember = state("notMember")();
-/** The person asked to join and is waiting for the owner to approve or decline. */
-const requestPending = state("requestPending")<RequestEntry>();
-/** The owner approved the request and the member list is being written. */
-const approved = state("approved")<{ entry: RequestEntry; role: Role }>();
-/** The person is in the member list and can see the shared photos. */
-const enrolled = state("enrolled")<{ role: Role }>();
-/** The owner is changing the member's role and it is being saved. */
-const changingRole = state("changingRole")<{ from: Role; to: Role }>();
-/** The owner is taking the person out of the member list. */
-const removing = state("removing")<{ role: Role }>();
+/** This person has not asked to join and is not in the member list. */
+const noRequest = state("noRequest")();
+/** The person asked to join and waits for the Admin to accept or decline. */
+const awaitingDecision = state("awaitingDecision")<RequestEntry>();
+/** The Admin accepted, and the member list is being saved. */
+const addingMember = state("addingMember")<{ entry: RequestEntry; role: Role }>();
+/** The person is in the member list with their role. */
+const joined = state("joined")<{ role: Role }>();
+/** The Admin picked a different role, and it is being saved. */
+const savingRole = state("savingRole")<{ from: Role; to: Role }>();
+/** The Admin is taking the person out of the member list. */
+const removingMember = state("removingMember")<{ role: Role }>();
+/** The Admin declined the request; a new request starts again. */
+const declined = state("declined")();
 /** The person was removed and cannot rejoin. */
 const removedState = state("removed")();
 const removed = removedState.final();
 
-/** The person sends a request to join. */
-const requestSent = event("requestSent")<RequestEntry>();
-/** The owner approves the request and picks the role the person joins with. */
-const approve = event("approve")<{ role: Role }>();
+/** The person's request to join reached the Admin. */
+const requestArrived = event("requestArrived")<RequestEntry>();
+/** The Admin accepts the request with the role the person joins with. */
+const accept = event("accept")<{ role: Role }>();
 /** The owner gives a member a different role. */
 const changeRole = event("changeRole")<{ role: Role }>();
 /** The owner declines the request. */
 const decline = event("decline")();
 /** The owner removes a member. */
-const remove = event("remove")();
+const removeMember = event("removeMember")();
 
 /** The member list was saved with the new member. */
-const registryWritten = event("registryWritten")();
+const memberListSaved = event("memberListSaved")();
 /** The member list could not be saved, so the request stays pending. */
-const registryWriteFailed = event("registryWriteFailed")<{ reason: string; entry: RequestEntry }>();
+const memberListSaveFailed = event("memberListSaveFailed")<{
+  reason: string;
+  entry: RequestEntry;
+}>();
 /** The new role was saved. */
 const roleSaved = event("roleSaved")();
 /** The new role could not be saved, so the member keeps the old role. */
 const roleSaveFailed = event("roleSaveFailed")<{ reason: string }>();
 /** The member was taken out of the member list. */
-const memberDropped = event("memberDropped")();
+const removalSaved = event("removalSaved")();
 /** The member could not be taken out, so they stay a member. */
-const memberDropFailed = event("memberDropFailed")<{ reason: string }>();
+const removalFailed = event("removalFailed")<{ reason: string }>();
 
 /** Tells the rest of the app that the person is now a member. */
-const memberEnrolled = event("memberEnrolled")<{ memberKey: string }>();
+const memberJoined = event("memberJoined")<{ memberKey: string }>();
 /** Tells the rest of the app that the person is no longer a member. */
 const memberRemoved = event("memberRemoved")<{ memberKey: string }>();
 
 type AddResult =
-  | ReturnType<typeof registryWritten.create>
-  | ReturnType<typeof registryWriteFailed.create>;
+  | ReturnType<typeof memberListSaved.create>
+  | ReturnType<typeof memberListSaveFailed.create>;
 type RoleResult = ReturnType<typeof roleSaved.create> | ReturnType<typeof roleSaveFailed.create>;
-type DropResult =
-  | ReturnType<typeof memberDropped.create>
-  | ReturnType<typeof memberDropFailed.create>;
+type DropResult = ReturnType<typeof removalSaved.create> | ReturnType<typeof removalFailed.create>;
 
 function isRequestEntry(value: unknown): value is RequestEntry {
   return (
@@ -112,10 +115,10 @@ export function initialStateFromRecords(options: {
   if (Object.values(records.removed.removed).some((r) => r.memberKey === memberKey)) {
     return removed;
   }
-  if (isEnrolled(records.registry, memberKey)) return enrolled.create({ role: "member" });
+  if (isEnrolled(records.registry, memberKey)) return joined.create({ role: "member" });
   const entry = Object.values(records.requests).find((r) => r.requesterKey === memberKey);
-  if (entry) return requestPending.create(entry);
-  return notMember;
+  if (entry) return awaitingDecision.create(entry);
+  return noRequest;
 }
 
 const noRecords: MembershipRecords = {
@@ -140,47 +143,62 @@ export function createMembershipActor(options: {
 }) {
   const { clock, port = previewPort, records = noRecords, memberKey = "" } = options;
   return Actor({
-    inputs: [requestSent, approve, decline, changeRole, remove],
+    inputs: [requestArrived, accept, decline, changeRole, removeMember],
     internal: [
-      registryWritten,
-      registryWriteFailed,
+      memberListSaved,
+      memberListSaveFailed,
       roleSaved,
       roleSaveFailed,
-      memberDropped,
-      memberDropFailed,
+      removalSaved,
+      removalFailed,
     ],
-    outputs: [memberEnrolled, memberRemoved],
-    states: [notMember, requestPending, approved, enrolled, changingRole, removing, removed],
+    outputs: [memberJoined, memberRemoved],
+    states: [
+      noRequest,
+      awaitingDecision,
+      addingMember,
+      joined,
+      savingRole,
+      removingMember,
+      declined,
+      removed,
+    ],
     initial: initialStateFromRecords({ records, memberKey }),
     clock,
     setup: (m) => {
       /** A request arrives and waits for the owner's decision. */
-      m.on(notMember, {
-        event: requestSent,
-        to: [requestPending],
-        handler: (e) => ({ state: requestPending.create(e.payload) }),
+      m.on(noRequest, {
+        event: requestArrived,
+        to: [awaitingDecision],
+        handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
       });
-      /** The owner declines, so the person is no longer asking to join. */
-      m.on(requestPending, {
+      /** The Admin declines, so the request ends. */
+      m.on(awaitingDecision, {
         event: decline,
-        to: [notMember],
-        handler: () => ({ state: notMember }),
+        to: [declined],
+        handler: () => ({ state: declined }),
+      });
+      /** After a decline, a new request waits for the Admin to decide again. */
+      m.on(declined, {
+        event: requestArrived,
+        to: [awaitingDecision],
+        handler: (e) => ({ state: awaitingDecision.create(e.payload) }),
       });
       /** The owner approves, so the member list is written next. */
-      m.on(requestPending, {
-        event: approve,
-        to: [approved],
+      m.on(awaitingDecision, {
+        event: accept,
+        to: [addingMember],
         handler: (e, { actor }) => {
           const { payload } = actor.snapshot();
           return isRequestEntry(payload)
-            ? { state: approved.create({ entry: payload, role: e.payload.role }) }
+            ? { state: addingMember.create({ entry: payload, role: e.payload.role }) }
             : {};
         },
       });
-      /** The approved person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again. */
-      m.effect(approved, {
-        name: "addMember",
-        sends: [registryWritten, registryWriteFailed],
+      /** The accepted person is added to the album's member list; if the list cannot be written, the request fails and the owner can try again. */
+      m.effect(addingMember, {
+        name: "saveNewMember",
+        sends: [memberListSaved, memberListSaveFailed],
         fn: (input) =>
           withPromise({
             promise: Promise.resolve().then(() =>
@@ -192,14 +210,14 @@ export function createMembershipActor(options: {
               success: (result) =>
                 Either.match<typeof result, AddResult>(result, {
                   onLeft: (err) =>
-                    registryWriteFailed.create({
+                    memberListSaveFailed.create({
                       reason: err.reason,
                       entry: input.state.payload.entry,
                     }),
-                  onRight: () => registryWritten.create(),
+                  onRight: () => memberListSaved.create(),
                 }),
               error: (cause) =>
-                registryWriteFailed.create({
+                memberListSaveFailed.create({
                   reason: String(cause),
                   entry: input.state.payload.entry,
                 }),
@@ -207,34 +225,34 @@ export function createMembershipActor(options: {
           }),
       });
       /** The member list was saved, so the person becomes a member. */
-      m.on(approved, {
-        event: registryWritten,
-        to: [enrolled],
+      m.on(addingMember, {
+        event: memberListSaved,
+        to: [joined],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
           const role = isApproved(payload) ? payload.role : "member";
-          return { state: enrolled.create({ role }), emit: [memberEnrolled.create({ memberKey })] };
+          return { state: joined.create({ role }), emit: [memberJoined.create({ memberKey })] };
         },
       });
       /** The member list could not be saved, so the request goes back to waiting. */
-      m.on(approved, {
-        event: registryWriteFailed,
-        to: [requestPending],
-        handler: (e) => ({ state: requestPending.create(e.payload.entry) }),
+      m.on(addingMember, {
+        event: memberListSaveFailed,
+        to: [awaitingDecision],
+        handler: (e) => ({ state: awaitingDecision.create(e.payload.entry) }),
       });
       /** The owner picks a different role, so the new role is saved next. */
-      m.on(enrolled, {
+      m.on(joined, {
         event: changeRole,
-        to: [changingRole],
+        to: [savingRole],
         handler: (e, { actor }) => {
           const { payload } = actor.snapshot();
           const from = isRole(payload) ? payload.role : "member";
-          return { state: changingRole.create({ from, to: e.payload.role }) };
+          return { state: savingRole.create({ from, to: e.payload.role }) };
         },
       });
       /** The new role is saved; if it cannot be, the member keeps the old role. */
-      m.effect(changingRole, {
-        name: "setRole",
+      m.effect(savingRole, {
+        name: "saveRole",
         sends: [roleSaved, roleSaveFailed],
         fn: (input) =>
           withPromise({
@@ -252,36 +270,38 @@ export function createMembershipActor(options: {
           }),
       });
       /** The new role was saved, so the member has it. */
-      m.on(changingRole, {
+      m.on(savingRole, {
         event: roleSaved,
-        to: [enrolled],
+        to: [joined],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: enrolled.create({ role: payload.to }) } : {};
+          return isChange(payload) ? { state: joined.create({ role: payload.to }) } : {};
         },
       });
       /** The new role could not be saved, so the member keeps the old role. */
-      m.on(changingRole, {
+      m.on(savingRole, {
         event: roleSaveFailed,
-        to: [enrolled],
+        to: [joined],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: enrolled.create({ role: payload.from }) } : {};
+          return isChange(payload) ? { state: joined.create({ role: payload.from }) } : {};
         },
       });
       /** The owner removes the member, so they are taken out of the list next. */
-      m.on(enrolled, {
-        event: remove,
-        to: [removing],
+      m.on(joined, {
+        event: removeMember,
+        to: [removingMember],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return { state: removing.create({ role: isRole(payload) ? payload.role : "member" }) };
+          return {
+            state: removingMember.create({ role: isRole(payload) ? payload.role : "member" }),
+          };
         },
       });
       /** The member is removed from the album's member list; if the list cannot be written, removing fails and the member stays. */
-      m.effect(removing, {
-        name: "removeMember",
-        sends: [memberDropped, memberDropFailed],
+      m.effect(removingMember, {
+        name: "saveRemoval",
+        sends: [removalSaved, removalFailed],
         fn: (input) =>
           withPromise({
             promise: Promise.resolve().then(() => port.removeMember(memberKey)),
@@ -290,26 +310,26 @@ export function createMembershipActor(options: {
             events: {
               success: (result) =>
                 Either.match<typeof result, DropResult>(result, {
-                  onLeft: (err) => memberDropFailed.create({ reason: err.reason }),
-                  onRight: () => memberDropped.create(),
+                  onLeft: (err) => removalFailed.create({ reason: err.reason }),
+                  onRight: () => removalSaved.create(),
                 }),
-              error: (cause) => memberDropFailed.create({ reason: String(cause) }),
+              error: (cause) => removalFailed.create({ reason: String(cause) }),
             },
           }),
       });
       /** The member was taken out, so they are now removed. */
-      m.on(removing, {
-        event: memberDropped,
+      m.on(removingMember, {
+        event: removalSaved,
         to: [removed],
         handler: () => ({ state: removed, emit: [memberRemoved.create({ memberKey })] }),
       });
       /** Taking the member out failed, so they stay a member. */
-      m.on(removing, {
-        event: memberDropFailed,
-        to: [enrolled],
+      m.on(removingMember, {
+        event: removalFailed,
+        to: [joined],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return { state: enrolled.create({ role: isRole(payload) ? payload.role : "member" }) };
+          return { state: joined.create({ role: isRole(payload) ? payload.role : "member" }) };
         },
       });
     },

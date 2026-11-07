@@ -74,9 +74,38 @@ for (const id of FUZZED.filter((id) => !fuzzedSeen.has(id))) {
   console.error(`check-flows-site: factory machine ${id} is not fuzzed (or missing)`);
   failed = true;
 }
-const invite = allMachines.find((machine) => machine.id === "inviteLink");
-if (!invite?.runs?.some((run) => run.name.includes("Story 1"))) {
-  console.error("check-flows-site: inviteLink has no recorded Story 1 run");
+const SITE = "https://anderscan.github.io/justus/";
+const flows = readFileSync(new URL("../docs/design/sharing-flows.md", import.meta.url), "utf8");
+const walks = flows.slice(flows.indexOf("\n## Walks")).split(/\n## /)[1] ?? "";
+const walkLinks = [
+  ...walks.matchAll(/\[([^\]]+)\]\((https:\/\/anderscan\.github\.io\/justus\/[^)]*)\)/g),
+];
+for (const [, text, href] of walkLinks) {
+  const fail = (reason) => {
+    console.error(`check-flows-site: walk "${text}": ${reason}`);
+    failed = true;
+  };
+  const url = new URL(href);
+  const machineId = url.searchParams.get("machine");
+  const page = url.pathname.slice(new URL(SITE).pathname.length).replace(/\/$/, "");
+  if (href.includes("step=")) fail("the link carries a step trace");
+  if (machineId === null) {
+    fail("the link has no machine");
+    continue;
+  }
+  if (!pages.includes(page)) {
+    fail(`${page} is not a built feature page`);
+    continue;
+  }
+  const machine = vizDocuments(page).find((each) => each.id === machineId);
+  if (!machine?.runs?.some((run) => run.name === text)) {
+    fail(`machine ${machineId} on ${page} has no run with this name`);
+  }
+  const run = url.searchParams.get("run");
+  if (run !== null && run !== text) fail(`run "${run}" differs from the link text`);
+}
+if (walkLinks.length === 0) {
+  console.error("check-flows-site: no walk links found under the Walks heading");
   failed = true;
 }
 

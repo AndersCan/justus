@@ -21,27 +21,27 @@ export type LinkRequest = { requesterKey: string; requesterName: string };
 export type LinkInfo = { linkId: string; expiresAt: number };
 
 /** The Admin has not made a link yet. */
-const drafting = state("drafting")();
+const noLinkYet = state("noLinkYet")();
 /** The link works: requests that arrive are queued for the Admin to accept or decline. */
-const live = state("live")<LinkInfo>();
+const linkActive = state("linkActive")<LinkInfo>();
 /** The link ran out of time. New requests are refused; ones already queued stay. */
 const expired = state("expired")();
 /** The Admin cancelled the link. New requests are refused; ones already queued stay. */
 const cancelled = state("cancelled")();
 
 /** The Admin makes a link that works for the chosen time. */
-const create = event("create")<{ validFor: ValidFor }>();
+const createLink = event("createLink")<{ validFor: ValidFor }>();
 /** The Admin cancels the link. */
-const cancel = event("cancel")();
+const cancelLink = event("cancelLink")();
 /** Someone opened the link and asked to join. */
 const requestArrived = event("requestArrived")<LinkRequest>();
 
 /** The link's time ran out. */
-const expiryDue = event("expiryDue")();
+const timeRanOut = event("timeRanOut")();
 
 /** The request is waiting in the Admin's list. */
 const requestQueued = event("requestQueued")<LinkRequest>();
-/** The request was turned away because the link is no longer live. */
+/** The request was turned away because the link is no longer active. */
 const requestRefused = event("requestRefused")<{
   reason: "expired" | "cancelled";
   request: LinkRequest;
@@ -59,50 +59,54 @@ export function createInviteLinkActor(options: { clock: Clock; newLinkId?: () =>
   let counter = 0;
   const newLinkId = options.newLinkId ?? (() => `link-${++counter}`);
   return Actor({
-    inputs: [create, cancel, requestArrived],
-    internal: [expiryDue],
+    inputs: [createLink, cancelLink, requestArrived],
+    internal: [timeRanOut],
     outputs: [requestQueued, requestRefused],
-    states: [drafting, live, expired, cancelled],
-    initial: drafting,
+    states: [noLinkYet, linkActive, expired, cancelled],
+    initial: noLinkYet,
     clock,
     setup: (m) => {
       /** The Admin makes a link; it works until the chosen time has passed. */
-      m.on(drafting, {
-        event: create,
-        to: [live],
+      m.on(noLinkYet, {
+        event: createLink,
+        to: [linkActive],
         handler: (e) => ({
-          state: live.create({
+          state: linkActive.create({
             linkId: newLinkId(),
             expiresAt: clock.now() + VALID_FOR_MS[e.payload.validFor],
           }),
         }),
       });
       /** A timer runs until the link's expiry time. */
-      m.effect(live, {
+      m.effect(linkActive, {
         name: "untilExpiry",
-        sends: [expiryDue],
+        sends: [timeRanOut],
         fn: (input) =>
           withTimeout(msUntil(input.state.payload.expiresAt, clock.now()), {
             input,
-            event: () => expiryDue.create(),
+            event: () => timeRanOut.create(),
           }),
       });
       /** A request arrives while the link works, so it is queued for the Admin. */
-      m.on(live, {
+      m.on(linkActive, {
         event: requestArrived,
-        to: [live],
+        to: [linkActive],
         handler: (e, { actor }) => {
           const { payload } = actor.snapshot();
           return {
-            state: live.create(payload as LinkInfo),
+            state: linkActive.create(payload as LinkInfo),
             emit: [requestQueued.create(e.payload)],
           };
         },
       });
       /** The time ran out, so the link stops working. */
-      m.on(live, { event: expiryDue, to: [expired], handler: () => ({ state: expired }) });
+      m.on(linkActive, { event: timeRanOut, to: [expired], handler: () => ({ state: expired }) });
       /** The Admin cancels the link, so it stops working. */
-      m.on(live, { event: cancel, to: [cancelled], handler: () => ({ state: cancelled }) });
+      m.on(linkActive, {
+        event: cancelLink,
+        to: [cancelled],
+        handler: () => ({ state: cancelled }),
+      });
       /** A request arrives after the link expired, so it is refused. */
       m.on(expired, {
         event: requestArrived,
