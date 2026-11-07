@@ -128,6 +128,9 @@ export const folderSummarySchema = s.object({
   members: s.number,
   addedAt: s.number,
   invite: s.optional(s.object({ code: s.string, owner: s.string })),
+  notice: s.optional(
+    s.object({ kind: s.oneOf("newKey", "moved"), ownerName: s.optional(s.string) }),
+  ),
 });
 
 export const askSummarySchema = s.object({

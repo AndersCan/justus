@@ -26,6 +26,7 @@ describe("#94 a pending (awaiting-approval) join must survive a restart", () => 
     // The justus.json a `join()` of an un-enrolled folder persists: one reader
     // folder carrying `pending: true`, plus the device identity.
     const state = {
+      version: 2,
       name: "Restarted",
       activeFolderId: null,
       folders: [

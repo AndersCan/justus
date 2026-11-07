@@ -51,6 +51,9 @@ export type SyncMember = {
 
 /** A call A device's view of one folder it belongs to. A device can hold many
  * folders; exactly one is active (the gallery shows it). */
+/** Why an album needs a word from the user after the key move. */
+export type FolderNotice = { kind: "newKey" | "moved"; ownerName?: string };
+
 export type FolderSummary = {
   /** Local id of the folder on this device (stable across sessions). */
   id: string;
@@ -72,6 +75,8 @@ export type FolderSummary = {
   addedAt: number;
   /** The invite code: the creator's own, or the one a joiner asked through. */
   invite?: { code: string; owner: string };
+  /** Set on an album that moved to a new key. */
+  notice?: FolderNotice;
 };
 
 /** A request to join an album, made through an invite code and not yet
