@@ -46,7 +46,7 @@ any of it.
    `apps/backend/src/main.core.ts` may import Corestore, Hyperdrive,
    Hyperswarm, protomux, bare-fs or bare-path. `main.core.ts` is the
    composition root and is the one file outside `src/adapters/` with that
-   exemption. A check in CI enforces it once the adapters exist.
+   exemption. A check in CI enforces it once the adapters exist. Enforced by the `no-restricted-imports` override in the root `vite.config.ts` (justus #288; bare-fs and bare-path added in #382). Type queries such as `typeof import("bare-fs")` are not checked; `src/ports/files.ts` uses one to name the slice of bare-fs it needs.
 6. **The fake must pass the real contract.** Each port has one portable
    contract suite. It uses the `Check` helper from `apps/backend/test/p2p-scenarios.ts` (no
    vitest, no `node:*`) and runs against the real adapter in Node and in Bare,
