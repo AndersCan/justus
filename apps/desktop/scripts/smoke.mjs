@@ -5,7 +5,8 @@
  * Launches TWO host instances side by side with separate storage dirs and
  * asserts, for each:
  *   - the backend hands off over its pipe and serves the web app, on its own
- *     port,
+ *     port (the first on the fixed port 29417, the second on a fallback
+ *     because that port is taken),
  *   - the real webview connects and redeems the one-time bootstrap nonce
  *     (replaying it then answers 409, ADR 0003),
  *   - the storage dir is user-only and holds no `handoff.json` (the session
@@ -16,7 +17,8 @@
  *   - a host whose backend dies keeps its window (error page) instead of
  *     vanishing,
  *   - SIGKILLing a host takes its backend down too (stdin-EOF parent-death
- *     detection).
+ *     detection),
+ *   - a restart on the same storage lands on the same origin.
  *
  * The hosts copy the handoff they receive to a file through the
  * `JUSTUS_TEST_HANDOFF_COPY` test hook; nothing else exposes the nonce.
@@ -121,11 +123,18 @@ async function handoff(inst) {
 }
 
 try {
+  // Serialised so `a` gets the fixed port and `b` has to fall back.
   const a = launch("a");
+  const ha = await handoff(a);
   const b = launch("b");
-  const [ha, hb] = [await handoff(a), await handoff(b)];
+  const hb = await handoff(b);
 
+  // Matches `preferred_port` in src/main.zig.
+  const fixedOrigin = "http://127.0.0.1:29417";
+  if (ha.origin !== fixedOrigin) fail(`a bound ${ha.origin}, not ${fixedOrigin}`);
+  if (hb.origin === fixedOrigin) fail(`b bound the taken port ${hb.origin}`);
   if (ha.origin === hb.origin) fail(`both instances bound ${ha.origin}`);
+  console.log(`ok: a on ${fixedOrigin}, b fell back to ${hb.origin}`);
 
   for (const [inst, h] of [
     [a, ha],
@@ -180,6 +189,11 @@ try {
     10_000,
   );
   console.log("ok: no orphan backends after host SIGKILL");
+
+  const restart = launch("a-restart", a.storage);
+  const restarted = await handoff(restart);
+  if (restarted.origin !== ha.origin) fail(`restart bound ${restarted.origin}, not ${ha.origin}`);
+  console.log(`ok: a restart keeps ${ha.origin}`);
 } catch (err) {
   console.error(`FAIL: ${err.message}`);
   for (const inst of instances) {

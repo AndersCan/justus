@@ -30,7 +30,7 @@ export type JustusRuntimeOptions = WorkletRuntimeOptions & {
 export function resolveJustusConfig(): JustusRuntimeOptions {
   const argv = typeof Bare !== "undefined" && Array.isArray(Bare.argv) ? Bare.argv : [];
   // The desktop host launches us with `handoff=<fd>` plus labeled tokens
-  // (`auth=on port=0 storage=...`): production semantics, credentials over the
+  // (`auth=on port=<n> storage=...`): production semantics, credentials over the
   // pipe instead of `handoff.json`.
   const handoffFd = parseHandoffFd(argv);
   if (handoffFd !== undefined) {
