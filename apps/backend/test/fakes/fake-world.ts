@@ -35,6 +35,8 @@ type Replica = {
   /** True only on the node that created the drive: a replica is read-only, like a remote Hyperdrive. */
   writable: boolean;
   files: Map<string, StoredFile>;
+  /** The files as they were at each version: `history[v]` is the state at version v. */
+  history: Map<string, StoredFile>[];
   length: number;
   listeners: Set<() => void>;
 };
@@ -78,7 +80,7 @@ export function connectedNodes(hub: FakeHub): FakeNode[] {
 }
 
 function emptyReplica(options: { key: string; writable: boolean }): Replica {
-  return { ...options, files: new Map(), length: 0, listeners: new Set() };
+  return { ...options, files: new Map(), history: [new Map()], length: 0, listeners: new Set() };
 }
 
 /** Remote changes surface after the writer's call has returned, like a replicated append. */
@@ -113,6 +115,7 @@ function replicateKey(options: { hub: FakeHub; key: string }): void {
     }
     if (target.length >= source.length) continue;
     target.files = new Map(source.files);
+    target.history = [...source.history];
     target.length = source.length;
     notifyLater(target);
   }
@@ -156,6 +159,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     if (!replica.writable) throw new Error("Drive is not writable");
     change();
     replica.length++;
+    replica.history[replica.length] = new Map(replica.files);
     for (const listener of replica.listeners) listener();
     replicateKey({ hub, key });
   }
@@ -230,6 +234,10 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     async update() {
       assertOpen();
     },
+    version() {
+      assertOpen();
+      return replica.length;
+    },
     stats() {
       assertOpen();
       if (!node.connected) return { length: replica.length, peers: 0 };
@@ -253,9 +261,57 @@ async function waitReady(options: { hub: FakeHub; key: string }): Promise<void> 
   if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
 }
 
+/** A read-only view of a replica's files at a version; reads follow the live drive's closing. */
+function makeCopy(options: {
+  live: Drive;
+  replica: Replica;
+  version: number;
+  files: Map<string, StoredFile>;
+}): Drive {
+  const { live, replica, version, files } = options;
+  const readOnly = (): never => {
+    throw new Error("read-only copy");
+  };
+  return {
+    key: live.key,
+    discoveryKey: live.discoveryKey,
+    async readSmall(path, maxBytes) {
+      const file = files.get(path);
+      if (!file || file.clearedSize !== undefined || file.bytes.length > maxBytes) return undefined;
+      return Buffer.from(file.bytes).toString("utf8");
+    },
+    async readBytes(path) {
+      const file = files.get(path);
+      return file && file.clearedSize === undefined ? new Uint8Array(file.bytes) : undefined;
+    },
+    put: async () => readOnly(),
+    del: async () => readOnly(),
+    clear: async () => readOnly(),
+    async *list(dir) {
+      const prefix = dir.endsWith("/") ? dir : `${dir}/`;
+      const paths = [...files.keys()].sort((x, y) =>
+        Buffer.compare(Buffer.from(x), Buffer.from(y)),
+      );
+      for (const path of paths) {
+        const file = files.get(path);
+        if (!file || path === dir || !path.startsWith(prefix)) continue;
+        yield { path, size: file.clearedSize ?? file.bytes.length, metadata: file.metadata };
+      }
+    },
+    createReadStream(path) {
+      return Readable.from([files.get(path)?.bytes ?? new Uint8Array()]);
+    },
+    onChange: () => () => {},
+    version: () => version,
+    stats: () => ({ length: version, peers: live.stats().peers }),
+    async update() {},
+  };
+}
+
 export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }): DriveStore {
   const { hub, node } = options;
   const entries = new Map<string, Entry>();
+  const copies = new Map<Drive, Drive>();
   let closed = false;
 
   function assertOpen(): void {
@@ -314,7 +370,34 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       }
       return [null, acquire(replica)];
     },
+    async openAt(key, version, opts): Promise<OpenResult<Drive>> {
+      const [err, live] = await this.open(key, opts);
+      if (err || !live) return [err ?? new Error("open returned no drive"), null];
+      const replica = node.replicas.get(key);
+      const deadline = Date.now() + opts.timeoutMs;
+      while (!replica || replica.length < version) {
+        if (Date.now() >= deadline) {
+          await this.release(live);
+          return [new Error(`drive ${key.slice(0, 8)} did not reach version ${version}`), null];
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      }
+      const copy = makeCopy({
+        live,
+        replica,
+        version,
+        files: replica.history[version] ?? new Map(),
+      });
+      copies.set(copy, live);
+      return [null, copy];
+    },
     async release(drive) {
+      const liveOfCopy = copies.get(drive);
+      if (liveOfCopy) {
+        copies.delete(drive);
+        await this.release(liveOfCopy);
+        return;
+      }
       const entry = entries.get(drive.key);
       if (!entry || entry.drive !== drive) return;
       entry.refs--;
@@ -328,6 +411,7 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       if (!replica) return;
       if (replica.writable) {
         replica.files = new Map();
+        replica.history = [new Map()];
         replica.length = 0;
       } else {
         node.replicas.delete(key);

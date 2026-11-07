@@ -38,6 +38,8 @@ export type Drive = {
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
   onChange(cb: () => void): () => void;
   stats(): { length: number; peers: number };
+  /** The drive's version now: the length of its file index. */
+  version(): number;
   /** Asks peers for newer data. Resolves quietly when there is none or nobody to ask. */
   update(): Promise<void>;
 };
@@ -53,6 +55,12 @@ export type DriveStore = {
    * An unserved remote key opens empty (hyperdrive 13.3.3) rather than giving an error.
    */
   open(key: string, opts: { timeoutMs: number }): Promise<OpenResult<Drive>>;
+  /**
+   * A read-only copy of the drive with this key as it was at `version`. Its `put`, `del` and
+   * `clear` throw. Waits up to `timeoutMs` for the copy to reach that version; an error value when
+   * it does not. Release it like any other drive; releasing it never closes the live drive.
+   */
+  openAt(key: string, version: number, opts: { timeoutMs: number }): Promise<OpenResult<Drive>>;
   /** The topic a drive with this key is served on. Known before the drive opens, so a caller can join it first. */
   discoveryKeyOf(key: string): string;
   /** Deletes this device's copy of the drive with this key and closes every handle to it. Other devices' copies are untouched; opening the key again starts empty and fills from peers. */
