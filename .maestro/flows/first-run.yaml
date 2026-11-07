@@ -88,6 +88,8 @@ appId: no.cankode.justus
     visible: "Justus is locked"
     timeout: 15000
 - pressKey: Back
+- launchApp:
+    stopApp: false
 - assertVisible: "Justus is locked"
 - assertNotVisible: "Require unlock to open Justus.*"
 - tapOn:
