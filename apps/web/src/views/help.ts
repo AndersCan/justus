@@ -1,7 +1,7 @@
 import { html } from "lit-html";
 import { pathFor } from "../machines/router-machine";
 
-const QA: { q: string; a: string[] }[] = [
+export const HELP_QA: { q: string; a: string[] }[] = [
   {
     q: "What is Justus?",
     a: [
@@ -33,16 +33,22 @@ const QA: { q: string; a: string[] }[] = [
     ],
   },
   {
+    q: "Is Justus a backup?",
+    a: [
+      "No. Justus shares photos between phones. A photo is safe once at least one other phone has it, but Justus is not made to keep a copy of your whole library. Keep your own backup too.",
+    ],
+  },
+  {
     q: "Who can see an album?",
     a: [
-      "Anyone who has the album's invite link can see its photos, even before the Admin approves them. Approval is what lets someone add photos. So send the invite link only to the people you want in the album, and don't post it anywhere public.",
-      "Removing someone stops them adding photos. If they kept the invite link, they can still see new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
+      "Only the people in the album. An invite link on its own shows no photos: the person asks to join, and they see the album's photos, older ones included, only after the Admin accepts them. Links can be set to end, and the Admin can turn off the links they sent.",
+      "Removing someone stops them adding photos. Their phone still has the album, so it can keep getting new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
     ],
   },
   {
     q: "What can the Admin see and do?",
     a: [
-      "The Admin is the person who started the album. They approve who can add photos, and they can remove members.",
+      "The Admin is the person who started the album. They decide who joins, and they can remove members.",
       "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
     ],
   },
@@ -63,7 +69,7 @@ export function helpView() {
       <h1 class="text-2xl font-semibold tracking-tight text-fg">Help</h1>
 
       <section class="space-y-2" aria-label="Frequently asked questions">
-        ${QA.map(
+        ${HELP_QA.map(
           (item) => html`<details class="ui-card p-4">
             <summary class="ui-focus cursor-pointer select-none text-sm font-medium text-fg">
               ${item.q}
