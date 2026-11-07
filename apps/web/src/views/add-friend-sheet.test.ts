@@ -54,17 +54,31 @@ describe("add a friend", () => {
     expect(host.textContent).not.toContain("Or send a link");
   });
 
-  test("no friends shows No friends yet; Escape closes and focus returns", async () => {
+  test("no friends shows No friends yet; focus moves in, Escape on it closes and focus returns", async () => {
     const host = mount("creator");
     const add = button(host, "Add a friend")!;
     add.focus();
     add.click();
-    host
-      .querySelector("[role=dialog]")!
-      .parentElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await vi.waitFor(() => expect(host.textContent).toContain("No friends yet"));
+    expect(host.textContent).toContain("Tap someone in People");
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(host, "Close")));
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
     await Promise.resolve();
     expect(document.activeElement).toBe(add);
+  });
+
+  test("every friend already a member shows No friends yet", async () => {
+    const host = mount("creator");
+    addFriend.openPicker({
+      folderId: "f1",
+      albumName: "Lisbon trip",
+      friends: [{ identity: "i1", name: "Kari" }],
+      memberIdentities: ["i1"],
+    });
+    await vi.waitFor(() => expect(host.textContent).toContain("No friends yet"));
   });
 
   test("a saved friend is listed and picking asks them", async () => {
@@ -78,13 +92,25 @@ describe("add a friend", () => {
     friends.save();
     await vi.waitFor(() => expect(friendsActor.snapshot().context.friends).toEqual({ i1: "Kari" }));
     button(host, "Add a friend")!.click();
-    await vi
-      .waitFor(() => expect(host.textContent).toContain("Kari"), { timeout: 200 })
-      .catch(() => {
-        console.log(JSON.stringify(friendsActor.snapshot().context), host.innerHTML.slice(-600));
-      });
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
     await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1"));
+  });
+
+  test("backdrop click is ignored while asking", async () => {
+    const { gateway } = await import("../gateway");
+    vi.mocked(gateway.offerAlbum).mockReturnValue(new Promise(() => {}));
+    const host = mount("creator");
+    addFriend.openPicker({
+      folderId: "f1",
+      albumName: "Lisbon trip",
+      friends: [{ identity: "i1", name: "Kari" }],
+      memberIdentities: [],
+    });
+    await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
+    button(host, "Kari")!.click();
+    await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari"));
+    (host.querySelector("[role=dialog]")!.parentElement as HTMLElement).click();
+    expect(host.querySelector("[role=dialog]")).not.toBeNull();
   });
 });

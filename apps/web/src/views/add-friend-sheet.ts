@@ -1,4 +1,4 @@
-import { html } from "lit-html";
+import { html, nothing } from "lit-html";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { addFriend, addFriendActor } from "../machines/sharing/add-friend";
@@ -35,6 +35,15 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Escape") closeSheet();
 }
 
+function focusInSheet() {
+  setTimeout(() => {
+    const el =
+      document.querySelector<HTMLElement>("[data-add-friend-primary]") ??
+      document.querySelector<HTMLElement>("[data-add-friend-dialog]");
+    if (el && document.activeElement !== el) el.focus();
+  }, 0);
+}
+
 function notReached(name: string, reason: NotReachedReason) {
   return reason === "refused"
     ? `Couldn't add ${name} from here. Send ${name} a link instead.`
@@ -55,8 +64,9 @@ export function addFriendSheetView() {
     if (state === "choosingFriend") {
       body = html`<ul class="mt-3 divide-y divide-line">
           ${p.choices.map(
-            (c) => html`<li>
+            (c, i) => html`<li>
               <button
+                data-add-friend-primary=${i === 0 ? "" : nothing}
                 class="w-full break-words py-3 text-left text-sm font-medium text-fg"
                 @click=${() => addFriend.pickFriend(c.identity)}
               >
@@ -81,7 +91,7 @@ export function addFriendSheetView() {
     } else if (state === "couldNotReachFriend") {
       body = html`<p class="mt-3 text-sm text-fg" role="alert">${notReached(p.name, p.reason)}</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${closeSheet}>Close</button>
+          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
         </div>`;
     } else if (state === "noFriendsYet") {
       title = "No friends yet";
@@ -89,11 +99,12 @@ export function addFriendSheetView() {
           Tap someone in People to save them as a friend. Then you can add them to new albums here.
         </p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${closeSheet}>Close</button>
+          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
         </div>`;
     } else {
       return null;
     }
+    focusInSheet();
     return html`<div
       class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
       @click=${() => state !== "lookingForFriend" && closeSheet()}
@@ -102,6 +113,8 @@ export function addFriendSheetView() {
       <div
         class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
         role="dialog"
+        tabindex="-1"
+        data-add-friend-dialog
         aria-modal="true"
         aria-label=${title}
         @click=${(e: Event) => e.stopPropagation()}
