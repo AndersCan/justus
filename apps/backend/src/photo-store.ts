@@ -144,6 +144,9 @@ type FolderRecord = {
   invite?: { code: string; owner?: string };
   /** Creator only: the answer given to each identity that asked. */
   answers?: Answers;
+  /** Creator only: invite codes turned off. A joiner that asked through one
+   * still gets its answer under that code. */
+  retiredInvites?: string[];
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
@@ -577,6 +580,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (isHexKey(id) && (a === "accepted" || a === "declined")) answers[id] = a;
       }
       out.answers = answers;
+    }
+    if (Array.isArray(f.retiredInvites)) {
+      out.retiredInvites = (f.retiredInvites as unknown[]).filter(
+        (c): c is string => typeof c === "string" && isHexKey(c),
+      );
     }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
@@ -1861,6 +1869,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       record.driveKey = target.key;
       record.invite = { code: newInviteCode() };
       delete record.answers;
+      delete record.retiredInvites;
       record.earlier = earlier;
       record.notice = { kind: "newKey" };
       record.rotatedAt = Date.now();
@@ -2213,8 +2222,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("answer.unverified", { conn: connId, identity: short(identity) });
         continue;
       }
-      for (const rt of owed) {
-        const code = rt.record.invite!.code;
+      const targets = owed.flatMap((rt) =>
+        [rt.record.invite!.code, ...(rt.record.retiredInvites ?? [])].map((code) => ({ rt, code })),
+      );
+      for (const { rt, code } of targets) {
         const answer = rt.record.answers?.[identity];
         if (!answer || c.sent.has(code)) continue;
         c.sent.add(code);
@@ -2761,8 +2772,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const old = rt.record.invite?.code;
       const code = newInviteCode();
       rt.record.invite = { code };
+      if (old) rt.record.retiredInvites = [...(rt.record.retiredInvites ?? []), old];
       const persisted = state.folders.find((f) => f.id === folderId);
-      if (persisted) persisted.invite = { code };
+      if (persisted) {
+        persisted.invite = { code };
+        persisted.retiredInvites = rt.record.retiredInvites;
+      }
       saveState();
       if (old) leaveTopic(hex(inviteTopic(old, crypto)));
       serveInvite(code);

@@ -10,10 +10,14 @@ import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { FakeSwarm, makeFakeDeps, fakeConnection } from "./fake-drive.ts";
 import type { FakeDrive } from "./fake-drive.ts";
 
-function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] } = {}) {
+function buildStore(
+  name: string,
+  opts: { swarm?: FakeSwarm; own?: FakeDrive[]; deps?: Record<string, unknown> } = {},
+) {
   const own: FakeDrive[] = opts.own ?? [];
   const deps = makeFakeDeps({
     deviceName: name,
+    ...opts.deps,
     ...(opts.swarm ? { makeSwarm: () => opts.swarm! } : {}),
     makeDrive: (cs: unknown, key?: Buffer) => {
       const drive = makeFakeDeps().makeDrive(cs, key);
@@ -25,9 +29,9 @@ function buildStore(name: string, opts: { swarm?: FakeSwarm; own?: FakeDrive[] }
   return { store: createPhotoStore(deps), deps };
 }
 
-async function scenario() {
+async function scenario(adminDeps?: Record<string, unknown>) {
   const swarm = new FakeSwarm();
-  const admin = buildStore("Admin", { swarm });
+  const admin = buildStore("Admin", { swarm, deps: adminDeps });
   const joinerOwn: FakeDrive[] = [];
   const joiner = buildStore("Joiner", { own: joinerOwn });
   await admin.store.ready();
@@ -214,6 +218,15 @@ describe("turning off invite links", () => {
     return (await s.admin.store.requests()).requests;
   }
 
+  /** A connection from the joiner that proves its identity: its /device.json names the connection's key. */
+  async function provenConnection(s: Awaited<ReturnType<typeof scenario>>) {
+    const device = JSON.parse((await s.outbox.get("/device.json"))!.toString());
+    return {
+      ...fakeConnection(s.outbox.key),
+      remotePublicKey: Buffer.from(device.swarmKey, "hex"),
+    };
+  }
+
   it("a request made with a turned-off code never reaches the Admin", async () => {
     const s = await scenario();
     const turned = await s.admin.store.turnOffInvite(s.folderId);
@@ -274,6 +287,37 @@ describe("turning off invite links", () => {
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
     await s.close();
   });
+
+  it.each([[true], [false]])(
+    "an answer given before the turn-off still reaches the joiner (accept=%s)",
+    async (accept) => {
+      const sent: { code: string; answer: string }[] = [];
+      const s = await scenario({
+        openAnswers: () => ({
+          send: (m: { code: string; answer: string }) => {
+            sent.push(m);
+            return true;
+          },
+        }),
+      });
+      await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+      s.swarm.emit("connection", await provenConnection(s));
+      const first = (await s.admin.store.requests()).requests;
+      await s.admin.store.respond(s.folderId, first[0].requesterKey, accept);
+      const code1 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+      const code2 = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+      expect(new Set([s.invite.code, code1, code2]).size).toBe(3);
+      s.swarm.emit("connection", await provenConnection(s));
+      const old = () => sent.filter((m) => m.code === s.invite.code);
+      // Once on the connection before the turn-off, once on the new one.
+      for (let i = 0; i < 100 && old().length < 2; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      const answer = accept ? "accepted" : "declined";
+      expect(old().map((m) => m.answer)).toEqual([answer, answer]);
+      await s.close();
+    },
+  );
 
   it("only the creator can turn off", async () => {
     const s = await scenario();
