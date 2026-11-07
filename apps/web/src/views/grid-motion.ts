@@ -144,7 +144,8 @@ class GridMotion extends AsyncDirective {
     for (const { key, box } of plan.exits) {
       const ghost = first.get(key)?.el;
       if (!ghost) continue;
-      ghost.style.cssText = `position:fixed;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px;margin:0;pointer-events:none;`;
+      // Re-inserting an element replays its CSS animations; the ghost only fades.
+      ghost.style.cssText = `position:fixed;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px;margin:0;pointer-events:none;animation:none;`;
       ghost.setAttribute("inert", "");
       ghost.setAttribute("aria-hidden", "true");
       document.body.append(ghost);
