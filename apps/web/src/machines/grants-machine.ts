@@ -1,8 +1,7 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import type { GrantRecord } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * Share surface: the local grant ledger this device serves photos to, plus the
@@ -16,29 +15,10 @@ type GrantActionKind = "grant" | "decline" | "snooze" | "revoke";
 const GRANTS_STATES = ["idle", "refreshing", "ok", "acting", "error"] as const;
 export type GrantsStateName = (typeof GRANTS_STATES)[number];
 
-export const $grantsRecords = atom<GrantRecord[]>([]);
-export const $grantsDue = atom<string[]>([]);
-export const $grantsState = atom<GrantsStateName>("idle");
-export const $grantsError = atom<string | null>(null);
-export const $grantsFatal = atom(false);
-
 function dueRecords(records: GrantRecord[], due: string[]): GrantRecord[] {
   const dueSet = new Set(due);
   return records.filter((r) => dueSet.has(r.peerId));
 }
-
-export const $grantsViewModel = computed(
-  [$grantsRecords, $grantsDue, $grantsState, $grantsError, $grantsFatal],
-  (records, due, state, error, fatal) => ({
-    records,
-    due,
-    dueRecords: dueRecords(records, due),
-    state,
-    acting: state === "acting",
-    error,
-    fatal,
-  }),
-);
 
 /** The list of people this device shares photos with has not been loaded yet. */
 const idle = state("idle")();
@@ -251,24 +231,8 @@ export function createGrantsActor(options: { clock: Clock; gateway?: GrantsPort 
 
 export const grantsActor = createGrantsActor({ clock: RealClock() });
 
-grantsActor.on("change", {
-  fn: (snapshot) => {
-    $grantsRecords.set(snapshot.context.records);
-    $grantsDue.set(snapshot.context.due);
-    $grantsError.set(snapshot.context.error);
-  },
-});
-
-const { state: stateName } = bindStateAtoms({
-  actor: grantsActor,
-  states: GRANTS_STATES,
-  $state: $grantsState,
-  $error: $grantsError,
-  $fatal: $grantsFatal,
-});
-
 export const grants = {
-  state: stateName,
+  state: () => nameOf(grantsActor.snapshot()),
   refresh: () => grantsActor.send(refresh.create()),
   grant: (peerId: string) => grantsActor.send(act.create({ peerId, kind: "grant" })),
   decline: (peerId: string) => grantsActor.send(act.create({ peerId, kind: "decline" })),

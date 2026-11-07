@@ -1,8 +1,7 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import type { JoinRequest } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { removeRequestFromList } from "./requests-list";
 
 /**
@@ -13,22 +12,6 @@ import { removeRequestFromList } from "./requests-list";
 
 const REQUESTS_STATES = ["idle", "refreshing", "ok", "responding", "error"] as const;
 export type RequestsStateName = (typeof REQUESTS_STATES)[number];
-
-export const $requests = atom<JoinRequest[]>([]);
-export const $requestsState = atom<RequestsStateName>("idle");
-export const $requestsError = atom<string | null>(null);
-export const $requestsFatal = atom(false);
-
-export const $requestsViewModel = computed(
-  [$requests, $requestsState, $requestsError, $requestsFatal],
-  (requests, state, error, fatal) => ({
-    requests,
-    state,
-    responding: state === "responding",
-    error,
-    fatal,
-  }),
-);
 
 /** The inbox of requests to join the person's folders has not been loaded yet. */
 const idle = state("idle")();
@@ -247,23 +230,8 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
 
 export const requestsActor = createRequestsActor({ clock: RealClock() });
 
-requestsActor.on("change", {
-  fn: (snapshot) => {
-    $requests.set(snapshot.context.requests);
-    $requestsError.set(snapshot.context.error);
-  },
-});
-
-const { state: stateName } = bindStateAtoms({
-  actor: requestsActor,
-  states: REQUESTS_STATES,
-  $state: $requestsState,
-  $error: $requestsError,
-  $fatal: $requestsFatal,
-});
-
 export const requests = {
-  state: stateName,
+  state: () => nameOf(requestsActor.snapshot()),
   refresh: () => requestsActor.send(refresh.create()),
   respond: (folderId: string, requesterKey: string, approve: boolean) =>
     requestsActor.send(respond.create({ folderId, requesterKey, approve })),

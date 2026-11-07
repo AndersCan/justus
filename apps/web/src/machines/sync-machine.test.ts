@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { $syncError, $syncStatus, createSyncActor, sync, syncViewModel } from "./sync-machine";
+import { createSyncActor, sync, syncActor, syncViewModel } from "./sync-machine";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -116,37 +116,21 @@ describe("sync factory", () => {
 });
 
 describe("sync singleton", () => {
-  test("an external $syncStatus write survives later changes until a new status arrives", async () => {
+  test("a failed refresh keeps the last status and sets the error; retry clears it", async () => {
     const first = statusOf(false, "first");
-    const second = statusOf(false, "second");
-    const external = statusOf(false, "external");
+    const after = statusOf(false, "after-retry");
     vi.mocked(gateway.status)
       .mockResolvedValueOnce([null, first] as any)
       .mockResolvedValueOnce([new Error("offline"), null] as any)
-      .mockResolvedValueOnce([null, second] as any);
-
-    sync.refresh();
-    await vi.waitFor(() => expect($syncStatus.get()).toEqual(first));
-
-    $syncStatus.set(external);
-    sync.refresh();
-    await vi.waitFor(() => expect($syncError.get()).toBe("offline"));
-    expect($syncStatus.get()).toEqual(external);
-
-    sync.retry();
-    await vi.waitFor(() => expect($syncStatus.get()).toEqual(second));
-  });
-
-  test("$syncError mirrors a failed refresh and clears on retry", async () => {
-    const after = statusOf(false, "after-retry");
-    vi.mocked(gateway.status)
-      .mockResolvedValueOnce([new Error("offline"), null] as any)
       .mockResolvedValueOnce([null, after] as any);
     sync.refresh();
-    await vi.waitFor(() => expect($syncError.get()).toBe("offline"));
+    await vi.waitFor(() => expect(syncActor.snapshot().context.status).toEqual(first));
+    sync.refresh();
+    await vi.waitFor(() => expect(syncActor.snapshot().context.error).toBe("offline"));
+    expect(syncActor.snapshot().context.status).toEqual(first);
     sync.retry();
-    await vi.waitFor(() => expect($syncStatus.get()).toEqual(after));
-    expect($syncError.get()).toBeNull();
+    await vi.waitFor(() => expect(syncActor.snapshot().context.status).toEqual(after));
+    expect(syncActor.snapshot().context.error).toBeNull();
   });
 });
 

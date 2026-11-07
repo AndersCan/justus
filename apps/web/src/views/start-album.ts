@@ -1,10 +1,6 @@
 import { html, render } from "lit-html";
-import {
-  $activeFolderId,
-  $foldersError,
-  $foldersState,
-  folders,
-} from "../machines/folders-machine";
+import { FOLDERS_STATES, folders, foldersActor } from "../machines/folders-machine";
+import { onStateChange } from "../machines/actor-utils";
 
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
  * Resolves the new album's name, or
@@ -71,17 +67,18 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
 /** Creates an album through the folders actor and resolves its id once the
  * create lands (null if it fails or the actor is busy). */
 function createAlbum(name: string): Promise<string | null> {
-  if ($foldersState.get() !== "ok") return Promise.resolve(null);
+  if (folders.state() !== "ok") return Promise.resolve(null);
   return new Promise((resolve) => {
     let started = false;
-    const stop = $foldersState.listen((state) => {
+    const stop = onStateChange(foldersActor, FOLDERS_STATES, (state) => {
       if (state === "creating") {
         started = true;
         return;
       }
       if (!started) return;
       stop();
-      resolve(state === "ok" && !$foldersError.get() ? $activeFolderId.get() : null);
+      const { error, activeId } = foldersActor.snapshot().context;
+      resolve(state === "ok" && !error ? activeId : null);
     });
     folders.create(name);
     // A create the actor refused never leaves `ok`.

@@ -1,17 +1,22 @@
 import { html } from "lit-html";
+import { watch } from "@mantaq/lit";
 import {
-  $activeFolderId,
-  $foldersError,
-  $foldersState,
-  $foldersViewModel,
+  FOLDERS_STATES,
   folders,
+  foldersActor,
+  foldersViewModel,
 } from "../machines/folders-machine";
-import { $onboardingState, $onboardingViewModel, onboarding } from "../machines/onboarding-machine";
+import {
+  ONBOARDING_STATES,
+  onboarding,
+  onboardingActor,
+  onboardingViewModel,
+} from "../machines/onboarding-machine";
+import { onStateChange } from "../machines/actor-utils";
 import { join } from "../machines/sharing/join-request";
 import { joinError } from "./albums";
 import { currentPage, open } from "../machines/router-machine";
 import { avatarColor, initialsOf } from "../utils/avatar";
-import { useStore } from "../use-store";
 import { friendlyError } from "../utils/friendly-error";
 import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
@@ -39,25 +44,18 @@ export function markWelcomeSeen(): void {
 }
 
 // A saved profile means the device is set up; a relaunch must not replay the intro.
-$onboardingState.listen((state) => {
+onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
   if (state === "choose") markWelcomeSeen();
 });
 
 // Creating an album finishes onboarding: open it once the create lands, so the
 // first thing on screen is where photos go. Joining navigates from the albums
 // join listener.
-let prevFoldersState = $foldersState.get();
-$foldersState.listen((state) => {
-  if (
-    prevFoldersState === "creating" &&
-    state === "ok" &&
-    !$foldersError.get() &&
-    currentPage()?.route === "welcome"
-  ) {
-    const id = $activeFolderId.get();
-    open(id ? `/albums/${id}` : "/", { replace: true });
+onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
+  const { error, activeId } = foldersActor.snapshot().context;
+  if (prev === "creating" && next === "ok" && !error && currentPage()?.route === "welcome") {
+    open(activeId ? `/albums/${activeId}` : "/", { replace: true });
   }
-  prevFoldersState = state;
 });
 
 let touchStartX = 0;
@@ -122,7 +120,7 @@ function avatar(name: string, size: "lg" | "sm" = "lg") {
   >`;
 }
 
-function profileStep(vm: ReturnType<typeof $onboardingViewModel.get>) {
+function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
   return html`
     <form
       class="ui-card mx-auto max-w-md space-y-4 p-6"
@@ -170,7 +168,8 @@ function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4">
       <h1 class="text-center text-xl font-bold text-fg">Start sharing</h1>
-      ${useStore($foldersViewModel, (vm) => {
+      ${watch(foldersActor, (s) => {
+        const vm = foldersViewModel(s);
         const busy = vm.state !== "ok";
         return html`
           <form
@@ -229,26 +228,31 @@ function chooseStep() {
 export function welcomeView() {
   return html`
     <div class="mx-auto max-w-xl space-y-6 py-6">
-      ${useStore($onboardingViewModel, (vm) => {
-        if (vm.fatal) {
-          return html`<p class="text-center text-sm text-danger-fg" role="alert">
-            Something went wrong. Reload the app to continue.
-          </p>`;
-        }
-        // The first card carries the logo itself, so the header would double it.
-        // md+: the rail already shows the wordmark; one coral dot per screen.
-        const header =
-          vm.state === "cards" && vm.card === 0
-            ? null
-            : html`<h1 class="flex justify-center md:hidden">${wordmark("h-14 w-auto", true)}</h1>`;
-        const step =
-          vm.state === "cards"
-            ? cardsStep(vm.card)
-            : vm.state === "choose"
-              ? chooseStep()
-              : profileStep(vm);
-        return html`${header}${step}`;
-      })}
+      ${watch(onboardingActor, (os) =>
+        watch(foldersActor, (fs) => {
+          const vm = onboardingViewModel(os, fs.context.userName);
+          if (vm.fatal) {
+            return html`<p class="text-center text-sm text-danger-fg" role="alert">
+              Something went wrong. Reload the app to continue.
+            </p>`;
+          }
+          // The first card carries the logo itself, so the header would double it.
+          // md+: the rail already shows the wordmark; one coral dot per screen.
+          const header =
+            vm.state === "cards" && vm.card === 0
+              ? null
+              : html`<h1 class="flex justify-center md:hidden">
+                  ${wordmark("h-14 w-auto", true)}
+                </h1>`;
+          const step =
+            vm.state === "cards"
+              ? cardsStep(vm.card)
+              : vm.state === "choose"
+                ? chooseStep()
+                : profileStep(vm);
+          return html`${header}${step}`;
+        }),
+      )}
     </div>
   `;
 }

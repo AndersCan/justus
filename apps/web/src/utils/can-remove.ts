@@ -1,5 +1,5 @@
 import type { Photo, Role } from "@justus/core";
-import { $folders } from "../machines/folders-machine";
+import { foldersActor } from "../machines/folders-machine";
 
 /** Whoever added a photo can remove it, and so can the Admin. Collaborators
  * cannot remove other people's photos, and Viewers cannot remove anything. */
@@ -10,7 +10,9 @@ export function canRemove(photo: Pick<Photo, "mine">, role: Role): boolean {
 
 /** This device's role in the album a photo belongs to; a Viewer when unknown. */
 export function roleFor(photo: Pick<Photo, "folderId">): Role {
-  return $folders.get().find((f) => f.id === photo.folderId)?.role ?? "reader";
+  return (
+    foldersActor.snapshot().context.folders.find((f) => f.id === photo.folderId)?.role ?? "reader"
+  );
 }
 
 /** What the confirm dialog says a remove does. */

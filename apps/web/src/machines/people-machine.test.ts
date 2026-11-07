@@ -1,13 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import {
-  $peopleError,
-  $peopleState,
-  createPeopleActor,
-  people,
-  peopleViewModel,
-} from "./people-machine";
+import { createPeopleActor, people, peopleActor, peopleViewModel } from "./people-machine";
 import { gateway } from "../gateway";
 
 const mock = gateway as any;
@@ -24,21 +18,32 @@ vi.mock("../gateway", () => ({
 beforeEach(() => {
   mock.removeMember.mockReset().mockResolvedValue([null, { ok: true }]);
   people.close();
-  $peopleError.set(null);
 });
 
 describe("people machine", () => {
   test("opens and closes the sheet", () => {
     people.open();
-    expect($peopleState.get()).toBe("open");
+    expect(peopleActor.snapshot().path[0]).toBe("open");
     people.close();
-    expect($peopleState.get()).toBe("closed");
+    expect(peopleActor.snapshot().path[0]).toBe("closed");
+  });
+
+  test("the QR code shows once asked and hides when the sheet closes", () => {
+    people.open();
+    expect(peopleActor.snapshot().context.qrShown).toBe(false);
+    people.showQr();
+    expect(peopleActor.snapshot().context.qrShown).toBe(true);
+    expect(peopleActor.snapshot().path[0]).toBe("open");
+    people.close();
+    expect(peopleActor.snapshot().context.qrShown).toBe(false);
+    people.open();
+    expect(peopleActor.snapshot().context.qrShown).toBe(false);
   });
 
   test("removing a member returns to the open sheet", async () => {
     people.open();
     people.remove("f1", "k1");
-    await vi.waitFor(() => expect($peopleState.get()).toBe("open"));
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("open"));
     expect(mock.removeMember).toHaveBeenCalledWith("f1", "k1");
   });
 
@@ -46,8 +51,8 @@ describe("people machine", () => {
     mock.removeMember.mockResolvedValue([new Error("not the Admin"), null]);
     people.open();
     people.remove("f1", "k1");
-    await vi.waitFor(() => expect($peopleError.get()).toBe("not the Admin"));
-    expect($peopleState.get()).toBe("open");
+    await vi.waitFor(() => expect(peopleActor.snapshot().context.error).toBe("not the Admin"));
+    expect(peopleActor.snapshot().path[0]).toBe("open");
   });
 });
 

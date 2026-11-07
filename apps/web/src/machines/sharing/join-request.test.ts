@@ -1,5 +1,4 @@
 import { VirtualClock } from "@mantaq/core";
-import { atom } from "nanostores";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { buildInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
@@ -12,17 +11,21 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../gateway", () => ({ gateway: { ask: mocks.ask } }));
 vi.mock("../router-machine", () => ({ open: mocks.open }));
-vi.mock("../folders-machine", async () => {
-  const { atom: a } = await import("nanostores");
-  return { $folders: a([]), $asks: a([]), folders: { refresh: mocks.refresh } };
+vi.mock("../folders-machine", () => {
+  const context = { folders: [] as unknown[], asks: [] as unknown[] };
+  return {
+    foldersActor: { snapshot: () => ({ context }) },
+    folders: { refresh: mocks.refresh },
+  };
 });
 
-const { $join, join, joinActor, joinViewOf } = await import("./join-request");
+const { join, joinActor, joinViewOf } = await import("./join-request");
 const { createJoinRequestActor } = await import("./join-request-machine");
-const { $asks, $folders } = (await import("../folders-machine")) as unknown as {
-  $asks: ReturnType<typeof atom<unknown[]>>;
-  $folders: ReturnType<typeof atom<unknown[]>>;
+const { foldersActor } = (await import("../folders-machine")) as unknown as {
+  foldersActor: { snapshot: () => { context: { folders: unknown[]; asks: unknown[] } } };
 };
+const foldersContext = foldersActor.snapshot().context;
+const view = () => joinViewOf(joinActor.snapshot());
 
 const INVITE: JoinInvite = {
   code: "a".repeat(64),
@@ -35,8 +38,8 @@ const settle = () => joinActor.settled();
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  $folders.set([]);
-  $asks.set([]);
+  foldersContext.folders = [];
+  foldersContext.asks = [];
   join.closeWaiting();
   join.dismissDecline();
   await settle();
@@ -46,7 +49,7 @@ describe("join singleton", () => {
   test("a link shows the ask screen for that album", async () => {
     join.openLink(LINK);
     await settle();
-    expect($join.get()).toMatchObject({ state: "decidingToAsk", invite: INVITE, error: "" });
+    expect(view()).toMatchObject({ state: "decidingToAsk", invite: INVITE, error: "" });
   });
 
   test("asking sends the request and moves to waiting", async () => {
@@ -56,7 +59,7 @@ describe("join singleton", () => {
     join.askToJoin();
     await settle();
     expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils");
-    expect($join.get().state).toBe("waitingForAnswer");
+    expect(view().state).toBe("waitingForAnswer");
   });
 
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {
@@ -65,8 +68,8 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    expect($join.get().state).toBe("decidingToAsk");
-    expect($join.get().error).not.toBe("");
+    expect(view().state).toBe("decidingToAsk");
+    expect(view().error).not.toBe("");
     expect(mocks.refresh).not.toHaveBeenCalled();
   });
 
@@ -84,30 +87,30 @@ describe("join singleton", () => {
     await settle();
     join.notNow();
     await settle();
-    expect($join.get()).toEqual({ state: "noInvite", invite: null, error: "" });
+    expect(view()).toEqual({ state: "noInvite", invite: null, error: "" });
   });
 
   test("a link for an album I already joined opens it", async () => {
-    $folders.set([
+    foldersContext.folders = [
       { id: "f9", role: "member", invite: { code: INVITE.code, owner: INVITE.owner } },
-    ]);
+    ];
     join.openLink(LINK);
     await settle();
     expect(mocks.open).toHaveBeenCalledWith("/albums/f9");
   });
 
   test("a link whose ask is declined shows the not-accepted screen", async () => {
-    $asks.set([{ code: INVITE.code, status: "declined" }]);
+    foldersContext.asks = [{ code: INVITE.code, status: "declined" }];
     join.openLink(LINK);
     await settle();
-    expect($join.get().state).toBe("declined");
+    expect(view().state).toBe("declined");
   });
 
   test("a link whose ask is waiting shows the waiting screen", async () => {
-    $asks.set([{ code: INVITE.code, status: "waiting" }]);
+    foldersContext.asks = [{ code: INVITE.code, status: "waiting" }];
     join.openLink(LINK);
     await settle();
-    expect($join.get().state).toBe("waitingForAnswer");
+    expect(view().state).toBe("waitingForAnswer");
   });
 
   test("an accepted answer opens the album", async () => {
@@ -129,14 +132,14 @@ describe("join singleton", () => {
     await settle();
     join.answerArrived(INVITE.code, "declined");
     await settle();
-    expect($join.get().state).toBe("declined");
+    expect(view().state).toBe("declined");
     expect(mocks.open).not.toHaveBeenCalled();
   });
 
   test("a garbled link shows an error and no invite", async () => {
     join.openLink("not a link");
     await settle();
-    expect($join.get().invite).toBeNull();
+    expect(view().invite).toBeNull();
   });
 });
 

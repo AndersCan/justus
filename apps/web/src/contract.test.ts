@@ -10,16 +10,15 @@ import fixture from "../../../packages/core/fixtures/backend-payloads.json";
 import { guardPush, guardResult } from "./contract-guard";
 import { handleMessage } from "./handle-message";
 import { gateway } from "./gateway";
-import {
-  $folders,
-  $activeFolderId,
-  $foldersError,
-  $foldersState,
-  folders,
-} from "./machines/folders-machine";
-import { $photos, $galleryState, gallery } from "./machines/gallery-machine";
-import { $requests, $requestsState, requests } from "./machines/requests-machine";
-import { $syncState, $syncStatus, sync } from "./machines/sync-machine";
+import { folders, foldersActor } from "./machines/folders-machine";
+import { gallery, galleryActor } from "./machines/gallery-machine";
+import { requests, requestsActor } from "./machines/requests-machine";
+import { sync, syncActor } from "./machines/sync-machine";
+
+const foldersNow = () => foldersActor.snapshot().context;
+const syncNow = () => syncActor.snapshot().context;
+const requestsNow = () => requestsActor.snapshot().context;
+const photosNow = () => galleryActor.snapshot().context.photos;
 
 const mock = gateway as any;
 
@@ -112,31 +111,31 @@ describe("machines on real backend payloads", () => {
   test("folders: a fresh device (empty active id) and a populated one", async () => {
     mock.folders.mockResolvedValue([null, results["photos.folders"][0]]);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get(), $foldersError.get() ?? "").toBe("ok"));
-    expect($folders.get()).toEqual([]);
+    await vi.waitFor(() => expect(folders.state(), foldersNow().error ?? "").toBe("ok"));
+    expect(foldersNow().folders).toEqual([]);
 
     const populated = withData("photos.folders");
     mock.folders.mockResolvedValue([null, populated]);
     folders.refresh();
-    await vi.waitFor(() => expect($folders.get().length).toBe(populated.folders.length));
-    expect($activeFolderId.get()).toBe(populated.activeFolderId);
+    await vi.waitFor(() => expect(foldersNow().folders.length).toBe(populated.folders.length));
+    expect(foldersNow().activeId).toBe(populated.activeFolderId);
   });
 
   test("sync: status lands in the view model", async () => {
     const status = results["photos.status"][0];
     mock.status.mockResolvedValue([null, status]);
     sync.refresh();
-    await vi.waitFor(() => expect($syncState.get()).toBe("ok"));
-    expect($syncStatus.get()?.folder.id).toBe(status.folder.id);
-    expect($syncStatus.get()?.members.length).toBe(status.members.length);
+    await vi.waitFor(() => expect(sync.state()).toBe("ok"));
+    expect(syncNow().status?.folder.id).toBe(status.folder.id);
+    expect(syncNow().status?.members.length).toBe(status.members.length);
   });
 
   test("requests: the Admin's inbox lists the real join request", async () => {
     const inbox = withData("photos.requests");
     mock.requests.mockResolvedValue([null, inbox]);
     requests.refresh();
-    await vi.waitFor(() => expect($requestsState.get()).toBe("ok"));
-    expect($requests.get().map((r) => r.requesterKey)).toEqual(
+    await vi.waitFor(() => expect(requests.state()).toBe("ok"));
+    expect(requestsNow().requests.map((r) => r.requesterKey)).toEqual(
       inbox.requests.map((r: any) => r.requesterKey),
     );
   });
@@ -146,9 +145,9 @@ describe("machines on real backend payloads", () => {
     mock.list.mockResolvedValue([null, listed]);
     mock.status.mockResolvedValue([null, results["photos.status"][0]]);
     gallery.load();
-    await vi.waitFor(() => expect($galleryState.get()).not.toBe("booting"));
-    await vi.waitFor(() => expect($photos.get().length).toBe(listed.photos.length));
-    for (const p of $photos.get()) {
+    await vi.waitFor(() => expect(gallery.state()).not.toBe("booting"));
+    await vi.waitFor(() => expect(photosNow().length).toBe(listed.photos.length));
+    for (const p of photosNow()) {
       expect(p.url).toMatch(/^https?:\/\//);
       expect(p.member.key).toBeTruthy();
       expect(typeof p.mine).toBe("boolean");

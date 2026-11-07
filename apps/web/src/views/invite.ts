@@ -1,8 +1,9 @@
 import { html } from "lit-html";
-import { atom } from "nanostores";
 import type { FolderSummary } from "@justus/core";
-import { $join, join } from "../machines/sharing/join-request";
-import { $syncStatus } from "../machines/sync-machine";
+import { atom } from "nanostores";
+import { watch } from "@mantaq/lit";
+import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
+import { syncActor } from "../machines/sync-machine";
 import { useStore } from "../use-store";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
@@ -46,18 +47,12 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
 }
 
 const $copied = atom(false);
-const $qrShownFor = atom<string | null>(null);
 
 async function copy(value: string) {
   const ok = await copyText(value);
   $copied.set(ok);
   setTimeout(() => $copied.set(false), 2000);
   if (!ok) toast("Couldn't copy the invite link");
-}
-
-/** Hide the QR again when the album page is left, so it isn't on screen later. */
-export function hideInviteQr() {
-  $qrShownFor.set(null);
 }
 
 function qrCode(link: string) {
@@ -76,7 +71,13 @@ function qrCode(link: string) {
 /** Invite surface: one tap sends the link (share sheet, or copy where there is
  * none). The link itself is never drawn; the QR, for someone standing next to
  * you, only after a tap. Only the Admin has a link; members are told who to ask. */
-export function invitePanel(folder: FolderSummary, myName: string, admin: string) {
+export function invitePanel(
+  folder: FolderSummary,
+  myName: string,
+  admin: string,
+  qrShown: boolean,
+  onShowQr: () => void,
+) {
   const link = inviteLinkFor(folder, myName);
   if (!link) {
     return html`
@@ -116,19 +117,19 @@ export function invitePanel(folder: FolderSummary, myName: string, admin: string
           }
         </div>`,
       )}
-      ${useStore($qrShownFor, (shown) =>
-        shown === folder.id
+      ${
+        qrShown
           ? html`<div class="mt-4">${qrCode(link)}</div>
               <p class="mt-2 text-center text-xs text-muted">
                 They scan this with their phone's camera.
               </p>`
           : html`<button
               class="mt-3 text-sm text-muted underline underline-offset-2 hover:text-fg"
-              @click=${() => $qrShownFor.set(folder.id)}
+              @click=${onShowQr}
             >
               With them now? Show a QR code
-            </button>`,
-      )}
+            </button>`
+      }
       <p class="mt-4 text-xs text-muted">
         Both of you need Justus open for a request to arrive. It shows up here for you to accept or
         decline.
@@ -159,7 +160,8 @@ function sheet(label: string, body: unknown, onDismiss: () => void) {
 /** The joiner's screens: ask, waiting, not accepted. Rendered once, app-wide.
  * No photos or counts: the link carries only the names its sender typed. */
 export function joinSheet() {
-  return useStore($join, ({ state, invite, error }) => {
+  return watch(joinActor, (snapshot) => {
+    const { state, invite, error } = joinViewOf(snapshot);
     if (state === "noInvite" || state === "unusableLink" || state === "joined" || !invite)
       return null;
     const owner = invite.ownerName;
@@ -224,7 +226,8 @@ export function adminName(status: { members: { admin: boolean; name: string }[] 
 /** Shown on an album this device joined and the Admin hasn't approved yet:
  * it can already see the photos, but not add any. */
 export function waitingForAdmin() {
-  return useStore($syncStatus, (status) => {
+  return watch(syncActor, (s) => {
+    const status = s.context.status;
     const admin = adminName(status);
     return status?.folder?.pending
       ? html`<div

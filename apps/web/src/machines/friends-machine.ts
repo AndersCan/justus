@@ -1,5 +1,4 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom } from "nanostores";
 import type { Friend } from "@justus/core";
 import { gateway } from "../gateway";
 import { runInvoke } from "./actor-utils";
@@ -211,8 +210,6 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
   });
 }
 
-export const $friends = atom<Record<string, string>>({});
-
 export type FriendSheet = {
   state: "loading" | "closed" | "viewing" | "naming" | "saving";
   target: FriendTarget | null;
@@ -220,14 +217,6 @@ export type FriendSheet = {
   error: string | null;
   canSave: boolean;
 };
-
-export const $friendSheet = atom<FriendSheet>({
-  state: "loading",
-  target: null,
-  draft: "",
-  error: null,
-  canSave: false,
-});
 
 /** What the friend sheet draws, as a pure function of the actor snapshot. */
 export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
@@ -250,14 +239,6 @@ export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
 }
 
 export const friendsActor = createFriendsActor({ clock: RealClock() });
-
-friendsActor.on("change", {
-  fn: (snapshot) => {
-    const context = snapshot.context;
-    $friends.set(context.friends);
-    $friendSheet.set(friendSheetOf(snapshot));
-  },
-});
 
 export const friends = {
   open: (target: FriendTarget) => friendsActor.send(open.create({ target })),

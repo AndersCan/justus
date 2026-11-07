@@ -1,8 +1,8 @@
 import { html } from "lit-html";
 import type { GrantRecord } from "@justus/core";
-import { $requests } from "../machines/requests-machine";
-import { useStore } from "../use-store";
-import { $grantsViewModel, grants } from "../machines/grants-machine";
+import { watch } from "@mantaq/lit";
+import { requestsActor } from "../machines/requests-machine";
+import { grants, grantsActor, grantsViewModel } from "../machines/grants-machine";
 import { albumsPanel, joinPanel } from "./albums";
 import { errorBanner } from "./error-banner";
 import { tabs } from "./tabs";
@@ -31,7 +31,7 @@ function stateBadge(record: GrantRecord): { copy: string; cls: string } {
   return { copy: "Not sharing", cls: "text-muted" };
 }
 
-type SharingViewModel = ReturnType<typeof $grantsViewModel.get>;
+type SharingViewModel = ReturnType<typeof grantsViewModel>;
 
 function promptCard(view: SharingViewModel, record: GrantRecord) {
   return html`
@@ -185,7 +185,7 @@ function devicesPanel() {
     started = true;
     grants.refresh();
   }
-  return useStore($grantsViewModel, (vm) => devicesBody(vm));
+  return watch(grantsActor, (s) => devicesBody(grantsViewModel(s)));
 }
 
 export type SharingTab = "albums" | "join" | "devices";
@@ -198,11 +198,16 @@ export function sharingView(tab: SharingTab) {
   return html`
     <div class="max-w-2xl space-y-5">
       <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
-      ${useStore($requests, (reqs) =>
+      ${watch(requestsActor, (q) =>
         tabs(
           "Sharing",
           [
-            { id: "albums", label: "Your albums", href: "/sharing", badge: reqs.length },
+            {
+              id: "albums",
+              label: "Your albums",
+              href: "/sharing",
+              badge: q.context.requests.length,
+            },
             { id: "join", label: "Join an album", href: "/join" },
             ...(tab === "devices" ? [{ id: "devices", label: "Devices", href: "/devices" }] : []),
           ],

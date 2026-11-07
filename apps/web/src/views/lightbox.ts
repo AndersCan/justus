@@ -1,9 +1,8 @@
 import { html } from "lit-html";
 import { watch } from "@mantaq/lit";
 import type { Photo } from "@justus/core";
-import { $galleryState, $photos, gallery } from "../machines/gallery-machine";
+import { gallery, galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
-import { useStore } from "../use-store";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
 import { memberColor } from "../utils/palette";
@@ -23,7 +22,8 @@ export function closeLightbox(): void {
 
 /** Steps through the grid the lightbox was opened from, else every photo. */
 export function step(dir: 1 | -1): void {
-  const photos = lightboxActor.snapshot().context.sequence ?? $photos.get();
+  const photos =
+    lightboxActor.snapshot().context.sequence ?? galleryActor.snapshot().context.photos;
   lightboxActor.send(lightboxEvents.stepped.create({ dir, photos }));
 }
 
@@ -44,7 +44,7 @@ if (typeof document !== "undefined") {
 }
 
 async function removeFromLightbox(photo: Photo) {
-  if ($galleryState.get() === "removing") return;
+  if (gallery.state() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
     detail: removeDetail(photo),
@@ -152,16 +152,16 @@ function lightboxBody(photo: Photo) {
             </div>
             ${
               canRemove(photo, roleFor(photo))
-                ? useStore(
-                    $galleryState,
-                    (state) => html`<button
+                ? watch(galleryActor, (s) => {
+                    const removing = galleryViewModel(s, null).state === "removing";
+                    return html`<button
                       class="ui-btn-ghost !bg-transparent !px-3 !text-danger-fg hover:!bg-danger/10"
-                      ?disabled=${state === "removing"}
+                      ?disabled=${removing}
                       @click=${() => void removeFromLightbox(photo)}
                     >
-                      ${state === "removing" ? "Removing…" : "Remove"}
-                    </button>`,
-                  )
+                      ${removing ? "Removing…" : "Remove"}
+                    </button>`;
+                  })
                 : null
             }
           </div>

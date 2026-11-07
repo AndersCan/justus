@@ -1,6 +1,7 @@
 import { html } from "lit-html";
-import { $foldersViewModel, folders } from "../machines/folders-machine";
-import { $syncViewModel, sync } from "../machines/sync-machine";
+import { watch } from "@mantaq/lit";
+import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
+import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { useStore } from "../use-store";
 import {
   $profilePicture,
@@ -14,8 +15,8 @@ import { appLockSection, refreshAppLock } from "./app-lock";
 import { densitySetting, themeSetting } from "./theme-toggle";
 import { toast } from "./toast";
 
-type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
-type FoldersViewModel = ReturnType<typeof $foldersViewModel.get>;
+type SyncViewModel = ReturnType<typeof syncViewModel>;
+type FoldersViewModel = ReturnType<typeof foldersViewModel>;
 
 async function pickPicture(e: Event) {
   const input = e.target as HTMLInputElement;
@@ -127,7 +128,7 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
 
 export function settingsView() {
   void refreshAppLock();
-  return useStore($foldersViewModel, (foldersVm) =>
-    useStore($syncViewModel, (syncVm) => bindingsBody(foldersVm, syncVm)),
+  return watch(foldersActor, (fs) =>
+    watch(syncActor, (ss) => bindingsBody(foldersViewModel(fs), syncViewModel(ss))),
   );
 }

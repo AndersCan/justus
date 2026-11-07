@@ -1,5 +1,4 @@
-import type { Snapshot, ErrorInfo } from "@mantaq/core";
-import type { WritableAtom } from "nanostores";
+import type { Snapshot } from "@mantaq/core";
 
 /** Safe runner for an async invoke inside a mantaq effect: models rejections
  * as failure events instead of unhandled rejections (which would wedge the
@@ -43,45 +42,6 @@ export function fatalErrorOf(snapshot: Snapshot<unknown>): { message: string } |
   if (!error) return null;
   const detail = error.error instanceof Error ? error.error.message : String(error.error);
   return { message: `Internal error (${error.reason}): ${detail}` };
-}
-
-/** The shared actor → nanostores binding every machine in this app uses: a
- * state atom mapped from the snapshot path, a fatal flag + message from
- * mantaq's `__error` state, and the state-name accessor. */
-export function bindStateAtoms<State extends string>(args: {
-  actor: {
-    on(
-      event: "change",
-      options: { fn: (snapshot: Snapshot<unknown>, prev: Snapshot<unknown>) => void },
-    ): unknown;
-    on(event: "error", options: { fn: (info: ErrorInfo) => void }): unknown;
-    snapshot(): Snapshot<unknown>;
-  };
-  states: readonly State[];
-  $state: WritableAtom<State>;
-  $error: WritableAtom<string | null>;
-  $fatal: WritableAtom<boolean>;
-}): { state: () => State } {
-  const nameOf = stateNameOf<State>(args.states);
-  args.actor.on("change", {
-    fn: (snapshot) => {
-      args.$state.set(nameOf(snapshot));
-      const fatal = fatalErrorOf(snapshot);
-      args.$fatal.set(fatal !== null);
-      if (fatal) args.$error.set(fatal.message);
-    },
-  });
-  // A construction-time death fires on("error") before any "change" — and
-  // mantaq's Subscribers replays the buffered error to subscribers added
-  // after construction — so wiring it here makes a silent __error observable.
-  args.actor.on("error", {
-    fn: (info) => {
-      args.$fatal.set(true);
-      const detail = info.error instanceof Error ? info.error.message : String(info.error);
-      args.$error.set(`Internal error (${info.reason}): ${detail}`);
-    },
-  });
-  return { state: () => nameOf(args.actor.snapshot()) };
 }
 
 /** Calls `fn(next, prev)` when the actor's state name changes (like an atom

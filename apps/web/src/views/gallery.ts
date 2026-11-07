@@ -3,24 +3,21 @@ import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import { createRef, ref } from "lit-html/directives/ref.js";
 import { atom, computed } from "nanostores";
-import type { FolderSummary, Photo, SyncStatus } from "@justus/core";
+import type { FolderSummary, JoinRequest, Photo, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import {
-  $addBatch,
-  $galleryState,
-  $galleryViewModel,
-  $lastSyncAt,
   gallery,
   galleryActor,
+  galleryViewModel,
   photoKey,
   sourceName,
   type GalleryActor,
   type AddBatch,
   type AddSource,
 } from "../machines/gallery-machine";
-import { $syncStatus } from "../machines/sync-machine";
-import { $folders } from "../machines/folders-machine";
-import { $requests } from "../machines/requests-machine";
+import { syncActor } from "../machines/sync-machine";
+import { foldersActor } from "../machines/folders-machine";
+import { requestsActor } from "../machines/requests-machine";
 import { useStore } from "../use-store";
 import { formatRelative } from "../utils/time";
 import { $photoSort } from "../utils/photo-sort";
@@ -52,7 +49,7 @@ import { tabs } from "./tabs";
 // them) is always on screen. Check the album can take them (before any picker
 // opens, so a dead end never costs a pick), pick one or many, then hand the
 // batch to the gallery actor, which adds them one by one with progress in
-// `$addBatch`.
+// the gallery batch.
 //
 // In the native shell (Android/iOS WebView) the file input is dead (those
 // hosts have no onShowFileChooser), so the host picks (`justus.media`) and
@@ -66,13 +63,10 @@ const $dropActive = atom(false);
 /** How the running batch was picked, for the "Take another" follow-up. */
 let batchVia: "library" | "camera" = "library";
 
-/** CSS <custom-ident> for the view-transition-name: unique per photo so the
- * grid reshuffles (Bramus-style) when photos are added/removed. */
-const vtName = (photo: Photo) =>
-  `photo-${`${photo.folderId ?? ""}-${photo.id}`.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+const foldersNow = () => foldersActor.snapshot().context.folders;
 
 const albumName = (folderId?: string) =>
-  $folders.get().find((f) => f.id === folderId)?.name ?? "the album";
+  foldersNow().find((f) => f.id === folderId)?.name ?? "the album";
 
 /** "New album" from Photos: name it in a sheet, then open it, ready for photos. */
 async function newAlbum() {
@@ -85,7 +79,7 @@ async function newAlbum() {
 
 /** The album, if photos can go into it; otherwise tells the user why not. */
 function addableAlbum(folderId: string): string | null {
-  const plan = planAdd(folderId, $folders.get());
+  const plan = planAdd(folderId, foldersNow());
   if (plan.kind === "viewer") {
     toast(`You can view “${plan.album.name}” but not add to it`);
     return null;
@@ -100,7 +94,7 @@ function addableAlbum(folderId: string): string | null {
 /** Picked photos → the gallery actor's batch for the album on screen. */
 function addPicked(folderId: string, sources: AddSource[], via: "library" | "camera") {
   if (sources.length === 0) return;
-  if ($addBatch.get()?.running) {
+  if (galleryActor.snapshot().context.batch?.running) {
     toast("Still adding the last photos. Try again in a moment");
     return;
   }
@@ -218,51 +212,71 @@ if (typeof document !== "undefined" && !inNativeShell) {
 
 // When a batch ends cleanly, say what happened and clear it; one with
 // failures stays on the page (with Retry) until dismissed.
-$addBatch.listen((batch, previous) => {
-  if (!previous?.running || !batch || batch.running) return;
-  if (batch.failed.length > 0) return;
-  const camera = batchVia === "camera";
-  const scope = routeScope();
-  toast(
-    batchSummary(batch, albumName(batch.folderId)),
-    camera && scope && batch.folderId
-      ? {
-          action: {
-            label: "Take another",
-            run: () => void startAdd(batch.folderId as string, "camera"),
-          },
-        }
-      : {},
-  );
-  gallery.dismissBatch();
+let wasRunning = false;
+galleryActor.on("change", {
+  fn: (snapshot) => {
+    const batch = snapshot.context.batch;
+    const finished = wasRunning && batch !== null && !batch.running;
+    wasRunning = batch?.running ?? false;
+    if (!finished || batch.failed.length > 0) return;
+    const camera = batchVia === "camera";
+    const scope = routeScope();
+    toast(
+      batchSummary(batch, albumName(batch.folderId)),
+      camera && scope && batch.folderId
+        ? {
+            action: {
+              label: "Take another",
+              run: () => void startAdd(batch.folderId as string, "camera"),
+            },
+          }
+        : {},
+    );
+    gallery.dismissBatch();
+  },
 });
 
+/** Device preferences and drag state the Photos page reads until they become machines. */
+const $pagePrefs = computed([$density, $photoSort, $dropActive], (density, sort, dropActive) => ({
+  density,
+  sort,
+  dropActive,
+}));
+
 /** Everything the Photos page reads, as one plain value. */
-const $photosPage = computed(
-  [
-    $galleryViewModel,
-    $folders,
-    $syncStatus,
-    $lastSyncAt,
-    $density,
-    $photoSort,
-    $addBatch,
-    $dropActive,
-    $requests,
-  ],
-  (gallery, folders, status, lastSync, density, sort, batch, dropActive, requests) => ({
-    ...gallery,
+function photosPageOf(
+  g: Parameters<typeof galleryViewModel>[0],
+  folders: FolderSummary[],
+  status: SyncStatus | null,
+  requests: JoinRequest[],
+  prefs: { density: Density; sort: PhotoSort; dropActive: boolean },
+) {
+  return {
+    ...galleryViewModel(g, status),
     folders,
     status,
-    lastSync,
-    density,
-    sort,
-    batch,
-    dropActive,
+    lastSync: g.context.lastSyncAt ?? null,
+    batch: g.context.batch,
     requests,
-  }),
-);
-type PhotosPage = ReturnType<typeof $photosPage.get>;
+    ...prefs,
+  };
+}
+type PhotosPage = ReturnType<typeof photosPageOf>;
+
+/** Reads the four machines the Photos page shows, one `watch` inside the next. */
+function pageView(body: (page: PhotosPage) => unknown) {
+  return watch(galleryActor, (g) =>
+    watch(foldersActor, (f) =>
+      watch(syncActor, (ss) =>
+        watch(requestsActor, (q) =>
+          useStore($pagePrefs, (prefs) =>
+            body(photosPageOf(g, f.context.folders, ss.context.status, q.context.requests, prefs)),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 /** Empty-state illustration for the empty state. */
 function emptyIllustration() {
@@ -283,7 +297,7 @@ function emptyIllustration() {
 }
 
 async function confirmRemove(photo: Photo) {
-  if ($galleryState.get() === "removing") return;
+  if (gallery.state() === "removing") return;
   const ok = await confirmAction({
     title: `Remove “${photo.name}”?`,
     detail: removeDetail(photo),
@@ -302,7 +316,6 @@ function photoTile(photo: Photo, within: Photo[]) {
     <figure
       data-photo-key=${photoKey(photo)}
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
-      style="view-transition-name: ${vtName(photo)}"
       role="button"
       tabindex="0"
       aria-label="View ${photo.name}"
@@ -405,16 +418,17 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
   );
 }
 
-/** The album's photos, read straight from the actor so tiles keep their
+/** A scope's photos, read straight from the actor so tiles keep their
  * elements (and loaded images) when photos arrive or leave. */
-export function albumPhotos(
+export function scopePhotos(
   actor: GalleryActor,
-  view: { album: FolderSummary; sort: PhotoSort; density: Density; empty: () => unknown },
+  view: { scope: PhotoScope; sort: PhotoSort; density: Density; empty: () => unknown },
 ) {
+  const scopeKey = view.scope.kind === "album" ? `album:${view.scope.id}` : view.scope.kind;
   return watch(actor, (s) => {
-    const photos = photosInScope(s.context.photos, { kind: "album", id: view.album.id });
+    const photos = photosInScope(s.context.photos, view.scope);
     const keys = sortPhotos(photos, view.sort).map(photoKey);
-    const settle = `${view.album.id}|${view.sort}|${view.density}`;
+    const settle = `${scopeKey}|${view.sort}|${view.density}`;
     return html`<div class="space-y-5" data-album-photos ${gridMotion({ keys, settle })}>
       ${
         photos.length === 0
@@ -750,7 +764,6 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   const { state, error, fatal } = page;
   const album =
     scope.kind === "album" ? (page.folders.find((f) => f.id === scope.id) ?? null) : null;
-  const photos = photosInScope(page.photos, scope);
   const loading = (state === "loading" || state === "booting") && page.photos.length === 0;
   const drop = dropHandlers(scope);
   return html`
@@ -782,21 +795,12 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
           ? loadingGrid()
           : scope.kind === "album" && !album
             ? null
-            : scope.kind === "album" && album
-              ? albumPhotos(galleryActor, {
-                  album,
-                  sort: page.sort,
-                  density: page.density,
-                  empty: () => scopeEmptyState(page, scope, album),
-                })
-              : photos.length === 0
-                ? scopeEmptyState(page, scope, album)
-                : html`
-                    ${sortControl(page.sort)} ${photoTimeline(photos, page.sort, page.density)}
-                    <footer class="pt-6 text-center text-xs text-muted">
-                      ${photos.length} photo${photos.length === 1 ? "" : "s"}
-                    </footer>
-                  `
+            : scopePhotos(galleryActor, {
+                scope,
+                sort: page.sort,
+                density: page.density,
+                empty: () => scopeEmptyState(page, scope, album),
+              })
       }
     </div>
   `;
@@ -804,7 +808,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
 
 /** The Photos page for one scope: every photo, only yours, or one album. */
 export function galleryView(scope: PhotoScope) {
-  return useStore($photosPage, (page) => photosBody(page, scope), scope.kind !== "album");
+  return pageView((page) => photosBody(page, scope));
 }
 
 function albumCard(card: AlbumCard, waiting: number) {
@@ -871,13 +875,16 @@ function albumGridBody(page: PhotosPage) {
               class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
               aria-label="Albums"
             >
-              ${cards.map((card) =>
-                albumCard(
-                  card,
-                  card.folder.role === "creator"
-                    ? page.requests.filter((r) => r.folderId === card.folder.id).length
-                    : 0,
-                ),
+              ${repeat(
+                cards,
+                (card) => card.folder.id,
+                (card) =>
+                  albumCard(
+                    card,
+                    card.folder.role === "creator"
+                      ? page.requests.filter((r) => r.folderId === card.folder.id).length
+                      : 0,
+                  ),
               )}
               <li>
                 <button
@@ -896,5 +903,5 @@ function albumGridBody(page: PhotosPage) {
 
 /** Photos → Albums: one cover card per album; tap one to see its photos. */
 export function albumGridView() {
-  return useStore($photosPage, (page) => albumGridBody(page));
+  return pageView((page) => albumGridBody(page));
 }

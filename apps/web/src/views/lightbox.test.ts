@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from "vite-plus/test";
+import { describe, it, expect, afterEach, vi } from "vite-plus/test";
 import { openLightbox, closeLightbox, step } from "./lightbox";
 import { lightboxActor } from "../machines/lightbox-machine";
-import { $photos } from "../machines/gallery-machine";
+import { galleryActor } from "../machines/gallery-machine";
 import type { Photo } from "@justus/core";
 
 function photo(id: string): Photo {
@@ -16,15 +16,18 @@ function photo(id: string): Photo {
   };
 }
 
+const setPhotos = (photos: Photo[]) =>
+  vi.spyOn(galleryActor, "snapshot").mockReturnValue({ context: { photos } } as never);
+
 describe("lightbox navigation", () => {
   afterEach(() => {
     closeLightbox();
-    $photos.set([]);
+    vi.restoreAllMocks();
   });
 
   it("steps forward and wraps from the last photo back to the first", () => {
     const photos = [photo("a"), photo("b"), photo("c")];
-    $photos.set(photos);
+    setPhotos(photos);
     openLightbox(photos[0]);
     step(1);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
@@ -36,7 +39,7 @@ describe("lightbox navigation", () => {
 
   it("steps backward and wraps from the first photo to the last", () => {
     const photos = [photo("a"), photo("b")];
-    $photos.set(photos);
+    setPhotos(photos);
     openLightbox(photos[0]);
     step(-1);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
@@ -46,20 +49,20 @@ describe("lightbox navigation", () => {
 
   it("leaves the open photo unchanged when it is no longer in the gallery", () => {
     const photos = [photo("a"), photo("b")];
-    $photos.set(photos);
+    setPhotos(photos);
     openLightbox(photo("ghost"));
     step(1);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("ghost");
   });
 
   it("does nothing and throws nothing with no open photo", () => {
-    $photos.set([photo("a")]);
+    setPhotos([photo("a")]);
     expect(() => step(1)).not.toThrow();
     expect(lightboxActor.snapshot().context.photo).toBeUndefined();
   });
   it("steps within the grid it was opened from, not every photo", () => {
     const all = [photo("a"), photo("b"), photo("c")];
-    $photos.set(all);
+    setPhotos(all);
     openLightbox(all[0], [all[0], all[2]]);
     step(1);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("c");

@@ -1,18 +1,15 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
-import {
-  $asks,
-  $folders,
-  $activeFolderId,
-  $foldersState,
-  $foldersError,
-  $userName,
-  folders,
-} from "./folders-machine";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { createFoldersActor, foldersViewModel, wireFoldersToSync } from "./folders-machine";
+import {
+  createFoldersActor,
+  folders,
+  foldersActor,
+  foldersViewModel,
+  wireFoldersToSync,
+} from "./folders-machine";
 import { gateway } from "../gateway";
-import { $syncStatus, createSyncActor, statusSeen } from "./sync-machine";
+import { createSyncActor, statusSeen, syncActor } from "./sync-machine";
 
 // The mocked gateway is loosely typed so test fixtures don't have to satisfy
 // the full FolderSummary/Photo/Either shapes.
@@ -39,6 +36,9 @@ vi.mock("../gateway", () => {
   return { gateway: g };
 });
 
+const ctx = () => foldersActor.snapshot().context;
+const sync = () => syncActor.snapshot().context;
+
 const folder = (id: string, name: string) => ({ id, name });
 
 beforeEach(() => {
@@ -48,9 +48,6 @@ beforeEach(() => {
   mock.createFolder.mockReset().mockResolvedValue([null, { folder: folder("f2", "New") }]);
   mock.setActive.mockReset().mockResolvedValue([null, { folder: folder("f1", "Trip") }]);
   mock.setName.mockReset().mockResolvedValue([null, { name: "Renamed" }]);
-  $folders.set([]);
-  $activeFolderId.set(null);
-  $foldersError.set(null);
 });
 
 describe("folders machine", () => {
@@ -60,31 +57,31 @@ describe("folders machine", () => {
       { folders: [folder("f1", "Trip")], activeFolderId: "f1" },
     ]);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
-    expect($folders.get().map((f) => f.id)).toContain("f1");
-    expect($activeFolderId.get()).toBe("f1");
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    expect(ctx().folders.map((f) => f.id)).toContain("f1");
+    expect(ctx().activeId).toBe("f1");
   });
 
   test("refresh also loads the asks, and treats a missing list as none", async () => {
     const ask = { code: "c", status: "waiting" };
     mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null, asks: [ask] }]);
     folders.refresh();
-    await vi.waitFor(() => expect($asks.get()).toEqual([ask]));
+    await vi.waitFor(() => expect(ctx().asks).toEqual([ask]));
 
     mock.folders.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
     folders.refresh();
-    await vi.waitFor(() => expect($asks.get()).toEqual([]));
+    await vi.waitFor(() => expect(ctx().asks).toEqual([]));
   });
 
   test("create appends the folder and makes it the active folder", async () => {
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
     folders.create("New");
-    await vi.waitFor(() => expect($activeFolderId.get()).toBe("f2"));
+    await vi.waitFor(() => expect(ctx().activeId).toBe("f2"));
 
-    expect($foldersState.get()).toBe("ok");
-    expect($folders.get().map((f) => f.id)).toContain("f2");
+    expect(folders.state()).toBe("ok");
+    expect(ctx().folders.map((f) => f.id)).toContain("f2");
   });
 
   test("setActive switches the active folder", async () => {
@@ -93,54 +90,52 @@ describe("folders machine", () => {
       { folders: [folder("f1", "Trip")], activeFolderId: "f1" },
     ]);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
     folders.switchTo("f1");
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
-    expect($activeFolderId.get()).toBe("f1");
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
+    expect(ctx().activeId).toBe("f1");
   });
 
-  test("switching publishes the returned status to $syncStatus", async () => {
+  test("switching gives sync the returned status", async () => {
     const status = { folder: { id: "f1", name: "Trip" }, name: "Ann" };
     mock.setActive.mockResolvedValue([null, status]);
-    $syncStatus.set(null as any);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
     folders.switchTo("f1");
-    await vi.waitFor(() => expect($syncStatus.get()).toEqual(status));
-    expect($activeFolderId.get()).toBe("f1");
+    await vi.waitFor(() => expect(sync().status).toEqual(status));
+    expect(ctx().activeId).toBe("f1");
   });
 
-  test("renaming publishes the saved name to $userName", async () => {
-    $userName.set("");
+  test("renaming sets userName", async () => {
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
     folders.rename("Renamed");
-    await vi.waitFor(() => expect($userName.get()).toBe("Renamed"));
+    await vi.waitFor(() => expect(ctx().userName).toBe("Renamed"));
   });
 
-  test("a retry after a failed refresh clears $foldersError", async () => {
+  test("a retry after a failed refresh clears the error", async () => {
     mock.folders.mockResolvedValueOnce([new Error("offline"), null]);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersError.get()).toBe("offline"));
+    await vi.waitFor(() => expect(ctx().error).toBe("offline"));
 
     folders.retry();
-    await vi.waitFor(() => expect($foldersError.get()).toBeNull());
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(ctx().error).toBeNull());
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
   });
 
   test("a create failure surfaces an error and returns to ok (no unhandled rejection)", async () => {
     mock.createFolder.mockResolvedValue([new Error("folder denied"), null]);
     folders.refresh();
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
     folders.create("X");
-    await vi.waitFor(() => expect($foldersState.get()).toBe("ok"));
+    await vi.waitFor(() => expect(folders.state()).toBe("ok"));
 
-    expect($foldersError.get()).toMatch(/denied/i);
-    expect($folders.get().map((f) => f.id)).not.toContain("f2");
+    expect(ctx().error).toMatch(/denied/i);
+    expect(ctx().folders.map((f) => f.id)).not.toContain("f2");
   });
 });
 

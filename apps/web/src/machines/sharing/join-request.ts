@@ -1,12 +1,11 @@
 import { RealClock, type Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { atom } from "nanostores";
 import { gateway } from "../../gateway";
 import { open } from "../router-machine";
 import { classifyInvite } from "../../utils/classify-invite";
 import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
-import { $asks, $folders, folders } from "../folders-machine";
+import { folders, foldersActor } from "../folders-machine";
 import {
   answerArrived,
   askToJoin,
@@ -32,8 +31,6 @@ export type JoinView = {
   error: string;
 };
 
-export const $join = atom<JoinView>({ state: "noInvite", invite: null, error: "" });
-
 /** What the join screens draw, as a pure function of the actor snapshot. */
 export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
   const name = snapshot.path[0] as JoinView["state"];
@@ -49,19 +46,18 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
 
 export const joinActor = createJoinRequestActor({
   clock: RealClock(),
-  known: (invite) => classifyInvite(invite.code, $folders.get(), $asks.get()),
+  known: (invite) =>
+    classifyInvite(
+      invite.code,
+      foldersActor.snapshot().context.folders,
+      foldersActor.snapshot().context.asks,
+    ),
   port: {
     ask: async (invite) => {
       const outcome = await gateway.ask(invite.code, invite.owner, invite.album, invite.ownerName);
       if (!outcome[0]) folders.refresh();
       return outcome;
     },
-  },
-});
-
-joinActor.on("change", {
-  fn: (snapshot) => {
-    $join.set(joinViewOf(snapshot));
   },
 });
 
