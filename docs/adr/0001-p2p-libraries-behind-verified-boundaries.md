@@ -7,7 +7,7 @@ Status: accepted (2026-11-01). Context: #200.
 A phone and a desktop could not share an album. Three bugs caused it, each a
 wrong belief about Hyperdrive or Hyperswarm (an `"update"` event that does not
 exist, a noise key taken for a drive key, a drive opened twice while the first
-open held it exclusively). `test/fake-drive.ts` encoded the same beliefs, so the
+open held it exclusively). The in-memory test fakes of that time encoded the same beliefs, so the
 tests passed. The first real-swarm suite then found three more on its first
 run: a 10-minute rediscovery gap, a dropped `server: true` announce, and
 presence caching a per-boot key forever.

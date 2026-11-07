@@ -21,15 +21,13 @@ export function createHyperPeerNetwork(deps: {
   /** Replicates the drive store over a connection (the store adapter's `replicate`). */
   replicate(conn: unknown): unknown;
   log?: P2pLog;
-  /** Tests only: replace the swarm and the per-connection channels. */
-  swarm?: any;
+  /** Tests only: replace the per-connection channels. */
   greetPeer?: typeof greetPeer;
   openVersion?: typeof openVersion;
   openAnswers?: typeof openAnswers;
 }): PeerNetwork {
   const log = deps.log ?? createP2pLog();
-  const swarm: any =
-    deps.swarm ?? new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
+  const swarm: any = new Hyperswarm(deps.bootstrap ? { bootstrap: deps.bootstrap } : undefined);
   const joins = new Map<string, Handle>();
   const servedTopics = new Set<string>();
   /** Later joins of a topic that upgraded it to serving; left with it. */
