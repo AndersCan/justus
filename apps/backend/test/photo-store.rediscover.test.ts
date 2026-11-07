@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createPhotoStore } from "../src/photo-store.ts";
 import type { PhotoStore } from "../src/photo-store.ts";
 import type { P2pEvent } from "../src/p2p-log.ts";
-import { makeFakeDeps } from "./fake-drive.ts";
+import { makeFakeDeps, withDriveHooks } from "./fake-drive.ts";
 
 type PeerlessDrive = { core: { peers?: unknown[] }; discoveryKey: Buffer };
 
@@ -16,17 +16,19 @@ function build(name: string, deps?: ReturnType<typeof makeFakeDeps>) {
   const events: P2pEvent[] = [];
   const keyless: PeerlessDrive[] = [];
   const base = deps ?? makeFakeDeps({ deviceName: name });
-  const store = createPhotoStore({
-    ...base,
-    deviceName: name,
-    log: (e: P2pEvent) => events.push(e),
-    makeDrive: (cs: unknown, key?: Buffer) => {
-      const drive = base.makeDrive(cs, key) as PeerlessDrive;
-      drive.core.peers = drive.core.peers ?? [];
-      if (!key) keyless.push(drive);
-      return drive;
-    },
-  } as typeof base);
+  const store = createPhotoStore(
+    withDriveHooks(
+      { ...base, deviceName: name, log: (e: P2pEvent) => events.push(e) },
+      {
+        makeDrive: (cs: unknown, key?: Buffer) => {
+          const drive = base.makeDrive(cs, key) as PeerlessDrive;
+          drive.core.peers = drive.core.peers ?? [];
+          if (!key) keyless.push(drive);
+          return drive;
+        },
+      },
+    ),
+  );
   return { store, events, keyless, base };
 }
 

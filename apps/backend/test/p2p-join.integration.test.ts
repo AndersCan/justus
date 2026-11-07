@@ -11,12 +11,13 @@
  */
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { mkdirSync, rmSync } from "node:fs";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
+import { join } from "node:path";
 import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
 import { createPhotoStore, type PhotoStore } from "../src/photo-store.ts";
+import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
+import { makeTmpDir } from "./tmp-dirs.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
@@ -25,11 +26,15 @@ afterEach(async () => {
 
 function device(name: string, bootstrap: unknown[]) {
   const changes: string[] = [];
+  const storageDir = makeTmpDir("justus-real-");
+  const drives = createHyperDriveStore(join(storageDir, "corestore"));
   const deps = makeFakeDeps({
+    storageDir,
+    cacheDir: join(storageDir, "cache"),
     deviceName: name,
     onChanged: (c) => changes.push(c.cause),
-    makeCorestore: (dir) => new Corestore(dir),
-    makeDrive: (cs, key) => new Hyperdrive(cs, key),
+    drives,
+    replicate: (conn) => drives.replicate(conn),
     makeSwarm: () => new Hyperswarm({ bootstrap }),
     // The real protomux greeting, not the harness fake.
     greetPeer: undefined,

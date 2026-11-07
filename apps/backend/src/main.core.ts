@@ -3,8 +3,6 @@ import { checkPhotoChanged, photoSpecs, type PhotoChanged } from "@justus/core";
 import fs from "bare-fs";
 import path from "bare-path";
 import crypto from "bare-crypto";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
 import { resolveJustusConfig } from "./config";
 import { createPhotoStore, type PhotoStore } from "./photo-store";
 import { createPhotosPlugin } from "./photos-plugin";
@@ -15,6 +13,7 @@ import { GrantLedger } from "./grant-ledger";
 import { createGrantsPlugin } from "./grants-plugin";
 import { createFileLedgerStore } from "./ledger-store";
 import { createBareFiles } from "./adapters/bare-files";
+import { createHyperDriveStore } from "./adapters/hyper-drive-store";
 import { createFriendsPlugin } from "./friends-plugin";
 import { createFriendsStore } from "./friends-store";
 import { createDevInbox } from "./dev-inbox";
@@ -77,6 +76,8 @@ function pushChange(change: PhotoChanged) {
   );
 }
 
+const drives = createHyperDriveStore(path.join(storageDir, "corestore"));
+
 const store: PhotoStore = createPhotoStore({
   storageDir,
   cacheDir,
@@ -94,8 +95,8 @@ const store: PhotoStore = createPhotoStore({
   fs,
   path,
   crypto,
-  makeCorestore: (dir) => new Corestore(dir),
-  makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
+  drives,
+  replicate: (conn) => drives.replicate(conn),
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store, checkContract: config.dev }));

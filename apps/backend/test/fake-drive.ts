@@ -18,6 +18,7 @@ import * as nodePath from "node:path";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
+import { createLegacyDriveStore, type LegacyHooks } from "./fakes/legacy-drive-store.ts";
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
@@ -261,12 +262,29 @@ export class FakeLoopbackServer {
  * also what lets multiple stores share one drive registry for #43/#49/#52. */
 const driveCache = new Map<string, FakeDrive>();
 
+/** Temporary (T11 removes it): the old drive hooks, which `drives` is built from. */
+export type LegacyDriveHooks = Pick<LegacyHooks, "makeCorestore" | "makeDrive">;
+
+export type FakeDeps = PhotoStoreDeps & LegacyDriveHooks;
+
+/** Rebuilds `deps.drives` from the hooks in `deps`, after a test replaced `makeDrive` on a copy. */
+export function withDriveHooks(deps: FakeDeps, hooks: Partial<LegacyDriveHooks>): FakeDeps {
+  const next = { ...deps, ...hooks } as FakeDeps;
+  const drives = createLegacyDriveStore(() => next);
+  next.drives = drives;
+  next.replicate = (conn) => drives.replicate(conn);
+  return next;
+}
+
 /** Builds a `PhotoStoreDeps` that runs entirely in memory via the fake
- * constructs above. Pass it straight to `createPhotoStore`. */
-export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStoreDeps {
+ * constructs above. Pass it straight to `createPhotoStore`. A test may still
+ * override `makeCorestore` / `makeDrive`; `drives` is then built from them. */
+export function makeFakeDeps(
+  overrides: Partial<PhotoStoreDeps> & Partial<LegacyDriveHooks> = {},
+): FakeDeps {
   const dir = makeTmpDir("justus-fake-");
   const corestore = new FakeCorestore();
-  return {
+  const deps = {
     storageDir: dir,
     cacheDir: join(dir, "cache"),
     server: new FakeLoopbackServer(),
@@ -302,7 +320,9 @@ export function makeFakeDeps(overrides: Partial<PhotoStoreDeps> = {}): PhotoStor
       return drive;
     },
     ...overrides,
-  } as PhotoStoreDeps;
+  } as FakeDeps;
+  if (overrides.drives) return deps;
+  return withDriveHooks(deps, {});
 }
 
 /** Makes `joiner` a Member of the Admin's album the way the app does: the

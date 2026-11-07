@@ -13,6 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
+import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 
@@ -25,11 +26,12 @@ const withTimeout = <T>(p: Promise<T>, ms: number) =>
 function realDeps(storageDir: string) {
   const cacheDir = join(storageDir, "cache");
   mkdirSync(cacheDir, { recursive: true });
+  const drives = createHyperDriveStore(join(storageDir, "corestore"));
   return makeFakeDeps({
     storageDir,
     cacheDir,
-    makeCorestore: (dir) => new Corestore(dir),
-    makeDrive: (cs, key) => new Hyperdrive(cs as never, key),
+    drives,
+    replicate: (conn) => drives.replicate(conn),
   });
 }
 

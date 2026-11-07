@@ -19,7 +19,11 @@ export type Drive = {
   key: string;
   discoveryKey: string;
   /** utf8 text, or undefined when missing or larger than `maxBytes`. The size is checked before the blob downloads. */
-  readSmall(path: string, maxBytes: number): Promise<string | undefined>;
+  readSmall(
+    path: string,
+    maxBytes: number,
+    opts?: { timeoutMs: number },
+  ): Promise<string | undefined>;
   readBytes(path: string): Promise<Uint8Array | undefined>;
   put(
     path: string,
@@ -32,6 +36,8 @@ export type Drive = {
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
   onChange(cb: () => void): () => void;
   stats(): { length: number; peers: number };
+  /** Asks peers for newer data. Resolves quietly when there is none or nobody to ask. */
+  update(): Promise<void>;
 };
 
 export type OpenResult<T> = [Error, null] | [null, T];
@@ -45,6 +51,8 @@ export type DriveStore = {
    * An unserved remote key opens empty (hyperdrive 13.3.3) rather than giving an error.
    */
   open(key: string, opts: { timeoutMs: number }): Promise<OpenResult<Drive>>;
+  /** The topic a drive with this key is served on. Known before the drive opens, so a caller can join it first. */
+  discoveryKeyOf(key: string): string;
   /** Drops one reference; the drive really closes at zero. */
   release(drive: Drive): Promise<void>;
   close(): Promise<void>;

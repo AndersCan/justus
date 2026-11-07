@@ -6,14 +6,15 @@
  */
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { mkdirSync, rmSync } from "node:fs";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
+import { join } from "node:path";
 import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
 import { greetPeer } from "../src/adapters/peer-identity.ts";
 import { openAnswers } from "../src/adapters/peer-answer.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
+import { createHyperDriveStore } from "../src/adapters/hyper-drive-store.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { eventually } from "./p2p-scenarios.ts";
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -26,10 +27,14 @@ function device(
   bootstrap: unknown[],
   extra: { claim?: () => string; received?: unknown[] } = {},
 ) {
+  const storageDir = makeTmpDir("justus-real-");
+  const drives = createHyperDriveStore(join(storageDir, "corestore"));
   const deps = makeFakeDeps({
+    storageDir,
+    cacheDir: join(storageDir, "cache"),
     deviceName: name,
-    makeCorestore: (dir) => new Corestore(dir),
-    makeDrive: (cs, key) => new Hyperdrive(cs, key),
+    drives,
+    replicate: (conn) => drives.replicate(conn),
     makeSwarm: () => new Hyperswarm({ bootstrap }),
     greetPeer: extra.claim
       ? (conn: unknown, own: Uint8Array, onIdentity: (key: Uint8Array) => void) =>

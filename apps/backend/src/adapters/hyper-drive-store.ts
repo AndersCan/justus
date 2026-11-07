@@ -1,6 +1,7 @@
 import { short, type P2pLog } from "../p2p-log";
 import type { Drive, DriveEntry, DriveStore } from "../ports/drive-store";
 import Corestore from "corestore";
+import Hypercore from "hypercore";
 import Hyperdrive from "hyperdrive";
 
 type Entry = { raw: any; drive: Drive; refs: number };
@@ -31,11 +32,12 @@ function wrap(raw: any): Drive {
   return {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
-    async readSmall(path, maxBytes) {
-      const node = await raw.entry(path);
+    async readSmall(path, maxBytes, opts) {
+      const readOpts = opts ? { timeout: opts.timeoutMs } : undefined;
+      const node = await raw.entry(path, readOpts);
       const size = node?.value?.blob?.byteLength;
       if (typeof size === "number" && size > maxBytes) return undefined;
-      const bytes = await raw.get(path);
+      const bytes = await raw.get(path, readOpts);
       if (bytes === null || bytes === undefined || bytes.byteLength > maxBytes) return undefined;
       // Not TextDecoder: Bare has no global one (#201).
       return Buffer.from(bytes).toString("utf8");
@@ -69,6 +71,9 @@ function wrap(raw: any): Drive {
     },
     stats() {
       return { length: raw.core.length, peers: raw.core.peers?.length ?? 0 };
+    },
+    async update() {
+      await raw.update();
     },
   };
 }
@@ -115,6 +120,7 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
   return {
     replicate: (conn) => corestore.replicate(conn as never),
     ready: () => corestore.ready(),
+    discoveryKeyOf: (key) => toHex(Hypercore.discoveryKey(Buffer.from(key, "hex"))),
     async openOwn(namespace) {
       await corestore.ready();
       const store = namespace ? corestore.namespace(namespace) : corestore;

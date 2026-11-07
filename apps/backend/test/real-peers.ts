@@ -15,9 +15,7 @@ import type { PeerNode, PeerWorld } from "./contracts/peer-network.contract.ts";
 import { makeFakeDeps } from "./fake-drive.ts";
 import { trackTmpPath } from "./tmp-dirs.ts";
 import { eventually, type Net, type Peer, type PhotoChanged } from "./p2p-scenarios.ts";
-import Corestore from "corestore";
 import createTestnet from "hyperdht/testnet";
-import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
@@ -48,13 +46,14 @@ export async function realNet(): Promise<Net> {
     if (!storageDir) dirs.push(dir);
     const changes: PhotoChanged[] = [];
     const events: P2pEvent[] = [];
+    const drives = createHyperDriveStore(join(dir, "corestore"));
     const deps = makeFakeDeps({
       storageDir: dir,
       cacheDir: join(dir, "cache"),
       deviceName: name,
       onChanged: (c) => changes.push(c),
-      makeCorestore: (d) => new Corestore(d),
-      makeDrive: (cs, key) => new Hyperdrive(cs, key),
+      drives,
+      replicate: (conn) => drives.replicate(conn),
       makeSwarm: () => new Hyperswarm({ bootstrap: testnet.bootstrap }),
       // The real protomux greeting, not the harness fake.
       greetPeer: undefined,

@@ -192,3 +192,26 @@ describe("peer versions", () => {
     await s.peer.store.close();
   });
 });
+
+describe("older peer whose name never arrives", () => {
+  it("stops polling its drive once the store closes", async () => {
+    const s = await setup();
+    const drive = s.peer.own[0] as unknown as {
+      get: () => Promise<null>;
+      update: () => Promise<void>;
+    };
+    let updates = 0;
+    drive.get = async () => null;
+    drive.update = async () => {
+      updates++;
+    };
+    s.swarm.emit("connection", conn(s.peerKey));
+    for (let i = 0; i < 50 && updates < 2; i++) await new Promise((r) => setTimeout(r, 20));
+    expect(updates).toBeGreaterThanOrEqual(2);
+    await s.me.store.close();
+    const atClose = updates;
+    await new Promise((r) => setTimeout(r, 400));
+    expect(updates).toBeLessThanOrEqual(atClose + 1);
+    await s.peer.store.close();
+  });
+});

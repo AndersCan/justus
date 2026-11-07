@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 export const workletExternal = [
   "@ekrooh/bare",
   "corestore",
+  "hypercore",
   "hyperdrive",
   "hyperswarm",
   "bare-crypto",
