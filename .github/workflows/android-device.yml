@@ -84,6 +84,7 @@ jobs:
           retention-days: 14
       # Spike: Play listing screenshots through screengrab. Moves to release-android.yml.
       - name: Store screenshots
+        if: ${{ !cancelled() }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 36
