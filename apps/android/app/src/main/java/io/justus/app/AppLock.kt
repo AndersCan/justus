@@ -10,12 +10,15 @@ import androidx.fragment.app.FragmentActivity
 
 internal const val LOCK_AFTER_MS = 30_000L
 
+/** Coming back from a picker, camera or our own prompt can take a while; past this it still locks. */
+internal const val OWN_SCREEN_LOCK_AFTER_MS = 300_000L
+
 private const val PREFS = "app_lock"
 private const val KEY_ENABLED = "enabled"
 
 /** stoppedAt: elapsedRealtime when the app last left the foreground; null = cold start. */
-internal fun lockDue(enabled: Boolean, stoppedAt: Long?, now: Long): Boolean =
-    enabled && (stoppedAt == null || now < stoppedAt || now - stoppedAt >= LOCK_AFTER_MS)
+internal fun lockDue(enabled: Boolean, stoppedAt: Long?, now: Long, limitMs: Long = LOCK_AFTER_MS): Boolean =
+    enabled && (stoppedAt == null || now < stoppedAt || now - stoppedAt >= limitMs)
 
 internal sealed interface UnlockResult {
     data object Success : UnlockResult

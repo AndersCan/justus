@@ -240,5 +240,5 @@ jobs:
       # Runs link (bare-link), buildBareJs, buildWebAssets and packApp, then
       # compiles the Kotlin, resources and manifest.
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug
         working-directory: apps/android

@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
     private var stoppedAt: Long? = null
     private var ownScreenOpen = false
     private var promptShownThisLock = false
-    private var pendingToggle: ((HostPluginRegistry.HostInvokeOutcome) -> Unit)? = null
+    private var pendingToggle: (() -> Unit)? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
         val now = SystemClock.elapsedRealtime()
         if (locked && !isDeviceSecure(this)) {
             locked = false
-        } else if (!ownScreenOpen && !locked && stoppedAt != null && lockDue(lockEnabled(this), stoppedAt, now)) {
+        } else if (!locked && stoppedAt != null && lockDue(lockEnabled(this), stoppedAt, now, if (ownScreenOpen) OWN_SCREEN_LOCK_AFTER_MS else LOCK_AFTER_MS)) {
             locked = true
             promptShownThisLock = false
         }
@@ -194,9 +194,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        // A recreated activity (e.g. rotation) drops the prompt; answer the web side now.
+        pendingToggle?.let { cancel ->
+            pendingToggle = null
+            cancel()
+        }
+        super.onDestroy()
+    }
+
     override fun onStop() {
         super.onStop()
-        if (!ownScreenOpen) stoppedAt = SystemClock.elapsedRealtime()
+        stoppedAt = SystemClock.elapsedRealtime()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -249,9 +258,10 @@ class MainActivity : AppCompatActivity() {
                 } else if (pendingToggle != null) {
                     fail("Unlock already in progress")
                 } else {
-                    pendingToggle = respond
+                    pendingToggle = { respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("enabled", old))) }
                     ownScreenOpen = true
                     showUnlockPrompt(this) { result ->
+                        if (pendingToggle == null) return@showUnlockPrompt
                         pendingToggle = null
                         ownScreenOpen = false
                         when (result) {
