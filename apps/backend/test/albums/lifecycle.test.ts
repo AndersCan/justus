@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../../src/photo-store.ts";
-import { parseDeleteNote } from "../../src/albums/lifecycle.ts";
+import { deleteOwnPhotos, parseDeleteNote } from "../../src/albums/lifecycle.ts";
+import { inviteTopic } from "../../src/membership/invite.ts";
+import type { Drive } from "../../src/ports/drive-store.ts";
 import { FakeDrive, joinAsMember, makeFakeDeps } from "../fake-drive.ts";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -157,5 +159,109 @@ describe("delete note", () => {
       adminName: "N".repeat(80),
     });
     expect(parseDeleteNote(JSON.stringify({ version: 9 }))).toEqual({ adminName: "the Admin" });
+  });
+});
+
+describe("delete clears what it should", () => {
+  function track() {
+    const cleared: Array<{ key: string; path: string }> = [];
+    const purged: string[] = [];
+    const clear = FakeDrive.prototype.clear;
+    const purge = FakeDrive.prototype.purge;
+    const spies = [
+      vi.spyOn(FakeDrive.prototype, "clear").mockImplementation(function (
+        this: FakeDrive,
+        path: string,
+      ) {
+        cleared.push({ key: this.key.toString("hex"), path });
+        return clear.call(this, path);
+      }),
+      vi.spyOn(FakeDrive.prototype, "purge").mockImplementation(function (this: FakeDrive) {
+        purged.push(this.key.toString("hex"));
+        return purge.call(this);
+      }),
+    ];
+    return { cleared, purged, restore: () => spies.forEach((s) => s.mockRestore()) };
+  }
+
+  it("clears the Admin's photo bytes and leaves the delete note", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const seen = track();
+    try {
+      expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    } finally {
+      seen.restore();
+    }
+    expect(seen.cleared.some((c) => c.path.startsWith("/photos/"))).toBe(true);
+    const drives = [...new Set(seen.cleared.map((c) => c.key))].map(
+      (key) => admin.deps.makeDrive(undefined, Buffer.from(key, "hex")) as FakeDrive,
+    );
+    expect(drives.length).toBeGreaterThan(0);
+    for (const drive of drives) expect(drive.countPhotos()).toBe(0);
+    expect(drives.some((d) => d.readFile("/deleted.json") !== null)).toBe(true);
+  });
+
+  it("purges the other drives and leaves the invite topic of the album", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const member = device("Maya");
+    await member.store.ready();
+    const memberKey = await joinAsMember(admin.store, album.id, member.store, album.shareKey);
+    const saved = JSON.parse(readFileSync(join(admin.deps.storageDir, "justus.json"), "utf8"));
+    const code: string = saved.folders[0].invite.code;
+    const leave = vi.spyOn(admin.deps.network, "leave");
+    const seen = track();
+    try {
+      expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    } finally {
+      seen.restore();
+    }
+    expect(seen.purged).toContain(memberKey);
+    const left = leave.mock.calls.map((call: unknown[]) => call[0]);
+    expect(left).toContain(inviteTopic(code, admin.deps.crypto).toString("hex"));
+  });
+});
+
+describe("deleteOwnPhotos", () => {
+  function stub(paths: string[], failOn?: string) {
+    const files = new Set(paths);
+    const cleared: string[] = [];
+    const drive = {
+      async *list(dir: string) {
+        for (const path of Array.from(files)) if (path.startsWith(dir + "/")) yield { path };
+      },
+      async clear(path: string) {
+        if (path === failOn) throw new Error("boom");
+        cleared.push(path);
+      },
+      async del(path: string) {
+        files.delete(path);
+      },
+    } as unknown as Drive;
+    return { drive, files, cleared };
+  }
+
+  it("clears and deletes photos and thumbs, and keeps everything else", async () => {
+    const { drive, files, cleared } = stub(["/photos/a", "/thumbs/a", "/deleted.json", "/x"]);
+    await deleteOwnPhotos(drive, { log: () => {} });
+    expect([...files].sort()).toEqual(["/deleted.json", "/x"]);
+    expect(cleared.sort()).toEqual(["/photos/a", "/thumbs/a"]);
+  });
+
+  it("is safe to run twice", async () => {
+    const { drive, files } = stub(["/photos/a"]);
+    await deleteOwnPhotos(drive, { log: () => {} });
+    await deleteOwnPhotos(drive, { log: () => {} });
+    expect([...files]).toEqual([]);
+  });
+
+  it("logs a file that fails to clear and goes on with the others", async () => {
+    const { drive, files } = stub(["/photos/a", "/photos/b"], "/photos/a");
+    const log = vi.fn();
+    await deleteOwnPhotos(drive, { log });
+    expect([...files]).toEqual(["/photos/a"]);
+    expect(log).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ path: "/photos/a", err: "boom" }),
+    );
   });
 });

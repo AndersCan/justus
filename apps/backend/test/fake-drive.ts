@@ -110,6 +110,24 @@ export class FakeDrive extends Emitter {
     this.core.emit("append");
   }
 
+  /** Mirrors Hyperdrive `clear`: the bytes go, the entry stays. */
+  async clear(path: string): Promise<void> {
+    if (this.files.has(path)) this.files.set(path, Buffer.alloc(0));
+    this.cleared.add(path);
+  }
+
+  /** Mirrors Hyperdrive `purge`: the whole drive is gone from this phone. */
+  async purge(): Promise<void> {
+    this.files.clear();
+    this.metadata.clear();
+    this.purged = true;
+  }
+
+  /** Test hook: paths whose bytes were cleared. */
+  readonly cleared = new Set<string>();
+  /** Test hook: true once `purge()` ran. */
+  purged = false;
+
   async del(path: string): Promise<void> {
     this.files.delete(path);
     this.metadata.delete(path);
