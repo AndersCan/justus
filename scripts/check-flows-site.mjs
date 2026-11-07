@@ -158,12 +158,13 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+let liveCount = 0;
 for (const name of pages) {
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
-    if (message.type() === "error" && !message.location().url.endsWith("/favicon.ico"))
+    if (message.type() === "error" && !/\/favicon\.(ico|svg)$/.test(message.location().url))
       errors.push(message.text());
   });
   await page.goto(`${origin}${BASE}/${name}/`);
@@ -184,17 +185,28 @@ for (const name of pages) {
   }
   for (let machine = 0; machine < machineCount; machine++) {
     const root = machines.nth(machine);
-    const live = (await root.innerText()).includes("Live: the real machine runs");
+    const live = (await root.innerText()).includes("The real machine runs here, in your browser");
     if (!live) continue;
+    liveCount++;
     const before = await root.locator(".explore").first().getAttribute("data-current");
     const sends = await root.locator("[data-send]").count();
-    let moved = false;
-    for (let index = 0; index < sends && !moved; index++) {
+    let handled = false;
+    for (let index = 0; index < sends && !handled; index++) {
       await root.locator("[data-send]").nth(index).click();
-      moved = (await root.locator(".explore").first().getAttribute("data-current")) !== before;
+      // Events that declare a payload open a form filled with a sample; send it as is.
+      const send = root.locator("[data-payload-send]");
+      if ((await send.count()) > 0) await send.first().click();
+      // An event the machine handles, even one that keeps the state, leaves an outcome that is
+      // not "ignored". A machine that answers nothing leaves none, so the check still fails.
+      const outcomes = root.locator("[data-outcome]");
+      const outcome =
+        (await outcomes.count()) > 0 ? await outcomes.first().getAttribute("data-outcome") : null;
+      handled =
+        (await root.locator(".explore").first().getAttribute("data-current")) !== before ||
+        (outcome !== null && outcome !== "ignored");
     }
-    if (!moved) {
-      console.error(`check-flows-site: no event moved the cursor in ${name} (machine ${machine})`);
+    if (!handled) {
+      console.error(`check-flows-site: no event was handled in ${name} (machine ${machine})`);
       failed = true;
     }
   }
@@ -203,6 +215,10 @@ for (const name of pages) {
     failed = true;
   }
   await page.close();
+}
+if (liveCount === 0) {
+  console.error("check-flows-site: no live machine found on any page, so no live loop ran");
+  failed = true;
 }
 // The state each walk is told to end in. Written by hand, so the check does not
 // trust the viewer or the recorded run to say where the cursor should land.
