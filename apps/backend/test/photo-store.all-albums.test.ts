@@ -6,43 +6,19 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
+import { createFakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Mirrors the multi-device harness in photo-store.fake.test.ts: N in-memory
- * stores that share ONE drive registry, so a drive opened by key resolves to the
- * same `FakeDrive` across stores (modelling p2p replication). */
+/** N stores on one hub, so they share drives the way replicating phones do. */
 function buildDevices(names: string[]) {
-  const cache = new Map<string, FakeDrive>();
-  const meta = names.map(() => ({ ownDrive: null as FakeDrive | null }));
-  let devSeed = 0;
-  const makeDriveFor = (i: number) => {
-    let firstNoKey = true;
-    return (_cs: unknown, key?: Buffer): FakeDrive => {
-      const seed = key ? key.toString("hex") : `seed-${i}-${devSeed++}`;
-      const drive = new FakeDrive(seed);
-      const id = drive.key.toString("hex");
-      let cached = cache.get(id);
-      if (!cached) {
-        cache.set(id, drive);
-        cached = drive;
-      }
-      if (!key && firstNoKey) {
-        firstNoKey = false;
-        meta[i].ownDrive = cached;
-      }
-      return cached;
-    };
-  };
-  const devices = names.map((name, i) => {
-    const deps = makeFakeDeps({
-      deviceName: name,
-      makeDrive: makeDriveFor(i),
-    });
+  const hub = createFakeHub();
+  const devices = names.map((name) => {
+    const deps = fakeStoreDeps({ hub, deviceName: name });
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
-    return { store, deps, ownDrive: () => meta[i].ownDrive! };
+    return { store, deps };
   });
   return { devices };
 }

@@ -1,7 +1,6 @@
 /**
  * Drive-dependent scenario tests for `createPhotoStore`, built entirely on the
- * in-memory substitutes from `./fake-drive` (see
- * docs/design/fake-drive-test-harness-spec.md). Each suite reproduces one of the
+ * contract-checked fakes (`./fakes/fake-store-deps`). Each suite reproduces one of the
  * six sweep bugs (#42/#43/#46/#47/#49/#52) deterministically and asserts the
  * fixed behavior.
  *
@@ -13,41 +12,45 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { FakeDrive, joinAsMember, makeFakeDeps } from "./fake-drive.ts";
+import { createFakeHub, type FakeNode } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
+import type { DriveStore } from "../src/ports/drive-store.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Build a store whose p2p constructs are in-memory, capturing the fake drives
- * it creates so tests can fire replication updates on a specific folder. */
+/** A write by the drive's owner: fires the drive's change listeners, as a replicated update does. */
+async function touch(drives: DriveStore, key: string): Promise<void> {
+  const [err, drive] = await drives.open(key, { timeoutMs: 1_000 });
+  if (err) throw err;
+  await drive.put("/touch", new TextEncoder().encode(String(Date.now())));
+  await drives.release(drive);
+}
+
+/** Photos stored under /photos/ in this node's copy of the drive. */
+const photosOn = (node: FakeNode, key: string): number =>
+  [...(node.replicas.get(key)?.files.keys() ?? [])].filter((p) => p.startsWith("/photos/")).length;
+
+/** A store on the checked fakes. Drives named in `offline` do not become ready. */
 function buildStore() {
-  const drives: FakeDrive[] = [];
+  const offline = new Set<string>();
+  const hub = createFakeHub({ unreachable: (key) => offline.has(key) });
   const changes: Array<{ folderId: string }> = [];
-  const deps = makeFakeDeps({
+  const deps = fakeStoreDeps({
+    hub,
     onChanged: (c) => changes.push({ folderId: c.folderId }),
-    makeDrive: (_cs: unknown, key?: Buffer) => {
-      const drive = new FakeDrive(key ? key.toString("hex") : `seed-${drives.length}`);
-      drives.push(drive);
-      return drive;
-    },
   });
   const store = createPhotoStore(deps);
   // addBytes stages uploads into cacheDir, which the production runtime
   // pre-creates — mirror that here so staging doesn't throw.
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { store, drives, changes };
-}
-
-function driveFor(drives: FakeDrive[], shareKey: string): FakeDrive {
-  const found = drives.find((d) => d.key.toString("hex") === shareKey);
-  if (!found) throw new Error(`no fake drive for shareKey ${shareKey}`);
-  return found;
+  return { store, deps, offline, changes };
 }
 
 // #46 originally silenced inactive folders. Every album now stays live so the
 // Photos page can show all of them, so an inactive album must keep reporting.
 describe("#46 switching albums keeps every album live", () => {
   it("keeps firing onChanged for an inactive folder's drive", async () => {
-    const { store, drives, changes } = buildStore();
+    const { store, deps, changes } = buildStore();
     await store.ready();
 
     const aRes = await store.createFolder("A");
@@ -59,20 +62,17 @@ describe("#46 switching albums keeps every album live", () => {
     const bId = (bRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
     const aKey = (aRes[1] as { folder: { shareKey: string } }).folder.shareKey;
     const bKey = (bRes[1] as { folder: { shareKey: string } }).folder.shareKey;
-    const aDrive = driveFor(drives, aKey);
-    const bDrive = driveFor(drives, bKey);
-
     await store.setActive(aId);
 
     // A is active and still watched → its updates reach onChanged.
     const beforeA = changes.length;
-    aDrive.emitUpdate();
+    await touch(deps.drives, aKey);
     await sleep(500);
     expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
 
     // B is inactive but still live → replication to B reaches onChanged too.
     const beforeB = changes.length;
-    bDrive.emitUpdate();
+    await touch(deps.drives, bKey);
     await sleep(500);
     expect(changes.slice(beforeB).some((c) => c.folderId === bId)).toBe(true);
 
@@ -117,7 +117,8 @@ describe("#42 a creator folder must stay a creator after a restart", () => {
     mkdirSync(cacheDir, { recursive: true });
 
     // Session 1: build the device, add a 2nd creator folder, add a photo.
-    const store1 = createPhotoStore(makeFakeDeps({ storageDir, cacheDir, seedOnEmpty: false }));
+    const first = fakeStoreDeps({ storageDir, cacheDir, seedOnEmpty: false });
+    const store1 = createPhotoStore(first);
     await store1.ready();
     const created = await store1.createFolder("Holidays");
     expect(created[0]).toBeNull();
@@ -129,7 +130,7 @@ describe("#42 a creator folder must stay a creator after a restart", () => {
     await store1.close();
 
     // Session 2: simulate a restart — same storageDir, fresh in-memory drives.
-    const store2 = createPhotoStore(makeFakeDeps({ storageDir, cacheDir, seedOnEmpty: false }));
+    const store2 = createPhotoStore(restarted(first));
     await store2.ready();
 
     const after = await store2.folders();
@@ -148,55 +149,28 @@ describe("#42 a creator folder must stay a creator after a restart", () => {
   });
 });
 
-/** Hex-encode a buffer (mirrors the store's internal `hex`). */
-const hexKey = (b: Buffer): string => b.toString("hex");
-
 /**
- * Builds N stores whose p2p constructs are in-memory AND share ONE drive
- * registry, so a drive opened by key resolves to the same `FakeDrive` instance
- * across every store (modelling p2p replication). This is what lets us drive
- * genuine multi-device scenarios (#43/#49/#52) where a member's drive contents
- * are visible to another member's store.
- *
- * `ownDrive()` returns the device's identity drive (created on `ready()`), whose
- * key is random — so the test reads it back after `ready()` to enrol members.
+ * Builds N stores on one hub, so a drive opened by key is the same replicated
+ * drive across every store (modelling p2p replication). This is what lets us
+ * drive genuine multi-device scenarios (#43/#49/#52) where a member's drive
+ * contents are visible to another member's store.
  */
 function buildDevices(names: string[]) {
-  const cache = new Map<string, FakeDrive>();
-  const meta = names.map(() => ({ ownDrive: null as FakeDrive | null }));
-  let devSeed = 0;
-  const makeDriveFor = (i: number) => {
-    let firstNoKey = true;
-    return (_cs: unknown, key?: Buffer): FakeDrive => {
-      const seed = key ? key.toString("hex") : `seed-${i}-${devSeed++}`;
-      const drive = new FakeDrive(seed);
-      const id = drive.key.toString("hex");
-      let cached = cache.get(id);
-      if (!cached) {
-        cache.set(id, drive);
-        cached = drive;
-      }
-      if (!key && firstNoKey) {
-        firstNoKey = false;
-        meta[i].ownDrive = cached;
-      }
-      return cached;
-    };
-  };
-  const devices = names.map((name, i) => {
+  const hub = createFakeHub();
+  const devices = names.map((name) => {
     const changes: Array<{ folderId: string }> = [];
-    const deps = makeFakeDeps({
+    const deps = fakeStoreDeps({
+      hub,
       deviceName: name,
       onChanged: (c) => changes.push({ folderId: c.folderId }),
-      makeDrive: makeDriveFor(i),
     });
     // addBytes stages uploads into cacheDir, which the production runtime
     // pre-creates — mirror that here so staging doesn't throw.
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
-    return { store, changes, deps, ownDrive: () => meta[i].ownDrive! };
+    return { store, changes, deps };
   });
-  return { devices, cache };
+  return { devices };
 }
 
 describe("#49 a member re-adding another member's bytes must own its own copy", () => {
@@ -273,7 +247,7 @@ describe("#52 an approved join must upgrade reader → member in-session", () =>
     expect(bobFolder.pending).toBe(true);
     // Bob asked with his drive for this album, not his identity drive (#195).
     const bobKey = bobFolder.driveKey;
-    expect(bobKey).not.toBe(hexKey(bob.ownDrive().key));
+    expect(bobKey).not.toBe((await bob.deps.drives.openOwn()).key);
 
     // An unapproved reader cannot add photos.
     const earlyAdd = await bob.store.addBytes("early.jpg", new Uint8Array([1, 2, 3]));
@@ -304,7 +278,7 @@ describe("#52 an approved join must upgrade reader → member in-session", () =>
 
 describe("#43 content dedupe must survive an unreachable drive", () => {
   it("does not write a duplicate when the owner's drive is briefly offline", async () => {
-    const { store, drives } = buildStore();
+    const { store, deps, offline } = buildStore();
     await store.ready();
     await store.createFolder("Mine");
 
@@ -318,8 +292,8 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
     // Simulate this device's own drive going unreachable right before a re-add
     // (a flaky peer / not-yet-replicated block). A live full-gallery scan would
     // now skip it and miss the existing copy.
-    const own = driveFor(drives, (await store.status()).folder.shareKey);
-    own.unreachable = true;
+    const ownKey = (await store.status()).folder.shareKey;
+    offline.add(ownKey);
 
     // Re-adding the same bytes must dedupe in-session via the content index,
     // returning the SAME entry rather than writing a second copy.
@@ -328,21 +302,21 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
     expect(r2[1].id).toBe(firstId);
 
     // No second photo was written to the drive.
-    expect(own.countPhotos()).toBe(1);
+    expect(photosOn(deps.node, ownKey)).toBe(1);
 
     // After the drive recovers, the original is still there and dedupes.
-    own.unreachable = false;
+    offline.delete(ownKey);
     const r3 = await store.addBytes("mine.jpg", photo);
     expect(r3[0]).toBeNull();
     expect(r3[1].id).toBe(firstId);
-    expect(own.countPhotos()).toBe(1);
+    expect(photosOn(deps.node, ownKey)).toBe(1);
 
     await store.close();
   });
 
   describe("#76 setActive must re-arm the incoming folder's watcher after a round-trip", () => {
     it("keeps firing onChanged for A after A->B->A", async () => {
-      const { store, drives, changes } = buildStore();
+      const { store, deps, changes } = buildStore();
       await store.ready();
       const aRes = await store.createFolder("A");
       expect(aRes[0]).toBeNull();
@@ -352,17 +326,15 @@ describe("#43 content dedupe must survive an unreachable drive", () => {
       const bId = (bRes[1] as { folder: { id: string; shareKey: string } }).folder.id;
       const aKey = (aRes[1] as { folder: { shareKey: string } }).folder.shareKey;
       const bKey = (bRes[1] as { folder: { shareKey: string } }).folder.shareKey;
-      const aDrive = driveFor(drives, aKey);
-      const bDrive = driveFor(drives, bKey);
       await store.setActive(aId);
       await store.setActive(bId);
       await store.setActive(aId);
       const beforeA = changes.length;
-      aDrive.emitUpdate();
+      await touch(deps.drives, aKey);
       await sleep(500);
       expect(changes.slice(beforeA).some((c) => c.folderId === aId)).toBe(true);
       const beforeB = changes.length;
-      bDrive.emitUpdate();
+      await touch(deps.drives, bKey);
       await sleep(500);
       expect(changes.slice(beforeB).filter((c) => c.folderId === bId)).toHaveLength(1);
       await store.close();
@@ -416,7 +388,7 @@ describe("#89 folder/status member metadata must be consistent across roles", ()
 
 describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-trip", () => {
   it("keeps firing onChanged for a peer's drive after Family -> Trips -> Family", async () => {
-    const { devices, cache } = buildDevices(["Creator", "Alice", "Bob"]);
+    const { devices } = buildDevices(["Creator", "Alice", "Bob"]);
     const [creator, alice, bob] = devices;
     await creator.store.ready();
     await alice.store.ready();
@@ -425,7 +397,7 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
     // Creator makes a folder and enrols Bob + Alice. Alice joins as a member,
     // so her Family runtime opens Bob's drive into `rt.memberDrives` and arms a
     // watcher on it (issue #89 path). The fake shares drives by key, so the
-    // instance Alice watches is the same one `cache.get(bobKey)` returns below.
+    // drive Alice watches is Bob's own, which Bob's deps write below.
     const created = await creator.store.createFolder("Family");
     expect(created[0]).toBeNull();
     const folderId = created[1]!.folder.id;
@@ -454,10 +426,8 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
 
     // The re-activation must have re-opened Bob's drive and re-armed its watcher.
     await sleep(600);
-    const bobDrive = cache.get(bobKey);
-    expect(bobDrive).toBeDefined();
     const before = alice.changes.length;
-    bobDrive!.emitUpdate();
+    await touch(bob.deps.drives, bobKey);
     await sleep(600);
 
     // Replication from Bob's drive must still reach the gallery for Family.
@@ -469,9 +439,7 @@ describe("#86/#91/#96 setActive must re-arm member-drive watchers after a round-
 
 describe("createFolder gives each new album a drive of its own", () => {
   it("never reuses the device's own drive or another album's", async () => {
-    // Default fakes: a keyless drive is its corestore namespace's default core,
-    // as with real Hyperdrive, so a shared corestore would hand back one drive.
-    const deps = makeFakeDeps();
+    const deps = fakeStoreDeps();
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
     await store.ready();

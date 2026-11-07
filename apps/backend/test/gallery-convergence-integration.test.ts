@@ -6,14 +6,14 @@
  * The fork harness re-implements sync mechanics on top of `deriveGallery` so it
  * can run with no Bare runtime. This file drives the actual `createPhotoStore`
  * API (`addBytes` -> drive -> `list` -> `deriveGallery`) across two real devices
- * that share one in-memory drive registry (the `FakeDrive` harness), so the
+ * that share one hub of checked fakes, so the
  * invariants are proven against the production code path — including the
  * #19/#82 metadata threading (real `sha256`) and the #20/#43 content dedupe
  * that only exist at the `add` layer.
  *
- * Runs under vitest with no Bare runtime or live p2p: `FakeDrive` instances are
- * cached by key across both stores, so a photo one device writes is visible to
- * the other the moment `list()` re-scans the shared in-memory drive. The CI
+ * Runs under vitest with no Bare runtime or live p2p: the drive fakes on one hub
+ * replicate, so a photo one device writes is visible to
+ * the other the moment `list()` re-scans the replicated drive. The CI
  * expansion of this lane (real Bare two-peer replication) is a guarded
  * superset; this in-sandbox slice pins the seam logic itself.
  */
@@ -21,46 +21,24 @@ import { describe, expect, it } from "vite-plus/test";
 import { createHash } from "node:crypto";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { canonicalGalleryOrder, type CanonicalOrderKey } from "../src/gallery-order.ts";
-import { joinAsMember, makeFakeDeps, FakeDrive } from "./fake-drive.ts";
+import { createFakeHub } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
 import { mkdirSync } from "node:fs";
 
 const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 
-/** Build N real stores that share ONE drive registry (modelling p2p), so a
- * drive opened by key resolves to the same `FakeDrive` across every store. */
+/** Build N real stores on one hub (modelling p2p), so a drive opened by key
+ * is the same replicated drive across every store. */
 function buildDevices(names: string[]) {
-  const cache = new Map<string, FakeDrive>();
-  const meta = names.map(() => ({ ownDrive: null as FakeDrive | null }));
-  let devSeed = 0;
-  const makeDriveFor = (i: number) => {
-    let firstNoKey = true;
-    return (_cs: unknown, key?: Buffer): FakeDrive => {
-      const seed = key ? key.toString("hex") : `seed-${i}-${devSeed++}`;
-      const drive = new FakeDrive(seed);
-      const id = drive.key.toString("hex");
-      let cached = cache.get(id);
-      if (!cached) {
-        cache.set(id, drive);
-        cached = drive;
-      }
-      if (!key && firstNoKey) {
-        firstNoKey = false;
-        meta[i].ownDrive = cached;
-      }
-      return cached;
-    };
-  };
-  const devices = names.map((name, i) => {
-    const deps = makeFakeDeps({
-      deviceName: name,
-      makeDrive: makeDriveFor(i),
-    });
+  const hub = createFakeHub();
+  const devices = names.map((name) => {
+    const deps = fakeStoreDeps({ hub, deviceName: name });
     mkdirSync(deps.cacheDir, { recursive: true });
     const store = createPhotoStore(deps);
-    return { store, deps, ownDrive: () => meta[i].ownDrive! };
+    return { store, deps };
   });
-  return { devices, cache };
+  return { devices };
 }
 
 const bytes = (arr: number[]): Uint8Array => new Uint8Array(arr);
