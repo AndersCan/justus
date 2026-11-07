@@ -20,10 +20,13 @@ describe("photos page drop overlay", () => {
     render(galleryView({ kind: "all" }) as never, root);
     const page = root.querySelector("[data-drop-overlay]")?.parentElement as HTMLElement;
     const overlay = root.querySelector("[data-drop-overlay]") as HTMLElement;
-    expect(overlay.hidden).toBe(true);
+    expect(overlay.classList.contains("hidden")).toBe(true);
+    expect(overlay.classList.contains("flex")).toBe(false);
     page.dispatchEvent(dragEvent("dragenter"));
-    expect(overlay.hidden).toBe(false);
+    expect(overlay.classList.contains("hidden")).toBe(false);
+    expect(overlay.classList.contains("flex")).toBe(true);
     page.dispatchEvent(dragEvent("drop"));
-    expect(overlay.hidden).toBe(true);
+    expect(overlay.classList.contains("hidden")).toBe(true);
+    expect(overlay.classList.contains("flex")).toBe(false);
   });
 });

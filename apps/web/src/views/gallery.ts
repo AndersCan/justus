@@ -159,7 +159,9 @@ let dragDepth = 0;
 /** Shows or hides the page's drop overlay without a re-render. */
 function setDropOverlay(e: DragEvent, hidden: boolean) {
   const overlay = (e.currentTarget as Element | null)?.querySelector("[data-drop-overlay]");
-  if (overlay instanceof HTMLElement) overlay.hidden = hidden;
+  if (!(overlay instanceof HTMLElement)) return;
+  overlay.classList.toggle("hidden", hidden);
+  overlay.classList.toggle("flex", !hidden);
 }
 function dropHandlers(scope: PhotoScope) {
   if (inNativeShell) return { enter: null, over: null, leave: null, drop: null };
@@ -631,9 +633,8 @@ function dropOverlay(page: PhotosPage, scope: PhotoScope) {
       ? [`Drop to add to ${albumName(plan.folderId)}`, "Only the people in this album get them."]
       : [`You can't add to ${plan.album.name}`, "Ask the Admin, or start your own album."];
   return html`<div
-    hidden
     data-drop-overlay
-    class="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-accent/10 p-6"
+    class="hidden pointer-events-none fixed inset-0 z-30 items-center justify-center bg-accent/10 p-6"
   >
     <div
       class="rounded-3xl border-2 border-dashed border-accent bg-surface px-8 py-6 text-center text-fg shadow-xl"

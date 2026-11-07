@@ -69,7 +69,7 @@ The device's own keyless drive. It holds `/device.json` and the join-request out
 _Avoid_: own drive, profile drive
 
 **Actor**:
-A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; each actor's change handler writes module-scope nanostore atoms, and the UI reads them reactively via computed view-models.
+A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; views read actor state reactively through `@mantaq/lit`.
 _Avoid_: reducer, store, controller
 
 **Encryption**:
