@@ -230,6 +230,13 @@ function invitePanelBody(
         }
       </div>
       ${
+        linkBlocked
+          ? null
+          : html`<p class="mt-2 text-sm text-muted">
+              Send it in any chat. They need Justus installed.
+            </p>`
+      }
+      ${
         link === null
           ? null
           : qrShown
