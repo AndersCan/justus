@@ -11,7 +11,10 @@ export type JoinInvite = {
   ownerName: string;
 };
 
-export type ParsedInvite = { kind: "invite"; invite: JoinInvite } | { kind: "garbled" };
+export type ParsedInvite =
+  | { kind: "invite"; invite: JoinInvite }
+  | { kind: "old"; ownerName: string }
+  | { kind: "garbled" };
 
 /** Same cap as a peer name. */
 export const MAX_HINT = 80;
@@ -19,6 +22,7 @@ const FALLBACK_ALBUM = "this album";
 const FALLBACK_OWNER = "the Admin";
 const HEX64 = /^[0-9a-f]{64}$/i;
 const LINK = /justus:\/\/join\?([^\s]*)/i;
+const OLD_LINK = /justus:\/\/join\/[0-9a-f]{64}(?![0-9a-f])(?:\?([^\s]*))?/i;
 
 function hint(value: string | null, fallback: string): string {
   const trimmed = (value ?? "").trim().slice(0, MAX_HINT);
@@ -35,10 +39,15 @@ export function buildInviteLink(invite: JoinInvite): string {
   return `justus://join?${params.toString()}`;
 }
 
-/** Finds an invite link anywhere in the text. Old-style links and bare keys are garbled. */
+/** Finds an invite link anywhere in the text. Old-style links are `old`; bare keys are garbled. */
 export function parseInviteLink(text: string): ParsedInvite {
   const match = LINK.exec(text);
-  if (!match) return { kind: "garbled" };
+  if (!match) {
+    const old = OLD_LINK.exec(text);
+    if (!old) return { kind: "garbled" };
+    const ownerName = hint(new URLSearchParams(old[1] ?? "").get("a"), FALLBACK_OWNER);
+    return { kind: "old", ownerName };
+  }
   const params = new URLSearchParams(match[1]);
   const code = params.get("i");
   const owner = params.get("o");
