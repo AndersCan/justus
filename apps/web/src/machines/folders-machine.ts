@@ -1,8 +1,7 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import type { AskSummary, FolderSummary, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { statusSeen, syncActor, type SyncActor } from "./sync-machine";
 
 /**
@@ -11,7 +10,7 @@ import { statusSeen, syncActor, type SyncActor } from "./sync-machine";
  * context holds the in-flight create/rename targets the effects read.
  */
 
-const FOLDERS_STATES = [
+export const FOLDERS_STATES = [
   "idle",
   "refreshing",
   "ok",
@@ -21,29 +20,6 @@ const FOLDERS_STATES = [
   "error",
 ] as const;
 export type FoldersStateName = (typeof FOLDERS_STATES)[number];
-
-export const $userName = atom<string>("");
-export const $folders = atom<FolderSummary[]>([]);
-/** Requests this phone made that the Admin has not accepted: waiting, or declined. */
-export const $asks = atom<AskSummary[]>([]);
-export const $activeFolderId = atom<string | null>(null);
-export const $foldersState = atom<FoldersStateName>("idle");
-export const $foldersError = atom<string | null>(null);
-export const $foldersFatal = atom(false);
-
-export const $foldersViewModel = computed(
-  [$userName, $folders, $asks, $activeFolderId, $foldersState, $foldersError, $foldersFatal],
-  (userName, folders, asks, activeFolderId, state, error, fatal) => ({
-    userName,
-    folders,
-    asks,
-    activeFolderId,
-    state,
-    busy: state === "creating" || state === "switching" || state === "renaming",
-    error,
-    fatal,
-  }),
-);
 
 const nameOf = stateNameOf(FOLDERS_STATES);
 
@@ -479,27 +455,8 @@ export function wireFoldersToSync(folders: FoldersActor, sync: SyncActor): () =>
 
 wireFoldersToSync(foldersActor, syncActor);
 
-/** `$userName` is a projection of `context.userName`. */
-foldersActor.on("change", {
-  fn: (snapshot) => {
-    $userName.set(snapshot.context.userName);
-    $folders.set(snapshot.context.folders);
-    $asks.set(snapshot.context.asks);
-    $activeFolderId.set(snapshot.context.activeId);
-    $foldersError.set(snapshot.context.error);
-  },
-});
-
-const { state: stateName } = bindStateAtoms({
-  actor: foldersActor,
-  states: FOLDERS_STATES,
-  $state: $foldersState,
-  $error: $foldersError,
-  $fatal: $foldersFatal,
-});
-
 export const folders = {
-  state: stateName,
+  state: () => nameOf(foldersActor.snapshot()),
   refresh: () => foldersActor.send(refresh.create()),
   create: (name: string) => foldersActor.send(createFolder.create({ name })),
   switchTo: (folderId: string) => foldersActor.send(setActive.create({ folderId })),

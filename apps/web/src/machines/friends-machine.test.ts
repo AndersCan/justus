@@ -1,8 +1,6 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import {
-  $friendSheet,
-  $friends,
   SAVE_FAILED_COPY,
   friendSheetOf,
   createFriendsActor,
@@ -175,14 +173,14 @@ describe("friends machine", () => {
   });
 });
 
-describe("friends singleton mirror", () => {
-  test("the stores follow the machine through open, add, type and save", async () => {
+describe("friends singleton", () => {
+  test("the sheet follows the machine through open, add, type and save", async () => {
     await friendsActor.settled();
-    expect($friendSheet.get().state).toBe("closed");
-    expect($friends.get()).toEqual({});
+    expect(friendSheetOf(friendsActor.snapshot()).state).toBe("closed");
+    expect(friendsActor.snapshot().context.friends).toEqual({});
 
     friends.open({ identity: "k1", ownName: "Kim" });
-    expect($friendSheet.get()).toEqual({
+    expect(friendSheetOf(friendsActor.snapshot())).toEqual({
       state: "viewing",
       target: { identity: "k1", ownName: "Kim" },
       draft: "",
@@ -191,19 +189,31 @@ describe("friends singleton mirror", () => {
     });
 
     friends.add();
-    expect($friendSheet.get()).toMatchObject({ state: "naming", draft: "Kim", canSave: true });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
+      state: "naming",
+      draft: "Kim",
+      canSave: true,
+    });
 
     friends.type("   ");
-    expect($friendSheet.get()).toMatchObject({ state: "naming", draft: "   ", canSave: false });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
+      state: "naming",
+      draft: "   ",
+      canSave: false,
+    });
 
     friends.type("Kimmy");
-    expect($friendSheet.get()).toMatchObject({ draft: "Kimmy", canSave: true });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({ draft: "Kimmy", canSave: true });
 
     friends.save();
-    expect($friendSheet.get()).toMatchObject({ state: "saving", draft: "Kimmy", canSave: false });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({
+      state: "saving",
+      draft: "Kimmy",
+      canSave: false,
+    });
     await friendsActor.settled();
-    expect($friendSheet.get()).toMatchObject({ state: "closed", error: null });
-    expect($friends.get()).toEqual({ k1: "Kimmy" });
+    expect(friendSheetOf(friendsActor.snapshot())).toMatchObject({ state: "closed", error: null });
+    expect(friendsActor.snapshot().context.friends).toEqual({ k1: "Kimmy" });
   });
 });
 

@@ -1,43 +1,19 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { INTRO_CARD_COUNT } from "../views/intro-cards";
-import { $userName, foldersActor, nameSeen } from "./folders-machine";
+import { foldersActor, nameSeen } from "./folders-machine";
 
 /**
  * First-run onboarding: swipeable intro cards, a required profile step, then
  * the create-or-join choice. The card index, name
- * draft and error live in context; the singleton copies them to atoms.
+ * draft and error live in context; and the screen reads them with `watch`.
  */
 
 export { INTRO_CARD_COUNT };
 
-const ONBOARDING_STATES = ["cards", "profile", "saving", "choose"] as const;
+export const ONBOARDING_STATES = ["cards", "profile", "saving", "choose"] as const;
 export type OnboardingStateName = (typeof ONBOARDING_STATES)[number];
-
-export const $introCard = atom(0);
-export const $onboardingState = atom<OnboardingStateName>("cards");
-export const $onboardingError = atom<string | null>(null);
-export const $onboardingFatal = atom(false);
-/** The name as typed on the profile step, before it is saved; null until the
- * first keystroke. Drives the live avatar preview. */
-export const $nameDraft = atom<string | null>(null);
-
-export const $onboardingViewModel = computed(
-  [$introCard, $onboardingState, $onboardingError, $onboardingFatal, $userName, $nameDraft],
-  (card, state, error, fatal, userName, nameDraft) => ({
-    card,
-    cardCount: INTRO_CARD_COUNT,
-    state,
-    saving: state === "saving",
-    error,
-    fatal,
-    userName,
-    // Never prefill from the stored name: it is a generated default, not the person's choice.
-    draftName: nameDraft ?? "",
-  }),
-);
 
 const nameOf = stateNameOf(ONBOARDING_STATES);
 
@@ -215,15 +191,6 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
 
 export const onboardingActor = createOnboardingActor({ clock: RealClock() });
 
-onboardingActor.on("change", {
-  fn: (snapshot) => {
-    const { card, draftName, error } = snapshot.context;
-    $introCard.set(card);
-    $nameDraft.set(draftName);
-    $onboardingError.set(error);
-  },
-});
-
 onboardingActor.on("output", {
   fn: (e) => {
     const payload = e.payload;
@@ -233,15 +200,8 @@ onboardingActor.on("output", {
   },
 });
 
-bindStateAtoms({
-  actor: onboardingActor,
-  states: ONBOARDING_STATES,
-  $state: $onboardingState,
-  $error: $onboardingError,
-  $fatal: $onboardingFatal,
-});
-
 export const onboarding = {
+  state: () => nameOf(onboardingActor.snapshot()),
   next: () => onboardingActor.send(next.create()),
   back: () => onboardingActor.send(back.create()),
   skip: () => onboardingActor.send(skip.create()),

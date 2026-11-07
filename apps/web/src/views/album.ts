@@ -1,28 +1,24 @@
 import { html } from "lit-html";
-import { friends } from "../machines/friends-machine";
+import { repeat } from "lit-html/directives/repeat.js";
+import { watch } from "@mantaq/lit";
+import { friends, friendsActor } from "../machines/friends-machine";
 import { folders } from "../machines/folders-machine";
-import { $peopleViewModel, people } from "../machines/people-machine";
-import { requests } from "../machines/requests-machine";
-import { $syncViewModel, sync } from "../machines/sync-machine";
-import { onPageChange } from "../machines/router-machine";
-import { useStore } from "../use-store";
+import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
+import { requests, requestsActor } from "../machines/requests-machine";
+import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { formatRelative } from "../utils/time";
 import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
-import { adminName, hideInviteQr, invitePanel } from "./invite";
+import { adminName, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 
-type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
-type Status = NonNullable<ReturnType<typeof $syncViewModel.get>["status"]>;
-
-onPageChange((page) => {
-  if (page?.route !== "album") hideInviteQr();
-});
+type PeopleVm = ReturnType<typeof peopleViewModel>;
+type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const body = html`${avatarBadge(p.name)}
@@ -114,7 +110,11 @@ function requestsSection(vm: PeopleVm) {
   return html`<section class="ui-card border-l-4 border-l-warn p-5">
     <h2 class="ui-label mb-3">Asking to join</h2>
     <ul class="space-y-2">
-      ${vm.requests.map((r) => requestRow(r))}
+      ${repeat(
+        vm.requests,
+        (r) => `${r.folderId}/${r.requesterKey}`,
+        (r) => requestRow(r),
+      )}
     </ul>
   </section>`;
 }
@@ -128,7 +128,11 @@ function membersSection(vm: PeopleVm) {
     </p>
     ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
     <ul class="divide-y divide-line">
-      ${vm.people.map((p) => memberRow(vm, p))}
+      ${repeat(
+        vm.people,
+        (p) => p.key,
+        (p) => memberRow(vm, p),
+      )}
     </ul>
   </section>`;
 }
@@ -272,7 +276,7 @@ function advancedSection(status: Status, state: string, busy: boolean) {
   </details>`;
 }
 
-function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncViewModel.get>) {
+function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewModel>) {
   const { status, state, busy, error, fatal } = syncVm;
   const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
   if (!status || status.folder.id !== id) {
@@ -307,13 +311,26 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       state === "error" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
-    ${requestsSection(vm)} ${invitePanel(status.folder, status.name, adminName(status))}
+    ${requestsSection(vm)}
+    ${invitePanel(status.folder, status.name, adminName(status), vm.qrShown, () => people.showQr())}
     ${membersSection(vm)} ${advancedSection(status, state, busy)} ${friendSheetView()}
   </div>`;
 }
 
 export function albumView(id: string) {
-  return useStore($peopleViewModel, (vm) =>
-    useStore($syncViewModel, (syncVm) => albumBody(id, vm, syncVm)),
+  return watch(peopleActor, (ps) =>
+    watch(syncActor, (ss) =>
+      watch(requestsActor, (rs) =>
+        watch(friendsActor, (fs) => {
+          const syncVm = syncViewModel(ss);
+          const vm = peopleViewModel(ps, {
+            status: syncVm.status,
+            requests: rs.context.requests,
+            friends: fs.context.friends,
+          });
+          return albumBody(id, vm, syncVm);
+        }),
+      ),
+    ),
   );
 }

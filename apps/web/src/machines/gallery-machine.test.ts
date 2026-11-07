@@ -1,15 +1,6 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
-import {
-  $addBatch,
-  $galleryError,
-  $galleryState,
-  $lastSyncAt,
-  $photos,
-  createGalleryActor,
-  galleryViewModel,
-  gallery,
-} from "./gallery-machine";
+import { createGalleryActor, galleryViewModel, gallery, galleryActor } from "./gallery-machine";
 
 const hoisted = vi.hoisted(() => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
@@ -325,31 +316,33 @@ describe("gallery idle reset", () => {
   });
 });
 
+const single = () => galleryActor.snapshot().context;
+
 describe("gallery singleton", () => {
-  test("mirrors photos, add summary and error into the atoms", async () => {
-    expect($galleryState.get()).toBe("booting");
-    expect($photos.get()).toEqual([]);
-    expect($addBatch.get()).toBeNull();
-    expect($galleryError.get()).toBeNull();
+  test("holds photos, add summary and error in its context", async () => {
+    expect(gallery.state()).toBe("booting");
+    expect(single().photos).toEqual([]);
+    expect(single().batch).toBeNull();
+    expect(single().error).toBeNull();
 
     hoisted.gateway.list.mockResolvedValueOnce([null, { photos: [photo("p0")] }]);
     gallery.load();
-    await vi.waitFor(() => expect($galleryState.get()).toBe("ready"));
-    expect($photos.get()).toEqual([photo("p0")]);
+    await vi.waitFor(() => expect(gallery.state()).toBe("ready"));
+    expect(single().photos).toEqual([photo("p0")]);
 
     hoisted.gateway.add.mockResolvedValueOnce([null, photo("p1")]);
     gallery.add("/tmp/a.jpg", "a.jpg", "f1");
-    await vi.waitFor(() => expect($addBatch.get()?.running).toBe(false));
-    expect($addBatch.get()?.added).toBe(1);
-    expect($photos.get().map((p) => p.id)).toEqual(["p1", "p0"]);
+    await vi.waitFor(() => expect(single().batch?.running).toBe(false));
+    expect(single().batch?.added).toBe(1);
+    expect(single().photos.map((p) => p.id)).toEqual(["p1", "p0"]);
 
     gallery.dismissBatch();
-    expect($addBatch.get()).toBeNull();
+    expect(single().batch).toBeNull();
 
     hoisted.gateway.list.mockResolvedValueOnce([new Error("no data"), null]);
     gallery.load();
-    await vi.waitFor(() => expect($galleryState.get()).toBe("error"));
-    expect($galleryError.get()).toMatch(/no data/);
+    await vi.waitFor(() => expect(gallery.state()).toBe("error"));
+    expect(single().error).toMatch(/no data/);
   });
 });
 
@@ -363,9 +356,9 @@ describe("gallery last synced and view model", () => {
     expect(h.ctx().lastSyncAt).toBe(5);
   });
 
-  test("the singleton projects lastSyncAt to $lastSyncAt", () => {
+  test("the singleton stores lastSyncAt", () => {
     gallery.synced(7);
-    expect($lastSyncAt.get()).toBe(7);
+    expect(single().lastSyncAt).toBe(7);
   });
 
   test("galleryViewModel: initial snapshot, role from the passed status", () => {

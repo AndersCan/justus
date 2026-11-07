@@ -1,8 +1,7 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * The sync/join state machine: folder status, reader join, creator enroll.
@@ -11,28 +10,8 @@ import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-ut
  * so transport failures become failure events.
  */
 
-const SYNC_STATES = ["idle", "refreshing", "ok", "joining", "enrolling", "error"] as const;
+export const SYNC_STATES = ["idle", "refreshing", "ok", "joining", "enrolling", "error"] as const;
 export type SyncStateName = (typeof SYNC_STATES)[number];
-
-export const $syncStatus = atom<SyncStatus | null>(null);
-export const $syncState = atom<SyncStateName>("idle");
-export const $syncError = atom<string | null>(null);
-/** True only for mantaq's universal `__error`: the machine is dead and Retry
- * cannot help — the UI must offer a reload instead. */
-export const $syncFatal = atom(false);
-
-/** Plain view model for the sync UI (see $galleryViewModel). `busy` is
- * derived: it is exactly "a join or enroll is in flight". */
-export const $syncViewModel = computed(
-  [$syncStatus, $syncState, $syncError, $syncFatal],
-  (status, state, error, fatal) => ({
-    status,
-    state,
-    busy: state === "joining" || state === "enrolling",
-    error,
-    fatal,
-  }),
-);
 
 const nameOf = stateNameOf(SYNC_STATES);
 
@@ -344,29 +323,8 @@ export type SyncActor = ReturnType<typeof createSyncActor>;
 
 export const syncActor = createSyncActor({ clock: RealClock() });
 
-/** `$syncStatus` is a projection of `context.status`, written when the machine holds a new status object. */
-let lastWritten: SyncStatus | null = null;
-syncActor.on("change", {
-  fn: (snapshot) => {
-    const { status: current, error: message } = snapshot.context;
-    $syncError.set(message);
-    if (current !== null && current !== lastWritten) {
-      lastWritten = current;
-      $syncStatus.set(current);
-    }
-  },
-});
-
-const { state: stateName } = bindStateAtoms({
-  actor: syncActor,
-  states: SYNC_STATES,
-  $state: $syncState,
-  $error: $syncError,
-  $fatal: $syncFatal,
-});
-
 export const sync = {
-  state: stateName,
+  state: () => nameOf(syncActor.snapshot()),
   refresh: () => syncActor.send(refresh.create()),
   join: (key: string, name?: string) => syncActor.send(join.create({ key, name })),
   enroll: (key: string, name: string) => syncActor.send(enroll.create({ key, name })),

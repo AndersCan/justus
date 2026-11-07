@@ -3,7 +3,8 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { albumPhotos } from "./gallery";
+import { scopePhotos } from "./gallery";
+import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
@@ -11,7 +12,6 @@ const hoisted = vi.hoisted(() => ({
 vi.mock("../gateway", () => ({ gateway: hoisted.gateway }));
 
 const DAY = 86_400_000;
-const album = { id: "f1", name: "Trip" } as any;
 const rec = (id: string, ageDays = 1) => ({
   id,
   name: `${id}.jpg`,
@@ -22,7 +22,7 @@ const rec = (id: string, ageDays = 1) => ({
 });
 type Rec = ReturnType<typeof rec>;
 
-function build(initial: Rec[]) {
+function build(initial: Rec[], scope: PhotoScope = { kind: "album", id: "f1" }) {
   let current = initial;
   const port = {
     // New objects on every call, like a real sync.
@@ -34,8 +34,8 @@ function build(initial: Rec[]) {
   const actor = createGalleryActor({ clock: VirtualClock(), gateway: port as any });
   const host = document.createElement("div");
   render(
-    albumPhotos(actor, {
-      album,
+    scopePhotos(actor, {
+      scope,
       sort: "added",
       density: "comfortable" as any,
       empty: () => "empty",
@@ -126,5 +126,18 @@ describe("album grid tiles", () => {
     await h.reload([rec("added", 0)]);
     expect(h.tiles().size).toBe(1);
     expect(h.tiles().get("f1/added")).toBe(tile);
+  });
+
+  test("the All photos scope keeps its tiles across a reload", async () => {
+    const [a, b] = [rec("a", 3), rec("b", 2)];
+    const h = build([a, b], { kind: "all" });
+    await h.reload([a, b]);
+    const before = h.tiles();
+    expect(before.size).toBe(2);
+    await h.reload([a, b, rec("n", 0)]);
+    const after = h.tiles();
+    expect(after.size).toBe(3);
+    expect(after.get("f1/a")).toBe(before.get("f1/a"));
+    expect(after.get("f1/b")).toBe(before.get("f1/b"));
   });
 });

@@ -1,9 +1,7 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { atom, computed } from "nanostores";
 import type { Photo, PickedMedia, SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { $syncStatus } from "./sync-machine";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * The gallery state machine. All gallery state lives here (a mantaq actor);
@@ -15,15 +13,6 @@ import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-ut
 
 const GALLERY_STATES = ["booting", "loading", "ready", "error", "adding", "removing"] as const;
 export type GalleryStateName = (typeof GALLERY_STATES)[number];
-
-export const $photos = atom<Photo[]>([]);
-export const $galleryState = atom<GalleryStateName>("booting");
-export const $galleryError = atom<string | null>(null);
-/** True only for mantaq's universal `__error`: the machine is dead and Retry
- * cannot help — the UI must offer a reload instead. */
-export const $galleryFatal = atom(false);
-/** Set on every backend `photos.changed` push — feeds the "last synced" hint. */
-export const $lastSyncAt = atom<number | null>(null);
 
 /** One photo to add: a file the native host staged (`path`, with the shared
  * copies it made, see `PickedMedia`), or a file the browser picked (encoded
@@ -45,26 +34,6 @@ export type AddBatch = {
   failed: { source: AddSource; message: string }[];
   running: boolean;
 };
-
-/** The add batch in flight, or the last one until it is dismissed (a batch
- * with failures stays up so the user can retry them). */
-export const $addBatch = atom<AddBatch | null>(null);
-
-/** Plain view model for the gallery UI (directives cannot be dereferenced —
- * this maps the atoms to a value a template can read). `busy` is derived:
- * it is exactly "an add or remove is in flight". `role` comes from the sync
- * machine's status so the empty state can be reader-aware. */
-export const $galleryViewModel = computed(
-  [$galleryState, $galleryError, $galleryFatal, $photos, $syncStatus],
-  (state, error, fatal, photos, status) => ({
-    state,
-    busy: state === "adding" || state === "removing",
-    error,
-    fatal,
-    photos,
-    role: status?.folder?.role ?? null,
-  }),
-);
 
 const nameOf = stateNameOf(GALLERY_STATES);
 
@@ -533,29 +502,12 @@ export type GalleryActor = ReturnType<typeof createGalleryActor>;
 
 export const galleryActor = createGalleryActor({ clock: RealClock() });
 
-galleryActor.on("change", {
-  fn: (snapshot) => {
-    $photos.set(snapshot.context.photos);
-    $lastSyncAt.set(snapshot.context.lastSyncAt ?? null);
-    $addBatch.set(snapshot.context.batch);
-    $galleryError.set(snapshot.context.error);
-  },
-});
-
-const { state: stateName } = bindStateAtoms({
-  actor: galleryActor,
-  states: GALLERY_STATES,
-  $state: $galleryState,
-  $error: $galleryError,
-  $fatal: $galleryFatal,
-});
-
 export const gallery = {
-  state: stateName,
+  state: () => nameOf(galleryActor.snapshot()),
   load: () => galleryActor.send(load.create()),
   add: (path: string, name?: string, folderId?: string) =>
     galleryActor.send(addMany.create({ sources: [{ kind: "path", path, name }], folderId })),
-  /** Adds photos to one album, in order, with progress in `$addBatch`. */
+  /** Adds photos to one album, in order, with progress in `context.batch`. */
   addMany: (sources: AddSource[], folderId?: string) =>
     galleryActor.send(addMany.create({ sources, folderId })),
   retryFailed: () => galleryActor.send(retryFailed.create()),

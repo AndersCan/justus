@@ -1,6 +1,5 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { atom } from "nanostores";
-import { bindStateAtoms, fatalErrorOf, onStateChange, runInvoke, stateNameOf } from "./actor-utils";
+import { fatalErrorOf, onStateChange, runInvoke, stateNameOf } from "./actor-utils";
 
 /** Minimal `Snapshot`-shaped object — the imported type is erased at runtime. */
 function snapshot(path: string[], error?: unknown): any {
@@ -89,74 +88,6 @@ describe("runInvoke", () => {
     await runInvoke(aborted, async () => [null, { ok: true }], onSuccess, onFailure);
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onFailure).not.toHaveBeenCalled();
-  });
-});
-
-describe("bindStateAtoms", () => {
-  test("mirrors the snapshot state + fatal flag onto the atoms", () => {
-    const $state = atom("idle");
-    const $error = atom<string | null>(null);
-    const $fatal = atom(false);
-    const handlers: Record<string, ((...args: any[]) => void) | undefined> = {};
-    const fakeActor = {
-      on: (event: string, options: { fn: (...args: any[]) => void }) => {
-        handlers[event] = options.fn;
-      },
-      snapshot: () => snapshot(["ok"]),
-    };
-
-    bindStateAtoms({
-      actor: fakeActor as any,
-      states: ["idle", "ok", "error"] as const,
-      $state,
-      $error,
-      $fatal,
-    });
-
-    expect(handlers["change"]).toBeTypeOf("function");
-    expect(handlers["error"]).toBeTypeOf("function");
-    handlers["change"]!(
-      snapshot(["error"], { error: new Error("x"), reason: "r" }),
-      snapshot(["ok"]),
-    );
-    expect($state.get()).toBe("error");
-    expect($fatal.get()).toBe(true);
-    expect($error.get()).toContain("x");
-
-    handlers["change"]!(snapshot(["ok"]), snapshot(["error"]));
-    expect($state.get()).toBe("ok");
-    expect($fatal.get()).toBe(false);
-  });
-
-  test("forwards a death reported via on('error') to the fatal atoms", () => {
-    const $state = atom("idle");
-    const $error = atom<string | null>(null);
-    const $fatal = atom(false);
-    const handlers: Record<string, ((...args: any[]) => void) | undefined> = {};
-    const fakeActor = {
-      on: (event: string, options: { fn: (...args: any[]) => void }) => {
-        handlers[event] = options.fn;
-      },
-      // A real mantaq actor that dies during construction seeds its errored
-      // snapshot; Subscribers replays that buffered error to on("error")
-      // subscribers added afterwards, so this fires without a "change".
-      snapshot: () => snapshot(["__error"], { error: new Error("boom"), reason: "throw" }),
-    };
-
-    bindStateAtoms({
-      actor: fakeActor as any,
-      states: ["idle", "ok", "error"] as const,
-      $state,
-      $error,
-      $fatal,
-    });
-
-    expect(handlers["error"]).toBeTypeOf("function");
-    // Simulate mantaq delivering the (construction-time) death.
-    handlers["error"]!({ error: new Error("boom"), reason: "throw" });
-    expect($fatal.get()).toBe(true);
-    expect($error.get()).toContain("boom");
-    expect($error.get()).toContain("throw");
   });
 });
 

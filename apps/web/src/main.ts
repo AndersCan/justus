@@ -7,19 +7,17 @@ import { messenger, transport } from "./gateway";
 import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
-import { requests } from "./machines/requests-machine";
-import { $syncStatus, sync } from "./machines/sync-machine";
+import { requests, requestsActor } from "./machines/requests-machine";
+import { syncActor, sync } from "./machines/sync-machine";
 import { updateBanner, updateLines } from "./views/notices";
 import { open, pathFor, routerActor, type AppPage } from "./machines/router-machine";
-import { useStore } from "./use-store";
 import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
 import { sharingView } from "./views/sharing";
-import { $requests } from "./machines/requests-machine";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
-import { $reachHint } from "./machines/reach-hint-machine";
+import { reachActor, reachHintOf } from "./machines/reach-hint-machine";
 import { welcomeView, hasSeenWelcome } from "./views/welcome";
 import { joinSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
@@ -166,8 +164,8 @@ function navLink(
 
 function navLinks(layout: "rail" | "tab") {
   return watch(routerActor, (r) =>
-    useStore($requests, (reqs) =>
-      NAV.map((item) => navLink(r.context.page, item, layout, reqs.length)),
+    watch(requestsActor, (q) =>
+      NAV.map((item) => navLink(r.context.page, item, layout, q.context.requests.length)),
     ),
   );
 }
@@ -190,17 +188,18 @@ render(
       <main
         class="mx-auto max-w-6xl px-4 pb-28 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6 md:pb-10 md:pt-6"
       >
-        ${useStore($syncStatus, (status) => updateBanner(updateLines(status)))}
-        ${useStore($reachHint, (hint) =>
-          hint
+        ${watch(syncActor, (s) => updateBanner(updateLines(s.context.status)))}
+        ${watch(reachActor, (s) => {
+          const hint = reachHintOf(s);
+          return hint
             ? html`<p
                 class="mb-4 rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
                 role="status"
               >
                 ${hint} <a class="underline" href="${pathFor("help")}">More help</a>
               </p>`
-            : null,
-        )}
+            : null;
+        })}
         ${watch(routerActor, (s) => cache(routeView(s.context.page)))}
       </main>
       <nav

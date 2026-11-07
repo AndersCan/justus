@@ -1,19 +1,19 @@
 import { html } from "lit-html";
 import type { AskSummary, FolderSummary } from "@justus/core";
+import { watch } from "@mantaq/lit";
+import { repeat } from "lit-html/directives/repeat.js";
 import {
-  $activeFolderId,
-  $folders,
-  $foldersError,
-  $foldersState,
-  $foldersViewModel,
+  FOLDERS_STATES,
   folders,
+  foldersActor,
+  foldersViewModel,
 } from "../machines/folders-machine";
-import { $syncState, $syncViewModel, type SyncStateName } from "../machines/sync-machine";
-import { $join, join } from "../machines/sharing/join-request";
-import { $requests, requests } from "../machines/requests-machine";
+import { SYNC_STATES, syncActor, syncViewModel } from "../machines/sync-machine";
+import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
+import { requests, requestsActor } from "../machines/requests-machine";
 import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open } from "../machines/router-machine";
-import { useStore } from "../use-store";
+import { onStateChange } from "../machines/actor-utils";
 import { errorBanner } from "./error-banner";
 import { toast } from "./toast";
 
@@ -37,26 +37,19 @@ async function pasteKey(input: HTMLInputElement) {
 // Refresh the request inbox when the album state turns over (a join or an
 // approval can change pending requests). Push-driven refreshes are handled in
 // handle-message.
-let seenSync: SyncStateName | null = null;
-$syncState.listen((state) => {
-  if (seenSync && state !== seenSync) requests.refresh();
-  seenSync = state;
+let syncSeen = false;
+onStateChange(syncActor, SYNC_STATES, () => {
+  if (syncSeen) requests.refresh();
+  syncSeen = true;
 });
 
 // A new album opens in Photos (ready for its first photos) once the create
 // lands; a failed create stays here with its error.
-let prevFoldersState = $foldersState.get();
-$foldersState.listen((state) => {
-  if (
-    prevFoldersState === "creating" &&
-    state === "ok" &&
-    !$foldersError.get() &&
-    currentPage()?.route === "sharing"
-  ) {
-    const id = $activeFolderId.get();
-    open(id ? `/albums/${id}` : "/albums");
+onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
+  const { error, activeId } = foldersActor.snapshot().context;
+  if (prev === "creating" && next === "ok" && !error && currentPage()?.route === "sharing") {
+    open(activeId ? `/albums/${activeId}` : "/albums");
   }
-  prevFoldersState = state;
 });
 
 /** Pages about one album (its photos, its people) make it the active album,
@@ -64,22 +57,25 @@ $foldersState.listen((state) => {
 function followRouteAlbum() {
   const page = currentPage();
   const id = page?.route === "photoAlbum" || page?.route === "album" ? page.params.id : null;
-  if (!id || id === $activeFolderId.get() || $foldersState.get() !== "ok") return;
-  if ($folders.get().some((f) => f.id === id)) folders.switchTo(id);
+  const { activeId, folders: list } = foldersActor.snapshot().context;
+  if (!id || id === activeId || folders.state() !== "ok") return;
+  if (list.some((f) => f.id === id)) folders.switchTo(id);
 }
-$foldersState.listen(followRouteAlbum);
+onStateChange(foldersActor, FOLDERS_STATES, followRouteAlbum);
 
 // The album page is the people sheet's home: open/close its machine with the
 // route, and keep the join-request inbox fresh on the sharing pages.
 onPageChange((page, old) => {
+  if (page?.route === "album" && old?.route === "album" && page.params.id !== old.params.id) {
+    people.close();
+  }
   if (page?.route === "album") people.open();
   else if (old?.route === "album") people.close();
   if (page?.route === "album" || page?.route === "sharing") requests.refresh();
   followRouteAlbum();
 });
 
-type FoldersViewModel = ReturnType<typeof $foldersViewModel.get>;
-type SyncViewModel = ReturnType<typeof $syncViewModel.get>;
+type FoldersViewModel = ReturnType<typeof foldersViewModel>;
 
 /** "Admin · 3 members", one text node so it reads (and matches) as one line. */
 function roleAndCount(folder: FolderSummary): string {
@@ -101,9 +97,11 @@ function albumRow(folder: FolderSummary) {
           >${roleAndCount(folder)}</span
         >
       </a>
-      ${useStore($requests, (reqs) => {
+      ${watch(requestsActor, (q) => {
         const waiting =
-          folder.role === "creator" ? reqs.filter((r) => r.folderId === folder.id).length : 0;
+          folder.role === "creator"
+            ? q.context.requests.filter((r) => r.folderId === folder.id).length
+            : 0;
         return waiting > 0
           ? html`<span
               class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
@@ -159,7 +157,16 @@ function albumList(view: FoldersViewModel) {
     </div>`;
   }
   return html`<ul class="space-y-3" aria-label="Your albums">
-    ${view.folders.map((f) => albumRow(f))} ${asks.map((a) => askRow(a))}
+    ${repeat(
+      view.folders,
+      (f) => f.id,
+      (f) => albumRow(f),
+    )}
+    ${repeat(
+      asks,
+      (a) => a.code,
+      (a) => askRow(a),
+    )}
   </ul>`;
 }
 
@@ -197,11 +204,12 @@ function newAlbumSection(view: FoldersViewModel) {
 
 /** The "doesn't look right" message for a pasted link that could not be read. */
 export function joinError() {
-  return useStore($join, ({ state, error }) =>
-    state === "unusableLink" && error
+  return watch(joinActor, (s) => {
+    const { state, error } = joinViewOf(s);
+    return state === "unusableLink" && error
       ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
-      : null,
-  );
+      : null;
+  });
 }
 
 function joinSection(state: string, busy: boolean) {
@@ -253,9 +261,9 @@ function joinSection(state: string, busy: boolean) {
 
 /** Sharing → Your albums: every album with its people, plus starting a new one. */
 export function albumsPanel() {
-  return useStore(
-    $foldersViewModel,
-    (view) => html`
+  return watch(foldersActor, (s) => {
+    const view = foldersViewModel(s);
+    return html`
       ${errorBanner(
         view.error,
         view.state === "error" && !view.fatal ? () => folders.retry() : undefined,
@@ -265,13 +273,14 @@ export function albumsPanel() {
         Tap an album to invite people or see who's in it. Each album has its own invite link.
       </p>
       ${albumList(view)} ${newAlbumSection(view)}
-    `,
-  );
+    `;
+  });
 }
 
 /** Sharing → Join: paste an invite to ask into someone's album. */
 export function joinPanel() {
-  return useStore($syncViewModel, (syncVm: SyncViewModel) =>
-    joinSection(syncVm.state, syncVm.busy),
-  );
+  return watch(syncActor, (s) => {
+    const syncVm = syncViewModel(s);
+    return joinSection(syncVm.state, syncVm.busy);
+  });
 }

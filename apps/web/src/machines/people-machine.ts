@@ -1,12 +1,9 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { atom, computed } from "nanostores";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
-import { $friends } from "./friends-machine";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
-import { $requests, requests } from "./requests-machine";
-import { $syncStatus } from "./sync-machine";
+import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { requests } from "./requests-machine";
 import type { JoinRequest, SyncStatus } from "@justus/core";
 
 /**
@@ -17,23 +14,6 @@ import type { JoinRequest, SyncStatus } from "@justus/core";
 
 const PEOPLE_STATES = ["closed", "open", "removing"] as const;
 export type PeopleStateName = (typeof PEOPLE_STATES)[number];
-
-export const $peopleState = atom<PeopleStateName>("closed");
-export const $peopleError = atom<string | null>(null);
-export const $peopleFatal = atom(false);
-
-export const $peopleViewModel = computed(
-  [$syncStatus, $requests, $peopleState, $peopleError, $friends],
-  (status, reqs, state, error, friendNames) => ({
-    ...buildPeople(status, reqs, friendNames),
-    open: state !== "closed",
-    removing: state === "removing",
-    error,
-    isAdmin: status?.folder.role === "creator",
-    folder: status?.folder ?? null,
-    myName: status?.name ?? "",
-  }),
-);
 
 /** The People sheet is hidden. */
 const closed = state("closed")();
@@ -53,12 +33,16 @@ const removed = event("REMOVED")();
 /** The member could not be removed. */
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 
+/** The person asks to see the invite QR code. */
+const showQr = event("SHOW_QR")();
+
 /** The sheet was just opened, so the latest join requests are worth fetching. */
 const sheetOpened = event("SHEET_OPENED")();
 
 type PeopleContext = {
   pending: { folderId: string; memberKey: string } | null;
   error: string | null;
+  qrShown: boolean;
 };
 const nameOf = stateNameOf(PEOPLE_STATES);
 
@@ -74,6 +58,7 @@ export function peopleViewModel(
     ...buildPeople(deps.status, deps.requests, deps.friends),
     open: state !== "closed",
     removing: state === "removing",
+    qrShown: s.context.qrShown,
     error: fatalErrorOf(s)?.message ?? s.context.error,
     isAdmin: deps.status?.folder.role === "creator",
     folder: deps.status?.folder ?? null,
@@ -87,31 +72,54 @@ type PeoplePort = Pick<typeof gateway, "removeMember">;
 export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [openSheet, closeSheet, removeMember],
+    inputs: [openSheet, closeSheet, removeMember, showQr],
     internal: [removed, removeFailed],
     outputs: [sheetOpened],
     states: [closed, open, removing],
     initial: closed,
     clock: options.clock,
-    context: { pending: null, error: null } as PeopleContext,
+    context: { pending: null, error: null, qrShown: false } as PeopleContext,
     setup: (m) => {
       /** Opening the sheet clears any old error and asks for the latest join requests. */
       m.on(closed, {
         event: openSheet,
         to: [open],
         handler: (_e, opts) => {
-          opts.context.set({ pending: null, error: null });
+          opts.context.set({ pending: null, error: null, qrShown: false });
           return { state: open, emit: [sheetOpened.create()] };
         },
       });
       /** Closing the sheet hides it again. */
-      m.on(open, { event: closeSheet, to: [closed], handler: () => ({ state: closed }) });
+      m.on(open, {
+        event: closeSheet,
+        to: [closed],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), qrShown: false });
+          return { state: closed };
+        },
+      });
+      /** The person asks for the invite QR code; it stays up until the sheet closes. */
+      m.on(open, {
+        event: showQr,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), qrShown: true });
+          return {};
+        },
+      });
+      /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
+      m.on(removing, {
+        event: showQr,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), qrShown: true });
+          return {};
+        },
+      });
       /** The Admin picks a member to remove; the sheet shows that it is working. */
       m.on(open, {
         event: removeMember,
         to: [removing],
         handler: (e, opts) => {
-          opts.context.set({ pending: e.payload, error: null });
+          opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
           return { state: removing };
         },
       });
@@ -138,7 +146,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         event: removed,
         to: [open],
         handler: (_e, opts) => {
-          opts.context.set({ pending: null, error: null });
+          opts.context.set({ ...opts.context.get(), pending: null, error: null });
           return { state: open };
         },
       });
@@ -147,7 +155,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         event: removeFailed,
         to: [open],
         handler: (e, opts) => {
-          opts.context.set({ pending: null, error: e.payload.message });
+          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
           return { state: open };
         },
       });
@@ -157,25 +165,12 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
 
 export const peopleActor = createPeopleActor({ clock: RealClock() });
 
-peopleActor.on("change", {
-  fn: (snapshot) => {
-    $peopleError.set(snapshot.context.error);
-  },
-});
-
 onOutput(peopleActor, () => requests.refresh());
-
-bindStateAtoms({
-  actor: peopleActor,
-  states: PEOPLE_STATES,
-  $state: $peopleState,
-  $error: $peopleError,
-  $fatal: $peopleFatal,
-});
 
 export const people = {
   open: () => peopleActor.send(openSheet.create()),
   close: () => peopleActor.send(closeSheet.create()),
+  showQr: () => peopleActor.send(showQr.create()),
   remove: (folderId: string, memberKey: string) =>
     peopleActor.send(removeMember.create({ folderId, memberKey })),
 };

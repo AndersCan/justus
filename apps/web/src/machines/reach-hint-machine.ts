@@ -1,9 +1,8 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
 import type { SyncStatus } from "@justus/core";
-import { atom, computed } from "nanostores";
 import { REACH_HINT_AFTER_MS, reachHintText, unreachableMember } from "../utils/reach-hint";
-import { bindStateAtoms, stateNameOf } from "./actor-utils";
+import { stateNameOf } from "./actor-utils";
 import { syncActor, type SyncActor } from "./sync-machine";
 
 /**
@@ -15,15 +14,6 @@ type ReachContext = { name: string };
 
 const REACH_STATES = ["reachable", "trying", "hint"] as const;
 export type ReachStateName = (typeof REACH_STATES)[number];
-
-export const $reachState = atom<ReachStateName>("reachable");
-export const $reachName = atom("");
-export const $reachError = atom<string | null>(null);
-export const $reachFatal = atom(false);
-
-export const $reachHint = computed([$reachState, $reachName], (state, name) =>
-  state === "hint" ? reachHintText(name) : null,
-);
 
 const nameOf = stateNameOf(REACH_STATES);
 
@@ -103,20 +93,6 @@ export function createReachActor(options: { clock: Clock }) {
 }
 
 export const reachActor = createReachActor({ clock: RealClock() });
-
-reachActor.on("change", {
-  fn: (snapshot) => {
-    $reachName.set(snapshot.context.name);
-  },
-});
-
-bindStateAtoms({
-  actor: reachActor,
-  states: REACH_STATES,
-  $state: $reachState,
-  $error: $reachError,
-  $fatal: $reachFatal,
-});
 
 export type ReachActor = ReturnType<typeof createReachActor>;
 
