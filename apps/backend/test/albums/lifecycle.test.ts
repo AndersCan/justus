@@ -1,5 +1,5 @@
 /**
- * Archive, restore and delete for everyone, over the fake drives: what the
+ * Archive, restore and delete for everyone, over the checked fake drives: what the
  * store shows, what it removes, and what a restart finishes.
  */
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -15,15 +15,23 @@ import {
 } from "../../src/albums/lifecycle.ts";
 import { inviteTopic } from "../../src/membership/invite.ts";
 import type { Drive } from "../../src/ports/drive-store.ts";
-import { FakeDrive, joinAsMember, makeFakeDeps } from "../fake-drive.ts";
+import { createFakeHub } from "../fakes/fake-world.ts";
+import { fakeStoreDeps, joinAsMember, restarted } from "../fakes/fake-store-deps.ts";
 type SyncMember = Awaited<ReturnType<PhotoStore["status"]>>["members"][number];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function device(name: string) {
-  const deps = makeFakeDeps({ deviceName: name });
+function device(name: string, hub = createFakeHub()) {
+  const deps = fakeStoreDeps({ hub, deviceName: name });
   mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, store: createPhotoStore(deps) };
+}
+
+/** Opens a drive on the store's own drives, which hands back the object the store uses. */
+async function driveOf(deps: ReturnType<typeof device>["deps"], key: string): Promise<Drive> {
+  const [error, drive] = await deps.drives.open(key, { timeoutMs: 1_000 });
+  if (error) throw error;
+  return drive;
 }
 
 async function albumWithPhoto(name: string) {
@@ -38,7 +46,7 @@ async function albumWithPhoto(name: string) {
 describe("archive", () => {
   it("keeps the album out of folders and the timeline, on this phone only", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const member = device("Maya");
+    const member = device("Maya", admin.deps.hub);
     await member.store.ready();
     await joinAsMember(admin.store, album.id, member.store, album.shareKey);
     const mine = (await member.store.folders()).folders.find((f) => f.shareKey === album.shareKey)!;
@@ -77,7 +85,7 @@ describe("archive", () => {
   it("is saved: an archived album is still archived after a restart", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     await admin.store.archiveAlbum(album.id);
-    const again = createPhotoStore(admin.deps);
+    const again = createPhotoStore(restarted(admin.deps));
     const view = await (async () => {
       await again.ready();
       return again.folders();
@@ -114,20 +122,17 @@ describe("delete for everyone", () => {
 
   it("removes nothing when the delete note cannot be written", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const put = FakeDrive.prototype.put;
-    const spy = vi.spyOn(FakeDrive.prototype, "put").mockImplementation(function (
-      this: FakeDrive,
-      ...args: Parameters<FakeDrive["put"]>
-    ) {
-      if (args[0] === "/deleted.json") return Promise.reject(new Error("disk full"));
-      return put.apply(this, args);
-    });
+    const drive = await driveOf(admin.deps, album.shareKey);
+    const put = drive.put.bind(drive);
+    vi.spyOn(drive, "put").mockImplementation((p, ...rest) =>
+      p === "/deleted.json" ? Promise.reject(new Error("disk full")) : put(p, ...rest),
+    );
     try {
       const [error] = await admin.store.deleteAlbum(album.id);
       expect(error?.code).toBe("justus.photos/album-not-changed");
       expect(error?.message).toContain("disk full");
     } finally {
-      spy.mockRestore();
+      vi.restoreAllMocks();
     }
     expect((await admin.store.folders()).folders.map((f) => f.id)).toEqual([album.id]);
     expect((await admin.store.list({ all: true })).map((p) => p.name)).toEqual(["a.jpg"]);
@@ -139,7 +144,7 @@ describe("delete for everyone", () => {
     const saved = JSON.parse(readFileSync(file, "utf8"));
     saved.folders[0].lifecycle = "deleting";
     writeFileSync(file, JSON.stringify(saved));
-    const again = createPhotoStore(admin.deps);
+    const again = createPhotoStore(restarted(admin.deps));
     await again.ready();
     const view = await again.folders();
     expect([...view.folders, ...view.archived]).toEqual([]);
@@ -150,7 +155,7 @@ describe("delete for everyone", () => {
 
   it("refuses to delete an album that is not the Admin's, or is archived", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const member = device("Maya");
+    const member = device("Maya", admin.deps.hub);
     await member.store.ready();
     await joinAsMember(admin.store, album.id, member.store, album.shareKey);
     const mine = (await member.store.folders()).folders.find((f) => f.shareKey === album.shareKey)!;
@@ -183,59 +188,31 @@ describe("delete note", () => {
 });
 
 describe("delete clears what it should", () => {
-  function track() {
-    const cleared: Array<{ key: string; path: string }> = [];
-    const purged: string[] = [];
-    const clear = FakeDrive.prototype.clear;
-    const purge = FakeDrive.prototype.purge;
-    const spies = [
-      vi.spyOn(FakeDrive.prototype, "clear").mockImplementation(function (
-        this: FakeDrive,
-        path: string,
-      ) {
-        cleared.push({ key: this.key.toString("hex"), path });
-        return clear.call(this, path);
-      }),
-      vi.spyOn(FakeDrive.prototype, "purge").mockImplementation(function (this: FakeDrive) {
-        purged.push(this.key.toString("hex"));
-        return purge.call(this);
-      }),
-    ];
-    return { cleared, purged, restore: () => spies.forEach((s) => s.mockRestore()) };
-  }
-
   it("clears the Admin's photo bytes and leaves the delete note", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const seen = track();
-    try {
-      expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
-    } finally {
-      seen.restore();
-    }
-    expect(seen.cleared.some((c) => c.path.startsWith("/photos/"))).toBe(true);
-    const drives = [...new Set(seen.cleared.map((c) => c.key))].map(
-      (key) => admin.deps.makeDrive(undefined, Buffer.from(key, "hex")) as FakeDrive,
-    );
-    expect(drives.length).toBeGreaterThan(0);
-    for (const drive of drives) expect(drive.countPhotos()).toBe(0);
-    expect(drives.some((d) => d.readFile("/deleted.json") !== null)).toBe(true);
+    const drive = await driveOf(admin.deps, album.shareKey);
+    const photos: string[] = [];
+    for await (const entry of drive.list("/photos")) photos.push(entry.path);
+    expect(photos.length).toBeGreaterThan(0);
+    const clear = vi.spyOn(drive, "clear");
+    expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    expect(clear.mock.calls.some((c) => c[0].startsWith("/photos/"))).toBe(true);
+    for (const path of photos) expect(await drive.readBytes(path)).toBeUndefined();
+    expect(await drive.readSmall("/deleted.json", 1 << 20)).toBeDefined();
   });
 
   it("purges the other drives and leaves the invite topic of the album", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const member = device("Maya");
+    const member = device("Maya", admin.deps.hub);
     await member.store.ready();
     const memberKey = await joinAsMember(admin.store, album.id, member.store, album.shareKey);
     const saved = JSON.parse(readFileSync(join(admin.deps.storageDir, "justus.json"), "utf8"));
     const code: string = saved.folders[0].invite.code;
     const leave = vi.spyOn(admin.deps.network, "leave");
-    const seen = track();
-    try {
-      expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
-    } finally {
-      seen.restore();
-    }
-    expect(seen.purged).toContain(memberKey);
+    const purge = vi.spyOn(admin.deps.drives, "purge");
+    expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    expect(purge.mock.calls.map((c: unknown[]) => c[0])).toContain(memberKey);
+    expect(admin.deps.node.replicas.has(memberKey)).toBe(false);
     const left = leave.mock.calls.map((call: unknown[]) => call[0]);
     expect(left).toContain(inviteTopic(code, admin.deps.crypto).toString("hex"));
   });
@@ -291,7 +268,7 @@ describe("leave", () => {
     album: { id: string; shareKey: string },
     admin: ReturnType<typeof device>,
   ) {
-    const member = device("Maya");
+    const member = device("Maya", admin.deps.hub);
     await member.store.ready();
     await joinAsMember(admin.store, album.id, member.store, album.shareKey);
     const mine = (await member.store.folders()).folders.find((f) => f.shareKey === album.shareKey)!;
@@ -300,20 +277,20 @@ describe("leave", () => {
 
   it("a Viewer's leave tells nobody and keeps nothing", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
-    const viewer = device("Vera");
+    const viewer = device("Vera", admin.deps.hub);
     await viewer.store.ready();
     await viewer.store.join(album.shareKey);
     const asked = (await viewer.store.folders()).folders.find(
       (f) => f.shareKey === album.shareKey,
     )!;
     expect(asked.role).toBe("reader");
-    const put = vi.spyOn(FakeDrive.prototype, "put");
-    try {
-      expect((await viewer.store.leaveAlbum(asked.id))[0]).toBeNull();
-      expect(put.mock.calls.some((c) => c[0] === "/left.json")).toBe(false);
-    } finally {
-      put.mockRestore();
-    }
+    const puts = [
+      vi.spyOn(await driveOf(viewer.deps, asked.driveKey), "put"),
+      vi.spyOn(await viewer.deps.drives.openOwn(), "put"),
+    ];
+    expect((await viewer.store.leaveAlbum(asked.id))[0]).toBeNull();
+    for (const put of puts)
+      expect(put.mock.calls.some((c: unknown[]) => c[0] === "/left.json")).toBe(false);
     const view = await viewer.store.folders();
     expect([...view.folders, ...view.archived, ...view.deleted]).toEqual([]);
     expect((viewer.store.debugState() as { gone: unknown[] }).gone).toEqual([]);
@@ -335,20 +312,17 @@ describe("leave", () => {
   it("keeps the album when the left note cannot be written", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const { member, mine } = await memberOf(album, admin);
-    const put = FakeDrive.prototype.put;
-    const spy = vi.spyOn(FakeDrive.prototype, "put").mockImplementation(function (
-      this: FakeDrive,
-      ...args: Parameters<FakeDrive["put"]>
-    ) {
-      if (args[0] === "/left.json") return Promise.reject(new Error("disk full"));
-      return put.apply(this, args);
-    });
+    const drive = await driveOf(member.deps, mine.driveKey);
+    const put = drive.put.bind(drive);
+    vi.spyOn(drive, "put").mockImplementation((p, ...rest) =>
+      p === "/left.json" ? Promise.reject(new Error("disk full")) : put(p, ...rest),
+    );
     try {
       const [error] = await member.store.leaveAlbum(mine.id);
       expect(error?.code).toBe("justus.photos/album-not-changed");
       expect(error?.message).toContain("disk full");
     } finally {
-      spy.mockRestore();
+      vi.restoreAllMocks();
     }
     expect((await member.store.folders()).folders.map((f) => f.id)).toEqual([mine.id]);
     expect((member.store.debugState() as { gone: unknown[] }).gone).toEqual([]);
@@ -386,13 +360,9 @@ describe("leave", () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const { member, mine } = await memberOf(album, admin);
     await droppedByAdmin(admin, member, mine);
-    const del = vi.spyOn(FakeDrive.prototype, "del");
-    try {
-      await joinAsMember(admin.store, album.id, member.store, album.shareKey);
-      expect(del.mock.calls.some((c) => c[0] === "/left.json")).toBe(true);
-    } finally {
-      del.mockRestore();
-    }
+    const del = vi.spyOn(await driveOf(member.deps, mine.driveKey), "del");
+    await joinAsMember(admin.store, album.id, member.store, album.shareKey);
+    expect(del.mock.calls.some((c) => c[0] === "/left.json")).toBe(true);
     await sleep(500);
     expect((await admin.store.status()).members.filter((m: SyncMember) => !m.admin)).toHaveLength(
       1,

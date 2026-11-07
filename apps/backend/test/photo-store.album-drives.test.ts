@@ -8,23 +8,29 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
-import { joinAsMember, makeFakeDeps, type FakeDrive } from "./fake-drive.ts";
+import { createFakeHub, type FakeHub, type FakeNode } from "./fakes/fake-world.ts";
+import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
 
-/** A device on the default fakes, whose drives are found by corestore
- * namespace, so the same deps reopen the same drives after a restart. */
-function device(name: string) {
-  const deps = makeFakeDeps({ deviceName: name });
+/** A device on the checked fakes; devices share drives through their hub. */
+function device(hub: FakeHub, name: string) {
+  const deps = fakeStoreDeps({ hub, deviceName: name });
   mkdirSync(deps.cacheDir, { recursive: true });
-  const identity = () => deps.makeDrive(deps.makeCorestore("")) as FakeDrive;
-  return { deps, store: createPhotoStore(deps), identity };
+  const store = createPhotoStore(deps);
+  const identity = () => (store.debugState() as { identityDrive: string }).identityDrive;
+  return { deps, store, identity };
 }
+
+/** Photos stored under /photos/ in this node's copy of the drive. */
+const photosOn = (node: FakeNode, key: string) =>
+  [...(node.replicas.get(key)?.files.keys() ?? [])].filter((p) => p.startsWith("/photos/")).length;
 
 const names = (photos: Array<{ name: string }>) =>
   photos.map((p) => p.name).sort((a, b) => a.localeCompare(b));
 
 describe("#195 each album is its own drive", () => {
   it("keeps a photo in the album it was added to", async () => {
-    const [x, y, z] = [device("X"), device("Y"), device("Z")];
+    const hub = createFakeHub();
+    const [x, y, z] = [device(hub, "X"), device(hub, "Y"), device(hub, "Z")];
     await Promise.all([x.store.ready(), y.store.ready(), z.store.ready()]);
 
     // A fresh install has no album to add photos to.
@@ -38,7 +44,7 @@ describe("#195 each album is its own drive", () => {
     const inWedding = await joinAsMember(y.store, wedding.id, x.store, wedding.shareKey);
     const inTrip = await joinAsMember(z.store, trip.id, x.store, trip.shareKey);
     // A drive per album, none of them the identity drive.
-    const xIdentity = x.identity().key.toString("hex");
+    const xIdentity = x.identity();
     expect(new Set([inWedding, inTrip, xIdentity]).size).toBe(3);
 
     const xFolders = (await x.store.folders()).folders;
@@ -62,26 +68,25 @@ describe("#195 each album is its own drive", () => {
     ]);
 
     // Nothing is written to the identity drive.
-    expect(x.identity().countPhotos()).toBe(0);
+    expect(photosOn(x.deps.node, x.identity())).toBe(0);
 
     await Promise.all([x.store.close(), y.store.close(), z.store.close()]);
   });
 
   it("reopens the same album drive after a restart, so the membership holds", async () => {
-    const [x, y] = [device("X"), device("Y")];
+    const hub = createFakeHub();
+    const [x, y] = [device(hub, "X"), device(hub, "Y")];
     await Promise.all([x.store.ready(), y.store.ready()]);
     const wedding = (await y.store.createFolder("Wedding 2026"))[1]!.folder;
     const memberKey = await joinAsMember(y.store, wedding.id, x.store, wedding.shareKey);
     await x.store.close();
 
-    const restarted = createPhotoStore(x.deps);
-    await restarted.ready();
-    const folder = (await restarted.folders()).folders.find(
-      (f) => f.shareKey === wedding.shareKey,
-    )!;
+    const again = createPhotoStore(restarted(x.deps));
+    await again.ready();
+    const folder = (await again.folders()).folders.find((f) => f.shareKey === wedding.shareKey)!;
     expect(folder.role).toBe("member");
     expect(folder.driveKey).toBe(memberKey);
 
-    await Promise.all([restarted.close(), y.store.close()]);
+    await Promise.all([again.close(), y.store.close()]);
   });
 });
