@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vite-plus/test";
-import { openLightbox, closeLightbox, step } from "./lightbox";
+import { openLightbox, closeLightbox, step, deleteFromLightbox } from "./lightbox";
+import { confirmAction } from "./confirm";
+import { toast } from "./toast";
 import { lightboxActor } from "../machines/lightbox-machine";
 import { galleryActor, gallery } from "../machines/gallery-machine";
 import type { Photo } from "@justus/core";
@@ -8,6 +10,8 @@ const hoisted = vi.hoisted(() => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
 }));
 vi.mock("../gateway", () => ({ gateway: hoisted.gateway }));
+vi.mock("./confirm", () => ({ confirmAction: vi.fn(async () => true) }));
+vi.mock("./toast", () => ({ toast: vi.fn() }));
 
 function photo(id: string): Photo {
   return {
@@ -106,5 +110,76 @@ describe("lightbox follows the album", () => {
     await reload([a, c]);
     step(1);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
+  });
+});
+
+describe("Delete", () => {
+  const reload = async (photos: Photo[]) => {
+    hoisted.gateway.list.mockResolvedValueOnce([null, { photos }]);
+    gallery.load();
+    await vi.waitFor(() => expect(galleryActor.snapshot().context.photos).toEqual(photos));
+  };
+  const [a, b] = [photo("a"), photo("b")];
+
+  afterEach(() => {
+    closeLightbox();
+    vi.clearAllMocks();
+    vi.mocked(confirmAction).mockResolvedValue(true);
+  });
+
+  it("asks once, in one sentence for everyone", async () => {
+    await reload([a, b]);
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    for (const p of [
+      { ...a, mine: true },
+      { ...b, mine: false },
+    ]) {
+      await deleteFromLightbox(p);
+      await vi.waitFor(() => expect(galleryActor.snapshot().context.photos).not.toContain(p));
+      await reload([a, b]);
+    }
+    expect(confirmAction).toHaveBeenCalledTimes(2);
+    expect(confirmAction).toHaveBeenCalledWith({
+      title: "Delete “a”?",
+      detail: "It will be gone from the album for everyone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    expect(confirmAction).toHaveBeenCalledWith({
+      title: "Delete “b”?",
+      detail: "It will be gone from the album for everyone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+  });
+
+  it("keeps the photo open until the album answers, then closes it", async () => {
+    await reload([a, b]);
+    openLightbox(b, [a, b]);
+    let done!: (r: [null, undefined]) => void;
+    hoisted.gateway.remove.mockReturnValue(new Promise((r) => (done = r)));
+    await deleteFromLightbox(b);
+    await vi.waitFor(() => expect(hoisted.gateway.remove).toHaveBeenCalled());
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
+    done([null, undefined]);
+    await vi.waitFor(() => expect(lightboxActor.snapshot().context.photo).toBeUndefined());
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("a failed delete keeps the photo open and says so", async () => {
+    await reload([a, b]);
+    openLightbox(b, [a, b]);
+    hoisted.gateway.remove.mockResolvedValue([new Error("nope"), null]);
+    await deleteFromLightbox(b);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith("Couldn't delete “b”. Try again.");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
+  });
+
+  it("Keep does nothing", async () => {
+    await reload([a, b]);
+    vi.mocked(confirmAction).mockResolvedValue(false);
+    await deleteFromLightbox(b);
+    expect(hoisted.gateway.remove).not.toHaveBeenCalled();
   });
 });

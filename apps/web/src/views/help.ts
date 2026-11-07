@@ -53,10 +53,10 @@ export const HELP_QA: { q: string; a: string[] }[] = [
     ],
   },
   {
-    q: "Who can remove a photo?",
+    q: "Who can delete a photo?",
     a: [
-      "Whoever added a photo can remove it, and so can the Admin. Collaborators can't remove other people's photos, and Viewers can't remove anything.",
-      "Removing your own photo removes it from the album for everyone. Phones that already have it may keep a copy. When the Admin removes someone else's photo, it is hidden from the album for everyone, and it stays on that person's phone.",
+      "Whoever added a photo can delete it, and so can the Admin. Members can't delete other people's photos, and Viewers can't delete anything.",
+      "Deleting a photo takes it out of the album for everyone. Phones that already have it may keep a copy, and when the Admin deletes someone else's photo, it stays on that person's phone.",
     ],
   },
 ];

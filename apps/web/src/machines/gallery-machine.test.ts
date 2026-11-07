@@ -285,6 +285,30 @@ describe("gallery factory", () => {
     expect(h.ctx().photos).toHaveLength(1);
   });
 
+  test("a photo already deleted counts as deleted", async () => {
+    const h = build({
+      list: async () => [null, { photos: [photo("p1")] }],
+      remove: async () => [{ code: "justus.photos/not-found", message: "No photo p1" }, null],
+    });
+    await ready(h);
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    await vi.waitFor(() => expect(h.ctx().photos).toHaveLength(0));
+    expect(h.stateOf()).toBe("showingPhotos");
+    expect(h.ctx().error).toBeNull();
+  });
+
+  test("a failed delete keeps its reason in context but not in the banner", async () => {
+    const h = build({
+      list: async () => [null, { photos: [photo("p1")] }],
+      remove: async () => [new Error("not allowed"), null],
+    });
+    await ready(h);
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
+    expect(galleryViewModel(h.actor.snapshot(), null).error).toBeNull();
+    expect(h.ctx().error).toBe("not allowed");
+  });
+
   describe("from couldNotRemovePhoto", () => {
     const failed = async () => {
       const h = build({
@@ -302,7 +326,7 @@ describe("gallery factory", () => {
       expect(galleryViewModel(h.actor.snapshot(), null)).toMatchObject({
         settled: true,
         busy: false,
-        error: "not allowed",
+        error: null,
       });
     });
 

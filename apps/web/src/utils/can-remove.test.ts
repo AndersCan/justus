@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { canRemove, removeDetail } from "./can-remove";
+import { canRemove, roleFor } from "./can-remove";
 
 describe("canRemove", () => {
   test("Admin removes any photo", () => {
@@ -18,15 +18,19 @@ describe("canRemove", () => {
   });
 });
 
-describe("removeDetail", () => {
-  test("own photo", () => {
-    expect(removeDetail({ mine: true, member: { key: "k", name: "Ann" } })).toBe(
-      "Removes it from the album for everyone. Phones that already have it may keep a copy.",
-    );
+describe("roleFor", () => {
+  const folders = [
+    { id: "f1", role: "creator" as const },
+    { id: "f2", role: "member" as const },
+  ];
+  test("an unknown album is a viewer", () => {
+    expect(roleFor({ folderId: "nope" }, folders)).toBe("reader");
   });
-  test("someone else's photo names them", () => {
-    expect(removeDetail({ mine: false, member: { key: "k", name: "Maya" } })).toBe(
-      "Hides it from the album for everyone. It stays on Maya's phone.",
-    );
+  test("a known album gives its role", () => {
+    expect(roleFor({ folderId: "f2" }, folders)).toBe("member");
+  });
+  test("the same id in another album does not match", () => {
+    expect(roleFor({ folderId: "f1" }, folders)).toBe("creator");
+    expect(roleFor({ folderId: "f1" }, [folders[1]])).toBe("reader");
   });
 });
