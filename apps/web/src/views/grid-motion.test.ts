@@ -262,3 +262,94 @@ describe("nested keys", () => {
     expect(calls.map(keyOf).sort()).toEqual(["p", "top"]);
   });
 });
+
+describe("a list inside a keyed section", () => {
+  const inSection = (keys: string[], banner: boolean) => html`<div>
+    ${banner ? html`<p data-motion-key="banner"></p>` : null}
+    <section data-motion-key="wrap">
+      <div ${gridMotion({ keys, settle: "s" })}>
+        ${repeat(
+          keys,
+          (k) => k,
+          (k) => html`<figure data-motion-key=${k}></figure>`,
+        )}
+      </div>
+    </section>
+  </div>`;
+
+  function mountSection(
+    keys: string[],
+    start = { top: 0, left: 0 },
+    shift = { top: 100, left: 0 },
+  ) {
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(inSection(keys, false), host);
+    // The banner's layout shows only once the render is committed, as in a browser.
+    let lifted = false;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const wrap = lifted ? shift : start;
+      const el = this as HTMLElement;
+      let top = 0;
+      let left = 0;
+      if (el.dataset.motionKey === "wrap") {
+        top = wrap.top;
+        left = wrap.left;
+      } else if (el.tagName === "FIGURE") {
+        top = wrap.top + 100 * [...el.parentElement!.children].indexOf(el);
+        left = wrap.left;
+      }
+      return { left, top, width: 100, height: 100 } as any;
+    };
+    const again = async (next: string[], banner: boolean) => {
+      render(inSection(next, banner), host);
+      lifted = banner;
+      await Promise.resolve();
+    };
+    return { host, again };
+  }
+
+  test("a list that moved with its section animates only its own change", async () => {
+    const { again } = mountSection(["a", "b"]);
+    await again(["a", "b", "c"], true);
+    const keyed = calls.map(keyOf);
+    expect(keyed).not.toContain("a");
+    expect(keyed).not.toContain("b");
+    const c = calls.find((x) => keyOf(x) === "c")!;
+    expect(c.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+  });
+
+  test("a removed tile's ghost stays where it was on screen when its section moved", async () => {
+    const { host, again } = mountSection(["a", "b"]);
+    const b = host.querySelector<HTMLElement>('[data-motion-key="b"]')!;
+    await again(["a"], true);
+    expect(b.parentElement).toBe(document.body);
+    expect(b.style.top).toBe("100px");
+    expect(calls.map(keyOf)).not.toContain("a");
+  });
+
+  test("a list in a moving section still slides tiles that moved inside it", async () => {
+    const { again } = mountSection(["a", "b"]);
+    await again(["b"], true);
+    const b = calls.find((x) => keyOf(x) === "b")!;
+    expect(b.keyframes).toEqual([{ transform: "translate(0px, 100px)" }, { transform: "none" }]);
+  });
+
+  test("a list whose section shifted sideways animates only its own change", async () => {
+    const { again } = mountSection(["a", "b"], { top: 0, left: 0 }, { top: 0, left: 60 });
+    await again(["a", "b", "c"], true);
+    const keyed = calls.map(keyOf);
+    expect(keyed).not.toContain("a");
+    expect(keyed).not.toContain("b");
+    expect(keyed).toContain("c");
+  });
+
+  test("a section that starts away from the corner is measured from where it was", async () => {
+    const { again } = mountSection(["a", "b"], { top: 50, left: 20 }, { top: 150, left: 20 });
+    await again(["a", "b", "c"], true);
+    const keyed = calls.map(keyOf);
+    expect(keyed).not.toContain("a");
+    expect(keyed).not.toContain("b");
+    expect(keyed).toContain("c");
+  });
+});
