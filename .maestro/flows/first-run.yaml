@@ -84,9 +84,8 @@ appId: no.cankode.justus
     optional: true
 - launchApp:
     stopApp: false
-- extendedWaitUntil:
-    visible: "Justus is locked"
-    timeout: 15000
+# The system PIN prompt (secure, unreadable) opens over the lock screen; the app behind it is hidden.
+- assertNotVisible: "Require unlock to open Justus.*"
 - pressKey: Back
 - launchApp:
     stopApp: false
