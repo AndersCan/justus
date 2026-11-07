@@ -15,7 +15,7 @@ import {
   type AddSource,
 } from "../machines/gallery-machine";
 import { syncActor } from "../machines/sync-machine";
-import { foldersActor } from "../machines/folders-machine";
+import { foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
@@ -38,6 +38,7 @@ import { startAlbum } from "./start-album";
 import { batchSummary, imageFiles, planAdd } from "../utils/add-photos";
 import { toast } from "./toast";
 import { waitingForAdmin } from "./invite";
+import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
 
@@ -245,10 +246,12 @@ function photosPageOf(
   status: SyncStatus | null,
   requests: JoinRequest[],
   prefs: { density: Density; sort: PhotoSort },
+  foldersSettled: boolean,
 ) {
   return {
     ...galleryViewModel(g, status),
     folders,
+    foldersSettled,
     status,
     lastSync: g.context.lastSyncAt ?? null,
     batch: g.context.batch,
@@ -266,10 +269,17 @@ function pageView(body: (page: PhotosPage) => unknown) {
         watch(requestsActor, (q) =>
           watch(prefsActor, (p) =>
             body(
-              photosPageOf(g, f.context.folders, ss.context.status, q.context.requests, {
-                density: p.context.density,
-                sort: p.context.sort,
-              }),
+              photosPageOf(
+                g,
+                f.context.folders,
+                ss.context.status,
+                q.context.requests,
+                {
+                  density: p.context.density,
+                  sort: p.context.sort,
+                },
+                foldersViewModel(f).settled,
+              ),
             ),
           ),
         ),
@@ -731,13 +741,14 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
       @drop=${drop.drop}
     >
       ${dropOverlay(page, scope)} ${pageHeader(page, scope.kind)} ${waitingForAdmin()}
+      ${scope.kind !== "album" ? pendingAsks() : null}
       ${
         scope.kind === "album"
           ? album
             ? albumHeader(page, album)
             : html`<a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
                 <p class="text-muted">
-                  ${page.folders.length === 0 ? "Loading…" : "This album isn't on this phone."}
+                  ${page.folders.length === 0 || !page.foldersSettled ? "Loading…" : "This album isn't on this phone."}
                 </p>`
           : null
       }

@@ -2,7 +2,8 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { folders, foldersActor } from "../machines/folders-machine";
-import { albumsPanel } from "./albums";
+import { joinActor } from "../machines/sharing/join-request";
+import { albumsPanel, pendingAsks } from "./albums";
 
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
@@ -27,16 +28,25 @@ const album = (id: string) => ({
   pending: false,
 });
 
-async function load(ids: string[]) {
+const ask = (status: "waiting" | "declined") => ({
+  code: "c1",
+  owner: "anna-id",
+  ownerName: "Anna",
+  albumName: "Summer trip",
+  status,
+});
+
+async function load(ids: string[], asks: ReturnType<typeof ask>[] = []) {
   mock.folders.mockResolvedValue([
     null,
-    { folders: ids.map(album), asks: [], activeFolderId: ids[0] ?? null },
+    { folders: ids.map(album), asks, activeFolderId: ids[0] ?? null },
   ]);
   folders.refresh();
   await vi.waitFor(() =>
     expect(foldersActor.snapshot().context.folders.map((f) => f.id)).toEqual(ids),
   );
   await foldersActor.settled();
+  await vi.waitFor(() => expect(foldersActor.snapshot().context.asks).toEqual(asks));
 }
 
 const rows = (host: HTMLElement) => [
@@ -88,5 +98,35 @@ describe("albums wiring", () => {
     open("/sharing/b");
     await vi.waitFor(() => expect(peopleActor.snapshot().context.qrShown).toBe(false));
     expect(peopleActor.snapshot().path[0]).toBe("showingPeople");
+  });
+});
+
+describe("pending asks", () => {
+  test("renders nothing with no asks, or only a declined one", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"]);
+    expect(host.querySelector("section")).toBeNull();
+    await load(["a"], [ask("declined")]);
+    expect(host.querySelector("section")).toBeNull();
+  });
+
+  test("a waiting ask shows one row that reopens the waiting sheet", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"], [ask("waiting")]);
+    const section = host.querySelector("section[aria-label='Waiting to join']");
+    expect(section?.textContent).toContain("Waiting for Anna to accept");
+    expect(section?.querySelectorAll("li")).toHaveLength(1);
+    section?.querySelector("button")?.click();
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
+  });
+
+  test("the albums panel still lists waiting and declined rows", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load(["a"], [ask("waiting"), { ...ask("declined"), code: "c2" }]);
+    expect(host.textContent).toContain("Waiting for Anna to accept");
+    expect(host.textContent).toContain("Not accepted");
   });
 });
