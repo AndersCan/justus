@@ -385,7 +385,10 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
     (group) => group.label,
     (group) => html`
       <div class="mt-6 first:mt-0">
-        <h2 class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg">
+        <h2
+          data-motion-key=${"group:" + group.label}
+          class="mb-2 flex items-baseline gap-2 text-sm font-semibold text-fg"
+        >
           <span>${group.label}</span>
           <span class="text-xs font-normal text-muted">${group.photos.length}</span>
         </h2>
@@ -397,8 +400,9 @@ function photoTimeline(photos: Photo[], sort: PhotoSort, density: Density) {
   );
 }
 
-/** A scope's photos, read straight from the actor so tiles keep their
- * elements (and loaded images) when photos arrive or leave. */
+/** A scope's photos, read straight from the actor so tiles and their
+ * month headings keep their elements (and loaded images) and move together
+ * when photos arrive or leave. */
 export function scopePhotos(
   actor: GalleryActor,
   view: { scope: PhotoScope; sort: PhotoSort; density: Density; empty: () => unknown },
