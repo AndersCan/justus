@@ -63,9 +63,9 @@ class MainActivity : AppCompatActivity() {
     @Volatile
     private var pendingCaptureName = false
 
-    /** Picked/captured files are staged here: inside the worklet's storage dir,
-     * which (with no third argv dir) is also its cache dir and therefore an
-     * allowed `photos.add` import root (#93/#97). Cleared on every launch. */
+    /** Picked/captured files are staged here: inside the worklet's cache dir
+     * (the third argv dir), which makes it an allowed `photos.add` import
+     * root (#93/#97). Cleared on every launch. */
     private lateinit var importsDir: File
 
     /** Copies picked files off the main thread (a batch can be many MB). */
@@ -92,8 +92,15 @@ class MainActivity : AppCompatActivity() {
 
         // bare-fs cannot read APK assets by path — copy the built web app out
         // of assets/ into the cache dir for the worklet to serve over loopback.
-        storageDir = File(cacheDir, "bare").apply { mkdirs() }
-        importsDir = File(storageDir, "imports")
+        // Albums and keys live in app storage (filesDir), not the cache dir, so
+        // "Clear cache" cannot delete them. Installs from before move once.
+        val workletCache = File(cacheDir, "bare-cache").apply { mkdirs() }
+        storageDir = moveLegacyStorage(File(cacheDir, "bare"), File(filesDir, "bare")) {
+            Log.i("JUSTUS_ANDROID", it)
+        }.apply { mkdirs() }
+        val storage = storageDir
+        Thread { removeLayout1Leftovers(storage) }.start()
+        importsDir = File(workletCache, "imports")
         importsDir.deleteRecursively()
         importsDir.mkdirs()
         webappDir = File(cacheDir, "webapp")
@@ -106,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         worklet = Worklet(
             Worklet.Options()
                 .memoryLimit(128 * 1024 * 1024)
-                .assets(File(storageDir, "asset-cache").absolutePath),
+                .assets(File(workletCache, "asset-cache").absolutePath),
         )
 
         try {
@@ -114,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                 worklet.start(
                     "/main.core.bundle",
                     bundleStream,
-                    arrayOf(webappDir.absolutePath, storageDir.absolutePath),
+                    arrayOf(webappDir.absolutePath, storageDir.absolutePath, workletCache.absolutePath),
                 )
             }
             ipc = IPC(worklet)
