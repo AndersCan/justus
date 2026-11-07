@@ -1,6 +1,6 @@
 # Testing Mantaq
 
-Deterministic tests with the VirtualClock + vitest. Harness and coverage from `@mantaq/test` (`npm install @mantaq/test`) and `@mantaq/traversal`. Written against `@mantaq/core` 0.5, `@mantaq/test` 2.0, `@mantaq/traversal` 0.3, `@mantaq/inspect` 0.5. Check exact signatures against the installed types.
+Deterministic tests with the VirtualClock + vitest. Harness and coverage from `@mantaq/test` (`npm install @mantaq/test`) and `@mantaq/traversal`. Check exact signatures against the installed types.
 
 ## Deterministic Tests (VirtualClock)
 
@@ -15,7 +15,7 @@ const actor = Actor({ clock, ... });
 
 actor.send(submit.create({ ... }));
 clock.advance(800);                       // fires timers, drains queue — synchronous
-expect(matches(actor, "success")).toBe(true);
+expect(matches(actor, "submitted")).toBe(true);
 ```
 
 No awaits needed for timer work. For promise-based effects, `await actor.settled()`. Pending timers are not queued events, so `settled()` does not advance time.
@@ -71,7 +71,7 @@ import { recordRuns } from "@mantaq/inspect/record";
 const make = recordRuns(createInviteLinkActor);
 ```
 
-Run the whole test file to refresh the sidecar, and commit it. With `CI` set, a stale file fails the test. Name tests as user-visible journeys: the test name is the run's label.
+Run the whole test file to refresh the sidecar, and commit it. With `CI` set, a stale file fails the test. Name tests as user-visible journeys: the test name is the run's label. Link a run as `?machine=<id>&run=<name>`.
 
 ## Design Gate
 
@@ -79,13 +79,17 @@ Run the whole test file to refresh the sidecar, and commit it. With `CI` set, a 
 import { expectAllStatesReached, expectNoDesignErrors, expectReached } from "@mantaq/inspect";
 
 const target = { id: "inviteLink", create: () => createInviteLinkActor({ clock: VirtualClock() }) };
-expectNoDesignErrors(target); // fuzzes: handler throws, unhandled effect sends, unreachable states
+expectNoDesignErrors(target); // fuzzes: handler throws, unhandled effect sends, dead ends, unreachable states
 expectAllStatesReached(target);
-expectReached(target, { transitions: [{ from: "pending", event: "ACCEPT" }] });
+expectReached(target, { transitions: [{ from: "waitingForAnswer", event: "ACCEPT" }] });
 expectNoDesignErrors({ ...target, fuzz: false }); // structure only, no fuzzing
 ```
 
 Fuzz throws in app code are real findings: fix them, never suppress.
+
+Bad data without a crash: export `<machine id>Expectations` beside the factory, `payment: { neverSee: [{ address: "" }] }` typed `Expectations<typeof createXActor>`.
+`mustSee` lists contexts some run must reach. Tests can pass the block as `expectations` on the target.
+Payloads come from `source`; without it, payload events are sent without one.
 
 With `@mantaq/test` 2.0 the `*` any-node (`m.onAny`) counts in coverage: it is one node, covered once its event fires from any state.
 

@@ -1,6 +1,6 @@
 # Reviewing Mantaq Actors
 
-Review actor code against the Rules in `SKILL.md`, then check what typechecking misses. Written against `@mantaq/core` 0.5; when behavior is in doubt, check the installed package.
+Review actor code against the Rules in `SKILL.md`, then check what typechecking misses. When behavior is in doubt, check the installed package.
 
 ## Structure
 
@@ -15,6 +15,9 @@ Review actor code against the Rules in `SKILL.md`, then check what typechecking 
 ## Docs
 
 - Every state, event and handler has a one-sentence doc comment in domain words. The live page shows it.
+- States and events read without their JSDoc, and every journey ends in a named outcome (`SKILL.md` Rules).
+- No bare `ok`/`ready`/`idle`/`error`; failures the person sees have their own state (`SKILL.md` Rules).
+- Links to journeys use `run=`, never `step=`.
 
 ## Typing
 
