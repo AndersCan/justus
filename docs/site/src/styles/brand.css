@@ -1,0 +1,15 @@
+:root,
+:root[data-theme="light"] {
+  --sl-color-accent-low: rgb(var(--accent-soft));
+  --sl-color-accent: rgb(var(--accent));
+  --sl-color-accent-high: rgb(var(--accent-strong));
+  --sl-color-white: rgb(var(--fg));
+  --sl-color-gray-1: rgb(var(--fg));
+  --sl-color-gray-2: rgb(var(--fg));
+  --sl-color-gray-3: rgb(var(--muted));
+  --sl-color-gray-4: rgb(var(--muted));
+  --sl-color-gray-5: rgb(var(--line));
+  --sl-color-gray-6: rgb(var(--subtle));
+  --sl-color-gray-7: rgb(var(--surface));
+  --sl-color-black: rgb(var(--canvas));
+}

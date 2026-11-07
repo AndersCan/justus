@@ -1,6 +1,6 @@
 import { defineConfig, presetUno } from "unocss";
 
-// Semantic tokens only. Raw values live in index.html as CSS variables (space
+// Semantic tokens only. Raw values live in src/tokens.css as CSS variables (space
 // separated RGB) so light/dark switch with `prefers-color-scheme`. Views use
 // bg-canvas / bg-surface / text-fg / text-muted / accent / danger — never a
 // literal color. Green/amber/red `trust-*` is reserved for connection state.
