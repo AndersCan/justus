@@ -47,6 +47,7 @@ describe("a pre-#195 album that is the identity drive", () => {
 
     // The state a pre-#195 install persisted: its album is the identity drive.
     const legacy = {
+      version: 2,
       name: "Upgraded",
       activeFolderId: "legacy-1",
       folders: [

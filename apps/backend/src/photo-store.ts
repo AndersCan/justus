@@ -10,6 +10,8 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { onDriveChange } from "./drive-change";
 import { greetPeer } from "./adapters/peer-identity";
+import { STATE_VERSION, stateVersionOf } from "./versions";
+import { copyAlbumEntries } from "./rotate-album";
 import { openAnswers } from "./adapters/peer-answer";
 import { inviteTopic } from "./membership/invite";
 import { toDriveEntry } from "./adapters/hyper-drive-store";
@@ -73,6 +75,7 @@ const defaultSwarm = (opts?: { bootstrap?: string[] }): SwarmLike =>
   new Hyperswarm(opts) as unknown as SwarmLike;
 import type {
   AskSummary,
+  FolderNotice,
   FolderSummary,
   JoinRequest,
   Photo,
@@ -96,6 +99,7 @@ export const PhotoError = {
   NOT_PENDING: "justus.photos/not-pending",
   FORBIDDEN: "justus.photos/import-path-forbidden",
   UNSUPPORTED_FORMAT: "justus.photos/unsupported-format",
+  UPDATE_REQUIRED: "justus.photos/update-required",
 } as const;
 
 /** Any drive handle (the p2p packages ship no types). */
@@ -153,6 +157,13 @@ type FolderRecord = {
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
+  /** Creator: when this album moved to a new key (the rerun guard). */
+  rotatedAt?: number;
+  /** Creator: the old member drives, kept as read-only photo sources. */
+  earlier?: Array<{ key: string; name: string }>;
+  /** Not creator: an album from before the key move; read-only. */
+  moved?: true;
+  notice?: FolderNotice;
 };
 
 type PhotoMeta = {
@@ -443,6 +454,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   );
   const stateFile = path.join(deps.storageDir, STATE_FILE);
 
+  /** The saved state was written by a newer Justus: touch nothing. */
+  let tooNew = false;
+  /** The saved state still has the version 1 shape (see `migrateFromV1`). */
+  let migrating = false;
   let state: PersistedState = loadState();
   /** The device's identity drive: `/device.json` and the join-request outbox.
    * It holds no photos: every album has a drive of its own, so a photo only
@@ -537,6 +552,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const raw = fs.readFileSync(stateFile, "utf8");
       const parsed = JSON.parse(raw);
       if (isTextJSON(parsed)) {
+        const version = stateVersionOf(parsed);
+        if (version > STATE_VERSION) tooNew = true;
+        // A file without `version` predates the key move; it is saved as
+        // version 2 only once every album of ours has moved.
+        if (version < STATE_VERSION) migrating = true;
         const name = typeof parsed.name === "string" ? parsed.name : deps.deviceName;
         const activeFolderId =
           typeof parsed.activeFolderId === "string" ? parsed.activeFolderId : null;
@@ -590,6 +610,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       out.answers = answers;
     }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
+    if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
+    if (Array.isArray(f.earlier)) {
+      const earlier: Array<{ key: string; name: string }> = [];
+      for (const e of f.earlier as unknown[]) {
+        if (isTextJSON(e) && typeof e.key === "string" && isHexKey(e.key)) {
+          earlier.push({ key: e.key, name: peerName(e.name, "Unknown device") });
+        }
+      }
+      out.earlier = earlier;
+    }
+    if (f.moved === true) out.moved = true;
+    if (isTextJSON(f.notice)) {
+      if (f.notice.kind === "newKey") out.notice = { kind: "newKey" };
+      else if (f.notice.kind === "moved") {
+        out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
+      }
+    }
     return out;
   }
 
@@ -615,8 +652,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function saveState() {
+    if (tooNew) return;
     try {
-      fs.writeFileSync(stateFile, JSON.stringify(state));
+      const file = migrating ? state : { version: STATE_VERSION, ...state };
+      fs.writeFileSync(stateFile, JSON.stringify(file));
     } catch (e) {
       const message = errMsg(e);
       console.error(`[justus] failed to persist state: ${message}`);
@@ -1154,6 +1193,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       key: m.key,
       name: m.name,
     }));
+    for (const e of rt.record.earlier ?? []) {
+      if (!entries.some((x) => x.key === e.key)) entries.push(e);
+    }
     const live = new Set(entries.map((e) => e.key));
     live.add(selfKeyOf(rt));
     for (const [key, drive] of rt.memberDrives) {
@@ -1242,7 +1284,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * Returns true when an upgrade happened. No-op for non-reader folders or
    * folders still awaiting approval. Cheap — reads a single registry file. */
   async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
-    if (rt.record.role !== "reader") return false;
+    if (rt.record.role !== "reader" || rt.record.moved) return false;
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = selfKeyOf(rt);
     if (!isEnrolled(registry, selfKey)) return false;
@@ -1688,8 +1730,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // reader the same set is the writers it can see — so derive the count from
     // it rather than hard-coding 0 (issue #89). `memberDrives` is a `Map`, so
     // use `.size` (not `Object.values`, which is always empty for a Map).
+    const earlier = (rt.record.earlier ?? []).filter((e) => rt.memberDrives.has(e.key)).length;
     const memberCount =
-      role === "creator" || role === "member" ? rt.memberDrives.size + 1 : rt.memberDrives.size;
+      role === "creator" || role === "member"
+        ? rt.memberDrives.size - earlier + 1
+        : rt.memberDrives.size;
     return {
       id: rt.record.id,
       name: rt.record.name,
@@ -1699,6 +1744,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       driveKey,
       members: memberCount,
       addedAt: rt.record.createdAt,
+      ...(rt.record.notice ? { notice: rt.record.notice } : {}),
       ...(rt.record.invite
         ? {
             invite: {
@@ -1924,11 +1970,105 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     announceRequestInbox();
   }
 
+  /** Saved state 1 → 2: every album we started moves to a new key, every other
+   * album becomes read-only. Delete with rotate-album.ts once no version 1
+   * state is left. A creator album that fails to move keeps its old key and is
+   * retried on the next boot. */
+  async function migrateFromV1(): Promise<void> {
+    if (!migrating) return;
+    for (const record of state.folders) {
+      if (record.role === "creator") {
+        if (record.rotatedAt) continue;
+        try {
+          await rotateAlbum(record);
+          saveState();
+        } catch (e) {
+          log("error", { where: "rotate.failed", folder: short(record.id), err: errText(e) });
+        }
+      } else if (!record.moved) {
+        const ownerName = await ownerNameOf(record.shareKey);
+        record.moved = true;
+        record.pending = false;
+        record.notice = { kind: "moved", ownerName };
+        saveState();
+      }
+    }
+    if (state.folders.every((f) => f.role !== "creator" || f.rotatedAt)) {
+      migrating = false;
+      saveState();
+    }
+  }
+
+  async function ownerNameOf(shareKey: string): Promise<string> {
+    let drive: Drive | null = null;
+    try {
+      drive = deps.makeDrive(corestore.namespace("probe"), Buffer.from(shareKey, "hex"));
+      await drive.ready();
+      const text = await withTimeout(getText(drive, DRIVE_PATH_DEVICE), 2_000);
+      return text ? peerName(parseDeviceName(text), DEFAULT_ASK_OWNER) : DEFAULT_ASK_OWNER;
+    } catch {
+      return DEFAULT_ASK_OWNER;
+    } finally {
+      try {
+        await drive?.close();
+      } catch {
+        // already closed
+      }
+    }
+  }
+
+  async function rotateAlbum(record: FolderRecord): Promise<void> {
+    const legacy = record.shareKey === hex(ownDrive.key);
+    const old: Drive = legacy
+      ? ownDrive
+      : deps.makeDrive(corestore.namespace("probe"), Buffer.from(record.shareKey, "hex"));
+    const fresh: Drive = deps.makeDrive(corestore.namespace(`album/${record.id}`));
+    try {
+      await old.ready();
+      await fresh.ready();
+      await copyAlbumEntries(old, fresh);
+      const registry = await readRegistryIn(old);
+      const earlier = Object.values(registry.members)
+        .filter((m) => m.key !== hex(fresh.key))
+        .map((m) => ({ key: m.key, name: m.name }));
+      const keys = new Set(earlier.map((e) => e.key));
+      const removed = Object.fromEntries(
+        Object.entries(await readRemovedIn(old)).filter(([id]) => keys.has(id.split(":")[0])),
+      );
+      await fresh.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+      await fresh.put(
+        DRIVE_PATH_FOLDER,
+        Buffer.from(JSON.stringify({ version: 1, name: record.name })),
+      );
+      await fresh.put(DRIVE_PATH_REMOVED, Buffer.from(JSON.stringify({ version: 1, removed })));
+      record.shareKey = hex(fresh.key);
+      record.driveKey = hex(fresh.key);
+      record.invite = { code: newInviteCode() };
+      delete record.answers;
+      record.earlier = earlier;
+      record.notice = { kind: "newKey" };
+      record.rotatedAt = Date.now();
+    } finally {
+      try {
+        if (!legacy) await old.close();
+      } catch {
+        // already closed
+      }
+      try {
+        await fresh.close();
+      } catch {
+        // already closed
+      }
+    }
+  }
+
   async function setup(): Promise<void> {
     await corestore.ready();
+    if (tooNew) return;
     ownDrive = deps.makeDrive(corestore);
     await ownDrive.ready();
     await ensureOwnDriveIdentity();
+    await migrateFromV1();
 
     // Swarm: seed our own identity drive; replicate everything over each conn.
     // Registered before any topic join so early connections replicate too.
@@ -2004,7 +2144,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = hex(selfDrive.key);
-      const enrolled = !isCreator && isEnrolled(await readRegistryIn(fd), selfKey);
+      const enrolled = !isCreator && !record.moved && isEnrolled(await readRegistryIn(fd), selfKey);
       const role: Role = isCreator ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
@@ -2530,7 +2670,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return ok(await computeStatus());
   }
 
-  return {
+  const store: PhotoStore = {
     async ready() {
       if (readyPromise) return readyPromise;
       // A transient `setup()` failure (e.g. a flaky corestore/swarm) must not
@@ -2967,6 +3107,38 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // already closed
       }
     },
+  };
+
+  return tooNew ? updateRequiredStore(store) : store;
+}
+
+const UPDATE_REQUIRED_TEXT = "Update Justus to open your albums.";
+
+/** What a newer Justus left behind cannot be read here: every call says so and
+ * nothing is read or written. */
+function updateRequiredStore(inner: PhotoStore): PhotoStore {
+  const refuse = (): Promise<EitherResult<never>> =>
+    Promise.resolve(err(PhotoError.UPDATE_REQUIRED, UPDATE_REQUIRED_TEXT));
+  const fail = (): Promise<never> => Promise.reject(new Error(UPDATE_REQUIRED_TEXT));
+  return {
+    ready: () => inner.ready(),
+    list: fail,
+    add: refuse,
+    addBytes: refuse,
+    remove: refuse,
+    join: refuse,
+    enroll: refuse,
+    status: fail,
+    folders: fail,
+    ask: refuse,
+    createFolder: refuse,
+    setActive: refuse,
+    setName: refuse,
+    requests: fail,
+    removeMember: refuse,
+    respond: refuse,
+    debugState: () => inner.debugState(),
+    close: () => inner.close(),
   };
 }
 
