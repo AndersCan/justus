@@ -277,21 +277,29 @@ describe("a list inside a keyed section", () => {
     </section>
   </div>`;
 
-  function mountSection(keys: string[]) {
+  function mountSection(
+    keys: string[],
+    start = { top: 0, left: 0 },
+    shift = { top: 100, left: 0 },
+  ) {
     const host = document.createElement("div");
     document.body.append(host);
     render(inSection(keys, false), host);
     // The banner's layout shows only once the render is committed, as in a browser.
     let lifted = false;
     Element.prototype.getBoundingClientRect = function (this: Element) {
-      const wrapTop = lifted ? 100 : 0;
+      const wrap = lifted ? shift : start;
       const el = this as HTMLElement;
       let top = 0;
-      if (el.dataset.motionKey === "wrap") top = wrapTop;
-      else if (el.tagName === "FIGURE") {
-        top = wrapTop + 100 * [...el.parentElement!.children].indexOf(el);
+      let left = 0;
+      if (el.dataset.motionKey === "wrap") {
+        top = wrap.top;
+        left = wrap.left;
+      } else if (el.tagName === "FIGURE") {
+        top = wrap.top + 100 * [...el.parentElement!.children].indexOf(el);
+        left = wrap.left;
       }
-      return { left: 0, top, width: 100, height: 100 } as any;
+      return { left, top, width: 100, height: 100 } as any;
     };
     const again = async (next: string[], banner: boolean) => {
       render(inSection(next, banner), host);
@@ -325,5 +333,23 @@ describe("a list inside a keyed section", () => {
     await again(["b"], true);
     const b = calls.find((x) => keyOf(x) === "b")!;
     expect(b.keyframes).toEqual([{ transform: "translate(0px, 100px)" }, { transform: "none" }]);
+  });
+
+  test("a list whose section shifted sideways animates only its own change", async () => {
+    const { again } = mountSection(["a", "b"], { top: 0, left: 0 }, { top: 0, left: 60 });
+    await again(["a", "b", "c"], true);
+    const keyed = calls.map(keyOf);
+    expect(keyed).not.toContain("a");
+    expect(keyed).not.toContain("b");
+    expect(keyed).toContain("c");
+  });
+
+  test("a section that starts away from the corner is measured from where it was", async () => {
+    const { again } = mountSection(["a", "b"], { top: 50, left: 20 }, { top: 150, left: 20 });
+    await again(["a", "b", "c"], true);
+    const keyed = calls.map(keyOf);
+    expect(keyed).not.toContain("a");
+    expect(keyed).not.toContain("b");
+    expect(keyed).toContain("c");
   });
 });
