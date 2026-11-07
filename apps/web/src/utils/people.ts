@@ -14,6 +14,8 @@ export type Person = {
   /** The row can be tapped to open the friend sheet. */
   tappable: boolean;
   admin: boolean;
+  /** Accepted as a Viewer: sees every photo, adds none. */
+  viewer: boolean;
   you: boolean;
   connected: boolean;
   /** "connected", "last seen 2h ago" or "not seen yet". */
@@ -66,9 +68,10 @@ export function buildPeople(
         friend: friendName !== undefined,
         tappable: !you && m.identity !== undefined,
         admin: m.admin,
+        viewer: m.viewer === true,
         you,
         connected: m.connected,
-        presence: you ? "you" : presenceLabel(m, now),
+        presence: you ? "you" : m.viewer ? "can only look" : presenceLabel(m, now),
       };
     })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));

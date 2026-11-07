@@ -76,7 +76,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await askToJoin(b, link, ALBUM);
 
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept" }).click();
+  await a.getByRole("button", { name: "Accept, and let them add photos", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
@@ -93,6 +93,37 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   });
 });
 
+test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's Members shows B as Viewer", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  const album = "Viewer trip";
+  await createAlbum(a, album, PHOTO, 11);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, album);
+
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(
+    a.getByText("A Viewer sees every photo. A Collaborator can add photos too."),
+  ).toBeVisible();
+  await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
+  await expect(bImg).toBeAttached({ timeout: 60_000 });
+  await expect(b.getByText("You're a Viewer: you see every photo here.")).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const row = members.locator("li", { hasText: "Viewer" });
+  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(row).toContainText("can only look");
+});
+
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
   instancePages,
 }) => {
@@ -103,7 +134,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   const link = await copyInviteLink(a);
   await askToJoin(b, link, FRIEND_ALBUM);
   await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept" }).click();
+  await a.getByRole("button", { name: "Accept, and let them add photos", exact: true }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
@@ -186,7 +217,7 @@ test("B asks from the first-run screen, closes the waiting sheet, A accepts, B o
   await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(1);
 
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept" }).click();
+  await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
   const t0 = Date.now();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
@@ -247,7 +278,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
   const firstLink = await copyInviteLink(a);
   await askToJoin(b, firstLink, FRIEND_ALBUM);
   await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept" }).click();
+  await a.getByRole("button", { name: "Accept, and let them add photos", exact: true }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });

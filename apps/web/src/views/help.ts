@@ -48,14 +48,20 @@ export const HELP_QA: { q: string; a: string[] }[] = [
   {
     q: "What can the Admin see and do?",
     a: [
-      "The Admin is the person who started the album. They decide who joins, and they can remove members.",
+      "The Admin is the person who started the album. They decide who joins, and they can remove Collaborators, and let Viewers add photos.",
       "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
+    ],
+  },
+  {
+    q: "Who can add photos?",
+    a: [
+      "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too. The Admin can let a Viewer add photos later, from Members.",
     ],
   },
   {
     q: "Who can delete a photo?",
     a: [
-      "Whoever added a photo can delete it, and so can the Admin. Members can't delete other people's photos, and Viewers can't delete anything.",
+      "Whoever added a photo can delete it, and so can the Admin. Collaborators can't delete other people's photos, and Viewers can't delete anything.",
       "Deleting a photo takes it out of the album for everyone. Phones that already have it may keep a copy, and when the Admin deletes someone else's photo, it stays on that person's phone.",
     ],
   },

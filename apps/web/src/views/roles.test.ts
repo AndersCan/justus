@@ -5,7 +5,7 @@ import { adminName } from "./invite";
 describe("roleLabel", () => {
   it("uses the plain role words", () => {
     expect(roleLabel("creator")).toBe("Admin");
-    expect(roleLabel("member")).toBe("Member");
+    expect(roleLabel("member")).toBe("Collaborator");
     expect(roleLabel("reader")).toBe("Viewer");
   });
 

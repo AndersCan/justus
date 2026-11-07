@@ -37,7 +37,7 @@ onOutput(friendOfferActor, (e) => {
 export function roleLabel(role: FolderSummary["role"], pending = false): string {
   if (pending) return "Waiting for approval";
   if (role === "creator") return "Admin";
-  if (role === "member") return "Member";
+  if (role === "member") return "Collaborator";
   return "Viewer";
 }
 

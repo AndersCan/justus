@@ -5,6 +5,8 @@ import type { SyncStatus } from "@justus/core";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
+import { requests } from "../machines/requests-machine";
+import { gateway } from "../gateway";
 import { albumView } from "./album";
 
 vi.mock("../gateway", () => ({
@@ -15,6 +17,7 @@ vi.mock("../gateway", () => ({
     },
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
+    respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -155,5 +158,83 @@ describe("album people motion", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(before[1].isConnected).toBe(false);
+  });
+});
+
+describe("album join requests", () => {
+  const ask = (requesterKey: string, viaInvite: boolean) => ({
+    folderId: "f1",
+    folderName: "Trip",
+    requesterKey,
+    requesterName: requesterKey,
+    shareKey: "s",
+    requestedAt: Date.now(),
+    ...(viaInvite ? { viaInvite } : {}),
+  });
+
+  async function show(list: ReturnType<typeof ask>[]) {
+    vi.mocked(gateway.requests).mockResolvedValue([null, { requests: list }] as never);
+    vi.mocked(gateway.respond).mockClear();
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    requests.refresh();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    await vi.waitFor(() => expect(host.textContent).toContain("wants to join"));
+    return host;
+  }
+  const button = (host: HTMLElement, text: string) =>
+    [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
+
+  test("an invite request offers both accepts and the caption; each sends its role", async () => {
+    const host = await show([ask("nils", true)]);
+    expect(host.textContent).toContain(
+      "A Viewer sees every photo. A Collaborator can add photos too.",
+    );
+    expect(button(host, "Accept")).toBeUndefined();
+    button(host, "Accept as Viewer")!.click();
+    await vi.waitFor(() =>
+      expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
+    );
+  });
+
+  test("Accept, and let them add photos sends the member role", async () => {
+    const host = await show([ask("nils", true)]);
+    button(host, "Accept, and let them add photos")!.click();
+    await vi.waitFor(() =>
+      expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "member"),
+    );
+  });
+
+  test("a plain request keeps a single Accept that sends the member role", async () => {
+    const host = await show([ask("ola", false)]);
+    expect(host.textContent).not.toContain("A Viewer sees every photo");
+    expect(button(host, "Accept as Viewer")).toBeUndefined();
+    button(host, "Accept")!.click();
+    await vi.waitFor(() =>
+      expect(gateway.respond).toHaveBeenCalledWith("f1", "ola", true, "member"),
+    );
+  });
+});
+
+describe("album viewer rows", () => {
+  test("a Viewer row says Viewer and can only look, with no dot and no Remove", () => {
+    const viewerStatus = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: viewerStatus }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const row = memberRows(host)[1];
+    expect(row.textContent).toContain("Viewer");
+    expect(row.textContent).toContain("can only look");
+    expect(row.querySelector("span.h-1\\.5")).toBeNull();
+    expect(row.textContent).not.toContain("Remove");
+    expect(host.textContent).toContain("Viewers see every photo but can't add any.");
   });
 });

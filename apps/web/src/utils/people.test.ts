@@ -30,6 +30,24 @@ const request = (folderId: string): JoinRequest => ({
   requestedAt: 0,
 });
 
+describe("buildPeople viewers", () => {
+  it("marks a viewer and says they can only look", () => {
+    const s = {
+      folder: { id: "f1", role: "creator" },
+      members: [
+        { key: "me", name: "Maya", admin: true, connected: true },
+        { key: "v", name: "Nils", admin: false, connected: false, viewer: true },
+        { key: "c", name: "Ana", admin: false, connected: false },
+      ],
+    } as SyncStatus;
+    const [, nils, ana] = buildPeople(s, [], {}, NOW).people;
+    expect(nils.viewer).toBe(true);
+    expect(nils.presence).toBe("can only look");
+    expect(ana.viewer).toBe(false);
+    expect(ana.presence).toBe("not seen yet");
+  });
+});
+
 describe("buildPeople friends", () => {
   const withIdentity = (): SyncStatus =>
     ({
