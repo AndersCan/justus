@@ -715,4 +715,23 @@ export const cases: DriveCase[] = [
       t.eq(await remote.readSmall("/a", 10), "1", "held handle still reads");
     },
   },
+  {
+    name: "D27 a copy holds a ref on the live drive: it closes only after the copy and the live handle are both released",
+    async run(world, t) {
+      const { store } = await world.node();
+      const drive = await store.openOwn("folder/x");
+      await drive.put("/a", bytes("1"));
+      const [err, copy] = await store.openAt(drive.key, drive.version(), { timeoutMs: 5_000 });
+      t.noErr([err], "openAt");
+      if (!copy) throw new Error("no copy");
+      await store.release(drive);
+      t.eq(await drive.readSmall("/a", 10), "1", "copy still holds the live drive open");
+      await store.release(copy);
+      const closed = await drive.readSmall("/a", 10).then(
+        () => false,
+        () => true,
+      );
+      t.ok(closed, "live drive closed once the copy is released too");
+    },
+  },
 ];

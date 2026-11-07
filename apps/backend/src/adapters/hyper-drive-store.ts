@@ -172,6 +172,7 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
     const [err, live] = await open(key, timeoutMs);
     if (err || !live) return [err ?? new Error("open returned no drive"), null];
     const raw = (await byKey.get(key))?.raw;
+    if (!raw) return [new Error(`drive ${short(key)} was closed while opening a copy`), null];
     while (raw.core.length < version) {
       const left = deadline - Date.now();
       if (left <= 0) {
