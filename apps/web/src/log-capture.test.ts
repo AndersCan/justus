@@ -185,4 +185,19 @@ describe("startWebLogCapture", () => {
     expect(handle).not.toBeNull();
     handle?.stop();
   });
+
+  test("one console.info posts to /__logs within a second", async () => {
+    vi.stubEnv("VITE_TRANSPORT_MODE", "real");
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const handle = startWebLogCapture();
+    console.info("hello flush");
+    await vi.advanceTimersByTimeAsync(1100);
+    handle?.stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toMatch(/__logs$/);
+  });
 });
