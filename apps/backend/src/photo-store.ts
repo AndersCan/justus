@@ -55,7 +55,16 @@ import {
   type RemovedFile,
   type RequestsFile,
 } from "./membership/records";
-import { checkAsk, fileInviteAsk, replyTo } from "./membership/invites";
+import {
+  checkAsk,
+  fileInviteAsk,
+  offerAlbumTo,
+  offerToTake,
+  replyTo,
+  tellIdentity,
+  withdrawInvite,
+  type InvitePorts,
+} from "./membership/invites";
 import {
   albumNameUpdate,
   albumSummary,
@@ -2235,6 +2244,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** An Admin waiting for a friend's phone to answer an invite, by `identity:code`. */
   const offerWaiters = new Map<string, (reply: "seen" | "refused") => void>();
+  const invitePorts: InvitePorts = {
+    connections: () => Array.from(conns, ([conn, c]) => ({ conn, identity: c.identityKey })),
+    provenIdentity: (conn, { timeoutMs }) => withTimeout(verifiedIdentity(conn), timeoutMs),
+    sendAnswer: (conn, message) => network.sendAnswer(conn, message),
+  };
 
   /** A friend message arrived on connection `connId`. Only a connection proven
    * to belong to an identity ({@link verifiedIdentity}) can act as that identity. */
@@ -2817,31 +2831,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the creator can turn off invite links");
-      const old = rt.record.invite?.code;
-      if (old) {
-        for (const identity of rt.record.invited ?? []) {
-          for (const [connId, c] of Array.from(conns)) {
-            if (c.identityKey !== identity) continue;
-            if ((await withTimeout(verifiedIdentity(connId), 2_000)) !== identity) continue;
-            network.sendAnswer(connId, { kind: "offerWithdrawn", code: old });
-          }
-        }
-      }
+      const next = await withdrawInvite(invitePorts, {
+        album: rt.record,
+        newCode: newInviteCode(),
+      });
       rt.record.invited = undefined;
-      const code = newInviteCode();
-      rt.record.invite = { code };
-      if (old) rt.record.retiredInvites = [...(rt.record.retiredInvites ?? []), old];
+      rt.record.invite = next.invite;
+      if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted) {
-        persisted.invite = { code };
+        persisted.invite = next.invite;
         persisted.invited = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
-      if (old) leaveTopic(hex(inviteTopic(old, crypto)));
-      serveInvite(code);
+      if (next.retired) leaveTopic(hex(inviteTopic(next.retired, crypto)));
+      serveInvite(next.invite.code);
       deps.onChanged({ cause: "request", folderId });
-      return ok({ invite: { code, owner: ownDrive.key } });
+      return ok({ invite: { code: next.invite.code, owner: ownDrive.key } });
     },
 
     async offerAlbum(folderId, identity) {
@@ -2861,28 +2868,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (offerWaiters.has(key))
         return err(PhotoError.OFFER_PENDING, "This invite is already waiting for that friend");
       const reply = new Promise<"seen" | "refused">((resolve) => offerWaiters.set(key, resolve));
-      const deadline = Date.now() + (deps.offerReachMs ?? OFFER_REACH_MS);
       try {
-        const got: { v?: "seen" | "refused" } = {};
-        void reply.then((r) => (got.v = r));
-        while (!got.v && !closed && Date.now() < deadline) {
-          for (const [connId, c] of Array.from(conns)) {
-            if (c.identityKey !== identity) continue;
-            const left = deadline - Date.now();
-            if ((await withTimeout(verifiedIdentity(connId), left)) !== identity) continue;
-            network.sendAnswer(connId, {
-              kind: "offer",
-              code: invite.code,
-              albumName: rt.record.name,
-              ownerName: state.name,
-            });
-          }
-          await Promise.race([reply, sleep(OFFER_RESEND_MS)]);
-        }
-        if (got.v === "refused")
-          return err(PhotoError.FRIEND_REFUSED, "The friend's phone turned the invite down");
-        if (got.v !== "seen")
-          return err(PhotoError.FRIEND_UNREACHABLE, "The friend's phone did not answer");
+        const [offerErr] = await offerAlbumTo(invitePorts, {
+          identity,
+          offer: { code: invite.code, albumName: rt.record.name, ownerName: state.name },
+          reply,
+          reachMs: deps.offerReachMs ?? OFFER_REACH_MS,
+          resendMs: OFFER_RESEND_MS,
+          isClosed: () => closed,
+        });
+        if (offerErr?.kind === "refused") return err(PhotoError.FRIEND_REFUSED, offerErr.message);
+        if (offerErr) return err(PhotoError.FRIEND_UNREACHABLE, offerErr.message);
         for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
           if (target && !target.invited?.includes(identity)) {
             target.invited = [...(target.invited ?? []), identity];
@@ -2898,19 +2894,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     async joinOffer(code, owner) {
       await readyPromise;
-      const offer = state.offers.find((o) => o.code === code && o.owner === owner);
-      if (!offer) return err(PhotoError.OFFER_GONE, "This invite was taken back");
-      let ask = state.asks.find((a) => a.code === code);
-      if (!ask || ask.status === "declined") {
-        const filed = await fileAsk(code, owner, offer.albumName, offer.ownerName);
+      const take = offerToTake(state, { code, owner });
+      if (take.kind === "gone") return err(PhotoError.OFFER_GONE, "This invite was taken back");
+      let ask: AskRecord | undefined;
+      if (take.kind === "file-ask") {
+        const filed = await fileAsk(code, owner, take.offer.albumName, take.offer.ownerName);
         if (filed[0]) return filed;
         ask = state.asks.find((a) => a.code === code);
+      } else {
+        ask = take.ask;
       }
-      for (const [connId, c] of Array.from(conns)) {
-        if (c.identityKey !== owner) continue;
-        if ((await withTimeout(verifiedIdentity(connId), 2_000)) !== owner) continue;
-        network.sendAnswer(connId, { kind: "offerTaken", code });
-      }
+      await tellIdentity(invitePorts, {
+        identity: owner,
+        message: { kind: "offerTaken", code },
+        timeoutMs: 2_000,
+      });
       return ok({ ask: askSummary(ask as AskRecord) });
     },
 
