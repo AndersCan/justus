@@ -139,6 +139,79 @@
       ]
     },
     {
+      "name": "Maya: closes the waiting screen and Nils accepts",
+      "end": "joinedAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "closeWaiting",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "accepted",
+            "folderId": "f9"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: closes the waiting screen and Nils declines",
+      "end": "declinedByAdmin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "closeWaiting",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "declined"
+          }
+        }
+      ]
+    },
+    {
       "name": "Maya: opens a link from before the new key",
       "end": "showingLinkProblem",
       "steps": [

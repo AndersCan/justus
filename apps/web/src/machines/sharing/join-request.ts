@@ -1,7 +1,7 @@
 import { RealClock, type Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../../gateway";
-import { open } from "../router-machine";
+import { currentPage, open } from "../router-machine";
 import { classifyInvite } from "../../utils/classify-invite";
 import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
@@ -54,6 +54,7 @@ export const joinActor = createJoinRequestActor({
       foldersActor.snapshot().context.folders,
       foldersActor.snapshot().context.asks,
     ),
+  asked: (code) => foldersActor.snapshot().context.asks.find((a) => a.code === code),
   port: {
     ask: async (invite) => {
       const outcome = await gateway.ask(invite.code, invite.owner, invite.album, invite.ownerName);
@@ -65,7 +66,9 @@ export const joinActor = createJoinRequestActor({
 
 onOutput(joinActor, (e) => {
   if (e.type === "openAlbum") {
-    open(`/albums/${(e.payload as { folderId: string }).folderId}`);
+    open(`/albums/${(e.payload as { folderId: string }).folderId}`, {
+      replace: currentPage()?.route === "welcome",
+    });
   }
 });
 

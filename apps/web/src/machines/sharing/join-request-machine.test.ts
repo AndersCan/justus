@@ -24,7 +24,13 @@ const INVITE: JoinInvite = {
 };
 const LINK = buildInviteLink(INVITE);
 
-function setup(options: { port?: JoinPort; known?: Known } = {}) {
+function setup(
+  options: {
+    port?: JoinPort;
+    known?: Known;
+    asked?: (code: string) => AskSummary | undefined;
+  } = {},
+) {
   const clock = VirtualClock();
   const actor = createJoinRequestActor({ clock, ...options });
   const outputs: { type: string; payload?: unknown }[] = [];
@@ -259,10 +265,10 @@ describe("waitingForAdminToAccept", () => {
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
   });
 
-  test("answers outside waiting are dropped", async () => {
-    const s = setup();
-    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
-    expect(s.actor.state.name).toBe("noInviteOpen");
+  test("an answer for another code is ignored while waiting", async () => {
+    const s = await waitingSetup();
+    await s.send("requestAnswered", { code: "c".repeat(64), answer: "accepted", folderId: "f9" });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(s.outputs).toEqual([]);
   });
 });
@@ -391,11 +397,99 @@ describe("link states", () => {
   });
 });
 
+describe("answers with no sheet open", () => {
+  const found = (code: string) => (code === INVITE.code ? ask("waiting") : undefined);
+  const accepted = { code: INVITE.code, answer: "accepted", folderId: "f9" };
+  const declinedAnswer = { code: INVITE.code, answer: "declined" };
+
+  async function closed(options: Parameters<typeof setup>[0] = {}) {
+    const s = await waitingSetup(options);
+    await s.send("closeWaiting");
+    return s;
+  }
+
+  test("accepted after closeWaiting opens the album", async () => {
+    const s = await closed();
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
+  });
+
+  test("declined after closeWaiting shows the decline with the stored ask", async () => {
+    const s = await closed({ asked: found });
+    await s.send("requestAnswered", declinedAnswer);
+    expect(s.actor.state.name).toBe("declinedByAdmin");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("declined with no stored ask stays quiet", async () => {
+    const s = await closed({ asked: () => undefined });
+    await s.send("requestAnswered", declinedAnswer);
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("accepted with no folderId stays", async () => {
+    const s = await closed();
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted" });
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("accepted from showingLinkProblem opens the album and keeps the error until the next link", async () => {
+    const s = setup();
+    await s.send("openLink", { text: "justus://join/not-a-link" });
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(error(s)).toBe(GARBLED_LINK);
+    await s.send("openLink", { text: LINK });
+    expect(error(s)).toBe("");
+  });
+
+  test("a second accept from joinedAlbum opens a second album", async () => {
+    const s = await closed();
+    await s.send("requestAnswered", accepted);
+    await s.send("requestAnswered", { ...accepted, folderId: "f10" });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs.map((o) => o.payload)).toEqual([{ folderId: "f9" }, { folderId: "f10" }]);
+  });
+
+  test("a decline in decidingToAsk leaves the sheet alone", async () => {
+    const s = setup({ asked: found });
+    await s.send("openLink", { text: LINK });
+    await s.send("requestAnswered", declinedAnswer);
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    expect(payload(s)).toEqual(INVITE);
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("an accept in decidingToAsk opens the album", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
+  });
+
+  test("an accept in linkExpired opens the album", async () => {
+    const s = setup();
+    s.clock.advance(600_000);
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    expect(s.actor.state.name).toBe("linkExpired");
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
+  });
+});
+
 const make = recordRuns(createJoinRequestActor);
 const ROW = (status: AskSummary["status"]) => ask(status);
 
-async function drive(steps: (send: Setup["send"]) => Promise<void>) {
-  const actor = make({ clock: VirtualClock() });
+async function drive(
+  steps: (send: Setup["send"]) => Promise<void>,
+  options: Parameters<typeof setup>[0] = {},
+) {
+  const actor = make({ clock: VirtualClock(), ...options });
   const send = async (type: string, payload?: unknown) => {
     actor.send({ type, payload } as never);
     await actor.settled();
@@ -516,4 +610,27 @@ describe("joiner design", () => {
   test("reaches every state", () => {
     expectAllStatesReached(target);
   });
+});
+
+test("Maya: closes the waiting screen and Nils accepts", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("closeWaiting");
+    await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+  });
+  expect(actor.state.name).toBe("joinedAlbum");
+});
+
+test("Maya: closes the waiting screen and Nils declines", async () => {
+  const actor = await drive(
+    async (send) => {
+      await send("openLink", { text: LINK });
+      await send("askToJoin");
+      await send("closeWaiting");
+      await send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    },
+    { asked: () => ROW("waiting") },
+  );
+  expect(actor.state.name).toBe("declinedByAdmin");
 });
