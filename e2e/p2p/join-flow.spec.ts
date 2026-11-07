@@ -40,7 +40,10 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await expect(aImg).toBeAttached({ timeout: 20_000 });
 
   // --- A: open the invite panel and copy the link ---
-  await a.getByRole("link", { name: /Invite & members/ }).first().click();
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
   const copyButton = a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ });
   await expect(copyButton).toBeVisible({ timeout: 20_000 });
   const link = await a.evaluate(
@@ -67,7 +70,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
         button.click();
       }),
   );
-  expect(link).toMatch(/^justus:\/\/join\//);
+  expect(link).toMatch(/^justus:\/\/join\?/);
 
   // --- B: open the link, see the ask, send it ---
   await b.goto("/join");
