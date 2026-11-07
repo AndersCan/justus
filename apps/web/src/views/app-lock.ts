@@ -1,18 +1,13 @@
 import type { LockStatus } from "@justus/core";
+import { watch } from "@mantaq/lit";
 import { html, nothing } from "lit-html";
-import { atom } from "nanostores";
 import { gateway } from "../gateway";
-import { useStore } from "../use-store";
+import { appLockActor, appLockEvents } from "../machines/app-lock-machine";
 import { toast } from "./toast";
 
 type Result<T> = Promise<[Error, null] | [null, T]>;
 type Load = () => Result<LockStatus>;
 type SetEnabled = (enabled: boolean) => Result<{ enabled: boolean }>;
-
-type AppLockState = { status: LockStatus | undefined; busy: boolean };
-
-/** One host-owned boolean, so a module atom rather than an actor (as `theme-toggle.ts`). */
-export const $appLock = atom<AppLockState>({ status: undefined, busy: false });
 
 function isStatus(v: unknown): v is LockStatus {
   return (
@@ -28,26 +23,29 @@ export async function refreshAppLock(load: Load = gateway.lock.status as Load) {
   if ((window as { BareShell?: boolean }).BareShell !== true) return;
   const [err, status] = await load();
   const next = !err && isStatus(status) ? status : undefined;
-  $appLock.set({ ...$appLock.get(), status: next });
+  appLockActor.send(appLockEvents.statusRead.create({ status: next }));
 }
 
 export async function toggleAppLock(
   set: SetEnabled = gateway.lock.setEnabled as SetEnabled,
   load: Load = gateway.lock.status as Load,
 ) {
-  const { status, busy } = $appLock.get();
-  if (busy || !status) return;
+  const snap = appLockActor.snapshot();
+  const status = snap.context.status;
+  if (snap.path[0] === "saving" || !status) return;
   const want = !status.enabled;
-  $appLock.set({ status, busy: true });
+  appLockActor.send(appLockEvents.saveStarted.create());
   const [err, result] = await set(want);
-  $appLock.set({ status, busy: false });
+  appLockActor.send(appLockEvents.saveEnded.create({ status }));
   if (err || typeof result?.enabled !== "boolean") {
     toast(`Couldn't turn ${want ? "on" : "off"} App lock. Try again.`);
     await refreshAppLock(load);
     return;
   }
   if (result.enabled === status.enabled) return;
-  $appLock.set({ status: { ...status, enabled: result.enabled }, busy: false });
+  appLockActor.send(
+    appLockEvents.statusRead.create({ status: { ...status, enabled: result.enabled } }),
+  );
   toast(result.enabled ? "App lock is on" : "App lock is off");
 }
 
@@ -56,7 +54,7 @@ const HINT_AVAILABLE =
 const HINT_UNAVAILABLE = "Set a screen lock in your phone's Settings to use App lock.";
 
 /** What the card shows for a state; `undefined` means no card. */
-export function appLockView({ status, busy }: AppLockState) {
+export function appLockView({ status, busy }: { status: LockStatus | undefined; busy: boolean }) {
   if (!status) return undefined;
   return {
     on: status.available && status.enabled,
@@ -66,8 +64,8 @@ export function appLockView({ status, busy }: AppLockState) {
 }
 
 export function appLockSection() {
-  return useStore($appLock, (state) => {
-    const view = appLockView(state);
+  return watch(appLockActor, (s) => {
+    const view = appLockView({ status: s.context.status, busy: s.path[0] === "saving" });
     if (!view) return nothing;
     const { on, disabled, hint } = view;
     return html`<section class="ui-card p-5">

@@ -2,13 +2,17 @@ import { describe, it, expect, vi } from "vite-plus/test";
 import {
   severityClasses,
   formatLogLine,
-  collectSources,
-  filterLogEntries,
   buildLogDownloadUrl,
   createLogsController,
   type LogsFetch,
 } from "./logs";
 import type { LogEntry } from "@justus/core";
+import {
+  availableSources,
+  collectSources,
+  filterLogEntries,
+  visibleEntries,
+} from "../machines/logs-machine";
 
 function entry(p: Partial<LogEntry> & { source: string; message: string }): LogEntry {
   return {
@@ -98,23 +102,22 @@ describe("LogsController", () => {
     // initial refresh is async
     await new Promise((r) => setTimeout(r, 5));
     expect(fetchLogs).toHaveBeenCalled();
+    const snap = () => c.actor.snapshot();
     expect(
-      c.$entries
-        .get()
-        .map((e) => e.source)
+      snap()
+        .context.entries.map((e) => e.source)
         .sort(),
     ).toEqual(["backend", "web"]);
-    expect(c.$availableSources.get()).toEqual(["backend", "web"]);
+    expect(availableSources(snap())).toEqual(["backend", "web"]);
     expect(
-      c.$visible
-        .get()
+      visibleEntries(snap())
         .map((e) => e.source)
         .sort(),
     ).toEqual(["backend", "web"]);
 
     // filter to backend only
     c.toggleSource("backend");
-    expect(c.$visible.get().map((e) => e.source)).toEqual(["backend"]);
+    expect(visibleEntries(snap()).map((e) => e.source)).toEqual(["backend"]);
 
     // pausing stops the polling refresh
     c.setPaused(true);
@@ -126,8 +129,28 @@ describe("LogsController", () => {
     const ok = await c.clear();
     expect(ok).toBe(true);
     expect(clearLogs).toHaveBeenCalled();
-    expect(c.$entries.get()).toEqual([]);
+    expect(snap().context.entries).toEqual([]);
 
+    c.stop();
+  });
+});
+
+describe("LogsController failures", () => {
+  it("keeps entries and records the error when a fetch fails", async () => {
+    const good = entry({ source: "web", message: "ok" });
+    let fail = false;
+    const fetchLogs = vi.fn<LogsFetch>(async () =>
+      fail ? [new Error("down"), null] : [null, { entries: [good] }],
+    );
+    const c = createLogsController({ fetchLogs, clearLogs: async () => [null, { cleared: 0 }] });
+    c.start();
+    await new Promise((r) => setTimeout(r, 5));
+    fail = true;
+    await c.refresh();
+    const s = c.actor.snapshot().context;
+    expect(s.error).toBe("down");
+    expect(s.entries).toEqual([good]);
+    expect(s.loading).toBe(false);
     c.stop();
   });
 });

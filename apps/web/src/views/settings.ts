@@ -2,12 +2,8 @@ import { html } from "lit-html";
 import { watch } from "@mantaq/lit";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
-import { useStore } from "../use-store";
-import {
-  $profilePicture,
-  clearProfilePicture,
-  setProfilePictureFromFile,
-} from "../utils/profile-picture";
+import { prefsActor } from "../machines/prefs-machine";
+import { clearProfilePicture, setProfilePictureFromFile } from "../utils/profile-picture";
 import { avatarBadge } from "./avatar";
 import { errorBanner } from "./error-banner";
 import { logsPanel } from "./logs";
@@ -31,9 +27,9 @@ async function pickPicture(e: Event) {
 }
 
 function pictureRow(name: string) {
-  return useStore(
-    $profilePicture,
-    (picture) => html`<div class="mb-4 flex items-center gap-4">
+  return watch(
+    prefsActor,
+    ({ context: { picture } }) => html`<div class="mb-4 flex items-center gap-4">
       ${avatarBadge(name || "?", picture, "h-16 w-16 text-xl")}
       <div class="flex flex-wrap gap-2">
         <label class="ui-btn-ghost cursor-pointer">

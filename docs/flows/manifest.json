@@ -19,5 +19,11 @@
     "apps/backend/src/membership/membership-machine.ts",
     "apps/web/src/machines/sharing/join-request-machine.ts"
   ],
-  "app": ["apps/web/src/machines/router-machine.ts", "apps/web/src/machines/lightbox-machine.ts"]
+  "app": [
+    "apps/web/src/machines/router-machine.ts",
+    "apps/web/src/machines/lightbox-machine.ts",
+    "apps/web/src/machines/prefs-machine.ts",
+    "apps/web/src/machines/app-lock-machine.ts",
+    "apps/web/src/machines/logs-machine.ts"
+  ]
 }

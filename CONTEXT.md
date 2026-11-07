@@ -53,7 +53,7 @@ The worklet process that runs on each device: owns the folder's storage and sync
 _Avoid_: server, cloud
 
 **Web layer**:
-The UI bundle (lit-html + nanostores) that runs in the browser or WebView and talks to the backend over a WebSocket.
+The UI bundle (lit-html + mantaq) that runs in the browser or WebView and talks to the backend over a WebSocket.
 _Avoid_: frontend, client, app
 
 **Host**:
@@ -69,7 +69,7 @@ The device's own keyless drive. It holds `/device.json` and the join-request out
 _Avoid_: own drive, profile drive
 
 **Actor**:
-A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; each actor's change handler writes module-scope nanostore atoms, and the UI reads them reactively via computed view-models.
+A mantaq state machine that owns a slice of app state. All state in Justus is modeled with actors; views read actor state reactively through `@mantaq/lit`.
 _Avoid_: reducer, store, controller
 
 **Encryption**:

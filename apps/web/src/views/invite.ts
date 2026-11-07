@@ -1,10 +1,8 @@
 import { html } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { atom } from "nanostores";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import { syncActor } from "../machines/sync-machine";
-import { useStore } from "../use-store";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
 import { toast } from "./toast";
@@ -46,13 +44,18 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
   toast((await copyText(link)) ? "Invite link copied" : "Couldn't copy the invite");
 }
 
-const $copied = atom(false);
-
-async function copy(value: string) {
+async function copy(value: string, button: HTMLElement) {
   const ok = await copyText(value);
-  $copied.set(ok);
-  setTimeout(() => $copied.set(false), 2000);
-  if (!ok) toast("Couldn't copy the invite link");
+  if (!ok) {
+    toast("Couldn't copy the invite link");
+    return;
+  }
+  const label = button.dataset.label ?? button.textContent ?? "";
+  button.dataset.label = label;
+  button.textContent = "Copied ✓";
+  setTimeout(() => {
+    button.textContent = label;
+  }, 2000);
 }
 
 function qrCode(link: string) {
@@ -97,26 +100,26 @@ export function invitePanel(
         Send the link to people you want in “${folder.name}”. They ask to join and you choose who
         gets in. They see no photos until you accept.
       </p>
-      ${useStore(
-        $copied,
-        (copied) => html`<div class="flex flex-wrap gap-2">
-          ${
-            canShare
-              ? html`<button
-                    class="ui-btn-primary"
-                    @click=${() => void shareInvite(folder, myName)}
-                  >
-                    Send invite link
-                  </button>
-                  <button class="ui-btn-ghost" @click=${() => void copy(link)}>
-                    ${copied ? "Copied ✓" : "Copy link"}
-                  </button>`
-              : html`<button class="ui-btn-primary" @click=${() => void copy(link)}>
-                  ${copied ? "Copied ✓" : "Copy invite link"}
+      <div class="flex flex-wrap gap-2">
+        ${
+          canShare
+            ? html`<button class="ui-btn-primary" @click=${() => void shareInvite(folder, myName)}>
+                  Send invite link
+                </button>
+                <button
+                  class="ui-btn-ghost"
+                  @click=${(e: Event) => void copy(link, e.currentTarget as HTMLElement)}
+                >
+                  Copy link
                 </button>`
-          }
-        </div>`,
-      )}
+            : html`<button
+                class="ui-btn-primary"
+                @click=${(e: Event) => void copy(link, e.currentTarget as HTMLElement)}
+              >
+                Copy invite link
+              </button>`
+        }
+      </div>
       ${
         qrShown
           ? html`<div class="mt-4">${qrCode(link)}</div>

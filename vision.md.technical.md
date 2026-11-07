@@ -21,8 +21,7 @@
   element/base-class machinery.
 - **CSS:** `unocss` - utility-first, on-demand CSS engine (no preset-heavy
   framework). Styling stays in markup via atomic classes.
-- These pair with Ekrooh's rendering rules (`rendering.md`: lit-html +
-  nanostores, RootPart lifecycle) for shared, portable UI across platforms.
+- These pair with Ekrooh's rendering rules (`rendering.md`: lit-html, RootPart lifecycle) for shared, portable UI across platforms.
 
 ## How privacy is made visible in the UI
 

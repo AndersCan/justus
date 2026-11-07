@@ -9,13 +9,13 @@ validates the ekrooh framework's beta (findings are filed as ekrooh issues).
   single-writer drive (multi-writer v1 via a creator-mediated registry).
 - **Sync** — folders replicate peer-to-peer over Hyperswarm (hyperdrive +
   corestore per app).
-- **State** — every state machine is a mantaq actor; actor contexts hold
-  nanostore atoms the UI reads reactively (lit-html + UnoCSS).
+- **State** — every state machine is a mantaq actor; views read actor
+  state through `@mantaq/lit` (lit-html + UnoCSS).
 
 ## Architecture
 
 ```
-apps/web       Gallery UI (lit-html + nanostores + mantaq + UnoCSS)
+apps/web       Gallery UI (lit-html + mantaq + UnoCSS)
 apps/backend   Bare worklet: photo store (corestore+hyperdrive+hyperswarm),
                the justus.photos plugin, loopback serving, dev inbox
 apps/android   Android host (WebView + Bare worklet + media pick/capture)
