@@ -184,7 +184,16 @@ class ListingScreenshots {
     // which says they choose who gets in.
     captioned("2_invite", "You choose who joins. Nobody sees a photo until you accept")
 
-    // Help opens on "What is Justus?", which explains there is no server in the middle.
+    // Help is a row in Settings. It opens on "What is Justus?", which explains there is no
+    // server in the middle.
+    find("Settings", 10).click()
+    // The row sits below App lock, so it can be under the fold on a short screen.
+    repeat(4) {
+      if (device.findObject(By.text("Help")) == null) {
+        device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+        Thread.sleep(500)
+      }
+    }
     find("Help", 10).click()
     find("What is Justus?", 10).click()
     Thread.sleep(1000)

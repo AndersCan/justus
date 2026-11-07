@@ -52,7 +52,7 @@ appId: no.cankode.justus
 # The lock card arrives after the status call; the WebView's accessibility tree can miss a node
 # added late, so leave and re-enter Settings and read the card from a fresh render.
 - tapOn:
-    text: "Help"
+    text: "Photos"
     waitToSettleTimeoutMs: 500
 - tapOn:
     text: "Settings"
@@ -127,7 +127,7 @@ appId: no.cankode.justus
     text: "Settings"
     waitToSettleTimeoutMs: 500
 - tapOn:
-    text: "Help"
+    text: "Photos"
     waitToSettleTimeoutMs: 500
 - tapOn:
     text: "Settings"

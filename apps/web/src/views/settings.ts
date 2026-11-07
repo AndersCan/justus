@@ -2,6 +2,7 @@ import { html } from "lit-html";
 import { watch } from "@mantaq/lit";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
+import { pathFor } from "../machines/router-machine";
 import { prefsActor } from "../machines/prefs-machine";
 import { clearProfilePicture, setProfilePictureFromFile } from "../utils/profile-picture";
 import { avatarBadge } from "./avatar";
@@ -94,6 +95,21 @@ function appearanceSection() {
   `;
 }
 
+function helpSection() {
+  return html`<a
+    class="ui-card ui-focus flex items-center justify-between gap-3 p-5 hover:bg-subtle"
+    href=${pathFor("help")}
+  >
+    <span>
+      <span class="block text-sm font-medium text-fg">Help</span>
+      <span class="mt-0.5 block text-xs text-muted"
+        >How peer to peer works, WiFi, and who can see an album</span
+      >
+    </span>
+    <span class="text-muted" aria-hidden="true">›</span>
+  </a>`;
+}
+
 function advancedSection() {
   return html`<details class="text-xs text-muted">
     <summary class="ui-label cursor-pointer select-none">Advanced</summary>
@@ -117,7 +133,8 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
           : undefined,
         fatal || foldersVm.fatal ? () => window.location.reload() : undefined,
       )}
-      ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${advancedSection()}
+      ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${helpSection()}
+      ${advancedSection()}
     </div>
   `;
 }

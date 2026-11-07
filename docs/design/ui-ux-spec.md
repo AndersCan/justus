@@ -122,7 +122,7 @@ there are several. Joining or creating lands in that album.
 - Intro cards (§1) cover the basics once. Just-in-time lessons L2–L5 still fire
   at their trigger and are not repeated in the intro. Lessons render as a
   dismissible card anchored to the relevant region, remembered locally.
-- A permanent **Help** section (own destination, not buried in Settings)
+- A permanent **Help** section (a row in Settings that opens its own page)
   replays the intro and lessons, and holds the Q&A (§2.5).
 - **Audit affordance:** _"Where are my photos?"_ lists each album × which peers
   hold it × last contact, footer: servers involved **0**.
@@ -178,7 +178,7 @@ photos) carries the color; chrome stays quiet.
   `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
 - **Shell:** left rail at `md+` with the wordmark, bottom tab bar below it.
   No top bar on mobile; a canvas-colored strip covers the status-bar inset. Primary routes: Photos, Albums
-  (the shared albums list), Sharing, Help; Settings opens from Sharing.
+  (the shared albums list), Sharing, Settings; Help is a row in Settings.
   Requests live in the People sheet.
 - **Grid:** tight 2px gutters, month headers, captions and remove only on
   hover for pointer devices. Detail and remove live in the lightbox on touch.

@@ -70,7 +70,7 @@ document.head.appendChild(motionStyle);
 
 const renderRoot = document.getElementById("render-root");
 
-type NavRoute = "gallery" | "sharing" | "help" | "settings";
+type NavRoute = "gallery" | "sharing" | "settings";
 
 /** Sub-pages that light up their section's nav item. */
 const NAV_SECTION: Partial<Record<AppPage["route"], NavRoute>> = {
@@ -80,6 +80,7 @@ const NAV_SECTION: Partial<Record<AppPage["route"], NavRoute>> = {
   sharingJoin: "sharing",
   sharingDevices: "sharing",
   album: "sharing",
+  help: "settings",
 };
 
 const icon = (paths: string) =>
@@ -109,12 +110,6 @@ const NAV: { route: NavRoute; label: string; paths: string }[] = [
     label: "Sharing",
     paths:
       '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.7 3 5.6"/>',
-  },
-  {
-    route: "help",
-    label: "Help",
-    paths:
-      '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.7-2.5 2.2-2.5 3.8M12 17.2h.01"/>',
   },
   {
     route: "settings",
