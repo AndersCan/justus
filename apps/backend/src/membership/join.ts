@@ -4,7 +4,17 @@
  */
 import type { Drive, DriveStore, OpenResult } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
-import { parseFolderName, parseRegistry, type RegistryFile } from "./records";
+import type { JoinRequest } from "@justus/core";
+import {
+  isHexKey,
+  isTextJSON,
+  parseFolderName,
+  parseJoinRequests,
+  parseRegistry,
+  parseRequestsFile,
+  type RegistryFile,
+  type RequestsFile,
+} from "./records";
 
 export const DRIVE_PATH_MEMBERS = "/members.json";
 export const DRIVE_PATH_FOLDER = "/folder.json";
@@ -13,6 +23,9 @@ export const DRIVE_PATH_REQUESTS = "/requests.json";
  * topic for `/requests.json`, controls these bytes; without a cap one file can
  * exhaust memory. 1 MiB holds thousands of members. */
 export const MAX_PEER_JSON_BYTES = 1024 * 1024;
+
+/** A peer record that is not on this device and cannot be fetched (the peer left) reads as missing after this long; the next poll retries. */
+const PEER_READ_TIMEOUT_MS = 5_000;
 
 export type JoinLog = (
   event: string,
@@ -34,6 +47,20 @@ export type JoinError =
 
 /** The repo's error tuple (ADR 0002 decision 8, same shape as OpenResult). */
 export type JoinResult<T> = [JoinError, null] | [null, T];
+
+export type FoundJoinRequest = {
+  request: JoinRequest;
+  /** Identity drive whose outbox listed it. */
+  identity: string;
+  /** Made through the folder's invite code. */
+  viaInvite: boolean;
+};
+
+export type FoundJoinRequests = {
+  requests: FoundJoinRequest[];
+  /** Requester keys listed by more than one outbox: dropped (anyone can write any key into their own outbox). */
+  ambiguous: string[];
+};
 
 function short(hex: string): string {
   return hex.slice(0, 8);
@@ -116,4 +143,148 @@ export async function openAlbum(
     await readRecord(folderDrive, { path: DRIVE_PATH_FOLDER, log: ports.log }),
   );
   return [null, { folderDrive, registry, folderName }];
+}
+
+/** Files (or re-files) this device's request to join an album on its identity
+ * drive's outbox, then serves the album topic so the Admin can reach it. */
+export async function writeJoinRequest(
+  ports: JoinPorts,
+  options: {
+    identityDrive: Drive;
+    folderDrive: Drive;
+    shareKey: string;
+    requesterKey: string;
+    requesterName: string;
+    folderName: string;
+  },
+): Promise<JoinResult<undefined>> {
+  const { identityDrive, folderDrive, shareKey, requesterKey, requesterName, folderName } = options;
+  const existingText = await readRecord(identityDrive, {
+    path: DRIVE_PATH_REQUESTS,
+    log: ports.log,
+  });
+  const file: RequestsFile = (existingText && parseRequestsFile(existingText)) || {
+    version: 1,
+    requests: {},
+  };
+  file.requests[shareKey] = {
+    requesterKey,
+    requesterName,
+    shareKey,
+    folderName,
+    requestedAt: Date.now(),
+  };
+  try {
+    await identityDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(file)));
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+  try {
+    ports.network.join(folderDrive.discoveryKey, { server: true });
+    ports.network.findPeers(folderDrive.discoveryKey, () => folderDrive.stats().peers > 0, {
+      drive: folderDrive.key,
+      peers: () => folderDrive.stats().peers,
+    });
+  } catch (thrown: unknown) {
+    console.error(`[justus] failed to announce drive on folder topic: ${errText(thrown)}`);
+  }
+  return [null, undefined];
+}
+
+/** Requester keys in an outbox that asked through `code`. */
+function inviteRequesters(text: string, code: string | undefined): Set<string> {
+  const out = new Set<string>();
+  const file = code ? parseRequestsFile(text) : undefined;
+  for (const raw of Object.values(file?.requests ?? {}) as unknown[]) {
+    if (!isTextJSON(raw) || raw.invite !== code) continue;
+    if (typeof raw.requesterKey === "string" && isHexKey(raw.requesterKey)) {
+      out.add(raw.requesterKey.toLowerCase());
+    }
+  }
+  return out;
+}
+
+/** Reads the album's join requests off every identity's outbox, concurrently
+ * so unreachable peers cost one timeout in total. A requester key listed by
+ * more than one outbox is returned in `ambiguous` and in no request. */
+export async function readJoinRequests(
+  openOutbox: (identityKey: string) => Promise<OpenResult<Drive>>,
+  options: {
+    identities: Iterable<string>;
+    folder: { id: string; name: string; shareKey: string; inviteCode?: string };
+    log: JoinLog;
+  },
+): Promise<FoundJoinRequests> {
+  const { folder, log } = options;
+  const tasks = [...options.identities].map(async (identity) => {
+    const empty = { identity, found: [] as JoinRequest[], invited: new Set<string>() };
+    const [openErr, drive] = await openOutbox(identity);
+    if (openErr) {
+      console.error(
+        `[justus] cannot open requester drive ${identity.slice(0, 12)}: ${errText(openErr)}`,
+      );
+      return empty;
+    }
+    const text = await readRecord(drive, {
+      path: DRIVE_PATH_REQUESTS,
+      log,
+      timeoutMs: PEER_READ_TIMEOUT_MS,
+    });
+    if (text === null) return empty;
+    const found = parseJoinRequests(text, {
+      shareKey: folder.shareKey,
+      folderId: folder.id,
+      folderName: folder.name,
+      inviteCode: folder.inviteCode,
+    });
+    return { identity, found, invited: inviteRequesters(text, folder.inviteCode) };
+  });
+  const settled = await Promise.allSettled(tasks);
+  const listed = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const owners = new Map<string, Set<string>>();
+  for (const l of listed) {
+    for (const req of l.found) {
+      const set = owners.get(req.requesterKey) ?? new Set<string>();
+      set.add(l.identity);
+      owners.set(req.requesterKey, set);
+    }
+  }
+  const requests: FoundJoinRequest[] = [];
+  const ambiguous: string[] = [];
+  for (const l of listed) {
+    for (const req of l.found) {
+      if ((owners.get(req.requesterKey)?.size ?? 0) > 1) {
+        if (!ambiguous.includes(req.requesterKey)) ambiguous.push(req.requesterKey);
+        continue;
+      }
+      requests.push({
+        request: req,
+        identity: l.identity,
+        viaInvite: l.invited.has(req.requesterKey),
+      });
+    }
+  }
+  return { requests, ambiguous };
+}
+
+/** The requests still waiting on the Admin: not enrolled, not denied, and not
+ * an invite request that already has an answer. */
+export function pendingJoinRequests(
+  found: FoundJoinRequest[],
+  options: {
+    registry: RegistryFile;
+    denied: ReadonlySet<string>;
+    answers: Record<string, "accepted" | "declined"> | undefined;
+  },
+): JoinRequest[] {
+  const enrolled = new Set(Object.values(options.registry.members).map((m) => m.key));
+  return found
+    .filter((f) => {
+      const key = f.request.requesterKey;
+      if (enrolled.has(key)) return false;
+      if (options.denied.has(key)) return false;
+      if (f.viaInvite && options.answers?.[f.identity]) return false;
+      return true;
+    })
+    .map((f) => f.request);
 }

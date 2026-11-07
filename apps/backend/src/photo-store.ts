@@ -17,12 +17,16 @@ import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_REQUESTS,
   openAlbum,
+  pendingJoinRequests,
+  readJoinRequests,
+  writeJoinRequest,
+  type FoundJoinRequest,
   openWithTopic,
   readRecord,
   readRegistry,
   type JoinPorts,
 } from "./membership/join";
-import type { Drive, DriveStore } from "./ports/drive-store";
+import type { Drive, DriveStore, OpenResult } from "./ports/drive-store";
 import type { DriveEntry } from "./ports/drive-store";
 import {
   isEnrolled,
@@ -34,7 +38,6 @@ import {
   parseDeviceIdentity,
   parseDeviceSwarmKey,
   parseFolderName,
-  parseJoinRequests,
   parseRemoved,
   parseRequestsFile,
   peerName,
@@ -629,9 +632,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       console.error(`[justus] failed to persist state: ${message}`);
     }
   }
-
-  /** A peer record that is not on this device and cannot be fetched (the peer left) reads as missing after this long; the next poll retries. */
-  const PEER_READ = { timeout: 5_000 };
 
   /** Reads a small text record, or null when missing, unreadable, or larger
    * than the peer-record cap. */
@@ -1675,19 +1675,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     };
   }
 
-  /** Announce this device's own drive on a folder's topic as a SERVER: peers on
-   * that topic (the folder's creator) become able to resolve this device's
-   * drive and read `/requests.json` from it. */
-  async function announceOwnDriveOnTopic(drive: Drive, label: string) {
-    try {
-      joinTopic(topicOf(drive), { server: true });
-      rediscover(topicOf(drive), drive);
-    } catch (e) {
-      const message = errMsg(e);
-      console.error(`[justus] failed to announce drive on ${label} topic: ${message}`);
-    }
-  }
-
   /**
    * Read pending join-request outboxes off requester drives announced on a
    * creator folder's topic.
@@ -1703,60 +1690,33 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    *    and keeps the outbox entries whose share key matches this album.
    */
   const lastRequestCount = new Map<string, number>();
-  type Listed = { peerKeyHex: string; found: JoinRequest[]; invited: Set<string> };
-  async function readRequestsFromPeers(rt: FolderRuntime): Promise<JoinRequest[]> {
-    const shareKey = rt.record.shareKey;
-    // Open every peer's request outbox concurrently. A peer whose drive never
-    // becomes ready (unreachable) is bounded by `openDriveWithTopic`'s timeout
-    // *per drive* — running the opens in parallel keeps total latency at ~one
-    // timeout rather than N timeouts summed across unreachable peers (issue #88).
-    const tasks = [...peerIdentities].map(async (peerKeyHex): Promise<Listed> => {
-      let peerDrive: Drive;
-      try {
-        peerDrive = await openPeerOutbox(peerKeyHex);
-      } catch (e) {
-        console.error(
-          `[justus] cannot open requester drive ${peerKeyHex.slice(0, 12)}: ${errMsg(e)}`,
-        );
-        return { peerKeyHex, found: [], invited: new Set() };
-      }
-      const text = await readText(peerDrive, DRIVE_PATH_REQUESTS, PEER_READ);
-      if (text === null) return { peerKeyHex, found: [], invited: new Set() };
-      const found = parseJoinRequests(text, {
-        shareKey,
-        folderId: rt.record.id,
-        folderName: rt.record.name,
-        inviteCode: rt.record.invite?.code,
-      });
-      const invited = parseInviteRequesters(text, rt.record.invite?.code);
-      return { peerKeyHex, found, invited };
-    });
-    const settled = await Promise.allSettled(tasks);
-    const listed = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
-    // A requester key listed by more than one outbox cannot be tied to one
-    // identity (anyone may write any key into their own outbox), so it is
-    // dropped from every outbox rather than letting the last read win.
-    const owners = new Map<string, Set<string>>();
-    for (const l of listed) {
-      for (const req of l.found) {
-        const set = owners.get(req.requesterKey) ?? new Set<string>();
-        set.add(l.peerKeyHex);
-        owners.set(req.requesterKey, set);
-      }
+  async function readRequestsFromPeers(rt: FolderRuntime): Promise<FoundJoinRequest[]> {
+    const { requests: found, ambiguous } = await readJoinRequests(
+      (key) =>
+        openPeerOutbox(key).then(
+          (drive): OpenResult<Drive> => [null, drive],
+          (e): OpenResult<Drive> => [e instanceof Error ? e : new Error(String(e)), null],
+        ),
+      {
+        identities: peerIdentities,
+        folder: {
+          id: rt.record.id,
+          name: rt.record.name,
+          shareKey: rt.record.shareKey,
+          inviteCode: rt.record.invite?.code,
+        },
+        log,
+      },
+    );
+    for (const key of ambiguous) {
+      requesterIdentity.delete(key);
+      inviteRequesters.delete(key);
     }
-    const found: JoinRequest[] = [];
-    for (const l of listed) {
-      for (const req of l.found) {
-        if ((owners.get(req.requesterKey)?.size ?? 0) > 1) {
-          requesterIdentity.delete(req.requesterKey);
-          inviteRequesters.delete(req.requesterKey);
-          continue;
-        }
-        requesterIdentity.set(req.requesterKey, l.peerKeyHex);
-        if (l.invited.has(req.requesterKey)) inviteRequesters.add(req.requesterKey);
-        else inviteRequesters.delete(req.requesterKey);
-        found.push(req);
-      }
+    for (const f of found) {
+      const key = f.request.requesterKey;
+      requesterIdentity.set(key, f.identity);
+      if (f.viaInvite) inviteRequesters.add(key);
+      else inviteRequesters.delete(key);
     }
     // Logged on change only: the web layer polls this on every push.
     if (lastRequestCount.get(rt.record.id) !== found.length) {
@@ -1768,19 +1728,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
     }
     return found;
-  }
-
-  /** Requester keys in an outbox that asked through `code`. */
-  function parseInviteRequesters(text: string, code: string | undefined): Set<string> {
-    const out = new Set<string>();
-    const file = code ? parseRequestsFile(text) : undefined;
-    for (const raw of Object.values(file?.requests ?? {}) as unknown[]) {
-      if (!isTextJSON(raw) || raw.invite !== code) continue;
-      if (typeof raw.requesterKey === "string" && isHexKey(raw.requesterKey)) {
-        out.add(raw.requesterKey.toLowerCase());
-      }
-    }
-    return out;
   }
 
   function announceRequestInbox() {
@@ -2158,21 +2105,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * that outbox on the album's topic so the Admin (`requests()`) can read it. */
   async function fileJoinRequest(rt: FolderRuntime, folderName: string) {
     rt.record.pending = true;
-    const existingText = await readText(ownDrive, DRIVE_PATH_REQUESTS);
-    const requests: RequestsFile = (existingText && parseRequestsFile(existingText)) || {
-      version: 1,
-      requests: {},
-    };
-    const shareKey = rt.record.shareKey;
-    requests.requests[shareKey] = {
+    const [fileErr] = await writeJoinRequest(joinPorts, {
+      identityDrive: ownDrive,
+      folderDrive: rt.folderDrive,
+      shareKey: rt.record.shareKey,
       requesterKey: selfKeyOf(rt),
       requesterName: state.name,
-      shareKey,
       folderName,
-      requestedAt: Date.now(),
-    };
-    await ownDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(requests)));
-    await announceOwnDriveOnTopic(rt.folderDrive, "folder");
+    });
+    if (fileErr) throw new Error(fileErr.message);
   }
 
   // --- Private sharing: invite codes, asks and answers. ---------------------
@@ -2794,24 +2735,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const out: JoinRequest[] = [];
       for (const rt of runtimes.values()) {
         if (rt.record.role !== "creator") continue;
-        // A requester already enrolled as a member is no longer pending — its
-        // request lives on only in its own outbox, so drop it (#84).
-        let enrolled: Set<string> | null = null;
-        try {
-          const registry = await readRegistryIn(rt.folderDrive);
-          enrolled = new Set(Object.values(registry.members).map((m) => m.key));
-        } catch {
-          enrolled = new Set();
-        }
-        const found = await readRequestsFromPeers(rt);
-        for (const req of found) {
-          if (enrolled.has(req.requesterKey)) continue;
-          if (deniedRequesters.has(req.requesterKey)) continue;
-          const identity = requesterIdentity.get(req.requesterKey);
-          if (identity && inviteRequesters.has(req.requesterKey) && rt.record.answers?.[identity])
-            continue;
-          out.push(req);
-        }
+        // Enrolled, denied and answered invite requests are not pending (#84, #85).
+        const registry = await readRegistryIn(rt.folderDrive);
+        out.push(
+          ...pendingJoinRequests(await readRequestsFromPeers(rt), {
+            registry,
+            denied: deniedRequesters,
+            answers: rt.record.answers,
+          }),
+        );
       }
       return { requests: out };
     },
@@ -2852,7 +2784,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // Prefer the requester's own reported name from its `/requests.json`;
       // fall back to a neutral label when we can't resolve the outbox.
       let requesterName = "New member";
-      for (const req of await readRequestsFromPeers(rt)) {
+      for (const { request: req } of await readRequestsFromPeers(rt)) {
         if (req.requesterKey === requesterKey) {
           requesterName = req.requesterName;
           break;

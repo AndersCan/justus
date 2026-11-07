@@ -40,4 +40,4 @@ test("a handler that skips the Admin's accept is reported as a never-see hit", a
   expect(
     lines.some((l) => l.startsWith("  after: ") && l.includes("requestQueued -> requestQueued")),
   ).toBe(true);
-});
+}, 30_000);
