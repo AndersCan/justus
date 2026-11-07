@@ -26,7 +26,14 @@ export const VALID_FOR_LABEL: Record<ValidFor, string> = {
   "7d": "7 days",
 };
 
-type InviteLinkContext = { folderId: string; validFor: ValidFor; offCode: string };
+type InviteLinkContext = {
+  /** The album the link is for. */
+  folderId: string;
+  /** How long a new link works: 10 minutes, 1 hour, 1 day or 7 days. */
+  validFor: ValidFor;
+  /** The album's code that was just turned off; no link is made with it again. */
+  offCode: string;
+};
 
 /** Turning links off, as the gateway answers it. */
 export type InviteLinkPort = { turnOff(folderId: string): Promise<[unknown, unknown]> };
@@ -45,11 +52,24 @@ const turningOff = state("turningOff")<{
 }>();
 
 /** The owner picks how long the link works. */
-export const chooseLinkTime = event("chooseLinkTime")<{ validFor: ValidFor }>();
+export const chooseLinkTime = event("chooseLinkTime")<{
+  /** How long the link works. */
+  validFor: ValidFor;
+}>();
 /** The owner taps Send or Copy for an album. */
-export const createLink = event("createLink")<{ folderId: string; code: string }>();
+export const createLink = event("createLink")<{
+  /** The album to make the link for. */
+  folderId: string;
+  /** The album's current invite code. */
+  code: string;
+}>();
 /** The owner confirmed turning off every link sent for an album; `code` is the album's current one. */
-export const turnOffLink = event("turnOffLink")<{ folderId: string; code: string }>();
+export const turnOffLink = event("turnOffLink")<{
+  /** The album whose links are turned off. */
+  folderId: string;
+  /** The album's current invite code. */
+  code: string;
+}>();
 
 /** The link's time ran out. */
 const timeRanOut = event("timeRanOut")();
