@@ -191,7 +191,7 @@ trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 ||
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
-if ! maestro --device "$SERIAL" test "$FLOWS_DIR"; then
+if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; then
   echo
   echo "✗ Maestro suite FAILED — capturing diagnostics..."
   mkdir -p "$OUT_DIR"

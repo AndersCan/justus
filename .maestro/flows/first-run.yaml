@@ -49,7 +49,7 @@ appId: no.cankode.justus
 - tapOn:
     text: "Settings"
     waitToSettleTimeoutMs: 500
-- takeScreenshot: .maestro/out/settings
+- takeScreenshot: settings
 - scrollUntilVisible:
     element: "Require unlock to open Justus.*"
     timeout: 20000
