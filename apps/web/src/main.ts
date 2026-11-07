@@ -9,7 +9,8 @@ import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
 import { requests } from "./machines/requests-machine";
-import { sync } from "./machines/sync-machine";
+import { $syncStatus, sync } from "./machines/sync-machine";
+import { updateBanner, updateLines } from "./views/notices";
 import { $router, type AppPage } from "./router";
 import { useStore } from "./use-store";
 import { albumGridView, galleryView } from "./views/gallery";
@@ -190,6 +191,7 @@ render(
       <main
         class="mx-auto max-w-6xl px-4 pb-28 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6 md:pb-10 md:pt-6"
       >
+        ${useStore($syncStatus, (status) => updateBanner(updateLines(status)))}
         ${useStore($reachHint, (hint) =>
           hint
             ? html`<p

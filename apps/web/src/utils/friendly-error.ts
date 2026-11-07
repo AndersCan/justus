@@ -37,6 +37,7 @@ const RULES: [RegExp, string][] = [
   [/disk full/i, "This phone is out of space."],
   [/failed to fetch|^HTTP \d{3}/i, "Couldn't reach Justus on this phone. Reload and try again."],
   [/network|unreachable|timed? ?out/i, "Couldn't connect. Check your internet and try again."],
+  [/^Update Justus to open your albums/i, "Update Justus to open your albums."],
   [/^Internal error/i, "Something went wrong inside Justus."],
 ];
 
