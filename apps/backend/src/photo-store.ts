@@ -18,10 +18,8 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
-import { copyAlbumEntries } from "./rotate-album";
 import { inviteTopic } from "./membership/invite";
 import {
-  DRIVE_PATH_FOLDER,
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_REQUESTS,
   openAlbum,
@@ -62,6 +60,7 @@ import {
   albumSummary,
   createAlbumDrive,
   removeAlbumMember,
+  rotateAlbum,
 } from "./albums/albums";
 import {
   createPresence,
@@ -1766,7 +1765,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (record.role === "creator") {
         if (record.rotatedAt) continue;
         try {
-          await rotateAlbum(record);
+          const [rotateErr, rotated] = await rotateAlbum(
+            {
+              drives: deps.drives,
+              log,
+              openTimeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+            },
+            {
+              record,
+              ownDrive,
+              device: deviceJson(state.name),
+              inviteCode: newInviteCode(),
+              now: Date.now(),
+            },
+          );
+          if (rotateErr) throw new Error(rotateErr.message);
+          Object.assign(record, rotated);
+          delete record.answers;
+          delete record.retiredInvites;
           saveState();
         } catch (e) {
           log("error", { where: "rotate.failed", folder: short(record.id), err: errText(e) });
@@ -1798,59 +1814,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     } finally {
       try {
         if (drive) await deps.drives.release(drive);
-      } catch {
-        // already closed
-      }
-    }
-  }
-
-  async function rotateAlbum(record: FolderRecord): Promise<void> {
-    const legacy = record.shareKey === ownDrive.key;
-    let old: Drive | null = null;
-    let fresh: Drive | null = null;
-    try {
-      if (legacy) {
-        old = ownDrive;
-      } else {
-        const [openErr, opened] = await deps.drives.open(record.shareKey, {
-          timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
-        });
-        if (openErr) throw openErr;
-        old = opened;
-      }
-      const target = await deps.drives.openOwn(`album/${record.id}`);
-      fresh = target;
-      await copyAlbumEntries(old, target);
-      const registry = await readRegistryIn(old);
-      const earlier = Object.values(registry.members)
-        .filter((m) => m.key !== target.key)
-        .map((m) => ({ key: m.key, name: m.name }));
-      const keys = new Set(earlier.map((e) => e.key));
-      const removed = Object.fromEntries(
-        Object.entries(await readRemovedIn(old)).filter(([id]) => keys.has(id.split(":")[0])),
-      );
-      await target.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
-      await target.put(
-        DRIVE_PATH_FOLDER,
-        Buffer.from(JSON.stringify({ version: 1, name: record.name })),
-      );
-      await target.put(DRIVE_PATH_REMOVED, Buffer.from(JSON.stringify({ version: 1, removed })));
-      record.shareKey = target.key;
-      record.driveKey = target.key;
-      record.invite = { code: newInviteCode() };
-      delete record.answers;
-      delete record.retiredInvites;
-      record.earlier = earlier;
-      record.notice = { kind: "newKey" };
-      record.rotatedAt = Date.now();
-    } finally {
-      try {
-        if (old && !legacy) await deps.drives.release(old);
-      } catch {
-        // already closed
-      }
-      try {
-        if (fresh) await deps.drives.release(fresh);
       } catch {
         // already closed
       }
