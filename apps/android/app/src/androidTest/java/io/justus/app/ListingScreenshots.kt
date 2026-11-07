@@ -79,6 +79,7 @@ class ListingScreenshots {
     find("Skip", 60).click()
     typeInField("Sam")
     find("Start sharing", 20)
+    find("Start sharing", 20)
     typeInField("Summer%s2026")
     find("No photos in this album yet.", 20)
     find("Add photos to Summer 2026", 20).click()
