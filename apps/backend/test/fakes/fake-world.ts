@@ -377,6 +377,8 @@ type NetworkState = {
   peerKey: string;
   identityKey: string;
   protocol: number;
+  /** A protocol-1 phone: opens no version channel, so no `version` event is emitted. */
+  legacy: boolean;
   onEvent: (e: PeerEvent) => void;
   /** topic to whether this network serves it. */
   joins: Map<string, { server: boolean }>;
@@ -418,8 +420,10 @@ function matchNetworks(hub: FakeHub): void {
         bLink.announced = true;
         a.onEvent({ type: "connected", conn: aConn, peerKey: b.peerKey, initiator: true });
         b.onEvent({ type: "connected", conn: bConn, peerKey: a.peerKey, initiator: false });
-        a.onEvent({ type: "version", conn: aConn, protocol: b.protocol });
-        b.onEvent({ type: "version", conn: bConn, protocol: a.protocol });
+        if (!a.legacy && !b.legacy) {
+          a.onEvent({ type: "version", conn: aConn, protocol: b.protocol });
+          b.onEvent({ type: "version", conn: bConn, protocol: a.protocol });
+        }
         a.onEvent({ type: "identified", conn: aConn, identityKey: b.identityKey });
         b.onEvent({ type: "identified", conn: bConn, identityKey: a.identityKey });
       });
@@ -442,12 +446,13 @@ function dropConn(options: { state: NetworkState; conn: number }): void {
 }
 
 /** Each call is a new network with a fresh random peer key, unrelated to any identity key. */
-export function createFakePeerNetwork(options: { hub: FakeHub }): PeerNetwork {
+export function createFakePeerNetwork(options: { hub: FakeHub; legacy?: boolean }): PeerNetwork {
   const { hub } = options;
   const state: NetworkState = {
     peerKey: randomBytes(32).toString("hex"),
     identityKey: "",
     protocol: PEER_PROTOCOL,
+    legacy: options.legacy ?? false,
     onEvent: () => {},
     joins: new Map(),
     conns: new Map(),
@@ -464,8 +469,18 @@ export function createFakePeerNetwork(options: { hub: FakeHub }): PeerNetwork {
       state.onEvent = onEvent;
       if (protocol !== undefined) state.protocol = protocol;
     },
-    sendAnswer() {
-      return false;
+    sendAnswer(conn, answer) {
+      if (state.closed) return false;
+      const link = state.conns.get(conn);
+      if (!link || !link.announced) return false;
+      // The wire is JSON: the receiver gets a copy, never the sender's object.
+      const value: unknown = JSON.parse(JSON.stringify(answer));
+      const { other, otherConn } = link;
+      setImmediate(() => {
+        if (!other.conns.has(otherConn)) return;
+        other.onEvent({ type: "answer", conn: otherConn, value });
+      });
+      return true;
     },
     drop(conn) {
       dropConn({ state, conn });
@@ -510,11 +525,11 @@ export function fakePeerWorlds(): { world(): PeerWorld } {
       const hub = createFakeHub();
       const nodes: PeerNode[] = [];
       return {
-        async node() {
+        async node(opts?: { legacy?: boolean }) {
           const identityKey = randomBytes(32).toString("hex");
           const events: PeerEvent[] = [];
           function build(): PeerNetwork {
-            const network = createFakePeerNetwork({ hub });
+            const network = createFakePeerNetwork({ hub, legacy: opts?.legacy });
             network.start(identityKey, (e) => events.push(e));
             return network;
           }
