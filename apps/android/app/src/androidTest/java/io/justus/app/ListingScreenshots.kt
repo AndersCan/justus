@@ -7,8 +7,13 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.annotation.TargetApi
 import android.provider.MediaStore
 import android.util.Log
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
@@ -52,6 +57,23 @@ class ListingScreenshots {
   @After
   fun restoreStatusBar() {
     demo("exit")
+  }
+
+  // Dark status-bar icons (the app is light) and no gesture pill over the bottom tabs.
+  @TargetApi(30)
+  private fun cleanBars() {
+    instrumentation.runOnMainSync {
+      val activity = ActivityLifecycleMonitorRegistry.getInstance()
+        .getActivitiesInStage(Stage.RESUMED).firstOrNull() ?: return@runOnMainSync
+      val controller = activity.window.insetsController ?: return@runOnMainSync
+      controller.setSystemBarsAppearance(
+        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+      )
+      controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      controller.hide(WindowInsets.Type.navigationBars())
+    }
+    Thread.sleep(500)
   }
 
   @Before
@@ -130,12 +152,19 @@ class ListingScreenshots {
     }
     Thread.sleep(1000)
     Screengrab.setDefaultScreenshotStrategy(UiAutomatorScreenshotStrategy())
+    cleanBars()
     captioned("1_album", "Only people you accept see your photos")
 
     val tile = device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first()
     tile.click()
-    Thread.sleep(2000)
-    captioned("3_photo", "Photos go phone to phone. No cloud, no account")
+    Thread.sleep(5000)
+    // The viewer's name and Remove sit in a card under the photo: crop the shot above it.
+    // The photo's alt text and the card's name both read "18.jpg"; the card is the lower one.
+    val card = device.findObjects(By.text(Pattern.compile("[0-9]+\\.jpg"))).maxByOrNull { it.visibleBounds.top }
+      ?: fail("photo name", "jpg")
+    val density = target.resources.displayMetrics.density
+    val cropAt = card.visibleBounds.top - Math.round(28 * density)
+    captioned("3_photo", "Every photo at full size", cropAt)
 
     find("Close", 10).click()
     Thread.sleep(1000)
@@ -152,27 +181,32 @@ class ListingScreenshots {
     // which says they choose who gets in.
     captioned("2_invite", "You choose who joins. Nobody sees a photo until you accept")
 
-    find("With them now? Show a QR code", 10).click()
-    device.wait(Until.hasObject(By.text("They scan this with their phone's camera.")), 10000)
-      ?: fail("qr code", "QR")
-    Thread.sleep(500)
-    captioned("4_qr", "Invite someone in person with a QR code")
+    // Help opens on "What is Justus?", which explains there is no server in the middle.
+    find("Help", 10).click()
+    find("What is Justus?", 10).click()
+    Thread.sleep(1000)
+    captioned("4_help", "No server in the middle. Photos go phone to phone")
   }
 
-  private fun captioned(name: String, caption: String) {
+  private fun captioned(name: String, caption: String, cropBottomAt: Int? = null) {
     val files = FileWritingScreenshotCallback(target.applicationContext, Screengrab.getLocale())
-    Screengrab.screenshot(name, UiAutomatorScreenshotStrategy(), CaptionCallback(caption, files))
+    Screengrab.screenshot(name, UiAutomatorScreenshotStrategy(), CaptionCallback(caption, cropBottomAt, files))
   }
 }
 
-// A plain caption band above the capture, which is scaled to fit under it.
-private class CaptionCallback(private val caption: String, private val next: ScreenshotCallback) :
-  ScreenshotCallback {
+// A 1080x1920 opaque (RGB, no alpha) image: a caption band on top, the capture scaled to fit
+// under it. Play wants 9:16 and no alpha. cropBottomAt cuts the capture at that pixel row.
+private class CaptionCallback(
+  private val caption: String,
+  private val cropBottomAt: Int?,
+  private val next: ScreenshotCallback
+) : ScreenshotCallback {
   override fun screenshotCaptured(screenshotName: String, screenshot: Bitmap) {
-    val w = screenshot.width
-    val h = screenshot.height
+    val w = 1080
+    val h = 1920
     val band = Math.round(h * 0.12f)
     val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    out.setHasAlpha(false)
     val canvas = Canvas(out)
     canvas.drawColor(Color.parseColor("#1B1B1F"))
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -183,8 +217,12 @@ private class CaptionCallback(private val caption: String, private val next: Scr
     }
     while (paint.measureText(caption) > w * 0.9f) paint.textSize -= 1f
     canvas.drawText(caption, w / 2f, band / 2f - (paint.ascent() + paint.descent()) / 2f, paint)
-    val scaledW = Math.round(w * (h - band).toFloat() / h)
-    val scaled = Bitmap.createScaledBitmap(screenshot, scaledW, h - band, true)
+    val cropH = (cropBottomAt ?: screenshot.height).coerceIn(1, screenshot.height)
+    val source = Bitmap.createBitmap(screenshot, 0, 0, screenshot.width, cropH)
+    val scale = minOf((h - band).toFloat() / cropH, w.toFloat() / source.width)
+    val scaledW = Math.round(source.width * scale)
+    val scaledH = Math.round(cropH * scale)
+    val scaled = Bitmap.createScaledBitmap(source, scaledW, scaledH, true)
     canvas.drawBitmap(scaled, (w - scaledW) / 2f, band.toFloat(), null)
     next.screenshotCaptured(screenshotName, out)
   }

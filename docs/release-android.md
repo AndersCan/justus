@@ -107,7 +107,7 @@ every release build waits for a click.
    `node apps/android/scripts/render-store-art.mjs`. Phone screenshots are
    generated, not committed: `fastlane screenshots` (emulator attached) runs
    `ListingScreenshots` and writes `images/phoneScreenshots/1_album.png`,
-   `2_invite.png`, `3_photo.png` and `4_qr.png` (gitignored; the capture runs with a clean demo-mode status bar). Every release takes and
+   `2_invite.png`, `3_photo.png` and `4_help.png` (gitignored; 1080×1920 RGB, dark status-bar icons, gesture bar hidden; the lane rejects other sizes or alpha). Every release takes and
    uploads them. The landing page shows copies of `1_album.png` and
    `3_photo.png` (as `2_photo.png`) in `docs/site/src/assets/landing/`. Re-copy them from a
    `store-screenshots` artifact when the app's look changes.
