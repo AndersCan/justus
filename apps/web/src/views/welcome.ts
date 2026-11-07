@@ -96,7 +96,13 @@ function cardsStep(card: number) {
       <p class="sr-only">Card ${card + 1} of ${INTRO_CARD_COUNT}</p>
     </div>
     <div class="mx-auto mt-6 flex max-w-md items-center justify-between gap-3">
-      <button class="ui-btn-ghost" type="button" @click=${() => onboarding.skip()}>Skip</button>
+      ${
+        last
+          ? html`<span></span>`
+          : html`<button class="ui-btn-ghost" type="button" @click=${() => onboarding.skip()}>
+              Skip
+            </button>`
+      }
       <div class="flex gap-2">
         ${
           card > 0

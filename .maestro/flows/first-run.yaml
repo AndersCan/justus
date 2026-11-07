@@ -9,6 +9,18 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "Skip"
     timeout: 60000
+- assertVisible: "Welcome"
+- tapOn:
+    text: "Skip"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+# Back from the name step returns to the card left, not the last card.
+- tapOn:
+    text: "Back"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Welcome"
+    timeout: 10000
 - tapOn:
     text: "Skip"
     retryTapIfNoChange: false
