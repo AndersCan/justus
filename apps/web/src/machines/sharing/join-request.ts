@@ -12,6 +12,7 @@ import {
   closeWaiting,
   createJoinRequestActor,
   dismissDecline,
+  dismissExpired,
   notNow,
   openLink,
   reopenRequest,
@@ -26,7 +27,8 @@ export type JoinView = {
     | "decidingToAsk"
     | "sendingRequest"
     | "waitingForAnswer"
-    | "declined";
+    | "declined"
+    | "linkExpired";
   invite: JoinInvite | null;
   error: string;
 };
@@ -76,6 +78,7 @@ export const join = {
   notNow: () => joinActor.send(notNow.create()),
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
+  dismissExpired: () => joinActor.send(dismissExpired.create()),
   /** The Admin's answer reached this phone. */
   requestAnswered: (code: string, answer: "accepted" | "declined", folderId?: string) =>
     joinActor.send(requestAnswered.create({ code, answer, folderId })),
