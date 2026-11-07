@@ -123,3 +123,27 @@ export async function fileInviteAsk(
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }
 }
+
+export type Reply =
+  /** Final: the joiner is told no, and asking again changes nothing. */
+  | { kind: "decline-ask"; identity: string }
+  /** Hidden for this session only; a plain request has no answer to record. */
+  | { kind: "decline" }
+  | { kind: "already-enrolled" }
+  /** Seat the requester; `identity` (an ask) is told once the seat is saved. */
+  | { kind: "accept"; identity?: string };
+
+/** The Admin's reply to one request. `askedBy` is the identity behind the
+ * request when it came through this album's live invite. */
+export function replyTo(
+  request: { askedBy?: string; enrolled: boolean },
+  options: { approve: boolean },
+): Reply {
+  if (!options.approve) {
+    return request.askedBy
+      ? { kind: "decline-ask", identity: request.askedBy }
+      : { kind: "decline" };
+  }
+  if (request.enrolled) return { kind: "already-enrolled" };
+  return request.askedBy ? { kind: "accept", identity: request.askedBy } : { kind: "accept" };
+}

@@ -9,8 +9,14 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { checkAsk, fileInviteAsk } from "../../src/membership/invites.ts";
-import { readJoinRequests } from "../../src/membership/join.ts";
+import { checkAsk, fileInviteAsk, replyTo } from "../../src/membership/invites.ts";
+import { isEnrolled } from "../../src/membership/records.ts";
+import {
+  acceptJoinRequest,
+  pendingJoinRequests,
+  readJoinRequests,
+  readRegistry,
+} from "../../src/membership/join.ts";
 
 const hex = (c: string) => c.repeat(64);
 const C = hex("c");
@@ -178,5 +184,115 @@ describe("invites: asking through a link", () => {
     const known = checkAsk({ code: hex("e"), owner: hex("a") }, held);
     expect(known.kind, "check: asked before").toBe("known");
     expect(known.kind === "known" && known.ask, "check: the same object").toBe(declined);
+  });
+});
+
+describe("invites: the Admin's reply", () => {
+  const J = hex("j");
+  const none = { registry: { version: 1, members: {} } as never, denied: new Set<string>() };
+
+  it("respond: a declined ask is final", async () => {
+    expect(
+      replyTo({ askedBy: J, enrolled: false }, { approve: false }),
+      "reply: decline-ask",
+    ).toEqual({
+      kind: "decline-ask",
+      identity: J,
+    });
+    const { identity, adminReads, ask } = await askWorld();
+    await ask();
+    const found = await adminReads(C);
+    const answers = { [identity.key]: "declined" as const };
+    expect(
+      pendingJoinRequests(found.requests, { ...none, answers }),
+      "list: declined ask is hidden",
+    ).toEqual([]);
+    await ask();
+    expect(
+      pendingJoinRequests((await adminReads(C)).requests, { ...none, answers }),
+      "list: still hidden after asking again",
+    ).toEqual([]);
+  });
+
+  it("respond: a plain decline hides the request for this session only", async () => {
+    expect(replyTo({ enrolled: false }, { approve: false }), "reply: decline").toEqual({
+      kind: "decline",
+    });
+    const { askDrive, adminReads, ask } = await askWorld();
+    await ask();
+    const found = (await adminReads(C)).requests;
+    const denied = new Set([askDrive.key]);
+    expect(
+      pendingJoinRequests(found, { ...none, denied, answers: undefined }),
+      "list: denied is hidden",
+    ).toEqual([]);
+    expect(
+      pendingJoinRequests(found, { ...none, answers: undefined }),
+      "list: not denied is listed",
+    ).toHaveLength(1);
+  });
+
+  it("respond: accepting an ask seats the asker and the request leaves the list", async () => {
+    expect(replyTo({ askedBy: J, enrolled: false }, { approve: true }), "reply: accept").toEqual({
+      kind: "accept",
+      identity: J,
+    });
+    expect(replyTo({ enrolled: false }, { approve: true }), "reply: plain accept").toEqual({
+      kind: "accept",
+    });
+    const { album, askDrive, adminReads, ask } = await askWorld();
+    await ask();
+    const log = () => {};
+    const registry = await readRegistry(album, { log });
+    const requests = (await adminReads(C)).requests;
+    const pending = pendingJoinRequests(requests, {
+      registry,
+      denied: new Set(),
+      answers: undefined,
+    });
+    const [error, accepted] = await acceptJoinRequest(album, {
+      registry,
+      requesterKey: askDrive.key,
+      requests: pending,
+    });
+    expect(error, "accept: no error").toBeNull();
+    expect(accepted?.member.name, "accept: the asker's name").toBe("Nils");
+    const after = await readRegistry(album, { log });
+    expect(isEnrolled(after, askDrive.key), "accept: seated").toBe(true);
+    expect(
+      pendingJoinRequests((await adminReads(C)).requests, {
+        registry: after,
+        denied: new Set(),
+        answers: undefined,
+      }),
+      "list: the request left",
+    ).toEqual([]);
+  });
+
+  it("respond: someone already in is not added twice, and a decline still wins", () => {
+    expect(replyTo({ enrolled: true }, { approve: true }).kind, "reply: already in").toBe(
+      "already-enrolled",
+    );
+    expect(replyTo({ enrolled: true }, { approve: false }).kind, "reply: decline wins").toBe(
+      "decline",
+    );
+    expect(
+      replyTo({ askedBy: J, enrolled: true }, { approve: false }).kind,
+      "reply: ask decline wins",
+    ).toBe("decline-ask");
+  });
+
+  it("requests: a friend with an open invite is not listed", async () => {
+    const { identity, adminReads, ask } = await askWorld();
+    await ask();
+    const found = (await adminReads(C)).requests;
+    expect(
+      pendingJoinRequests(found, { ...none, answers: undefined, invited: new Set([identity.key]) }),
+      "list: invited friend hidden",
+    ).toEqual([]);
+    expect(
+      pendingJoinRequests(found, { ...none, answers: undefined }),
+      "list: without invited it is listed",
+    ).toHaveLength(1);
   });
 });

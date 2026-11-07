@@ -275,12 +275,16 @@ export function pendingJoinRequests(
     registry: RegistryFile;
     denied: ReadonlySet<string>;
     answers: Record<string, "accepted" | "declined"> | undefined;
+    /** Identities with an open friend invite to this album: the Admin's phone lets
+     * them in itself (`acceptOfferedFriend`), so they are not listed. */
+    invited?: ReadonlySet<string>;
   },
 ): JoinRequest[] {
   const enrolled = new Set(Object.values(options.registry.members).map((m) => m.key));
   return found
     .filter((f) => {
       const key = f.request.requesterKey;
+      if (options.invited?.has(f.identity)) return false;
       if (enrolled.has(key)) return false;
       if (options.denied.has(key)) return false;
       if (f.viaInvite && options.answers?.[f.identity]) return false;
