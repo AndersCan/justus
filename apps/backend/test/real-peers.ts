@@ -198,18 +198,25 @@ export async function realPeerWorlds(): Promise<{
 }> {
   const testnet = await createTestnet(3);
   const worlds: PeerWorld[] = [];
+  const dirs: string[] = [];
 
   function world(): PeerWorld {
-    const nodes: PeerNode[] = [];
+    const nodes: Array<{ node: PeerNode; drives: HyperDriveStore }> = [];
     return {
-      async node() {
+      async node(opts) {
+        const dir = trackTmpPath(mkdtempSync(join(tmpdir(), "justus-peer-")));
+        dirs.push(dir);
+        const drives = createHyperDriveStore(join(dir, "corestore"));
+        await drives.ready();
         const identityKey = randomBytes(32).toString("hex");
         const events: PeerEvent[] = [];
         const build = () => {
           const network = createHyperPeerNetwork({
             bootstrap: testnet.bootstrap,
-            replicate: () => {},
+            replicate: (conn) => drives.replicate(conn),
             log: () => {},
+            // A legacy phone never opens the version channel.
+            openVersion: opts?.legacy ? () => {} : undefined,
           });
           network.start(identityKey, (e: PeerEvent) => events.push(e));
           return network;
@@ -227,12 +234,13 @@ export async function realPeerWorlds(): Promise<{
             return network;
           },
         };
-        nodes.push(node);
+        nodes.push({ node, drives });
         return node;
       },
       topic: () => randomBytes(32).toString("hex"),
       async close() {
-        for (const n of nodes) await n.network.close();
+        for (const n of nodes) await n.node.network.close();
+        for (const n of nodes) await n.drives.close();
       },
     };
   }
@@ -246,6 +254,7 @@ export async function realPeerWorlds(): Promise<{
     async destroy() {
       for (const w of worlds) await w.close();
       await testnet.destroy();
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
     },
   };
 }
