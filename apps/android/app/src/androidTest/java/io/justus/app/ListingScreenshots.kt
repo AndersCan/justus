@@ -47,6 +47,8 @@ class ListingScreenshots {
   @Before
   fun cleanStatusBar() {
     device.executeShellCommand("settings put global sysui_demo_allowed 1")
+    // Hiding the navigation bar otherwise shows the "Viewing full screen" overlay.
+    device.executeShellCommand("settings put secure immersive_mode_confirmations confirmed")
     demo("enter")
     demo("clock -e hhmm 1200")
     demo("battery -e level 100 -e plugged false")
@@ -160,10 +162,11 @@ class ListingScreenshots {
     Thread.sleep(5000)
     // The viewer's name and Remove sit in a card under the photo: crop the shot above it.
     // The photo's alt text and the card's name both read "18.jpg"; the card is the lower one.
+    // If the name is not exposed as text, fall back to a fixed 78% of the screen height.
     val card = device.findObjects(By.text(Pattern.compile("[0-9]+\\.jpg"))).maxByOrNull { it.visibleBounds.top }
-      ?: fail("photo name", "jpg")
     val density = target.resources.displayMetrics.density
-    val cropAt = card.visibleBounds.top - Math.round(28 * density)
+    val cropAt = if (card != null) card.visibleBounds.top - Math.round(28 * density)
+    else Math.round(device.displayHeight * 0.78f)
     captioned("3_photo", "Every photo at full size", cropAt)
 
     find("Close", 10).click()
