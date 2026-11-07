@@ -3,10 +3,10 @@
  * Started by `scripts/test-bare.mjs` as `bare <bundle> dir=<scratch> [only=<substr>]`.
  * Exits non-zero if any scenario fails.
  */
-import { bareAnswerWorlds, bareNet, barePeerWorlds, bareWorld } from "./net.ts";
-import { cases as answerCases } from "../contracts/peer-answer.contract.ts";
+import { bareNet, barePeerWorlds, bareWiredWorlds, bareWorld } from "./net.ts";
 import { cases } from "../contracts/drive-store.contract.ts";
 import { cases as peerCases } from "../contracts/peer-network.contract.ts";
+import { cases as wiredCases } from "../contracts/wired.contract.ts";
 import { cases as filesCases } from "../contracts/files.contract.ts";
 import { cases as lazyMediaCases } from "../contracts/lazy-media.contract.ts";
 import { bareLazyMedia } from "./lazy-media.ts";
@@ -150,11 +150,11 @@ for (const c of peerCases) {
 await Promise.race([peerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
   () => {},
 );
-const answerWorlds = await bareAnswerWorlds(root);
-for (const c of answerCases) {
+const wiredWorlds = await bareWiredWorlds(root);
+for (const c of wiredCases) {
   if (only && !c.name.includes(only)) continue;
   const started = Date.now();
-  const world = answerWorlds.world();
+  const world = wiredWorlds.world();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
@@ -166,18 +166,18 @@ for (const c of answerCases) {
         );
       }),
     ]);
-    console.log(`ok   peer-answer: ${c.name} (${Date.now() - started}ms)`);
+    console.log(`ok   wired: ${c.name} (${Date.now() - started}ms)`);
   } catch (e) {
     failed++;
     console.log(
-      `FAIL peer-answer: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
+      `FAIL wired: ${c.name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
     );
   } finally {
     clearTimeout(timer);
     await Promise.race([world.close(), new Promise((r) => setTimeout(r, 5_000))]).catch(() => {});
   }
 }
-await Promise.race([answerWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
+await Promise.race([wiredWorlds.destroy(), new Promise((r) => setTimeout(r, 5_000))]).catch(
   () => {},
 );
 {

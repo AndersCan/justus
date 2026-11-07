@@ -24,8 +24,7 @@ import { createHyperPeerNetwork } from "../../src/adapters/hyper-peer-network.ts
 import type { PeerEvent } from "../../src/ports/peer-network.ts";
 import type { DriveWorld } from "../contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
-import type { AnswerNode, AnswerWorld } from "../contracts/peer-answer.contract.ts";
-import { makeAnswerNode } from "../answer-node.ts";
+import type { WiredNode, WiredWorld } from "../contracts/wired.contract.ts";
 import { eventually, type Net, type Peer, PhotoChanged } from "../p2p-scenarios.ts";
 import { createP2pLog, type P2pEvent } from "../../src/p2p-log.ts";
 
@@ -275,37 +274,66 @@ export async function barePeerWorlds(root: string): Promise<{
   };
 }
 
-/** Bare twin of `realAnswerWorlds` in `../real-answer-world.ts`. */
-export async function bareAnswerWorlds(
-  root: string,
-): Promise<{ world(): AnswerWorld; destroy(): Promise<void> }> {
+/** Bare twin of `realWiredWorlds` in `../real-peers.ts`. */
+export async function bareWiredWorlds(root: string): Promise<{
+  world(): WiredWorld;
+  destroy(): Promise<void>;
+}> {
   const testnet = await createTestnet(3);
-  const worlds: AnswerWorld[] = [];
-  let n = 0;
+  const worlds: WiredWorld[] = [];
+  let dirs = 0;
+
+  function world(): WiredWorld {
+    const nodes: WiredNode[] = [];
+    return {
+      async node() {
+        const dir = path.join(root, `wired-${dirs++}`, "corestore");
+        fs.mkdirSync(dir, { recursive: true });
+        let drives = createHyperDriveStore(dir);
+        await drives.ready();
+        const identityKey = (await drives.openOwn()).key;
+        const events: PeerEvent[] = [];
+        const build = () => {
+          const network = createHyperPeerNetwork({
+            bootstrap: testnet.bootstrap as never,
+            replicate: (conn) => drives.replicate(conn),
+            log: () => {},
+          });
+          network.start(identityKey, (e: PeerEvent) => events.push(e));
+          return network;
+        };
+        let network = build();
+        const node: WiredNode = {
+          get drives() {
+            return drives;
+          },
+          get network() {
+            return network;
+          },
+          identityKey,
+          events,
+          async restart() {
+            await network.close();
+            await drives.close();
+            drives = createHyperDriveStore(dir);
+            await drives.ready();
+            network = build();
+          },
+        };
+        nodes.push(node);
+        return node;
+      },
+      topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
+      async close() {
+        for (const n of nodes) await n.network.close();
+        for (const n of nodes) await n.drives.close();
+      },
+    };
+  }
+
   return {
     world() {
-      const nodes: AnswerNode[] = [];
-      const w: AnswerWorld = {
-        async node() {
-          const dir = path.join(root, `answer-${n++}`);
-          fs.mkdirSync(dir, { recursive: true });
-          const node = makeAnswerNode(
-            {
-              Corestore: Corestore as never,
-              Hyperdrive: Hyperdrive as never,
-              Hyperswarm: Hyperswarm as never,
-              bootstrap: testnet.bootstrap as never,
-            },
-            dir,
-          );
-          nodes.push(node);
-          return node;
-        },
-        topic: () => Buffer.from(crypto.randomBytes(32)).toString("hex"),
-        async close() {
-          for (const node of nodes) await node.close().catch(() => {});
-        },
-      };
+      const w = world();
       worlds.push(w);
       return w;
     },
