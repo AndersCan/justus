@@ -1,14 +1,16 @@
 ---
 title: "Albums flow"
-description: "Albums, the photos in them and who is in them: the folder list, the gallery with adding and removing photos, and the People sheet."
+description: "Albums, the photos in them and who is in them: the folder list, the gallery with adding and removing photos, the People sheet and adding a member to your friends."
 ---
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-Albums, the photos in them and who is in them: the folder list, the gallery with adding and removing photos, and the People sheet.
+Albums, the photos in them and who is in them: the folder list, the gallery with adding and removing photos, the People sheet and adding a member to your friends.
 
 <Machine src="apps/web/src/machines/folders-machine.ts" />
 
 <Machine src="apps/web/src/machines/gallery-machine.ts" />
 
 <Machine src="apps/web/src/machines/people-machine.ts" />
+
+<Machine src="apps/web/src/machines/friends-machine.ts" />

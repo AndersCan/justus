@@ -2,7 +2,8 @@
   "albums": [
     "apps/web/src/machines/folders-machine.ts",
     "apps/web/src/machines/gallery-machine.ts",
-    "apps/web/src/machines/people-machine.ts"
+    "apps/web/src/machines/people-machine.ts",
+    "apps/web/src/machines/friends-machine.ts"
   ],
   "sharing": [
     "apps/web/src/machines/sync-machine.ts",
