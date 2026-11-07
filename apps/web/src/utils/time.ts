@@ -46,3 +46,32 @@ export function sameMonth(a: number, b: number): boolean {
   const db = new Date(b);
   return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth();
 }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/** When an invite link ends: "14:05" on the same day as `now`, else "Sat 14 Nov 14:05". */
+export function linkEndText(expiresAt: number, now = Date.now()): string {
+  const end = new Date(expiresAt);
+  const today = new Date(now);
+  const hhmm = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const sameDay =
+    end.getFullYear() === today.getFullYear() &&
+    end.getMonth() === today.getMonth() &&
+    end.getDate() === today.getDate();
+  if (sameDay) return hhmm;
+  return `${WEEKDAYS[end.getDay()]} ${end.getDate()} ${MONTHS_SHORT[end.getMonth()]} ${hhmm}`;
+}

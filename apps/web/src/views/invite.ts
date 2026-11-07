@@ -6,6 +6,14 @@ import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-mach
 import { syncActor } from "../machines/sync-machine";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
+import { linkEndText } from "../utils/time";
+import {
+  inviteLink,
+  inviteLinkActor,
+  inviteLinkViewOf,
+  type InviteLinkView,
+} from "../machines/sharing/invite-link";
+import { VALID_FOR_LABEL, type ValidFor } from "../machines/sharing/invite-link-machine";
 import { toast } from "./toast";
 
 export async function copyText(value: string): Promise<boolean> {
@@ -19,19 +27,32 @@ export async function copyText(value: string): Promise<boolean> {
 
 /** The invite link for an album this phone made. Only the Admin's phone can
  * answer a request, so only the Admin's phone has a link; everyone else gets null. */
-export function inviteLinkFor(folder: FolderSummary, myName: string): string | null {
+export function inviteLinkFor(
+  folder: FolderSummary,
+  myName: string,
+  expiresAt: number,
+): string | null {
   if (folder.role !== "creator" || !folder.invite) return null;
   return buildInviteLink({
     code: folder.invite.code,
     owner: folder.invite.owner,
     album: folder.name,
     ownerName: myName,
+    expiresAt,
   });
+}
+
+/** Makes the album's link (or reuses the one already made) and returns it. */
+function madeLink(folder: FolderSummary, myName: string): string | null {
+  inviteLink.createLink(folder.id);
+  const view = inviteLinkViewOf(inviteLinkActor.snapshot());
+  if (view.expiresAt === undefined) return null;
+  return inviteLinkFor(folder, myName, view.expiresAt);
 }
 
 /** Native share sheet when available, otherwise copy. */
 export async function shareInvite(folder: FolderSummary, myName: string) {
-  const link = inviteLinkFor(folder, myName);
+  const link = madeLink(folder, myName);
   if (!link) return;
   const text = `Ask to join my Justus album “${folder.name}”: ${link}`;
   if (typeof navigator.share === "function") {
@@ -45,8 +66,10 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
   toast((await copyText(link)) ? "Invite link copied" : "Couldn't copy the invite");
 }
 
-async function copy(value: string, button: HTMLElement) {
-  const ok = await copyText(value);
+async function copy(folder: FolderSummary, myName: string, button: HTMLElement) {
+  const link = madeLink(folder, myName);
+  if (!link) return;
+  const ok = await copyText(link);
   if (!ok) {
     toast("Couldn't copy the invite link");
     return;
@@ -72,9 +95,10 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** Invite surface: one tap sends the link (share sheet, or copy where there is
- * none). The link itself is never drawn; the QR, for someone standing next to
- * you, only after a tap. Only the Admin has a link; members are told who to ask. */
+/** Invite surface: pick how long the link works, then one tap sends it (share
+ * sheet, or copy where there is none). The link itself is never drawn; the QR,
+ * for someone standing next to you, only after a tap and only once a link is made.
+ * Only the Admin has a link; members are told who to ask. */
 export function invitePanel(
   folder: FolderSummary,
   myName: string,
@@ -82,8 +106,7 @@ export function invitePanel(
   qrShown: boolean,
   onShowQr: () => void,
 ) {
-  const link = inviteLinkFor(folder, myName);
-  if (!link) {
+  if (folder.role !== "creator" || !folder.invite) {
     return html`
       <section class="ui-card p-5">
         <h2 class="ui-label mb-1">Invite people</h2>
@@ -93,7 +116,23 @@ export function invitePanel(
       </section>
     `;
   }
+  return watch(inviteLinkActor, (snapshot) => {
+    const view = inviteLinkViewOf(snapshot);
+    const made = view.folderId === folder.id && view.expiresAt !== undefined ? view : null;
+    return invitePanelBody(folder, myName, view, made?.expiresAt ?? null, qrShown, onShowQr);
+  });
+}
+
+function invitePanelBody(
+  folder: FolderSummary,
+  myName: string,
+  view: InviteLinkView,
+  expiresAt: number | null,
+  qrShown: boolean,
+  onShowQr: () => void,
+) {
   const canShare = typeof navigator.share === "function";
+  const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
@@ -101,6 +140,29 @@ export function invitePanel(
         Send the link to people you want in “${folder.name}”. They ask to join and you choose who
         gets in. They see no photos until you accept.
       </p>
+      ${
+        expiresAt === null
+          ? html`<label class="mb-4 flex items-center gap-2 text-sm text-fg">
+              Link works for
+              <select
+                class="ui-input w-auto py-1"
+                @change=${(e: Event) =>
+                  inviteLink.chooseLinkTime(
+                    (e.currentTarget as HTMLSelectElement).value as ValidFor,
+                  )}
+              >
+                ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
+                  (key) =>
+                    html`<option value=${key} ?selected=${view.validFor === key}>
+                      ${VALID_FOR_LABEL[key]}
+                    </option>`,
+                )}
+              </select>
+            </label>`
+          : html`<p class="mb-4 text-sm text-fg">
+              This link works until ${linkEndText(expiresAt)}.
+            </p>`
+      }
       <div class="flex flex-wrap gap-2">
         ${
           canShare
@@ -109,30 +171,32 @@ export function invitePanel(
                 </button>
                 <button
                   class="ui-btn-ghost"
-                  @click=${(e: Event) => void copy(link, e.currentTarget as HTMLElement)}
+                  @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
                 >
                   Copy link
                 </button>`
             : html`<button
                 class="ui-btn-primary"
-                @click=${(e: Event) => void copy(link, e.currentTarget as HTMLElement)}
+                @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
               >
                 Copy invite link
               </button>`
         }
       </div>
       ${
-        qrShown
-          ? html`<div class="mt-4">${qrCode(link)}</div>
-              <p class="mt-2 text-center text-xs text-muted">
-                They scan this with their phone's camera.
-              </p>`
-          : html`<button
-              class="mt-3 text-sm text-muted underline underline-offset-2 hover:text-fg"
-              @click=${onShowQr}
-            >
-              With them now? Show a QR code
-            </button>`
+        link === null
+          ? null
+          : qrShown
+            ? html`<div class="mt-4">${qrCode(link)}</div>
+                <p class="mt-2 text-center text-xs text-muted">
+                  They scan this with their phone's camera.
+                </p>`
+            : html`<button
+                class="mt-3 text-sm text-muted underline underline-offset-2 hover:text-fg"
+                @click=${onShowQr}
+              >
+                With them now? Show a QR code
+              </button>`
       }
       <p class="mt-4 text-xs text-muted">
         Both of you need Justus open for a request to arrive. It shows up here for you to accept or

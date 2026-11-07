@@ -42,7 +42,7 @@ function firstUrl(proc: ChildProcess): Promise<string> {
 }
 
 test("a machine file opens the live page with its recorded runs", async () => {
-  child = spawn("node", [script, "apps/backend/src/membership/invite-link-machine.ts"], {
+  child = spawn("node", [script, "apps/web/src/machines/sharing/invite-link-machine.ts"], {
     cwd: root,
     stdio: ["ignore", "pipe", "inherit"],
   });

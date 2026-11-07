@@ -156,7 +156,7 @@ Each link opens the machine at the end of the walk; click on from there or press
 - [Maya: reopens her ask while waiting](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20while%20waiting)
 - [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
 - [Maya: opens a link from before the new key](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
-- [Nils's link: a 1 day link queues Maya's request, then expires and refuses the next one](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils's%20link%3A%20a%201%20day%20link%20queues%20Maya's%20request%2C%20then%20expires%20and%20refuses%20the%20next%20one)
+- [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
 - [Nils: accepts Maya as Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20Maya%20as%20Collaborator)
 - [Nils: declines the request](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20declines%20the%20request)
 
@@ -164,11 +164,8 @@ Each link opens the machine at the end of the walk; click on from there or press
 
 A guest's side is the Story 1 Maya walks.
 
-- [Nils's link: a 7 day link, then the week is over](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils's%20link%3A%20a%207%20day%20link%2C%20then%20the%20week%20is%20over)
-- [Nils's link: a stranger is in the chat, so he cancels](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils's%20link%3A%20a%20stranger%20is%20in%20the%20chat%2C%20so%20he%20cancels)
 - [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
 
 ### Story 3: a big group joining your personal album
 
-- [Nils's link: a 1 hour link for the family expires](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils's%20link%3A%20a%201%20hour%20link%20for%20the%20family%20expires)
 - [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)

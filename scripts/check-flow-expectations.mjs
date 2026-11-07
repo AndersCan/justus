@@ -6,7 +6,7 @@ import { machineFindings } from "@mantaq/viz";
 /** Machines that must state rules, by machine id. Others may, and are not checked here. */
 export const REQUIRED = {
   membership: "apps/backend/src/membership/membership-machine.ts",
-  inviteLink: "apps/backend/src/membership/invite-link-machine.ts",
+  inviteLink: "apps/web/src/machines/sharing/invite-link-machine.ts",
 };
 
 /** @param {Array<{ kind: string, event?: string, ms?: number }> | null} steps */

@@ -1,0 +1,33 @@
+{
+  "inviteLink": [
+    {
+      "name": "Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends",
+      "end": "noLinkYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "chooseLinkTime",
+          "payload": {
+            "validFor": "1h"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 3600000
+        },
+        {
+          "kind": "event",
+          "event": "timeRanOut",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}

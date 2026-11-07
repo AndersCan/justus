@@ -15,9 +15,7 @@ import { createBareFiles } from "../../src/adapters/bare-files.ts";
 import bareFs from "bare-fs";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
 import { createMembershipActor } from "../../src/membership/membership-machine.ts";
-import { createInviteLinkActor } from "../../src/membership/invite-link-machine.ts";
 import { VirtualClock } from "@mantaq/core";
-import { onOutput } from "@mantaq/sugar";
 import { Either } from "@mantaq/utils";
 
 declare const Bare: { argv: string[]; exit(code?: number): never };
@@ -256,38 +254,6 @@ await Promise.race([versionWorlds.destroy(), new Promise((r) => setTimeout(r, 5_
     console.log(
       `FAIL membership-machine: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`,
     );
-  }
-}
-{
-  const started = Date.now();
-  try {
-    const clock = VirtualClock();
-    const actor = createInviteLinkActor({ clock });
-    const request = { requesterKey: "a".repeat(64), requesterName: "Ann" };
-    const outputs: string[] = [];
-    onOutput(actor, (e) =>
-      outputs.push(e.type === "requestQueued" ? e.type : (e.payload as { reason: string }).reason),
-    );
-    const states: string[] = [];
-    actor.send({ type: "createLink", payload: { validFor: "10m" } });
-    await actor.settled();
-    actor.send({ type: "requestArrived", payload: request });
-    await actor.settled();
-    states.push(String(actor.state.name));
-    clock.advance(600_000);
-    await actor.settled();
-    states.push(String(actor.state.name));
-    actor.send({ type: "cancelLink" });
-    actor.send({ type: "requestArrived", payload: request });
-    await actor.settled();
-    states.push(String(actor.state.name));
-    const got = `${states.join(",")} ${outputs.join(",")}`;
-    if (got !== "linkActive,expired,expired requestQueued,expired")
-      throw new Error(`unexpected ${got}`);
-    console.log(`ok   invite-link-machine: queue, expire, refuse (${Date.now() - started}ms)`);
-  } catch (e) {
-    failed++;
-    console.log(`FAIL invite-link-machine: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 console.log(failed ? `${failed} scenario(s) or case(s) failed` : "all scenarios passed");
