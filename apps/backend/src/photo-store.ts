@@ -1,4 +1,11 @@
 import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
+import {
+  DRIVE_PATH_PHOTOS,
+  DRIVE_PATH_REMOVED,
+  DRIVE_PATH_THUMBS,
+  galleryDrives,
+  listGallery,
+} from "./photos/gallery";
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
 import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
@@ -254,12 +261,7 @@ export interface PhotoStore {
   close(): Promise<void>;
 }
 
-const DRIVE_PATH_PHOTOS = "/photos";
-/** Thumbnails, one per photo, at `/thumbs/<id>.jpg`. Kept out of `/photos` so
- * the gallery derivation never mistakes one for a photo. */
-const DRIVE_PATH_THUMBS = "/thumbs";
 const DRIVE_PATH_DEVICE = "/device.json";
-const DRIVE_PATH_REMOVED = "/removed.json";
 /** Album name shown until the Admin's `/folder.json` replicates in. */
 const JOINED_PLACEHOLDER_NAME = "Joined folder";
 const STATE_FILE = "justus.json";
@@ -1176,66 +1178,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
-    const removed = await readRemovedIn(rt.folderDrive);
-    const role = rt.record.role;
-    const creatorKey = rt.folderDrive.key;
     const selfKey = selfKeyOf(rt);
-
-    // drivesToScan collects every drive whose /photos dir makes up the derived
-    // gallery for this folder + role:
-    //  - creator: its own drive (== the folder drive) of creator photos.
-    //  - member: its drive in this album (photos it added) + the creator drive
-    //    + writers.
-    //  - reader: the creator drive + writers (read-only view).
-    const drivesToScan: Array<{ key: string; drive: Drive }> = [];
-    const seen = new Set<string>();
-    const addScan = (key: string, drive: Drive) => {
-      if (seen.has(key)) return;
-      seen.add(key);
-      if (key === creatorKey) {
-        drivesToScan.unshift({ key, drive });
-      } else {
-        drivesToScan.push({ key, drive });
-      }
-    };
-
-    if (role === "creator" || role === "member") addScan(selfKey, rt.selfDrive);
-    if (role === "reader" || role === "member") {
-      addScan(creatorKey, rt.folderDrive);
-    }
-    for (const [key, drive] of rt.memberDrives) {
-      addScan(key, drive);
-    }
-
-    const driveByKey = new Map(drivesToScan.map((s) => [s.key, s.drive]));
-
-    // Raw scans only — parsing, tombstones, dedupe, and canonical order are
-    // the pure derivation's job (gallery-order.ts), so this host function
-    // cannot drift from the invariants tested there.
-    const scans: DriveScan[] = [];
-    for (const { key, drive } of drivesToScan) {
-      try {
-        const entries: DriveEntry[] = [];
-        const list = drive.list(DRIVE_PATH_PHOTOS);
-        for await (const entry of list) entries.push(entry);
-        scans.push({ key, entries });
-      } catch (e) {
-        // Drive not downloaded yet — skip.
-        log("error", { where: "drive.scan", drive: short(key), err: errText(e) });
-        continue;
-      }
-    }
-
-    // Resolve member names up-front so the derivation stays a pure sync
-    // function of record data.
-    const memberNames = new Map<string, string>();
-    for (const { key, drive } of drivesToScan) {
-      if (key === selfKey) memberNames.set(key, state.name);
-      else memberNames.set(key, rt.memberNameCache.get(key) ?? (await readDeviceName(drive)));
-    }
+    const sources = galleryDrives({
+      role: rt.record.role,
+      folderDrive: rt.folderDrive,
+      selfDrive: rt.selfDrive,
+      memberDrives: rt.memberDrives,
+    });
+    const derived = await listGallery(sources, {
+      removedFrom: rt.folderDrive,
+      memberName: (k) => (k === selfKey ? state.name : rt.memberNameCache.get(k)),
+      log,
+    });
+    const driveByKey = new Map(sources.map((s) => [s.key, s.drive]));
 
     const photos: Photo[] = [];
-    for (const d of deriveGallery(scans, removed, (k) => memberNames.get(k) ?? "Unknown device")) {
+    for (const d of derived) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
       photos.push({
