@@ -52,6 +52,7 @@ export function planMotion(change: {
 type Measured = Map<string, { el: HTMLElement; box: Box }>;
 
 // A keyed element inside another keyed element moves with it; the inner list's own gridMotion animates it.
+// A list inside a keyed element compares positions against that element, so both can animate in one tick without moving twice.
 function measure(root: Element): Measured {
   const out: Measured = new Map();
   for (const el of root.querySelectorAll<HTMLElement>("[data-motion-key]")) {
@@ -63,6 +64,14 @@ function measure(root: Element): Measured {
     out.set(key, { el, box: { top: r.top, left: r.left, width: r.width, height: r.height } });
   }
   return out;
+}
+
+/** Where the keyed element holding this list sits; lists with none use the screen. */
+function frameOf(root: Element): { top: number; left: number } {
+  const owner = root.parentElement?.closest("[data-motion-key]");
+  if (!owner) return { top: 0, left: 0 };
+  const r = owner.getBoundingClientRect();
+  return { top: r.top, left: r.left };
 }
 
 function boxes(m: Measured): Map<string, Box> {
@@ -81,6 +90,7 @@ class GridMotion extends AsyncDirective {
   #pending = false;
   #first: Measured = new Map();
   #root: Element | undefined;
+  #frame = { top: 0, left: 0 };
 
   constructor(info: PartInfo) {
     super(info);
@@ -108,6 +118,7 @@ class GridMotion extends AsyncDirective {
       for (const a of el.getAnimations()) a.finish();
     }
     this.#root = root;
+    this.#frame = frameOf(root);
     this.#first = measure(root);
     this.#pending = true;
     queueMicrotask(() => this.#play());
@@ -121,12 +132,17 @@ class GridMotion extends AsyncDirective {
     this.#first = new Map();
     if (!root) return;
     const last = measure(root);
+    const now = frameOf(root);
+    const dx = now.left - this.#frame.left;
+    const dy = now.top - this.#frame.top;
     // A key whose element was re-created is a new tile, not a move.
     for (const [key, f] of first) {
       if (last.get(key)?.el !== f.el && last.has(key)) first.delete(key);
     }
     const plan = planMotion({
-      first: boxes(first),
+      first: new Map(
+        [...boxes(first)].map(([key, b]) => [key, { ...b, top: b.top + dy, left: b.left + dx }]),
+      ),
       last: boxes(last),
       viewport: { width: window.innerWidth, height: window.innerHeight },
     });
@@ -144,9 +160,10 @@ class GridMotion extends AsyncDirective {
         .get(key)
         ?.el.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, duration: ENTER_MS });
     }
-    for (const { key, box } of plan.exits) {
+    for (const { key } of plan.exits) {
       const ghost = first.get(key)?.el;
-      if (!ghost) continue;
+      const box = first.get(key)?.box;
+      if (!ghost || !box) continue;
       // Re-inserting an element replays its CSS animations; the ghost only fades.
       ghost.style.cssText = `position:fixed;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px;margin:0;pointer-events:none;animation:none;`;
       ghost.setAttribute("inert", "");
@@ -165,6 +182,7 @@ class GridMotion extends AsyncDirective {
     this.#settle = undefined;
     this.#pending = false;
     this.#root = undefined;
+    this.#frame = { top: 0, left: 0 };
     this.#first = new Map();
   }
 }
