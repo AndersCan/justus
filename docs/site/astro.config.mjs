@@ -27,7 +27,7 @@ export default defineConfig({
   },
   vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
   integrations: [
-    mantaqViz({ machines: Object.values(manifest).flat() }),
+    mantaqViz({ machines: Object.values(manifest).flat(), failOnFindings: true }),
     starlight({
       title: "Justus",
       description: "Private photo sharing, directly between devices.",
