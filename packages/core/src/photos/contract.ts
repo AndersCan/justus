@@ -116,6 +116,7 @@ export const syncMemberSchema = s.object({
   admin: s.boolean,
   connected: s.boolean,
   lastSeenAt: s.optional(s.number),
+  identity: s.optional(s.string),
 });
 
 export const folderSummarySchema = s.object({

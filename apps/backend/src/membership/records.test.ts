@@ -1,6 +1,7 @@
 import {
   isEnrolled,
   isHexKey,
+  parseDeviceIdentity,
   parseDeviceName,
   parseAnswer,
   parseDeviceSwarmKey,
@@ -119,6 +120,19 @@ describe("parseDeviceSwarmKey", () => {
     expect(parseDeviceSwarmKey(JSON.stringify({ swarmKey: "z".repeat(64) }))).toBeUndefined();
     expect(parseDeviceSwarmKey(JSON.stringify({ swarmKey: "a".repeat(10) }))).toBeUndefined();
     expect(parseDeviceSwarmKey(JSON.stringify({ swarmKey: 5 }))).toBeUndefined();
+  });
+});
+
+describe("parseDeviceIdentity", () => {
+  test("returns a valid identity key lowercased", () => {
+    expect(parseDeviceIdentity(JSON.stringify({ identityKey: KEY_B }))).toBe(KEY_B.toLowerCase());
+  });
+  test("returns undefined for missing, non-hex, short, non-string and non-JSON", () => {
+    expect(parseDeviceIdentity(JSON.stringify({}))).toBeUndefined();
+    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "z".repeat(64) }))).toBeUndefined();
+    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "a".repeat(63) }))).toBeUndefined();
+    expect(parseDeviceIdentity(JSON.stringify({ identityKey: 5 }))).toBeUndefined();
+    expect(parseDeviceIdentity("{nope")).toBeUndefined();
   });
 });
 

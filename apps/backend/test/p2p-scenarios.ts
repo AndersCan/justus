@@ -272,6 +272,53 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "identity: a member carries the other device's identity key, the same in two albums",
+    async run(net, t) {
+      const { admin, joiner, folderId, joinerFolderId } = await sharedAlbum(net);
+      const idOf = (p: Peer) => (p.store.debugState() as { identityDrive: string }).identityDrive;
+      const other = (s: SyncStatus) => s.members.find((m: Member) => m.key !== s.driveKey);
+      const self = (s: SyncStatus) => s.members.find((m: Member) => m.key === s.driveKey);
+
+      const second = await admin.store.createFolder("Second");
+      t.noErr(second, "createFolder");
+      const { id: secondId, shareKey: secondKey } = second[1]!.folder;
+      t.noErr(await joiner.store.join(secondKey, "Second"), "join second");
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.some((q) => q.shareKey === secondKey),
+        "the second join request on the Admin",
+      );
+      const request = requests.find((q) => q.shareKey === secondKey)!;
+      t.noErr(await admin.store.respond(secondId, request.requesterKey, true), "respond");
+      const upgraded = await eventually(
+        () => albumIn(joiner.store, secondKey),
+        (f) => f?.role === "member" && !f.pending,
+        "the joiner's upgrade to member of the second album",
+      );
+
+      for (const [folder, joinerFolder] of [
+        [folderId, joinerFolderId],
+        [secondId, upgraded!.id],
+      ]) {
+        t.noErr(await admin.store.setActive(folder), "admin setActive");
+        t.noErr(await joiner.store.setActive(joinerFolder), "joiner setActive");
+        await eventually(
+          () => admin.store.status(),
+          (s) => other(s)?.identity === idOf(joiner),
+          "the joiner's identity on the Admin",
+        );
+        await eventually(
+          () => joiner.store.status(),
+          (s) => other(s)?.identity === idOf(admin),
+          "the Admin's identity on the joiner",
+        );
+        t.eq((await admin.store.status()).members.length, 2, "two members");
+        t.eq(self(await admin.store.status())?.identity, idOf(admin), "Admin self identity");
+        t.eq(self(await joiner.store.status())?.identity, idOf(joiner), "joiner self identity");
+      }
+    },
+  },
+  {
     name: "restart: presence follows a peer whose connection key changed",
     async run(net) {
       const { admin, joiner } = await sharedAlbum(net);

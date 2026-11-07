@@ -25,6 +25,7 @@ import {
   parseAnswer,
   type Answer,
   parseDeviceName,
+  parseDeviceIdentity,
   parseDeviceSwarmKey,
   parseFolderName,
   parseJoinRequests,
@@ -722,6 +723,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const connectedSwarmKeys = new Map<string, number>();
   /** Member drive key → that member's swarm key, learned from their `/device.json`. */
   const memberSwarmKey = new Map<string, string>();
+  /** Member drive key → that member's identity drive key, learned from their `/device.json`. */
+  const memberIdentity = new Map<string, string>();
   const lastSeen = new Map<string, number>(loadLastSeen());
 
   function loadLastSeen(): [string, number][] {
@@ -768,10 +771,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
     ]);
     if (!text) return false;
+    let changed = false;
+    const identity = parseDeviceIdentity(text);
+    if (identity !== undefined && memberIdentity.get(memberKey) !== identity) {
+      memberIdentity.set(memberKey, identity);
+      changed = true;
+    }
     const swarmKey = parseDeviceSwarmKey(text);
-    if (swarmKey === undefined) return false;
+    if (swarmKey === undefined) return changed;
     const prev = memberSwarmKey.get(memberKey);
-    if (prev === swarmKey) return false;
+    if (prev === swarmKey) return changed;
     memberSwarmKey.set(memberKey, swarmKey);
     log(prev && prev !== swarmKey ? "swarmkey.changed" : "swarmkey.learned", {
       member: short(memberKey),
@@ -852,7 +861,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function deviceJson(name: string): Buffer {
-    return Buffer.from(JSON.stringify({ name, swarmKey: ownSwarmKey() }));
+    return Buffer.from(
+      JSON.stringify({ name, swarmKey: ownSwarmKey(), identityKey: hex(ownDrive.key) }),
+    );
   }
 
   async function ensureOwnDriveIdentity() {
@@ -1809,10 +1820,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const peer = (key: string, name: string, admin: boolean): SyncMember => {
       const connected = isMemberConnected(key);
       const seen = lastSeen.get(key);
-      return { key, name, admin, connected, ...(seen !== undefined ? { lastSeenAt: seen } : {}) };
+      const identity = memberIdentity.get(key);
+      return {
+        key,
+        name,
+        admin,
+        connected,
+        ...(seen !== undefined ? { lastSeenAt: seen } : {}),
+        ...(identity !== undefined ? { identity } : {}),
+      };
     };
     const memberList: SyncMember[] = [
-      { key: selfKey, name: state.name, admin: isAdmin, connected: true },
+      {
+        key: selfKey,
+        name: state.name,
+        admin: isAdmin,
+        connected: true,
+        identity: hex(ownDrive.key),
+      },
       // A member sees the Admin too: the registry only lists enrolled writers.
       ...(!isAdmin && selfKey !== adminKey
         ? [peer(adminKey, await readDeviceName(rt.folderDrive), true)]

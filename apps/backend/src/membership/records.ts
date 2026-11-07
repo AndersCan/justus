@@ -114,6 +114,20 @@ export function parseDeviceSwarmKey(text: string): string | undefined {
   return undefined;
 }
 
+/** The identity drive key in a `/device.json` (lowercased), or undefined when
+ * missing, non-hex or malformed. */
+export function parseDeviceIdentity(text: string): string | undefined {
+  try {
+    const parsed = JSON.parse(text) as { identityKey?: unknown };
+    // LIMITATION(#277): identityKey is the member's own claim, unsigned
+    if (typeof parsed.identityKey === "string" && isHexKey(parsed.identityKey))
+      return parsed.identityKey.toLowerCase();
+  } catch {
+    // not JSON
+  }
+  return undefined;
+}
+
 /** The outbox in a `/requests.json`, or undefined when malformed or not version 1. */
 export function parseRequestsFile(text: string): RequestsFile | undefined {
   try {
