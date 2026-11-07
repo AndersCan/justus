@@ -5,6 +5,13 @@ export type RegistryFile = {
   members: Record<string, { key: string; name: string; addedAt: number }>;
 };
 
+/** People the Admin accepted as Viewers: they see every photo and add none.
+ * Their own drive is never read, so nothing they write reaches the album. */
+export type ViewersFile = {
+  version: 1;
+  viewers: Record<string, { key: string; name: string; addedAt: number }>;
+};
+
 export type RemovedFile = {
   version: 1;
   removed: Record<string, { memberKey: string; removedAt: number }>;
@@ -64,6 +71,32 @@ export function parseRegistry(text: string | null): RegistryFile {
     // malformed
   }
   return { version: 1, members: {} };
+}
+
+/** The Viewers in a `/viewers.json`. Missing, malformed or wrong-version files
+ * list no one; an entry whose key is not a hex key matching its record key, or
+ * whose time is not a number, is dropped. */
+export function parseViewers(text: string | null): ViewersFile {
+  const empty: ViewersFile = { version: 1, viewers: {} };
+  if (text === null) return empty;
+  try {
+    const parsed = JSON.parse(text) as { version?: unknown; viewers?: unknown };
+    if (parsed.version !== 1 || !isTextJSON(parsed.viewers)) return empty;
+    const viewers: ViewersFile["viewers"] = {};
+    for (const [recordKey, raw] of Object.entries(parsed.viewers)) {
+      if (!isTextJSON(raw) || !isHexKey(recordKey)) continue;
+      if (raw.key !== recordKey) continue;
+      if (typeof raw.addedAt !== "number" || !Number.isFinite(raw.addedAt)) continue;
+      viewers[recordKey] = {
+        key: recordKey,
+        name: peerName(raw.name, "New member"),
+        addedAt: raw.addedAt,
+      };
+    }
+    return { version: 1, viewers };
+  } catch {
+    return empty;
+  }
 }
 
 export function parseRemoved(text: string | null): RemovedFile["removed"] {

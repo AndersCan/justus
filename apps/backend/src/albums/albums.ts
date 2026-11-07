@@ -98,6 +98,8 @@ export type AlbumSummarySource = {
   };
   selfDrive: { key: string };
   memberDrives: ReadonlyMap<string, unknown>;
+  /** People the Admin accepted as Viewers, by key. */
+  viewers: Readonly<Record<string, unknown>>;
 };
 
 /** What the album list shows for one album. `ownIdentity` names the Admin of
@@ -106,14 +108,16 @@ export function albumSummary(
   album: AlbumSummarySource,
   options: { ownIdentity: string },
 ): FolderSummary {
-  const { record, selfDrive, memberDrives } = album;
+  const { record, selfDrive, memberDrives, viewers } = album;
   const role = record.role;
   // A pending reader reports the drive it asked to be enrolled with.
   const driveKey = role !== "reader" || record.pending ? selfDrive.key : "";
-  // `memberDrives` is a Map: the other enrolled members' drives (use `.size`).
-  const earlier = (record.earlier ?? []).filter((e) => memberDrives.has(e.key)).length;
-  const memberCount =
-    role === "creator" || role === "member" ? memberDrives.size - earlier + 1 : memberDrives.size;
+  // Everyone who sees the album: the Admin, this device, the live Collaborators
+  // and the Viewers, each counted once on every phone.
+  const earlier = new Set((record.earlier ?? []).map((e) => e.key));
+  const people = new Set([record.shareKey, selfDrive.key, ...Object.keys(viewers)]);
+  for (const key of memberDrives.keys()) if (!earlier.has(key)) people.add(key);
+  const memberCount = people.size;
   return {
     id: record.id,
     name: record.name,

@@ -117,6 +117,7 @@ export const syncMemberSchema = s.object({
   connected: s.boolean,
   lastSeenAt: s.optional(s.number),
   identity: s.optional(s.string),
+  viewer: s.optional(s.boolean),
 });
 
 export const folderSummarySchema = s.object({
@@ -169,6 +170,7 @@ export const joinRequestSchema = s.object({
   folderName: s.string,
   shareKey: s.string,
   requestedAt: s.number,
+  viaInvite: s.optional(s.boolean),
 });
 
 export const photoChangedSchema = s.object({

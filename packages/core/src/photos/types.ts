@@ -50,6 +50,8 @@ export type SyncMember = {
   /** The member's identity drive key: the same in every album. Unset until their
    * `/device.json` names it (older apps never do). */
   identity?: string;
+  /** Accepted as a Viewer: sees every photo, adds none. Unset for the Admin and Collaborators. */
+  viewer?: boolean;
 };
 
 /** A call A device's view of one folder it belongs to. A device can hold many
@@ -137,6 +139,8 @@ export type JoinRequest = {
   shareKey: string;
   /** When the request was first seen (ms epoch). */
   requestedAt: number;
+  /** Asked through this album's invite link, so it can be accepted as a Viewer. */
+  viaInvite?: boolean;
 };
 
 export type PhotoChangedCause =

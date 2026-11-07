@@ -5,8 +5,11 @@ app's backend API adds an entry here in the same PR, and raises the version it
 breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 `PEER_PROTOCOL`.
 
-## Unreleased · next release after v0.2.1 · peer protocol 2, saved state 2
+## Unreleased · next release after v0.2.1 · peer protocol 3, saved state 2
 
+- **Viewers** (`/viewers.json` on the album's drive). Who: albums with phones on
+  different versions. An older Justus would not list Viewers or count them. Do:
+  everyone updates; the newer phone shows "<name> needs to update Justus".
 - **Invite links carry an end time** (`e=`). Who: testers on internal builds. An app
   from before this change ignores it, and links made before it never expire.
 - **Album keys.** Every album you started moves to a new key on first start; its

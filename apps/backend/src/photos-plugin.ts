@@ -114,7 +114,8 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
         }
       },
       removeMember: async (args) => deps.store.removeMember(args.folderId, args.memberKey),
-      respond: async (args) => deps.store.respond(args.folderId, args.requesterKey, args.approve),
+      respond: async (args) =>
+        deps.store.respond(args.folderId, args.requesterKey, args.approve, args.role),
       turnOffInvite: async (args) => deps.store.turnOffInvite(args.folderId),
       offerAlbum: async (args) => deps.store.offerAlbum(args.folderId, args.identity),
       joinOffer: async (args) => deps.store.joinOffer(args.code, args.owner),
