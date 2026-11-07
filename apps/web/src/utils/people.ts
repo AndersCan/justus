@@ -3,7 +3,16 @@ import { formatRelative } from "./time";
 
 export type Person = {
   key: string;
+  /** The name shown: your friend name for them when saved, else their own. */
   name: string;
+  /** The name they publish themselves. */
+  ownName: string;
+  /** Their identity key, the same in every album. Unset for older apps. */
+  identity?: string;
+  /** Saved on this device as a friend. */
+  friend: boolean;
+  /** The row can be tapped to open the friend sheet. */
+  tappable: boolean;
   admin: boolean;
   you: boolean;
   connected: boolean;
@@ -40,18 +49,28 @@ function chipText(others: number, connected: number): string {
 export function buildPeople(
   status: SyncStatus | null,
   requests: JoinRequest[],
+  friends: Record<string, string> = {},
   now = Date.now(),
 ): People {
   const members = status?.members ?? [];
   const people = members
-    .map((m, i) => ({
-      key: m.key,
-      name: m.name || "Unknown device",
-      admin: m.admin,
-      you: i === 0,
-      connected: m.connected,
-      presence: i === 0 ? "you" : presenceLabel(m, now),
-    }))
+    .map((m, i): Person => {
+      const you = i === 0;
+      const ownName = m.name || "Unknown device";
+      const friendName = !you && m.identity !== undefined ? friends[m.identity] : undefined;
+      return {
+        key: m.key,
+        name: friendName ?? ownName,
+        ownName,
+        identity: m.identity,
+        friend: friendName !== undefined,
+        tappable: !you && m.identity !== undefined,
+        admin: m.admin,
+        you,
+        connected: m.connected,
+        presence: you ? "you" : presenceLabel(m, now),
+      };
+    })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));
   const connectedCount = members.filter((m) => m.connected).length;
   const folderId = status?.folder.id;

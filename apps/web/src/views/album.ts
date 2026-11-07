@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { friends } from "../machines/friends-machine";
 import { folders } from "../machines/folders-machine";
 import { $peopleViewModel, people } from "../machines/people-machine";
 import { requests } from "../machines/requests-machine";
@@ -13,6 +14,7 @@ import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
 import { adminName, hideInviteQr, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
+import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 
 type PeopleVm = ReturnType<typeof $peopleViewModel.get>;
@@ -23,13 +25,18 @@ $router.listen((page) => {
 });
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
-  return html`<li class="flex items-center gap-3 py-2">
-    ${avatarBadge(p.name)}
+  const body = html`${avatarBadge(p.name)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
         ${p.name}${p.you ? " (you)" : ""}
         ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">· Admin</span>` : null}
+        ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">· Friend</span>` : null}
       </p>
+      ${
+        p.friend && p.ownName !== p.name
+          ? html`<p class="truncate text-xs text-muted">${p.ownName}</p>`
+          : null
+      }
       <p class="flex items-center gap-1.5 text-xs text-muted">
         <span
           class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
@@ -37,7 +44,22 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ></span>
         ${p.presence}
       </p>
-    </div>
+    </div>`;
+  const identity = p.identity;
+  return html`<li class="flex items-center gap-3 py-2">
+    ${
+      p.tappable && identity !== undefined
+        ? html`<button
+            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            @click=${(e: Event) => {
+              rememberFocus(e.currentTarget as HTMLElement);
+              friends.open({ identity, ownName: p.ownName });
+            }}
+          >
+            ${body}
+          </button>`
+        : html`<div class="flex min-w-0 flex-1 items-center gap-3">${body}</div>`
+    }
     ${
       vm.isAdmin && !p.you && !p.admin
         ? html`<button
@@ -286,7 +308,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof $syncView
       fatal ? () => window.location.reload() : undefined,
     )}
     ${requestsSection(vm)} ${invitePanel(status.folder, status.name, adminName(status))}
-    ${membersSection(vm)} ${advancedSection(status, state, busy)}
+    ${membersSection(vm)} ${advancedSection(status, state, busy)} ${friendSheetView()}
   </div>`;
 }
 

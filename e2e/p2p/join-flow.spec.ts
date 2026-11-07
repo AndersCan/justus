@@ -12,6 +12,7 @@ import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
 
 const ALBUM = "Hub trip";
+const FRIEND_ALBUM = "Friends trip";
 const PHOTO = "hub-join.png";
 
 // The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
@@ -86,6 +87,43 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   });
   await expect(b.getByRole("button", { name: `Add photos to ${ALBUM}` })).toBeVisible({
     timeout: 60_000,
+  });
+});
+
+test("A saves B as a friend from the Members list and the name stays after a reload", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, FRIEND_ALBUM, PHOTO, 11);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, FRIEND_ALBUM);
+  await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept" }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const row = members
+    .locator("li", { hasText: "connected" })
+    .filter({ hasNot: a.getByText("(you)") });
+  const tap = row.getByRole("button").first();
+  await expect(tap).toBeVisible({ timeout: 60_000 });
+  const ownName = ((await tap.locator("p").first().innerText()) ?? "").trim();
+  await tap.click();
+  await a.getByRole("button", { name: "Add to friends" }).click();
+  await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
+  await a.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+  await expect(row.getByText("Sam", { exact: false }).first()).toBeVisible();
+  await expect(row.getByText("Friend")).toBeVisible();
+  await expect(row.getByText(ownName, { exact: true })).toBeVisible();
+
+  await a.reload();
+  await a.goto("/sharing");
+  await a.getByText(FRIEND_ALBUM).click();
+  await expect(a.locator("li", { hasText: "Friend" }).getByText("Sam").first()).toBeVisible({
+    timeout: 30_000,
   });
 });
 
