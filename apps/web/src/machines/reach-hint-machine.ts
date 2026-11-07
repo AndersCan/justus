@@ -1,9 +1,10 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
+import type { SyncStatus } from "@justus/core";
 import { atom, computed } from "nanostores";
 import { REACH_HINT_AFTER_MS, reachHintText, unreachableMember } from "../utils/reach-hint";
-import { bindStateAtoms } from "./actor-utils";
-import { $syncStatus } from "./sync-machine";
+import { bindStateAtoms, stateNameOf } from "./actor-utils";
+import { syncActor, type SyncActor } from "./sync-machine";
 
 /**
  * Failed-connection hint: once every other member has stayed unreachable for
@@ -23,6 +24,13 @@ export const $reachFatal = atom(false);
 export const $reachHint = computed([$reachState, $reachName], (state, name) =>
   state === "hint" ? reachHintText(name) : null,
 );
+
+const nameOf = stateNameOf(REACH_STATES);
+
+/** The hint line to show, or null while there is nothing to say. */
+export function reachHintOf(s: Snapshot<ReachContext>): string | null {
+  return nameOf(s) === "hint" ? reachHintText(s.context.name) : null;
+}
 
 /** Everyone in the album can be reached, or there is nobody else yet; no hint is shown. */
 const reachable = state("reachable")();
@@ -110,8 +118,22 @@ bindStateAtoms({
   $fatal: $reachFatal,
 });
 
-$syncStatus.subscribe((status) => {
-  const name = unreachableMember(status);
-  if (name === null) reachActor.send(reached.create());
-  else reachActor.send(unreachable.create({ name }));
-});
+export type ReachActor = ReturnType<typeof createReachActor>;
+
+/** Feeds the sync status to the reach actor. Each unreachable event can restart
+ * the wait, so it acts only when sync holds a new status object, never on an
+ * unrelated change such as an error. It also acts once on the current status. */
+export function wireReachToSync(reach: ReachActor, sync: SyncActor): () => void {
+  let lastStatus: SyncStatus | null | undefined;
+  const act = (status: SyncStatus | null) => {
+    if (status === lastStatus) return;
+    lastStatus = status;
+    const name = unreachableMember(status);
+    if (name === null) reach.send(reached.create());
+    else reach.send(unreachable.create({ name }));
+  };
+  act(sync.snapshot().context.status);
+  return sync.on("change", { fn: (snapshot) => act(snapshot.context.status) });
+}
+
+wireReachToSync(reachActor, syncActor);

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import type { GrantRecord } from "@justus/core";
-import { createGrantsActor } from "./grants-machine";
+import { createGrantsActor, grantsViewModel } from "./grants-machine";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -92,5 +92,31 @@ describe("grants machine factory", () => {
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
     expect(actor.state.name).toBe("ok");
+  });
+});
+
+describe("grantsViewModel", () => {
+  test("initial snapshot", () => {
+    const { actor } = setup();
+    expect(grantsViewModel(actor.snapshot())).toEqual({
+      records: [],
+      due: [],
+      dueRecords: [],
+      state: "idle",
+      acting: false,
+      error: null,
+      fatal: false,
+    });
+  });
+
+  test("loaded records, due records and acting", async () => {
+    const { actor } = setup({ act: () => new Promise(() => {}) });
+    actor.send(refresh());
+    await actor.settled();
+    expect(grantsViewModel(actor.snapshot()).dueRecords.map((r) => r.peerId)).toEqual(["p1"]);
+    actor.send(act("p1", "grant"));
+    const vm = grantsViewModel(actor.snapshot());
+    expect(vm.state).toBe("acting");
+    expect(vm.acting).toBe(true);
   });
 });

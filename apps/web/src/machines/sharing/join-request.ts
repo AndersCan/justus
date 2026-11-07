@@ -1,4 +1,4 @@
-import { RealClock } from "@mantaq/core";
+import { RealClock, type Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { atom } from "nanostores";
 import { gateway } from "../../gateway";
@@ -34,6 +34,19 @@ export type JoinView = {
 
 export const $join = atom<JoinView>({ state: "noInvite", invite: null, error: "" });
 
+/** What the join screens draw, as a pure function of the actor snapshot. */
+export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
+  const name = snapshot.path[0] as JoinView["state"];
+  return {
+    state: name,
+    invite:
+      name === "noInvite" || name === "unusableLink" || name === "joined"
+        ? null
+        : (snapshot.payload as JoinInvite),
+    error: (snapshot.context as { error: string }).error,
+  };
+}
+
 export const joinActor = createJoinRequestActor({
   clock: RealClock(),
   known: (invite) => classifyInvite(invite.code, $folders.get(), $asks.get()),
@@ -48,15 +61,7 @@ export const joinActor = createJoinRequestActor({
 
 joinActor.on("change", {
   fn: (snapshot) => {
-    const name = snapshot.path[0] as JoinView["state"];
-    $join.set({
-      state: name,
-      invite:
-        name === "noInvite" || name === "unusableLink" || name === "joined"
-          ? null
-          : (snapshot.payload as JoinInvite),
-      error: (snapshot.context as { error: string }).error,
-    });
+    $join.set(joinViewOf(snapshot));
   },
 });
 

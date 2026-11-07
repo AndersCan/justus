@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { atom } from "nanostores";
-import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, onStateChange, runInvoke, stateNameOf } from "./actor-utils";
 
 /** Minimal `Snapshot`-shaped object — the imported type is erased at runtime. */
 function snapshot(path: string[], error?: unknown): any {
@@ -157,5 +157,60 @@ describe("bindStateAtoms", () => {
     expect($fatal.get()).toBe(true);
     expect($error.get()).toContain("boom");
     expect($error.get()).toContain("throw");
+  });
+});
+
+describe("onStateChange", () => {
+  function fake(initial: string[]) {
+    let current = snapshot(initial);
+    const listeners: ((s: any) => void)[] = [];
+    return {
+      snapshot: () => current,
+      on: (_e: "change", o: { fn: (s: any) => void }) => {
+        listeners.push(o.fn);
+        return () => listeners.splice(listeners.indexOf(o.fn), 1);
+      },
+      emit: (path: string[], error?: unknown) => {
+        current = snapshot(path, error);
+        for (const l of listeners.slice()) l(current);
+      },
+      listeners,
+    };
+  }
+  const states = ["idle", "ok", "error"] as const;
+
+  test("fires on a name change with next and prev, not on subscribe", () => {
+    const actor = fake(["idle"]);
+    const fn = vi.fn();
+    onStateChange(actor, states, fn);
+    expect(fn).not.toHaveBeenCalled();
+    actor.emit(["ok"]);
+    expect(fn).toHaveBeenCalledWith("ok", "idle");
+  });
+
+  test("does not fire when only the context changed", () => {
+    const actor = fake(["ok"]);
+    const fn = vi.fn();
+    onStateChange(actor, states, fn);
+    actor.emit(["ok"]);
+    actor.emit(["ok"]);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  test("a dying actor reports error", () => {
+    const actor = fake(["ok"]);
+    const fn = vi.fn();
+    onStateChange(actor, states, fn);
+    actor.emit(["__error"], { error: new Error("boom"), reason: "throw" });
+    expect(fn).toHaveBeenCalledWith("error", "ok");
+  });
+
+  test("the returned function unsubscribes", () => {
+    const actor = fake(["idle"]);
+    const fn = vi.fn();
+    const off = onStateChange(actor, states, fn);
+    off();
+    actor.emit(["ok"]);
+    expect(fn).not.toHaveBeenCalled();
   });
 });

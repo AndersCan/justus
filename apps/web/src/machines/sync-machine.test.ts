@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { $pendingJoin, $syncError, $syncStatus, createSyncActor, sync } from "./sync-machine";
+import { $syncError, $syncStatus, createSyncActor, sync, syncViewModel } from "./sync-machine";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -148,18 +148,56 @@ describe("sync singleton", () => {
     await vi.waitFor(() => expect($syncStatus.get()).toEqual(after));
     expect($syncError.get()).toBeNull();
   });
+});
 
-  test("$pendingJoin is true after a join awaiting approval and cleared by the next join", async () => {
-    const start = statusOf(false, "start");
-    vi.mocked(gateway.status).mockResolvedValueOnce([null, start] as any);
-    vi.mocked(gateway.join)
-      .mockResolvedValueOnce([null, statusOf(true, "pending")] as any)
-      .mockResolvedValueOnce([null, statusOf(false, "ready")] as any);
-    sync.refresh();
-    await vi.waitFor(() => expect($syncStatus.get()).toEqual(start));
-    sync.join("k1");
-    await vi.waitFor(() => expect($pendingJoin.get()).toBe(true));
-    sync.join("k2");
-    await vi.waitFor(() => expect($pendingJoin.get()).toBe(false));
+describe("sync single owner", () => {
+  test("STATUS_SEEN sets the status in any state without leaving it", () => {
+    const { actor } = build({});
+    const status = statusOf(false, "Seen");
+    send(actor, "STATUS_SEEN", { status });
+    expect(ctx(actor).status).toBe(status);
+    expect(stateOf(actor)).toBe("idle");
+  });
+
+  test("context.status keeps its identity across unrelated changes", async () => {
+    const { actor } = build({ status: vi.fn().mockResolvedValue([new Error("offline"), null]) });
+    const status = statusOf();
+    send(actor, "STATUS_SEEN", { status });
+    send(actor, "REFRESH");
+    await actor.settled();
+    expect(ctx(actor).error).toBe("offline");
+    expect(ctx(actor).status).toBe(status);
+  });
+
+  test("syncViewModel: initial snapshot", () => {
+    const { actor } = build({});
+    expect(syncViewModel(actor.snapshot())).toEqual({
+      status: null,
+      state: "idle",
+      busy: false,
+      error: null,
+      fatal: false,
+    });
+  });
+
+  test("syncViewModel: busy while joining", async () => {
+    const { actor } = build({ join: vi.fn(() => new Promise(() => {})) });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    send(actor, "JOIN", { key: "k" });
+    const vm = syncViewModel(actor.snapshot());
+    expect(vm.state).toBe("joining");
+    expect(vm.busy).toBe(true);
+  });
+
+  test("syncViewModel: a fatal error replaces the context error", () => {
+    const vm = syncViewModel({
+      path: ["__error"],
+      context: { status: null, error: "old" },
+      error: { error: new Error("boom"), reason: "throw" },
+    } as any);
+    expect(vm.fatal).toBe(true);
+    expect(vm.state).toBe("error");
+    expect(vm.error).toContain("boom");
   });
 });

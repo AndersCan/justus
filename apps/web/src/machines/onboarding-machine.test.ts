@@ -6,6 +6,7 @@ import {
   $onboardingError,
   $onboardingState,
   $onboardingViewModel,
+  onboardingViewModel,
   INTRO_CARD_COUNT,
   createOnboardingActor,
   onboarding,
@@ -155,5 +156,34 @@ describe("onboarding actor factory", () => {
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
     expect(actor.state.name).toBe("choose");
+  });
+});
+
+describe("onboardingViewModel", () => {
+  const build = () => createOnboardingActor({ clock: VirtualClock() });
+  const send = (a: ReturnType<typeof build>, type: string, payload?: unknown) =>
+    (a as any).send({ type, payload });
+
+  test("initial snapshot takes the user name from the caller", () => {
+    expect(onboardingViewModel(build().snapshot(), "Quiet Otter")).toEqual({
+      card: 0,
+      cardCount: INTRO_CARD_COUNT,
+      state: "cards",
+      saving: false,
+      error: null,
+      fatal: false,
+      userName: "Quiet Otter",
+      draftName: "",
+    });
+  });
+
+  test("saving while the name is stored", () => {
+    mock.setName.mockReturnValue(new Promise(() => {}));
+    const actor = createOnboardingActor({ clock: VirtualClock(), gateway: mock } as any);
+    send(actor, "SKIP");
+    send(actor, "SAVE_PROFILE", { name: "Maya" });
+    const vm = onboardingViewModel(actor.snapshot(), "");
+    expect(vm.state).toBe("saving");
+    expect(vm.saving).toBe(true);
   });
 });

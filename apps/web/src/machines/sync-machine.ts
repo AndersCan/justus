@@ -1,8 +1,8 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { atom, computed } from "nanostores";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { bindStateAtoms, runInvoke } from "./actor-utils";
+import { bindStateAtoms, fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
  * The sync/join state machine: folder status, reader join, creator enroll.
@@ -20,10 +20,6 @@ export const $syncError = atom<string | null>(null);
 /** True only for mantaq's universal `__error`: the machine is dead and Retry
  * cannot help — the UI must offer a reload instead. */
 export const $syncFatal = atom(false);
-/** Set when the last join landed as a *pending request* (the folder was added
- * read-only and the requester is awaiting the creator's approval). The sync
- * UI uses it to explain the outcome instead of navigating away. */
-export const $pendingJoin = atom(false);
 
 /** Plain view model for the sync UI (see $galleryViewModel). `busy` is
  * derived: it is exactly "a join or enroll is in flight". */
@@ -37,6 +33,23 @@ export const $syncViewModel = computed(
     fatal,
   }),
 );
+
+const nameOf = stateNameOf(SYNC_STATES);
+
+/** The sync UI's view model as a pure function of the actor snapshot. `busy`
+ * is exactly "a join or enroll is in flight"; a fatal message replaces the
+ * context error. */
+export function syncViewModel(s: Snapshot<SyncContext>) {
+  const state = nameOf(s);
+  const fatal = fatalErrorOf(s);
+  return {
+    status: s.context.status,
+    state,
+    busy: state === "joining" || state === "enrolling",
+    error: fatal?.message ?? s.context.error,
+    fatal: fatal !== null,
+  };
+}
 
 /** Nothing has been checked yet; the folder status is unknown. */
 const idle = state("idle")();
@@ -71,11 +84,11 @@ const enrolled = event("ENROLLED")<{ status: SyncStatus }>();
 const enrollFailed = event("ENROLL_FAILED")<{ message: string }>();
 /** The person taps Try again after an error. */
 const retry = event("RETRY")();
+/** Folders reports the status it now shows after switching album. */
+export const statusSeen = event("STATUS_SEEN")<{ status: SyncStatus }>();
 
 type SyncContext = {
   status: SyncStatus | null;
-  /** Bumped whenever `status` is replaced; snapshots clone the context, so identity cannot tell. */
-  statusVersion: number;
   awaitingApproval: boolean;
   error: string | null;
   pendingJoin: { key: string; name?: string } | null;
@@ -87,7 +100,7 @@ type SyncPort = Pick<typeof gateway, "status" | "join" | "enroll">;
 export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [refresh, join, enroll, retry],
+    inputs: [refresh, join, enroll, retry, statusSeen],
     internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
     outputs: [],
     states: [idle, refreshing, ok, joining, enrolling, error],
@@ -95,13 +108,20 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
     clock: options.clock,
     context: {
       status: null,
-      statusVersion: 0,
       awaitingApproval: false,
       error: null,
       pendingJoin: null,
       pendingEnroll: null,
     } as SyncContext,
     setup: (m) => {
+      /** Another machine reports a newer status: it becomes the status shown, in any state. */
+      m.onAny({
+        event: statusSeen,
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), status: e.payload.status });
+          return {};
+        },
+      });
       /** The first check starts and any old error is cleared. */
       m.on(idle, {
         event: refresh,
@@ -163,7 +183,6 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           opts.context.set({
             ...opts.context.get(),
             status: e.payload.status,
-            statusVersion: opts.context.get().statusVersion + 1,
             error: null,
             pendingJoin: null,
             pendingEnroll: null,
@@ -231,7 +250,6 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             ...opts.context.get(),
             error: null,
             status: e.payload.status,
-            statusVersion: opts.context.get().statusVersion + 1,
             awaitingApproval: Boolean(e.payload.status.folder?.pending),
             pendingJoin: null,
             pendingEnroll: null,
@@ -298,7 +316,6 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             ...opts.context.get(),
             error: null,
             status: e.payload.status,
-            statusVersion: opts.context.get().statusVersion + 1,
             pendingJoin: null,
             pendingEnroll: null,
           });
@@ -323,17 +340,18 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
   });
 }
 
+export type SyncActor = ReturnType<typeof createSyncActor>;
+
 export const syncActor = createSyncActor({ clock: RealClock() });
 
-/** Folders also writes `$syncStatus`, so it is only written when this machine produced a new status. */
-let lastWrittenVersion = 0;
+/** `$syncStatus` is a projection of `context.status`, written when the machine holds a new status object. */
+let lastWritten: SyncStatus | null = null;
 syncActor.on("change", {
   fn: (snapshot) => {
-    const { status: current, statusVersion, error: message, awaitingApproval } = snapshot.context;
+    const { status: current, error: message } = snapshot.context;
     $syncError.set(message);
-    $pendingJoin.set(awaitingApproval);
-    if (current !== null && statusVersion !== lastWrittenVersion) {
-      lastWrittenVersion = statusVersion;
+    if (current !== null && current !== lastWritten) {
+      lastWritten = current;
       $syncStatus.set(current);
     }
   },
@@ -353,4 +371,5 @@ export const sync = {
   join: (key: string, name?: string) => syncActor.send(join.create({ key, name })),
   enroll: (key: string, name: string) => syncActor.send(enroll.create({ key, name })),
   retry: () => syncActor.send(retry.create()),
+  statusSeen: (status: SyncStatus) => syncActor.send(statusSeen.create({ status })),
 };
