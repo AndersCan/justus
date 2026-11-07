@@ -486,6 +486,42 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "viewer: made a Collaborator, adds a photo the Admin sees, without a restart",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey } = await askedAlbum(net);
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      const key = requests[0].requesterKey;
+      t.noErr(await admin.store.respond(folderId, key, true, "reader"), "accept as a Viewer");
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "reader" && !f.pending,
+        "the joiner is a Viewer",
+      );
+      t.noErr(await admin.store.makeMember(folderId, key), "let the Viewer add photos");
+      await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member",
+        "the joiner's album becomes a Collaborator's",
+      );
+      await eventually(
+        async () => joiner.store.addBytes("c.jpg", new Uint8Array([4, 4, 4]), album!.id),
+        (r) => r[0] === null,
+        "the Collaborator adds a photo",
+      );
+      await eventually(
+        () => admin.store.list({ all: true }),
+        (l) => l.some((p) => p.name === "c.jpg"),
+        "the Admin sees the photo",
+      );
+      const status = await admin.store.status();
+      t.ok(!status.members.some((m: Member) => m.viewer), "no Viewer left on the Admin's list");
+    },
+  },
+  {
     name: "ask: a declined ask stays declined, across a restart and a second ask",
     async run(net, t) {
       const { admin, joiner, folderId, invite } = await askedAlbum(net);

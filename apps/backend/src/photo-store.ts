@@ -19,7 +19,7 @@ import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
-import { seatViewer } from "./membership/viewers";
+import { makeViewerMember, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_REQUESTS,
@@ -294,6 +294,7 @@ export interface PhotoStore {
   requests(): Promise<{ requests: JoinRequest[] }>;
   /** Admin only: take a member out of the album (their copies stay on their
    * own devices, but the album stops syncing with them). */
+  makeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   removeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   respond(
     folderId: string,
@@ -2979,6 +2980,33 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ask: askSummary(ask as AskRecord) });
     },
 
+    async makeMember(folderId, memberKey) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can let a Viewer add photos");
+      if (!isHexKey(memberKey) || memberKey.toLowerCase() === rt.record.shareKey.toLowerCase())
+        return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
+      const key = memberKey.toLowerCase();
+      await refreshViewers(rt);
+      const registry = await readRegistryIn(rt.folderDrive);
+      const [upErr, upgraded] = await makeViewerMember(rt.folderDrive, {
+        viewers: { version: 1, viewers: rt.viewers },
+        registry,
+        memberKey: key,
+      });
+      if (upErr) {
+        if (upErr.kind === "no-such-viewer") return err(PhotoError.NOT_FOUND, "No such Viewer");
+        if (upErr.kind === "already-enrolled")
+          return err(PhotoError.ALREADY_ENROLLED, upErr.message);
+        return err(ErrorCode.HOST_ERROR, `Cannot let the Viewer add photos: ${upErr.message}`);
+      }
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId, memberKey: key });
+      return ok({ ok: true });
+    },
+
     async removeMember(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -3100,6 +3128,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     setActive: refuse,
     setName: refuse,
     requests: fail,
+    makeMember: refuse,
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,

@@ -119,6 +119,12 @@ export const photoSpecs = {
     args: {} as Record<string, never>,
     result: {} as { requests: JoinRequest[] },
   },
+  makeMember: {
+    pluginId: "justus.photos",
+    name: "photos.makeMember",
+    args: {} as { folderId: string; memberKey: string },
+    result: {} as { ok: boolean },
+  },
   removeMember: {
     pluginId: "justus.photos",
     name: "photos.removeMember",
@@ -268,6 +274,21 @@ export const photoEvents = {
       { requests: JoinRequest[] }
     > {
       return invokeEvent(photoSpecs.requests, {}, null, PHOTOS_LIST_TIMEOUT_MS);
+    },
+    makeMember(
+      folderId: string,
+      memberKey: string,
+    ): InvokeEnvelope<
+      "photos.makeMember",
+      { folderId: string; memberKey: string },
+      { ok: boolean }
+    > {
+      return invokeEvent(
+        photoSpecs.makeMember,
+        { folderId, memberKey },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
     },
     removeMember(
       folderId: string,
