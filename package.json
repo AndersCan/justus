@@ -29,6 +29,7 @@
     "@mantaq/viz": "catalog:",
     "@playwright/test": "catalog:",
     "astro": "catalog:",
+    "playwright": "catalog:",
     "require-asset": "^1.2.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"

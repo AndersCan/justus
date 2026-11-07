@@ -45,8 +45,11 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Check every page renders a diagram
+      - name: Check flows docs
         run: node scripts/check-flows-site.mjs site-dist
+
+      - name: Check the built site
+        run: pnpm exec mantaq-check-site site-dist --base /justus
 
       - name: Upload site for review
         if: github.event_name == 'pull_request'
