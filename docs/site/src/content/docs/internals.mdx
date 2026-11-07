@@ -1,0 +1,28 @@
+---
+title: "Internals"
+description: "Plumbing the journeys rely on: page switching, settings, logs, the photo viewer and the app lock."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+How the app works inside. Nothing here is a journey; the journey pages link to these.
+
+- **Router** (`router.showingPage`): holds which page is showing. Holds data; one state.
+
+<Machine src="apps/web/src/machines/router-machine.ts" />
+
+- **Preferences** (`prefs.holdingPreferences`): device preferences. Holds data; one state.
+
+<Machine src="apps/web/src/machines/prefs-machine.ts" />
+
+- **Logs** (`logs.holdingLogs`): the live logs. Holds data; one state.
+
+<Machine src="apps/web/src/machines/logs-machine.ts" />
+
+- **Photo viewer**: which photo is open, `lightbox.noPhotoOpen` or `lightbox.showingPhoto`.
+
+<Machine src="apps/web/src/machines/lightbox-machine.ts" />
+
+- **App lock**: the lock switch in Settings, `appLock.showingLockSwitch`, then `appLock.savingLockChoice`.
+
+<Machine src="apps/web/src/machines/app-lock-machine.ts" />

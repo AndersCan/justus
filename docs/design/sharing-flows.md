@@ -151,21 +151,21 @@ Each link opens the machine at the end of the walk; click on from there or press
 
 ### Story 1: two friends
 
-- [Maya: asks and is accepted](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20accepted)
-- [Maya: asks and is declined](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20declined)
-- [Maya: reopens her ask while waiting](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20while%20waiting)
-- [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
-- [Maya: opens a link from before the new key](https://anderscan.github.io/justus/invite-requests/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
-- [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-requests/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
-- [Nils: accepts Maya as Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20Maya%20as%20Collaborator)
-- [Nils: declines the request](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20declines%20the%20request)
+- [Maya: asks and is accepted](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20accepted)
+- [Maya: asks and is declined](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20declined)
+- [Maya: reopens her ask while waiting](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20while%20waiting)
+- [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
+- [Maya: opens a link from before the new key](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
+- [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
+- [Nils: accepts Maya as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20Maya%20as%20Collaborator)
+- [Nils: declines the request](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20declines%20the%20request)
 
 ### Story 2: a big group where everyone adds photos
 
 A guest's side is the Story 1 Maya walks.
 
-- [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
+- [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
 
 ### Story 3: a big group joining your personal album
 
-- [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/invite-requests/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)
+- [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)

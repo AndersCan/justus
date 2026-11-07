@@ -1,25 +1,21 @@
 ---
 title: Flows
-description: How the app behaves, drawn from its state machines.
+description: What a person does in Justus, one journey at a time.
 ---
 
 import Machines from "@mantaq/inspect/astro/Machines.astro";
 import manifest from "../../../../flows/manifest.json";
 
-export const features = Object.entries(manifest).map(([feature, files]) => ({
-  feature,
-  names: files.map((file) => file.replace(/^.*\//, "").replace(/\.ts$/, "")),
-}));
+What a person does in Justus, one journey at a time.
 
-How the app behaves, drawn from its state machines.
+- [First run](../first-run/): a new person opens Justus, gives a name and chooses to create or join an album.
+- [Make an album](../make-an-album/): someone with photos to share creates an album and opens it.
+- [Invite someone](../invite-someone/): the Admin lets a new person in with an invite link.
+- [Join an album](../join-an-album/): someone with an invite link asks to join, and the Admin answers.
+- [Share photos](../share-photos/): a member adds photos and decides who sees them.
 
-<ul>
-  {features.map(({ feature, names }) => (
-    <li>
-      <a href={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}${feature}/`}>{feature}</a>:{" "}
-      {names.join(", ")}
-    </li>
-  ))}
-</ul>
+How the app works inside: [Internals](../internals/)
+
+## How the machines link
 
 <Machines pages={manifest} />

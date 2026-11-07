@@ -1,29 +1,27 @@
 {
-  "albums": [
-    "apps/web/src/machines/folders-machine.ts",
-    "apps/web/src/machines/gallery-machine.ts",
+  "first-run": ["apps/web/src/machines/onboarding-machine.ts"],
+  "make-an-album": ["apps/web/src/machines/folders-machine.ts"],
+  "invite-someone": [
     "apps/web/src/machines/people-machine.ts",
-    "apps/web/src/machines/friends-machine.ts"
+    "apps/web/src/machines/friends-machine.ts",
+    "apps/web/src/machines/sharing/invite-link-machine.ts"
   ],
-  "sharing": [
-    "apps/web/src/machines/sync-machine.ts",
+  "join-an-album": [
+    "apps/web/src/machines/sharing/join-request-machine.ts",
+    "apps/web/src/machines/requests-machine.ts",
+    "apps/backend/src/membership/membership-machine.ts",
+    "apps/web/src/machines/sync-machine.ts"
+  ],
+  "share-photos": [
+    "apps/web/src/machines/gallery-machine.ts",
     "apps/web/src/machines/grants-machine.ts",
-    "apps/web/src/machines/requests-machine.ts"
-  ],
-  "first-run": [
-    "apps/web/src/machines/onboarding-machine.ts",
     "apps/web/src/machines/reach-hint-machine.ts"
   ],
-  "invite-requests": [
-    "apps/web/src/machines/sharing/invite-link-machine.ts",
-    "apps/backend/src/membership/membership-machine.ts",
-    "apps/web/src/machines/sharing/join-request-machine.ts"
-  ],
-  "app": [
+  "internals": [
     "apps/web/src/machines/router-machine.ts",
-    "apps/web/src/machines/lightbox-machine.ts",
     "apps/web/src/machines/prefs-machine.ts",
-    "apps/web/src/machines/app-lock-machine.ts",
-    "apps/web/src/machines/logs-machine.ts"
+    "apps/web/src/machines/logs-machine.ts",
+    "apps/web/src/machines/lightbox-machine.ts",
+    "apps/web/src/machines/app-lock-machine.ts"
   ]
 }

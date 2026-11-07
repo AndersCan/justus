@@ -1,0 +1,39 @@
+---
+title: "Join an album"
+description: "Someone who got an invite link asks to join, and the Admin says yes or no."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+Two people, two phones. Ana wants in; Nils is the Admin.
+
+| Moment                 | Ana sees                                                                                                                                                                                    | Nils (Admin) sees                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Ana opens the link     | Ask to join "&lt;album&gt;"? `joinRequest.decidingToAsk`                                                                                                                                    | Nothing                                                        |
+| Ana taps "Ask to join" | "Asking…" `joinRequest.sendingRequest`                                                                                                                                                      | Nothing                                                        |
+| The request is sent    | "Request to join sent to &lt;Admin&gt;. You'll see "&lt;album&gt;" when accepted. &lt;Admin&gt; must be online too: keep Justus open on both phones." `joinRequest.waitingForAdminToAccept` | The request with Accept and Decline `requests.showingRequests` |
+| Nils taps Accept       | The album opens `joinRequest.joinedAlbum`                                                                                                                                                   | `requests.sendingAnswer`                                       |
+| Nils taps Decline      | "&lt;Admin&gt; didn't accept your request." `joinRequest.declinedByAdmin`                                                                                                                   | `requests.sendingAnswer`                                       |
+
+Not in the app yet: the Admin's side is planned as `membership.requestWaitingForAdmin`, then `membership.addingMember` and `membership.memberOfAlbum` when accepted, or `membership.requestDeclined` when declined.
+
+Albums joined by key before invite links existed show "Waiting for approval" until the Admin opens Justus (`sync.waitingForAdminApproval`).
+
+**When it goes wrong.**
+
+| What went wrong                                           | State                                                       |
+| --------------------------------------------------------- | ----------------------------------------------------------- |
+| The link is garbled, or too old                           | `joinRequest.showingLinkProblem`, `joinRequest.linkExpired` |
+| The request could not be sent                             | Back on `joinRequest.decidingToAsk`                         |
+| The Admin's answer could not be sent; no message is shown | `requests.couldNotSendAnswer`                               |
+| The Admin could not add the person                        | `sync.couldNotAddMember`                                    |
+
+**Not decided yet.** Can a declined person ask again? The joiner's screen says no; the Admin's design (not in the app yet) lets a new request in.
+
+<Machine src="apps/web/src/machines/sharing/join-request-machine.ts" />
+
+<Machine src="apps/web/src/machines/requests-machine.ts" />
+
+<Machine src="apps/backend/src/membership/membership-machine.ts" />
+
+<Machine src="apps/web/src/machines/sync-machine.ts" />

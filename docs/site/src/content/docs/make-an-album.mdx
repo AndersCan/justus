@@ -1,0 +1,23 @@
+---
+title: "Make an album"
+description: "Someone with photos to share creates an album and opens it."
+---
+
+import Machine from "@mantaq/inspect/astro/Machine.astro";
+
+| What the person sees                                                                   | What they do        | State                   |
+| -------------------------------------------------------------------------------------- | ------------------- | ----------------------- |
+| The list of albums                                                                     | Taps "Create album" | `folders.showingAlbums` |
+| "Creating…" on the button                                                              | Waits               | `folders.creatingAlbum` |
+| The new album open in Photos with an empty grid (see [Share photos](../share-photos/)) | Adds photos         | `gallery.showingPhotos` |
+
+**When it goes wrong.**
+
+| What went wrong                        | State                         |
+| -------------------------------------- | ----------------------------- |
+| The album could not be created         | `folders.couldNotCreateAlbum` |
+| The album could not be opened          | `folders.couldNotOpenAlbum`   |
+| A new name could not be saved          | `folders.couldNotSaveName`    |
+| The list of albums could not be loaded | `folders.couldNotLoadAlbums`  |
+
+<Machine src="apps/web/src/machines/folders-machine.ts" />
