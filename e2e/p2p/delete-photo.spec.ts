@@ -12,6 +12,7 @@ import { pngOf, runColour } from "../add-photos.js";
 const ALBUM = "Delete trip";
 const ANA = "del-ana.png";
 const BEN = "del-ben.png";
+const BEN2 = "del-ben2.png";
 
 // The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
 // album creator cannot NAT-sample enough nodes, aborts the joiner's holepunch,
@@ -63,7 +64,7 @@ async function askToJoin(b, link, album) {
   await expect(b.locator("img")).toHaveCount(0);
 }
 
-test("a member deletes only their own photo, the adder's delete closes Ben's open view, the Admin's delete leaves both phones", async ({
+test("a member deletes only their own photo, the Admin's delete closes Ben's open view, and both deletes leave both phones", async ({
   instancePages,
 }) => {
   test.setTimeout(200_000);
@@ -77,21 +78,24 @@ test("a member deletes only their own photo, the adder's delete closes Ben's ope
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toBeVisible({ timeout: 60_000 });
 
-  await b.setInputFiles("input[type=file]", {
-    name: BEN,
-    mimeType: "image/png",
-    buffer: pngOf(...runColour(43)),
-  });
-  await expect(a.getByRole("button", { name: `View ${BEN}` })).toBeVisible({ timeout: 60_000 });
+  for (const [file, colour] of [
+    [BEN, 43],
+    [BEN2, 47],
+  ]) {
+    await b.setInputFiles("input[type=file]", {
+      name: file,
+      mimeType: "image/png",
+      buffer: pngOf(...runColour(colour)),
+    });
+    await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
+  }
 
-  await b.getByRole("button", { name: `View ${BEN}` }).click();
-  await expect(b.getByRole("button", { name: "More options" })).toBeVisible();
-  await b.keyboard.press("Escape");
-
+  // Ben (a member) has no menu on Ana's photo.
   await b.getByRole("button", { name: `View ${ANA}` }).click();
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0);
 
+  // The Admin deletes Ana's photo: Ben's open view closes by itself.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
   await a.getByRole("button", { name: "More options" }).click();
   await a.getByRole("menuitem", { name: "Delete" }).click();
@@ -102,19 +106,32 @@ test("a member deletes only their own photo, the adder's delete closes Ben's ope
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0);
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
   await expect(a.getByText(/Removed|Deleted/)).toHaveCount(0);
-
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
 
-  await a.getByRole("button", { name: `View ${BEN}` }).click();
-  await a.getByRole("button", { name: "More options" }).click();
-  await a.getByRole("menuitem", { name: "Delete" }).click();
-  await a
+  // Ben deletes his own photo through the menu; it leaves both phones.
+  await b.getByRole("button", { name: `View ${BEN}` }).click();
+  await b.getByRole("button", { name: "More options" }).click();
+  await b.getByRole("menuitem", { name: "Delete" }).click();
+  await b
     .getByRole("dialog", { name: `Delete “${BEN}”?` })
     .getByRole("button", { name: "Delete" })
     .click();
-  await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0);
-  await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
+  await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0);
+  await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
+    timeout: 60_000,
+  });
+
+  // The Admin deletes another member's photo; it leaves both phones.
+  await a.getByRole("button", { name: `View ${BEN2}` }).click();
+  await a.getByRole("button", { name: "More options" }).click();
+  await a.getByRole("menuitem", { name: "Delete" }).click();
+  await a
+    .getByRole("dialog", { name: `Delete “${BEN2}”?` })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(a.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, {
     timeout: 60_000,
   });
 });
