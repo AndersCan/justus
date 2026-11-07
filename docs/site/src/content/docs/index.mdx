@@ -8,8 +8,10 @@ hero:
 ---
 
 import { Image } from "astro:assets";
-import album from "../../assets/landing/1_album.png";
-import photo from "../../assets/landing/2_photo.png";
+import album from "../../assets/store-screenshots/1_album.png";
+import invite from "../../assets/store-screenshots/2_invite.png";
+import photo from "../../assets/store-screenshots/3_photo.png";
+import help from "../../assets/store-screenshots/4_help.png";
 
 <p style={{ textAlign: "center" }}>
   <a href="/justus/flows/">How it works</a> · <a href="/justus/privacy/">Privacy policy</a>
@@ -17,7 +19,13 @@ import photo from "../../assets/landing/2_photo.png";
 
 <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "center" }}>
   <Image src={album} width={270} alt="Only people you accept see your photos" />
-  <Image src={photo} width={270} alt="You choose who joins. No cloud, no account" />
+  <Image
+    src={invite}
+    width={270}
+    alt="You choose who joins. Nobody sees a photo until you accept"
+  />
+  <Image src={photo} width={270} alt="Every photo at full size" />
+  <Image src={help} width={270} alt="No server in the middle. Photos go phone to phone" />
 </div>
 
 ## How it stays private

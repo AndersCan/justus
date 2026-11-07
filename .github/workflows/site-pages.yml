@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_run:
+    workflows: [release-android]
+    types: [completed]
 
 concurrency:
   group: site-pages-${{ github.ref }}
@@ -14,6 +17,7 @@ permissions:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -57,13 +61,13 @@ jobs:
           retention-days: 7
 
       - name: Upload Pages artifact
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site-dist
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10

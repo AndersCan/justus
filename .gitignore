@@ -78,3 +78,6 @@ site-dist/
 apps/android/fastlane/metadata/android/*/images/phoneScreenshots/*.png
 # Release note written by `fastlane internal`
 apps/android/fastlane/metadata/android/*/changelogs/
+
+# Store screenshots downloaded for the website (site:build)
+docs/site/src/assets/store-screenshots/
