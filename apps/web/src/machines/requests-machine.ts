@@ -10,7 +10,14 @@ import { removeRequestFromList } from "./requests-list";
  * the other machines.
  */
 
-const REQUESTS_STATES = ["idle", "refreshing", "ok", "responding", "error"] as const;
+const REQUESTS_STATES = [
+  "idle",
+  "refreshing",
+  "ok",
+  "responding",
+  "error",
+  "couldNotSendAnswer",
+] as const;
 export type RequestsStateName = (typeof REQUESTS_STATES)[number];
 
 /** The inbox of requests to join the person's folders has not been loaded yet. */
@@ -21,6 +28,8 @@ const refreshing = state("refreshing")();
 const ok = state("ok")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const responding = state("responding")();
+/** The Yes or No did not reach the app; the request stays in the list. No message is shown. */
+const couldNotSendAnswer = state("couldNotSendAnswer")();
 /** The requests could not be loaded; the person sees the problem and can try again. */
 const error = state("error")();
 
@@ -57,6 +66,7 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     requests: s.context.requests,
     state,
     responding: state === "responding",
+    settled: state === "ok" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -71,7 +81,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
     inputs: [refresh, respond, retry],
     internal: [loaded, loadFailed, responded, respondFailed],
     outputs: [],
-    states: [idle, refreshing, ok, responding, error],
+    states: [idle, refreshing, ok, responding, error, couldNotSendAnswer],
     initial: idle,
     clock,
     context: initialContext,
@@ -85,15 +95,34 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           return { state: refreshing };
         },
       });
-      /** A reload starts and any old error is cleared. */
-      m.on(ok, {
-        event: refresh,
-        to: [refreshing],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
-        },
-      });
+      for (const at of [ok, couldNotSendAnswer]) {
+        /** A reload starts and any old error is cleared. */
+        m.on(at, {
+          event: refresh,
+          to: [refreshing],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: refreshing };
+          },
+        });
+        /** Sending the Yes or No starts and any earlier error is cleared. */
+        m.on(at, {
+          event: respond,
+          to: [responding],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingRespond: {
+                folderId: e.payload.folderId,
+                requesterKey: e.payload.requesterKey,
+                approve: e.payload.approve,
+              },
+            });
+            return { state: responding };
+          },
+        });
+      }
       /** A reload after an error starts and the error message goes away. */
       m.on(error, {
         event: refresh,
@@ -152,23 +181,6 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         },
       });
 
-      /** Sending the Yes or No starts and any earlier error is cleared. */
-      m.on(ok, {
-        event: respond,
-        to: [responding],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingRespond: {
-              folderId: e.payload.folderId,
-              requesterKey: e.payload.requesterKey,
-              approve: e.payload.approve,
-            },
-          });
-          return { state: responding };
-        },
-      });
       /** The owner's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
       m.effect(responding, {
         name: "responding",
@@ -214,14 +226,14 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
       /** Sending failed: the person sees an error and the request stays in the list. */
       m.on(responding, {
         event: respondFailed,
-        to: [ok],
+        to: [couldNotSendAnswer],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
             error: e.payload.message,
             pendingRespond: null,
           });
-          return { state: ok };
+          return { state: couldNotSendAnswer };
         },
       });
     },

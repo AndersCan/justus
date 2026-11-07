@@ -7,7 +7,6 @@ import { createSyncActor, sync, syncActor, syncViewModel } from "./sync-machine"
 vi.mock("../gateway", () => ({
   gateway: {
     status: vi.fn().mockResolvedValue([null, null]),
-    join: vi.fn(),
     enroll: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
   },
@@ -19,10 +18,9 @@ const statusOf = (pending = false, name = "Ana") =>
 const send = (actor: ReturnType<typeof createSyncActor>, type: string, payload?: unknown) =>
   (actor as any).send({ type, payload });
 
-function build(port: { status?: any; join?: any; enroll?: any }) {
+function build(port: { status?: any; enroll?: any }) {
   const gateway = {
     status: vi.fn().mockResolvedValue([null, statusOf()]),
-    join: vi.fn().mockResolvedValue([null, statusOf()]),
     enroll: vi.fn().mockResolvedValue([null, statusOf()]),
     ...port,
   };
@@ -59,40 +57,6 @@ describe("sync factory", () => {
     await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
   });
 
-  test("join waits for approval when the folder is pending", async () => {
-    const pending = statusOf(true);
-    const { actor, gateway } = build({ join: vi.fn().mockResolvedValue([null, pending]) });
-    send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
-    send(actor, "JOIN", { key: "k1", name: "Ana" });
-    expect(stateOf(actor)).toBe("joining");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
-    expect(gateway.join).toHaveBeenCalledWith("k1", "Ana");
-    expect(ctx(actor).awaitingApproval).toBe(true);
-    expect(ctx(actor).status).toEqual(pending);
-    expect(ctx(actor).pendingJoin).toBeNull();
-  });
-
-  test("join into a ready folder is not awaiting approval", async () => {
-    const { actor } = build({});
-    send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
-    send(actor, "JOIN", { key: "k1" });
-    await vi.waitFor(() => expect(ctx(actor).status?.folder.id).toBe("f1"));
-    expect(ctx(actor).awaitingApproval).toBe(false);
-  });
-
-  test("a failed join keeps the earlier status and shows the error", async () => {
-    const { actor } = build({ join: vi.fn().mockResolvedValue([new Error("bad key"), null]) });
-    send(actor, "REFRESH");
-    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
-    const before = ctx(actor).status;
-    send(actor, "JOIN", { key: "nope" });
-    await vi.waitFor(() => expect(ctx(actor).error).toBe("bad key"));
-    expect(stateOf(actor)).toBe("ok");
-    expect(ctx(actor).status).toEqual(before);
-  });
-
   test("enroll stores the new status", async () => {
     const enrolled = statusOf();
     const { actor, gateway } = build({ enroll: vi.fn().mockResolvedValue([null, enrolled]) });
@@ -105,13 +69,52 @@ describe("sync factory", () => {
     expect(stateOf(actor)).toBe("ok");
   });
 
-  test("a failed enroll shows the error", async () => {
+  test("a failed enroll lands in couldNotAddMember with the message", async () => {
     const { actor } = build({ enroll: vi.fn().mockResolvedValue([new Error("denied"), null]) });
     send(actor, "REFRESH");
     await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
     send(actor, "ENROLL", { key: "k2", name: "Trip" });
-    await vi.waitFor(() => expect(ctx(actor).error).toBe("denied"));
-    expect(stateOf(actor)).toBe("ok");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
+    expect(ctx(actor).error).toBe("denied");
+  });
+
+  test("from couldNotAddMember, ENROLL enters enrolling and clears the error; REFRESH reloads", async () => {
+    const enroll = vi.fn().mockResolvedValue([new Error("denied"), null]);
+    const { actor } = build({ enroll });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    send(actor, "ENROLL", { key: "k2", name: "Trip" });
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
+    send(actor, "REFRESH");
+    expect(stateOf(actor)).toBe("refreshing");
+    expect(ctx(actor).error).toBeNull();
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    send(actor, "ENROLL", { key: "k2", name: "Trip" });
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
+    send(actor, "ENROLL", { key: "k2", name: "Trip" });
+    expect(stateOf(actor)).toBe("enrolling");
+    expect(ctx(actor).error).toBeNull();
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("couldNotAddMember"));
+  });
+
+  test("a pending status lands in waitingForAdminApproval, a settled one in ok", async () => {
+    const pending = build({ status: vi.fn().mockResolvedValue([null, statusOf(true)]) });
+    send(pending.actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(pending.actor)).toBe("waitingForAdminApproval"));
+    const fine = build({});
+    send(fine.actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(fine.actor)).toBe("ok"));
+  });
+
+  test("waitingForAdminApproval accepts REFRESH and ENROLL", async () => {
+    const { actor } = build({ status: vi.fn().mockResolvedValue([null, statusOf(true)]) });
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("waitingForAdminApproval"));
+    send(actor, "REFRESH");
+    expect(stateOf(actor)).toBe("refreshing");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("waitingForAdminApproval"));
+    send(actor, "ENROLL", { key: "k", name: "T" });
+    expect(stateOf(actor)).toBe("enrolling");
   });
 });
 
@@ -143,6 +146,29 @@ describe("sync single owner", () => {
     expect(stateOf(actor)).toBe("idle");
   });
 
+  test("STATUS_SEEN moves ok to waitingForAdminApproval and back", async () => {
+    const { actor } = build({});
+    send(actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
+    send(actor, "STATUS_SEEN", { status: statusOf(false) });
+    expect(stateOf(actor)).toBe("ok");
+    send(actor, "STATUS_SEEN", { status: statusOf(true) });
+    expect(stateOf(actor)).toBe("waitingForAdminApproval");
+    send(actor, "STATUS_SEEN", { status: statusOf(true) });
+    expect(stateOf(actor)).toBe("waitingForAdminApproval");
+    send(actor, "STATUS_SEEN", { status: statusOf(false) });
+    expect(stateOf(actor)).toBe("ok");
+  });
+
+  test("STATUS_SEEN while refreshing only stores the status", () => {
+    const { actor } = build({ status: vi.fn(() => new Promise(() => {})) });
+    send(actor, "REFRESH");
+    const status = statusOf(true);
+    send(actor, "STATUS_SEEN", { status });
+    expect(stateOf(actor)).toBe("refreshing");
+    expect(ctx(actor).status).toBe(status);
+  });
+
   test("context.status keeps its identity across unrelated changes", async () => {
     const { actor } = build({ status: vi.fn().mockResolvedValue([new Error("offline"), null]) });
     const status = statusOf();
@@ -159,19 +185,25 @@ describe("sync single owner", () => {
       status: null,
       state: "idle",
       busy: false,
+      settled: false,
       error: null,
       fatal: false,
     });
   });
 
-  test("syncViewModel: busy while joining", async () => {
-    const { actor } = build({ join: vi.fn(() => new Promise(() => {})) });
+  test("syncViewModel: busy while enrolling, settled in ok and waitingForAdminApproval", async () => {
+    const { actor } = build({ enroll: vi.fn(() => new Promise(() => {})) });
     send(actor, "REFRESH");
     await vi.waitFor(() => expect(stateOf(actor)).toBe("ok"));
-    send(actor, "JOIN", { key: "k" });
+    expect(syncViewModel(actor.snapshot())).toMatchObject({ busy: false, settled: true });
+    send(actor, "ENROLL", { key: "k", name: "T" });
     const vm = syncViewModel(actor.snapshot());
-    expect(vm.state).toBe("joining");
-    expect(vm.busy).toBe(true);
+    expect(vm.state).toBe("enrolling");
+    expect(vm).toMatchObject({ busy: true, settled: false });
+    const waiting = build({ status: vi.fn().mockResolvedValue([null, statusOf(true)]) });
+    send(waiting.actor, "REFRESH");
+    await vi.waitFor(() => expect(stateOf(waiting.actor)).toBe("waitingForAdminApproval"));
+    expect(syncViewModel(waiting.actor.snapshot())).toMatchObject({ busy: false, settled: true });
   });
 
   test("syncViewModel: a fatal error replaces the context error", () => {

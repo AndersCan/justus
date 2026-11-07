@@ -12,7 +12,7 @@ import type { JoinRequest, SyncStatus } from "@justus/core";
  * pending requests from the requests machine.
  */
 
-const PEOPLE_STATES = ["closed", "open", "removing"] as const;
+const PEOPLE_STATES = ["closed", "open", "removing", "couldNotRemoveMember"] as const;
 export type PeopleStateName = (typeof PEOPLE_STATES)[number];
 
 /** The People sheet is hidden. */
@@ -21,6 +21,8 @@ const closed = state("closed")();
 const open = state("open")();
 /** The Admin has asked to remove someone and the sheet waits for that to finish. */
 const removing = state("removing")();
+/** Removing the member failed; the sheet stays open, says why, and the member stays in the album. */
+const couldNotRemoveMember = state("couldNotRemoveMember")();
 
 /** The person taps the people chip to see who is in the album. */
 const openSheet = event("OPEN")();
@@ -75,7 +77,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
     inputs: [openSheet, closeSheet, removeMember, showQr],
     internal: [removed, removeFailed],
     outputs: [sheetOpened],
-    states: [closed, open, removing],
+    states: [closed, open, removing, couldNotRemoveMember],
     initial: closed,
     clock: options.clock,
     context: { pending: null, error: null, qrShown: false } as PeopleContext,
@@ -89,38 +91,40 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
           return { state: open, emit: [sheetOpened.create()] };
         },
       });
-      /** Closing the sheet hides it again. */
-      m.on(open, {
-        event: closeSheet,
-        to: [closed],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: false });
-          return { state: closed };
-        },
-      });
-      /** The person asks for the invite QR code; it stays up until the sheet closes. */
-      m.on(open, {
-        event: showQr,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: true });
-          return {};
-        },
-      });
+      for (const at of [open, couldNotRemoveMember]) {
+        /** Closing the sheet hides it again. */
+        m.on(at, {
+          event: closeSheet,
+          to: [closed],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), qrShown: false });
+            return { state: closed };
+          },
+        });
+        /** The person asks for the invite QR code; it stays up until the sheet closes. */
+        m.on(at, {
+          event: showQr,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), qrShown: true });
+            return {};
+          },
+        });
+        /** The Admin picks a member to remove; the sheet shows that it is working. */
+        m.on(at, {
+          event: removeMember,
+          to: [removing],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
+            return { state: removing };
+          },
+        });
+      }
       /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
       m.on(removing, {
         event: showQr,
         handler: (_e, opts) => {
           opts.context.set({ ...opts.context.get(), qrShown: true });
           return {};
-        },
-      });
-      /** The Admin picks a member to remove; the sheet shows that it is working. */
-      m.on(open, {
-        event: removeMember,
-        to: [removing],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
-          return { state: removing };
         },
       });
       /** The member is taken out of the album. */
@@ -153,10 +157,10 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
       m.on(removing, {
         event: removeFailed,
-        to: [open],
+        to: [couldNotRemoveMember],
         handler: (e, opts) => {
           opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
-          return { state: open };
+          return { state: couldNotRemoveMember };
         },
       });
     },

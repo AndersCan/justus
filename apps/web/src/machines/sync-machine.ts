@@ -4,27 +4,36 @@ import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 
 /**
- * The sync/join state machine: folder status, reader join, creator enroll.
+ * The sync state machine: folder status and creator enroll.
  * Same pattern as the gallery — a mantaq actor whose context holds the
- * in-flight join/enroll params the effects read, with every invoke wrapped
+ * in-flight enroll params the effects read, with every invoke wrapped
  * so transport failures become failure events.
  */
 
-export const SYNC_STATES = ["idle", "refreshing", "ok", "joining", "enrolling", "error"] as const;
+export const SYNC_STATES = [
+  "idle",
+  "refreshing",
+  "ok",
+  "waitingForAdminApproval",
+  "enrolling",
+  "couldNotAddMember",
+  "error",
+] as const;
 export type SyncStateName = (typeof SYNC_STATES)[number];
 
 const nameOf = stateNameOf(SYNC_STATES);
 
 /** The sync UI's view model as a pure function of the actor snapshot. `busy`
- * is exactly "a join or enroll is in flight"; a fatal message replaces the
- * context error. */
+ * is exactly "an enroll is in flight"; `settled` is "nothing is in flight and
+ * the status is known"; a fatal message replaces the context error. */
 export function syncViewModel(s: Snapshot<SyncContext>) {
   const state = nameOf(s);
   const fatal = fatalErrorOf(s);
   return {
     status: s.context.status,
     state,
-    busy: state === "joining" || state === "enrolling",
+    busy: state === "enrolling",
+    settled: state === "ok" || state === "waitingForAdminApproval" || state === "couldNotAddMember",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
   };
@@ -34,12 +43,18 @@ export function syncViewModel(s: Snapshot<SyncContext>) {
 const idle = state("idle")();
 /** Checking the current state of the shared folder. */
 const refreshing = state("refreshing")();
-/** The folder status is up to date and the person can join or add a folder. */
+/** The folder status is up to date and the person can add a folder. */
 const ok = state("ok")();
-/** Joining a shared folder from an invite; a spinner shows until it finishes. */
-const joining = state("joining")();
+/**
+ * The person can look at this album's photos but not add any yet: the Admin has to approve
+ * them. Only albums joined by their key before invite links reach this; the album shows
+ * 'Waiting for approval'.
+ */
+const waitingForAdminApproval = state("waitingForAdminApproval")();
 /** Adding a folder of the person's own to share; a spinner shows until it finishes. */
 const enrolling = state("enrolling")();
+/** Adding a member by drive key failed; the album screen shows why and the person can try again. */
+const couldNotAddMember = state("couldNotAddMember")();
 /** Checking the folder failed; the person sees the problem and can try again. */
 const error = state("error")();
 
@@ -49,12 +64,6 @@ const refresh = event("REFRESH")();
 const status = event("STATUS")<{ status: SyncStatus }>();
 /** The folder status could not be read (no answer, or the app could not reach it). */
 const statusFailed = event("STATUS_FAILED")<{ message: string }>();
-/** The person joins a folder from an invite, with an optional name. */
-const join = event("JOIN")<{ key: string; name?: string }>();
-/** Joining finished; the folder may be ready, or waiting for the owner's approval. */
-const joined = event("JOINED")<{ status: SyncStatus }>();
-/** Joining did not work (no answer, or the app could not reach the folder). */
-const joinFailed = event("JOIN_FAILED")<{ message: string }>();
 /** The person chooses a folder of their own to share, with a name. */
 const enroll = event("ENROLL")<{ key: string; name: string }>();
 /** The folder is now set up for sharing. */
@@ -68,28 +77,24 @@ export const statusSeen = event("STATUS_SEEN")<{ status: SyncStatus }>();
 
 type SyncContext = {
   status: SyncStatus | null;
-  awaitingApproval: boolean;
   error: string | null;
-  pendingJoin: { key: string; name?: string } | null;
   pendingEnroll: { key: string; name: string } | null;
 };
-type SyncPort = Pick<typeof gateway, "status" | "join" | "enroll">;
+type SyncPort = Pick<typeof gateway, "status" | "enroll">;
 
-/** Folder status, join and enroll run through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
+/** Folder status and enroll run through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
 export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [refresh, join, enroll, retry, statusSeen],
-    internal: [status, statusFailed, joined, joinFailed, enrolled, enrollFailed],
+    inputs: [refresh, enroll, retry, statusSeen],
+    internal: [status, statusFailed, enrolled, enrollFailed],
     outputs: [],
-    states: [idle, refreshing, ok, joining, enrolling, error],
+    states: [idle, refreshing, ok, waitingForAdminApproval, enrolling, couldNotAddMember, error],
     initial: idle,
     clock: options.clock,
     context: {
       status: null,
-      awaitingApproval: false,
       error: null,
-      pendingJoin: null,
       pendingEnroll: null,
     } as SyncContext,
     setup: (m) => {
@@ -101,6 +106,19 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           return {};
         },
       });
+      /** A newer status says the Admin has not approved the person yet. */
+      m.on(ok, {
+        event: statusSeen,
+        to: [waitingForAdminApproval],
+        handler: (e) =>
+          e.payload.status.folder?.pending ? { state: waitingForAdminApproval } : {},
+      });
+      /** A newer status says the Admin has approved the person. */
+      m.on(waitingForAdminApproval, {
+        event: statusSeen,
+        to: [ok],
+        handler: (e) => (e.payload.status.folder?.pending ? {} : { state: ok }),
+      });
       /** The first check starts and any old error is cleared. */
       m.on(idle, {
         event: refresh,
@@ -110,15 +128,30 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           return { state: refreshing };
         },
       });
-      /** A reload starts and any old error is cleared. */
-      m.on(ok, {
-        event: refresh,
-        to: [refreshing],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: refreshing };
-        },
-      });
+      for (const at of [ok, waitingForAdminApproval, couldNotAddMember]) {
+        /** A reload starts and any old error is cleared. */
+        m.on(at, {
+          event: refresh,
+          to: [refreshing],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: refreshing };
+          },
+        });
+        /** Setting up the person's folder for sharing starts and any earlier error is cleared. */
+        m.on(at, {
+          event: enroll,
+          to: [enrolling],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingEnroll: { key: e.payload.key, name: e.payload.name },
+            });
+            return { state: enrolling };
+          },
+        });
+      }
       /** A reload after an error starts and the error message goes away. */
       m.on(error, {
         event: refresh,
@@ -157,16 +190,15 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
       /** The folder status is shown and any error is cleared. */
       m.on(refreshing, {
         event: status,
-        to: [ok],
+        to: [ok, waitingForAdminApproval],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
             status: e.payload.status,
             error: null,
-            pendingJoin: null,
             pendingEnroll: null,
           });
-          return { state: ok };
+          return { state: e.payload.status.folder?.pending ? waitingForAdminApproval : ok };
         },
       });
       /** The check failed: the person sees an error and can try again. */
@@ -177,94 +209,12 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           opts.context.set({
             ...opts.context.get(),
             error: e.payload.message,
-            pendingJoin: null,
             pendingEnroll: null,
           });
           return { state: error };
         },
       });
 
-      /** Joining starts: any earlier error and any earlier 'waiting for approval' notice are cleared. */
-      m.on(ok, {
-        event: join,
-        to: [joining],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            awaitingApproval: false,
-            pendingJoin: { key: e.payload.key, name: e.payload.name },
-            pendingEnroll: null,
-          });
-          return { state: joining };
-        },
-      });
-      /** The person asks to join the shared folder with the invite key; if that fails or returns no status, joining fails and the person sees an error. */
-      m.effect(joining, {
-        name: "joining",
-        sends: [joined, joinFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pendingJoin;
-          if (!pending) {
-            emit(joinFailed.create({ message: "no pending join key" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.join(pending.key, pending.name),
-            (result) =>
-              result
-                ? emit(joined.create({ status: result as SyncStatus }))
-                : emit(joinFailed.create({ message: "join returned no status" })),
-            (message) => emit(joinFailed.create({ message })),
-          );
-        },
-      });
-      /** Joining worked. If the owner still has to approve, the person is told they are waiting for approval; otherwise the folder is ready. */
-      m.on(joining, {
-        event: joined,
-        to: [ok],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            status: e.payload.status,
-            awaitingApproval: Boolean(e.payload.status.folder?.pending),
-            pendingJoin: null,
-            pendingEnroll: null,
-          });
-          return { state: ok };
-        },
-      });
-      /** Joining failed: the person sees an error and stays on the sharing screen to try again. */
-      m.on(joining, {
-        event: joinFailed,
-        to: [ok],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-            pendingJoin: null,
-            pendingEnroll: null,
-          });
-          return { state: ok };
-        },
-      });
-
-      /** Setting up the person's folder for sharing starts and any earlier error is cleared. */
-      m.on(ok, {
-        event: enroll,
-        to: [enrolling],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingEnroll: { key: e.payload.key, name: e.payload.name },
-            pendingJoin: null,
-          });
-          return { state: enrolling };
-        },
-      });
       /** The folder is set up with its key and name; if that fails or returns no status, setting up fails and the person stays on the sharing screen. */
       m.effect(enrolling, {
         name: "enrolling",
@@ -295,24 +245,22 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             ...opts.context.get(),
             error: null,
             status: e.payload.status,
-            pendingJoin: null,
             pendingEnroll: null,
           });
           return { state: ok };
         },
       });
-      /** Setting up failed: the person sees an error and stays on the sharing screen. */
+      /** Setting up failed: the person sees an error and can try again. */
       m.on(enrolling, {
         event: enrollFailed,
-        to: [ok],
+        to: [couldNotAddMember],
         handler: (e, opts) => {
           opts.context.set({
             ...opts.context.get(),
             error: e.payload.message,
-            pendingJoin: null,
             pendingEnroll: null,
           });
-          return { state: ok };
+          return { state: couldNotAddMember };
         },
       });
     },
@@ -326,7 +274,6 @@ export const syncActor = createSyncActor({ clock: RealClock() });
 export const sync = {
   state: () => nameOf(syncActor.snapshot()),
   refresh: () => syncActor.send(refresh.create()),
-  join: (key: string, name?: string) => syncActor.send(join.create({ key, name })),
   enroll: (key: string, name: string) => syncActor.send(enroll.create({ key, name })),
   retry: () => syncActor.send(retry.create()),
   statusSeen: (status: SyncStatus) => syncActor.send(statusSeen.create({ status })),

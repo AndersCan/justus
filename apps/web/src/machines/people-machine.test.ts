@@ -52,7 +52,7 @@ describe("people machine", () => {
     people.open();
     people.remove("f1", "k1");
     await vi.waitFor(() => expect(peopleActor.snapshot().context.error).toBe("not the Admin"));
-    expect(peopleActor.snapshot().path[0]).toBe("open");
+    expect(peopleActor.snapshot().path[0]).toBe("couldNotRemoveMember");
   });
 });
 
@@ -97,10 +97,23 @@ describe("people factory", () => {
     send(actor, "OPEN");
     send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
     await vi.waitFor(() => expect(actor.snapshot().context.error).toBe("not the Admin"));
-    expect(actor.snapshot().path[0]).toBe("open");
+    expect(actor.snapshot().path[0]).toBe("couldNotRemoveMember");
     send(actor, "CLOSE");
     send(actor, "OPEN");
     expect(actor.snapshot().context.error).toBeNull();
+  });
+
+  test("from couldNotRemoveMember, QR shows and REMOVE_MEMBER tries again", async () => {
+    const { actor } = build(async () => [new Error("not the Admin"), null]);
+    send(actor, "OPEN");
+    send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("couldNotRemoveMember"));
+    send(actor, "SHOW_QR");
+    expect(actor.snapshot().context.qrShown).toBe(true);
+    send(actor, "REMOVE_MEMBER", { folderId: "f1", memberKey: "k1" });
+    expect(actor.snapshot().path[0]).toBe("removing");
+    expect(actor.snapshot().context.error).toBeNull();
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("couldNotRemoveMember"));
   });
 
   test("a rejected removal is a failure, not a crash", async () => {

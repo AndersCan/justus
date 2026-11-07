@@ -106,9 +106,27 @@ describe("requests machine factory", () => {
     await actor.settled();
     actor.send(respond("f1", "k1", true));
     await actor.settled();
-    expect(actor.state.name).toBe("ok");
+    expect(actor.state.name).toBe("couldNotSendAnswer");
     expect(actor.snapshot().context.error).toBe("not the owner");
     expect(actor.snapshot().context.requests).toHaveLength(2);
+    expect(requestsViewModel(actor.snapshot()).settled).toBe(true);
+  });
+
+  test("from couldNotSendAnswer, RESPOND sends again and REFRESH reloads", async () => {
+    const { actor } = setup({ respond: async () => [new Error("not the owner"), null] });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    actor.send(respond("f1", "k1", false));
+    expect(actor.state.name).toBe("responding");
+    expect(actor.snapshot().context.error).toBeNull();
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    actor.send(refresh());
+    expect(actor.state.name).toBe("refreshing");
+    await actor.settled();
+    expect(actor.state.name).toBe("ok");
   });
 });
 
@@ -119,6 +137,7 @@ describe("requestsViewModel", () => {
       requests: [],
       state: "idle",
       responding: false,
+      settled: false,
       error: null,
       fatal: false,
     });
