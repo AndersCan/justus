@@ -57,6 +57,8 @@ function readOnlyCopy(): never {
 
 function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
   const readOnly = wrapOpts.readOnly === true;
+  /** The live download of the file index that `keepOnly` starts once. */
+  let liveIndex: unknown;
   return {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
@@ -89,6 +91,25 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     async clear(path) {
       if (readOnly) readOnlyCopy();
       await raw.clear(path);
+    },
+    async keepOnly(path): Promise<OpenResult<void>> {
+      if (readOnly) readOnlyCopy();
+      const missing: OpenResult<void> = [new Error(`${path} is not on this device`), null];
+      try {
+        const node = await raw.entry(path, { wait: false }).catch(() => undefined);
+        const blob = node?.value?.blob;
+        if (!blob) return missing;
+        const blobs = await raw.getBlobs();
+        const { blockOffset, blockLength } = blob;
+        if (!(await blobs.core.has(blockOffset, blockOffset + blockLength))) return missing;
+        if (blockOffset > 0) await blobs.core.clear(0, blockOffset);
+        const end = blobs.core.length;
+        if (end > blockOffset + blockLength) await blobs.core.clear(blockOffset + blockLength, end);
+        if (!liveIndex) liveIndex = raw.core.download({ start: 0, end: -1 });
+        return [null, undefined];
+      } catch (e: unknown) {
+        return [e instanceof Error ? e : new Error(String(e)), null];
+      }
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
       for await (const e of raw.list(dir)) {
