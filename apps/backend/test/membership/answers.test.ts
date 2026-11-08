@@ -239,6 +239,32 @@ describe("answers: a turned-off link", () => {
     ).toEqual([{ code: RETIRED, answer: "linkOff", askedAt: 7 }]);
   });
 
+  it("owed: a held ask through a retired code gets no linkOff", () => {
+    expect(
+      answersOwed(
+        [album({ answers: undefined, retiredInvites: [RETIRED], heldAsks: { [b]: RETIRED } })],
+        b,
+        asked(7),
+      ),
+    ).toEqual([]);
+  });
+
+  it("owed: a hold for someone else does not shield this ask", () => {
+    expect(
+      answersOwed(
+        [
+          album({
+            answers: undefined,
+            retiredInvites: [RETIRED],
+            heldAsks: { [hex("c")]: RETIRED },
+          }),
+        ],
+        b,
+        asked(7),
+      ),
+    ).toEqual([{ code: RETIRED, answer: "linkOff", askedAt: 7 }]);
+  });
+
   it("owed: the current code asked through gets no linkOff", () => {
     expect(answersOwed([album({ answers: undefined })], b, asked(7, CODE))).toEqual([]);
   });

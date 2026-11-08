@@ -288,6 +288,8 @@ type FolderRecord = {
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
+  /** Creator: requests listed when a Remove retired their code, identity -> that code. Answering one clears it. */
+  heldAsks?: Record<string, string>;
   /** Creator only: identities with an open friend invite to this album. */
   invited?: string[];
   /** Creator only: friend invites nobody answered yet, by identity, with when they started waiting. */
@@ -834,6 +836,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (isHexKey(id) && typeof t === "number" && Number.isFinite(t)) declinedAsks[id] = t;
       }
       out.declinedAsks = declinedAsks;
+    }
+    if (isTextJSON(f.heldAsks)) {
+      const heldAsks: Record<string, string> = {};
+      for (const [id, code] of Object.entries(f.heldAsks)) {
+        if (isHexKey(id) && typeof code === "string" && isHexKey(code)) heldAsks[id] = code;
+      }
+      if (Object.keys(heldAsks).length > 0) out.heldAsks = heldAsks;
     }
     if (Array.isArray(f.retiredInvites)) {
       out.retiredInvites = (f.retiredInvites as unknown[]).filter(
@@ -2953,23 +2962,40 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    */
   const lastRequestCount = new Map<string, number>();
   async function readRequestsFromPeers(rt: FolderRuntime): Promise<FoundJoinRequest[]> {
-    const { requests: found, ambiguous } = await readJoinRequests(
-      (key) =>
-        openPeerOutbox(key).then(
-          (drive): OpenResult<Drive> => [null, drive],
-          (e): OpenResult<Drive> => [e instanceof Error ? e : new Error(String(e)), null],
-        ),
-      {
-        identities: peerIdentities,
-        folder: {
-          id: rt.record.id,
-          name: rt.record.name,
-          shareKey: rt.record.shareKey,
-          inviteCode: rt.record.invite?.code,
-        },
+    const openOutbox = (key: string) =>
+      openPeerOutbox(key).then(
+        (drive): OpenResult<Drive> => [null, drive],
+        (e): OpenResult<Drive> => [e instanceof Error ? e : new Error(String(e)), null],
+      );
+    const folderOf = (inviteCode: string | undefined) => ({
+      id: rt.record.id,
+      name: rt.record.name,
+      shareKey: rt.record.shareKey,
+      inviteCode,
+    });
+    const { requests: current, ambiguous } = await readJoinRequests(openOutbox, {
+      identities: peerIdentities,
+      folder: folderOf(rt.record.invite?.code),
+      log,
+    });
+    const found = [...current];
+    // Requests held at a Remove stay listed through the code they asked with.
+    const heldByCode = new Map<string, string[]>();
+    for (const [identity, code] of Object.entries(rt.record.heldAsks ?? {})) {
+      heldByCode.set(code, [...(heldByCode.get(code) ?? []), identity]);
+    }
+    for (const [code, identities] of heldByCode) {
+      const held = await readJoinRequests(openOutbox, {
+        identities,
+        folder: folderOf(code),
         log,
-      },
-    );
+      });
+      for (const f of held.requests) {
+        if (!f.viaInvite) continue;
+        if (found.some((c) => c.request.requesterKey === f.request.requesterKey)) continue;
+        found.push({ ...f, held: true });
+      }
+    }
     for (const key of ambiguous) {
       requesterIdentity.delete(key);
       inviteRequesters.delete(key);
@@ -3165,6 +3191,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           delete record.answers;
           delete record.declinedAsks;
           delete record.retiredInvites;
+          delete record.heldAsks;
           saveState();
         } catch (e) {
           log("error", { where: "rotate.failed", folder: short(record.id), err: errText(e) });
@@ -3591,6 +3618,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const { [identity]: _dropped, ...rest } = record.declinedAsks;
         record.declinedAsks = rest;
       }
+      if (record.heldAsks) {
+        const { [identity]: _held, ...rest } = record.heldAsks;
+        if (Object.keys(rest).length > 0) record.heldAsks = rest;
+        else delete record.heldAsks;
+      }
     }
     const codes = [rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])].filter(
       (code): code is string => typeof code === "string",
@@ -3873,6 +3905,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
     if (openErr) return openErr.message;
     const oldInvite = record.invite?.code;
+    const held: Record<string, string> = {};
+    if (oldInvite) {
+      const waiting = pendingJoinRequests(await readRequestsFromPeers(rt), {
+        registry,
+        denied: deniedRequesters,
+        answers: record.answers,
+        declinedAsks: record.declinedAsks,
+        invited: new Set(record.invited ?? []),
+        linkTimes: record.invite?.links,
+        viewers: new Set(Object.keys(rt.viewers)),
+      });
+      const removedIdentity = presence.identities.get(removedKey);
+      for (const w of waiting) {
+        const identity = w.requesterIdentity;
+        if (!w.viaInvite || !identity || identity === removedIdentity) continue;
+        held[identity] = record.heldAsks?.[identity] ?? oldInvite;
+      }
+    }
     const answers: Answers = {};
     for (const [identity, answer] of Object.entries(record.answers ?? {})) {
       if (answer === "declined") answers[identity] = answer;
@@ -3887,6 +3937,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ? [oldInvite, ...(record.retiredInvites ?? [])]
         : record.retiredInvites,
       answers,
+      heldAsks: Object.keys(held).length > 0 ? held : undefined,
       moving: Object.keys(moving).length > 0 ? moving : undefined,
       movingUnknown: Object.keys(unknown).length > 0 ? unknown : undefined,
       moveOwed: undefined,
@@ -3900,7 +3951,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     saveState();
     joinTopic(topicOf(fresh), { server: true });
     rediscover(topicOf(fresh), fresh);
-    if (oldInvite) leaveTopic(hex(inviteTopic(oldInvite, crypto)));
+    if (oldInvite) joinTopic(inviteTopic(oldInvite, crypto), { server: true });
     serveInvite(moved.invite.code);
     log("move.start", { folder: short(record.id), moves: moved.moves });
     if (Object.keys(unknown).length > 0) {
@@ -4679,6 +4730,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           const key = `${f.identity}:${f.request.requestedAt}`;
           if (
             f.viaInvite &&
+            !f.held &&
             !lateAskPushed.has(key) &&
             !rt.record.invited?.includes(f.identity) &&
             !inLinkTime(rt.record.invite?.links, f.request.requestedAt)
