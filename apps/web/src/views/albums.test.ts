@@ -33,7 +33,7 @@ const album = (id: string) => ({
   pending: false,
 });
 
-const ask = (status: "waiting" | "declined") => ({
+const ask = (status: "waiting" | "declined" | "linkOff") => ({
   code: "c1",
   owner: "anna-id",
   ownerName: "Anna",
@@ -137,6 +137,27 @@ describe("pending asks", () => {
     expect(section?.querySelectorAll("li")).toHaveLength(1);
     section?.querySelector("button")?.click();
     await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
+  });
+
+  test("a turned-off ask is listed as 'Link no longer works', a declined one is not", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"], [ask("linkOff")]);
+    const section = host.querySelector("section[aria-label='Waiting to join']");
+    expect(section?.textContent).toContain("Link no longer works");
+    expect(
+      section?.querySelector("button[aria-label='Link no longer works: Summer trip']"),
+    ).not.toBeNull();
+    await load(["a"], [ask("declined")]);
+    expect(host.querySelector("section")).toBeNull();
+  });
+
+  test("tapping a turned-off row opens the link-no-longer-works sheet", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"], [ask("linkOff")]);
+    host.querySelector("button")?.click();
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("linkTurnedOff"));
   });
 
   test("the albums panel still lists waiting and declined rows", async () => {

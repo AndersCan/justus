@@ -26,6 +26,16 @@ describe("handleMessage", () => {
     request.mockRestore();
   });
 
+  it("passes a link-off answer to the join request and not the friend invite", () => {
+    const offer = vi.spyOn(friendOffer, "askAnswered").mockImplementation(() => {});
+    const request = vi.spyOn(join, "requestAnswered").mockImplementation(() => {});
+    handleMessage(push({ cause: "ask", code: "c", answer: "linkOff" }));
+    expect(request).toHaveBeenCalledWith("c", "linkOff", undefined);
+    expect(offer).not.toHaveBeenCalled();
+    offer.mockRestore();
+    request.mockRestore();
+  });
+
   it("does not answer an invite for a push without an answer", () => {
     const offer = vi.spyOn(friendOffer, "askAnswered").mockImplementation(() => {});
     handleMessage(push({ cause: "add" }));
@@ -57,6 +67,13 @@ describe("askAnswer", () => {
     expect(askAnswer({ cause: "ask", code: "c", answer: "declined" })).toEqual({
       code: "c",
       answer: "declined",
+      folderId: undefined,
+    });
+  });
+  it("reads a link-off answer without a folder", () => {
+    expect(askAnswer({ cause: "ask", code: "c", answer: "linkOff" })).toEqual({
+      code: "c",
+      answer: "linkOff",
       folderId: undefined,
     });
   });

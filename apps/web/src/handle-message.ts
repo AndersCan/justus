@@ -14,7 +14,11 @@ export function changeCause(header: unknown): string | undefined {
   return typeof args?.cause === "string" ? args.cause : undefined;
 }
 
-type AskAnswer = { code: string; answer: "accepted" | "declined"; folderId: string | undefined };
+type AskAnswer = {
+  code: string;
+  answer: "accepted" | "declined" | "linkOff";
+  folderId: string | undefined;
+};
 
 /** The Admin's answer carried by a `photos.changed` push with cause "ask". */
 export function askAnswer(args: unknown): AskAnswer | undefined {
@@ -25,7 +29,8 @@ export function askAnswer(args: unknown): AskAnswer | undefined {
     folderId?: unknown;
   };
   if (a.cause !== "ask" || typeof a.code !== "string") return undefined;
-  if (a.answer !== "accepted" && a.answer !== "declined") return undefined;
+  if (a.answer !== "accepted" && a.answer !== "declined" && a.answer !== "linkOff")
+    return undefined;
   return {
     code: a.code,
     answer: a.answer,
@@ -54,7 +59,9 @@ export function handleMessage(msg: WireMessage) {
     const answer = askAnswer(h.args);
     if (answer) {
       join.requestAnswered(answer.code, answer.answer, answer.folderId);
-      friendOffer.askAnswered(answer.code, answer.answer, answer.folderId);
+      if (answer.answer !== "linkOff") {
+        friendOffer.askAnswered(answer.code, answer.answer, answer.folderId);
+      }
     }
   } else if (h.type === "INVOKE_RESPONSE" && h.error) {
     console.error("Plugin invoke failed:", h.pluginId, h.event, h.error.message);
