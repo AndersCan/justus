@@ -57,8 +57,8 @@ const back = event("BACK")();
 const skip = event("SKIP")();
 /** The person types in the name field. */
 const editName = event("EDIT_NAME")<{ name: string }>();
-/** The person confirms their name. */
-const saveProfile = event("SAVE_PROFILE")<{ name: string }>();
+/** The person confirms the name they typed. */
+const saveProfile = event("SAVE_PROFILE")();
 /** The name was saved. */
 const saved = event("SAVED")<{ name: string }>();
 /** The name could not be saved. */
@@ -141,11 +141,12 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
       m.on(askingForName, {
         event: saveProfile,
         to: [savingName],
-        handler: (e, opts) => {
+        handler: (_e, opts) => {
+          const current = opts.context.get();
           opts.context.set({
-            ...opts.context.get(),
+            ...current,
             error: null,
-            pendingName: e.payload.name.trim(),
+            pendingName: (current.draftName ?? "").trim(),
           });
           return { state: savingName };
         },
@@ -215,5 +216,5 @@ export const onboarding = {
   back: () => onboardingActor.send(back.create()),
   skip: () => onboardingActor.send(skip.create()),
   editName: (name: string) => onboardingActor.send(editName.create({ name })),
-  saveProfile: (name: string) => onboardingActor.send(saveProfile.create({ name })),
+  saveProfile: () => onboardingActor.send(saveProfile.create()),
 };

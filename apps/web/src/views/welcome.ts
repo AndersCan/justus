@@ -138,8 +138,10 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
         e.preventDefault();
         const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
         const name = input.value.trim();
-        if (name) onboarding.saveProfile(name);
-        else input.focus();
+        if (name) {
+          onboarding.editName(name);
+          onboarding.saveProfile();
+        } else input.focus();
       }}
     >
       <h1 class="text-xl font-bold text-fg">What should we call you?</h1>

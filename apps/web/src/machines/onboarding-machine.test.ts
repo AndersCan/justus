@@ -57,13 +57,15 @@ describe("onboarding machine", () => {
 
   test("a failed save stays on the profile with the error", async () => {
     mock.setName.mockResolvedValue([new Error("disk full"), null]);
-    onboarding.saveProfile("Maya");
+    onboarding.editName("Maya");
+    onboarding.saveProfile();
     await vi.waitFor(() => expect(onboarding.state()).toBe("askingForName"));
     expect(vm().error).toBe("disk full");
   });
 
   test("saving the profile stores the name and moves to the choice", async () => {
-    onboarding.saveProfile("  Maya ");
+    onboarding.editName("  Maya ");
+    onboarding.saveProfile();
     await vi.waitFor(() => expect(onboarding.state()).toBe("choosingCreateOrJoin"));
     expect(mock.setName).toHaveBeenLastCalledWith("Maya");
     expect(userName()).toBe("Maya");
@@ -128,7 +130,8 @@ describe("onboarding actor factory", () => {
   test("an empty name fails without calling the port", async () => {
     const { actor, setName } = setup();
     send(actor, "SKIP");
-    send(actor, "SAVE_PROFILE", { name: "   " });
+    send(actor, "EDIT_NAME", { name: "   " });
+    send(actor, "SAVE_PROFILE");
     await actor.settled();
     expect(actor.state.name).toBe("askingForName");
     expect(actor.snapshot().context.error).toBe("Enter a name to continue");
@@ -138,7 +141,8 @@ describe("onboarding actor factory", () => {
   test("a save failure stays on the profile with the error", async () => {
     const { actor } = setup(vi.fn().mockResolvedValue([new Error("disk full"), null]));
     send(actor, "SKIP");
-    send(actor, "SAVE_PROFILE", { name: "Maya" });
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
     await actor.settled();
     expect(actor.state.name).toBe("askingForName");
     expect(actor.snapshot().context.error).toBe("disk full");
@@ -147,7 +151,8 @@ describe("onboarding actor factory", () => {
   test("a save moves to choose and emits the saved name", async () => {
     const { actor, setName, outputs } = setup();
     send(actor, "SKIP");
-    send(actor, "SAVE_PROFILE", { name: "  Maya " });
+    send(actor, "EDIT_NAME", { name: "  Maya " });
+    send(actor, "SAVE_PROFILE");
     await actor.settled();
     expect(setName).toHaveBeenCalledWith("Maya");
     expect(actor.state.name).toBe("choosingCreateOrJoin");
@@ -162,9 +167,11 @@ describe("onboarding actor factory", () => {
       .mockResolvedValueOnce([null, { name: "Maya" }]);
     const { actor } = setup(setName);
     send(actor, "SKIP");
-    send(actor, "SAVE_PROFILE", { name: "Maya" });
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
     await actor.settled();
-    send(actor, "SAVE_PROFILE", { name: "Maya" });
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
     expect(actor.snapshot().context.error).toBeNull();
     await actor.settled();
     expect(actor.state.name).toBe("choosingCreateOrJoin");
@@ -193,7 +200,8 @@ describe("onboardingViewModel", () => {
     mock.setName.mockReturnValue(new Promise(() => {}));
     const actor = createOnboardingActor({ clock: VirtualClock(), gateway: mock } as any);
     send(actor, "SKIP");
-    send(actor, "SAVE_PROFILE", { name: "Maya" });
+    send(actor, "EDIT_NAME", { name: "Maya" });
+    send(actor, "SAVE_PROFILE");
     const vm = onboardingViewModel(actor.snapshot(), "");
     expect(vm.state).toBe("savingName");
     expect(vm.saving).toBe(true);
