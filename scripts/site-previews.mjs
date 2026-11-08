@@ -57,7 +57,7 @@ export function pickSources({ repo, prs, runs }) {
 export function commentBody(preview, siteUrl) {
   const root = siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`;
   const note = preview.latest === false ? " (the newest commit is still building or failed)" : "";
-  return `${MARKER}\nSite preview of ${short(preview.sha)}${note}: ${root}pr/${preview.number}/`;
+  return `${MARKER}\nSite preview of ${short(preview.sha)}${note}: ${root}pr/${preview.number}/flows/`;
 }
 
 export function expiredBody(sha) {
