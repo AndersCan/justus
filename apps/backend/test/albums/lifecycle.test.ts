@@ -9,6 +9,7 @@ import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
 import {
   adminDroppedYou,
   adminListsYou,
+  clearDeletedAlbum,
   clearLeftNote,
   deleteOwnPhotos,
   listedWithin,
@@ -304,6 +305,118 @@ describe("deleteOwnPhotos", () => {
       "error",
       expect.objectContaining({ path: "/photos/a", err: "boom" }),
     );
+  });
+});
+
+describe("clearDeletedAlbum", () => {
+  type Kept = [Error, null] | [null, { olderVersionsCleared: boolean }];
+  type Opts = { failDel?: string; listThrows?: boolean; keepOnly?: Kept[]; note?: string };
+  function stub(paths: string[], opts: Opts = {}) {
+    const files = new Set(paths);
+    const calls: string[] = [];
+    const keeps = [...(opts.keepOnly ?? [])];
+    const drive = {
+      async *list() {
+        if (opts.listThrows) throw new Error("list boom");
+        for (const path of Array.from(files)) yield { path };
+      },
+      async clear(path: string) {
+        calls.push(`clear ${path}`);
+      },
+      async del(path: string) {
+        if (path === opts.failDel) throw new Error("del boom");
+        calls.push(`del ${path}`);
+        files.delete(path);
+      },
+      async keepOnly() {
+        calls.push("keepOnly");
+        return keeps.shift() ?? [null, { olderVersionsCleared: true }];
+      },
+      async readSmall() {
+        return opts.note;
+      },
+      async put(path: string) {
+        calls.push(`put ${path}`);
+      },
+    } as unknown as Drive;
+    return { drive, files, calls };
+  }
+  const kept: Kept = [null, { olderVersionsCleared: false }];
+  const cleared: Kept = [null, { olderVersionsCleared: true }];
+
+  it("clears each other file before deleting it and keeps the note", async () => {
+    const { drive, files, calls } = stub(["/photos/a", "/deleted.json"]);
+    await clearDeletedAlbum(drive, { log: () => {} });
+    expect([...files]).toEqual(["/deleted.json"]);
+    expect(calls).toEqual(["clear /photos/a", "del /photos/a", "keepOnly"]);
+  });
+
+  it("logs a file that fails to delete and goes on with the others", async () => {
+    const { drive, files } = stub(["/a", "/b", "/deleted.json"], { failDel: "/a" });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect([...files].sort()).toEqual(["/a", "/deleted.json"]);
+    expect(log).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ path: "/a", err: "del boom" }),
+    );
+  });
+
+  it("logs a keepOnly error and does not write", async () => {
+    const { drive, calls } = stub(["/deleted.json"], { keepOnly: [[new Error("gone"), null]] });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect(log).toHaveBeenCalledWith("error", { where: "clearDeletedAlbum", err: "gone" });
+    expect(calls.some((c) => c.startsWith("put"))).toBe(false);
+  });
+
+  it("logs an unreadable delete note and does not write", async () => {
+    const { drive, calls } = stub(["/deleted.json"], { keepOnly: [kept] });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect(log).toHaveBeenCalledWith("error", {
+      where: "clearDeletedAlbum",
+      err: "delete note unreadable",
+    });
+    expect(calls.some((c) => c.startsWith("put"))).toBe(false);
+  });
+
+  it("re-puts the note once and stops when older versions are then cleared", async () => {
+    const { drive, calls } = stub(["/deleted.json"], { keepOnly: [kept, cleared], note: "{}" });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect(calls).toEqual(["keepOnly", "put /deleted.json", "keepOnly"]);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("logs when older versions are still kept after the re-put", async () => {
+    const { drive } = stub(["/deleted.json"], { keepOnly: [kept, kept], note: "{}" });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect(log).toHaveBeenCalledWith("error", {
+      where: "clearDeletedAlbum",
+      err: "older versions kept",
+    });
+  });
+
+  it("logs when the second keepOnly errors", async () => {
+    const { drive } = stub(["/deleted.json"], {
+      keepOnly: [kept, [new Error("x"), null]],
+      note: "{}",
+    });
+    const log = vi.fn();
+    await clearDeletedAlbum(drive, { log });
+    expect(log).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ err: "older versions kept" }),
+    );
+  });
+
+  it("resolves and logs when list throws", async () => {
+    const { drive } = stub([], { listThrows: true });
+    const log = vi.fn();
+    await expect(clearDeletedAlbum(drive, { log })).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith("error", { where: "clearDeletedAlbum", err: "list boom" });
   });
 });
 
