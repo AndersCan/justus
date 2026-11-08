@@ -6,8 +6,8 @@ import { runInvoke } from "../actor-utils";
 
 /**
  * The owner's invite panel: pick how long a link works, make it, and see when it ends.
- * The end time travels inside the link; only the joiner's phone checks it, so this
- * machine only keeps the panel honest. It lives in the running app, nothing is saved.
+ * The end time travels inside the link for the joiner's phone, and is saved on this phone,
+ * which turns away asks sent after every link has ended.
  */
 
 export type ValidFor = "10m" | "1h" | "1d" | "7d";
@@ -38,9 +38,16 @@ type InviteLinkContext = {
 };
 
 /** Turning links off, as the gateway answers it. */
-export type InviteLinkPort = { turnOff(folderId: string): Promise<[unknown, unknown]> };
+export type InviteLinkPort = {
+  turnOff(folderId: string): Promise<[unknown, unknown]>;
+  /** Saves the link's end time on this phone. */
+  saveLinkTime(folderId: string, expiresAt: number): Promise<[unknown, unknown]>;
+};
 
-const noPort: InviteLinkPort = { turnOff: async () => [undefined, {}] };
+const noPort: InviteLinkPort = {
+  turnOff: async () => [undefined, {}],
+  saveLinkTime: async () => [undefined, {}],
+};
 
 /** No link has been made yet; the panel shows the time picker. */
 const noLinkYet = state("noLinkYet")();
@@ -77,11 +84,15 @@ export const turnOffLink = event("turnOffLink")<{
 const timeRanOut = event("timeRanOut")();
 /** The album's links were turned off. */
 const linkOff = event("linkOff")<{ folderId: string; code: string }>();
+/** Saving the link's time on this phone failed. */
+const linkTimeNotSaved = event("linkTimeNotSaved")();
 /** Turning the links off failed. */
 const linkOffFailed = event("linkOffFailed")<{ folderId: string }>();
 
 /** Tells the owner the links are off. */
 const linkTurnedOff = event("linkTurnedOff")<{ folderId: string }>();
+/** Tells the owner the link could not be made. */
+const linkNotSaved = event("linkNotSaved")();
 /** Tells the owner the links could not be turned off. */
 const turnOffFailed = event("turnOffFailed")<{ folderId: string }>();
 
@@ -96,8 +107,8 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
   const { clock, port = noPort } = options;
   return Actor({
     inputs: [chooseLinkTime, createLink, turnOffLink],
-    internal: [timeRanOut, linkOff, linkOffFailed],
-    outputs: [linkTurnedOff, turnOffFailed],
+    internal: [timeRanOut, linkOff, linkOffFailed, linkTimeNotSaved],
+    outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
     states: [noLinkYet, linkMade, turningOff],
     initial: noLinkYet,
     clock,
@@ -165,6 +176,29 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
             input,
             event: () => timeRanOut.create(),
           }),
+      });
+      /** The link's time is saved on this phone. */
+      m.effect(linkMade, {
+        name: "saveLinkTime",
+        sends: [linkTimeNotSaved],
+        fn: ({ signal, emit, state, context }) => {
+          const { expiresAt } = state.payload;
+          return runInvoke(
+            signal,
+            () => port.saveLinkTime(context.get().folderId, expiresAt),
+            () => {},
+            () => emit(linkTimeNotSaved.create()),
+          );
+        },
+      });
+      /** Saving failed, so no link is shown and the owner can try again. */
+      m.on(linkMade, {
+        event: linkTimeNotSaved,
+        to: [noLinkYet],
+        handler: (_e, { context }) => {
+          context.set({ ...context.get(), validFor: "1d" });
+          return { state: noLinkYet, emit: [linkNotSaved.create()] };
+        },
       });
       /** The owner turns off the links before any link was made here. */
       m.on(noLinkYet, {

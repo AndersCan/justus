@@ -9,6 +9,7 @@ vi.mock("../gateway", () => ({
   gateway: {
     friends: { list: async () => [null, { friends: [] }] },
     turnOffInvite: vi.fn(() => new Promise(() => {})),
+    saveInviteLink: vi.fn(async () => [null, { ok: true }]),
   },
 }));
 

@@ -20,6 +20,8 @@ On this page the invite machine runs with a pretend gateway: turning links off a
 | The link and when it ends                                       | Taps Send or Copy                | `inviteLink.linkMade`           |
 | The links are being turned off                                  | Confirms turning them off        | `inviteLink.turningOff`         |
 
+**An old link with its end time changed.** The ask reaches the Admin's phone, which shows nothing and answers that the link no longer works: `joinRequest.linkTurnedOff` on the joiner's phone.
+
 Members who are not the Admin see "Ask &lt;Admin&gt; for the invite link". That is a line on the screen, not a state.
 
 **When it goes wrong.** A member could not be removed: `people.couldNotRemoveMember`. A Viewer could not be let add photos: `people.couldNotLetViewerAddPhotos`. A Collaborator could not be made a Viewer: `people.couldNotMakeViewer`.

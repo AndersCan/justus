@@ -13,6 +13,14 @@ import {
 const FOLDER = "f".repeat(64);
 const CODE = "c".repeat(64);
 
+const savingPort = (saved: [string, number][]): InviteLinkPort => ({
+  turnOff: async () => [null, {}],
+  saveLinkTime: async (folderId, at) => {
+    saved.push([folderId, at]);
+    return [null, { ok: true }];
+  },
+});
+
 function setup(port?: InviteLinkPort) {
   const clock = VirtualClock();
   const actor = createInviteLinkActor({ clock, ...(port ? { port } : {}) });
@@ -101,6 +109,52 @@ describe("invite link machine", () => {
     expect(actor.state.name).toBe("noLinkYet");
   });
 
+  test("making a link saves its time once, and not again for the same album", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved).toEqual([[FOLDER, expiresAt(actor)]]);
+  });
+
+  test("a link for another album saves that album's time", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup(savingPort(saved));
+    const other = "e".repeat(64);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    actor.send({ type: "createLink", payload: { folderId: other, code: CODE } });
+    await actor.settled();
+    expect(saved.map(([id]) => id)).toEqual([FOLDER, other]);
+    expect(saved[1]?.[1]).toBe(expiresAt(actor));
+  });
+
+  test("a failing save goes back to noLinkYet and says so", async () => {
+    const { actor } = setup({
+      ...savingPort([]),
+      saveLinkTime: async () => [new Error("no"), null],
+    });
+    const seen = outputs(actor);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(seen).toContain("linkNotSaved");
+  });
+
+  test("a save that throws counts as a failure", async () => {
+    const { actor } = setup({
+      ...savingPort([]),
+      saveLinkTime: async () => {
+        throw new Error("boom");
+      },
+    });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
   test("an empty folderId while a link is made changes nothing", async () => {
     const { actor } = setup();
     actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
@@ -151,8 +205,14 @@ const outputs = (actor: ReturnType<typeof setup>["actor"]) => {
 };
 
 describe("turning off links", () => {
-  const ok: InviteLinkPort = { turnOff: async () => [null, { invite: { code: NEW_CODE } }] };
-  const failing: InviteLinkPort = { turnOff: async () => [new Error("no"), null] };
+  const ok: InviteLinkPort = {
+    ...savingPort([]),
+    turnOff: async () => [null, { invite: { code: NEW_CODE } }],
+  };
+  const failing: InviteLinkPort = {
+    ...savingPort([]),
+    turnOff: async () => [new Error("no"), null],
+  };
 
   test("from linkMade it goes to noLinkYet and remembers the turned-off code", async () => {
     const { actor } = setup(ok);
@@ -204,6 +264,7 @@ describe("turning off links", () => {
 
   test("a port that throws counts as a failure", async () => {
     const { actor } = setup({
+      ...savingPort([]),
       turnOff: async () => {
         throw new Error("boom");
       },
@@ -275,6 +336,7 @@ describe("turning off links", () => {
   test("a link that ended while turning off flips to noLinkYet", async () => {
     let release: () => void = () => {};
     const slow: InviteLinkPort = {
+      ...savingPort([]),
       turnOff: () => new Promise((resolve) => (release = () => resolve([new Error("x"), null]))),
     };
     const { clock, actor } = setup(slow);
@@ -319,7 +381,7 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
 test("Nils turns off the links he sent", async () => {
   const actor = make({
     clock: VirtualClock(),
-    port: { turnOff: async () => [null, { invite: { code: NEW_CODE } }] },
+    port: { ...savingPort([]), turnOff: async () => [null, { invite: { code: NEW_CODE } }] },
   });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();

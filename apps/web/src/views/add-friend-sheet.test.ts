@@ -14,6 +14,7 @@ vi.mock("../gateway", () => ({
     },
     offerAlbum: vi.fn(async () => [null, {}]),
     turnOffInvite: vi.fn(),
+    saveInviteLink: vi.fn(async () => [null, { ok: true }]),
   },
 }));
 
