@@ -452,6 +452,23 @@ describe("invites: friends and turning a link off", () => {
     expect(album, "turn off: album untouched").toEqual(before);
   });
 
+  it("turn off: each friend is told the code on their own card", async () => {
+    const { ports, sent } = stubPorts([
+      { conn: 1, identity: F },
+      { conn: 2, identity: G },
+    ]);
+    const C1 = hex("1");
+    const C2 = hex("2");
+    await withdrawInvite(ports, {
+      album: { invite: { code: C2 }, invited: [F, G], heldAsks: { [F]: C1 } },
+      newCode: hex("b"),
+    });
+    expect(sent, "turn off: held code for F, current for G").toEqual([
+      { conn: 1, message: { kind: "offerWithdrawn", code: C1 } },
+      { conn: 2, message: { kind: "offerWithdrawn", code: C2 } },
+    ]);
+  });
+
   it("turn off: an album without a link sends nothing", async () => {
     const { ports, sent } = stubPorts([{ conn: 1, identity: F }]);
     const next = await withdrawInvite(ports, { album: { invited: [F] }, newCode: hex("b") });

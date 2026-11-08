@@ -5310,6 +5310,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!invite) return err(PhotoError.FOLDER_NOT_FOUND, `No invite for album ${folderId}`);
       if (!rt.record.invited?.includes(identity) && !rt.record.offerOwed?.[identity])
         return err(PhotoError.OFFER_GONE, "No invite to take back for that friend");
+      const cardCode = rt.record.heldAsks?.[identity] ?? invite.code;
       for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
         if (!target) continue;
         const left = (target.invited ?? []).filter((i) => i !== identity);
@@ -5327,7 +5328,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       deps.onChanged({ cause: "offer", folderId });
       void tellIdentity(invitePorts, {
         identity,
-        message: { kind: "offerWithdrawn", code: invite.code },
+        message: { kind: "offerWithdrawn", code: cardCode },
         timeoutMs: 2_000,
       }).catch(answerErr("takeBack"));
       return ok({ ok: true });

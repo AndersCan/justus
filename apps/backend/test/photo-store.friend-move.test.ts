@@ -187,8 +187,12 @@ describe("a held friend invite after a Remove", () => {
     const s = await scene();
     expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
     expect(s.record().heldAsks?.[identityOf(s.kim)]).toBeDefined();
+    const card = await s.card();
     expect((await s.admin.store.takeBackOffer(s.folderId, identityOf(s.kim)))[0]).toBeNull();
     expect(s.record().heldAsks).toBeUndefined();
+    await until(async () => (await s.kim.store.folders()).offers.length === 0);
+    const joined = await s.kim.store.joinOffer(card.code, card.owner);
+    expect(joined[0]?.code).toBe("justus.photos/offer-gone");
     await s.close();
   });
 
@@ -198,6 +202,7 @@ describe("a held friend invite after a Remove", () => {
     expect(s.record().heldAsks?.[identityOf(s.kim)]).toBeDefined();
     expect((await s.admin.store.turnOffInvite(s.folderId))[0]).toBeNull();
     expect(s.record().heldAsks).toBeUndefined();
+    await until(async () => (await s.kim.store.folders()).offers.length === 0);
     await s.close();
   });
 
