@@ -61,3 +61,38 @@ test("New album in Photos names the album in place and opens it", async ({ page 
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Garden" })).toBeVisible({ timeout: 20_000 });
 });
+
+test("reloading an album or its Invite & members page shows it again", async ({ page }) => {
+  const missing: string[] = [];
+  page.on("response", (r) => {
+    const url = new URL(r.url());
+    if (
+      r.status() === 404 &&
+      url.origin === "http://127.0.0.1:8090" &&
+      /\.(js|css|svg)$/.test(url.pathname)
+    ) {
+      missing.push(url.pathname);
+    }
+  });
+  await page.goto("/albums");
+  await page.getByRole("list", { name: "Albums" }).getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
+  const name = page.locator('[data-motion-key="section:album"] h2');
+  await expect(name).toBeVisible({ timeout: 20_000 });
+  const albumName = (await name.innerText()).trim();
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: albumName })).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("link", { name: /Invite & members/ }).click();
+  await expect(page).toHaveURL(/\/sharing\/[^/]+$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: albumName, level: 1 })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: albumName, level: 1 })).toBeVisible({
+    timeout: 20_000,
+  });
+  expect(missing).toEqual([]);
+});
