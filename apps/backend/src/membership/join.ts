@@ -303,6 +303,8 @@ export function pendingJoinRequests(
     invited?: ReadonlySet<string>;
     /** Keys accepted as Viewers: no longer pending. */
     viewers?: ReadonlySet<string>;
+    /** Works out the check code for an identity; when absent, requests carry none. */
+    checkCodeOf?: (identity: string) => string;
   },
 ): JoinRequest[] {
   const enrolled = new Set(Object.values(options.registry.members).map((m) => m.key));
@@ -316,7 +318,10 @@ export function pendingJoinRequests(
       if (f.viaInvite && answerClosesRequest(f, options)) return false;
       return true;
     })
-    .map((f) => (f.viaInvite ? { ...f.request, viaInvite: true } : f.request));
+    .map((f) => {
+      const base = f.viaInvite ? { ...f.request, viaInvite: true } : f.request;
+      return options.checkCodeOf ? { ...base, checkCode: options.checkCodeOf(f.identity) } : base;
+    });
 }
 
 /** Add the requester to the registry. The name comes from the requester's own

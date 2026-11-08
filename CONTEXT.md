@@ -40,6 +40,10 @@ _Avoid_: share key, link
 A device's request to join an album through an invite code. It waits until the Admin answers: accepted, the share key travels to the asker over a verified connection and the asker joins; declined, that ask is closed; the device may ask again and the Admin answers the new ask. Both devices must be online at once to deliver the answer.
 _Avoid_: join request (the older request made with a share key)
 
+**Check code**:
+Eight digits worked out from a phone's identity drive key. The asker's waiting screen and the Admin's request row show the same code, so the Admin can ask which code a person sees before accepting. It proves nothing alone.
+_Avoid_: PIN, password, safety number
+
 **Delete note**:
 `/deleted.json` in the album's own drive. Only the Admin's device can write it. A phone that reads it removes the album and its photos.
 _Avoid_: tombstone
@@ -98,6 +102,7 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Archive (album)  | **Archive**                    | This phone only; Restore from Archived.                                                    |
 | Leave (album)    | **Leave album**                | Member or Viewer; needs a new invite to come back.                                         |
 | Delete (album)   | **Delete album**               | Admin only; gone from every phone; no undo.                                                |
+| Check code       | **Check code**                 | Shown on the request and the waiting screen.                                               |
 | Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
 | Registry         | _(hidden)_                     |                                                                                            |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |

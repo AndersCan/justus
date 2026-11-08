@@ -396,6 +396,32 @@ describe("pendingJoinRequests", () => {
     });
     expect(pending.map((r) => r.requesterKey)).toEqual([keys[3], keys[4]]);
   });
+
+  it("adds a check code per identity only when asked to", () => {
+    const found = [
+      {
+        request: {
+          folderId: "f1",
+          folderName: "Trip",
+          requesterKey: "a".repeat(64),
+          requesterName: "Bo",
+          requestedAt: 5,
+          shareKey: "s",
+        },
+        identity: "idx",
+        viaInvite: false,
+      },
+    ];
+    const base = {
+      registry: { version: 1 as const, members: {} },
+      denied: new Set<string>(),
+      answers: undefined,
+    };
+    const withCode = pendingJoinRequests(found, { ...base, checkCodeOf: (id) => "code-" + id });
+    expect(withCode.map((r) => r.checkCode)).toEqual(["code-idx"]);
+    const without = pendingJoinRequests(found, base);
+    expect("checkCode" in without[0]!).toBe(false);
+  });
 });
 
 describe("pendingJoinRequests after a decline", () => {
