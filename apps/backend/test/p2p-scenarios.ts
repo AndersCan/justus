@@ -1013,6 +1013,9 @@ export const scenarios: Scenario[] = [
         "the delete notice on Desktop",
       );
       await admin.stop();
+      // Restarting drops every live topic: only the kept delete note can serve the Tablet.
+      await joiner.stop();
+      await net.peer("Desktop", joiner.storageDir);
       const back = await net.peer("Tablet", tablet.storageDir);
       const after = await eventually(
         () => back.store.folders(),
