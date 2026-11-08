@@ -237,7 +237,7 @@ describe("album people motion", () => {
 });
 
 describe("album join requests", () => {
-  const ask = (requesterKey: string, viaInvite: boolean) => ({
+  const ask = (requesterKey: string, viaInvite: boolean, checkCode?: string) => ({
     folderId: "f1",
     folderName: "Trip",
     requesterKey,
@@ -245,6 +245,7 @@ describe("album join requests", () => {
     shareKey: "s",
     requestedAt: Date.now(),
     ...(viaInvite ? { viaInvite } : {}),
+    ...(checkCode ? { checkCode } : {}),
   });
 
   async function show(list: ReturnType<typeof ask>[]) {
@@ -265,6 +266,23 @@ describe("album join requests", () => {
   };
   const button = (host: HTMLElement, text: string) =>
     [...host.querySelectorAll("button")].find((b) => name(b) === text);
+
+  test("rows show their check code and the section says what it is for", async () => {
+    const host = await show([
+      { ...ask("a", true, "1234 5678"), requesterName: "Ben" },
+      { ...ask("b", true, "8765 4321"), requesterName: "Ben" },
+    ]);
+    const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
+    expect(rows[0]!.textContent).toContain("Check code 1234 5678");
+    expect(rows[1]!.textContent).toContain("Check code 8765 4321");
+    expect(host.textContent).toContain("Not sure who it is?");
+  });
+
+  test("without codes there is no check code text", async () => {
+    const host = await show([ask("nils", true)]);
+    expect(host.textContent).not.toContain("Check code");
+    expect(host.textContent).not.toContain("Not sure who it is?");
+  });
 
   test("an invite request offers Accept as Viewer, Accept as Collaborator and Decline, each with its meaning; Viewer sends reader", async () => {
     const host = await show([ask("nils", true)]);

@@ -302,7 +302,14 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
     <p class="text-sm text-fg">
       <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
     </p>
-    <p class="mt-1 text-xs text-muted">Asked ${formatRelative(r.requestedAt)}</p>
+    <p class="mt-1 text-xs text-muted">
+      Asked
+      ${formatRelative(r.requestedAt)}${
+        r.checkCode
+          ? html` · Check code <span class="font-semibold text-fg">${r.checkCode}</span>`
+          : ""
+      }
+    </p>
     ${
       r.viaInvite
         ? html`<div class="mt-2 flex flex-col gap-2">
@@ -353,6 +360,13 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
     data-motion-key="section:requests"
   >
     <h2 class="ui-label mb-3">Asking to join</h2>
+    ${
+      vm.requests.some((r) => r.checkCode)
+        ? html`<p class="mb-3 text-xs text-muted">
+            Not sure who it is? Ask them which check code their phone shows.
+          </p>`
+        : null
+    }
     ${
       keys.length >= 2
         ? html`<div class="mb-3">

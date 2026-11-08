@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { inviteLink } from "../machines/sharing/invite-link";
-import { friendNamesLine, invitePanel } from "./invite";
+import { checkCodeLine, friendNamesLine, invitePanel } from "./invite";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -97,5 +97,18 @@ describe("friendNamesLine", () => {
     ],
   ])("%j", (list, text) => {
     expect(names(...list)).toBe(text);
+  });
+});
+
+describe("checkCodeLine", () => {
+  test("is null without a code", () => {
+    expect(checkCodeLine(undefined, "Anna")).toBeNull();
+  });
+  test("names the code and who sees it", () => {
+    const host = document.createElement("div");
+    render(checkCodeLine("1234 5678", "Anna"), host);
+    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "Your check code is 1234 5678. Anna sees the same code next to your request.",
+    );
   });
 });
