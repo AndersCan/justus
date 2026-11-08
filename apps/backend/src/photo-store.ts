@@ -302,6 +302,8 @@ type FolderRecord = {
   /** Creator: people who have not yet followed the album to its new key, by
    * identity, with the role they get and the drive and name they had. */
   moving?: Record<string, MovingEntry>;
+  /** Creator: people who stayed after a Remove whose phone's identity this phone did not know yet, by drive key. Each moves to `moving` once the identity is learned. */
+  movingUnknown?: Record<string, MovingEntry>;
   /** Creator: keys removed whose move to new keys has not finished; a retry
    * of Remove runs the move again. */
   moveOwed?: string[];
@@ -878,6 +880,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       if (Object.keys(moving).length > 0) out.moving = moving;
     }
+    if (isTextJSON(f.movingUnknown)) {
+      const unknown: Record<string, MovingEntry> = {};
+      for (const [key, m] of Object.entries(f.movingUnknown)) {
+        if (!isHexKey(key) || !isTextJSON(m)) continue;
+        if ((m.role !== "member" && m.role !== "reader") || m.key !== key) continue;
+        unknown[key] = { role: m.role, name: peerName(m.name, "Unknown device"), key };
+      }
+      if (Object.keys(unknown).length > 0) out.movingUnknown = unknown;
+    }
     if (Array.isArray(f.moveOwed)) {
       const owed = (f.moveOwed as unknown[]).filter(
         (k): k is string => typeof k === "string" && isHexKey(k),
@@ -1045,6 +1056,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (open) sources.push({ memberKey: key, drive: open.drive });
         else openViewerDevice(key);
       }
+      for (const entry of Object.values(rt.record.movingUnknown ?? {})) {
+        if (entry.role !== "reader" || rt.memberDrives.has(entry.key)) continue;
+        const open = viewerDeviceDrives.get(entry.key);
+        if (open) sources.push({ memberKey: entry.key, drive: open.drive });
+        else openViewerDevice(entry.key);
+      }
       learned =
         (await learnDevices(presence, {
           sources,
@@ -1053,6 +1070,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           verify: (p) => deps.drives.verifyIdentity(p),
         })) || learned;
     }
+    for (const identity of claimUnknownMoving()) {
+      void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
+    }
     await releaseViewerDevices();
     return learned;
   }
@@ -1060,7 +1080,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Drops Viewer drives of people who are no longer a Viewer anywhere. */
   async function releaseViewerDevices() {
     const wanted = new Set<string>();
-    for (const rt of runtimes.values()) for (const key of Object.keys(rt.viewers)) wanted.add(key);
+    for (const rt of runtimes.values()) {
+      for (const key of Object.keys(rt.viewers)) wanted.add(key);
+      for (const entry of Object.values(rt.record.movingUnknown ?? {})) wanted.add(entry.key);
+    }
     for (const [key, { drive, off }] of [...viewerDeviceDrives]) {
       if (wanted.has(key)) continue;
       viewerDeviceDrives.delete(key);
@@ -2516,9 +2539,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         .sort((a, b) => a.addedAt - b.addedAt)
         .map((v) => person(v.key, v.name, true)),
       ...(isAdmin
-        ? Object.values(rt.record.moving ?? {}).map((m) =>
-            person(m.key, m.name, m.role === "reader"),
-          )
+        ? [
+            ...Object.values(rt.record.moving ?? {}),
+            ...Object.values(rt.record.movingUnknown ?? {}),
+          ]
+            .filter((m, i, all) => all.findIndex((o) => o.key === m.key) === i)
+            .map((m) => person(m.key, m.name, m.role === "reader"))
         : []),
     ];
   }
@@ -3652,19 +3678,33 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const registry = await readRegistryIn(rt.folderDrive);
     await resolveSwarmKeys().catch(() => false);
     const people = new Map<string, MovingEntry>();
+    const unknownNow: MovingEntry[] = [];
     for (const m of Object.values(registry.members)) {
       const identity = presence.identities.get(m.key);
-      if (identity) people.set(identity, { role: "member", name: m.name, key: m.key });
+      const entry: MovingEntry = { role: "member", name: m.name, key: m.key };
+      if (identity) people.set(identity, entry);
+      else if (m.key !== removedKey) unknownNow.push(entry);
     }
     for (const v of Object.values(rt.viewers)) {
       const identity = presence.identities.get(v.key);
-      if (identity) people.set(identity, { role: "reader", name: v.name, key: v.key });
+      const entry: MovingEntry = { role: "reader", name: v.name, key: v.key };
+      if (identity) people.set(identity, entry);
+      else if (v.key !== removedKey) unknownNow.push(entry);
     }
     const moving: Record<string, MovingEntry> = {};
     for (const [identity, m] of Object.entries(record.moving ?? {})) {
       if (m.key !== removedKey) moving[identity] = m;
     }
     for (const [identity, m] of people) moving[identity] = m;
+    const unknown: Record<string, MovingEntry> = {};
+    for (const m of [...Object.values(record.movingUnknown ?? {}), ...unknownNow]) {
+      if (m.key === removedKey) continue;
+      unknown[m.key] = m;
+    }
+    for (const m of Object.values(record.movingUnknown ?? {})) {
+      const identity = presence.identities.get(m.key);
+      if (identity && m.key !== removedKey && !moving[identity]) moving[identity] = m;
+    }
     const [moveErr, moved] = await moveAlbum(
       { drives: deps.drives, log },
       {
@@ -3700,6 +3740,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         : record.retiredInvites,
       answers,
       moving: Object.keys(moving).length > 0 ? moving : undefined,
+      movingUnknown: Object.keys(unknown).length > 0 ? unknown : undefined,
       moveOwed: undefined,
       earlier: moved.earlier,
     };
@@ -3714,10 +3755,37 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (oldInvite) leaveTopic(hex(inviteTopic(oldInvite, crypto)));
     serveInvite(moved.invite.code);
     log("move.start", { folder: short(record.id), moves: moved.moves });
+    if (Object.keys(unknown).length > 0) {
+      log("move.unknown", { folder: short(record.id), n: Object.keys(unknown).length });
+    }
     for (const identity of Object.keys(moving)) {
       void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
     }
     return undefined;
+  }
+
+  /** Admin: people left out of a move whose identity is now known join `moving`.
+   * Returns the identities that were added. */
+  function claimUnknownMoving(): string[] {
+    const claimed: string[] = [];
+    for (const rt of runtimes.values()) {
+      if (rt.record.role !== "creator") continue;
+      const waiting = Object.values(rt.record.movingUnknown ?? {});
+      const persisted = state.folders.find((f) => f.id === rt.record.id);
+      for (const entry of waiting) {
+        const identity = presence.identities.get(entry.key);
+        if (!identity) continue;
+        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+          if (!target.moving?.[identity]) target.moving = { ...target.moving, [identity]: entry };
+          const { [entry.key]: _claimed, ...rest } = target.movingUnknown ?? {};
+          target.movingUnknown = Object.keys(rest).length > 0 ? rest : undefined;
+        }
+        log("move.unknown.claimed", { folder: short(rt.record.id), identity: short(identity) });
+        claimed.push(identity);
+      }
+    }
+    if (claimed.length > 0) saveState();
+    return claimed;
   }
 
   /** Tells `identity` the album moved, on every connection proven to be them,
@@ -4784,10 +4852,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const stillMoving = Object.entries(rt.record.moving ?? {}).find(
         ([, m]) => m.key === memberKey,
       );
+      const stillUnknown = Object.values(rt.record.movingUnknown ?? {}).some(
+        (m) => m.key === memberKey,
+      );
       const isMember = Boolean(registry.members[memberKey]);
       const isViewer = Boolean(rt.viewers[memberKey]);
       const owed = (rt.record.moveOwed ?? []).includes(memberKey);
-      if (!isMember && !isViewer && !stillMoving && !owed)
+      if (!isMember && !isViewer && !stillMoving && !stillUnknown && !owed)
         return err(PhotoError.NOT_FOUND, "No such member");
       // Mark the move as owed before the removal, so a failed move can be retried.
       if (isMember || isViewer) {
