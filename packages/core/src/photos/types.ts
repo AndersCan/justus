@@ -7,6 +7,18 @@ export type PhotoMember = {
   name: string;
 };
 
+/** Who has a full copy of a photo, as their phones last told this one. */
+export type PhotoHolders = {
+  /** This phone has the full copy (it added the photo, or the copy finished arriving). */
+  here: boolean;
+  /** Current album people other than this phone with a full copy, the adder always included. Sorted by name, then key. */
+  others: PhotoMember[];
+  /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */
+  unsure: PhotoMember[];
+  /** Names of people no longer in the album who had a copy when they went. Sorted, unique. */
+  former: string[];
+};
+
 export type Photo = {
   /** File id within the member drive (e.g. `abc123`). */
   id: string;
@@ -35,6 +47,8 @@ export type Photo = {
   folderId?: string;
   /** True when this device added the photo (it lives on our own drive). */
   mine?: boolean;
+  /** Unset when this phone cannot tell yet. */
+  holders?: PhotoHolders;
 };
 
 export type SyncMember = {
@@ -166,7 +180,8 @@ export type PhotoChangedCause =
   | "presence"
   | "ask"
   | "offer"
-  | "version";
+  | "version"
+  | "holders";
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {

@@ -15,6 +15,7 @@ import type {
   JoinRequest,
   Photo,
   PhotoChanged,
+  PhotoHolders,
   PhotoMember,
   SyncMember,
   SyncStatus,
@@ -96,6 +97,13 @@ export const s = {
 
 export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 
+export const photoHoldersSchema = s.object({
+  here: s.boolean,
+  others: s.array(photoMemberSchema),
+  unsure: s.array(photoMemberSchema),
+  former: s.array(s.string),
+});
+
 export const photoSchema = s.object({
   id: s.string,
   url: s.string,
@@ -109,6 +117,7 @@ export const photoSchema = s.object({
   sha256: s.optional(s.string),
   folderId: s.optional(s.string),
   mine: s.optional(s.boolean),
+  holders: s.optional(photoHoldersSchema),
 });
 
 export const syncMemberSchema = s.object({
@@ -183,7 +192,17 @@ export const joinRequestSchema = s.object({
 });
 
 export const photoChangedSchema = s.object({
-  cause: s.oneOf("add", "remove", "enroll", "request", "presence", "ask", "offer", "version"),
+  cause: s.oneOf(
+    "add",
+    "remove",
+    "enroll",
+    "request",
+    "presence",
+    "ask",
+    "offer",
+    "version",
+    "holders",
+  ),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
@@ -247,6 +266,7 @@ type Assert<T extends true> = T;
 type T<S> = S extends Schema<infer X> ? X : never;
 export type _ContractChecks = [
   Assert<Equal<T<typeof photoMemberSchema>, PhotoMember>>,
+  Assert<Equal<T<typeof photoHoldersSchema>, PhotoHolders>>,
   Assert<Equal<T<typeof photoSchema>, Photo>>,
   Assert<Equal<T<typeof syncMemberSchema>, SyncMember>>,
   Assert<Equal<T<typeof folderSummarySchema>, FolderSummary>>,
