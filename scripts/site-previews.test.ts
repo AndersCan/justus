@@ -70,7 +70,7 @@ test("commentBody uses a 7-character sha and the pr folder", () => {
   expect(
     commentBody({ number: 12, sha: "1a2b3c4d5e6f" }, "https://anderscan.github.io/justus/"),
   ).toBe(
-    "<!-- site-preview -->\nSite preview of 1a2b3c4: https://anderscan.github.io/justus/pr/12/",
+    "<!-- site-preview -->\nSite preview of 1a2b3c4: https://anderscan.github.io/justus/pr/12/flows/",
   );
   expect(
     commentBody({ number: 12, sha: "1a2b3c4d5e6f" }, "https://anderscan.github.io/justus"),
@@ -116,7 +116,7 @@ test("a preview of an older commit is marked not latest", () => {
 
 test("commentBody flags a preview that is not the newest commit", () => {
   expect(commentBody({ number: 3, sha: "1a2b3c4d5e6f", latest: false }, "https://x.io/")).toBe(
-    "<!-- site-preview -->\nSite preview of 1a2b3c4 (the newest commit is still building or failed): https://x.io/pr/3/",
+    "<!-- site-preview -->\nSite preview of 1a2b3c4 (the newest commit is still building or failed): https://x.io/pr/3/flows/",
   );
 });
 
