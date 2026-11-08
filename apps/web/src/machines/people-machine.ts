@@ -77,6 +77,9 @@ const sheetOpened = event("SHEET_OPENED")();
 /** The Viewer can add photos now; the view tells the Admin. */
 const viewerLetAddPhotos = event("VIEWER_LET_ADD_PHOTOS")<{ memberKey: string }>();
 
+/** The Collaborator is a Viewer now; the view tells the Admin. */
+const memberMadeViewer = event("MEMBER_MADE_VIEWER")<{ memberKey: string }>();
+
 type PeopleContext = {
   pending: { folderId: string; memberKey: string } | null;
   error: string | null;
@@ -126,7 +129,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       madeViewer,
       makeViewerFailed,
     ],
-    outputs: [sheetOpened, viewerLetAddPhotos],
+    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer],
     states: [
       peopleSheetClosed,
       showingPeople,
@@ -248,8 +251,9 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         event: madeViewer,
         to: [showingPeople],
         handler: (_e, opts) => {
+          const memberKey = opts.context.get().pending?.memberKey ?? "";
           opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          return { state: showingPeople };
+          return { state: showingPeople, emit: [memberMadeViewer.create({ memberKey })] };
         },
       });
       /** Saving failed: the sheet stays open and says why, and the person stays a Collaborator. */

@@ -130,13 +130,21 @@ function albumMenu(status: Status, busy: boolean) {
 type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
 
-const letNames = new Map<string, string>();
+const memberNames = new Map<string, string>();
 
 onOutput(peopleActor, (e) => {
   if (e.type !== "viewerLetAddPhotos" && e.type !== "VIEWER_LET_ADD_PHOTOS") return;
   const key = (e.payload as { memberKey: string }).memberKey;
-  toast(`${letNames.get(key) ?? "They"} can add photos now`);
-  letNames.delete(key);
+  toast(`${memberNames.get(key) ?? "They"} can add photos now`);
+  memberNames.delete(key);
+});
+
+onOutput(peopleActor, (e) => {
+  if (e.type !== "memberMadeViewer" && e.type !== "MEMBER_MADE_VIEWER") return;
+  const key = (e.payload as { memberKey: string }).memberKey;
+  const name = memberNames.get(key);
+  toast(name ? `${name} is a Viewer now` : "They're a Viewer now");
+  memberNames.delete(key);
 });
 
 /** The toast after an answer went through; a No gets none. */
@@ -222,7 +230,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
             ?disabled=${vm.busy}
             @click=${() => {
               if (!vm.folder) return;
-              letNames.set(p.key, p.name);
+              memberNames.set(p.key, p.name);
               people.letViewerAddPhotos(vm.folder.id, p.key);
             }}
           >
@@ -242,7 +250,10 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
                 detail: `${p.name} keeps seeing every photo but can't add more. The photos ${p.name} already added stay in the album.`,
                 confirmLabel: "Make Viewer",
               });
-              if (ok && vm.folder) people.makeViewer(vm.folder.id, p.key);
+              if (ok && vm.folder) {
+                memberNames.set(p.key, p.name);
+                people.makeViewer(vm.folder.id, p.key);
+              }
             }}
           >
             Make Viewer

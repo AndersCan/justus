@@ -195,6 +195,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   await expect(members).toBeVisible({ timeout: 60_000 });
   await members.getByRole("button", { name: /^Make .* a Viewer$/ }).click();
   await a.getByRole("button", { name: "Make Viewer", exact: true }).click();
+  await expect(a.getByText(/is a Viewer now$/)).toBeVisible({ timeout: 60_000 });
 
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0, {
     timeout: 60_000,
