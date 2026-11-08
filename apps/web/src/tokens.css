@@ -78,3 +78,9 @@
 :root[data-theme="light"] {
   color-scheme: light;
 }
+
+/* Dev builds only (copy.ts sets the attribute): text the owner has not approved. */
+[data-copy-draft] {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}

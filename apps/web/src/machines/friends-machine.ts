@@ -3,6 +3,7 @@ import type { Friend } from "@justus/core";
 import { gateway } from "../gateway";
 import { runInvoke } from "./actor-utils";
 
+import { copy } from "../copy/copy";
 /**
  * Add a person to the friends list: the sheet opened from a member row shows
  * who they are, lets the person give them a name, and saves it on this device.
@@ -13,7 +14,7 @@ export type FriendTarget = { identity: string; ownName: string };
 export type FriendsPort = Pick<typeof gateway.friends, "list" | "add">;
 
 export const FRIEND_NAME_LIMIT = 40;
-export const SAVE_FAILED_COPY = "Couldn't save. Try again.";
+export const SAVE_FAILED_COPY = copy("friends.couldn_t_save_try_again");
 
 /** The saved friends are being read from this device; the sheet cannot open yet. */
 const loadingFriends = state("loadingFriends")();

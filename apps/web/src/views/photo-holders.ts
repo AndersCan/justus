@@ -6,6 +6,7 @@ import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
 import { avatarBadge } from "./avatar";
 
+import { copy, t } from "../copy/copy";
 /** The "who has this photo" row on photo detail, and the sheet it opens. */
 
 const ROW_ATTR = "data-holders-row";
@@ -39,7 +40,7 @@ export function holdersRow(photo: Photo) {
   return html`<button
     class="ui-focus -mx-2 mt-3 flex h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg border-t border-line px-2 pt-1 hover:bg-subtle"
     ${ROW_ATTR}
-    aria-label="${text}, show who has this photo"
+    aria-label=${copy("photo_holders.show_who_has_this_photo", { text })}
     @click=${openHolders}
   >
     ${body}<span class="text-muted" aria-hidden="true">›</span>
@@ -66,36 +67,31 @@ export function holdersSheet(photo: Photo) {
       class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Who has this photo"
+      aria-label=${copy("photo_holders.who_has_this_photo")}
       @click=${(e: Event) => e.stopPropagation()}
     >
-      <h3 class="text-base font-semibold text-fg">Who has this photo</h3>
-      <p class="text-xs text-muted">Phones with a full copy, as they last told yours.</p>
+      <h3 class="text-base font-semibold text-fg">${t("photo_holders.who_has_this_photo")}</h3>
+      <p class="text-xs text-muted">${t("photo_holders.phones_with_a_full_copy")}</p>
       <div class="max-h-[60vh] overflow-y-auto">
         <ul>
-          ${personRow("You", rows.youArriving ? "Arriving…" : undefined)}
+          ${personRow(copy("photo_holders.you"), rows.youArriving ? copy("photo_holders.arriving") : undefined)}
           ${rows.others.map((m) => personRow(m.name))}
         </ul>
         ${
           rows.unsure.length > 0
-            ? html`<h4 class="ui-label mt-4">Hasn't said yet</h4>
+            ? html`<h4 class="ui-label mt-4">${t("photo_holders.hasn_t_said_yet")}</h4>
                 <ul>
                   ${rows.unsure.map((m) => personRow(m.name))}
                 </ul>
-                <p class="text-xs text-muted">
-                  A phone says what it has once it runs the latest Justus and connects to yours.
-                </p>`
+                <p class="text-xs text-muted">${t("photo_holders.a_phone_says_what_it")}</p>`
             : null
         }
         ${
           rows.former.length > 0
-            ? html`<h4 class="ui-label mt-4">No longer in this album</h4>
+            ? html`<h4 class="ui-label mt-4">${t("photo_holders.no_longer_in_this_album")}</h4>
                 <ul>
                   ${rows.former.map((name) =>
-                    personRow(
-                      name,
-                      "Has a copy from before. Removing someone does not take it back.",
-                    ),
+                    personRow(name, copy("photo_holders.has_a_copy_from_before")),
                   )}
                 </ul>`
             : null
@@ -107,7 +103,7 @@ export function holdersSheet(photo: Photo) {
           ${ref((el) => el instanceof HTMLElement && queueMicrotask(() => el.focus()))}
           @click=${closeHolders}
         >
-          Close
+          ${t("photo_holders.close")}
         </button>
       </div>
     </div>

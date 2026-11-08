@@ -1,4 +1,4 @@
-/** What an invite link carries: the invite code, who to ask, and unsigned
+import { copy } from "../copy/copy"; /** What an invite link carries: the invite code, who to ask, and unsigned
  * labels the joiner sees before asking. The album's key is never in a link. */
 export type JoinInvite = {
   /** 64-hex invite code. */
@@ -20,8 +20,8 @@ export type ParsedInvite =
 
 /** Same cap as a peer name. */
 export const MAX_HINT = 80;
-const FALLBACK_ALBUM = "this album";
-const FALLBACK_OWNER = "the Admin";
+const FALLBACK_ALBUM = copy("invite_link.this_album");
+const FALLBACK_OWNER = copy("invite_link.the_admin");
 const HEX64 = /^[0-9a-f]{64}$/i;
 const SECONDS = /^\d{1,12}$/;
 const LINK = /justus:\/\/join\?([^\s]*)/i;

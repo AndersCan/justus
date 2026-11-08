@@ -128,3 +128,14 @@ layer, Host, Actor). Use those terms exactly.
 
 Issues live in GitHub Issues at `AndersCan/justus` via `gh` (`docs/agents/issue-tracker.md`).
 Single-context domain docs (`docs/agents/domain.md`). The roadmap map is issue #1.
+
+## Copy catalogue
+
+Every word a person reads in `apps/web` lives in `apps/web/src/copy/en.json`
+(`id → { text, status, where, who, screen }`). Views call `t("id", params)` (a
+span carrying `data-copy-id`) or `copy("id", params)` (a string, for toasts,
+aria-labels, titles). New text is added as `status: "draft"`; only the owner
+sets `approved`. Dev builds underline draft text (`data-copy-draft`).
+Placeholders: `{name}`, and `{n?one:other}` for plurals. `copy/catalogue.test.ts`
+fails on a literal English sentence in views, machines or utils, an unknown id,
+an unused id, or params that do not match the text.

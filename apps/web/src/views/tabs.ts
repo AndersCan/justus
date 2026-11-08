@@ -1,5 +1,6 @@
 import { html } from "lit-html";
 
+import { copy } from "../copy/copy";
 export type TabItem = {
   id: string;
   label: string;
@@ -25,7 +26,7 @@ export function tabs(label: string, items: TabItem[], activeId: string) {
             item.badge
               ? html`<span
                   class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-on-fill"
-                  aria-label="${item.badge} waiting"
+                  aria-label=${copy("tabs.waiting", { badge: item.badge })}
                   >${item.badge}</span
                 >`
               : null

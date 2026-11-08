@@ -4,6 +4,7 @@ import { runInvoke } from "../actor-utils";
 import { parseInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
 
+import { copy } from "../../copy/copy";
 /**
  * The joiner's screens, from opening an invite link to the Admin's answer.
  * The link carries no album key; the key arrives only if the Admin accepts.
@@ -29,13 +30,13 @@ export type AskSummary = {
 /** Sends the request; resolves `[error, result]` like the gateway. */
 export type JoinPort = { ask(invite: JoinInvite): Promise<[unknown, unknown]> };
 
-export const GARBLED_LINK = "That invite doesn't look right. Check you copied all of it.";
+export const GARBLED_LINK = copy("join_request.that_invite_doesn_t_look");
 export const oldLinkMessage = (ownerName: string) =>
-  `This link no longer works. Ask ${ownerName} for a new invite link.`;
-export const EXPIRED_LINK = "This invite link has expired.";
-export const expiredBody = (owner: string) => `Ask ${owner} for a new one.`;
-export const LINK_TURNED_OFF = "This invite link no longer works.";
-export const SEND_FAILED = "Couldn't send your request. Try again.";
+  copy("join_request.this_link_no_longer_works", { ownerName });
+export const EXPIRED_LINK = copy("join_request.this_invite_link_has_expired");
+export const expiredBody = (owner: string) => copy("join_request.ask_for_a_new_one", { owner });
+export const LINK_TURNED_OFF = copy("join_request.this_invite_link_no_longer");
+export const SEND_FAILED = copy("join_request.couldn_t_send_your_request");
 
 /** No invite is open. */
 const noInviteOpen = state("noInviteOpen")();

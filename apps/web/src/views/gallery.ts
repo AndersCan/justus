@@ -42,6 +42,7 @@ import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
 
+import { copy, t } from "../copy/copy";
 // Adding photos happens only inside an album, so where they go (and who gets
 // them) is always on screen. Check the album can take them (before any picker
 // opens, so a dead end never costs a pick), pick one or many, then hand the
@@ -62,13 +63,13 @@ let batchVia: "library" | "camera" = "library";
 const foldersNow = () => foldersActor.snapshot().context.folders;
 
 const albumName = (folderId?: string) =>
-  foldersNow().find((f) => f.id === folderId)?.name ?? "the album";
+  foldersNow().find((f) => f.id === folderId)?.name ?? copy("gallery.the_album");
 
 /** "New album" from Photos: name it in a sheet, then open it, ready for photos. */
 async function newAlbum() {
   const id = await startAlbum(
-    "Start one per trip, family or group. You can invite people next.",
-    "Create album",
+    copy("gallery.start_one_per_trip_family"),
+    copy("gallery.create_album"),
   );
   if (id) open(`/albums/${id}`);
 }
@@ -77,11 +78,11 @@ async function newAlbum() {
 function addableAlbum(folderId: string): string | null {
   const plan = planAdd(folderId, foldersNow());
   if (plan.kind === "viewer") {
-    toast(`You can view “${plan.album.name}” but not add to it`);
+    toast(copy("gallery.you_can_view_but_not", { name: plan.album.name }));
     return null;
   }
   if (plan.kind === "pending") {
-    toast(`You can add photos to “${plan.album.name}” once the Admin approves you`);
+    toast(copy("gallery.you_can_add_photos_to", { name: plan.album.name }));
     return null;
   }
   return plan.folderId;
@@ -91,7 +92,7 @@ function addableAlbum(folderId: string): string | null {
 function addPicked(folderId: string, sources: AddSource[], via: "library" | "camera") {
   if (sources.length === 0) return;
   if (galleryActor.snapshot().context.batch?.running) {
-    toast("Still adding the last photos. Try again in a moment");
+    toast(copy("gallery.still_adding_the_last_photos"));
     return;
   }
   batchVia = via;
@@ -106,14 +107,14 @@ async function pickNative(via: "library" | "camera"): Promise<AddSource[] | null
   if (via === "camera") {
     const [err, shot] = await gateway.media.capture();
     if (err || !shot?.path) {
-      if (!cancelled(err)) toast("Couldn't use the camera. Try again?");
+      if (!cancelled(err)) toast(copy("gallery.couldn_t_use_the_camera"));
       return null;
     }
     return [{ kind: "path", ...shot }];
   }
   const [err, result] = await gateway.media.pickMany();
   if (err || !result?.items?.length) {
-    if (!cancelled(err)) toast("Couldn't open your photos. Try again?");
+    if (!cancelled(err)) toast(copy("gallery.couldn_t_open_your_photos"));
     return null;
   }
   return result.items.map((item) => ({ kind: "path", ...item }));
@@ -135,12 +136,12 @@ async function startAdd(albumId: string, via: "library" | "camera" = "library") 
 function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefined) {
   const images = imageFiles(files);
   if (images.length === 0) {
-    toast("Only photos can be added");
+    toast(copy("gallery.only_photos_can_be_added"));
     return;
   }
   if (scope.kind !== "album") {
-    toast("Open an album to add photos to it", {
-      action: { label: "Albums", run: () => open("/albums") },
+    toast(copy("gallery.open_an_album_to_add"), {
+      action: { label: copy("gallery.albums"), run: () => open("/albums") },
     });
     return;
   }
@@ -229,7 +230,7 @@ galleryActor.on("change", {
       camera && scope && batch.folderId
         ? {
             action: {
-              label: "Take another",
+              label: copy("gallery.take_another"),
               run: () => void startAdd(batch.folderId as string, "camera"),
             },
           }
@@ -248,8 +249,8 @@ function foldersLoadingOf(f: Parameters<typeof foldersViewModel>[0]) {
 /** What an album page says when the album is not in the list. */
 export function missingAlbumText(page: { folders: unknown[]; foldersLoading: boolean }) {
   return page.folders.length === 0 || page.foldersLoading
-    ? "Loading…"
-    : "This album isn't on this phone.";
+    ? copy("gallery.loading")
+    : copy("gallery.this_album_isn_t_on");
 }
 
 /** Everything the Photos page reads, as one plain value. */
@@ -328,7 +329,7 @@ function photoTile(photo: Photo, within: Photo[]) {
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       role="button"
       tabindex="0"
-      aria-label="View ${photo.name}"
+      aria-label=${copy("gallery.view", { name: photo.name })}
       @click=${() => openLightbox(photo, within)}
       @keydown=${(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -365,13 +366,13 @@ function sortControl(sort: PhotoSort) {
     </button>`;
   };
   return html`<div class="flex items-center justify-end gap-2">
-    <span class="text-xs text-muted" id="photo-sort-label">Sort by</span>
+    <span class="text-xs text-muted" id="photo-sort-label">${t("gallery.sort_by")}</span>
     <div
       class="inline-flex gap-0.5 rounded-lg bg-subtle p-0.5"
       role="radiogroup"
       aria-labelledby="photo-sort-label"
     >
-      ${option("added", "Date added")} ${option("taken", "Date taken")}
+      ${option("added", copy("gallery.date_added"))} ${option("taken", copy("gallery.date_taken"))}
     </div>
   </div>`;
 }
@@ -419,7 +420,7 @@ export function scopePhotos(
           : html`
               ${sortControl(view.sort)} ${photoTimeline(photos, view.sort, view.density)}
               <footer class="pt-6 text-center text-xs text-muted">
-                ${photos.length} photo${photos.length === 1 ? "" : "s"}
+                ${t("gallery.photo", { count: photos.length })}
               </footer>
             `
       }
@@ -436,10 +437,10 @@ function presenceStrip(status: SyncStatus, lastSync: number | null) {
   // read from the member list.
   const online = connected > 0;
   const dotLabel = online
-    ? `${connected} connected now`
+    ? copy("gallery.connected_now", { connected })
     : alone
-      ? "Only you so far. Invite someone to share"
-      : "Nobody connected right now";
+      ? copy("gallery.only_you_so_far_invite")
+      : copy("gallery.nobody_connected_right_now");
   const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
   return html`
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
@@ -447,8 +448,8 @@ function presenceStrip(status: SyncStatus, lastSync: number | null) {
         <span class="h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-warn"} ${dotPulse}"></span>
         ${dotLabel}
       </span>
-      ${others > 0 ? html`<span>shared with ${others} other${others === 1 ? "" : "s"}</span>` : null}
-      ${lastSync ? html`<span class="text-xs">updated ${formatRelative(lastSync)}</span>` : null}
+      ${others > 0 ? html`<span>${t("gallery.shared_with_other", { others })}</span>` : null}
+      ${lastSync ? html`<span class="text-xs">${t("gallery.updated", { when: formatRelative(lastSync) })}</span>` : null}
       ${presenceDots(status.members, status.folder.id)}
     </div>
   `;
@@ -476,8 +477,8 @@ function addButton(page: PhotosPage, album: FolderSummary) {
   >
     ${
       running && page.batch
-        ? `Adding ${page.batch.done + 1}/${page.batch.total}…`
-        : `Add photos to ${album.name}`
+        ? copy("gallery.adding", { current: page.batch.done + 1, total: page.batch.total })
+        : copy("gallery.add_photos_to", { name: album.name })
     }
   </wa-button>`;
 }
@@ -487,8 +488,8 @@ function cameraButton(page: PhotosPage, album: FolderSummary) {
   if (!inNativeShell) return null;
   return html`<button
     class="ui-btn-ghost inline-flex shrink-0 items-center"
-    aria-label="Take a photo for ${album.name}"
-    title="Take a photo for ${album.name}"
+    aria-label=${copy("gallery.take_a_photo_for", { name: album.name })}
+    title=${copy("gallery.take_a_photo_for", { name: album.name })}
     ?disabled=${page.busy || !page.settled || (page.batch?.running ?? false)}
     @click=${() => void startAdd(album.id, "camera")}
   >
@@ -514,9 +515,9 @@ function cameraButton(page: PhotosPage, album: FolderSummary) {
 /** What a Viewer reads in place of the add row; names the Admin when this device knows them. */
 export function viewerLine(page: { status: SyncStatus | null }, album: { id: string }): string {
   const known = page.status?.folder.id === album.id;
-  const admin = known ? adminName(page.status) : "the Admin";
-  const who = admin === "the Admin" ? "The Admin" : admin;
-  return `You're a Viewer: you see every photo here. ${who} decides who adds photos.`;
+  const admin = known ? adminName(page.status) : copy("gallery.the_admin");
+  const who = admin === "the Admin" ? copy("gallery.the_admin_2") : admin;
+  return copy("gallery.you_re_a_viewer_you", { who });
 }
 
 /** The album's add row: the picker, the camera, and who gets the photos. Or,
@@ -524,7 +525,7 @@ export function viewerLine(page: { status: SyncStatus | null }, album: { id: str
 export function albumAddRow(page: PhotosPage, album: FolderSummary) {
   if (album.notice?.kind === "removed") {
     return html`<p class="text-sm text-muted">
-      You're no longer in ${album.name}. You can still see the photos you have.
+      ${t("gallery.you_re_no_longer_in", { name: album.name })}
     </p>`;
   }
   const plan = planAdd(album.id, page.folders);
@@ -532,7 +533,7 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
     return html`<p class="text-sm text-muted">${viewerLine(page, album)}</p>`;
   }
   if (plan.kind === "pending") {
-    return html`<p class="text-sm text-muted">You can add photos once the Admin approves you.</p>`;
+    return html`<p class="text-sm text-muted">${t("gallery.you_can_add_photos_once")}</p>`;
   }
   const others = album.members - 1;
   return html`<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -555,8 +556,8 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
     <p class="text-xs text-muted">
       ${
         others > 0
-          ? `Only the ${album.members} people in this album get them.`
-          : "Only you, until you invite someone."
+          ? copy("gallery.only_the_people_in_this", { members: album.members })
+          : copy("gallery.only_you_until_you_invite")
       }
     </p>
   </div>`;
@@ -579,13 +580,13 @@ function batchStrip(batch: AddBatch | null) {
       data-motion-key="batch:adding"
     >
       <p class="text-sm text-fg">
-        Adding ${batch.total === 1 ? "a photo" : `${shown} of ${batch.total}`} to
+        ${t("gallery.adding_to", { what: batch.total === 1 ? copy("gallery.a_photo") : copy("gallery.of", { shown, total: batch.total }) })}
         <span class="font-medium">${album}</span>…
       </p>
       <div
         class="mt-2 h-1.5 overflow-hidden rounded-full bg-subtle"
         role="progressbar"
-        aria-label="Adding photos"
+        aria-label=${copy("gallery.adding_photos")}
         aria-valuemin="0"
         aria-valuemax=${batch.total}
         aria-valuenow=${batch.done}
@@ -612,8 +613,12 @@ function batchStrip(batch: AddBatch | null) {
       }
     </div>
     <div class="flex shrink-0 gap-2">
-      <button class="ui-btn-ghost" @click=${() => gallery.dismissBatch()}>Dismiss</button>
-      <button class="ui-btn-primary" @click=${() => gallery.retryFailed()}>Retry</button>
+      <button class="ui-btn-ghost" @click=${() => gallery.dismissBatch()}>
+        ${t("gallery.dismiss")}
+      </button>
+      <button class="ui-btn-primary" @click=${() => gallery.retryFailed()}>
+        ${t("gallery.retry")}
+      </button>
     </div>
   </div>`;
 }
@@ -622,10 +627,16 @@ function batchStrip(batch: AddBatch | null) {
 function dropOverlay(page: PhotosPage, scope: PhotoScope) {
   const plan = scope.kind === "album" ? planAdd(scope.id, page.folders) : null;
   const [title, detail] = !plan
-    ? ["Open an album to add photos", "Photos always go into one album, so you know who gets them."]
+    ? [copy("gallery.open_an_album_to_add_2"), copy("gallery.photos_always_go_into_one")]
     : plan.kind === "direct"
-      ? [`Drop to add to ${albumName(plan.folderId)}`, "Only the people in this album get them."]
-      : [`You can't add to ${plan.album.name}`, "Ask the Admin, or start your own album."];
+      ? [
+          copy("gallery.drop_to_add_to", { albumName: albumName(plan.folderId) }),
+          copy("gallery.only_the_people_in_this_2"),
+        ]
+      : [
+          copy("gallery.you_can_t_add_to", { name: plan.album.name }),
+          copy("gallery.ask_the_admin_or_start"),
+        ];
   return html`<div
     data-drop-overlay
     class="hidden pointer-events-none fixed inset-0 z-30 items-center justify-center bg-accent/10 p-6"
@@ -644,43 +655,45 @@ function openAlbumAction(folders: FolderSummary[]) {
   const targets = addTargets(folders);
   return targets.length === 1
     ? html`<a class="ui-btn-primary inline-flex items-center" href="/albums/${targets[0].id}"
-        >Open ${targets[0].name}</a
+        >${t("gallery.open", { name: targets[0].name })}</a
       >`
-    : html`<a class="ui-btn-primary inline-flex items-center" href="/albums">Choose an album</a>`;
+    : html`<a class="ui-btn-primary inline-flex items-center" href="/albums"
+        >${t("gallery.choose_an_album")}</a
+      >`;
 }
 
 function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSummary | null) {
   if (album) {
     const canAdd = addTargets([album]).length > 0;
     return emptyState(
-      "No photos in this album yet.",
-      canAdd
-        ? "Add the first one with the button above. Everyone in the album will get it."
-        : "Photos show up here when people in the album add them and have Justus open.",
+      copy("gallery.no_photos_in_this_album"),
+      canAdd ? copy("gallery.add_the_first_one_with") : copy("gallery.photos_show_up_here_when"),
       null,
     );
   }
   if (page.folders.length === 0) {
     return emptyState(
-      "No photos yet.",
-      "Start an album for a trip, a family or a group, or join someone's with their invite link.",
-      html`<wa-button variant="brand" @click=${() => void newAlbum()}>Start an album</wa-button>
-        <a class="ui-btn-ghost inline-flex items-center" href="/join">Join with an invite link</a>`,
+      copy("gallery.no_photos_yet"),
+      copy("gallery.start_an_album_for_a"),
+      html`<wa-button variant="brand" @click=${() => void newAlbum()}
+          >${t("gallery.start_an_album")}</wa-button
+        >
+        <a class="ui-btn-ghost inline-flex items-center" href="/join"
+          >${t("gallery.join_with_an_invite_link")}</a
+        >`,
     );
   }
   const canAdd = addTargets(page.folders).length > 0;
   if (scope.kind === "mine") {
     return emptyState(
-      "You haven't added any photos yet.",
-      "Open an album and add photos there. They show up here too.",
+      copy("gallery.you_haven_t_added_any"),
+      copy("gallery.open_an_album_and_add"),
       canAdd ? openAlbumAction(page.folders) : null,
     );
   }
   return emptyState(
-    "No photos yet.",
-    canAdd
-      ? "Open an album to add photos to it. Only the people in that album get them."
-      : "Photos show up here when people in your albums add them and have Justus open.",
+    copy("gallery.no_photos_yet"),
+    canAdd ? copy("gallery.open_an_album_to_add_3") : copy("gallery.photos_show_up_here_when_2"),
     canAdd ? openAlbumAction(page.folders) : null,
   );
 }
@@ -689,11 +702,11 @@ type PhotoTab = PhotoScope["kind"];
 
 function photoTabs(active: PhotoTab) {
   return tabs(
-    "Show photos",
+    copy("gallery.show_photos"),
     [
-      { id: "all", label: "All", href: "/" },
-      { id: "mine", label: "Added by me", href: "/mine" },
-      { id: "album", label: "Albums", href: "/albums" },
+      { id: "all", label: copy("gallery.all"), href: "/" },
+      { id: "mine", label: copy("gallery.added_by_me"), href: "/mine" },
+      { id: "album", label: copy("gallery.albums"), href: "/albums" },
     ],
     active,
   );
@@ -703,13 +716,13 @@ function photoTabs(active: PhotoTab) {
 function pageHeader(page: PhotosPage, active: PhotoTab) {
   return html`
     <div class="flex items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Photos</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">${t("gallery.photos")}</h1>
       <button
         class="ui-btn-ghost shrink-0"
         ?disabled=${page.busy || page.state === "loadingPhotos" || page.fatal}
         @click=${() => gallery.load()}
       >
-        Refresh
+        ${t("gallery.refresh")}
       </button>
     </div>
     ${photoTabs(active)} ${batchStrip(page.batch)}
@@ -722,19 +735,19 @@ function albumHeader(page: PhotosPage, album: FolderSummary) {
     album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id).length : 0;
   return html`
     <div class="space-y-2" data-motion-key="section:album">
-      <a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
+      <a class="text-sm text-muted hover:text-fg" href="/albums">${t("gallery.all_albums")}</a>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg">${album.name}</h2>
         <a
           class="ui-btn-ghost inline-flex shrink-0 items-center gap-1.5"
           href="/sharing/${album.id}"
         >
-          Invite & members
+          ${t("gallery.invite_members")}
           ${
             waiting > 0
               ? html`<span
                   class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-on-fill"
-                  aria-label="${waiting} waiting for approval"
+                  aria-label=${copy("gallery.waiting_for_approval", { waiting })}
                   >${waiting}</span
                 >`
               : null
@@ -789,7 +802,9 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
         scope.kind === "album"
           ? album
             ? albumHeader(page, album)
-            : html`<a class="text-sm text-muted hover:text-fg" href="/albums">← All albums</a>
+            : html`<a class="text-sm text-muted hover:text-fg" href="/albums"
+                  >${t("gallery.all_albums")}</a
+                >
                 <p class="text-muted">${missingAlbumText(page)}</p>`
           : null
       }
@@ -814,7 +829,7 @@ function albumCard(card: AlbumCard, waiting: number) {
     <a
       class="ui-focus group block rounded-2xl"
       href="/albums/${folder.id}"
-      aria-label="${folder.name}, ${count} photo${count === 1 ? "" : "s"}"
+      aria-label=${copy("gallery.photo_2", { name: folder.name, count })}
     >
       <div class="relative aspect-square overflow-hidden rounded-2xl bg-subtle ring-1 ring-line">
         ${
@@ -834,18 +849,21 @@ function albumCard(card: AlbumCard, waiting: number) {
           waiting > 0
             ? html`<span
                 class="absolute right-2 top-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
-                >${waiting} waiting</span
+                >${t("gallery.waiting", { waiting })}</span
               >`
             : null
         }
       </div>
       <p class="mt-2 truncate text-sm font-medium text-fg">${folder.name}</p>
       <p class="truncate text-xs text-muted">
-        ${count} photo${count === 1 ? "" : "s"}
+        ${t("gallery.photo", { count })}
         ${
           folder.pending
-            ? html` · <span class="font-semibold text-warn-fg">Waiting for approval</span>`
-            : html` · ${folder.members} member${folder.members === 1 ? "" : "s"}`
+            ? html` ·
+                <span class="font-semibold text-warn-fg"
+                  >${t("gallery.waiting_for_approval_2")}</span
+                >`
+            : html` ${t("gallery.member", { members: folder.members })}`
         }
       </p>
     </a>
@@ -870,7 +888,7 @@ function albumGridBody(page: PhotosPage) {
           ? scopeEmptyState(page, scope, null)
           : html`<ul
               class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
-              aria-label="Albums"
+              aria-label=${copy("gallery.albums")}
             >
               ${repeat(
                 cards,
@@ -889,7 +907,7 @@ function albumGridBody(page: PhotosPage) {
                   @click=${() => void newAlbum()}
                 >
                   <span class="text-2xl text-brand" aria-hidden="true">＋</span>
-                  New album
+                  ${t("gallery.new_album")}
                 </button>
               </li>
             </ul>`

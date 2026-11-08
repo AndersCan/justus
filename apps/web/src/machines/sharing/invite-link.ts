@@ -11,6 +11,7 @@ import {
   type ValidFor,
 } from "./invite-link-machine";
 
+import { copy } from "../../copy/copy";
 /** What the invite panel draws: which state, for which album, and when the link ends. */
 export type InviteLinkView = {
   state: "noLinkYet" | "savingLinkTime" | "linkMade" | "turningOff";
@@ -57,9 +58,9 @@ export const inviteLinkActor = createInviteLinkActor({
 });
 
 onOutput(inviteLinkActor, (e) => {
-  if (e.type === "linkTurnedOff") toast("Links turned off");
-  if (e.type === "linkNotSaved") toast("Couldn't make the link. Try again.");
-  if (e.type === "turnOffFailed") toast("Couldn't turn off the links. Try again.");
+  if (e.type === "linkTurnedOff") toast(copy("invite_link.links_turned_off"));
+  if (e.type === "linkNotSaved") toast(copy("invite_link.couldn_t_make_the_link"));
+  if (e.type === "turnOffFailed") toast(copy("invite_link.couldn_t_turn_off_the"));
 });
 
 export const inviteLink = {

@@ -1,34 +1,38 @@
 import type { PhotoHolders, PhotoMember } from "@justus/core";
 
+import { copy } from "../copy/copy";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
 
 /** The one line on photo detail that says whose phones have a full copy. */
 export function holdersLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
-  if (!h) return { text: "Can't tell who has this photo yet", tappable: false };
+  if (!h) return { text: copy("holders.can_t_tell_who_has"), tappable: false };
   const k = h.others.length + h.former.length;
   const names = h.others.map((m) => `${m.name}'s`);
   const named = h.former.length === 0 && names.length >= 1 && names.length <= 3;
   if (h.here) {
     if (k === 0) {
       return {
-        text: h.unsure.length === 0 ? "Only on your phone" : "On your phone. Others haven't said",
+        text:
+          h.unsure.length === 0
+            ? copy("holders.only_on_your_phone")
+            : copy("holders.on_your_phone_others_haven"),
         tappable: true,
       };
     }
     if (named) {
-      const text = `On ${names.join(", ")} and your phone`;
+      const text = copy("holders.on_and_your_phone", { names: names.join(", ") });
       if (text.length <= LIMIT) return { text, tappable: true };
     }
-    return { text: `On your phone and ${k} ${k === 1 ? "other" : "others"}`, tappable: true };
+    return { text: copy("holders.on_your_phone_and", { k }), tappable: true };
   }
-  if (k === 0) return { text: "Arriving on your phone…", tappable: true };
+  if (k === 0) return { text: copy("holders.arriving_on_your_phone"), tappable: true };
   if (named && names.length === 1) {
-    const text = `On ${names[0]} phone. Arriving on yours…`;
+    const text = copy("holders.on_phone_arriving_on_yours", { name: names[0] });
     if (text.length <= LIMIT) return { text, tappable: true };
   }
   return {
-    text: `On ${k} ${k === 1 ? "phone" : "phones"}. Arriving on yours…`,
+    text: copy("holders.on_arriving_on_yours", { k }),
     tappable: true,
   };
 }

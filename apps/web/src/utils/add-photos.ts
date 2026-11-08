@@ -1,5 +1,6 @@
 import type { FolderSummary } from "@justus/core";
 
+import { copy } from "../copy/copy";
 /** Whether the album on screen can take photos, decided before the picker
  * opens so a dead end never costs the user a pick. Photos are only ever
  * added from inside an album, so where they go is never a guess. */
@@ -32,14 +33,22 @@ export function batchSummary(
   const { added, duplicates } = batch;
   const failed = batch.failed.length;
   if (failed > 0) {
-    const lead = failed === 1 ? "1 photo couldn't be added" : `${failed} photos couldn't be added`;
-    return added > 0 ? `${lead}. ${added} added to ${album}.` : `${lead} to ${album}.`;
+    const lead =
+      failed === 1
+        ? copy("add_photos.1_photo_couldn_t_be")
+        : copy("add_photos.photos_couldn_t_be_added", { failed });
+    return added > 0
+      ? copy("add_photos.added_to", { lead, added, album })
+      : copy("add_photos.to", { lead, album });
   }
   if (added === 0) {
     return duplicates === 1
-      ? `That photo is already in ${album}`
-      : `Those photos are already in ${album}`;
+      ? copy("add_photos.that_photo_is_already_in", { album })
+      : copy("add_photos.those_photos_are_already_in", { album });
   }
-  const lead = added === 1 ? `Added a photo to ${album}` : `Added ${added} photos to ${album}`;
-  return duplicates > 0 ? `${lead} · ${duplicates} already there` : lead;
+  const lead =
+    added === 1
+      ? copy("add_photos.added_a_photo_to", { album })
+      : copy("add_photos.added_photos_to", { added, album });
+  return duplicates > 0 ? copy("add_photos.already_there", { lead, duplicates }) : lead;
 }

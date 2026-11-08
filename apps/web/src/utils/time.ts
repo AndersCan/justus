@@ -1,4 +1,4 @@
-/** Warm, human date formatting helpers for the gallery. */
+import { copy } from "../copy/copy"; /** Warm, human date formatting helpers for the gallery. */
 
 const MONTHS = [
   "January",
@@ -19,12 +19,12 @@ const MONTHS = [
 export function formatRelative(ts: number, now = Date.now()): string {
   const diff = Math.max(0, now - ts);
   const min = Math.floor(diff / 60_000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
+  if (min < 1) return copy("time.just_now");
+  if (min < 60) return copy("time.min_ago", { min });
   const hours = Math.floor(min / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return copy("time.hr_ago", { hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 7) return copy("time.ago", { days });
   return formatFullDate(ts);
 }
 

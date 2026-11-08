@@ -24,6 +24,7 @@ import { confirmAction } from "./confirm";
 import { openAddFriend } from "./add-friend-sheet";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 export async function copyText(value: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
@@ -64,29 +65,33 @@ async function madeLink(folder: FolderSummary, myName: string): Promise<string |
 export async function shareInvite(folder: FolderSummary, myName: string) {
   const link = await madeLink(folder, myName);
   if (!link) return;
-  const text = `Ask to join my Justus album “${folder.name}”: ${link}`;
+  const text = copy("invite.ask_to_join_my_justus", { name: folder.name, link });
   if (typeof navigator.share === "function") {
     try {
-      await navigator.share({ title: `Justus album “${folder.name}”`, text });
+      await navigator.share({ title: copy("invite.justus_album", { name: folder.name }), text });
       return;
     } catch {
       // dismissed or failed: fall through to copy
     }
   }
-  toast((await copyText(link)) ? "Invite link copied" : "Couldn't copy the invite");
+  toast(
+    (await copyText(link))
+      ? copy("invite.invite_link_copied")
+      : copy("invite.couldn_t_copy_the_invite"),
+  );
 }
 
-async function copy(folder: FolderSummary, myName: string, button: HTMLElement) {
+async function copyInvite(folder: FolderSummary, myName: string, button: HTMLElement) {
   const link = await madeLink(folder, myName);
   if (!link) return;
   const ok = await copyText(link);
   if (!ok) {
-    toast("Couldn't copy the invite link");
+    toast(copy("invite.couldn_t_copy_the_invite_2"));
     return;
   }
   const label = button.dataset.label ?? button.textContent ?? "";
   button.dataset.label = label;
-  button.textContent = "Copied ✓";
+  button.textContent = copy("invite.copied");
   setTimeout(() => {
     button.textContent = label;
   }, 2000);
@@ -95,10 +100,9 @@ async function copy(folder: FolderSummary, myName: string, button: HTMLElement) 
 async function turnOff(folder: FolderSummary) {
   if (!folder.invite) return;
   const ok = await confirmAction({
-    title: "Turn off links you sent?",
-    detail:
-      "Links you sent for this album stop working at once. Requests from them you haven't answered disappear. People already in stay in. Your next invite makes a fresh link.",
-    confirmLabel: "Turn off",
+    title: copy("invite.turn_off_links_you_sent"),
+    detail: copy("invite.links_you_sent_for_this"),
+    confirmLabel: copy("invite.turn_off"),
     tone: "danger",
   });
   if (ok) inviteLink.turnOffLink(folder.id, folder.invite.code);
@@ -110,7 +114,7 @@ function qrCode(link: string) {
     viewBox="-2 -2 ${size + 4} ${size + 4}"
     class="mx-auto h-48 w-48 rounded-xl bg-white"
     role="img"
-    aria-label="QR code for the invite"
+    aria-label=${copy("invite.qr_code_for_the_invite")}
     shape-rendering="crispEdges"
   >
     <path d="${d}" fill="#000" />
@@ -121,26 +125,29 @@ function qrCode(link: string) {
 export function checkCodeLine(code: string | undefined, owner: string) {
   if (!code) return null;
   return html`<p class="mt-3 text-sm text-fg">
-    Your check code is <span class="font-semibold">${code}</span>. ${owner} sees the same code next
-    to your request.
+    ${t("invite.your_check_code_is")}
+    <span class="font-semibold">${code}</span>${t("invite.sees_the_same_code_next", { owner })}
   </p>`;
 }
 
 /** "From your friends: A, B or C. They get the invite in Justus, no link needed." Up to three names, then "or N more". */
 export function friendNamesLine(choices: FriendChoice[]): string {
   const names = choices.map((c) => c.name);
-  const shown = names.length <= 3 ? names : [...names.slice(0, 3), `${names.length - 3} more`];
+  const shown =
+    names.length <= 3
+      ? names
+      : [...names.slice(0, 3), copy("invite.more", { count: names.length - 3 })];
   const list =
     shown.length === 1
       ? shown[0]
-      : `${shown.slice(0, -1).join(", ")} or ${shown[shown.length - 1]}`;
-  return `From your friends: ${list}. They get the invite in Justus, no link needed.`;
+      : copy("invite.or", { others: shown.slice(0, -1).join(", "), last: shown[shown.length - 1] });
+  return copy("invite.from_your_friends_they_get", { list });
 }
 
 /** Shown to the Admin while friend invites wait for a friend to open Justus; null when none wait. */
 export function waitingLine(waitingFor: string[] | undefined): string | null {
   if (!waitingFor || waitingFor.length === 0) return null;
-  return "Invites waiting for friends. They go out when both of you have Justus open.";
+  return copy("invite.waiting_for_friends");
 }
 
 /** Invite surface: pick how long the link works, then one tap sends it (share
@@ -159,9 +166,9 @@ export function invitePanel(
   if (folder.role !== "creator" || !folder.invite) {
     return html`
       <section class="ui-card p-5">
-        <h2 class="ui-label mb-1">Invite people</h2>
+        <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
         <p class="text-sm text-fg">
-          Ask ${admin} for the invite link to “${folder.name}”. Only ${admin} can let new people in.
+          ${t("invite.ask_for_the_invite_link", { admin, name: folder.name })}
         </p>
       </section>
     `;
@@ -206,11 +213,11 @@ function invitePanelBody(
   const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Invite people</h2>
+      <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
       ${
         linksOff
           ? html`<p class="mb-4 text-sm text-fg" role="status">
-              Links turned off. Links you sent no longer work.
+              ${t("invite.links_turned_off_links_you")}
             </p>`
           : null
       }
@@ -227,20 +234,19 @@ function invitePanelBody(
                     memberIdentities,
                   )}
               >
-                Add a friend
+                ${t("invite.add_a_friend")}
               </button>
               <p class="mb-4 text-sm text-muted">${friendNamesLine(choices)}</p>
-              <h3 class="ui-label mb-1">Or send a link</h3>`
+              <h3 class="ui-label mb-1">${t("invite.or_send_a_link")}</h3>`
       }
       ${waiting ? html`<p class="mb-4 text-sm text-muted" role="status">${waiting}</p>` : null}
       <p class="mb-4 text-sm text-fg">
-        Send the link to people you want in “${folder.name}”. They ask to join and you choose who
-        gets in. They see no photos until you accept.
+        ${t("invite.send_the_link_to_people", { name: folder.name })}
       </p>
       ${
         expiresAt === null
           ? html`<label class="mb-4 flex items-center gap-2 text-sm text-fg">
-              Link works for
+              ${t("invite.link_works_for")}
               <select
                 class="ui-input w-auto py-1"
                 @change=${(e: Event) =>
@@ -257,7 +263,7 @@ function invitePanelBody(
               </select>
             </label>`
           : html`<p class="mb-4 text-sm text-fg">
-              This link works until ${linkEndText(expiresAt)}.
+              ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
             </p>`
       }
       <div class="flex flex-wrap gap-2">
@@ -268,30 +274,28 @@ function invitePanelBody(
                   ?disabled=${linkBlocked}
                   @click=${() => void shareInvite(folder, myName)}
                 >
-                  Send invite link
+                  ${t("invite.send_invite_link")}
                 </button>
                 <button
                   class="ui-btn-ghost"
                   ?disabled=${linkBlocked}
-                  @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
+                  @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
                 >
-                  Copy link
+                  ${t("invite.copy_link")}
                 </button>`
             : html`<button
                 class=${linkButton}
                 ?disabled=${linkBlocked}
-                @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
+                @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
               >
-                Copy invite link
+                ${t("invite.copy_invite_link")}
               </button>`
         }
       </div>
       ${
         linkBlocked
           ? null
-          : html`<p class="mt-2 text-sm text-muted">
-              Send it in any chat. They need Justus installed.
-            </p>`
+          : html`<p class="mt-2 text-sm text-muted">${t("invite.send_it_in_any_chat")}</p>`
       }
       ${
         link === null
@@ -299,13 +303,13 @@ function invitePanelBody(
           : qrShown
             ? html`<div class="mt-4">${qrCode(link)}</div>
                 <p class="mt-2 text-center text-xs text-muted">
-                  They scan this with their phone's camera.
+                  ${t("invite.they_scan_this_with_their")}
                 </p>`
             : html`<button
                 class="mt-3 text-sm text-muted underline underline-offset-2 hover:text-fg"
                 @click=${onShowQr}
               >
-                With them now? Show a QR code
+                ${t("invite.with_them_now_show_a")}
               </button>`
       }
       ${
@@ -316,13 +320,10 @@ function invitePanelBody(
               ?disabled=${view.state === "turningOff"}
               @click=${() => void turnOff(folder)}
             >
-              Turn off links you sent
+              ${t("invite.turn_off_links_you_sent_2")}
             </button>`
       }
-      <p class="mt-4 text-xs text-muted">
-        Both of you need Justus open for a request to arrive. It shows up here for you to accept or
-        decline.
-      </p>
+      <p class="mt-4 text-xs text-muted">${t("invite.both_of_you_need_justus")}</p>
     </section>
   `;
 }
@@ -365,7 +366,9 @@ export function joinSheet() {
         html`<h3 class="break-words text-base font-semibold text-fg">${EXPIRED_LINK}</h3>
           <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
           <div class="mt-4 flex justify-end">
-            <button class="ui-btn-primary" @click=${() => join.dismissExpired()}>OK</button>
+            <button class="ui-btn-primary" @click=${() => join.dismissExpired()}>
+              ${t("invite.ok")}
+            </button>
           </div>`,
         () => join.dismissExpired(),
       );
@@ -377,30 +380,29 @@ export function joinSheet() {
           <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
           <div class="mt-4 flex justify-end gap-2">
             <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
-              Cancel request
+              ${t("invite.cancel_request")}
             </button>
-            <button class="ui-btn-primary" @click=${() => join.closeLinkTurnedOff()}>Close</button>
+            <button class="ui-btn-primary" @click=${() => join.closeLinkTurnedOff()}>
+              ${t("invite.close")}
+            </button>
           </div>`,
         () => join.closeLinkTurnedOff(),
       );
     }
     if (state === "decidingToAsk" || state === "sendingRequest") {
       const sending = state === "sendingRequest";
-      const title = `Ask to join “${invite.album}”?`;
+      const title = copy("invite.ask_to_join", { album: invite.album });
       return sheet(
         title,
         html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
-          <p class="mt-3 text-sm text-fg">
-            ${owner} will see your name and can accept or decline. You'll see the photos if they
-            accept.
-          </p>
+          <p class="mt-3 text-sm text-fg">${t("invite.will_see_your_name_and", { owner })}</p>
           ${error ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>` : null}
           <div class="mt-4 flex justify-end gap-2">
             <button class="ui-btn-ghost" ?disabled=${sending} @click=${() => join.notNow()}>
-              Not now
+              ${t("invite.not_now")}
             </button>
             <button class="ui-btn-primary" ?disabled=${sending} @click=${() => join.askToJoin()}>
-              ${sending ? "Asking…" : "Ask to join"}
+              ${sending ? copy("invite.asking") : copy("invite.ask_to_join_2")}
             </button>
           </div>`,
         () => {
@@ -409,33 +411,36 @@ export function joinSheet() {
       );
     }
     if (state === "waitingForAdminToAccept") {
-      const title = `Waiting for ${owner}`;
+      const title = copy("invite.waiting_for", { owner });
       return sheet(
         title,
         html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
           <p class="mt-3 text-sm text-fg">
-            Request to join sent to ${owner}. You'll see “${invite.album}” when accepted. ${owner}
-            must be online too: keep Justus open on both phones.
+            ${t("invite.request_to_join_sent_to", { owner, album: invite.album })}
           </p>
           ${watch(foldersActor, (f) =>
             checkCodeLine(f.context.asks.find((a) => a.code === invite.code)?.checkCode, owner),
           )}
           <div class="mt-4 flex justify-end gap-2">
             <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
-              Cancel request
+              ${t("invite.cancel_request")}
             </button>
-            <button class="ui-btn-primary" @click=${() => join.closeWaiting()}>Close</button>
+            <button class="ui-btn-primary" @click=${() => join.closeWaiting()}>
+              ${t("invite.close")}
+            </button>
           </div>`,
         () => join.closeWaiting(),
       );
     }
-    const title = `${owner} didn't accept your request.`;
+    const title = copy("invite.didn_t_accept_your_request", { owner });
     return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
-        <p class="mt-3 text-sm text-fg">Nothing was shared with you.</p>
+        <p class="mt-3 text-sm text-fg">${t("invite.nothing_was_shared_with_you")}</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${() => join.dismissDecline()}>OK</button>
+          <button class="ui-btn-primary" @click=${() => join.dismissDecline()}>
+            ${t("invite.ok")}
+          </button>
         </div>`,
       () => join.dismissDecline(),
     );
@@ -445,7 +450,7 @@ export function joinSheet() {
 /** Who to name when waiting on the Admin: their name once known, else the role. */
 export function adminName(status: { members: { admin: boolean; name: string }[] } | null): string {
   const name = status?.members.find((m) => m.admin)?.name;
-  return name && name !== "Unknown device" ? name : "the Admin";
+  return name && name !== "Unknown device" ? name : copy("invite.the_admin");
 }
 
 /** Shown on an album this device joined and the Admin hasn't approved yet:
@@ -463,9 +468,8 @@ export function waitingForAdmin() {
             class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
           ></span>
           <p class="text-sm text-fg">
-            <span class="font-semibold">You can look, but not add photos yet.</span>
-            ${admin === "the Admin" ? "The Admin, who started this album," : admin} needs to open
-            Justus to approve you, so you may want to remind them.
+            <span class="font-semibold">${t("invite.you_can_look_but_not")}</span>
+            ${t("invite.needs_to_open_justus_to", { admin: admin === "the Admin" ? copy("invite.the_admin_who_started_this") : admin })}
           </p>
         </div>`
       : null;

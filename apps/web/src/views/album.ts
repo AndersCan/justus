@@ -28,14 +28,15 @@ import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { toast } from "./toast";
 import { gridMotion } from "./grid-motion";
 
+import { copy, t } from "../copy/copy";
 /** Why a Member or Viewer needs the Admin again after leaving. */
 export function leaveDetail(role: "member" | "reader", adminName: string): string {
   return role === "member"
-    ? `It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from ${adminName}.`
-    : `It disappears from this phone. To come back you need a new invite from ${adminName}.`;
+    ? copy("album.it_disappears_from_this_phone", { adminName })
+    : copy("album.it_disappears_from_this_phone_2", { adminName });
 }
 
-const photoCount = (n: number) => (n === 1 ? "1 photo" : `${n} photos`);
+const photoCount = (n: number) => (n === 1 ? copy("album.1_photo") : copy("album.photos", { n }));
 
 /** The names after "will lose their photos in it": none past three others. */
 function loseLine(names: string[]): string {
@@ -43,8 +44,8 @@ function loseLine(names: string[]): string {
   const list =
     names.length === 1
       ? names[0]
-      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  return ` ${list} will lose their photos in it.`;
+      : copy("album.and", { others: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+  return copy("album.will_lose_their_photos_in", { list });
 }
 
 /** The delete sheet: with others it says whose photos go, alone it is just this phone. */
@@ -52,13 +53,13 @@ export function deleteSheet(name: string, photos: number, otherNames: string[]) 
   const count = photoCount(photos);
   if (otherNames.length === 0) {
     return {
-      title: `Delete “${name}”?`,
-      detail: `The album and its ${count} are removed from this phone. This can't be undone.`,
+      title: copy("album.delete", { name }),
+      detail: copy("album.the_album_and_its_are", { count }),
     };
   }
   return {
-    title: `Delete “${name}” for everyone?`,
-    detail: `The album and its ${count}, including the ones other people added, are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.${loseLine(otherNames)}`,
+    title: copy("album.delete_for_everyone", { name }),
+    detail: copy("album.the_album_and_its_including", { count, loseLine: loseLine(otherNames) }),
   };
 }
 
@@ -67,11 +68,11 @@ export function albumMenuItems(
   role: "creator" | "member" | "reader",
   pending: boolean,
 ): { value: "archive" | "leave" | "delete"; label: string; danger: boolean }[] {
-  const archive = { value: "archive", label: "Archive", danger: false } as const;
+  const archive = { value: "archive", label: copy("album.archive"), danger: false } as const;
   if (pending) return [archive];
   if (role === "creator")
-    return [archive, { value: "delete", label: "Delete album", danger: true }];
-  return [archive, { value: "leave", label: "Leave album", danger: true }];
+    return [archive, { value: "delete", label: copy("album.delete_album"), danger: true }];
+  return [archive, { value: "leave", label: copy("album.leave_album"), danger: true }];
 }
 
 async function chooseAlbumAction(value: string, status: Status) {
@@ -82,9 +83,9 @@ async function chooseAlbumAction(value: string, status: Status) {
   }
   if (value === "leave") {
     const ok = await confirmAction({
-      title: `Leave “${name}”?`,
+      title: copy("album.leave", { name }),
       detail: leaveDetail(role === "member" ? "member" : "reader", adminName(status)),
-      confirmLabel: "Leave",
+      confirmLabel: copy("album.leave_2"),
       tone: "danger",
     });
     if (ok) folders.leave(id, name);
@@ -93,7 +94,11 @@ async function chooseAlbumAction(value: string, status: Status) {
   if (value === "delete") {
     const others = status.members.slice(1).map((m) => m.name);
     const sheet = deleteSheet(name, status.photos, others);
-    const ok = await confirmAction({ ...sheet, confirmLabel: "Delete album", tone: "danger" });
+    const ok = await confirmAction({
+      ...sheet,
+      confirmLabel: copy("album.delete_album"),
+      tone: "danger",
+    });
     if (ok) folders.delete(id, name);
   }
 }
@@ -108,7 +113,7 @@ function albumMenu(status: Status, busy: boolean) {
     <button
       slot="trigger"
       class="ui-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fg hover:bg-subtle"
-      aria-label="More options"
+      aria-label=${copy("album.more_options")}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <circle cx="5" cy="12" r="2" />
@@ -136,7 +141,7 @@ const memberNames = new Map<string, string>();
 onOutput(peopleActor, (e) => {
   if (e.type !== "viewerLetAddPhotos" && e.type !== "VIEWER_LET_ADD_PHOTOS") return;
   const key = (e.payload as { memberKey: string }).memberKey;
-  toast(`${memberNames.get(key) ?? "They"} can add photos now`);
+  toast(copy("album.can_add_photos_now", { name: memberNames.get(key) ?? copy("album.they") }));
   memberNames.delete(key);
 });
 
@@ -144,7 +149,7 @@ onOutput(peopleActor, (e) => {
   if (e.type !== "memberMadeViewer" && e.type !== "MEMBER_MADE_VIEWER") return;
   const key = (e.payload as { memberKey: string }).memberKey;
   const name = memberNames.get(key);
-  toast(name ? `${name} is a Viewer now` : "They're a Viewer now");
+  toast(name ? copy("album.is_a_viewer_now", { name }) : copy("album.they_re_a_viewer_now"));
   memberNames.delete(key);
 });
 
@@ -156,13 +161,18 @@ export function answerToast(a: {
   viaInvite: boolean;
 }): string {
   if (!a.approve) return "";
-  if (a.role === "reader") return `${a.requesterName} is in as a Viewer`;
-  return a.viaInvite ? `${a.requesterName} is in as a Collaborator` : `${a.requesterName} is in`;
+  if (a.role === "reader")
+    return copy("album.is_in_as_a_viewer", { requesterName: a.requesterName });
+  return a.viaInvite
+    ? copy("album.is_in_as_a_collaborator", { requesterName: a.requesterName })
+    : copy("album.is_in", { requesterName: a.requesterName });
 }
 
 /** The one toast after Accept all: how many are in. */
 export function acceptAllToast(count: number): string {
-  return count === 1 ? "1 person is in as a Viewer" : `${count} people are in as Viewers`;
+  return count === 1
+    ? copy("album.1_person_is_in_as")
+    : copy("album.people_are_in_as_viewers", { count });
 }
 
 onOutput(requestsActor, (e) => {
@@ -177,28 +187,30 @@ onOutput(requestsActor, (e) => {
 
 /** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
 export function removeDetail(name: string, viewer: boolean): string {
-  const added = viewer ? "" : `, and the photos ${name} added leave the album`;
-  return `${name} won't see photos added from now on${added}. ${name} keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.`;
+  const added = viewer ? "" : copy("album.and_the_photos_added_leave", { name });
+  return copy("album.won_t_see_photos_added", { name, added });
 }
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const body = html`${avatarBadge(p.name)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
-        ${p.name}${p.you ? " (you)" : ""}
-        ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">· Admin</span>` : null}
-        ${p.viewer ? html`<span class="ml-1 text-xs font-normal text-muted">· Viewer</span>` : null}
+        ${p.name}${p.you ? copy("album.you") : ""}
+        ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.admin")}</span>` : null}
+        ${p.viewer ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.viewer")}</span>` : null}
         ${
           !p.admin && !p.viewer
-            ? html`<span class="ml-1 text-xs font-normal text-muted">· Collaborator</span>`
+            ? html`<span class="ml-1 text-xs font-normal text-muted"
+                >${t("album.collaborator")}</span
+              >`
             : null
         }
-        ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">· Friend</span>` : null}
+        ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
-              Not your friend ${p.clash}
+              ${t("album.not_your_friend", { clash: p.clash })}
             </p>`
           : null
       }
@@ -234,7 +246,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
       vm.isAdmin && !p.you && !p.admin && p.viewer
         ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
-            aria-label="Let ${p.name} add photos"
+            aria-label=${copy("album.let_add_photos", { name: p.name })}
             ?disabled=${vm.busy}
             @click=${() => {
               if (!vm.folder) return;
@@ -242,7 +254,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
               people.letViewerAddPhotos(vm.folder.id, p.key);
             }}
           >
-            Let ${p.name} add photos
+            ${t("album.let_add_photos", { name: p.name })}
           </button>`
         : null
     }
@@ -250,13 +262,13 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
       vm.isAdmin && !p.you && !p.admin && !p.viewer
         ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
-            aria-label="Make ${p.name} a Viewer"
+            aria-label=${copy("album.make_a_viewer", { name: p.name })}
             ?disabled=${vm.busy}
             @click=${async () => {
               const ok = await confirmAction({
-                title: `Make ${p.name} a Viewer?`,
-                detail: `${p.name} keeps seeing every photo but can't add more. The photos ${p.name} already added stay in the album.`,
-                confirmLabel: "Make Viewer",
+                title: copy("album.make_a_viewer_2", { name: p.name }),
+                detail: copy("album.keeps_seeing_every_photo_but", { name: p.name }),
+                confirmLabel: copy("album.make_viewer"),
               });
               if (ok && vm.folder) {
                 memberNames.set(p.key, p.name);
@@ -264,7 +276,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
               }
             }}
           >
-            Make Viewer
+            ${t("album.make_viewer")}
           </button>`
         : null
     }
@@ -275,15 +287,15 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
             ?disabled=${vm.busy}
             @click=${async () => {
               const ok = await confirmAction({
-                title: `Remove ${p.name}?`,
+                title: copy("album.remove", { name: p.name }),
                 detail: removeDetail(p.name, p.viewer === true),
-                confirmLabel: "Remove",
+                confirmLabel: copy("album.remove_2"),
                 tone: "danger",
               });
               if (ok && vm.folder) people.remove(vm.folder.id, p.key);
             }}
           >
-            Remove
+            ${t("album.remove_2")}
           </button>`
         : null
     }
@@ -319,22 +331,22 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
     requests.respond(r.folderId, r.requesterKey, true, role);
   return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
     <p class="text-sm text-fg">
-      <span class="font-semibold">${r.name}</span> wants to join
-      “${r.folderName}”${
-        r.friend ? html`<span class="ml-1 text-xs text-muted">· Friend</span>` : null
+      <span class="font-semibold">${r.name}</span>
+      ${t("album.wants_to_join", { folderName: r.folderName })}${
+        r.friend ? html`<span class="ml-1 text-xs text-muted">${t("album.friend")}</span>` : null
       }
     </p>
-    ${r.clash ? html`<p class="text-xs font-semibold text-warn-fg">Not your friend ${r.clash}</p>` : null}
+    ${r.clash ? html`<p class="text-xs font-semibold text-warn-fg">${t("album.not_your_friend", { clash: r.clash })}</p>` : null}
     ${
       r.friend && r.requesterName !== r.name
         ? html`<p class="text-xs text-muted">${r.requesterName}</p>`
         : null
     }
     <p class="mt-1 text-xs text-muted">
-      Asked
-      ${formatRelative(r.requestedAt)}${
+      ${t("album.asked", { when: formatRelative(r.requestedAt) })}${
         r.checkCode
-          ? html` · Check code <span class="font-semibold text-fg">${r.checkCode}</span>`
+          ? html` ${t("album.check_code")}
+              <span class="font-semibold text-fg">${r.checkCode}</span>`
           : ""
       }
     </p>
@@ -344,15 +356,15 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
             ${inviteAccept(
               r,
               busy,
-              "Accept as Viewer",
-              "Sees every photo, can't add any",
+              copy("album.accept_as_viewer"),
+              copy("album.sees_every_photo_can_t"),
               accept("reader"),
             )}
             ${inviteAccept(
               r,
               busy,
-              "Accept as Collaborator",
-              "Sees every photo and can add their own",
+              copy("album.accept_as_collaborator"),
+              copy("album.sees_every_photo_and_can"),
               accept("member"),
             )}
             <button
@@ -360,7 +372,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
               ?disabled=${busy}
               @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
             >
-              Decline
+              ${t("album.decline")}
             </button>
           </div>`
         : html`<div class="mt-2 flex gap-2">
@@ -369,10 +381,10 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
               ?disabled=${busy}
               @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
             >
-              Decline
+              ${t("album.decline")}
             </button>
             <button class="ui-btn-primary" ?disabled=${busy} @click=${accept("member")}>
-              Accept
+              ${t("album.accept")}
             </button>
           </div>`
     }
@@ -388,7 +400,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
     class="ui-card border-l-4 border-l-warn p-5"
     data-motion-key="section:requests"
   >
-    <h2 class="ui-label mb-3">Asking to join</h2>
+    <h2 class="ui-label mb-3">${t("album.asking_to_join")}</h2>
     ${hint !== "" ? html`<p class="mb-3 text-xs text-muted">${hint}</p>` : null}
     ${
       keys.length >= 2
@@ -398,11 +410,9 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
               ?disabled=${reqVm.responding || reqVm.loading}
               @click=${() => requests.acceptAllAsViewers(id, keys)}
             >
-              Accept all ${keys.length} as Viewers
+              ${t("album.accept_all_as_viewers", { count: keys.length })}
             </button>
-            <p class="mt-1 text-xs text-muted">
-              They can see the photos but not add or remove any.
-            </p>
+            <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
           </div>`
         : null
     }
@@ -423,11 +433,8 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
 
 function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
-    <h2 class="ui-label">Members</h2>
-    <p class="mb-2 mt-1 text-xs text-muted">
-      Connected means they have Justus open and your phone can reach them right now. Everyone in the
-      album sees this list. Viewers see every photo but can't add any.
-    </p>
+    <h2 class="ui-label">${t("album.members")}</h2>
+    <p class="mb-2 mt-1 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>
     ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
     <ul
       class="divide-y divide-line"
@@ -448,10 +455,8 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
   if (status.folder.role !== "creator") return null;
   return html`
     <section class="mt-5">
-      <h3 class="text-sm font-semibold text-fg">Add a member by drive key</h3>
-      <p class="mb-3 mt-1 text-sm">
-        Paste a device's drive key and a name to let it add photos without a request.
-      </p>
+      <h3 class="text-sm font-semibold text-fg">${t("album.add_a_member_by_drive")}</h3>
+      <p class="mb-3 mt-1 text-sm">${t("album.paste_a_device_s_drive")}</p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
@@ -464,8 +469,8 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
       >
         <input
           class="ui-input flex-1"
-          placeholder="device drive key (hex)"
-          aria-label="Device drive key"
+          placeholder=${copy("album.device_drive_key_hex")}
+          aria-label=${copy("album.device_drive_key")}
           data-k
           spellcheck="false"
           autocapitalize="none"
@@ -474,11 +479,13 @@ function enrollSection(status: Status, settled: boolean, busy: boolean) {
         />
         <input
           class="ui-input w-full sm:w-40"
-          placeholder="device name"
-          aria-label="Device name"
+          placeholder=${copy("album.device_name")}
+          aria-label=${copy("album.device_name_2")}
           data-n
         />
-        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || !settled}>Enroll</button>
+        <button class="ui-btn-ghost" type="submit" ?disabled=${busy || !settled}>
+          ${t("album.enroll")}
+        </button>
       </form>
     </section>
   `;
@@ -528,7 +535,11 @@ function secretValue(name: string, value: string) {
     <label
       class="inline-flex shrink-0 cursor-pointer items-center rounded-md p-1 text-fg hover:bg-subtle has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
     >
-      <input type="checkbox" class="sr-only" aria-label="Show ${name.toLowerCase()}" />
+      <input
+        type="checkbox"
+        class="sr-only"
+        aria-label=${copy("album.show", { name: name.toLowerCase() })}
+      />
       ${eyeIcon(true, "group-has-[:checked]:hidden")}
       ${eyeIcon(false, "hidden group-has-[:checked]:block")}
     </label>
@@ -538,40 +549,36 @@ function secretValue(name: string, value: string) {
 function advancedSection(status: Status, settled: boolean, busy: boolean) {
   const driveKey = status.folder.driveKey || status.driveKey;
   return html`<details class="text-xs text-muted" data-motion-key="section:advanced">
-    <summary class="ui-label cursor-pointer select-none">Advanced</summary>
+    <summary class="ui-label cursor-pointer select-none">${t("album.advanced")}</summary>
     <dl class="mt-3 grid grid-cols-2 gap-y-2 text-sm">
-      <dt class="text-muted">Peers reachable</dt>
+      <dt class="text-muted">${t("album.peers_reachable")}</dt>
       <dd>${status.peers}</dd>
-      <dt class="text-muted">Photos</dt>
+      <dt class="text-muted">${t("album.photos_2")}</dt>
       <dd>${status.photos}</dd>
-      <dt class="text-muted">Members</dt>
+      <dt class="text-muted">${t("album.members")}</dt>
       <dd>${status.members.length}</dd>
     </dl>
-    <p class="mt-4 text-sm text-fg">
-      Technical keys for troubleshooting. Do not share them unless you know what you are doing.
-    </p>
+    <p class="mt-4 text-sm text-fg">${t("album.technical_keys_for_troubleshooting_do")}</p>
     <dl class="mt-3 space-y-4">
       ${keyRow(
-        "Discovery key",
+        copy("album.discovery_key"),
         status.discoveryKey,
-        "A one-way fingerprint of your drive key that devices use to find each other. It opens no photos, though someone holding it could see which network addresses are syncing this album.",
+        copy("album.a_one_way_fingerprint_of"),
       )}
     </dl>
-    <h3 class="mt-5 text-sm font-semibold text-danger-fg">Secret</h3>
-    <p class="mt-1 text-sm">
-      Anyone with one of these can see the photos, and they can't be changed.
-    </p>
+    <h3 class="mt-5 text-sm font-semibold text-danger-fg">${t("album.secret")}</h3>
+    <p class="mt-1 text-sm">${t("album.anyone_with_one_of_these")}</p>
     <dl class="mt-3 space-y-4">
       ${keyRow(
-        "Share key",
+        copy("album.share_key"),
         status.folder.shareKey,
-        "The album's invite. It opens the whole album: every member's photos and the member list.",
+        copy("album.the_album_s_invite_it"),
         true,
       )}
       ${keyRow(
-        "Your drive key",
+        copy("album.your_drive_key"),
         driveKey,
-        "Where this device keeps the photos it added to this album. The Admin needs it to enroll you as a member.",
+        copy("album.where_this_device_keeps_the"),
         true,
       )}
     </dl>
@@ -587,17 +594,19 @@ function albumBody(
   reqVm: ReturnType<typeof requestsViewModel>,
 ) {
   const { status, state, busy, settled, error, fatal } = syncVm;
-  const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
+  const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing"
+    >${t("album.sharing")}</a
+  >`;
   if (!status || status.folder.id !== id) {
     return html`<div class="max-w-2xl space-y-4">
       ${back}
       ${
         settled || state === "couldNotCheckAlbum" || fatal
-          ? html`<p class="text-fg">This album isn't showing right now.</p>
+          ? html`<p class="text-fg">${t("album.this_album_isn_t_showing")}</p>
               <button class="ui-btn-primary" @click=${() => folders.switchTo(id)}>
-                Open album
+                ${t("album.open_album")}
               </button>`
-          : html`<p class="text-muted">Loading…</p>`
+          : html`<p class="text-muted">${t("album.loading")}</p>`
       }
     </div>`;
   }
@@ -623,7 +632,7 @@ function albumBody(
     </div>
     ${albumNotice(status.folder.notice, status.folder.name)}
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
-      >See photos in this album</a
+      >${t("album.see_photos_in_this_album")}</a
     >
     ${errorBanner(
       error,

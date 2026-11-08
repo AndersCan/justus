@@ -1,0 +1,3761 @@
+{
+  "friends.couldn_t_save_try_again": {
+    "text": "Couldn't save. Try again.",
+    "status": "draft",
+    "where": "Friends › text",
+    "who": "People saving a friend",
+    "screen": ""
+  },
+  "onboarding.couldn_t_turn_on_app": {
+    "text": "Couldn't turn on App lock. Try again.",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once",
+    "screen": ""
+  },
+  "onboarding.enter_a_name_to_continue": {
+    "text": "Enter a name to continue",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once",
+    "screen": ""
+  },
+  "requests.they": {
+    "text": "They",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "invite_link.10_minutes": {
+    "text": "10 minutes",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.1_hour": {
+    "text": "1 hour",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.1_day": {
+    "text": "1 day",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.7_days": {
+    "text": "7 days",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.links_turned_off": {
+    "text": "Links turned off",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.couldn_t_make_the_link": {
+    "text": "Couldn't make the link. Try again.",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite_link.couldn_t_turn_off_the": {
+    "text": "Couldn't turn off the links. Try again.",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "join_request.that_invite_doesn_t_look": {
+    "text": "That invite doesn't look right. Check you copied all of it.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.this_link_no_longer_works": {
+    "text": "This link no longer works. Ask {ownerName} for a new invite link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.this_invite_link_has_expired": {
+    "text": "This invite link has expired.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.ask_for_a_new_one": {
+    "text": "Ask {owner} for a new one.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.this_invite_link_no_longer": {
+    "text": "This invite link no longer works.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.couldn_t_send_your_request": {
+    "text": "Couldn't send your request. Try again.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "app.photos": {
+    "text": "Photos",
+    "status": "draft",
+    "where": "App shell › text",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.sharing": {
+    "text": "Sharing",
+    "status": "draft",
+    "where": "App shell › text",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.settings": {
+    "text": "Settings",
+    "status": "draft",
+    "where": "App shell › text",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.waiting_for_approval": {
+    "text": "{badge} waiting for approval",
+    "status": "draft",
+    "where": "App shell › screen reader label",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.main": {
+    "text": "Main",
+    "status": "draft",
+    "where": "App shell › screen reader label",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.more_help": {
+    "text": "More help",
+    "status": "draft",
+    "where": "App shell › link",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "app.we_couldn_t_find_that": {
+    "text": "We couldn't find that page.",
+    "status": "draft",
+    "where": "App shell › text",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "add_photos.1_photo_couldn_t_be": {
+    "text": "1 photo couldn't be added",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.photos_couldn_t_be_added": {
+    "text": "{failed} photos couldn't be added",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.added_to": {
+    "text": "{lead}. {added} added to {album}.",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.to": {
+    "text": "{lead} to {album}.",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.that_photo_is_already_in": {
+    "text": "That photo is already in {album}",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.those_photos_are_already_in": {
+    "text": "Those photos are already in {album}",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.added_a_photo_to": {
+    "text": "Added a photo to {album}",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.added_photos_to": {
+    "text": "Added {added} photos to {album}",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "add_photos.already_there": {
+    "text": "{lead} · {duplicates} already there",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
+  "encode_photo.this_photo_s_format_can": {
+    "text": "This photo's format can't be opened on this device",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "People adding photos the phone cannot read",
+    "screen": ""
+  },
+  "encode_photo.this_device_can_t_resize": {
+    "text": "This device can't resize photos",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "People adding photos the phone cannot read",
+    "screen": ""
+  },
+  "encode_photo.this_device_can_t_save": {
+    "text": "This device can't save photos as JPEG",
+    "status": "draft",
+    "where": "Toasts › Adding photos › text",
+    "who": "People adding photos the phone cannot read",
+    "screen": ""
+  },
+  "error.that_invite_link_doesn_t": {
+    "text": "That invite link doesn't look right. Check you copied all of it.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.that_drive_key_doesn_t": {
+    "text": "That drive key doesn't look right. Check you copied all of it.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.you_started_this_album_so": {
+    "text": "You started this album, so it's already here.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.you_can_t_add_photos": {
+    "text": "You can't add photos here until the Admin approves you.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.only_the_admin_who_started": {
+    "text": "Only the Admin, who started this album, can do that.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.they_can_already_add_photos": {
+    "text": "They can already add photos.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.that_is_this_phone_s": {
+    "text": "That is this phone's own drive key.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.that_person_isn_t_in": {
+    "text": "That person isn't in this album anymore.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.enter_a_name_to_continue": {
+    "text": "Enter a name to continue.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.couldn_t_find_the_album": {
+    "text": "Couldn't find the album. Ask the person who invited you to open Justus, then try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.couldn_t_open_that_album": {
+    "text": "Couldn't open that album. Try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.couldn_t_add_that_photo": {
+    "text": "Couldn't add that photo. Try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.this_phone_is_out_of": {
+    "text": "This phone is out of space.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.couldn_t_reach_justus_on": {
+    "text": "Couldn't reach Justus on this phone. Reload and try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.couldn_t_connect_check_your": {
+    "text": "Couldn't connect. Check your internet and try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.update_justus_to_open_your": {
+    "text": "Update Justus to open your albums.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.something_went_wrong_inside_justus": {
+    "text": "Something went wrong inside Justus.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.enter_a_name_to_continue_2": {
+    "text": "Enter a name to continue",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.that_invite_doesn_t_look": {
+    "text": "That invite doesn't look right. Check you copied all of it.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "error.something_went_wrong_try_again": {
+    "text": "Something went wrong. Try again.",
+    "status": "draft",
+    "where": "Error messages › text",
+    "who": "Anyone when an action fails",
+    "screen": ""
+  },
+  "holders.can_t_tell_who_has": {
+    "text": "Can't tell who has this photo yet",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.only_on_your_phone": {
+    "text": "Only on your phone",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.on_your_phone_others_haven": {
+    "text": "On your phone. Others haven't said",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.on_and_your_phone": {
+    "text": "On {names} and your phone",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.on_your_phone_and": {
+    "text": "On your phone and {k} {k?other:others}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.arriving_on_your_phone": {
+    "text": "Arriving on your phone…",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.on_phone_arriving_on_yours": {
+    "text": "On {name} phone. Arriving on yours…",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "holders.on_arriving_on_yours": {
+    "text": "On {k} {k?phone:phones}. Arriving on yours…",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "invite_link.this_album": {
+    "text": "this album",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People sending or opening an invite",
+    "screen": ""
+  },
+  "invite_link.the_admin": {
+    "text": "the Admin",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People sending or opening an invite",
+    "screen": ""
+  },
+  "people.someone_not_in_your_friends": {
+    "text": "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.not_sure_who_it_is": {
+    "text": "Not sure who it is? Ask them which check code their phone shows.",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.last_seen": {
+    "text": "last seen {when}",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.not_seen_yet": {
+    "text": "not seen yet",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.of_connected": {
+    "text": "{connected} of {others} connected",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.just_you": {
+    "text": "Just you",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "people.unknown_device": {
+    "text": "Unknown device",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
+  "photo_scope.recently_added": {
+    "text": "Recently added",
+    "status": "draft",
+    "where": "Photos › Filter › text",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "reach_hint.can_t_reach_anyone_in": {
+    "text": "Can't reach anyone in this album yet. If you're on mobile data, try WiFi.",
+    "status": "draft",
+    "where": "Album › Connection hint › text",
+    "who": "People waiting for a connection",
+    "screen": ""
+  },
+  "reach_hint.can_t_reach_if_you": {
+    "text": "Can't reach {name}. If you're both on mobile data, ask one of you to switch to WiFi.",
+    "status": "draft",
+    "where": "Album › Connection hint › text",
+    "who": "People waiting for a connection",
+    "screen": ""
+  },
+  "time.just_now": {
+    "text": "just now",
+    "status": "draft",
+    "where": "Times shown next to things › text",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "time.min_ago": {
+    "text": "{min} min ago",
+    "status": "draft",
+    "where": "Times shown next to things › text",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "time.hr_ago": {
+    "text": "{hours} hr ago",
+    "status": "draft",
+    "where": "Times shown next to things › text",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "time.ago": {
+    "text": "{days} {days?day:days} ago",
+    "status": "draft",
+    "where": "Times shown next to things › text",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "add_friend_sheet.asked_to_join": {
+    "text": "Asked {name} to join",
+    "status": "draft",
+    "where": "Friends › Add a friend › toast",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.couldn_t_add_from_here": {
+    "text": "Couldn't add {name} from here. Send {name} a link instead.",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.couldn_t_reach_ask_to": {
+    "text": "Couldn't reach {name}. Ask {name} to open Justus, then try again.",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.add_a_friend_to": {
+    "text": "Add a friend to “{albumName}”",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Friends › Add a friend › button",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.asking": {
+    "text": "Asking {name}...",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "album.it_disappears_from_this_phone": {
+    "text": "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from {adminName}.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.it_disappears_from_this_phone_2": {
+    "text": "It disappears from this phone. To come back you need a new invite from {adminName}.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.1_photo": {
+    "text": "1 photo",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.photos": {
+    "text": "{n} photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.and": {
+    "text": "{others} and {last}",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.will_lose_their_photos_in": {
+    "text": " {list} will lose their photos in it.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.delete": {
+    "text": "Delete “{name}”?",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.the_album_and_its_are": {
+    "text": "The album and its {count} are removed from this phone. This can't be undone.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.delete_for_everyone": {
+    "text": "Delete “{name}” for everyone?",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.the_album_and_its_including": {
+    "text": "The album and its {count}, including the ones other people added, are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.{loseLine}",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.archive": {
+    "text": "Archive",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.delete_album": {
+    "text": "Delete album",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.leave_album": {
+    "text": "Leave album",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.leave": {
+    "text": "Leave “{name}”?",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.leave_2": {
+    "text": "Leave",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.more_options": {
+    "text": "More options",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.they": {
+    "text": "They",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_a_viewer_now": {
+    "text": "{name} is a Viewer now",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.they_re_a_viewer_now": {
+    "text": "They're a Viewer now",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_in_as_a_viewer": {
+    "text": "{requesterName} is in as a Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_in_as_a_collaborator": {
+    "text": "{requesterName} is in as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_in": {
+    "text": "{requesterName} is in",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.1_person_is_in_as": {
+    "text": "1 person is in as a Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.people_are_in_as_viewers": {
+    "text": "{count} people are in as Viewers",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.and_the_photos_added_leave": {
+    "text": ", and the photos {name} added leave the album",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.won_t_see_photos_added": {
+    "text": "{name} won't see photos added from now on{added}. {name} keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.you": {
+    "text": " (you)",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.admin": {
+    "text": "· Admin",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.viewer": {
+    "text": "· Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.collaborator": {
+    "text": "· Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.friend": {
+    "text": "· Friend",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.not_your_friend": {
+    "text": "Not your friend {clash}",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.let_add_photos": {
+    "text": "Let {name} add photos",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.make_a_viewer": {
+    "text": "Make {name} a Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.make_a_viewer_2": {
+    "text": "Make {name} a Viewer?",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.keeps_seeing_every_photo_but": {
+    "text": "{name} keeps seeing every photo but can't add more. The photos {name} already added stay in the album.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.make_viewer": {
+    "text": "Make Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.remove": {
+    "text": "Remove {name}?",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.remove_2": {
+    "text": "Remove",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.wants_to_join": {
+    "text": "wants to join “{folderName}”",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.asked": {
+    "text": "Asked {when}",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.check_code": {
+    "text": "· Check code",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_as_viewer": {
+    "text": "Accept as Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.sees_every_photo_can_t": {
+    "text": "Sees every photo, can't add any",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_as_collaborator": {
+    "text": "Accept as Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.sees_every_photo_and_can": {
+    "text": "Sees every photo and can add their own",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.decline": {
+    "text": "Decline",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept": {
+    "text": "Accept",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.asking_to_join": {
+    "text": "Asking to join",
+    "status": "draft",
+    "where": "Album › Invite & members › heading",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all_as_viewers": {
+    "text": "Accept all {count} as Viewers",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.they_can_see_the_photos": {
+    "text": "They can see the photos but not add or remove any.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.members": {
+    "text": "Members",
+    "status": "draft",
+    "where": "Album › Invite & members › heading",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.connected_means_they_have_justus": {
+    "text": "Connected means they have Justus open and your phone can reach them right now. Everyone in the album sees this list. Viewers see every photo but can't add any.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.add_a_member_by_drive": {
+    "text": "Add a member by drive key",
+    "status": "draft",
+    "where": "Album › Invite & members › heading",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.paste_a_device_s_drive": {
+    "text": "Paste a device's drive key and a name to let it add photos without a request.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.device_drive_key_hex": {
+    "text": "device drive key (hex)",
+    "status": "draft",
+    "where": "Album › Invite & members › input hint",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.device_drive_key": {
+    "text": "Device drive key",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.device_name": {
+    "text": "device name",
+    "status": "draft",
+    "where": "Album › Invite & members › input hint",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.device_name_2": {
+    "text": "Device name",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.enroll": {
+    "text": "Enroll",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.show": {
+    "text": "Show {name}",
+    "status": "draft",
+    "where": "Album › Invite & members › screen reader label",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.advanced": {
+    "text": "Advanced",
+    "status": "draft",
+    "where": "Album › Invite & members › section title",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.peers_reachable": {
+    "text": "Peers reachable",
+    "status": "draft",
+    "where": "Album › Invite & members › term",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.photos_2": {
+    "text": "Photos",
+    "status": "draft",
+    "where": "Album › Invite & members › term",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.technical_keys_for_troubleshooting_do": {
+    "text": "Technical keys for troubleshooting. Do not share them unless you know what you are doing.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.discovery_key": {
+    "text": "Discovery key",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.a_one_way_fingerprint_of": {
+    "text": "A one-way fingerprint of your drive key that devices use to find each other. It opens no photos, though someone holding it could see which network addresses are syncing this album.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.secret": {
+    "text": "Secret",
+    "status": "draft",
+    "where": "Album › Invite & members › heading",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.anyone_with_one_of_these": {
+    "text": "Anyone with one of these can see the photos, and they can't be changed.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.share_key": {
+    "text": "Share key",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.the_album_s_invite_it": {
+    "text": "The album's invite. It opens the whole album: every member's photos and the member list.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.your_drive_key": {
+    "text": "Your drive key",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.where_this_device_keeps_the": {
+    "text": "Where this device keeps the photos it added to this album. The Admin needs it to enroll you as a member.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.sharing": {
+    "text": "← Sharing",
+    "status": "draft",
+    "where": "Album › Invite & members › link",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.this_album_isn_t_showing": {
+    "text": "This album isn't showing right now.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.open_album": {
+    "text": "Open album",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.loading": {
+    "text": "Loading…",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.see_photos_in_this_album": {
+    "text": "See photos in this album",
+    "status": "draft",
+    "where": "Album › Invite & members › link",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.can_add_photos_now": {
+    "text": "{name} can add photos now",
+    "status": "draft",
+    "where": "Album › Invite & members › toast",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "albums.couldn_t_join_needs_justus": {
+    "text": "Couldn't join “{albumName}”. {ownerName} needs Justus open too.",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.waiting_for_approval": {
+    "text": "Waiting for approval",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.admin": {
+    "text": "Admin",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.collaborator": {
+    "text": "Collaborator",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.viewer": {
+    "text": "Viewer",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.couldn_t_read_the_clipboard": {
+    "text": "Couldn't read the clipboard. Paste the invite link into the box.",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.dismiss_the_notice_for": {
+    "text": "dismiss the notice for",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.couldn_t_try_again": {
+    "text": "Couldn't {action} “{name}”. Try again.",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.archived": {
+    "text": "Archived “{name}”",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.undo": {
+    "text": "Undo",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.is_back_in_your_albums": {
+    "text": "“{name}” is back in your albums",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.you_left": {
+    "text": "You left “{name}”",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.deleted": {
+    "text": "Deleted “{name}”",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.no_longer_in_this_album": {
+    "text": "No longer in this album",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.member": {
+    "text": "{members} member{members?:s}",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.invite_members_of": {
+    "text": "Invite & members of {name}",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.waiting_for_approval_2": {
+    "text": "{waiting} waiting for approval",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.photos_in": {
+    "text": "Photos in {name}",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.photos": {
+    "text": "Photos",
+    "status": "draft",
+    "where": "Your albums › link",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.archived_albums": {
+    "text": "Archived albums",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.restore": {
+    "text": "Restore {name}",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.restore_2": {
+    "text": "Restore",
+    "status": "draft",
+    "where": "Your albums › button",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.waiting": {
+    "text": " · {waiting} waiting",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.dismiss_notice_about": {
+    "text": "Dismiss notice about {name}",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.dismiss": {
+    "text": "Dismiss",
+    "status": "draft",
+    "where": "Your albums › button",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.not_accepted": {
+    "text": "Not accepted",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.link_no_longer_works": {
+    "text": "Link no longer works",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.waiting_for_to_accept": {
+    "text": "Waiting for {ownerName} to accept",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.joining": {
+    "text": "Joining “{albumName}”...",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.invited_you": {
+    "text": "{owner} invited you",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.join": {
+    "text": "Join {albumName}",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.join_2": {
+    "text": "Join",
+    "status": "draft",
+    "where": "Your albums › button",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.loading": {
+    "text": "Loading…",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.no_albums_yet": {
+    "text": "No albums yet.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.start_one_below_or": {
+    "text": "Start one below, or",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.join_a_friend_s": {
+    "text": "join a friend's",
+    "status": "draft",
+    "where": "Your albums › link",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.with_their_invite": {
+    "text": "with their invite.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.your_albums": {
+    "text": "Your albums",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.new_album": {
+    "text": "New album",
+    "status": "draft",
+    "where": "Your albums › heading",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.start_one_per_trip_family": {
+    "text": "Start one per trip, family or group.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.album_name": {
+    "text": "Album name",
+    "status": "draft",
+    "where": "Your albums › input hint",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.creating": {
+    "text": "Creating…",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.create_album": {
+    "text": "Create album",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.join_with_an_invite_link": {
+    "text": "Join with an invite link",
+    "status": "draft",
+    "where": "Your albums › heading",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.got_an_invite_link_from": {
+    "text": "Got an invite link from someone? Paste it here to ask to join their album.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.paste_the_invite_link": {
+    "text": "Paste the invite link",
+    "status": "draft",
+    "where": "Your albums › input hint",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.invite_link": {
+    "text": "Invite link",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.paste_from_clipboard": {
+    "text": "Paste from clipboard",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.paste": {
+    "text": "Paste",
+    "status": "draft",
+    "where": "Your albums › button",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.continue": {
+    "text": "Continue",
+    "status": "draft",
+    "where": "Your albums › button",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.tap_an_album_to_invite": {
+    "text": "Tap an album to invite people or see who's in it. Each album has its own invite link.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.tap_an_album_to_see": {
+    "text": "Tap an album to see who's in it.",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.waiting_to_join": {
+    "text": "Waiting to join",
+    "status": "draft",
+    "where": "Your albums › screen reader label",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.archived_2": {
+    "text": "Archived ({count}){note}",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "app_lock.couldn_t_turn_app_lock": {
+    "text": "Couldn't turn {state} App lock. Try again.",
+    "status": "draft",
+    "where": "Settings › App lock › toast",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.app_lock_is_on": {
+    "text": "App lock is on",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.app_lock_is_off": {
+    "text": "App lock is off",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.uses_your_phone_s_fingerprint": {
+    "text": "Uses your phone's fingerprint, face or PIN. Applies after you've been away for 30 seconds.",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.set_a_screen_lock_in": {
+    "text": "Set a screen lock in your phone's Settings to use App lock.",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.app_lock": {
+    "text": "App lock",
+    "status": "draft",
+    "where": "Settings › App lock › heading",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.require_unlock_to_open_justus": {
+    "text": "Require unlock to open Justus",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.on": {
+    "text": "On",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "app_lock.off": {
+    "text": "Off",
+    "status": "draft",
+    "where": "Settings › App lock › text",
+    "who": "People turning on App lock",
+    "screen": ""
+  },
+  "confirm.keep": {
+    "text": "Keep",
+    "status": "draft",
+    "where": "Confirm dialog › button",
+    "who": "Anyone confirming an action",
+    "screen": ""
+  },
+  "error_banner.reload_app": {
+    "text": "Reload app",
+    "status": "draft",
+    "where": "Error banner › button",
+    "who": "Anyone when something breaks",
+    "screen": ""
+  },
+  "error_banner.retry": {
+    "text": "Retry",
+    "status": "draft",
+    "where": "Error banner › button",
+    "who": "Anyone when something breaks",
+    "screen": ""
+  },
+  "friend_sheet.saved_as_a_friend": {
+    "text": "Saved {name} as a friend",
+    "status": "draft",
+    "where": "Friends › toast",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.saved_as_a_friend_2": {
+    "text": "Saved as a friend",
+    "status": "draft",
+    "where": "Friends › text",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Friends › button",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.add_to_friends": {
+    "text": "Add to friends",
+    "status": "draft",
+    "where": "Friends › button",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.name": {
+    "text": "Name",
+    "status": "draft",
+    "where": "Friends › label",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.their_name": {
+    "text": "Their name",
+    "status": "draft",
+    "where": "Friends › input hint",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.type_a_name_to_save": {
+    "text": "Type a name to save.",
+    "status": "draft",
+    "where": "Friends › text",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.only_you_see_this_name": {
+    "text": "Only you see this name. It stays on this phone.",
+    "status": "draft",
+    "where": "Friends › text",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.cancel": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Friends › button",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "friend_sheet.save": {
+    "text": "Save",
+    "status": "draft",
+    "where": "Friends › button",
+    "who": "People saving someone as a friend",
+    "screen": ""
+  },
+  "gallery.the_album": {
+    "text": "the album",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.start_one_per_trip_family": {
+    "text": "Start one per trip, family or group. You can invite people next.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.create_album": {
+    "text": "Create album",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_can_view_but_not": {
+    "text": "You can view “{name}” but not add to it",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_can_add_photos_to": {
+    "text": "You can add photos to “{name}” once the Admin approves you",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.still_adding_the_last_photos": {
+    "text": "Still adding the last photos. Try again in a moment",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.couldn_t_use_the_camera": {
+    "text": "Couldn't use the camera. Try again?",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.couldn_t_open_your_photos": {
+    "text": "Couldn't open your photos. Try again?",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.only_photos_can_be_added": {
+    "text": "Only photos can be added",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.open_an_album_to_add": {
+    "text": "Open an album to add photos to it",
+    "status": "draft",
+    "where": "Photos › toast",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.albums": {
+    "text": "Albums",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.take_another": {
+    "text": "Take another",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.loading": {
+    "text": "Loading…",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.this_album_isn_t_on": {
+    "text": "This album isn't on this phone.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.view": {
+    "text": "View {name}",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.sort_by": {
+    "text": "Sort by",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.date_added": {
+    "text": "Date added",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.date_taken": {
+    "text": "Date taken",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photo": {
+    "text": "{count} photo{count?:s}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.connected_now": {
+    "text": "{connected} connected now",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.only_you_so_far_invite": {
+    "text": "Only you so far. Invite someone to share",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.nobody_connected_right_now": {
+    "text": "Nobody connected right now",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.shared_with_other": {
+    "text": "shared with {others} other{others?:s}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.updated": {
+    "text": "updated {when}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.adding": {
+    "text": "Adding {current}/{total}…",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.add_photos_to": {
+    "text": "Add photos to {name}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.take_a_photo_for": {
+    "text": "Take a photo for {name}",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.the_admin": {
+    "text": "the Admin",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.the_admin_2": {
+    "text": "The Admin",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_re_a_viewer_you": {
+    "text": "You're a Viewer: you see every photo here. {who} decides who adds photos.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_re_no_longer_in": {
+    "text": "You're no longer in {name}. You can still see the photos you have.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_can_add_photos_once": {
+    "text": "You can add photos once the Admin approves you.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.only_the_people_in_this": {
+    "text": "Only the {members} people in this album get them.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.only_you_until_you_invite": {
+    "text": "Only you, until you invite someone.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.a_photo": {
+    "text": "a photo",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.of": {
+    "text": "{shown} of {total}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.adding_photos": {
+    "text": "Adding photos",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.dismiss": {
+    "text": "Dismiss",
+    "status": "draft",
+    "where": "Photos › button",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.retry": {
+    "text": "Retry",
+    "status": "draft",
+    "where": "Photos › button",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.open_an_album_to_add_2": {
+    "text": "Open an album to add photos",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photos_always_go_into_one": {
+    "text": "Photos always go into one album, so you know who gets them.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.drop_to_add_to": {
+    "text": "Drop to add to {albumName}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.only_the_people_in_this_2": {
+    "text": "Only the people in this album get them.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_can_t_add_to": {
+    "text": "You can't add to {name}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.ask_the_admin_or_start": {
+    "text": "Ask the Admin, or start your own album.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.open": {
+    "text": "Open {name}",
+    "status": "draft",
+    "where": "Photos › link",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.choose_an_album": {
+    "text": "Choose an album",
+    "status": "draft",
+    "where": "Photos › link",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.no_photos_in_this_album": {
+    "text": "No photos in this album yet.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.add_the_first_one_with": {
+    "text": "Add the first one with the button above. Everyone in the album will get it.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photos_show_up_here_when": {
+    "text": "Photos show up here when people in the album add them and have Justus open.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.no_photos_yet": {
+    "text": "No photos yet.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.start_an_album_for_a": {
+    "text": "Start an album for a trip, a family or a group, or join someone's with their invite link.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.start_an_album": {
+    "text": "Start an album",
+    "status": "draft",
+    "where": "Photos › button",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.join_with_an_invite_link": {
+    "text": "Join with an invite link",
+    "status": "draft",
+    "where": "Photos › link",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_haven_t_added_any": {
+    "text": "You haven't added any photos yet.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.open_an_album_and_add": {
+    "text": "Open an album and add photos there. They show up here too.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.open_an_album_to_add_3": {
+    "text": "Open an album to add photos to it. Only the people in that album get them.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photos_show_up_here_when_2": {
+    "text": "Photos show up here when people in your albums add them and have Justus open.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.show_photos": {
+    "text": "Show photos",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.all": {
+    "text": "All",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.added_by_me": {
+    "text": "Added by me",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photos": {
+    "text": "Photos",
+    "status": "draft",
+    "where": "Photos › heading",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.refresh": {
+    "text": "Refresh",
+    "status": "draft",
+    "where": "Photos › button",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.all_albums": {
+    "text": "← All albums",
+    "status": "draft",
+    "where": "Photos › link",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.invite_members": {
+    "text": "Invite & members",
+    "status": "draft",
+    "where": "Photos › link",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.waiting_for_approval": {
+    "text": "{waiting} waiting for approval",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.photo_2": {
+    "text": "{name}, {count} photo{count?:s}",
+    "status": "draft",
+    "where": "Photos › screen reader label",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.waiting": {
+    "text": "{waiting} waiting",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.waiting_for_approval_2": {
+    "text": "Waiting for approval",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.member": {
+    "text": "· {members} member{members?:s}",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.new_album": {
+    "text": "New album",
+    "status": "draft",
+    "where": "Photos › button",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.adding_to": {
+    "text": "Adding {what} to",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "help.what_is_justus": {
+    "text": "What is Justus?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.justus_is_a_photo_sharing": {
+    "text": "Justus is a photo sharing app that shares files peer to peer.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.what_is_peer_to_peer": {
+    "text": "What is peer to peer? Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. With peer to peer, there is no server in the middle. Your photos go straight from your phone to the phones of the people you share the album with.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.that_means_no_company_including": {
+    "text": "That means no company, including us, ever gets a copy of your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you both have Justus open.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.why_don_t_i_see": {
+    "text": "Why don't I see my friend's new photos?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.photos_only_travel_while_both": {
+    "text": "Photos only travel while both phones have Justus open and can reach each other. If your friend's phone is off or Justus is closed, their new photos will show up the next time you both have Justus open.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.to_check_open_the_album": {
+    "text": "To check, open the album and tap Invite & members. It shows who is connected right now and when everyone else was last seen.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.do_i_need_wifi": {
+    "text": "Do I need WiFi?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.no_but_it_helps_two": {
+    "text": "No, but it helps. Two phones that are both on mobile networks often can't find each other, because of how mobile networks work. If you can't connect, try switching one of the phones to WiFi.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.justus_suggests_this_after_about": {
+    "text": "Justus suggests this after about 30 seconds without a connection.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.what_if_i_lose_my": {
+    "text": "What if I lose my phone?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.your_photos_are_stored_on": {
+    "text": "Your photos are stored on the phones in the album, not in the cloud. A phone only has the photos it has received, so a photo is safe once at least one other phone has received it. Photos that only existed on the lost phone are gone.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.on_a_new_phone_join": {
+    "text": "On a new phone, join the album again with its invite link.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.if_the_lost_phone_belonged": {
+    "text": "If the lost phone belonged to the Admin, nobody new can be approved. Everyone already in the album keeps their photos and keeps getting new ones. Passing the Admin role to someone else isn't possible yet.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.is_justus_a_backup": {
+    "text": "Is Justus a backup?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.no_justus_shares_photos_between": {
+    "text": "No. Justus shares photos between phones. A photo is safe once at least one other phone has it, but Justus is not made to keep a copy of your whole library. Keep your own backup too.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.who_can_see_an_album": {
+    "text": "Who can see an album?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.only_the_people_in_the": {
+    "text": "Only the people in the album. An invite link on its own shows no photos: the person asks to join, and they see the album's photos, older ones included, only after the Admin accepts them. Links can be set to end, and the Admin can turn off the links they sent.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.removing_someone_moves_the_album": {
+    "text": "Removing someone moves the album to new keys, so they get nothing added after it. They keep the photos they already have and see they're no longer in the album.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.what_can_the_admin_see": {
+    "text": "What can the Admin see and do?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.the_admin_is_the_person": {
+    "text": "The Admin is the person who started the album. They decide who joins, and they can remove people, and let Viewers add photos.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.they_can_t_see_anything": {
+    "text": "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.who_can_add_photos": {
+    "text": "Who can add photos?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.the_admin_chooses_when_they": {
+    "text": "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.how_do_i_get_rid": {
+    "text": "How do I get rid of an album?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.archive_hides_it_on_this": {
+    "text": "Archive hides it on this phone and you can bring it back from Archived. Leave takes it off your phone and off the people list. The Admin can delete it for everyone, with every photo in it.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.who_can_delete_a_photo": {
+    "text": "Who can delete a photo?",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.whoever_added_a_photo_can": {
+    "text": "Whoever added a photo can delete it, and so can the Admin. Collaborators can't delete other people's photos, and Viewers can't delete anything.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.deleting_a_photo_takes_it": {
+    "text": "Deleting a photo takes it out of the album for everyone. Phones that already have it may keep a copy, and when the Admin deletes someone else's photo, it stays on that person's phone.",
+    "status": "draft",
+    "where": "Help › text",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.settings": {
+    "text": "← Settings",
+    "status": "draft",
+    "where": "Help › link",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.help": {
+    "text": "Help",
+    "status": "draft",
+    "where": "Help › heading",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "help.frequently_asked_questions": {
+    "text": "Frequently asked questions",
+    "status": "draft",
+    "where": "Help › screen reader label",
+    "who": "People who open Help from Settings",
+    "screen": ""
+  },
+  "intro_cards.no_server_in_the_middle": {
+    "text": "No server in the middle",
+    "status": "draft",
+    "where": "Welcome › Intro cards › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "intro_cards.your_photos_go_straight_from": {
+    "text": "Your photos go straight from your phone to the phones of the people you share with. Nobody else gets a copy, not even us. No account needed.",
+    "status": "draft",
+    "where": "Welcome › Intro cards › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "intro_cards.you_decide_who_joins": {
+    "text": "You decide who joins",
+    "status": "draft",
+    "where": "Welcome › Intro cards › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "intro_cards.share_an_album_with_a": {
+    "text": "Share an album with a link or QR code. The link alone shows no photos: you accept each person who asks to join, and only the photos you pick are added.",
+    "status": "draft",
+    "where": "Welcome › Intro cards › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "invite.ask_to_join_my_justus": {
+    "text": "Ask to join my Justus album “{name}”: {link}",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.justus_album": {
+    "text": "Justus album “{name}”",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.invite_link_copied": {
+    "text": "Invite link copied",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.couldn_t_copy_the_invite": {
+    "text": "Couldn't copy the invite",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.couldn_t_copy_the_invite_2": {
+    "text": "Couldn't copy the invite link",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.copied": {
+    "text": "Copied ✓",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.turn_off_links_you_sent": {
+    "text": "Turn off links you sent?",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.links_you_sent_for_this": {
+    "text": "Links you sent for this album stop working at once. Requests from them you haven't answered disappear. People already in stay in. Your next invite makes a fresh link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.turn_off": {
+    "text": "Turn off",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.qr_code_for_the_invite": {
+    "text": "QR code for the invite",
+    "status": "draft",
+    "where": "Invite & join › screen reader label",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.your_check_code_is": {
+    "text": "Your check code is",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.sees_the_same_code_next": {
+    "text": ". {owner} sees the same code next to your request.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.more": {
+    "text": "{count} more",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.or": {
+    "text": "{others} or {last}",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.from_your_friends_they_get": {
+    "text": "From your friends: {list}. They get the invite in Justus, no link needed.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.waiting_for_friends": {
+    "text": "Invites waiting for friends. They go out when both of you have Justus open.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "holding.silent": {
+    "text": "Hasn't said yet which photos they have",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.count": {
+    "text": "Has {held} of {total} {total?photo:photos}",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "invite.invite_people": {
+    "text": "Invite people",
+    "status": "draft",
+    "where": "Invite & join › heading",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.ask_for_the_invite_link": {
+    "text": "Ask {admin} for the invite link to “{name}”. Only {admin} can let new people in.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.links_turned_off_links_you": {
+    "text": "Links turned off. Links you sent no longer work.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.add_a_friend": {
+    "text": "Add a friend",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.or_send_a_link": {
+    "text": "Or send a link",
+    "status": "draft",
+    "where": "Invite & join › heading",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.send_the_link_to_people": {
+    "text": "Send the link to people you want in “{name}”. They ask to join and you choose who gets in. They see no photos until you accept.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.link_works_for": {
+    "text": "Link works for",
+    "status": "draft",
+    "where": "Invite & join › label",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.this_link_works_until": {
+    "text": "This link works until {end}.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.send_invite_link": {
+    "text": "Send invite link",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.copy_link": {
+    "text": "Copy link",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.copy_invite_link": {
+    "text": "Copy invite link",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.send_it_in_any_chat": {
+    "text": "Send it in any chat. They need Justus installed.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.they_scan_this_with_their": {
+    "text": "They scan this with their phone's camera.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.with_them_now_show_a": {
+    "text": "With them now? Show a QR code",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.turn_off_links_you_sent_2": {
+    "text": "Turn off links you sent",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.both_of_you_need_justus": {
+    "text": "Both of you need Justus open for a request to arrive. It shows up here for you to accept or decline.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.ok": {
+    "text": "OK",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.cancel_request": {
+    "text": "Cancel request",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.ask_to_join": {
+    "text": "Ask to join “{album}”?",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.will_see_your_name_and": {
+    "text": "{owner} will see your name and can accept or decline. You'll see the photos if they accept.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.not_now": {
+    "text": "Not now",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.asking": {
+    "text": "Asking…",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.ask_to_join_2": {
+    "text": "Ask to join",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.waiting_for": {
+    "text": "Waiting for {owner}",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.request_to_join_sent_to": {
+    "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. {owner} must be online too: keep Justus open on both phones.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.didn_t_accept_your_request": {
+    "text": "{owner} didn't accept your request.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.nothing_was_shared_with_you": {
+    "text": "Nothing was shared with you.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.the_admin": {
+    "text": "the Admin",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.you_can_look_but_not": {
+    "text": "You can look, but not add photos yet.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.the_admin_who_started_this": {
+    "text": "The Admin, who started this album,",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.needs_to_open_justus_to": {
+    "text": "{admin} needs to open Justus to approve you, so you may want to remind them.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "lightbox.delete": {
+    "text": "Delete “{name}”?",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.it_will_be_gone_from": {
+    "text": "It will be gone from the album for everyone.",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.delete_2": {
+    "text": "Delete",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.couldn_t_delete_try_again": {
+    "text": "Couldn't delete “{name}”. Try again.",
+    "status": "draft",
+    "where": "Photo viewer › toast",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Photo viewer › screen reader label",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.previous_photo": {
+    "text": "Previous photo",
+    "status": "draft",
+    "where": "Photo viewer › screen reader label",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.next_photo": {
+    "text": "Next photo",
+    "status": "draft",
+    "where": "Photo viewer › screen reader label",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.added": {
+    "text": "added {when}",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.taken": {
+    "text": "Taken {date}",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.more_options": {
+    "text": "More options",
+    "status": "draft",
+    "where": "Photo viewer › screen reader label",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "lightbox.deleting": {
+    "text": "Deleting…",
+    "status": "draft",
+    "where": "Photo viewer › text",
+    "who": "Everyone who opens a photo",
+    "screen": ""
+  },
+  "logs.logs_copied": {
+    "text": "Logs copied",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › toast",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.couldn_t_copy_select_and": {
+    "text": "Couldn't copy — select and copy manually",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › toast",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.couldn_t_download_logs": {
+    "text": "Couldn't download logs",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › toast",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.live_logs": {
+    "text": "Live logs",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › heading",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.updated": {
+    "text": "Updated {time}",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.resume_live": {
+    "text": "Resume live",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › button",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.backend_and_web_diagnostics_streamed": {
+    "text": "Backend and web diagnostics, streamed from this device. Filter by severity or source; pause to read, then copy or download the visible lines.",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.severity": {
+    "text": "Severity",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › label",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.all": {
+    "text": "All",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › option",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.debug": {
+    "text": "debug+",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › option",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.info": {
+    "text": "info+",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › option",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.warn": {
+    "text": "warn+",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › option",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.error": {
+    "text": "error",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › option",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.source": {
+    "text": "Source",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.copy": {
+    "text": "Copy",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › button",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.download": {
+    "text": "Download",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › button",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.logs_cleared": {
+    "text": "Logs cleared",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.couldn_t_clear_logs": {
+    "text": "Couldn't clear logs",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.clear": {
+    "text": "Clear",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › button",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.couldn_t_load_logs": {
+    "text": "Couldn't load logs — {error}",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "logs.no_log_entries_yet": {
+    "text": "No log entries yet.",
+    "status": "draft",
+    "where": "Settings › Advanced › Live logs › text",
+    "who": "People troubleshooting, rarely",
+    "screen": ""
+  },
+  "notices.you_re_no_longer_in": {
+    "text": "You're no longer in {albumName}.",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.this_album_has_a_new": {
+    "text": "This album has a new key. Invite your members again.",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.the_admin": {
+    "text": "the Admin",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.the_admin_2": {
+    "text": "The Admin",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.update_justus_to_keep_syncing": {
+    "text": "Update Justus to keep syncing",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.needs_to_update_justus": {
+    "text": "{name} needs to update Justus",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.this_album_has_a_new_2": {
+    "text": "This album has a new key. Ask {admin} for a new invite link.",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "notices.deleted_the_album_and_its": {
+    "text": "{admin} deleted “{name}”. The album and its photos were removed from this phone.",
+    "status": "draft",
+    "where": "Banners › text",
+    "who": "Everyone, when an album changes or Justus needs an update",
+    "screen": ""
+  },
+  "photo_holders.show_who_has_this_photo": {
+    "text": "{text}, show who has this photo",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › screen reader label",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.who_has_this_photo": {
+    "text": "Who has this photo",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › screen reader label",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.phones_with_a_full_copy": {
+    "text": "Phones with a full copy, as they last told yours.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.you": {
+    "text": "You",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.arriving": {
+    "text": "Arriving…",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.hasn_t_said_yet": {
+    "text": "Hasn't said yet",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.a_phone_says_what_it": {
+    "text": "A phone says what it has once it runs the latest Justus and connects to yours.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.no_longer_in_this_album": {
+    "text": "No longer in this album",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.has_a_copy_from_before": {
+    "text": "Has a copy from before. Removing someone does not take it back.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › button",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "settings.couldn_t_save_the_picture": {
+    "text": "Couldn't save the picture on this device",
+    "status": "draft",
+    "where": "Settings › toast",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.that_file_isn_t_a": {
+    "text": "That file isn't a picture we can read",
+    "status": "draft",
+    "where": "Settings › toast",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.change_picture": {
+    "text": "Change picture",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.add_picture": {
+    "text": "Add picture",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.remove": {
+    "text": "Remove",
+    "status": "draft",
+    "where": "Settings › button",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.profile": {
+    "text": "Profile",
+    "status": "draft",
+    "where": "Settings › heading",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.your_name_is_shown_to": {
+    "text": "Your name is shown to others as the member behind the photos you add and the join requests you send. Your picture stays on this device.",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.your_name": {
+    "text": "Your name",
+    "status": "draft",
+    "where": "Settings › input hint",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.saving": {
+    "text": "Saving…",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.save": {
+    "text": "Save",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.appearance": {
+    "text": "Appearance",
+    "status": "draft",
+    "where": "Settings › heading",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.photo_grid": {
+    "text": "Photo grid",
+    "status": "draft",
+    "where": "Settings › heading",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.help": {
+    "text": "Help",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.how_peer_to_peer_works": {
+    "text": "How peer to peer works, WiFi, and who can see an album",
+    "status": "draft",
+    "where": "Settings › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.advanced": {
+    "text": "Advanced",
+    "status": "draft",
+    "where": "Settings › section title",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "settings.settings": {
+    "text": "Settings",
+    "status": "draft",
+    "where": "Settings › heading",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "sharing.verified_invite": {
+    "text": "verified invite",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.sharing": {
+    "text": "Sharing ✓",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.sharing_stopped": {
+    "text": "Sharing stopped",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.said_no": {
+    "text": "Said no",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.invited_you": {
+    "text": "Invited you",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.asked_to_share": {
+    "text": "Asked to share",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.not_sharing": {
+    "text": "Not sharing",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.someone_with_one_of_your": {
+    "text": "Someone with one of your album links joined. Share your photos with them?",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.device": {
+    "text": "Device {device}",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.we_ll_ask_another_day": {
+    "text": "We'll ask another day",
+    "status": "draft",
+    "where": "Sharing › toast",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.not_now": {
+    "text": "Not now",
+    "status": "draft",
+    "where": "Sharing › button",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.sharing_with": {
+    "text": "Sharing with {device}",
+    "status": "draft",
+    "where": "Sharing › toast",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.share": {
+    "text": "Share",
+    "status": "draft",
+    "where": "Sharing › button",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.you_won_t_be_asked": {
+    "text": "You won't be asked about {device} again",
+    "status": "draft",
+    "where": "Sharing › toast",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.never_for_this_person": {
+    "text": "never for this person",
+    "status": "draft",
+    "where": "Sharing › button",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.they_keep_the_photos_they": {
+    "text": "They keep the photos they already have; they won't get new ones.",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.stopped_sharing_with": {
+    "text": "Stopped sharing with {device}",
+    "status": "draft",
+    "where": "Sharing › toast",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.stop_sharing": {
+    "text": "stop sharing",
+    "status": "draft",
+    "where": "Sharing › button",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.this_device_presented_a_verified": {
+    "text": "This device presented a verified signed invite receipt.",
+    "status": "draft",
+    "where": "Sharing › tooltip",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.verified_invite_2": {
+    "text": "Verified invite",
+    "status": "draft",
+    "where": "Sharing › screen reader label",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.devices_that_hold_one_of": {
+    "text": "Devices that hold one of your albums. Choosing who gets your photos isn't active yet: today every device with an album's invite receives its photos.",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.refreshing": {
+    "text": "Refreshing…",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.refresh": {
+    "text": "Refresh",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.unknown_holder": {
+    "text": "Unknown holder",
+    "status": "draft",
+    "where": "Sharing › heading",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.loading": {
+    "text": "Loading…",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.no_prompts_right_now": {
+    "text": "No prompts right now.",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.we_ll_ask_once_a": {
+    "text": "We'll ask once a day if someone shows up holding one of your albums without an invite.",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.who_you_share_with": {
+    "text": "Who you share with",
+    "status": "draft",
+    "where": "Sharing › heading",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.just_you_invite_someone_to": {
+    "text": "Just you — invite someone to share.",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.sharing_2": {
+    "text": "Sharing",
+    "status": "draft",
+    "where": "Sharing › heading",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.your_albums": {
+    "text": "Your albums",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.join_an_album": {
+    "text": "Join an album",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "sharing.devices": {
+    "text": "Devices",
+    "status": "draft",
+    "where": "Sharing › text",
+    "who": "Everyone who opens the Sharing tab",
+    "screen": ""
+  },
+  "start_album.start_an_album": {
+    "text": "Start an album",
+    "status": "draft",
+    "where": "Start an album › screen reader label",
+    "who": "People creating an album",
+    "screen": ""
+  },
+  "start_album.album_name_e_g_summer": {
+    "text": "Album name, e.g. Summer 2026",
+    "status": "draft",
+    "where": "Start an album › input hint",
+    "who": "People creating an album",
+    "screen": ""
+  },
+  "start_album.album_name": {
+    "text": "Album name",
+    "status": "draft",
+    "where": "Start an album › screen reader label",
+    "who": "People creating an album",
+    "screen": ""
+  },
+  "start_album.cancel": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Start an album › button",
+    "who": "People creating an album",
+    "screen": ""
+  },
+  "start_album.create_album": {
+    "text": "Create album",
+    "status": "draft",
+    "where": "Start an album › text",
+    "who": "People creating an album",
+    "screen": ""
+  },
+  "tabs.waiting": {
+    "text": "{badge} waiting",
+    "status": "draft",
+    "where": "Tab bar › screen reader label",
+    "who": "Everyone, on every screen",
+    "screen": ""
+  },
+  "theme_toggle.auto": {
+    "text": "Auto",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.follows_your_device": {
+    "text": "Follows your device",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.light": {
+    "text": "Light",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.always_light": {
+    "text": "Always light",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.dark": {
+    "text": "Dark",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.always_dark": {
+    "text": "Always dark",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.theme": {
+    "text": "Theme",
+    "status": "draft",
+    "where": "Settings › Appearance › screen reader label",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.comfortable": {
+    "text": "Comfortable",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.compact": {
+    "text": "Compact",
+    "status": "draft",
+    "where": "Settings › Appearance › text",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "theme_toggle.photo_grid": {
+    "text": "Photo grid",
+    "status": "draft",
+    "where": "Settings › Appearance › screen reader label",
+    "who": "Everyone who opens Settings",
+    "screen": ""
+  },
+  "welcome.app_lock_is_on": {
+    "text": "App lock is on",
+    "status": "draft",
+    "where": "Welcome › toast",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.card_of": {
+    "text": "Card {current} of {total}",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.skip": {
+    "text": "Skip",
+    "status": "draft",
+    "where": "Welcome › button",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.back": {
+    "text": "Back",
+    "status": "draft",
+    "where": "Welcome › button",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.continue": {
+    "text": "Continue",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.next": {
+    "text": "Next",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.what_should_we_call_you": {
+    "text": "What should we call you?",
+    "status": "draft",
+    "where": "Welcome › heading",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.your_name_is_shared_only": {
+    "text": "Your name is shared only with the albums you join. It never goes to a server.",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.your_name": {
+    "text": "Your name",
+    "status": "draft",
+    "where": "Welcome › input hint",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.your_colour_and_initials_come": {
+    "text": "Your colour and initials come from your name. Edit it later in Settings.",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.saving": {
+    "text": "Saving…",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.lock_justus": {
+    "text": "Lock Justus?",
+    "status": "draft",
+    "where": "Welcome › heading",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.uses_your_phone_s_fingerprint": {
+    "text": "Uses your phone's fingerprint, face or PIN. Applies after you've been away for 30 seconds.",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.not_now": {
+    "text": "Not now",
+    "status": "draft",
+    "where": "Welcome › button",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.enable": {
+    "text": "Enable",
+    "status": "draft",
+    "where": "Welcome › button",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.start_sharing": {
+    "text": "Start sharing",
+    "status": "draft",
+    "where": "Welcome › heading",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.create_an_album": {
+    "text": "Create an album",
+    "status": "draft",
+    "where": "Welcome › heading",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.album_name": {
+    "text": "Album name",
+    "status": "draft",
+    "where": "Welcome › input hint",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.creating": {
+    "text": "Creating…",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "welcome.something_went_wrong_reload_the": {
+    "text": "Something went wrong. Reload the app to continue.",
+    "status": "draft",
+    "where": "Welcome › text",
+    "who": "New people, once, at first launch",
+    "screen": ""
+  },
+  "wordmark.justus": {
+    "text": "Justus",
+    "status": "draft",
+    "where": "views/wordmark.ts › screen reader label",
+    "who": "Everyone",
+    "screen": ""
+  },
+  "add_friend_sheet.if_doesn_t_have_justus": {
+    "text": "If {name} doesn't have Justus open, the invite waits.",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "add_friend_sheet.doesn_t_have_justus_open": {
+    "text": "{name} doesn't have Justus open right now. The invite goes out the next time you both have Justus open, for up to 7 days.",
+    "status": "draft",
+    "where": "Friends › Add a friend › text",
+    "who": "Admins inviting a friend",
+    "screen": ""
+  }
+}

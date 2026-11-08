@@ -4,6 +4,7 @@ import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
 
 /** Remember the row that opened the sheet so focus can go back to it. */
@@ -11,7 +12,9 @@ export function rememberFocus(el: HTMLElement) {
   opener = el;
 }
 
-onOutput(friendsActor, (e) => toast(`Saved ${(e.payload as { name: string }).name} as a friend`));
+onOutput(friendsActor, (e) =>
+  toast(copy("friend_sheet.saved_as_a_friend", { name: (e.payload as { name: string }).name })),
+);
 
 function closeSheet() {
   friends.close();
@@ -52,9 +55,9 @@ export function friendSheetView() {
     let body;
     if (sheet.state === "showingMember") {
       focusOnRender("[data-friend-primary]");
-      body = html` ${known !== undefined ? html`<p class="mt-1 text-sm text-muted">Saved as a friend</p>` : null}
+      body = html` ${known !== undefined ? html`<p class="mt-1 text-sm text-muted">${t("friend_sheet.saved_as_a_friend_2")}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" @click=${closeSheet}>Close</button>
+          <button class="ui-btn-ghost" @click=${closeSheet}>${t("friend_sheet.close")}</button>
           ${
             known === undefined
               ? html`<button
@@ -62,7 +65,7 @@ export function friendSheetView() {
                   data-friend-primary
                   @click=${() => friends.add()}
                 >
-                  Add to friends
+                  ${t("friend_sheet.add_to_friends")}
                 </button>`
               : null
           }
@@ -70,14 +73,14 @@ export function friendSheetView() {
     } else {
       focusOnRender("[data-friend-name]");
       body = html` <label class="mt-3 block text-sm font-medium text-fg" for="friend-name"
-          >Name</label
+          >${t("friend_sheet.name")}</label
         >
         <input
           id="friend-name"
           data-friend-name
           class="ui-input mt-1 w-full"
           maxlength="40"
-          placeholder="Their name"
+          placeholder=${copy("friend_sheet.their_name")}
           autocomplete="off"
           .value=${sheet.draft}
           ?disabled=${busy}
@@ -89,19 +92,21 @@ export function friendSheetView() {
         <p class="mt-1 text-xs text-muted" aria-live="polite">
           ${
             sheet.draft.trim() === ""
-              ? "Type a name to save."
-              : "Only you see this name. It stays on this phone."
+              ? copy("friend_sheet.type_a_name_to_save")
+              : copy("friend_sheet.only_you_see_this_name")
           }
         </p>
         ${sheet.error ? html`<p class="mt-1 text-xs text-danger-fg" role="alert">${sheet.error}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" ?disabled=${busy} @click=${closeSheet}>Cancel</button>
+          <button class="ui-btn-ghost" ?disabled=${busy} @click=${closeSheet}>
+            ${t("friend_sheet.cancel")}
+          </button>
           <button
             class="ui-btn-primary"
             ?disabled=${!sheet.canSave || busy}
             @click=${() => friends.save()}
           >
-            Save
+            ${t("friend_sheet.save")}
           </button>
         </div>`;
     }

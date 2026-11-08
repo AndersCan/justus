@@ -1,6 +1,7 @@
 import { html, type TemplateResult } from "lit-html";
 import { friendlyError } from "../utils/friendly-error";
 
+import { t } from "../copy/copy";
 /** Error banner shared by the gallery and sync views; shows a retry button
  * when the view is in its recoverable error state (pass a handler then), and
  * a reload button when the underlying actor is dead (mantaq `__error`), where
@@ -23,7 +24,7 @@ export function errorBanner(
             class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             @click=${onReload}
           >
-            Reload app
+            ${t("error_banner.reload_app")}
           </button>`
         : null
     }
@@ -33,7 +34,7 @@ export function errorBanner(
             class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             @click=${onRetry}
           >
-            Retry
+            ${t("error_banner.retry")}
           </button>`
         : null
     }

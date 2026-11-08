@@ -24,6 +24,7 @@
   "devDependencies": {
     "@mantaq/inspect": "catalog:",
     "happy-dom": "catalog:",
+    "oxc-parser": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"

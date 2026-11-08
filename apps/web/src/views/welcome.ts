@@ -23,6 +23,7 @@ import { friendlyError } from "../utils/friendly-error";
 import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
 
+import { copy, t } from "../copy/copy";
 const SEEN_KEY = "justus:welcome-seen";
 
 /** Whether the first-run welcome screen has been dismissed on this install. */
@@ -52,7 +53,8 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
 
 // Turning App lock on from the first-run card confirms itself, as the Settings switch does.
 onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
-  if (prev === "turningOnAppLock" && state === "choosingCreateOrJoin") toast("App lock is on");
+  if (prev === "turningOnAppLock" && state === "choosingCreateOrJoin")
+    toast(copy("welcome.app_lock_is_on"));
 });
 
 /** Tells onboarding whether the phone has a screen lock; elsewhere, or on any error, the card is skipped. */
@@ -108,26 +110,26 @@ function cardsStep(card: number) {
             ></span>`,
         )}
       </div>
-      <p class="sr-only">Card ${card + 1} of ${INTRO_CARD_COUNT}</p>
+      <p class="sr-only">${t("welcome.card_of", { current: card + 1, total: INTRO_CARD_COUNT })}</p>
     </div>
     <div class="mx-auto mt-6 flex max-w-md items-center justify-between gap-3">
       ${
         last
           ? html`<span></span>`
           : html`<button class="ui-btn-ghost" type="button" @click=${() => onboarding.skip()}>
-              Skip
+              ${t("welcome.skip")}
             </button>`
       }
       <div class="flex gap-2">
         ${
           card > 0
             ? html`<button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>
-                Back
+                ${t("welcome.back")}
               </button>`
             : null
         }
         <button class="ui-btn-primary" type="button" @click=${() => onboarding.next()}>
-          ${last ? "Continue" : "Next"}
+          ${last ? copy("welcome.continue") : copy("welcome.next")}
         </button>
       </div>
     </div>
@@ -159,16 +161,14 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
         } else input.focus();
       }}
     >
-      <h1 class="text-xl font-bold text-fg">What should we call you?</h1>
-      <p class="text-sm text-fg">
-        Your name is shared only with the albums you join. It never goes to a server.
-      </p>
+      <h1 class="text-xl font-bold text-fg">${t("welcome.what_should_we_call_you")}</h1>
+      <p class="text-sm text-fg">${t("welcome.your_name_is_shared_only")}</p>
       <div class="flex items-center gap-4">
         <span data-avatar>${avatar(vm.draftName)}</span>
         <input
           class="ui-input flex-1"
-          placeholder="Your name"
-          aria-label="Your name"
+          placeholder=${copy("welcome.your_name")}
+          aria-label=${copy("welcome.your_name")}
           maxlength="40"
           required
           autocomplete="name"
@@ -177,14 +177,14 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
           @input=${(e: Event) => onboarding.editName((e.currentTarget as HTMLInputElement).value)}
         />
       </div>
-      <p class="text-xs text-muted">
-        Your colour and initials come from your name. Edit it later in Settings.
-      </p>
+      <p class="text-xs text-muted">${t("welcome.your_colour_and_initials_come")}</p>
       ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
       <div class="flex justify-between gap-3">
-        <button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>Back</button>
+        <button class="ui-btn-ghost" type="button" @click=${() => onboarding.back()}>
+          ${t("welcome.back")}
+        </button>
         <button class="ui-btn-primary" type="submit" ?disabled=${vm.saving}>
-          ${vm.saving ? "Saving…" : "Continue"}
+          ${vm.saving ? copy("welcome.saving") : copy("welcome.continue")}
         </button>
       </div>
     </form>
@@ -194,10 +194,8 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
 function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
   return html`
     <div class="ui-card mx-auto max-w-md space-y-4 p-6">
-      <h2 class="text-xl font-bold text-fg">Lock Justus?</h2>
-      <p class="text-sm text-fg">
-        Uses your phone's fingerprint, face or PIN. Applies after you've been away for 30 seconds.
-      </p>
+      <h2 class="text-xl font-bold text-fg">${t("welcome.lock_justus")}</h2>
+      <p class="text-sm text-fg">${t("welcome.uses_your_phone_s_fingerprint")}</p>
       <div class="flex justify-between gap-3">
         <button
           class="ui-btn-ghost"
@@ -205,7 +203,7 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
           ?disabled=${vm.turningOnLock}
           @click=${() => onboarding.skipAppLock()}
         >
-          Not now
+          ${t("welcome.not_now")}
         </button>
         <button
           class="ui-btn-primary"
@@ -213,7 +211,7 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
           ?disabled=${vm.turningOnLock}
           @click=${() => onboarding.turnOnAppLock()}
         >
-          Enable
+          ${t("welcome.enable")}
         </button>
       </div>
     </div>
@@ -223,7 +221,7 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
 function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4">
-      <h1 class="text-center text-xl font-bold text-fg">Start sharing</h1>
+      <h1 class="text-center text-xl font-bold text-fg">${t("welcome.start_sharing")}</h1>
       ${pendingAsks()}
       ${watch(foldersActor, (s) => {
         const vm = foldersViewModel(s);
@@ -240,16 +238,16 @@ function chooseStep() {
               if (name) folders.create(name);
             }}
           >
-            <h2 class="ui-label">Create an album</h2>
+            <h2 class="ui-label">${t("welcome.create_an_album")}</h2>
             <input
               class="ui-input"
-              placeholder="Album name"
-              aria-label="Album name"
+              placeholder=${copy("welcome.album_name")}
+              aria-label=${copy("welcome.album_name")}
               maxlength="60"
               required
             />
             <wa-button variant="brand" class="w-full" type="submit" ?disabled=${busy}>
-              ${vm.state === "creatingAlbum" ? "Creating…" : "Create an album"}
+              ${vm.state === "creatingAlbum" ? copy("welcome.creating") : copy("welcome.create_an_album")}
             </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
@@ -268,7 +266,7 @@ export function welcomeView() {
           const vm = onboardingViewModel(os, fs.context.userName);
           if (vm.fatal) {
             return html`<p class="text-center text-sm text-danger-fg" role="alert">
-              Something went wrong. Reload the app to continue.
+              ${t("welcome.something_went_wrong_reload_the")}
             </p>`;
           }
           // The first card carries the logo itself, so the header would double it.

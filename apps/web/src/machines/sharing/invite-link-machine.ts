@@ -4,6 +4,7 @@ import type { Expectations } from "@mantaq/inspect";
 import { withTimeout } from "@mantaq/sugar";
 import { runInvoke } from "../actor-utils";
 
+import { copy } from "../../copy/copy";
 /**
  * The owner's invite panel: pick how long a link works, make it, and see when it ends.
  * The end time travels inside the link for the joiner's phone, and is saved on this phone,
@@ -20,10 +21,10 @@ export const VALID_FOR_MS: Record<ValidFor, number> = {
 };
 
 export const VALID_FOR_LABEL: Record<ValidFor, string> = {
-  "10m": "10 minutes",
-  "1h": "1 hour",
-  "1d": "1 day",
-  "7d": "7 days",
+  "10m": copy("invite_link.10_minutes"),
+  "1h": copy("invite_link.1_hour"),
+  "1d": copy("invite_link.1_day"),
+  "7d": copy("invite_link.7_days"),
 };
 
 type InviteLinkContext = {

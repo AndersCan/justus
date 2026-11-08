@@ -23,30 +23,31 @@ import { gridMotion } from "./grid-motion";
 import { deletedNoticeText } from "./notices";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 // A friend's invite opens the album once the Admin's phone lets this phone in;
 // if it never does, the row goes back to Join and says why.
 onOutput(friendOfferActor, (e) => {
   if (e.type === "openAlbum") open(`/albums/${(e.payload as { folderId: string }).folderId}`);
   if (e.type === "couldNotJoin") {
     const { albumName, ownerName } = e.payload as { albumName: string; ownerName: string };
-    toast(`Couldn't join “${albumName}”. ${ownerName} needs Justus open too.`);
+    toast(copy("albums.couldn_t_join_needs_justus", { albumName, ownerName }));
   }
 });
 
 /** User-facing role words (CONTEXT.md "User-facing words"). A pending join is
  * a Reader in code, but to the user it is a request still waiting. */
 export function roleLabel(role: FolderSummary["role"], pending = false): string {
-  if (pending) return "Waiting for approval";
-  if (role === "creator") return "Admin";
-  if (role === "member") return "Collaborator";
-  return "Viewer";
+  if (pending) return copy("albums.waiting_for_approval");
+  if (role === "creator") return copy("albums.admin");
+  if (role === "member") return copy("albums.collaborator");
+  return copy("albums.viewer");
 }
 
 async function pasteKey(input: HTMLInputElement) {
   try {
     input.value = (await navigator.clipboard.readText()).trim();
   } catch {
-    toast("Couldn't read the clipboard. Paste the invite link into the box.");
+    toast(copy("albums.couldn_t_read_the_clipboard"));
   }
 }
 
@@ -78,7 +79,7 @@ const changeVerbs = {
   restore: "restore",
   leave: "leave",
   delete: "delete",
-  dismiss: "dismiss the notice for",
+  dismiss: copy("albums.dismiss_the_notice_for"),
 } as const;
 
 // Archive, restore, leave and delete end with a toast; leaving the album page
@@ -88,24 +89,24 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   if (!change) return;
   const { kind, folderId, name } = change;
   if (next === "couldNotChangeAlbum") {
-    toast(`Couldn't ${changeVerbs[kind]} “${name}”. Try again.`);
+    toast(copy("albums.couldn_t_try_again", { action: changeVerbs[kind], name }));
     return;
   }
   if (next !== "showingAlbums") return;
   if (prev === "archivingAlbum") {
     open("/sharing");
-    toast(`Archived “${name}”`, {
-      action: { label: "Undo", run: () => folders.restore(folderId, name) },
+    toast(copy("albums.archived", { name }), {
+      action: { label: copy("albums.undo"), run: () => folders.restore(folderId, name) },
     });
   }
-  if (prev === "restoringAlbum") toast(`“${name}” is back in your albums`);
+  if (prev === "restoringAlbum") toast(copy("albums.is_back_in_your_albums", { name }));
   if (prev === "leavingAlbum") {
     open("/sharing");
-    toast(`You left “${name}”`);
+    toast(copy("albums.you_left", { name }));
   }
   if (prev === "deletingAlbum") {
     open("/sharing");
-    toast(`Deleted “${name}”`);
+    toast(copy("albums.deleted", { name }));
   }
 });
 
@@ -165,8 +166,8 @@ type FoldersViewModel = ReturnType<typeof foldersViewModel>;
 
 /** "Admin · 3 members", one text node so it reads (and matches) as one line. */
 export function roleAndCount(folder: FolderSummary): string {
-  if (folder.notice?.kind === "removed") return "No longer in this album";
-  const count = `${folder.members} member${folder.members === 1 ? "" : "s"}`;
+  if (folder.notice?.kind === "removed") return copy("albums.no_longer_in_this_album");
+  const count = copy("albums.member", { members: folder.members });
   return `${roleLabel(folder.role, folder.pending)} · ${count}`;
 }
 
@@ -179,7 +180,7 @@ function albumRow(folder: FolderSummary) {
       <a
         class="ui-focus min-w-0 flex-1"
         href="/sharing/${folder.id}"
-        aria-label="Invite & members of ${folder.name}"
+        aria-label=${copy("albums.invite_members_of", { name: folder.name })}
       >
         <span class="block truncate text-lg font-medium text-fg">${folder.name}</span>
         <span
@@ -195,7 +196,7 @@ function albumRow(folder: FolderSummary) {
         return waiting > 0
           ? html`<span
               class="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-fill"
-              aria-label="${waiting} waiting for approval"
+              aria-label=${copy("albums.waiting_for_approval_2", { waiting })}
               >${waiting}</span
             >`
           : null;
@@ -203,8 +204,8 @@ function albumRow(folder: FolderSummary) {
       <a
         class="ui-btn-ghost inline-flex shrink-0 items-center"
         href="/albums/${folder.id}"
-        aria-label="Photos in ${folder.name}"
-        >Photos</a
+        aria-label=${copy("albums.photos_in", { name: folder.name })}
+        >${t("albums.photos")}</a
       >
       <span class="text-muted" aria-hidden="true">›</span>
     </li>
@@ -223,7 +224,7 @@ function archivedSection(view: FoldersViewModel) {
       </summary>
       <ul
         class="mt-3 space-y-3"
-        aria-label="Archived albums"
+        aria-label=${copy("albums.archived_albums")}
         ${gridMotion({ keys: view.archived.map((f) => "archived:" + f.id), settle: "archived" })}
       >
         ${repeat(
@@ -239,11 +240,11 @@ function archivedSection(view: FoldersViewModel) {
             </span>
             <button
               class="ui-btn-ghost shrink-0"
-              aria-label="Restore ${f.name}"
+              aria-label=${copy("albums.restore", { name: f.name })}
               ?disabled=${!view.settled}
               @click=${() => folders.restore(f.id, f.name)}
             >
-              Restore
+              ${t("albums.restore_2")}
             </button>
           </li>`,
         )}
@@ -254,7 +255,10 @@ function archivedSection(view: FoldersViewModel) {
 
 /** "Archived (2)", with " · 1 waiting" when the Admin has requests on archived albums. */
 export function archivedSummary(count: number, waiting: number): string {
-  return `Archived (${count})${waiting > 0 ? ` · ${waiting} waiting` : ""}`;
+  return copy("albums.archived_2", {
+    count,
+    note: waiting > 0 ? copy("albums.waiting", { waiting }) : "",
+  });
 }
 
 /** One notice per album the Admin deleted, newest first, until dismissed. */
@@ -270,11 +274,11 @@ function deletedNotices(view: FoldersViewModel) {
       <p class="min-w-0 flex-1 text-sm text-fg" role="status">${deletedNoticeText(d)}</p>
       <button
         class="ui-btn-ghost shrink-0"
-        aria-label="Dismiss notice about ${d.name}"
+        aria-label=${copy("albums.dismiss_notice_about", { name: d.name })}
         ?disabled=${!view.settled}
         @click=${() => folders.dismissNotice(d.id, d.name)}
       >
-        Dismiss
+        ${t("albums.dismiss")}
       </button>
     </div>`,
   );
@@ -283,10 +287,10 @@ function deletedNotices(view: FoldersViewModel) {
 function askRow(ask: AskSummary) {
   const label =
     ask.status === "declined"
-      ? "Not accepted"
+      ? copy("albums.not_accepted")
       : ask.status === "linkOff"
-        ? "Link no longer works"
-        : `Waiting for ${ask.ownerName} to accept`;
+        ? copy("albums.link_no_longer_works")
+        : copy("albums.waiting_for_to_accept", { ownerName: ask.ownerName });
   const muted = ask.status !== "waiting";
   return html`
     <li data-motion-key=${"ask:" + ask.code}>
@@ -321,16 +325,16 @@ function offerRow(offer: OfferSummary) {
         <span class="min-w-0 flex-1">
           <span class="block truncate text-lg font-medium text-fg">${offer.albumName}</span>
           <span class="mt-0.5 block text-xs text-muted"
-            >${busy ? `Joining “${offer.albumName}”...` : `${owner} invited you`}</span
+            >${busy ? copy("albums.joining", { albumName: offer.albumName }) : copy("albums.invited_you", { owner })}</span
           >
         </span>
         <button
           class="ui-btn-primary shrink-0"
           ?disabled=${joining}
-          aria-label="Join ${offer.albumName}"
+          aria-label=${copy("albums.join", { albumName: offer.albumName })}
           @click=${() => friendOffer.join(offer)}
         >
-          Join
+          ${t("albums.join_2")}
         </button>
       </li>`;
     });
@@ -366,21 +370,23 @@ function listLoading(view: FoldersViewModel): boolean {
 function albumList(view: FoldersViewModel) {
   const empty = view.folders.length === 0 && view.asks.length === 0 && view.offers.length === 0;
   if (listLoading(view)) {
-    return html`<p class="text-muted">Loading…</p>`;
+    return html`<p class="text-muted">${t("albums.loading")}</p>`;
   }
   const asks = view.asks;
   const offers = view.offers;
   if (empty) {
     return html`<div class="ui-card p-5 text-center">
-      <p class="text-lg text-fg">No albums yet.</p>
+      <p class="text-lg text-fg">${t("albums.no_albums_yet")}</p>
       <p class="mt-1 text-sm text-fg">
-        Start one below, or <a class="underline" href="/join">join a friend's</a> with their invite.
+        ${t("albums.start_one_below_or")}
+        <a class="underline" href="/join">${t("albums.join_a_friend_s")}</a>
+        ${t("albums.with_their_invite")}
       </p>
     </div>`;
   }
   return html`<ul
     class="space-y-3"
-    aria-label="Your albums"
+    aria-label=${copy("albums.your_albums")}
     ${gridMotion({ keys: albumListKeys(view), settle: "albums" })}
   >
     ${repeat(offers, offerKey, (o) => offerRow(o))}
@@ -401,8 +407,8 @@ function newAlbumSection(view: FoldersViewModel) {
   const busy = view.state === "creatingAlbum";
   return html`
     <section class="ui-card p-5" data-motion-key="section:new">
-      <h2 class="ui-label mb-1">New album</h2>
-      <p class="mb-3 text-sm text-fg">Start one per trip, family or group.</p>
+      <h2 class="ui-label mb-1">${t("albums.new_album")}</h2>
+      <p class="mb-3 text-sm text-fg">${t("albums.start_one_per_trip_family")}</p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
@@ -417,12 +423,12 @@ function newAlbumSection(view: FoldersViewModel) {
       >
         <input
           class="ui-input flex-1"
-          placeholder="Album name"
-          aria-label="Album name"
+          placeholder=${copy("albums.album_name")}
+          aria-label=${copy("albums.album_name")}
           maxlength="60"
         />
         <wa-button variant="brand" type="submit" ?disabled=${busy || !view.settled}>
-          ${busy ? "Creating…" : "Create album"}
+          ${busy ? copy("albums.creating") : copy("albums.create_album")}
         </wa-button>
       </form>
     </section>
@@ -442,10 +448,8 @@ export function joinError() {
 function joinSection(settled: boolean, busy: boolean) {
   return html`
     <section class="ui-card p-5">
-      <h2 class="ui-label mb-1">Join with an invite link</h2>
-      <p class="mb-3 text-sm text-fg">
-        Got an invite link from someone? Paste it here to ask to join their album.
-      </p>
+      <h2 class="ui-label mb-1">${t("albums.join_with_an_invite_link")}</h2>
+      <p class="mb-3 text-sm text-fg">${t("albums.got_an_invite_link_from")}</p>
       <form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
@@ -458,8 +462,8 @@ function joinSection(settled: boolean, busy: boolean) {
       >
         <input
           class="ui-input flex-1"
-          placeholder="Paste the invite link"
-          aria-label="Invite link"
+          placeholder=${copy("albums.paste_the_invite_link")}
+          aria-label=${copy("albums.invite_link")}
           spellcheck="false"
           autocapitalize="none"
           autocomplete="off"
@@ -469,17 +473,17 @@ function joinSection(settled: boolean, busy: boolean) {
           <button
             class="ui-btn-ghost flex-1"
             type="button"
-            aria-label="Paste from clipboard"
+            aria-label=${copy("albums.paste_from_clipboard")}
             @click=${(e: Event) => {
               const form = (e.currentTarget as HTMLButtonElement).closest("form");
               const input = form?.querySelector("input");
               if (input) void pasteKey(input as HTMLInputElement);
             }}
           >
-            Paste
+            ${t("albums.paste")}
           </button>
           <button class="ui-btn-primary flex-1" type="submit" ?disabled=${busy || !settled}>
-            Continue
+            ${t("albums.continue")}
           </button>
         </div>
       </form>
@@ -512,8 +516,8 @@ export function albumsPanel() {
 /** Sharing's hint: only an Admin can invite, so others are told what a tap does for them. */
 export function albumsHint(folders: readonly FolderSummary[]): string {
   return folders.length === 0 || folders.some((f) => f.role === "creator")
-    ? "Tap an album to invite people or see who's in it. Each album has its own invite link."
-    : "Tap an album to see who's in it.";
+    ? copy("albums.tap_an_album_to_invite")
+    : copy("albums.tap_an_album_to_see");
 }
 
 /** Requests still waiting for an answer, shown on the start screen and on Photos. */
@@ -521,8 +525,8 @@ export function pendingAsks() {
   return watch(foldersActor, (s) => {
     const waiting = s.context.asks.filter((a) => a.status === "waiting" || a.status === "linkOff");
     if (waiting.length === 0) return null;
-    return html`<section aria-label="Waiting to join">
-      <h2 class="ui-label mb-2">Waiting to join</h2>
+    return html`<section aria-label=${copy("albums.waiting_to_join")}>
+      <h2 class="ui-label mb-2">${t("albums.waiting_to_join")}</h2>
       <ul class="space-y-3">
         ${repeat(
           waiting,

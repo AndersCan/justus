@@ -1,17 +1,23 @@
 import { html } from "lit-html";
 import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 
+import { copy } from "../copy/copy";
 /** The line under an album's title when it moved to a new key; none otherwise. */
 export function albumNoticeText(notice: FolderSummary["notice"], albumName: string): string | null {
   if (!notice) return null;
-  if (notice.kind === "removed") return `You're no longer in ${albumName}.`;
-  if (notice.kind === "newKey") return "This album has a new key. Invite your members again.";
-  return `This album has a new key. Ask ${notice.ownerName || "the Admin"} for a new invite link.`;
+  if (notice.kind === "removed") return copy("notices.you_re_no_longer_in", { albumName });
+  if (notice.kind === "newKey") return copy("notices.this_album_has_a_new");
+  return copy("notices.this_album_has_a_new_2", {
+    admin: notice.ownerName || copy("notices.the_admin"),
+  });
 }
 
 /** The line on Your albums after the Admin deleted an album for everyone. */
 export function deletedNoticeText(d: DeletedAlbum): string {
-  return `${d.adminName || "The Admin"} deleted “${d.name}”. The album and its photos were removed from this phone.`;
+  return copy("notices.deleted_the_album_and_its", {
+    admin: d.adminName || copy("notices.the_admin_2"),
+    name: d.name,
+  });
 }
 
 /** The lines shown on every page when a phone runs another Justus version. */
@@ -19,8 +25,9 @@ export function updateLines(
   status: Pick<SyncStatus, "updateNeeded" | "peersBehind"> | null,
 ): string[] {
   if (!status) return [];
-  const lines = status.updateNeeded ? ["Update Justus to keep syncing"] : [];
-  for (const name of status.peersBehind) lines.push(`${name} needs to update Justus`);
+  const lines = status.updateNeeded ? [copy("notices.update_justus_to_keep_syncing")] : [];
+  for (const name of status.peersBehind)
+    lines.push(copy("notices.needs_to_update_justus", { name }));
   return lines;
 }
 
