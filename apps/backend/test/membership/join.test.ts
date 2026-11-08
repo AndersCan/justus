@@ -452,6 +452,12 @@ describe("readJoinRequests", () => {
       expect(found.requests).toEqual([]);
     });
 
+    it("drops a sealedKey that is not a string", async () => {
+      const { found, events } = await read({ [IA]: { [`invite:${CODE}`]: entry(5 as never) } }, {});
+      expect(found.requests).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:not-ours");
+    });
+
     it("still lists a plain-key invite entry", async () => {
       const plain = { requesterKey: KEY_A, requesterName: "Bo", invite: CODE, requestedAt: 5 };
       const { found } = await read({ [IA]: { [`invite:${CODE}`]: plain } }, {});

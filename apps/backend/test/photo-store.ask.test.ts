@@ -1403,4 +1403,25 @@ describe("the Admin's sealing key", () => {
     await reopened.close();
     await s.joiner.store.close();
   });
+
+  it("publishes /device.json without a sealing key, and logs it, when the key cannot be read", async () => {
+    const s = await scenario();
+    await s.admin.store.close();
+    const base = restarted(s.admin.deps);
+    const events: Array<{ event: string; fields: Record<string, unknown> }> = [];
+    const failing = createPhotoStore({
+      ...base,
+      drives: Object.assign(Object.create(base.drives), {
+        boxPublicKey: async () => [new Error("no box"), null],
+      }),
+      log: (e: { event: string; fields: Record<string, unknown> }) => events.push(e),
+    } as never);
+    await failing.ready();
+    const text = await readText(await openDrive(s.joiner, s.owner), "/device.json");
+    expect(boxKeyOf(text ?? null)).toBeUndefined();
+    expect(JSON.parse(text!).identityKey).toBeDefined();
+    expect(events.some((e) => e.event === "error" && e.fields.where === "box.key")).toBe(true);
+    await failing.close();
+    await s.joiner.store.close();
+  });
 });
