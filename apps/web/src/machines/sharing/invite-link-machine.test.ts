@@ -6,6 +6,7 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   createInviteLinkActor,
   VALID_FOR_MS,
+  type EndingValidFor,
   type InviteLinkPort,
   type ValidFor,
 } from "./invite-link-machine";
@@ -39,9 +40,10 @@ describe("invite link machine", () => {
   test.each([
     ["10m", 600_000],
     ["1h", 3_600_000],
+    ["12h", 43_200_000],
     ["1d", 86_400_000],
     ["7d", 604_800_000],
-  ] as [ValidFor, number][])("validFor %s ends after %i ms", async (validFor, ms) => {
+  ] as [EndingValidFor, number][])("validFor %s ends after %i ms", async (validFor, ms) => {
     const { clock, actor } = setup();
     clock.advance(1_000);
     actor.send({ type: "chooseLinkTime", payload: { validFor } });
@@ -301,6 +303,38 @@ describe("turning off links", () => {
   });
 });
 
+describe("a link with no end", () => {
+  test("asks first, then makes a link that never times out", async () => {
+    const { clock, actor } = setup();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "noEnd" } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    expect(actor.state.name).toBe("confirmingNoEnd");
+    actor.send({ type: "confirmNoEnd" });
+    expect(actor.state.name).toBe("linkWorksUntilTurnedOff");
+    clock.advance(VALID_FOR_MS["7d"] * 10);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkWorksUntilTurnedOff");
+  });
+  test("Pick an end time makes nothing and offers the picker", () => {
+    const { actor } = setup();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "noEnd" } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "pickEndTime" });
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(context(actor).validFor).toBe("1d");
+  });
+  test("turning off a link with no end, failing, keeps it shown", async () => {
+    const { actor } = setup();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "noEnd" } });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.send({ type: "confirmNoEnd" });
+    actor.send({ type: "turnOffLink", payload: { folderId: FOLDER, code: CODE } });
+    actor.inject({ type: "linkOffFailed", payload: { folderId: FOLDER } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkWorksUntilTurnedOff");
+  });
+});
+
 const walkTarget = () => createInviteLinkActor({ clock: VirtualClock() });
 const make = recordRuns(createInviteLinkActor);
 
@@ -314,6 +348,31 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
   clock.advance(VALID_FOR_MS["1h"]);
   await actor.settled();
   expect(actor.state.name).toBe("noLinkYet");
+});
+
+test("Two people: Nils makes a 1 hour link for Maya", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "chooseLinkTime", payload: { validFor: "1h" } });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
+test("Wedding: Nils makes a 12 hour link for the guests", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "chooseLinkTime", payload: { validFor: "12h" } });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
+test("Personal album: Nils makes a link with no end for his followers", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "chooseLinkTime", payload: { validFor: "noEnd" } });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  actor.send({ type: "confirmNoEnd" });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkWorksUntilTurnedOff");
 });
 
 test("Nils turns off the links he sent", async () => {
@@ -342,6 +401,14 @@ describe("invite link design", () => {
     expectNoDesignErrors({ id: "inviteLink", create: walkTarget });
   });
   test("reaches every state", () => {
-    expectAllStatesReached({ id: "inviteLink", create: walkTarget });
+    expectAllStatesReached({
+      id: "inviteLink",
+      create: walkTarget,
+      payloads: {
+        chooseLinkTime: [{ validFor: "noEnd" }, { validFor: "1h" }],
+        createLink: [{ folderId: FOLDER, code: CODE }],
+        turnOffLink: [{ folderId: FOLDER, code: CODE }],
+      },
+    });
   });
 });

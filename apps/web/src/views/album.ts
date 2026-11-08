@@ -7,6 +7,8 @@ import { folders, foldersActor, foldersViewModel } from "../machines/folders-mac
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
   allAcceptedAsViewers,
+  allAcceptedAsCollaborators,
+  collaboratorAcceptKeys,
   answerSent,
   requests,
   requestsActor,
@@ -167,6 +169,13 @@ export function acceptAllToast(count: number): string {
 onOutput(requestsActor, (e) => {
   if (e.type === allAcceptedAsViewers.type) {
     toast(acceptAllToast((e.payload as { count: number }).count));
+    return;
+  }
+  if (e.type === allAcceptedAsCollaborators.type) {
+    const count = (e.payload as { count: number }).count;
+    toast(
+      count === 1 ? "1 person is in as a Collaborator" : `${count} people are in as Collaborators`,
+    );
     return;
   }
   if (e.type !== answerSent.type) return;
@@ -366,6 +375,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
   const keys = viewerAcceptKeys(vm.requests, id);
+  const collaboratorKeys = collaboratorAcceptKeys(vm.requests, id);
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
     data-motion-key="section:requests"
@@ -391,6 +401,20 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
             <p class="mt-1 text-xs text-muted">
               They can see the photos but not add or remove any.
             </p>
+          </div>`
+        : null
+    }
+    ${
+      collaboratorKeys.length >= 2
+        ? html`<div class="mb-3">
+            <button
+              class="ui-btn-ghost w-full"
+              ?disabled=${reqVm.responding}
+              @click=${() => requests.acceptAllAsCollaborators(id, collaboratorKeys)}
+            >
+              Accept all ${collaboratorKeys.length} as Collaborators
+            </button>
+            <p class="mt-1 text-xs text-muted">They can see and add photos.</p>
           </div>`
         : null
     }
