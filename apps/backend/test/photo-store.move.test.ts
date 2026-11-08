@@ -314,3 +314,107 @@ describe("a Remove whose move fails", () => {
     for (const p of [s.nils, s.ben, s.vera]) await p.store.close();
   });
 });
+
+describe("the other phones follow the move by themselves", () => {
+  /** Anna's album that Nils (Collaborator), Vera (Viewer) and Ben (Viewer) joined through the invite. */
+  async function invited() {
+    const hub = createFakeHub();
+    const admin = phone(hub, "Anna");
+    const people = { nils: phone(hub, "Nils"), vera: phone(hub, "Vera"), ben: phone(hub, "Ben") };
+    for (const p of [admin, ...Object.values(people)]) await p.store.ready();
+    const created = await admin.store.createFolder("Trip");
+    const { id: folderId, shareKey, invite } = created[1]!.folder;
+    const keys: Record<string, string> = {};
+    const ids: Record<string, string> = {};
+    for (const [name, role] of [
+      ["nils", "member"],
+      ["vera", "reader"],
+      ["ben", "reader"],
+    ] as const) {
+      const who = people[name];
+      await who.store.ask({
+        code: invite!.code,
+        owner: identityOf(admin),
+        albumName: "Trip",
+        ownerName: "Anna",
+      });
+      let requesterKey = "";
+      await until(async () => {
+        requesterKey = (await admin.store.requests()).requests[0]?.requesterKey ?? "";
+        return requesterKey !== "";
+      });
+      keys[name] = requesterKey;
+      expect((await admin.store.respond(folderId, requesterKey, true, role))[0]).toBeNull();
+      await until(async () => (await who.store.folders()).folders[0]?.shareKey === shareKey);
+      ids[name] = (await who.store.folders()).folders[0]!.id;
+    }
+    const record = () =>
+      JSON.parse(readFileSync(join(admin.deps.storageDir, "justus.json"), "utf8")).folders.find(
+        (f: { id: string }) => f.id === folderId,
+      );
+    const close = async () => {
+      for (const p of [admin, ...Object.values(people)]) await p.store.close();
+    };
+    return { admin, ...people, folderId, keys, ids, record, close };
+  }
+  const albumOf = async (p: ReturnType<typeof phone>, id: string) =>
+    (await p.store.folders()).folders.find((f) => f.id === id);
+
+  it("a Collaborator and a Viewer end on the new key under the same local id", async () => {
+    const s = await invited();
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await until(async () => (await albumOf(s.vera, s.ids.vera))?.shareKey === next, 15_000);
+    expect((await albumOf(s.nils, s.ids.nils))?.shareKey).toBe(next);
+    expect((await albumOf(s.vera, s.ids.vera))?.shareKey).toBe(next);
+    expect((await s.nils.store.folders()).folders).toHaveLength(1);
+    await until(() => Object.keys(s.record().moving ?? {}).length === 0, 15_000);
+    expect(s.record().moving).toBeUndefined();
+    expect((await albumOf(s.ben, s.ids.ben))?.shareKey).not.toBe(next);
+    await s.close();
+  }, 40_000);
+
+  it("a Collaborator keeps their photo once, on the new drive", async () => {
+    const s = await invited();
+    expect(
+      (await s.nils.store.addBytes("mine.jpg", new Uint8Array([5, 5, 5]), s.ids.nils))[0],
+    ).toBeNull();
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await until(async () => {
+      const mine = (await s.admin.store.list({ all: true })).filter((p) => p.name === "mine.jpg");
+      return mine.length === 1;
+    }, 15_000);
+    const mine = (await s.admin.store.list({ all: true })).filter((p) => p.name === "mine.jpg");
+    expect(mine).toHaveLength(1);
+    await s.close();
+  }, 40_000);
+  it("a move offer from someone who is not the Admin is ignored", async () => {
+    const s = await invited();
+    const nilsId = s.ids.nils;
+    const before = (await albumOf(s.nils, s.ids.nils))!.shareKey;
+    const links = (
+      s.ben.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+    ).connections.filter((c) => c.identityKey === identityOf(s.nils));
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      s.ben.deps.network.sendAnswer(link.conn, {
+        kind: "offer",
+        code: "c".repeat(64),
+        albumName: "Trip",
+        ownerName: "Ben",
+        move: { from: [before], role: "member" },
+      });
+    }
+    await sleep(1_500);
+    const after = (await s.nils.store.folders()).folders;
+    expect(after).toHaveLength(1);
+    expect(after[0]!.id).toBe(nilsId);
+    expect(after[0]!.shareKey).toBe(before);
+    expect((await s.nils.store.folders()).asks).toHaveLength(0);
+    expect((await s.nils.store.folders()).offers).toHaveLength(0);
+    await s.close();
+  });
+});

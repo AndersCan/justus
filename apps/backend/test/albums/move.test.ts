@@ -6,7 +6,7 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { MAX_EARLIER, moveAlbum } from "../../src/albums/move.ts";
+import { MAX_EARLIER, copyOwnEntries, countShownPhotos, moveAlbum } from "../../src/albums/move.ts";
 import { parseEarlier } from "../../src/membership/records.ts";
 
 const M = "b".repeat(64);
@@ -240,3 +240,37 @@ async function listAll(drive: Drive) {
   for await (const e of drive.list("/")) out.push(`${e.path}:${e.size}`);
   return out;
 }
+
+describe("copyOwnEntries and countShownPhotos", () => {
+  async function twoDrives() {
+    const drives = phone();
+    const from = await drives.openOwn("old");
+    const to = await drives.openOwn("new");
+    for (const id of ["p1", "p2", "p3"]) {
+      await from.put(`/photos/${id}.jpg`, Buffer.from(`photo-${id}`));
+      await from.put(`/thumbs/${id}.jpg`, Buffer.from(`thumb-${id}`));
+    }
+    return { from, to };
+  }
+
+  it("copies photos and thumbnails except the removed ones", async () => {
+    const { from, to } = await twoDrives();
+    expect(await copyOwnEntries(from, to, new Set(["p2"]))).toBe(2);
+    const paths = (await listAll(to))
+      .map((e) => e.split(":")[0]!)
+      .sort((a, b) => a.localeCompare(b));
+    expect(paths).toEqual(["/photos/p1.jpg", "/photos/p3.jpg", "/thumbs/p1.jpg", "/thumbs/p3.jpg"]);
+  });
+
+  it("is repeatable: a second run copies nothing", async () => {
+    const { from, to } = await twoDrives();
+    await copyOwnEntries(from, to, new Set());
+    expect(await copyOwnEntries(from, to, new Set())).toBe(0);
+  });
+
+  it("counts the photos not removed", async () => {
+    const { from } = await twoDrives();
+    expect(await countShownPhotos(from, new Set())).toBe(3);
+    expect(await countShownPhotos(from, new Set(["p1", "p3"]))).toBe(1);
+  });
+});

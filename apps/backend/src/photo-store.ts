@@ -64,8 +64,10 @@ import {
   isTextJSON,
   parseFriendMessage,
   type FriendMessage,
+  type EarlierFile,
   type Answer,
   parseDeviceName,
+  parseEarlier,
   parseRemoved,
   parseRequestsFile,
   verifiedDeviceIdentity,
@@ -76,7 +78,7 @@ import {
   type ViewersFile,
   type RemovedFile,
 } from "./membership/records";
-import { moveAlbum } from "./albums/move";
+import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
   checkAsk,
   fileInviteAsk,
@@ -203,12 +205,18 @@ type GoneRecord = {
 type AskRecord = Omit<AskSummary, "status"> & {
   status: "waiting" | "declined" | "accepted";
   shareKey?: string;
+  /** Joining this ask's album replaces the album with this local id: the
+   * Admin moved it to new keys and this phone is following. */
+  replaces?: string;
 };
 
 type Answers = Record<string, "accepted" | "declined">;
 
 /** Someone the album moved away from who has not arrived on the new key yet. */
 type MovingEntry = { role: "member" | "reader"; name: string; key: string };
+
+/** The album drive's list of earlier member drives (see `EarlierFile`). */
+const DRIVE_PATH_EARLIER = "/earlier.json";
 
 /** How many earlier keys of a moved album are kept for people still to follow. */
 const MAX_PAST_KEYS = 10;
@@ -874,6 +882,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         askedAt: typeof a.askedAt === "number" ? a.askedAt : 0,
         status: a.status,
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
+        ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
       });
     }
     return out;
@@ -1077,7 +1086,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // with only the invite's name): take the album name from it.
         if (rt && drive === rt.folderDrive) {
           void refreshViewers(rt)
-            .then(async (changed) => {
+            .then(async (viewersChanged) => {
+              const changed = viewersChanged || (await refreshEarlier(rt));
               if (!changed) return;
               if (rt.record.role !== "creator") {
                 becomeViewerIfListed(rt);
@@ -1104,6 +1114,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           void dropMemberWhoLeft(rt, label).catch((e) =>
             log("error", { where: "dropMemberWhoLeft", folder: short(folderId), err: errText(e) }),
           );
+        }
+        // A Collaborator's new drive may now hold what their old one did.
+        if (rt && rt.record.role === "creator" && (rt.record.earlier ?? []).length > 0) {
+          void dropCaughtUpEarlier(rt)
+            .then(async (dropped) => {
+              if (dropped) await refreshMembersFor(rt);
+            })
+            .catch((e) =>
+              log("error", {
+                where: "dropCaughtUpEarlier",
+                folder: short(folderId),
+                err: errText(e),
+              }),
+            );
         }
         refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
@@ -1363,8 +1387,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** On a phone that is not the Admin's: reads the Admin's list of earlier
+   * drives. True when it changed. */
+  async function refreshEarlier(rt: FolderRuntime): Promise<boolean> {
+    if (rt.record.role === "creator") return false;
+    const text = await readText(rt.folderDrive, DRIVE_PATH_EARLIER);
+    const earlier = parseEarlier(text, () => log("earlier.unsupported", {}));
+    const before = JSON.stringify(rt.record.earlier ?? []);
+    if (JSON.stringify(earlier) === before) return false;
+    rt.record.earlier = earlier.length > 0 ? earlier : undefined;
+    const persisted = state.folders.find((f) => f.id === rt.record.id);
+    if (persisted) persisted.earlier = rt.record.earlier;
+    saveState();
+    return true;
+  }
+
   async function refreshMembersFor(rt: FolderRuntime) {
     await refreshViewers(rt);
+    await refreshEarlier(rt);
     const registry = await readRegistryIn(rt.folderDrive);
     const entries = Object.values(registry.members).map((m) => ({
       key: m.key,
@@ -1424,6 +1464,56 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // drive that is offline is skipped (its entries are already indexed from
     // when it was reachable) — never evicted.
     await seedContentIndex(rt);
+    if (await dropCaughtUpEarlier(rt)) await refreshMembersFor(rt);
+  }
+
+  const droppingEarlier = new Set<string>();
+
+  /** Admin: a Collaborator whose new drive is enrolled and lists at least as
+   * many photos as their old one no longer needs the old one as a source. Drops
+   * it from the album's earlier list. True when something was dropped. */
+  async function dropCaughtUpEarlier(rt: FolderRuntime): Promise<boolean> {
+    const earlier = rt.record.earlier ?? [];
+    if (rt.record.role !== "creator" || earlier.length === 0) return false;
+    if (droppingEarlier.has(rt.record.id)) return false;
+    droppingEarlier.add(rt.record.id);
+    try {
+      const registry = await readRegistryIn(rt.folderDrive);
+      const removed = Object.keys(await readRemovedIn(rt.folderDrive));
+      const removedIds = (key: string) =>
+        new Set(removed.filter((k) => k.startsWith(`${key}:`)).map((k) => k.slice(key.length + 1)));
+      const done = new Set<string>();
+      for (const e of earlier) {
+        if (e.keptVersion !== undefined) continue;
+        const oldDrive = rt.memberDrives.get(e.key);
+        const identity = presence.identities.get(e.key);
+        if (!oldDrive || !identity) continue;
+        const next = Object.values(registry.members).find(
+          (m) => m.key !== e.key && presence.identities.get(m.key) === identity,
+        );
+        const newDrive = next && rt.memberDrives.get(next.key);
+        if (!next || !newDrive) continue;
+        const have = await countShownPhotos(newDrive, removedIds(next.key));
+        const had = await countShownPhotos(oldDrive, removedIds(e.key));
+        if (have >= had) done.add(e.key);
+      }
+      if (done.size === 0) return false;
+      const rest = earlier.filter((e) => !done.has(e.key));
+      const file: EarlierFile = { version: 1, earlier: rest };
+      await rt.folderDrive.put(DRIVE_PATH_EARLIER, Buffer.from(JSON.stringify(file)));
+      const persisted = state.folders.find((f) => f.id === rt.record.id);
+      for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+        target.earlier = rest.length > 0 ? rest : undefined;
+      }
+      saveState();
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+      return true;
+    } catch (e) {
+      log("error", { where: "dropCaughtUpEarlier", folder: short(rt.record.id), err: errText(e) });
+      return false;
+    } finally {
+      droppingEarlier.delete(rt.record.id);
+    }
   }
 
   /** Records a photo in the content index so a later re-add dedupes even when
@@ -1610,6 +1700,29 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       else contentIndex.set(sha, rest);
     }
     runtimes.delete(id);
+  }
+
+  /** This phone follows the album to its new key: the old album's drives are
+   * released (never purged) and its record is replaced by the one the join
+   * makes under the same local id. */
+  async function retireMovedAlbum(rt: FolderRuntime): Promise<void> {
+    const id = rt.record.id;
+    try {
+      await unmountRuntime(rt);
+      leaveTopic(hex(topicOf(rt.folderDrive)));
+      await deps.drives.release(rt.folderDrive);
+    } catch (e) {
+      log("error", { where: "retireMovedAlbum", folder: short(id), err: errText(e) });
+    }
+    for (const [sha, arr] of contentIndex) {
+      const rest = arr.filter((e) => e.folderId !== id);
+      if (rest.length === 0) contentIndex.delete(sha);
+      else contentIndex.set(sha, rest);
+    }
+    state.folders = state.folders.filter((f) => f.id !== id);
+    runtimes.delete(id);
+    lifecycles.delete(id);
+    log("move.followed", { folder: short(id) });
   }
 
   /** Moves an album from the saved list to the gone records. */
@@ -2824,6 +2937,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     owner: string,
     albumName: unknown,
     ownerName: unknown,
+    replaces?: string,
   ): Promise<EitherResult<{ ask: AskSummary }>> {
     try {
       const drive = await openSelfDriveIn(`ask/${code}`);
@@ -2838,9 +2952,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log,
       });
       if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
-      state.asks = [...state.asks.filter((a) => a.code !== code), ask];
+      const filed = replaces ? { ...ask, replaces } : ask;
+      state.asks = [...state.asks.filter((a) => a.code !== code), filed];
       saveState();
-      await watchInvite(ask);
+      await watchInvite(filed);
       deps.onChanged({ cause: "ask", code });
       return ok({ ask: askSummary(ask) });
     } catch (e) {
@@ -2985,6 +3100,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const joined = await joinAlbum(ask.shareKey, ask.albumName, {
         invite: { code: ask.code, owner: ask.owner },
         selfNs: `ask/${ask.code}`,
+        replaces: ask.replaces,
       });
       if (joined[0]) {
         log("error", { where: "ask.join", code: short(ask.code), err: joined[0].message });
@@ -3094,7 +3210,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const oldInvite = record.invite?.code;
     const answers: Answers = {};
     for (const [identity, answer] of Object.entries(record.answers ?? {})) {
-      if (answer === "declined" || moving[identity]) answers[identity] = answer;
+      if (answer === "declined") answers[identity] = answer;
     }
     const patch: Partial<FolderRecord> = {
       shareKey: moved.shareKey,
@@ -3208,6 +3324,68 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Moves being followed, by invite code. */
+  const following = new Set<string>();
+
+  /** The Admin moved an album this phone is in: copy this phone's own photos
+   * to a new drive, ask through the new code and join the new key as the same
+   * local album. Only the album's own Admin can send this. */
+  async function followMove(
+    connId: number,
+    sender: string,
+    offer: Extract<FriendMessage, { kind: "offer" }>,
+    move: NonNullable<Extract<FriendMessage, { kind: "offer" }>["move"]>,
+  ): Promise<void> {
+    const { code } = offer;
+    const held = Array.from(runtimes.values()).filter(
+      (r) => r.record.role !== "creator" && move.from.includes(r.record.shareKey),
+    );
+    const rt = held.find((r) => r.record.invite?.owner === sender);
+    if (!rt) {
+      const already = state.folders.some(
+        (f) => f.invite?.code === code && f.invite.owner === sender,
+      );
+      if (already) {
+        network.sendAnswer(connId, { kind: "offerSeen", code });
+        return;
+      }
+      log("move.ignored", {
+        sender: short(sender),
+        reason: held.length > 0 ? "not-admin" : "no-album",
+      });
+      return;
+    }
+    if (state.asks.some((a) => a.code === code)) {
+      network.sendAnswer(connId, { kind: "offerSeen", code });
+      network.sendAnswer(connId, { kind: "offerTaken", code });
+      return;
+    }
+    if (following.has(code)) return;
+    following.add(code);
+    try {
+      log("move.start", { folder: short(rt.record.id), code: short(code), phase: "follow" });
+      const ask = await openSelfDriveIn(`ask/${code}`);
+      if (move.role === "member" && rt.record.role === "member") {
+        const removed = await readRemovedIn(rt.folderDrive);
+        const selfKey = selfKeyOf(rt);
+        const ids = new Set<string>();
+        for (const id of Object.keys(removed)) {
+          if (id.startsWith(`${selfKey}:`)) ids.add(id.slice(selfKey.length + 1));
+        }
+        await copyOwnEntries(rt.selfDrive, ask, ids);
+      }
+      const [askErr] = await fileAsk(code, sender, offer.albumName, offer.ownerName, rt.record.id);
+      if (askErr) {
+        log("error", { where: "followMove.ask", err: askErr.message });
+        return;
+      }
+      network.sendAnswer(connId, { kind: "offerSeen", code });
+      network.sendAnswer(connId, { kind: "offerTaken", code });
+    } finally {
+      following.delete(code);
+    }
+  }
+
   /** The friend side of an invite: show it, or turn it down when the sender is a stranger. */
   function receiveOffer(
     connId: number,
@@ -3216,7 +3394,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ) {
     if (offer.move) {
       // A moved album is followed by the phones already in it, never shown as an invite.
-      log("move.ignored", { sender: short(sender), reason: "not-followed" });
+      void followMove(connId, sender, offer, offer.move).catch((e) =>
+        log("error", { where: "followMove", err: errText(e) }),
+      );
       return;
     }
     const known = {
@@ -3261,7 +3441,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function joinAlbum(
     key: string,
     nameHint?: string,
-    via?: { invite: { code: string; owner: string }; selfNs: string },
+    via?: { invite: { code: string; owner: string }; selfNs: string; replaces?: string },
   ): Promise<EitherResult<SyncStatus>> {
     if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
     if (
@@ -3348,16 +3528,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const selfKey = selfDrive.key;
     const enrolled = isEnrolled(registry, selfKey);
     const role: Role = enrolled ? "member" : "reader";
-    const folderId = newId(deps.crypto);
+    // Following a move: the new album is the old one, so it keeps its local id.
+    const old = via?.replaces ? runtimes.get(via.replaces) : undefined;
+    const folderId = old ? old.record.id : newId(deps.crypto);
+    if (old) await retireMovedAlbum(old);
 
     const rt: FolderRuntime = {
       record: {
         id: folderId,
-        name: folderName || peerName(nameHint, JOINED_PLACEHOLDER_NAME),
+        name: old?.record.name ?? (folderName || peerName(nameHint, JOINED_PLACEHOLDER_NAME)),
         role,
         shareKey: key,
         driveKey: enrolled ? selfKey : "",
-        createdAt: Date.now(),
+        createdAt: old?.record.createdAt ?? Date.now(),
+        ...(old?.record.lifecycle ? { lifecycle: old.record.lifecycle } : {}),
         ...(via ? { invite: via.invite, selfNs: via.selfNs } : {}),
       },
       folderDrive: drive,
@@ -3585,6 +3769,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deleted,
         activeFolderId: activeFolderId() ?? "",
         asks: state.asks
+          .filter((a) => !a.replaces)
           .filter((a) => !state.offers.some((o) => o.code === a.code && o.owner === a.owner))
           .map(askSummary),
         offers: state.offers,
