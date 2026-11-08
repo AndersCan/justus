@@ -5,12 +5,14 @@ description: "A new person opens Justus for the first time, gives a name and cho
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-| What the person sees                                                   | What they do                              | State                             |
-| ---------------------------------------------------------------------- | ----------------------------------------- | --------------------------------- |
-| Three intro cards (Welcome, No servers, You decide who joins)          | Reads them, or taps Skip on the first two | `onboarding.showingIntroCards`    |
-| "What should we call you?"                                             | Types a name                              | `onboarding.askingForName`        |
-| The name is being saved                                                | Waits                                     | `onboarding.savingName`           |
-| "Start sharing", with "Create an album" and "Join with an invite link" | Picks one                                 | `onboarding.choosingCreateOrJoin` |
+| What the person sees                                                                      | What they do                                  | State                             |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------- |
+| Three intro cards (Welcome, No servers, You decide who joins)                             | Reads them, or taps Skip on the first two     | `onboarding.showingIntroCards`    |
+| "What should we call you?"                                                                | Types a name                                  | `onboarding.askingForName`        |
+| The name is being saved                                                                   | Waits                                         | `onboarding.savingName`           |
+| "Lock Justus?" with Enable and Not now (only on a phone with a screen lock, App lock off) | Taps Enable, or Not now                       | `onboarding.offeringAppLock`      |
+| The phone's fingerprint, face or PIN prompt                                               | Confirms, or cancels (back on "Lock Justus?") | `onboarding.turningOnAppLock`     |
+| "Start sharing", with "Create an album" and "Join with an invite link"                    | Picks one                                     | `onboarding.choosingCreateOrJoin` |
 
 Back on the name step returns to the card the person left.
 
