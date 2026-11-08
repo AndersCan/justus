@@ -143,6 +143,20 @@ describe("invite link machine", () => {
     expect(seen).toContain("linkNotSaved");
   });
 
+  test("while the save is pending the link is not made yet", async () => {
+    let finish: (v: [unknown, unknown]) => void = () => {};
+    const { actor } = setup({
+      ...savingPort([]),
+      saveLinkTime: () => new Promise((r) => (finish = r)),
+    });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await Promise.resolve();
+    expect(actor.state.name).toBe("savingLinkTime");
+    finish([null, { ok: true }]);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+  });
+
   test("a save that throws counts as a failure", async () => {
     const { actor } = setup({
       ...savingPort([]),
@@ -393,6 +407,7 @@ test("Nils turns off the links he sent", async () => {
 test("Nils turns off the links, it fails, and his link stays shown", async () => {
   const actor = make({ clock: VirtualClock() });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
   actor.send({ type: "turnOffLink", payload: { folderId: FOLDER, code: CODE } });
   actor.inject({ type: "linkOffFailed", payload: { folderId: FOLDER } });
   await actor.settled();

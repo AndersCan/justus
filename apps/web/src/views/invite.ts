@@ -50,17 +50,19 @@ export function inviteLinkFor(
   });
 }
 
-/** Makes the album's link (or reuses the one already made) and returns it. */
-function madeLink(folder: FolderSummary, myName: string): string | null {
+/** Makes the album's link (or reuses the one already made) and returns it once its end time is saved. */
+async function madeLink(folder: FolderSummary, myName: string): Promise<string | null> {
   inviteLink.createLink(folder.id, folder.invite?.code ?? "");
+  await inviteLinkActor.settled();
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
-  if (view.expiresAt === undefined) return null;
+  if (view.state !== "linkMade" || view.folderId !== folder.id || view.expiresAt === undefined)
+    return null;
   return inviteLinkFor(folder, myName, view.expiresAt);
 }
 
 /** Native share sheet when available, otherwise copy. */
 export async function shareInvite(folder: FolderSummary, myName: string) {
-  const link = madeLink(folder, myName);
+  const link = await madeLink(folder, myName);
   if (!link) return;
   const text = `Ask to join my Justus album “${folder.name}”: ${link}`;
   if (typeof navigator.share === "function") {
@@ -75,7 +77,7 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
 }
 
 async function copy(folder: FolderSummary, myName: string, button: HTMLElement) {
-  const link = madeLink(folder, myName);
+  const link = await madeLink(folder, myName);
   if (!link) return;
   const ok = await copyText(link);
   if (!ok) {

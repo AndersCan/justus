@@ -13,7 +13,7 @@ import {
 
 /** What the invite panel draws: which state, for which album, and when the link ends. */
 export type InviteLinkView = {
-  state: "noLinkYet" | "linkMade" | "turningOff";
+  state: "noLinkYet" | "savingLinkTime" | "linkMade" | "turningOff";
   folderId: string;
   validFor: ValidFor;
   /** The code that was just turned off; a link must not carry it. */

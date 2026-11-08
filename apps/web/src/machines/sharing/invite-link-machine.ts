@@ -51,6 +51,8 @@ const noPort: InviteLinkPort = {
 
 /** No link has been made yet; the panel shows the time picker. */
 const noLinkYet = state("noLinkYet")();
+/** The link's end time is being saved on this phone; the link is not handed out until it is. */
+const savingLinkTime = state("savingLinkTime")<{ expiresAt: number }>();
 /** A link was made and works until `expiresAt` (ms since the epoch, whole seconds). */
 const linkMade = state("linkMade")<{ expiresAt: number }>();
 /** The owner confirmed turning off the links; `before` is the link shown until then, if any. */
@@ -84,6 +86,8 @@ export const turnOffLink = event("turnOffLink")<{
 const timeRanOut = event("timeRanOut")();
 /** The album's links were turned off. */
 const linkOff = event("linkOff")<{ folderId: string; code: string }>();
+/** The link's time is saved on this phone. */
+const linkTimeSaved = event("linkTimeSaved")();
 /** Saving the link's time on this phone failed. */
 const linkTimeNotSaved = event("linkTimeNotSaved")();
 /** Turning the links off failed. */
@@ -107,9 +111,9 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
   const { clock, port = noPort } = options;
   return Actor({
     inputs: [chooseLinkTime, createLink, turnOffLink],
-    internal: [timeRanOut, linkOff, linkOffFailed, linkTimeNotSaved],
+    internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
     outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
-    states: [noLinkYet, linkMade, turningOff],
+    states: [noLinkYet, savingLinkTime, linkMade, turningOff],
     initial: noLinkYet,
     clock,
     context: { folderId: "", validFor: "1d", offCode: "", offFolderId: "" } as InviteLinkContext,
@@ -126,7 +130,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
       /** The owner makes a link that works for the chosen time. */
       m.on(noLinkYet, {
         event: createLink,
-        to: [linkMade],
+        to: [savingLinkTime],
         handler: (e, { context }) => {
           const current = context.get();
           // The code was just turned off; wait for the album's new one.
@@ -138,7 +142,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: linkMade.create({ expiresAt }) };
+          return { state: savingLinkTime.create({ expiresAt }) };
         },
       });
       /** The panel for another album shows the picker, so a pick still counts. */
@@ -153,7 +157,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
       /** A link for another album replaces the one made; the same album keeps its link. */
       m.on(linkMade, {
         event: createLink,
-        to: [linkMade],
+        to: [savingLinkTime],
         handler: (e, { context }) => {
           const current = context.get();
           if (e.payload.folderId === "" || e.payload.folderId === current.folderId) return {};
@@ -164,7 +168,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: linkMade.create({ expiresAt }) };
+          return { state: savingLinkTime.create({ expiresAt }) };
         },
       });
       /** A timer runs until the link's end time. */
@@ -177,22 +181,30 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
             event: () => timeRanOut.create(),
           }),
       });
-      /** The link's time is saved on this phone. */
-      m.effect(linkMade, {
+      /** The link's time is saved on this phone before the link is handed out. */
+      m.effect(savingLinkTime, {
         name: "saveLinkTime",
-        sends: [linkTimeNotSaved],
+        sends: [linkTimeSaved, linkTimeNotSaved],
         fn: ({ signal, emit, state, context }) => {
           const { expiresAt } = state.payload;
           return runInvoke(
             signal,
             () => port.saveLinkTime(context.get().folderId, expiresAt),
-            () => {},
+            () => emit(linkTimeSaved.create()),
             () => emit(linkTimeNotSaved.create()),
           );
         },
       });
+      /** Saved: the link can be handed out. */
+      m.on(savingLinkTime, {
+        event: linkTimeSaved,
+        to: [linkMade],
+        handler: (_e, { state }) => ({
+          state: linkMade.create({ expiresAt: (state.payload as { expiresAt: number }).expiresAt }),
+        }),
+      });
       /** Saving failed, so no link is shown and the owner can try again. */
-      m.on(linkMade, {
+      m.on(savingLinkTime, {
         event: linkTimeNotSaved,
         to: [noLinkYet],
         handler: (_e, { context }) => {
