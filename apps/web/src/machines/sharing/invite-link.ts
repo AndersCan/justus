@@ -4,6 +4,7 @@ import { gateway } from "../../gateway";
 import { toast } from "../../views/toast";
 import { sync } from "../sync-machine";
 import {
+  changeLinkTime,
   chooseLinkTime,
   createInviteLinkActor,
   createLink,
@@ -65,6 +66,7 @@ onOutput(inviteLinkActor, (e) => {
 
 export const inviteLink = {
   chooseLinkTime: (validFor: ValidFor) => inviteLinkActor.send(chooseLinkTime.create({ validFor })),
+  changeLinkTime: (validFor: ValidFor) => inviteLinkActor.send(changeLinkTime.create({ validFor })),
   createLink: (folderId: string, code: string) =>
     inviteLinkActor.send(createLink.create({ folderId, code })),
   turnOffLink: (folderId: string, code: string) =>

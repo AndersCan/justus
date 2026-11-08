@@ -441,10 +441,18 @@ describe("album join requests", () => {
     expect(host.textContent).toContain("They can see the photos but not add or remove any.");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
       const h = await show(list);
-      expect([...h.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all"))).toBe(
-        false,
-      );
+      expect(
+        [...h.querySelectorAll("button")].some((b) => name(b)?.endsWith("as Viewers") === true),
+      ).toBe(false);
     }
+  });
+
+  test("two asks show Accept all 2 as Collaborators, even when one came from a friend offer", async () => {
+    const host = await show([ask("nils", true), ask("ola", false)]);
+    expect(button(host, "Accept all 2 as Collaborators")).toBeDefined();
+    expect(host.textContent).toContain("They can add photos too.");
+    const one = await show([ask("nils", true)]);
+    expect(button(one, "Accept all 1 as Collaborators")).toBeUndefined();
   });
 
   test("Accept all sends a Viewer answer to each, disables the buttons, then one toast", async () => {
@@ -517,6 +525,8 @@ describe("album join requests", () => {
   test("acceptAllToast: singular and plural", () => {
     expect(acceptAllToast(1)).toBe("1 person is in as a Viewer");
     expect(acceptAllToast(13)).toBe("13 people are in as Viewers");
+    expect(acceptAllToast(1, "member")).toBe("1 person is in as a Collaborator");
+    expect(acceptAllToast(30, "member")).toBe("30 people are in as Collaborators");
   });
 
   test("answerToast: no toast for a No; Viewer, Collaborator and plain Accept wording", () => {

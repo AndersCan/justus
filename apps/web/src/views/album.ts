@@ -6,7 +6,8 @@ import { friends, friendsActor } from "../machines/friends-machine";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
-  allAcceptedAsViewers,
+  allAccepted,
+  collaboratorAcceptKeys,
   answerSent,
   requests,
   requestsActor,
@@ -179,16 +180,21 @@ export function answerToast(a: {
     : copy("album.is_in", { requesterName: a.requesterName });
 }
 
-/** The one toast after Accept all: how many are in. */
-export function acceptAllToast(count: number): string {
+/** The one toast after Accept all: how many are in, and as what. */
+export function acceptAllToast(count: number, role: "reader" | "member" = "reader"): string {
+  if (role === "member")
+    return count === 1
+      ? copy("album.1_person_is_in_as_a_collaborator")
+      : copy("album.people_are_in_as_collaborators", { count });
   return count === 1
     ? copy("album.1_person_is_in_as")
     : copy("album.people_are_in_as_viewers", { count });
 }
 
 onOutput(requestsActor, (e) => {
-  if (e.type === allAcceptedAsViewers.type) {
-    toast(acceptAllToast((e.payload as { count: number }).count));
+  if (e.type === allAccepted.type) {
+    const { count, role } = e.payload as { count: number; role: "reader" | "member" };
+    toast(acceptAllToast(count, role));
     return;
   }
   if (e.type !== answerSent.type) return;
@@ -413,6 +419,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
   const keys = viewerAcceptKeys(vm.requests, id);
+  const collaboratorKeys = collaboratorAcceptKeys(vm.requests, id);
   const hint = requestsHint(vm.requests);
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
@@ -426,11 +433,25 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
             <button
               class="ui-btn-primary w-full"
               ?disabled=${reqVm.responding || reqVm.loading}
-              @click=${() => requests.acceptAllAsViewers(id, keys)}
+              @click=${() => requests.acceptAll(id, keys, "reader")}
             >
               ${t("album.accept_all_as_viewers", { count: keys.length })}
             </button>
             <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
+          </div>`
+        : null
+    }
+    ${
+      collaboratorKeys.length >= 2
+        ? html`<div class="mb-3">
+            <button
+              class="ui-btn-ghost w-full"
+              ?disabled=${reqVm.responding || reqVm.loading}
+              @click=${() => requests.acceptAll(id, collaboratorKeys, "member")}
+            >
+              ${t("album.accept_all_as_collaborators", { count: collaboratorKeys.length })}
+            </button>
+            <p class="mt-1 text-xs text-muted">${t("album.they_can_add_photos_too")}</p>
           </div>`
         : null
     }

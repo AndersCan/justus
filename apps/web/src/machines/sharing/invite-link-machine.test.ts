@@ -392,6 +392,19 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
   expect(actor.state.name).toBe("noLinkYet");
 });
 
+test("Nils sends a 1 day link, then changes it to 7 days", async () => {
+  const clock = VirtualClock();
+  const actor = make({ clock });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  actor.send({ type: "changeLinkTime", payload: { validFor: "7d" } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+  clock.advance(VALID_FOR_MS["1d"]);
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
 test("Nils turns off the links he sent", async () => {
   const actor = make({
     clock: VirtualClock(),

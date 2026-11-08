@@ -75,6 +75,11 @@ export const createLink = event("createLink")<{
   /** The album's current invite code. */
   code: string;
 }>();
+/** The owner picks a new time while a link is shown; a new link with the new end replaces it. Links already sent keep the end they carry. */
+export const changeLinkTime = event("changeLinkTime")<{
+  /** How long the new link works, from now. */
+  validFor: ValidFor;
+}>();
 /** The owner confirmed turning off every link sent for an album; `code` is the album's current one. */
 export const turnOffLink = event("turnOffLink")<{
   /** The album whose links are turned off. */
@@ -111,7 +116,7 @@ function msUntil(expiresAt: number, now: number): number {
 export function createInviteLinkActor(options: { clock: Clock; port?: InviteLinkPort }) {
   const { clock, port = noPort } = options;
   return Actor({
-    inputs: [chooseLinkTime, createLink, turnOffLink],
+    inputs: [chooseLinkTime, createLink, changeLinkTime, turnOffLink],
     internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
     outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
     states: [noLinkYet, savingLinkTime, linkMade, turningOff],
@@ -169,6 +174,18 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
+          return { state: savingLinkTime.create({ expiresAt }) };
+        },
+      });
+      /** The owner changes the time of the shown link: the new end is saved before the new link is handed out. */
+      m.on(linkMade, {
+        event: changeLinkTime,
+        to: [savingLinkTime],
+        handler: (e, { context }) => {
+          if (!(e.payload.validFor in VALID_FOR_MS)) return {};
+          context.set({ ...context.get(), validFor: e.payload.validFor });
+          const expiresAt =
+            Math.floor((clock.now() + VALID_FOR_MS[e.payload.validFor]) / 1000) * 1000;
           return { state: savingLinkTime.create({ expiresAt }) };
         },
       });

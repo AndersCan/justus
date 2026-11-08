@@ -3,7 +3,12 @@ import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { onOutput } from "@mantaq/sugar";
 import { expect, test } from "vite-plus/test";
-import { createRequestsActor, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import {
+  collaboratorAcceptKeys,
+  createRequestsActor,
+  requestsViewModel,
+  viewerAcceptKeys,
+} from "./requests-machine";
 
 const make = recordRuns(createRequestsActor);
 
@@ -83,13 +88,13 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
   const actor = make({ clock: VirtualClock() });
   const counts: number[] = [];
   onOutput(actor, (e) => {
-    if (e.type === "ALL_ACCEPTED_AS_VIEWERS") counts.push((e.payload as { count: number }).count);
+    if (e.type === "ALL_ACCEPTED") counts.push((e.payload as { count: number }).count);
   });
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: family } });
   actor.send({
-    type: "ACCEPT_ALL_AS_VIEWERS",
-    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1") },
+    type: "ACCEPT_ALL",
+    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1"), role: "reader" },
   });
   for (const person of family) {
     actor.inject({
@@ -101,6 +106,35 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
   await actor.settled();
   expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
   expect(counts).toEqual([3]);
+});
+
+test("Thirty friends ask to join the trip album, and Nils accepts them all as Collaborators", async () => {
+  const friends = Array.from({ length: 30 }, (_, i) => ask("Trip", `k${i}`, `Friend ${i + 1}`));
+  const actor = make({ clock: VirtualClock() });
+  const outcome: { count: number; role: string }[] = [];
+  onOutput(actor, (e) => {
+    if (e.type === "ALL_ACCEPTED") outcome.push(e.payload as { count: number; role: string });
+  });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: friends } });
+  actor.send({
+    type: "ACCEPT_ALL",
+    payload: {
+      folderId: "f1",
+      requesterKeys: collaboratorAcceptKeys(friends, "f1"),
+      role: "member",
+    },
+  });
+  for (const person of friends) {
+    actor.inject({
+      type: "RESPONDED",
+      payload: { folderId: "f1", requesterKey: person.requesterKey },
+    });
+  }
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [] } });
+  await actor.settled();
+  expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
+  expect(outcome).toEqual([{ count: 30, role: "member" }]);
 });
 
 test("Ana asks while Nils looks at his photos, and Nils hears she wants to join", async () => {

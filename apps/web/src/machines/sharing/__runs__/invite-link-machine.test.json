@@ -36,6 +36,41 @@
       ]
     },
     {
+      "name": "Nils sends a 1 day link, then changes it to 7 days",
+      "end": "linkMade",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkTimeSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "changeLinkTime",
+          "payload": {
+            "validFor": "7d"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkTimeSaved",
+          "payload": {}
+        },
+        {
+          "kind": "advance",
+          "ms": 86400000
+        }
+      ]
+    },
+    {
       "name": "Nils turns off the links he sent",
       "end": "noLinkYet",
       "steps": [

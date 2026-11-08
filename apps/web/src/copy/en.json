@@ -951,6 +951,34 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.accept_all_as_collaborators": {
+    "text": "Accept all {count} as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
+  "album.they_can_add_photos_too": {
+    "text": "They can add photos too.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
+  "album.1_person_is_in_as_a_collaborator": {
+    "text": "1 person is in as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
+  "album.people_are_in_as_collaborators": {
+    "text": "{count} people are in as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
   "album.accept_all_as_viewers": {
     "text": "Accept all {count} as Viewers",
     "status": "draft",
@@ -2644,6 +2672,20 @@
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
+  },
+  "invite.new_link_that_works_for": {
+    "text": "New link that works for",
+    "status": "draft",
+    "where": "Invite & join › label",
+    "who": "Admins sending invites",
+    "screen": "album"
+  },
+  "invite.links_you_already_sent_keep": {
+    "text": "Links you already sent still end at their own time.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": "album"
   },
   "invite.send_invite_link": {
     "text": "Send invite link",

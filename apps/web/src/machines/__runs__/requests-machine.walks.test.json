@@ -178,10 +178,11 @@
         },
         {
           "kind": "event",
-          "event": "ACCEPT_ALL_AS_VIEWERS",
+          "event": "ACCEPT_ALL",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": ["k1", "k2", "k3"]
+            "requesterKeys": ["k1", "k2", "k3"],
+            "role": "reader"
           }
         },
         {
@@ -206,6 +207,582 @@
           "payload": {
             "folderId": "f1",
             "requesterKey": "k3"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Thirty friends ask to join the trip album, and Nils accepts them all as Collaborators",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k0",
+                "requesterName": "Friend 1",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k1",
+                "requesterName": "Friend 2",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Friend 3",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Friend 4",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k4",
+                "requesterName": "Friend 5",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k5",
+                "requesterName": "Friend 6",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k6",
+                "requesterName": "Friend 7",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k7",
+                "requesterName": "Friend 8",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k8",
+                "requesterName": "Friend 9",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k9",
+                "requesterName": "Friend 10",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k10",
+                "requesterName": "Friend 11",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k11",
+                "requesterName": "Friend 12",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k12",
+                "requesterName": "Friend 13",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k13",
+                "requesterName": "Friend 14",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k14",
+                "requesterName": "Friend 15",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k15",
+                "requesterName": "Friend 16",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k16",
+                "requesterName": "Friend 17",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k17",
+                "requesterName": "Friend 18",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k18",
+                "requesterName": "Friend 19",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k19",
+                "requesterName": "Friend 20",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k20",
+                "requesterName": "Friend 21",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k21",
+                "requesterName": "Friend 22",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k22",
+                "requesterName": "Friend 23",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k23",
+                "requesterName": "Friend 24",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k24",
+                "requesterName": "Friend 25",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k25",
+                "requesterName": "Friend 26",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k26",
+                "requesterName": "Friend 27",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k27",
+                "requesterName": "Friend 28",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k28",
+                "requesterName": "Friend 29",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k29",
+                "requesterName": "Friend 30",
+                "folderId": "f1",
+                "folderName": "Trip",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": [
+              "k0",
+              "k1",
+              "k2",
+              "k3",
+              "k4",
+              "k5",
+              "k6",
+              "k7",
+              "k8",
+              "k9",
+              "k10",
+              "k11",
+              "k12",
+              "k13",
+              "k14",
+              "k15",
+              "k16",
+              "k17",
+              "k18",
+              "k19",
+              "k20",
+              "k21",
+              "k22",
+              "k23",
+              "k24",
+              "k25",
+              "k26",
+              "k27",
+              "k28",
+              "k29"
+            ],
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k0"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k4"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k5"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k6"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k7"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k8"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k9"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k10"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k11"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k12"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k13"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k14"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k15"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k16"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k17"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k18"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k19"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k20"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k21"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k22"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k23"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k24"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k25"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k26"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k27"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k28"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k29"
           }
         },
         {

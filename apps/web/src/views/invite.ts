@@ -262,9 +262,25 @@ function invitePanelBody(
                 )}
               </select>
             </label>`
-          : html`<p class="mb-4 text-sm text-fg">
-              ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
-            </p>`
+          : html`<p class="mb-2 text-sm text-fg">
+                ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
+              </p>
+              <label class="mb-1 flex items-center gap-2 text-sm text-fg">
+                ${t("invite.new_link_that_works_for")}
+                <select
+                  class="ui-input w-auto py-1"
+                  @change=${(e: Event) =>
+                    inviteLink.changeLinkTime(
+                      (e.currentTarget as HTMLSelectElement).value as ValidFor,
+                    )}
+                >
+                  <option value="" disabled selected></option>
+                  ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
+                    (key) => html`<option value=${key}>${VALID_FOR_LABEL[key]}</option>`,
+                  )}
+                </select>
+              </label>
+              <p class="mb-4 text-xs text-muted">${t("invite.links_you_already_sent_keep")}</p>`
       }
       <div class="flex flex-wrap gap-2">
         ${

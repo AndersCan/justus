@@ -11,8 +11,10 @@ import { copy } from "../copy/copy";
  * the other machines.
  */
 
-/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
-type Batch = { folderId: string; next: string; after: string[]; sent: number };
+/** What Accept all lets people do: Viewers look, Collaborators also add photos. */
+type Role = "reader" | "member";
+/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in, all with `role`. */
+type Batch = { folderId: string; role: Role; next: string; after: string[]; sent: number };
 
 const REQUESTS_STATES = [
   "requestsNotLoaded",
@@ -46,13 +48,14 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The Admin taps Accept all as Viewers; only the people on screen at the tap are answered. */
-const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
+/** The Admin taps Accept all as Viewers ("reader") or Accept all as Collaborators ("member"); only the people on screen at the tap are answered. */
+const acceptAll = event("ACCEPT_ALL")<{
   folderId: string;
   requesterKeys: string[];
+  role: Role;
 }>();
-/** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
-export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
+/** Everyone in the batch is in with the role; the view says how many in one toast. */
+export const allAccepted = event("ALL_ACCEPTED")<{ count: number; role: Role }>();
 /** Asks this phone had not listed before came in with a reload; never sent for asks already waiting at the first load. */
 export const requestsArrived = event("REQUESTS_ARRIVED")<{ requests: JoinRequest[] }>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
@@ -133,9 +136,9 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry, acceptAllAsViewers],
+    inputs: [refresh, respond, retry, acceptAll],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent, allAcceptedAsViewers, requestsArrived],
+    outputs: [answerSent, allAccepted, requestsArrived],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -197,9 +200,9 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswer };
           },
         });
-        /** Accept all as Viewers starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+        /** Accept all starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
         m.on(at, {
-          event: acceptAllAsViewers,
+          event: acceptAll,
           to: [sendingAnswersToAll],
           handler: (e, opts) => {
             const ctx = opts.context.get();
@@ -212,6 +215,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return {
               state: sendingAnswersToAll.create({
                 folderId: e.payload.folderId,
+                role: e.payload.role,
                 next,
                 after,
                 sent: 0,
@@ -318,15 +322,15 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           );
         },
       });
-      /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
+      /** One answer of Accept all is sent with the batch's role; if it cannot be sent, the batch hears why. */
       m.effect(sendingAnswersToAll, {
         name: "sendingAnswersToAll",
         sends: [responded, respondFailed],
         fn: ({ signal, emit, state }) => {
-          const { folderId, next } = state.payload;
+          const { folderId, next, role } = state.payload;
           return runInvoke(
             signal,
-            () => port.respond(folderId, next, true, "reader"),
+            () => port.respond(folderId, next, true, role),
             () => emit(responded.create({ folderId, requesterKey: next })),
             (message) => emit(respondFailed.create({ message })),
           );
@@ -352,7 +356,10 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           if (next !== undefined) {
             return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
           }
-          return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+          return {
+            state: loadingRequests,
+            emit: [allAccepted.create({ count: sent, role: p.role })],
+          };
         },
       });
       /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
@@ -369,7 +376,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
               folderId: p.folderId,
               requesterKey: p.next,
               approve: true,
-              role: "reader",
+              role: p.role,
             },
           });
           return { state: couldNotSendAnswer };
@@ -448,8 +455,8 @@ export const requests = {
     role: "reader" | "member" = "member",
   ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
-  acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
-    requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
+  acceptAll: (folderId: string, requesterKeys: string[], role: Role) =>
+    requestsActor.send(acceptAll.create({ folderId, requesterKeys, role })),
 };
 
 /** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, in list order. */
@@ -459,5 +466,15 @@ export function viewerAcceptKeys(
 ): string[] {
   return requests
     .filter((r) => r.folderId === folderId && r.viaInvite === true && r.clash === undefined)
+    .map((r) => r.requesterKey);
+}
+
+/** The requests Accept all as Collaborators answers in one album: every ask, not those whose name equals a saved friend's, in list order. */
+export function collaboratorAcceptKeys(
+  requests: (JoinRequest & { clash?: string })[],
+  folderId: string,
+): string[] {
+  return requests
+    .filter((r) => r.folderId === folderId && r.clash === undefined)
     .map((r) => r.requesterKey);
 }
