@@ -12,6 +12,7 @@ import { gallery } from "../machines/gallery-machine";
 import {
   acceptAllToast,
   albumMenuItems,
+  removedDeleteSheet,
   albumView,
   answerToast,
   deleteSheet,
@@ -865,6 +866,23 @@ describe("album menu items", () => {
     ["reader", true, ["Archive"]],
   ] as const)("%s (pending %s)", (role, pending, labels) => {
     expect(albumMenuItems(role, pending).map((i) => i.label)).toEqual(labels);
+  });
+
+  test.each([
+    ["reader", false, true, ["Archive", "Delete from this phone"]],
+    ["member", false, true, ["Archive", "Delete from this phone"]],
+    ["reader", true, true, ["Archive"]],
+  ] as const)("removed %s (pending %s, removed %s)", (role, pending, removed, labels) => {
+    expect(albumMenuItems(role, pending, removed).map((i) => i.label)).toEqual(labels);
+  });
+
+  test("a removed person's dialog says the Admin sees it", () => {
+    expect(removedDeleteSheet("Trip", "Anna")).toEqual({
+      title: "Delete “Trip” from this phone?",
+      detail:
+        "You're no longer in this album. Its photos are deleted from this phone, and Anna sees that it no longer has them. To come back you need a new invite from Anna.",
+      confirmLabel: "Delete",
+    });
   });
 
   test("the album page shows the menu with the Admin's items", () => {

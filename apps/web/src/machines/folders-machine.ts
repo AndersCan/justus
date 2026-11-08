@@ -162,7 +162,7 @@ const switchedTo = event("SWITCHED_TO")<{ status: SyncStatus }>();
 /** The new name was saved and should be shown everywhere. */
 const renamed = event("RENAMED")<{ name: string }>();
 
-type AlbumTarget = { folderId: string; name: string };
+type AlbumTarget = { folderId: string; name: string; removed?: true };
 type AlbumChange = "archive" | "restore" | "leave" | "delete" | "dismiss";
 
 type FoldersContext = {
@@ -807,8 +807,10 @@ export const folders = {
     foldersActor.send(archiveAlbum.create({ folderId, name })),
   restore: (folderId: string, name: string) =>
     foldersActor.send(restoreAlbum.create({ folderId, name })),
-  leave: (folderId: string, name: string) =>
-    foldersActor.send(leaveAlbum.create({ folderId, name })),
+  leave: (folderId: string, name: string, removed = false) =>
+    foldersActor.send(
+      leaveAlbum.create(removed ? { folderId, name, removed: true } : { folderId, name }),
+    ),
   delete: (folderId: string, name: string) =>
     foldersActor.send(deleteAlbum.create({ folderId, name })),
   dismissNotice: (folderId: string, name: string) =>

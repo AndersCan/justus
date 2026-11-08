@@ -102,13 +102,20 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   if (prev === "restoringAlbum") toast(copy("albums.is_back_in_your_albums", { name }));
   if (prev === "leavingAlbum") {
     open("/sharing");
-    toast(copy("albums.you_left", { name }));
+    toast(leaveToast(change));
   }
   if (prev === "deletingAlbum") {
     open("/sharing");
     toast(copy("albums.deleted", { name }));
   }
 });
+
+/** What a finished leave says: a removed person deleted the album, anyone else left. */
+export function leaveToast(change: { name: string; removed?: true }): string {
+  return change.removed
+    ? copy("albums.deleted_from_this_phone", { name: change.name })
+    : copy("albums.you_left", { name: change.name });
+}
 
 /** True when the open page is an album that was listed before and is in no list now. */
 export function albumVanished(

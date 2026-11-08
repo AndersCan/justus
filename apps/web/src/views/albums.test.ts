@@ -8,6 +8,7 @@ import { buildInviteLink } from "../utils/invite-link";
 import { sharingView } from "./sharing";
 import {
   albumVanished,
+  leaveToast,
   albumsHint,
   albumsPanel,
   archivedSummary,
@@ -79,6 +80,13 @@ async function load(
 const rows = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLLIElement>("ul[aria-label='Your albums'] > li"),
 ];
+
+describe("leaveToast", () => {
+  test("a removed person deleted the album, anyone else left it", () => {
+    expect(leaveToast({ name: "Trip", removed: true })).toBe("Deleted “Trip” from this phone");
+    expect(leaveToast({ name: "Trip" })).toBe("You left “Trip”");
+  });
+});
 
 describe("albums list", () => {
   test("removing the middle album keeps the other rows, and adding one keeps every row", async () => {
