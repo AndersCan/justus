@@ -4,6 +4,7 @@ import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 /** The line under an album's title when it moved to a new key; none otherwise. */
 export function albumNoticeText(notice: FolderSummary["notice"]): string | null {
   if (!notice) return null;
+  if (notice.kind === "removed") return null;
   if (notice.kind === "newKey") return "This album has a new key. Invite your members again.";
   return `This album has a new key. Ask ${notice.ownerName || "the Admin"} for a new invite link.`;
 }

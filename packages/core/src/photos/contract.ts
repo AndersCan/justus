@@ -132,7 +132,7 @@ export const folderSummarySchema = s.object({
   addedAt: s.number,
   invite: s.optional(s.object({ code: s.string, owner: s.string })),
   notice: s.optional(
-    s.object({ kind: s.oneOf("newKey", "moved"), ownerName: s.optional(s.string) }),
+    s.object({ kind: s.oneOf("newKey", "moved", "removed"), ownerName: s.optional(s.string) }),
   ),
 });
 

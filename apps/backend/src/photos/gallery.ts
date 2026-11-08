@@ -31,6 +31,8 @@ export type AlbumDrives = {
   selfDrive: Drive;
   /** Other members' drives, opened read-only, by key. */
   memberDrives: ReadonlyMap<string, Drive>;
+  /** This device was removed: it keeps showing its own photos. */
+  removed?: boolean;
 };
 
 export type GallerySource = { key: string; drive: Drive };
@@ -91,7 +93,7 @@ async function readText(
  * the Admin's drive first, then this device's own, then the other members'.
  */
 export function galleryDrives(album: AlbumDrives): GallerySource[] {
-  const { role, folderDrive, selfDrive, memberDrives } = album;
+  const { role, folderDrive, selfDrive, memberDrives, removed } = album;
   const creatorKey = folderDrive.key;
   const sources: GallerySource[] = [];
   const seen = new Set<string>();
@@ -101,7 +103,8 @@ export function galleryDrives(album: AlbumDrives): GallerySource[] {
     if (source.key === creatorKey) sources.unshift(source);
     else sources.push(source);
   }
-  if (role === "creator" || role === "member") add({ key: selfDrive.key, drive: selfDrive });
+  if (role === "creator" || role === "member" || removed)
+    add({ key: selfDrive.key, drive: selfDrive });
   if (role === "reader" || role === "member") add({ key: creatorKey, drive: folderDrive });
   for (const [key, drive] of memberDrives) add({ key, drive });
   return sources;
