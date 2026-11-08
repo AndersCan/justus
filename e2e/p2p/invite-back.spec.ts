@@ -57,7 +57,6 @@ async function askToJoin(b, link, album) {
 test("Back from the invite page shows Sharing after Ben adds photos", async ({
   instancePages,
 }, testInfo) => {
-  test.fail(true, "#234: stuck on the invite page until @mantaq/lit 0.2.1");
   test.setTimeout(200_000);
   const run = `${testInfo.repeatEachIndex}-${testInfo.retry}`;
   const album = `Back trip ${run}`;
