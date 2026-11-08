@@ -3,7 +3,7 @@ import UnoCSS from "unocss/vite";
 
 export default defineConfig({
   root: ".",
-  base: "./",
+  base: "/",
   plugins: [UnoCSS()],
   server: {
     // The dev worklet admits exactly this page origin (`origin=` in

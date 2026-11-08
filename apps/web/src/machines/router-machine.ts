@@ -2,9 +2,7 @@ import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
 
 /**
  * Which page is on screen. The URL is the source of truth; the machine holds
- * the parsed page so screens can `watch` it. Pages linked or reloaded directly
- * keep to one path segment: the build uses relative asset URLs (`base: "./"`,
- * for the native hosts), so a nested path can't find its assets.
+ * the parsed page so screens can `watch` it.
  */
 
 export const ROUTES = {
