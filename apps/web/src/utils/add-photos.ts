@@ -1,4 +1,4 @@
-import type { FolderSummary } from "@justus/core";
+import type { FolderSummary, SyncStatus } from "@justus/core";
 
 import { copy } from "../copy/copy";
 /** Whether the album on screen can take photos, decided before the picker
@@ -10,14 +10,25 @@ export type AddPlan =
   /** The user can view the album but not add to it (Reader / Viewer). */
   | { kind: "viewer"; album: FolderSummary }
   /** The user is still waiting for the Admin's approval. */
-  | { kind: "pending"; album: FolderSummary };
+  | { kind: "pending"; album: FolderSummary }
+  /** Joined through an accepted ask; the Admin's lists have not yet said Collaborator or Viewer. */
+  | { kind: "unknown"; album: FolderSummary };
 
-export function planAdd(folderId: string, folders: FolderSummary[]): AddPlan {
+export function planAdd(
+  folderId: string,
+  folders: FolderSummary[],
+  status: SyncStatus | null,
+): AddPlan {
   const album = folders.find((f) => f.id === folderId);
   if (!album) return { kind: "direct", folderId };
   if (album.pending) return { kind: "pending", album };
-  if (album.role === "reader") return { kind: "viewer", album };
-  return { kind: "direct", folderId: album.id };
+  if (album.role !== "reader") return { kind: "direct", folderId: album.id };
+  if (album.notice?.kind === "removed") return { kind: "viewer", album };
+  if (!album.invite?.owner) return { kind: "viewer", album };
+  if (status?.folder.id === album.id && status.members[0]?.viewer === true) {
+    return { kind: "viewer", album };
+  }
+  return { kind: "unknown", album };
 }
 
 /** Only images can be added; drops and pastes may carry anything. */

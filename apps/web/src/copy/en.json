@@ -2001,6 +2001,13 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.getting_your_access": {
+    "text": "Getting your access…",
+    "status": "draft",
+    "where": "Photos › album › under the title",
+    "who": "Someone just accepted into an album, until the Admin's lists reach their phone",
+    "screen": ""
+  },
   "gallery.you_re_a_viewer_you": {
     "text": "You're a Viewer: you see every photo here. {who} decides who adds photos.",
     "status": "draft",

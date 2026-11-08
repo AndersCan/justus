@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import type { FolderSummary } from "@justus/core";
+import type { FolderSummary, SyncStatus } from "@justus/core";
 import { batchSummary, imageFiles, planAdd } from "./add-photos";
 
 const album = (id: string, extra: Partial<FolderSummary> = {}) =>
@@ -7,14 +7,38 @@ const album = (id: string, extra: Partial<FolderSummary> = {}) =>
 
 describe("planAdd", () => {
   test("the album on screen takes the photos", () => {
-    expect(planAdd("a", [album("a"), album("b")])).toEqual({ kind: "direct", folderId: "a" });
+    expect(planAdd("a", [album("a"), album("b")], null)).toEqual({ kind: "direct", folderId: "a" });
   });
 
   test("a Viewer's album and a pending join cannot take photos", () => {
     const viewer = album("a", { role: "reader" });
-    expect(planAdd("a", [viewer])).toEqual({ kind: "viewer", album: viewer });
+    expect(planAdd("a", [viewer], null)).toEqual({ kind: "viewer", album: viewer });
     const pending = album("p", { pending: true });
-    expect(planAdd("p", [pending])).toEqual({ kind: "pending", album: pending });
+    expect(planAdd("p", [pending], null)).toEqual({ kind: "pending", album: pending });
+  });
+
+  describe("a reader who joined through an ask", () => {
+    const joined = album("a", { role: "reader", invite: { code: "c", owner: "o" } } as never);
+    const status = (id: string, members: { viewer?: boolean }[]) =>
+      ({ folder: { id }, members }) as unknown as SyncStatus;
+
+    test("is a Viewer once their own entry says so", () => {
+      expect(planAdd("a", [joined], status("a", [{ viewer: true }, {}]))).toEqual({
+        kind: "viewer",
+        album: joined,
+      });
+    });
+    test("is unknown without the flag, with it on someone else, for another album, or with no status", () => {
+      const unknown = { kind: "unknown", album: joined };
+      expect(planAdd("a", [joined], status("a", [{}, {}]))).toEqual(unknown);
+      expect(planAdd("a", [joined], status("a", [{}, { viewer: true }]))).toEqual(unknown);
+      expect(planAdd("a", [joined], status("b", [{ viewer: true }]))).toEqual(unknown);
+      expect(planAdd("a", [joined], null)).toEqual(unknown);
+    });
+    test("is a Viewer when removed", () => {
+      const removed = { ...joined, notice: { kind: "removed" } } as FolderSummary;
+      expect(planAdd("a", [removed], null).kind).toBe("viewer");
+    });
   });
 });
 

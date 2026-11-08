@@ -79,6 +79,13 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   test.setTimeout(150_000);
   const [a, b] = instancePages;
   await skipIntro([a, b]);
+  await b.addInitScript(() => {
+    const w = window as unknown as { __sawViewer: boolean };
+    w.__sawViewer = false;
+    new MutationObserver(() => {
+      if (document.body?.textContent?.includes("You're a Viewer")) w.__sawViewer = true;
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
   await createAlbum(a, ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
   await a.getByRole("link", { name: "Photos", exact: true }).click();
@@ -112,6 +119,9 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await expect(b.getByRole("button", { name: `Add photos to ${ALBUM}` })).toBeVisible({
     timeout: 60_000,
   });
+  expect(await b.evaluate(() => (window as unknown as { __sawViewer: boolean }).__sawViewer)).toBe(
+    false,
+  );
 });
 
 /** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
