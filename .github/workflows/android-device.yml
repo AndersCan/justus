@@ -66,10 +66,10 @@ jobs:
           echo "$MAESTRO_SHA256  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
           echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
-      - name: Fetch the Gradle distribution
+      - name: Pre-fetch Gradle and dependencies
         working-directory: apps/android
         run: |
-          for i in 1 2 3 4 5; do ./gradlew --version && exit 0; sleep 10; done
+          for i in 1 2 3 4 5; do ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest && exit 0; sleep 10; done
           exit 1
       - name: Maestro device flows
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
