@@ -1360,6 +1360,66 @@ export const scenarios: Scenario[] = [
       );
     },
   },
+  {
+    name: "remove: someone waiting through the invite link is still listed and gets in on Accept",
+    async run(net, t) {
+      const admin = await net.peer("Phone");
+      const desktop = await net.peer("Desktop");
+      const tablet = await net.peer("Tablet");
+      const created = await admin.store.createFolder("Trip");
+      if (created[0]) throw created[0];
+      const { id: folderId, invite } = created[1].folder;
+      const adminIdentity = (admin.store.debugState() as { identityDrive: string }).identityDrive;
+      const askAs = (who: Peer) =>
+        who.store.ask({
+          code: invite!.code,
+          owner: adminIdentity,
+          albumName: "Trip",
+          ownerName: "Phone",
+        });
+
+      t.noErr(await askAs(desktop), "Desktop asks");
+      const first = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "Desktop's ask on the Admin",
+      );
+      const desktopKey = first.requests[0].requesterKey;
+      t.noErr(await admin.store.respond(folderId, desktopKey, true, "member"), "accept Desktop");
+      await eventually(
+        async () => (await desktop.store.folders()).folders.find((f) => !f.pending),
+        (f) => f?.role === "member",
+        "Desktop is a Collaborator",
+      );
+
+      t.noErr(await askAs(tablet), "Tablet asks");
+      const waiting = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "Tablet's ask on the Admin",
+      );
+      const tabletKey = waiting.requests[0].requesterKey;
+
+      t.noErr(await admin.store.removeMember(folderId, desktopKey), "remove Desktop");
+      const moved = (await admin.store.folders()).folders.find((f) => f.id === folderId)!;
+      await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.some((x) => x.requesterKey === tabletKey),
+        "Tablet is still listed after the Remove",
+        60_000,
+      );
+
+      t.noErr(await admin.store.respond(folderId, tabletKey, true, "reader"), "accept Tablet");
+      const album = await eventually(
+        async () =>
+          (await tablet.store.folders()).folders.find((f) => f.shareKey === moved.shareKey),
+        (f) => f?.role === "reader" && !f.pending,
+        "Tablet is a Viewer on the new key",
+        60_000,
+      );
+      t.ok(album?.role === "reader", "Tablet got the role the Admin picked");
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
