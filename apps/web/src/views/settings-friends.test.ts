@@ -76,3 +76,22 @@ describe("Settings › Friends", () => {
     expect(host.textContent).toContain("Ben");
   });
 });
+
+describe("Settings › Friends while removing", () => {
+  test("Remove buttons are disabled until the removal finishes", async () => {
+    hoisted.confirmAction.mockResolvedValue(true);
+    let finish: (v: unknown) => void = () => {};
+    const { host, port } = await mount([
+      { identity: SAM, name: "Sam" },
+      { identity: BEN, name: "Ben" },
+    ]);
+    port.remove.mockImplementation(() => new Promise((r) => (finish = r)) as never);
+    host.querySelectorAll("button")[0].click();
+    await vi.waitFor(() =>
+      expect([...host.querySelectorAll("button")].every((b) => b.disabled)).toBe(true),
+    );
+    finish([null, { removed: true }]);
+    await vi.waitFor(() => expect(host.textContent).not.toContain("Ben"));
+    expect([...host.querySelectorAll("button")].every((b) => !b.disabled)).toBe(true);
+  });
+});

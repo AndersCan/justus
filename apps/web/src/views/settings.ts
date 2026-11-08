@@ -125,6 +125,7 @@ export function friendsSection(
   return watch(actor, (snapshot) => {
     if (snapshot.path[0] === "loadingFriends") return null;
     const rows = savedFriends(snapshot.context.friends);
+    const removing = snapshot.path[0] === "removingFriend";
     return html`<section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("settings_friends.friends")}</h2>
       ${
@@ -137,6 +138,7 @@ export function friendsSection(
                   <button
                     class="ui-btn-ghost"
                     type="button"
+                    ?disabled=${removing}
                     aria-label=${copy("settings_friends.remove_label", { name: f.name })}
                     @click=${() => removeFriend(f.identity, f.name, remove)}
                   >
