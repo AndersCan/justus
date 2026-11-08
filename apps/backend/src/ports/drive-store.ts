@@ -37,10 +37,13 @@ export type Drive = {
    * Keeps this device's copy of `path` and of the drive's file index, now and as the drive
    * grows, so this device can serve `path` while the owner is away; deletes this device's
    * copy of every other file's bytes, also of files a later version deleted. Entries stay.
-   * Safe to run again, as after a restart. An error value when `path` or its bytes are not
-   * on this device. `openAt` copies throw.
+   * When `path` is the drive's only file and the drive's last write put it, also deletes this
+   * device's copy of every older version of the file index, so no older version can be read
+   * from or served by this device (`olderVersionsCleared`); a device keeping someone else's
+   * drive re-checks this each time the drive grows. Safe to run again, as after a restart.
+   * An error value when `path` or its bytes are not on this device. `openAt` copies throw.
    */
-  keepOnly(path: string): Promise<OpenResult<void>>;
+  keepOnly(path: string): Promise<OpenResult<{ olderVersionsCleared: boolean }>>;
   list(dir: string): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */

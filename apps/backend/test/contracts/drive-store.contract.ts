@@ -57,6 +57,30 @@ async function paths(drive: Drive): Promise<string[]> {
   return found;
 }
 
+/** Rejects when `p` takes longer than `ms`: reads of cleared versions hang on real drives. */
+function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no answer in ${ms} ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/** What the drive's version `version` lists on `store`; nothing when it cannot be read. */
+async function listedAt(store: DriveStore, key: string, version: number): Promise<string[]> {
+  const [e, old] = await store.openAt(key, version, { timeoutMs: 2_000 });
+  if (e || !old) return [];
+  return within(paths(old), 1_500).catch(() => []);
+}
+
 /** `a` owns a drive with /x, /y and /deleted.json; `b` has read all three. */
 async function keeperSetup(world: DriveWorld, t: Check) {
   const { a, b, own, remote } = await pair(world, t);
@@ -968,6 +992,139 @@ export const cases: DriveCase[] = [
         20_000,
       );
       t.eq(got, big.length, "whole multi-block file served");
+    },
+  },
+  {
+    name: "D37 keepOnly on the owner's drive whose only file is the kept one, written last, leaves no older version anyone can read",
+    async run(world, t) {
+      const { b, own } = await pair(world, t);
+      await own.put("/x", bytes("photo"), { metadata: { name: "IMG_1.HEIC" } });
+      await own.put("/deleted.json", bytes("note"));
+      const before = own.version();
+      await own.clear("/x");
+      await own.del("/x");
+      await own.put("/deleted.json", bytes("note"));
+      const [err, kept] = await own.keepOnly("/deleted.json");
+      t.noErr([err], "keepOnly");
+      t.eq(kept?.olderVersionsCleared, true, "older versions cleared");
+      await b.disconnect();
+      const c = await world.node();
+      await c.connect();
+      const viaA = await openOk(c.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => viaA.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+          (v) => v === "note",
+          "note from a",
+          15_000,
+        ),
+        "note",
+        "the kept file",
+      );
+      t.eq(await paths(viaA), ["/deleted.json"], "only the note");
+      t.eq(
+        (await listedAt(c.store, own.key, before)).includes("/x"),
+        false,
+        "old version has no /x",
+      );
+      await own.put("/z", bytes("zed"));
+      t.eq(await own.readSmall("/z", 10), "zed", "writes keep working");
+    },
+  },
+  {
+    name: "D38 a keeper that kept the note before the owner finished drops older versions once the owner's last write is the note, and still serves the note alone",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      const [err, first] = await remote.keepOnly("/deleted.json");
+      t.noErr([err], "keepOnly");
+      t.eq(first?.olderVersionsCleared, false, "not cleared while /x and /y remain");
+      await own.del("/x");
+      await own.del("/y");
+      await own.put("/deleted.json", bytes("note"));
+      await eventually(
+        async () => ({
+          version: remote.version(),
+          found: await paths(remote),
+          note: await remote.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+        }),
+        (v) =>
+          v.version === own.version() && v.found.join() === "/deleted.json" && v.note === "note",
+        "b has the note alone",
+      );
+      await a.disconnect();
+      await eventually(
+        () => listedAt(b.store, own.key, before),
+        (v) => !v.includes("/x"),
+        "b's old version lists no /x",
+        5_000,
+      );
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => viaB.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+          (v) => v === "note",
+          "note from b",
+          15_000,
+        ),
+        "note",
+        "the kept file",
+      );
+      t.eq(await paths(viaB), ["/deleted.json"], "only the note");
+      t.eq(
+        (await listedAt(c.store, own.key, before)).includes("/x"),
+        false,
+        "old version has no /x",
+      );
+    },
+  },
+  {
+    name: "D39 keepOnly keeps older versions when the kept file is not the only file or not the last write",
+    async run(world, t) {
+      const { own } = await pair(world, t);
+      await own.put("/deleted.json", bytes("note"));
+      await own.put("/x", bytes("photo"));
+      await own.put("/deleted.json", bytes("note"));
+      const [e1, withX] = await own.keepOnly("/deleted.json");
+      t.noErr([e1], "keepOnly with /x");
+      t.eq(withX?.olderVersionsCleared, false, "another file is left");
+      await own.put("/deleted.json", bytes("note"));
+      await own.del("/x");
+      const [e2, afterDelete] = await own.keepOnly("/deleted.json");
+      t.noErr([e2], "keepOnly after a delete");
+      t.eq(afterDelete?.olderVersionsCleared, false, "the last write was a delete");
+      await own.put("/x", bytes("photo"));
+      await own.del("/x");
+      await own.put("/deleted.json", bytes("note"));
+      const [e3, last] = await own.keepOnly("/deleted.json");
+      t.noErr([e3], "keepOnly with the note last");
+      t.eq(last?.olderVersionsCleared, true, "only file, written last");
+    },
+  },
+  {
+    name: "D40 a keeper that finds the note already alone clears at once and does not fetch the older versions back",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await own.del("/y");
+      await own.put("/deleted.json", bytes("note"));
+      await eventually(
+        async () => ({
+          version: remote.version(),
+          note: await remote.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+        }),
+        (v) => v.version === own.version() && v.note === "note",
+        "b has the note alone",
+      );
+      const [err, kept] = await remote.keepOnly("/deleted.json");
+      t.noErr([err], "keepOnly");
+      t.eq(kept?.olderVersionsCleared, true, "cleared");
+      await sleep(3_000);
+      await a.disconnect();
+      t.eq((await listedAt(b.store, own.key, before)).includes("/x"), false, "no /x on b");
     },
   },
 ];

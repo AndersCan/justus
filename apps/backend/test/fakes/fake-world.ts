@@ -48,6 +48,8 @@ type Replica = {
   listeners: Set<() => void>;
   /** Set by `keepOnly`: the one path whose bytes this replica holds, now and in later versions. */
   keptOnly?: string;
+  /** The path the last write put; undefined when the last write was a delete. */
+  lastPut?: string;
 };
 
 export type FakeNode = {
@@ -130,6 +132,17 @@ function clearAllBut(replica: Replica, path: string): void {
   replica.history = replica.history.map(only);
 }
 
+/**
+ * When `path` is the replica's only file and its last write put it, drops every older version
+ * (the fake's form of clearing the file index) and returns true; else changes nothing.
+ */
+function clearOlderVersions(replica: Replica, path: string): boolean {
+  const only = [...replica.files.keys()];
+  if (only.length !== 1 || only[0] !== path || replica.lastPut !== path) return false;
+  replica.history = replica.history.map((files, v) => (v === replica.length ? files : new Map()));
+  return true;
+}
+
 /** Brings every connected holder of `key` up to the longest copy among them. */
 function replicateKey(options: { hub: FakeHub; key: string }): void {
   const holders = connectedNodes(options.hub).flatMap((node) => {
@@ -155,7 +168,11 @@ function replicateKey(options: { hub: FakeHub; key: string }): void {
     target.files = new Map(source.files);
     target.history = [...source.history];
     target.length = source.length;
-    if (target.keptOnly !== undefined) clearAllBut(target, target.keptOnly);
+    target.lastPut = source.lastPut;
+    if (target.keptOnly !== undefined) {
+      clearAllBut(target, target.keptOnly);
+      clearOlderVersions(target, target.keptOnly);
+    }
     notifyLater(target);
   }
 }
@@ -220,11 +237,13 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     async put(path, bytes, opts) {
       write(() => {
         replica.files.set(path, { bytes: new Uint8Array(bytes), metadata: opts?.metadata ?? {} });
+        replica.lastPut = path;
       });
     },
     async del(path) {
       write(() => {
         replica.files.delete(path);
+        replica.lastPut = undefined;
       });
     },
     async clear(path) {
@@ -238,7 +257,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       });
       replicateKey({ hub, key });
     },
-    async keepOnly(path): Promise<OpenResult<void>> {
+    async keepOnly(path): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
       assertOpen();
       const file = replica.files.get(path);
       if (!file || file.clearedSize !== undefined) {
@@ -246,7 +265,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       }
       replica.keptOnly = path;
       clearAllBut(replica, path);
-      return [null, undefined];
+      return [null, { olderVersionsCleared: clearOlderVersions(replica, path) }];
     },
     async *list(dir) {
       assertOpen();
