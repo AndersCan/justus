@@ -470,6 +470,11 @@ export const scenarios: Scenario[] = [
         "Admin, then the Viewer",
       );
       t.eq((await admin.store.folders()).folders[0].members, 2, "the Admin counts the Viewer");
+      await eventually(
+        () => admin.store.status(),
+        (s) => s.members.some((m: Member) => m.viewer && m.connected),
+        "the Viewer connected on the Admin's phone",
+      );
 
       // A modified app can still put a file in its own drive. Nobody reads it.
       const own = await joiner.drives.openOwn(`ask/${invite.code}`);

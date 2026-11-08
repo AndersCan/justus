@@ -17,7 +17,7 @@ A device enrolled in a folder with its own drive it can add photos to. That driv
 _Avoid_: device, user, peer, writer
 
 **Reader**:
-A device that joined a folder read-only by share key — it can view and seed but has no own drive and cannot add photos. It is a pending joiner, a Viewer the Admin listed in `/viewers.json`, or a removed member.
+A device that joined a folder read-only by share key — it can view and seed but has its own drive, read by others only to see when it is connected; it cannot add photos. It is a pending joiner, a Viewer the Admin listed in `/viewers.json`, or a removed member.
 _Avoid_: guest, viewer
 
 **Creator**:
