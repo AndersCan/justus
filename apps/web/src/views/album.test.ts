@@ -6,6 +6,7 @@ import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
+import { folders } from "../machines/folders-machine";
 import { gateway } from "../gateway";
 import {
   acceptAllToast,
@@ -27,6 +28,7 @@ vi.mock("../gateway", () => ({
       list: vi.fn(async () => [null, { friends: [] }]),
       add: vi.fn(async (identity: string, name: string) => [null, { friend: { identity, name } }]),
     },
+    folders: vi.fn(),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
     makeMember: vi.fn().mockResolvedValue([null, { ok: true }]),
@@ -779,5 +781,23 @@ describe("album member roles", () => {
     expect(row("Nils")).toContain("Collaborator");
     expect(row("Zed")).not.toContain("Collaborator");
     expect(row("Me")).not.toContain("Collaborator");
+  });
+});
+
+describe("album ••• menu while the albums load", () => {
+  const items = (host: HTMLElement) => [...host.querySelectorAll("wa-dropdown-item")];
+
+  test("is disabled until the albums are listed, then enabled", async () => {
+    let resolve: (v: unknown) => void = () => {};
+    vi.mocked(gateway.folders).mockReturnValue(new Promise((r) => (resolve = r)) as never);
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    folders.refresh();
+    expect(items(host).length).toBeGreaterThan(0);
+    expect(items(host).every((i) => i.hasAttribute("disabled"))).toBe(true);
+    resolve([null, { folders: [], activeFolderId: null }]);
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    expect(items(host).some((i) => i.hasAttribute("disabled"))).toBe(false);
   });
 });
