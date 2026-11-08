@@ -17,6 +17,7 @@ import { joinPanel, pendingAsks } from "./albums";
 import { currentPage, open } from "../machines/router-machine";
 import { avatarColor, initialsOf } from "../utils/avatar";
 import { gateway } from "../gateway";
+import { join } from "../machines/sharing/join-request";
 import { isLockStatus } from "./app-lock";
 import { toast } from "./toast";
 import { friendlyError } from "../utils/friendly-error";
@@ -48,7 +49,10 @@ export function markWelcomeSeen(): void {
 
 // A saved profile means the device is set up; a relaunch must not replay the intro.
 onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
-  if (state === "choosingCreateOrJoin") markWelcomeSeen();
+  if (state === "choosingCreateOrJoin") {
+    markWelcomeSeen();
+    join.welcomeEnded();
+  }
 });
 
 // Turning App lock on from the first-run card confirms itself, as the Settings switch does.
