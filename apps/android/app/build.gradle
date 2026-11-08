@@ -136,14 +136,15 @@ tasks.register("buildBareJs", Exec) {
 // Scoped to web output only — never touches main.core.bundle or addons.
 tasks.register("cleanWebAssets", Delete) {
   delete fileTree("src/main/assets") {
-    include "index.html"
+    include "index.html", "theme-boot.js", "favicon.svg"
   }
   delete fileTree("src/main/assets/assets")
+  delete fileTree("src/main/assets/web")
 }
 
 tasks.register("buildWebAssets", Exec) {
   dependsOn "cleanWebAssets"
-  configureExec(it, "pnpm --filter @justus/web run build && mkdir -p apps/android/app/src/main/assets && cp -R apps/web/dist/. apps/android/app/src/main/assets/")
+  configureExec(it, "pnpm --filter @justus/web run build && mkdir -p apps/android/app/src/main/assets/web && cp -R apps/web/dist/. apps/android/app/src/main/assets/web/")
 }
 
 // Pack the worklet bundle for the bare-kit runtime.
