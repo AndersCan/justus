@@ -156,6 +156,8 @@ export type JoinRequest = {
   viaInvite?: boolean;
   /** The asker's check code, the same one their phone shows. */
   checkCode?: string;
+  /** The asker's identity key, the one saved friends are stored under. */
+  requesterIdentity?: string;
 };
 
 export type PhotoChangedCause =

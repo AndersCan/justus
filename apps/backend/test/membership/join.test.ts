@@ -397,6 +397,27 @@ describe("pendingJoinRequests", () => {
     expect(pending.map((r) => r.requesterKey)).toEqual([keys[3], keys[4]]);
   });
 
+  it("carries each asker's identity key", () => {
+    const found = ["x", "y"].map((id, i) => ({
+      request: {
+        folderId: "f1",
+        folderName: "Trip",
+        requesterKey: String(i).repeat(64),
+        requesterName: "Bo",
+        requestedAt: 5,
+        shareKey: "s",
+      },
+      identity: `id-${id}`,
+      viaInvite: i === 1,
+    }));
+    const pending = pendingJoinRequests(found, {
+      registry: { version: 1, members: {} },
+      denied: new Set<string>(),
+      answers: undefined,
+    });
+    expect(pending.map((r) => r.requesterIdentity)).toEqual(["id-x", "id-y"]);
+  });
+
   it("adds a check code per identity only when asked to", () => {
     const found = [
       {
