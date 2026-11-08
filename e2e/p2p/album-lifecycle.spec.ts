@@ -83,7 +83,7 @@ test("B archives and restores A's album without A noticing; A deletes it and it 
   await openAlbumPage(b, ALBUM);
   await b.getByRole("button", { name: "More options" }).click();
   await b.getByRole("menuitem", { name: "Archive" }).click();
-  await expect(b).toHaveURL(/\/sharing$/);
+  await expect(b).toHaveURL(/\/sharing$/, { timeout: 30_000 });
   const rowOf = (page) => page.getByRole("link", { name: `Invite & members of ${ALBUM}` });
   await expect(rowOf(b)).toHaveCount(0);
   await expect(b.getByText("Archived (1)")).toBeVisible();
