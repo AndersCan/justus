@@ -1717,6 +1717,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const v of kept) {
       if (rt.memberDrives.has(v.key)) continue;
       await openKeptDrive(rt, v.key, v.keptVersion as number, v.name);
+      // Presence skipped this Viewer while their live drive stood in as a member.
+      // The Admin's Make Viewer runs its own presence pass.
+      if (rt.record.role !== "creator") refreshPresence();
     }
     for (const entry of entries) {
       await loadMemberDrive(rt, entry.key, entry.name);
@@ -2954,6 +2957,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** The drive a person's holding record is read from, when this phone has it open. */
   function driveOfPerson(rt: FolderRuntime, key: string): Drive | undefined {
     if (key === selfKeyOf(rt)) return undefined;
+    // A Viewer's drive here is a copy frozen at Make Viewer; what they hold now is in their live drive.
+    if (rt.keptAt.has(key) && rt.viewers[key] !== undefined)
+      return viewerDeviceDrives.get(key)?.drive;
     const member = rt.memberDrives.get(key);
     if (member) return member;
     if (key === rt.record.shareKey && rt.folderDrive !== rt.selfDrive) return rt.folderDrive;
