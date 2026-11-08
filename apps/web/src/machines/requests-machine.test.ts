@@ -13,8 +13,9 @@ const request = (folderId: string, requesterKey: string, viaInvite = false) =>
 
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
-const acceptAll = (folderId: string, keys: string[]) =>
-  ({ type: "ACCEPT_ALL_AS_VIEWERS", payload: { folderId, requesterKeys: keys } }) as never;
+const acceptAll = (folderId: string, keys: string[], role: "reader" | "member" = "reader") =>
+  ({ type: "ACCEPT_ALL", payload: { folderId, requesterKeys: keys, role } }) as never;
+const confirmAll = () => ({ type: "CONFIRM_ACCEPT_ALL" }) as never;
 const respond = (
   folderId: string,
   requesterKey: string,
@@ -237,6 +238,7 @@ describe("accept all as Viewers", () => {
     const gates: ((v: [unknown, unknown]) => void)[] = [];
     port.respond.mockImplementation(() => new Promise((res) => gates.push(res as never)));
     actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(confirmAll());
     await Promise.resolve();
     expect(actor.state.name).toBe("sendingAnswersToAll");
     expect(requestsViewModel(actor.snapshot()).responding).toBe(true);
@@ -248,8 +250,8 @@ describe("accept all as Viewers", () => {
     expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2", "k9"]);
     gates[1]!([null, { ok: true }]);
     await actor.settled();
-    expect(outputs.map((o) => o.type)).toEqual(["ALL_ACCEPTED_AS_VIEWERS"]);
-    expect(outputs[0]!.payload).toEqual({ count: 2 });
+    expect(outputs.map((o) => o.type)).toEqual(["ALL_ACCEPTED"]);
+    expect(outputs[0]!.payload).toEqual({ count: 2, role: "reader" });
     expect(port.requests).toHaveBeenCalledTimes(2);
     expect(actor.state.name).toBe("showingRequests");
   });
@@ -260,15 +262,17 @@ describe("accept all as Viewers", () => {
       request("f2", "k9", true),
     ]);
     actor.send(acceptAll("f1", ["k1", "kGone", "k9", "k1"]));
+    actor.send(confirmAll());
     await actor.settled();
     expect(port.respond).toHaveBeenCalledTimes(1);
     expect(port.respond).toHaveBeenCalledWith("f1", "k1", true, "reader");
-    expect(outputs[0]!.payload).toEqual({ count: 1 });
+    expect(outputs[0]!.payload).toEqual({ count: 1, role: "reader" });
   });
 
   test("with nobody still waiting nothing happens", async () => {
     const { actor, port } = await load(three);
     actor.send(acceptAll("f1", ["kGone"]));
+    actor.send(confirmAll());
     await actor.settled();
     expect(actor.state.name).toBe("showingRequests");
     expect(port.respond).not.toHaveBeenCalled();
@@ -280,6 +284,7 @@ describe("accept all as Viewers", () => {
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSendAnswer");
     const vm = requestsViewModel(actor.snapshot());
@@ -296,6 +301,7 @@ describe("accept all as Viewers", () => {
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     actor.send(retry());
     expect(actor.state.name).toBe("sendingAnswersToAll");
@@ -307,7 +313,7 @@ describe("accept all as Viewers", () => {
       "k2",
       "k3",
     ]);
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3, role: "reader" }]);
     expect(actor.state.name).toBe("showingRequests");
   });
 
@@ -315,17 +321,19 @@ describe("accept all as Viewers", () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     expect(actor.state.name).toBe("couldNotSendAnswer");
     actor.send(retry());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3, role: "reader" }]);
   });
 
   test("a refresh after a stop forgets the batch", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     actor.send(refresh());
     await actor.settled();
@@ -339,6 +347,7 @@ describe("accept all as Viewers", () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     actor.send(respond("f1", "k2", false));
     await actor.settled();
@@ -352,16 +361,19 @@ describe("accept all as Viewers", () => {
     const { actor, port, outputs } = await load(three);
     port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
     actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirmAll());
     await actor.settled();
     actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(confirmAll());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 2 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 2, role: "reader" }]);
   });
 
   test("a refresh during the batch is ignored and a newcomer is not answered", async () => {
     const { actor, port } = await load([request("f1", "k1", true), request("f1", "k2", true)]);
     port.requests.mockResolvedValue([null, { requests: [request("f1", "k3", true)] }] as never);
     actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(confirmAll());
     actor.send(refresh());
     expect(actor.state.name).toBe("sendingAnswersToAll");
     await actor.settled();
@@ -376,8 +388,9 @@ describe("accept all as Viewers", () => {
     const { actor, port, outputs } = await load([request("f1", "k1", true)]);
     port.requests.mockResolvedValue([new Error("offline"), null] as never);
     actor.send(acceptAll("f1", ["k1"]));
+    actor.send(confirmAll());
     await actor.settled();
-    expect(outputs.map((o) => o.payload)).toEqual([{ count: 1 }]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 1, role: "reader" }]);
     expect(actor.state.name).toBe("couldNotLoadRequests");
   });
 
@@ -410,6 +423,7 @@ describe("requestsViewModel", () => {
       state: "requestsNotLoaded",
       loading: false,
       responding: false,
+      acceptAllSheet: null,
       failedAnswer: null,
       settled: false,
       error: null,

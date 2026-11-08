@@ -9,6 +9,7 @@ import { requests, requestsActor } from "../machines/requests-machine";
 import { folders } from "../machines/folders-machine";
 import { gateway } from "../gateway";
 import {
+  acceptAllNames,
   acceptAllToast,
   albumMenuItems,
   albumView,
@@ -426,20 +427,31 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(card("nils")).toBeUndefined());
   });
 
-  test("two invite requests show Accept all 2 as Viewers above the list", async () => {
+  test("two invite requests show Accept all 2 as Viewers and as Collaborators above the list", async () => {
     const host = await show([ask("nils", true), ask("ola", true)]);
     const all = button(host, "Accept all 2 as Viewers")!;
     expect(all).toBeDefined();
     expect(all.compareDocumentPosition(host.querySelector("li")!)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(host.textContent).toContain("They can see the photos but not add or remove any.");
+    expect(button(host, "Accept all 2 as Collaborators")).toBeDefined();
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
       const h = await show(list);
       expect([...h.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all"))).toBe(
         false,
       );
     }
+  });
+
+  test("Accept all as Collaborators names who asks, and Cancel sends nothing", async () => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2 as Collaborators")!.click();
+    await vi.waitFor(() => expect(host.textContent).toContain("Let 2 people in?"));
+    expect(host.textContent).toContain("and add their own");
+    button(host, "Cancel")!.click();
+    await vi.waitFor(() => expect(host.textContent).not.toContain("Let 2 people in?"));
+    expect(gateway.respond).not.toHaveBeenCalled();
   });
 
   test("Accept all sends a Viewer answer to each, disables the buttons, then one toast", async () => {
@@ -450,6 +462,8 @@ describe("album join requests", () => {
       () => new Promise((r) => resolvers.push(r)) as never,
     );
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept")).toBeTruthy());
+    button(host, "Accept")!.click();
     await vi.waitFor(() => expect(resolvers).toHaveLength(1));
     await vi.waitFor(() => {
       expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
@@ -480,6 +494,8 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept")).toBeTruthy());
+    button(host, "Accept")!.click();
     await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
     expect(host.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn't connect. Check your internet and try again.",
@@ -509,9 +525,15 @@ describe("album join requests", () => {
     vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
   });
 
+  test("acceptAllNames lists five names, then how many more", () => {
+    expect(acceptAllNames(["A", "B"])).toBe("A, B");
+    expect(acceptAllNames(["A", "B", "C", "D", "E", "F", "G"])).toBe("A, B, C, D, E and 2 more");
+  });
+
   test("acceptAllToast: singular and plural", () => {
-    expect(acceptAllToast(1)).toBe("1 person is in as a Viewer");
-    expect(acceptAllToast(13)).toBe("13 people are in as Viewers");
+    expect(acceptAllToast(1, "reader")).toBe("1 person is in as a Viewer");
+    expect(acceptAllToast(13, "reader")).toBe("13 people are in as Viewers");
+    expect(acceptAllToast(40, "member")).toBe("40 people are in as Collaborators");
   });
 
   test("answerToast: no toast for a No; Viewer, Collaborator and plain Accept wording", () => {

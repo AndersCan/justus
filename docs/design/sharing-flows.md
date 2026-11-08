@@ -169,7 +169,7 @@ A guest's side is the Story 1 Maya walks.
 
 ### Story 3: a big group joining your personal album
 
-- [Nils's family asks to look, and he accepts all three as Viewers](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20and%20he%20accepts%20all%20three%20as%20Viewers)
+- [Nils's family asks to look, he checks the names, and accepts all three as Viewers](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20he%20checks%20the%20names%2C%20and%20accepts%20all%20three%20as%20Viewers)
 - Design, not in the app yet: [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)
 
 ### Story 4: archive, leave or delete an album

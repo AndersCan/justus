@@ -951,13 +951,6 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.they_can_see_the_photos": {
-    "text": "They can see the photos but not add or remove any.",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
   "album.members": {
     "text": "Members",
     "status": "draft",
@@ -3756,6 +3749,76 @@
     "status": "draft",
     "where": "Friends › Add a friend › text",
     "who": "Admins inviting a friend",
+    "screen": ""
+  },
+  "album.1_person_is_in_as_a_collaborator": {
+    "text": "1 person is in as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.people_are_in_as_collaborators": {
+    "text": "{count} people are in as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.names_and_n_more": {
+    "text": "{names} and {count} more",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all_as_collaborators": {
+    "text": "Accept all {count} as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.someone": {
+    "text": "Someone",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all_viewers_can": {
+    "text": "see every photo in the album, including the ones already here, but not add any",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all_collaborators_can": {
+    "text": "see every photo in the album, including the ones already here, and add their own",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.let_n_people_in": {
+    "text": "Let {count} people in?",
+    "status": "draft",
+    "where": "Album › Invite & members › heading",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.they_will": {
+    "text": "They will {can}.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.cancel": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Album members, whenever they open an album's people",
     "screen": ""
   }
 }
