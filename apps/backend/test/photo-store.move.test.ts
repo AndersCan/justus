@@ -362,7 +362,7 @@ describe("the other phones follow the move by themselves", () => {
     const close = async () => {
       for (const p of [admin, ...Object.values(people)]) await p.store.close();
     };
-    return { admin, ...people, folderId, keys, ids, record, close };
+    return { hub, admin, ...people, folderId, keys, ids, record, close };
   }
   const albumOf = async (p: ReturnType<typeof phone>, id: string) =>
     (await p.store.folders()).folders.find((f) => f.id === id);
@@ -445,6 +445,46 @@ describe("the other phones follow the move by themselves", () => {
 
   const earlierKeys = (s: Awaited<ReturnType<typeof invited>>) =>
     ((s.record().earlier ?? []) as { key: string }[]).map((e) => e.key);
+
+  const names = async (p: ReturnType<typeof phone>) =>
+    (await p.store.list({ all: true })).map((x) => x.name).sort();
+
+  it("a photo added while the follow waits for the Admin arrives once", async () => {
+    const s = await invited();
+    await s.nils.store.addBytes("before.jpg", new Uint8Array([1, 1]), s.ids.nils);
+    await until(async () => (await names(s.admin)).includes("before.jpg"));
+    const drives = s.nils.deps.drives;
+    const real = drives.openOwn.bind(drives);
+    let fired = false;
+    drives.openOwn = (async (ns: string) => {
+      const drive = await real(ns);
+      if (ns.startsWith("ask/") && !fired) {
+        fired = true;
+        await s.admin.store.close();
+        setFakeNodeConnected({ hub: s.hub, node: s.admin.node, connected: false });
+      }
+      return drive;
+    }) as typeof drives.openOwn;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(() => fired, 15_000);
+    await s.nils.store.addBytes("while.jpg", new Uint8Array([2, 2]), s.ids.nils);
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.node, connected: true });
+    s.admin.deps = restarted(s.admin.deps);
+    s.admin.store = createPhotoStore(s.admin.deps);
+    await s.admin.store.ready();
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 20_000);
+    const both = ["before.jpg", "while.jpg"];
+    await until(async () => {
+      const lists = await Promise.all([s.admin, s.vera, s.nils].map(names));
+      return lists.every((l) => l.join() === both.join()) && !earlierKeys(s).includes(s.keys.nils);
+    }, 15_000);
+    expect(await names(s.admin)).toEqual(both);
+    expect(await names(s.vera)).toEqual(both);
+    expect(await names(s.nils)).toEqual(both);
+    expect(earlierKeys(s)).not.toContain(s.keys.nils);
+    await s.close();
+  }, 60_000);
 
   it("the Admin drops a Collaborator's old drive once the new one has all their photos", async () => {
     const s = await invited();

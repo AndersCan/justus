@@ -4099,6 +4099,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Following a move: the new album is the old one, so it keeps its local id.
     const old = via?.replaces ? runtimes.get(via.replaces) : undefined;
     const folderId = old ? old.record.id : newId(deps.crypto);
+    // Photos added after the follow's first copy still sit on the old own
+    // drive: copy them once more so the Admin can retire it.
+    let catchUp: { from: Drive; removedIds: Set<string> } | undefined;
+    if (old && old.record.role === "member" && enrolled && old.selfDrive.key !== selfDrive.key) {
+      const removed = await readRemovedIn(old.folderDrive);
+      const oldKey = selfKeyOf(old);
+      const removedIds = new Set<string>();
+      for (const id of Object.keys(removed)) {
+        if (id.startsWith(`${oldKey}:`)) removedIds.add(id.slice(oldKey.length + 1));
+      }
+      catchUp = { from: old.selfDrive, removedIds };
+    }
     if (old) await retireMovedAlbum(old);
 
     const rt: FolderRuntime = {
@@ -4125,6 +4137,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       former: [],
     };
     runtimes.set(folderId, rt);
+    if (catchUp) {
+      void copyOwnEntries(catchUp.from, selfDrive, catchUp.removedIds).catch((e) =>
+        log("error", { where: "move.caughtup", folder: short(folderId), err: errText(e) }),
+      );
+    }
 
     if (!enrolled) {
       // Not yet a member → file a JOIN REQUEST the creator can read. An ask
