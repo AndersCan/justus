@@ -11,6 +11,7 @@ import {
 } from "../fakes/fake-world.ts";
 import {
   answersOwed,
+  deletedAlbumAnswers,
   arrivingAnswer,
   deliverOwed,
   forgetSent,
@@ -651,5 +652,20 @@ describe("answers: asks outside the link times", () => {
     expect(answersOwed([withLinks({ answers: { [b]: "accepted" } })], b, ask(9_000_000))).toEqual([
       { code: CODE, answer: "accepted", shareKey: SHARE },
     ]);
+  });
+});
+
+describe("answers: a deleted album", () => {
+  it("a code of a deleted album gets a linkOff with the ask's time", () => {
+    expect(
+      deletedAlbumAnswers(new Set([CODE]), [
+        { code: CODE, requestedAt: 5 },
+        { code: RETIRED, requestedAt: 6 },
+      ]),
+    ).toEqual([{ code: CODE, answer: "linkOff", askedAt: 5 }]);
+  });
+
+  it("no deleted codes, nothing owed", () => {
+    expect(deletedAlbumAnswers(new Set(), [{ code: CODE, requestedAt: 5 }])).toEqual([]);
   });
 });

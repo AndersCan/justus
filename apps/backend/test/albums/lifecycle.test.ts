@@ -203,7 +203,7 @@ describe("delete clears what it should", () => {
     expect(await drive.readSmall("/deleted.json", 1 << 20)).toBeDefined();
   });
 
-  it("purges the other drives and leaves the invite topic of the album", async () => {
+  it("purges the other drives and keeps the invite topic of the album", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const member = device("Maya", admin.deps.hub);
     await member.store.ready();
@@ -216,7 +216,7 @@ describe("delete clears what it should", () => {
     expect(purge.mock.calls.map((c: unknown[]) => c[0])).toContain(memberKey);
     expect(admin.deps.node.replicas.has(memberKey)).toBe(false);
     const left = leave.mock.calls.map((call: unknown[]) => call[0]);
-    expect(left).toContain(inviteTopic(code, admin.deps.crypto).toString("hex"));
+    expect(left).not.toContain(inviteTopic(code, admin.deps.crypto).toString("hex"));
   });
 });
 

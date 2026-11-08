@@ -116,6 +116,7 @@ import {
 } from "./membership/invites";
 import {
   answersOwed,
+  deletedAlbumAnswers,
   arrivingAnswer,
   type AskedCode,
   deliverOwed,
@@ -257,6 +258,8 @@ type GoneRecord = {
   passOn?: true;
   /** `deletedByAdmin`: the notice was dismissed; the record stays only to pass the note on. */
   dismissed?: true;
+  /** `deletedForEveryone`: the deleted album's invite codes (live first, then turned-off ones). This phone keeps them announce-only and answers an ask through any of them that the link no longer works. */
+  inviteCodes?: string[];
   at: number;
 };
 
@@ -988,6 +991,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return out;
   }
 
+  function deletedCodes(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    return (raw as unknown[]).filter((c): c is string => typeof c === "string" && isHexKey(c));
+  }
+
   function loadGone(raw: unknown): GoneRecord[] {
     if (!Array.isArray(raw)) return [];
     const out: GoneRecord[] = [];
@@ -1021,6 +1029,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(g.kind === "deletedByAdmin" && g.passOn === true ? { passOn: true as const } : {}),
         ...(g.kind === "deletedByAdmin" && g.dismissed === true
           ? { dismissed: true as const }
+          : {}),
+        ...(g.kind === "deletedForEveryone" && deletedCodes(g.inviteCodes).length > 0
+          ? { inviteCodes: deletedCodes(g.inviteCodes) }
           : {}),
         at: typeof g.at === "number" ? g.at : 0,
       });
@@ -2126,11 +2137,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const mine = rt.record.role === "creator" ? rt.folderDrive : rt.selfDrive;
       await deleteOwnPhotos(mine, { log });
     }
-    if (rt.record.role === "creator") {
-      for (const code of [rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])]) {
-        if (code) leaveTopic(hex(inviteTopic(code, crypto)));
-      }
-    }
     keys.delete(ownDrive.key);
     for (const key of keys) {
       try {
@@ -2180,6 +2186,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     passOn?: true,
   ) {
     const id = rt.record.id;
+    const inviteCodes =
+      kind === "deletedForEveryone"
+        ? deletedCodes([rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])])
+        : [];
     state.folders = state.folders.filter((f) => f.id !== id);
     state.gone = [
       ...state.gone.filter((g) => g.id !== id),
@@ -2192,6 +2202,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(selfNs === undefined ? {} : { selfNs }),
         ...(listedIn === undefined ? {} : { listedIn }),
         ...(passOn === undefined ? {} : { passOn }),
+        ...(inviteCodes.length > 0 ? { inviteCodes } : {}),
         at: Date.now(),
       },
     ];
@@ -2226,6 +2237,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       case "deletedForEveryone":
         moveToGone(rt, "deletedForEveryone");
+        for (const identity of connectedIdentities()) {
+          void deliverAnswers(identity).catch(answerErr("deliver"));
+        }
         return;
       case "waitingForAdminToSeeYouLeft": {
         const actor = lifecycles.get(id);
@@ -3638,6 +3652,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         continue;
       }
       if (gone.kind !== "deletedForEveryone") continue;
+      for (const code of gone.inviteCodes ?? []) {
+        joinTopic(inviteTopic(code, crypto), { server: true });
+      }
       try {
         let fd: Drive;
         if (gone.shareKey === ownDrive.key) {
@@ -3954,11 +3971,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** The codes `identity` asked through, read from its outbox; only when some
    * album here has turned a link off. */
   async function askedThrough(identity: string): Promise<AskedCode[]> {
-    const hasRetired = [...runtimes.values()].some(
-      (rt) =>
-        rt.record.retiredInvites?.length ||
-        (rt.record.role === "creator" && rt.record.invite?.links?.length),
-    );
+    const hasRetired =
+      [...runtimes.values()].some(
+        (rt) =>
+          rt.record.retiredInvites?.length ||
+          (rt.record.role === "creator" && rt.record.invite?.links?.length),
+      ) || state.gone.some((g) => g.inviteCodes?.length);
     if (!hasRetired) return [];
     try {
       const drive = await withTimeout(openPeerOutbox(identity), 5_000);
@@ -3974,16 +3992,29 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Late asks already pushed a linkOff this session, as identity:requestedAt. */
   const lateAskPushed = new Set<string>();
 
+  function connectedIdentities(): Set<string> {
+    const connected = new Set<string>();
+    for (const c of conns.values()) {
+      if (c.identityKey && !c.refused && c.identityKey !== ownDrive.key) {
+        connected.add(c.identityKey);
+      }
+    }
+    return connected;
+  }
+
   /** Sends each answer owed to `identity` on every connection proven to be it. */
   async function deliverAnswers(identity: string, attempt = 0): Promise<void> {
     if (closed || !setupDone) return;
     const asked = await askedThrough(identity);
-    const owed = () =>
-      answersOwed(
+    const deleted = new Set(state.gone.flatMap((g) => g.inviteCodes ?? []));
+    const owed = () => [
+      ...answersOwed(
         [...runtimes.values()].map((rt) => rt.record),
         identity,
         asked,
-      );
+      ),
+      ...deletedAlbumAnswers(deleted, asked),
+    ];
     const { retry } = await deliverOwed(
       {
         connections: () =>
@@ -5217,13 +5248,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       saveState();
       serveInvite(next.invite.code);
       deps.onChanged({ cause: "request", folderId });
-      const connected = new Set<string>();
-      for (const c of conns.values()) {
-        if (c.identityKey && !c.refused && c.identityKey !== ownDrive.key) {
-          connected.add(c.identityKey);
-        }
-      }
-      for (const id of connected) void deliverAnswers(id).catch(answerErr("deliver"));
+      for (const id of connectedIdentities()) void deliverAnswers(id).catch(answerErr("deliver"));
       return ok({ invite: { code: next.invite.code, owner: ownDrive.key } });
     },
 
@@ -5621,6 +5646,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           kind: g.kind,
           shareKey: g.shareKey,
           ...(g.listedIn ? { listedIn: g.listedIn } : {}),
+          ...(g.inviteCodes ? { inviteCodes: g.inviteCodes } : {}),
         })),
         indexedPhotos: [...contentIndex.values()].reduce((n, arr) => n + arr.length, 0),
         asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
