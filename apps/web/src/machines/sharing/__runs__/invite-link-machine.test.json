@@ -59,6 +59,35 @@
           }
         }
       ]
+    },
+    {
+      "name": "Nils turns off the links, it fails, and his link stays shown",
+      "end": "linkMade",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "turnOffLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkOffFailed",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          }
+        }
+      ]
     }
   ]
 }
