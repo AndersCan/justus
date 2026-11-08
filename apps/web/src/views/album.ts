@@ -18,7 +18,7 @@ import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
-import { requestsHint } from "../utils/people";
+import { nameList, requestsHint, type Person } from "../utils/people";
 import { formatRelative } from "../utils/time";
 import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
@@ -41,28 +41,32 @@ export function leaveDetail(role: "member" | "reader", adminName: string): strin
 
 const photoCount = (n: number) => (n === 1 ? copy("album.1_photo") : copy("album.photos", { n }));
 
-/** The names after "will lose their photos in it": none past three others. */
-function loseLine(names: string[]): string {
-  if (names.length === 0 || names.length > 3) return "";
-  const list =
-    names.length === 1
-      ? names[0]
-      : copy("album.and", { others: names.slice(0, -1).join(", "), last: names[names.length - 1] });
-  return copy("album.will_lose_their_photos_in", { list });
-}
-
-/** The delete sheet: with others it says whose photos go, alone it is just this phone. */
-export function deleteSheet(name: string, photos: number, otherNames: string[]) {
+/** The delete sheet: with others it names who loses the album now and who when their phone connects; alone it is just this phone. */
+export function deleteSheet(
+  name: string,
+  photos: number,
+  others: readonly { name: string; connected: boolean }[],
+) {
   const count = photoCount(photos);
-  if (otherNames.length === 0) {
+  if (others.length === 0) {
     return {
       title: copy("album.delete", { name }),
       detail: copy("album.the_album_and_its_are", { count }),
     };
   }
+  const now = others.filter((o) => o.connected).map((o) => o.name);
+  const later = others.filter((o) => !o.connected).map((o) => o.name);
   return {
     title: copy("album.delete_for_everyone", { name }),
-    detail: copy("album.the_album_and_its_including", { count, loseLine: loseLine(otherNames) }),
+    detail: copy("album.the_album_and_its_including", {
+      count,
+      now:
+        now.length === 0 ? "" : copy("album.lose_it_now", { list: nameList(now), n: now.length }),
+      later:
+        later.length === 0
+          ? ""
+          : copy("album.lose_it_when_they_connect", { list: nameList(later), n: later.length }),
+    }),
   };
 }
 
@@ -90,7 +94,7 @@ export function albumMenuItems(
   return [archive, { value: "leave", label: copy("album.leave_album"), danger: true }];
 }
 
-async function chooseAlbumAction(value: string, status: Status) {
+async function chooseAlbumAction(value: string, status: Status, people: readonly Person[]) {
   const { id, name, role } = status.folder;
   if (value === "archive") {
     folders.archive(id, name);
@@ -115,7 +119,7 @@ async function chooseAlbumAction(value: string, status: Status) {
     return;
   }
   if (value === "delete") {
-    const others = status.members.slice(1).map((m) => m.name);
+    const others = people.filter((p) => !p.you);
     const sheet = deleteSheet(name, status.photos, others);
     const ok = await confirmAction({
       ...sheet,
@@ -126,7 +130,7 @@ async function chooseAlbumAction(value: string, status: Status) {
   }
 }
 
-function albumMenu(status: Status, busy: boolean) {
+function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
   const items = albumMenuItems(
     status.folder.role,
     Boolean(status.folder.pending),
@@ -135,7 +139,7 @@ function albumMenu(status: Status, busy: boolean) {
   return html`<wa-dropdown
     placement="bottom-end"
     @wa-select=${(e: CustomEvent<{ item: { value: string } }>) =>
-      void chooseAlbumAction(e.detail.item.value, status)}
+      void chooseAlbumAction(e.detail.item.value, status, people)}
   >
     <button
       slot="trigger"
@@ -703,7 +707,7 @@ function albumBody(
                 ${roleLabel(status.folder.role, status.folder.pending)}
               </span>`
         }
-        ${watch(foldersActor, (fs) => albumMenu(status, !foldersViewModel(fs).settled))}
+        ${watch(foldersActor, (fs) => albumMenu(status, vm.people, !foldersViewModel(fs).settled))}
       </div>
     </div>
     ${albumNotice(status.folder.notice, status.folder.name)}

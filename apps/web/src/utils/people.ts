@@ -140,3 +140,12 @@ export function buildPeople(
       : [],
   };
 }
+
+/** Names joined for a sentence: "Ann", "Ann and Bo", "Ann, Bo and Cy". */
+export function nameList(names: readonly string[]): string {
+  if (names.length < 2) return names[0] ?? "";
+  return copy("album.and", {
+    others: names.slice(0, -1).join(", "),
+    last: names[names.length - 1],
+  });
+}
