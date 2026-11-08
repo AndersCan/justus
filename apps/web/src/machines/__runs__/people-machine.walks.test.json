@@ -1,0 +1,44 @@
+{
+  "people": [
+    {
+      "name": "Anna opens People, removes Nils, takes back invite to Kim",
+      "end": "showingPeople",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE_MEMBER",
+          "payload": {
+            "folderId": "trip",
+            "memberKey": "nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVED",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "TAKE_BACK_INVITE",
+          "payload": {
+            "folderId": "trip",
+            "identity": "kim",
+            "name": "Kim"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "INVITE_TAKEN_BACK",
+          "payload": {
+            "gone": false
+          }
+        }
+      ]
+    }
+  ]
+}
