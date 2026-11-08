@@ -64,3 +64,10 @@ describe("holdersSheet", () => {
     );
   });
 });
+
+describe("holdersRow live region", () => {
+  it("announces changes to the line politely", () => {
+    const el = draw(holdersRow(photo(h({}))));
+    expect(el.querySelector(".justus-holders-text")?.getAttribute("aria-live")).toBe("polite");
+  });
+});

@@ -49,11 +49,13 @@ export function createLightboxActor(options: { clock: Clock }) {
           },
         });
       }
+      /** The holders row is tapped: the sheet listing which phones hold the photo opens. */
       m.on(showingPhoto, {
         event: holdersOpened,
         to: [showingWhoHasThisPhoto],
         handler: () => ({ state: showingWhoHasThisPhoto }),
       });
+      /** The sheet is dismissed: back to the photo. */
       m.on(showingWhoHasThisPhoto, {
         event: holdersClosed,
         to: [showingPhoto],
