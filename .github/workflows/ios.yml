@@ -1,0 +1,67 @@
+name: ios
+
+on:
+  pull_request:
+    paths:
+      - "apps/ios/**"
+      - "apps/web/**"
+      - "apps/backend/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    name: ios (simulator build + unit tests)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # pnpm 11.22.0 matches pnpm-lock.yaml; node 22.18 is the project minimum.
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 11.22.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.18"
+          cache: pnpm
+
+      - name: Install xcodegen
+        run: command -v xcodegen || brew install xcodegen
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the iOS inputs and project
+        run: node apps/ios/scripts/build-ios.mjs
+
+      - name: Build and run unit tests on a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          if [ -z "$UDID" ] || [ "$UDID" = null ]; then echo "No iPhone simulator on this runner"; exit 1; fi
+          xcodebuild test -project apps/ios/justus.xcodeproj -scheme justus -destination "id=$UDID" \
+            -derivedDataPath apps/ios/build/dd -resultBundlePath apps/ios/build/tests.xcresult CODE_SIGNING_ALLOWED=NO
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: ios-test-results
+          path: apps/ios/build/tests.xcresult
+          retention-days: 14

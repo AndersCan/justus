@@ -89,6 +89,7 @@ console.log(
   "Done. Run on a simulator with `node apps/ios/scripts/run-ios.mjs` (boots, builds, installs, launches).",
 );
 
+// `app/Logic` is Foundation-only and is compiled into the JustusTests bundle too.
 /** Everything the xcodeproj needs, freshly resolved so addon version bumps in
  * apps/backend's dependency graph cannot silently break the app build. */
 function generateProjectYml() {
@@ -149,6 +150,18 @@ ${addonsBlock}
             ? `\n        DEVELOPMENT_TEAM: ${developmentTeam}\n        CODE_SIGN_STYLE: Automatic`
             : ""
         }
+  JustusTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.4"
+    sources:
+      - path: Tests
+      - path: app/Logic
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${bundleId}.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
 schemes:
   justus:
     build:
@@ -156,5 +169,9 @@ schemes:
         Justus: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - JustusTests
 `;
 }
