@@ -277,19 +277,24 @@ function deletedNotices(view: FoldersViewModel) {
 }
 
 function askRow(ask: AskSummary) {
-  const declined = ask.status === "declined";
+  const label =
+    ask.status === "declined"
+      ? "Not accepted"
+      : ask.status === "linkOff"
+        ? "Link no longer works"
+        : `Waiting for ${ask.ownerName} to accept`;
+  const muted = ask.status !== "waiting";
   return html`
     <li data-motion-key=${"ask:" + ask.code}>
       <button
         class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
-        aria-label="${declined ? "Not accepted" : "Waiting for " + ask.ownerName + " to accept"}: ${ask.albumName}"
+        aria-label="${label}: ${ask.albumName}"
         @click=${() => join.reopenRequest(ask)}
       >
         <span class="min-w-0 flex-1">
           <span class="block truncate text-lg font-medium text-fg">${ask.albumName}</span>
-          <span
-            class="mt-0.5 block text-xs ${declined ? "text-muted" : "font-semibold text-warn-fg"}"
-            >${declined ? "Not accepted" : `Waiting for ${ask.ownerName} to accept`}</span
+          <span class="mt-0.5 block text-xs ${muted ? "text-muted" : "font-semibold text-warn-fg"}"
+            >${label}</span
           >
         </span>
         <span class="text-muted" aria-hidden="true">›</span>
@@ -505,7 +510,7 @@ export function albumsPanel() {
 /** Requests still waiting for an answer, shown on the start screen and on Photos. */
 export function pendingAsks() {
   return watch(foldersActor, (s) => {
-    const waiting = s.context.asks.filter((a) => a.status === "waiting");
+    const waiting = s.context.asks.filter((a) => a.status === "waiting" || a.status === "linkOff");
     if (waiting.length === 0) return null;
     return html`<section aria-label="Waiting to join">
       <h2 class="ui-label mb-2">Waiting to join</h2>

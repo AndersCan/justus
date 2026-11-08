@@ -10,6 +10,7 @@ import {
   requestAnswered,
   askToJoin,
   cancelRequest,
+  closeLinkTurnedOff,
   closeWaiting,
   createJoinRequestActor,
   dismissDecline,
@@ -29,7 +30,8 @@ export type JoinView = {
     | "sendingRequest"
     | "waitingForAdminToAccept"
     | "declinedByAdmin"
-    | "linkExpired";
+    | "linkExpired"
+    | "linkTurnedOff";
   invite: JoinInvite | null;
   error: string;
 };
@@ -92,7 +94,8 @@ export const join = {
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
   dismissExpired: () => joinActor.send(dismissExpired.create()),
+  closeLinkTurnedOff: () => joinActor.send(closeLinkTurnedOff.create()),
   /** The Admin's answer reached this phone. */
-  requestAnswered: (code: string, answer: "accepted" | "declined", folderId?: string) =>
+  requestAnswered: (code: string, answer: "accepted" | "declined" | "linkOff", folderId?: string) =>
     joinActor.send(requestAnswered.create({ code, answer, folderId })),
 };

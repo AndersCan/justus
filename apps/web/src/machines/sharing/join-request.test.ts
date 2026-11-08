@@ -52,6 +52,7 @@ beforeEach(async () => {
   foldersContext.asks = [];
   join.closeWaiting();
   join.dismissDecline();
+  join.closeLinkTurnedOff();
   await settle();
 });
 
@@ -128,6 +129,41 @@ describe("join singleton", () => {
     join.openLink(LINK);
     await settle();
     expect(view().state).toBe("decidingToAsk");
+  });
+
+  test("Cancel request on a turned-off request asks the backend to take it back", async () => {
+    mocks.cancelAsk.mockResolvedValue([null, { ok: true }]);
+    join.reopenRequest({
+      code: INVITE.code,
+      owner: INVITE.owner,
+      albumName: "Spain 2026",
+      ownerName: "Nils",
+      askedAt: 1,
+      status: "linkOff",
+    });
+    await settle();
+    expect(view().state).toBe("linkTurnedOff");
+    join.cancelRequest();
+    await settle();
+    expect(mocks.cancelAsk).toHaveBeenCalledWith(INVITE.code);
+    await vi.waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+    expect(view().state).toBe("noInviteOpen");
+  });
+
+  test("Close on a turned-off request keeps the row and closes the sheet", async () => {
+    join.reopenRequest({
+      code: INVITE.code,
+      owner: INVITE.owner,
+      albumName: "Spain 2026",
+      ownerName: "Nils",
+      askedAt: 1,
+      status: "linkOff",
+    });
+    await settle();
+    join.closeLinkTurnedOff();
+    await settle();
+    expect(view().state).toBe("noInviteOpen");
+    expect(mocks.cancelAsk).not.toHaveBeenCalled();
   });
 
   test("OK on a decline takes the request off and refreshes the list", async () => {

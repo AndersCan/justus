@@ -272,6 +272,52 @@ test("B asks by link, A declines, B taps OK and the row goes, B asks again, A ac
     .toBeGreaterThan(0);
 });
 
+test("B asks by link, A turns off the links: B is told the link no longer works and sees nothing of the album; B asks with A's new link", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, "Off trip", PHOTO, 29);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, "Off trip");
+
+  await expect(a.getByText("wants to join “Off trip”")).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Turn off links you sent" }).click();
+  await a.getByRole("button", { name: "Turn off", exact: true }).click();
+  await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
+
+  const sheet = b.getByRole("dialog", { name: "This invite link no longer works." });
+  await expect(sheet).toBeVisible({ timeout: 60_000 });
+  await expect(sheet.getByText(/^Ask .+ for a new one\.$/)).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Cancel request", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Close", exact: true })).toBeVisible();
+  await expect(b.locator("img")).toHaveCount(0);
+  await expect(b.getByText(PHOTO)).toHaveCount(0);
+  await expect(b.getByRole("link", { name: /Invite & members/ })).toHaveCount(0);
+
+  await sheet.getByRole("button", { name: "Close", exact: true }).click();
+  await b.goto("/join");
+  const row = b.getByRole("button", { name: "Link no longer works: Off trip" });
+  await expect(row).toBeVisible();
+  await b.reload();
+  await expect(row).toBeVisible();
+
+  await a.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click({
+    timeout: 20_000,
+  });
+  const newLink = await a.evaluate(() => navigator.clipboard.readText());
+  expect(newLink).toMatch(/^justus:\/\/join\?/);
+  expect(newLink).not.toBe(link);
+  await askToJoin(b, newLink, "Off trip");
+  await expect(a.getByText("wants to join “Off trip”")).toBeVisible({ timeout: 60_000 });
+  await b.goto("/join");
+  await expect(b.getByRole("button", { name: "Link no longer works: Off trip" })).toHaveCount(0);
+  await expect(
+    b.getByRole("button", { name: /^Waiting for .+ to accept: Off trip$/ }),
+  ).toBeVisible();
+});
+
 test("B asks from the first-run screen, closes the waiting sheet, A accepts, B opens the album by itself", async ({
   instancePages,
 }) => {

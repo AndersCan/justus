@@ -2,7 +2,11 @@ import { html } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
-import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
+import {
+  EXPIRED_LINK,
+  LINK_TURNED_OFF,
+  expiredBody,
+} from "../machines/sharing/join-request-machine";
 import { syncActor } from "../machines/sync-machine";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
@@ -344,6 +348,20 @@ export function joinSheet() {
             <button class="ui-btn-primary" @click=${() => join.dismissExpired()}>OK</button>
           </div>`,
         () => join.dismissExpired(),
+      );
+    }
+    if (state === "linkTurnedOff") {
+      return sheet(
+        LINK_TURNED_OFF,
+        html`<h3 class="break-words text-base font-semibold text-fg">${LINK_TURNED_OFF}</h3>
+          <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
+              Cancel request
+            </button>
+            <button class="ui-btn-primary" @click=${() => join.closeLinkTurnedOff()}>Close</button>
+          </div>`,
+        () => join.closeLinkTurnedOff(),
       );
     }
     if (state === "decidingToAsk" || state === "sendingRequest") {
