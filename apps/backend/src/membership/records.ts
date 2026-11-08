@@ -303,6 +303,18 @@ export function parseJoinRequests(
 }
 
 /** The invite codes an outbox's requests were made through, with when. */
+/** When one link the Admin made works: from its making to its end, ms since the epoch. */
+export type LinkTime = { from: number; to: number };
+
+/** How far apart two phones' clocks may be. */
+export const CLOCK_SLACK_MS = 10 * 60_000;
+
+/** True when no link times are known (albums from before this), or `at` falls in one, with slack. */
+export function inLinkTime(links: readonly LinkTime[] | undefined, at: number): boolean {
+  if (!links || links.length === 0) return true;
+  return links.some((l) => l.from - CLOCK_SLACK_MS <= at && at <= l.to + CLOCK_SLACK_MS);
+}
+
 export function invitesAsked(text: string): Array<{ code: string; requestedAt: number }> {
   const file = parseRequestsFile(text);
   if (!file) return [];

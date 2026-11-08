@@ -6,7 +6,13 @@
  */
 import type { Drive, OpenResult } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
-import { parseAnswer, parseDeviceSwarmKey, type Answer } from "./records";
+import {
+  inLinkTime,
+  parseAnswer,
+  parseDeviceSwarmKey,
+  type Answer,
+  type LinkTime,
+} from "./records";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES. */
@@ -85,7 +91,9 @@ export async function proveIdentity(
 export type OwingAlbum = {
   role?: string;
   shareKey: string;
-  invite?: { code: string };
+  invite?: { code: string; links?: readonly LinkTime[] };
+  /** Identities with an open friend invite: never turned away by link times. */
+  invited?: readonly string[];
   retiredInvites?: readonly string[];
   answers?: Readonly<Record<string, "accepted" | "declined">>;
   /** When the ask a decline answered was made, per identity. */
@@ -115,7 +123,12 @@ export function answersOwed(
       }
     }
     for (const a of asked) {
-      if (!album.retiredInvites?.includes(a.code)) continue;
+      const retired = album.retiredInvites?.includes(a.code) ?? false;
+      const late =
+        a.code === album.invite.code &&
+        !album.invited?.includes(identity) &&
+        !inLinkTime(album.invite.links, a.requestedAt);
+      if (!retired && !late) continue;
       // Same rule as join.ts answerClosesRequest; duplicated because use-case modules don't import siblings.
       const settled =
         answer === "accepted" ||

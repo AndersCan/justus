@@ -76,7 +76,10 @@ import {
   verifiedDeviceIdentity,
   identityMessage,
   peerName,
+  CLOCK_SLACK_MS,
+  inLinkTime,
   type EarlierEntry,
+  type LinkTime,
   type RegistryFile,
   type ViewersFile,
   type RemovedFile,
@@ -167,6 +170,7 @@ export const PhotoError = {
   ALBUM_ARCHIVED: "justus.photos/album-archived",
   ALBUM_NOT_CHANGED: "justus.photos/album-not-changed",
   ADMIN_CANNOT_LEAVE: "justus.photos/admin-cannot-leave",
+  INVALID_LINK_TIME: "justus.photos/invalid-link-time",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -229,6 +233,9 @@ const DRIVE_PATH_EARLIER = "/earlier.json";
 
 /** How many earlier keys of a moved album are kept for people still to follow. */
 const MAX_PAST_KEYS = 10;
+const MAX_LINK_TIMES = 50;
+/** A link lasts at most 7 days; the slack covers clocks that differ. */
+const MAX_LINK_MS = 7 * 24 * 60 * 60_000 + CLOCK_SLACK_MS;
 
 /**
  * One folder this device holds. `id` is a stable local id (across sessions);
@@ -246,7 +253,7 @@ type FolderRecord = {
   driveKey: string;
   createdAt: number;
   /** Creator: the album's own invite code. Joiner: the code it asked through. */
-  invite?: { code: string; owner?: string };
+  invite?: { code: string; owner?: string; links?: LinkTime[] };
   /** Creator only: the answer given to each identity that asked. */
   answers?: Answers;
   /** Creator only: when the ask behind each "declined" answer was made. */
@@ -390,6 +397,8 @@ export interface PhotoStore {
   turnOffInvite(
     folderId: string,
   ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
+  /** Admin only: remembers when a link just made stops working; asks sent outside every link's time are turned away. */
+  saveInviteLink(folderId: string, expiresAt: number): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. */
   offerAlbum(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
@@ -745,9 +754,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const out: Partial<FolderRecord> = {};
     const inv = f.invite;
     if (isTextJSON(inv) && typeof inv.code === "string" && isHexKey(inv.code)) {
+      const links = Array.isArray(inv.links)
+        ? (inv.links as unknown[])
+            .flatMap((l): LinkTime[] =>
+              isTextJSON(l) &&
+              typeof l.from === "number" &&
+              typeof l.to === "number" &&
+              Number.isFinite(l.from) &&
+              Number.isFinite(l.to) &&
+              l.from <= l.to
+                ? [{ from: l.from, to: l.to }]
+                : [],
+            )
+            .slice(-MAX_LINK_TIMES)
+        : undefined;
       out.invite = {
         code: inv.code,
         ...(typeof inv.owner === "string" && isHexKey(inv.owner) ? { owner: inv.owner } : {}),
+        ...(links?.length ? { links } : {}),
       };
     }
     if (isTextJSON(f.answers)) {
@@ -3115,7 +3139,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** The codes `identity` asked through, read from its outbox; only when some
    * album here has turned a link off. */
   async function askedThrough(identity: string): Promise<AskedCode[]> {
-    const hasRetired = [...runtimes.values()].some((rt) => rt.record.retiredInvites?.length);
+    const hasRetired = [...runtimes.values()].some(
+      (rt) =>
+        rt.record.retiredInvites?.length ||
+        (rt.record.role === "creator" && rt.record.invite?.links?.length),
+    );
     if (!hasRetired) return [];
     try {
       const drive = await withTimeout(openPeerOutbox(identity), 5_000);
@@ -3127,6 +3155,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return [];
     }
   }
+
+  /** Late asks already pushed a linkOff this session, as identity:requestedAt. */
+  const lateAskPushed = new Set<string>();
 
   /** Sends each answer owed to `identity` on every connection proven to be it. */
   async function deliverAnswers(identity: string, attempt = 0): Promise<void> {
@@ -3964,6 +3995,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // Enrolled, denied and answered invite requests are not pending (#84, #85).
         const registry = await readRegistryIn(rt.folderDrive);
         const found = await readRequestsFromPeers(rt);
+        for (const f of found) {
+          const key = `${f.identity}:${f.request.requestedAt}`;
+          if (
+            f.viaInvite &&
+            !lateAskPushed.has(key) &&
+            !rt.record.invited?.includes(f.identity) &&
+            !inLinkTime(rt.record.invite?.links, f.request.requestedAt)
+          ) {
+            lateAskPushed.add(key);
+            void deliverAnswers(f.identity).catch(answerErr("deliver"));
+          }
+        }
         out.push(
           ...pendingJoinRequests(found, {
             registry,
@@ -3971,6 +4014,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             answers: rt.record.answers,
             declinedAsks: rt.record.declinedAsks,
             invited: new Set(rt.record.invited ?? []),
+            linkTimes: rt.record.invite?.links,
             viewers: new Set(Object.keys(rt.viewers)),
             checkCodeOf: (id) => checkCode(id, crypto),
           }),
@@ -4104,6 +4148,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       for (const id of connected) void deliverAnswers(id).catch(answerErr("deliver"));
       return ok({ invite: { code: next.invite.code, owner: ownDrive.key } });
+    },
+
+    async saveInviteLink(folderId, expiresAt) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator" || !rt.record.invite)
+        return err(PhotoError.NOT_CREATOR, "Only the creator can make invite links");
+      const now = Date.now();
+      if (!Number.isInteger(expiresAt) || expiresAt <= now || expiresAt > now + MAX_LINK_MS) {
+        return err(PhotoError.INVALID_LINK_TIME, "Link end time must be in the next 7 days");
+      }
+      const known = rt.record.invite.links ?? [];
+      if (known.some((l) => l.to === expiresAt)) return ok({ ok: true });
+      const links = [...known, { from: now, to: expiresAt }].slice(-MAX_LINK_TIMES);
+      rt.record.invite = { ...rt.record.invite, links };
+      const persisted = state.folders.find((f) => f.id === folderId);
+      if (persisted?.invite) persisted.invite = { ...persisted.invite, links };
+      saveState();
+      return ok({ ok: true });
     },
 
     async offerAlbum(folderId, identity) {
@@ -4501,6 +4565,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,
+    saveInviteLink: refuse,
     offerAlbum: refuse,
     joinOffer: refuse,
     archiveAlbum: refuse,

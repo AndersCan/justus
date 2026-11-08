@@ -7,6 +7,10 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 
 ## Unreleased · peer protocol 4
 
+- **The Admin's phone turns away asks sent after its invite links ended.** Who: testers who
+  sent a link before updating. An invite link sent before this update stops getting asks
+  through once the Admin has made a link after updating and that newer link has ended. Do: send
+  a new link.
 - **Removing someone moves the album to new keys** (new drive file `/earlier.json`, new
   `move` field on invite offers). Who: testers on v0.2.5 or older. Their phones show
   "<name> needs to update Justus" and stop syncing with updated phones. Do: update Justus.
