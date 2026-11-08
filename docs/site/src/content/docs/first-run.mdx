@@ -7,7 +7,7 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 | What the person sees                                                                      | What they do                                  | State                             |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------- |
-| Three intro cards (Welcome, No servers, You decide who joins)                             | Reads them, or taps Skip on the first two     | `onboarding.showingIntroCards`    |
+| Two intro cards (No server in the middle, You decide who joins)                           | Reads them, or taps Skip on the first         | `onboarding.showingIntroCards`    |
 | "What should we call you?"                                                                | Types a name                                  | `onboarding.askingForName`        |
 | The name is being saved                                                                   | Waits                                         | `onboarding.savingName`           |
 | "Lock Justus?" with Enable and Not now (only on a phone with a screen lock, App lock off) | Taps Enable, or Not now                       | `onboarding.offeringAppLock`      |
