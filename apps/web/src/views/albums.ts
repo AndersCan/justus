@@ -15,7 +15,7 @@ import { requests, requestsActor } from "../machines/requests-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
 import { friendsActor } from "../machines/friends-machine";
 import { people } from "../machines/people-machine";
-import { currentPage, onPageChange, open } from "../machines/router-machine";
+import { currentPage, onPageChange, open, type AppPage } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
 import { parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
@@ -147,8 +147,9 @@ function followRouteAlbum() {
 onStateChange(foldersActor, FOLDERS_STATES, followRouteAlbum);
 
 // The album page is the people sheet's home: open/close its machine with the
-// route, and keep the join-request inbox fresh on the sharing pages.
-onPageChange((page, old) => {
+// route, and keep the join-request inbox fresh on the sharing pages. It also
+// runs for the page the app starts on (reload, opening an address).
+function followPagePeople(page: AppPage | undefined, old: AppPage | undefined) {
   if (page?.route === "album" && old?.route === "album" && page.params.id !== old.params.id) {
     people.close();
   }
@@ -156,7 +157,9 @@ onPageChange((page, old) => {
   else if (old?.route === "album") people.close();
   if (page?.route === "album" || page?.route === "sharing") requests.refresh();
   followRouteAlbum();
-});
+}
+onPageChange(followPagePeople);
+followPagePeople(currentPage(), undefined);
 
 type FoldersViewModel = ReturnType<typeof foldersViewModel>;
 

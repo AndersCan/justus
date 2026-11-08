@@ -187,7 +187,10 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
     .first()
     .click();
 
+  // Reload on the members page: the case where its buttons used to do nothing.
+  await a.reload();
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  await expect(members).toBeVisible({ timeout: 60_000 });
   await members.getByRole("button", { name: /^Make .* a Viewer$/ }).click();
   await a.getByRole("button", { name: "Make Viewer", exact: true }).click();
 
