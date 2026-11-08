@@ -312,11 +312,14 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
           : null
       }
     </div>`;
-  return html`<li class="flex items-center gap-3 py-2" data-motion-key=${p.key}>
+  const controls = vm.isAdmin && !p.you && !p.admin;
+  const roleButtonClass =
+    "ui-btn-ghost min-w-0 flex-1 basis-40 justify-start text-left [overflow-wrap:anywhere]";
+  return html`<li class="py-2" data-motion-key=${p.key}>
     ${
       tappable
         ? html`<button
-            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="flex w-full min-w-0 items-center gap-3 text-left"
             @click=${(e: Event) => {
               rememberFocus(e.currentTarget as HTMLElement);
               friends.open({ identity, ownName: p.ownName });
@@ -324,66 +327,61 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
           >
             ${body}
           </button>`
-        : html`<div class="flex min-w-0 flex-1 items-center gap-3">${body}</div>`
+        : html`<div class="flex min-w-0 items-center gap-3">${body}</div>`
     }
     ${
-      vm.isAdmin && !p.you && !p.admin && p.viewer
-        ? html`<button
-            class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
-            aria-label=${copy("album.let_add_photos", { name: p.name })}
-            ?disabled=${vm.busy}
-            @click=${() => {
-              if (!vm.folder) return;
-              memberNames.set(p.key, p.name);
-              people.letViewerAddPhotos(vm.folder.id, p.key);
-            }}
-          >
-            ${t("album.let_add_photos", { name: p.name })}
-          </button>`
-        : null
-    }
-    ${
-      vm.isAdmin && !p.you && !p.admin && !p.viewer
-        ? html`<button
-            class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
-            aria-label=${copy("album.make_a_viewer", { name: p.name })}
-            ?disabled=${vm.busy}
-            @click=${async () => {
-              const ok = await confirmAction({
-                title: copy("album.make_a_viewer_2", { name: p.name }),
-                detail: copy("album.keeps_seeing_every_photo_but", { name: p.name }),
-                confirmLabel: copy("album.make_viewer"),
-                cancelLabel: copy("album.keep_as_collaborator"),
-              });
-              if (ok && vm.folder) {
-                memberNames.set(p.key, p.name);
-                people.makeViewer(vm.folder.id, p.key);
-              }
-            }}
-          >
-            ${t("album.make_viewer")}
-          </button>`
-        : null
-    }
-    ${
-      vm.isAdmin && !p.you && !p.admin
-        ? html`<button
-            class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
-            ?disabled=${vm.busy}
-            @click=${async () => {
-              const ok = await confirmAction({
-                title: copy("album.remove", { name: p.name }),
-                detail: removeDetail(p.name, p.viewer === true),
-                confirmLabel: copy("album.remove_2"),
-                tone: "danger",
-              });
-              if (!ok || !vm.folder) return;
-              removedPeople.set(p.key, { name: p.name, album: vm.folder.name });
-              people.remove(vm.folder.id, p.key);
-            }}
-          >
-            ${t("album.remove_2")}
-          </button>`
+      controls
+        ? html`<div class="mt-2 flex flex-wrap gap-2 pl-12">
+            ${
+              p.viewer
+                ? html`<button
+                    class=${roleButtonClass}
+                    ?disabled=${vm.busy}
+                    @click=${() => {
+                      if (!vm.folder) return;
+                      memberNames.set(p.key, p.name);
+                      people.letViewerAddPhotos(vm.folder.id, p.key);
+                    }}
+                  >
+                    ${t("album.let_add_photos", { name: p.name })}
+                  </button>`
+                : html`<button
+                    class=${roleButtonClass}
+                    ?disabled=${vm.busy}
+                    @click=${async () => {
+                      const ok = await confirmAction({
+                        title: copy("album.make_a_viewer_2", { name: p.name }),
+                        detail: copy("album.keeps_seeing_every_photo_but", { name: p.name }),
+                        confirmLabel: copy("album.make_viewer"),
+                        cancelLabel: copy("album.keep_as_collaborator"),
+                      });
+                      if (ok && vm.folder) {
+                        memberNames.set(p.key, p.name);
+                        people.makeViewer(vm.folder.id, p.key);
+                      }
+                    }}
+                  >
+                    ${t("album.make_a_viewer", { name: p.name })}
+                  </button>`
+            }
+            <button
+              class="${roleButtonClass} text-danger-fg"
+              ?disabled=${vm.busy}
+              @click=${async () => {
+                const ok = await confirmAction({
+                  title: copy("album.remove", { name: p.name }),
+                  detail: removeDetail(p.name, p.viewer === true),
+                  confirmLabel: copy("album.remove_2"),
+                  tone: "danger",
+                });
+                if (!ok || !vm.folder) return;
+                removedPeople.set(p.key, { name: p.name, album: vm.folder.name });
+                people.remove(vm.folder.id, p.key);
+              }}
+            >
+              ${t("album.remove_name", { name: p.name })}
+            </button>
+          </div>`
         : null
     }
   </li>`;
