@@ -11,6 +11,13 @@ export const HELP_QA: { q: string; a: string[] }[] = [
     ],
   },
   {
+    q: "Are the photos in the album full size?",
+    a: [
+      "No. When you add a photo, Justus makes a smaller copy for the album: a JPEG up to 2560 pixels on its longest side, plus a small preview. That is plenty for any phone screen, but it is not the original file.",
+      "Your original stays on the phone it came from, untouched.",
+    ],
+  },
+  {
     q: "Why don't I see my friend's new photos?",
     a: [
       "Photos only travel while both phones have Justus open and can reach each other. If your friend's phone is off or Justus is closed, their new photos will show up the next time you both have Justus open.",
