@@ -573,15 +573,36 @@
     "who": "Everyone",
     "screen": ""
   },
-  "add_friend_sheet.add_to": {
-    "text": "Add {name} to “{albumName}”",
+  "add_friend_sheet.add_as_viewers": {
+    "text": "Add {names} as Viewers",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
     "screen": ""
   },
-  "add_friend_sheet.add_as_viewer": {
-    "text": "Add {name} as a Viewer",
+  "add_friend_sheet.add_as_collaborators": {
+    "text": "Add {names} as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.asked_to_join_as_viewers": {
+    "text": "Asked {names} to join as Viewers",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.asked_to_join_as_collaborators": {
+    "text": "Asked {names} to join as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.asked": {
+    "text": "Asked {name}.",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
@@ -594,29 +615,8 @@
     "who": "The album's Admin",
     "screen": ""
   },
-  "add_friend_sheet.add_as_collaborator": {
-    "text": "Add {name} as a Collaborator",
-    "status": "draft",
-    "where": "Album › Invite & members › Add a friend",
-    "who": "The album's Admin",
-    "screen": ""
-  },
   "add_friend_sheet.collaborator_meaning": {
     "text": "Sees every photo and can add their own",
-    "status": "draft",
-    "where": "Album › Invite & members › Add a friend",
-    "who": "The album's Admin",
-    "screen": ""
-  },
-  "add_friend_sheet.asked_to_join_as_viewer": {
-    "text": "Asked {name} to join as a Viewer",
-    "status": "draft",
-    "where": "Album › Invite & members › Add a friend",
-    "who": "The album's Admin",
-    "screen": ""
-  },
-  "add_friend_sheet.asked_to_join_as_collaborator": {
-    "text": "Asked {name} to join as a Collaborator",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
@@ -4018,7 +4018,7 @@
     "screen": ""
   },
   "add_friend_sheet.if_doesn_t_have_justus": {
-    "text": "If {name} doesn't have Justus open, the invite waits.",
+    "text": "If someone doesn't have Justus open, their invite waits.",
     "status": "draft",
     "where": "Friends › Add a friend › text",
     "who": "Admins inviting a friend",

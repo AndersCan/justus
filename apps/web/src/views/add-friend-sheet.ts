@@ -3,21 +3,23 @@ import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { addFriend, addFriendActor } from "../machines/sharing/add-friend";
 import type {
+  FriendAnswer,
   FriendChoice,
   FriendRole,
-  NotReachedReason,
 } from "../machines/sharing/add-friend-machine";
+import { nameList } from "../utils/people";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
 
 onOutput(addFriendActor, (e) => {
-  const { name, role } = e.payload as { name: string; role: FriendRole };
+  const { names, role } = e.payload as { names: string[]; role: FriendRole };
+  const list = nameList(names);
   toast(
     role === "reader"
-      ? copy("add_friend_sheet.asked_to_join_as_viewer", { name })
-      : copy("add_friend_sheet.asked_to_join_as_collaborator", { name }),
+      ? copy("add_friend_sheet.asked_to_join_as_viewers", { names: list })
+      : copy("add_friend_sheet.asked_to_join_as_collaborators", { names: list }),
   );
 });
 
@@ -57,15 +59,15 @@ function focusInSheet() {
 }
 
 function roleButton(
-  primary: boolean,
   label: string,
   meaning: string,
   id: string,
   role: FriendRole,
+  disabled: boolean,
 ) {
   return html`<button
     class="ui-btn-primary w-full"
-    data-add-friend-primary=${primary ? "" : nothing}
+    ?disabled=${disabled}
     aria-describedby=${id}
     @click=${() => addFriend.pickRole(role)}
   >
@@ -76,11 +78,21 @@ function roleButton(
   </button>`;
 }
 
-function notReached(name: string, reason: NotReachedReason) {
-  return reason === "refused"
-    ? copy("add_friend_sheet.couldn_t_add_from_here", { name })
-    : copy("add_friend_sheet.couldn_t_reach_ask_to", { name });
+function answerLine(a: FriendAnswer) {
+  if (a.outcome === "asked") return copy("add_friend_sheet.asked", { name: a.name });
+  if (a.outcome === "waiting") {
+    return copy("add_friend_sheet.doesn_t_have_justus_open", { name: a.name });
+  }
+  return a.outcome === "refused"
+    ? copy("add_friend_sheet.couldn_t_add_from_here", { name: a.name })
+    : copy("add_friend_sheet.couldn_t_reach_ask_to", { name: a.name });
 }
+
+const closeButton = html`<div class="mt-4 flex justify-end">
+  <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
+    ${t("add_friend_sheet.close")}
+  </button>
+</div>`;
 
 export function addFriendSheetView() {
   return watch(addFriendActor, (snapshot) => {
@@ -88,87 +100,78 @@ export function addFriendSheetView() {
     const p = (snapshot.payload ?? {}) as {
       albumName: string;
       choices: FriendChoice[];
-      name: string;
-      reason: NotReachedReason;
+      friends: FriendChoice[];
+      answers: FriendAnswer[];
     };
-    let title = copy("add_friend_sheet.add_a_friend_to", { albumName: p.albumName });
+    const ticked = snapshot.context.ticked;
+    const title = copy("add_friend_sheet.add_a_friend_to", { albumName: p.albumName });
     let body;
-    if (state === "choosingFriend") {
+    if (state === "choosingFriends") {
+      const names = nameList(
+        p.choices.filter((c) => ticked.includes(c.identity)).map((c) => c.name),
+      );
+      const none = ticked.length === 0;
       body = html`<ul class="mt-3 divide-y divide-line">
           ${p.choices.map(
             (c, i) => html`<li>
-              <button
-                data-add-friend-primary=${i === 0 ? "" : nothing}
-                class="flex w-full items-center justify-between gap-2 py-3 text-left text-sm font-medium text-fg"
-                @click=${() => addFriend.pickFriend(c.identity)}
+              <label
+                class="flex w-full cursor-pointer items-center justify-between gap-2 py-3 text-sm font-medium text-fg"
               >
                 <span class="min-w-0 break-words">${c.name}</span>
-                <span class="text-muted" aria-hidden="true">›</span>
-              </button>
+                <input
+                  type="checkbox"
+                  class="h-5 w-5 shrink-0"
+                  data-add-friend-primary=${i === 0 ? "" : nothing}
+                  .checked=${ticked.includes(c.identity)}
+                  @change=${() => addFriend.toggleFriend(c.identity)}
+                />
+              </label>
             </li>`,
           )}
         </ul>
-        <div class="mt-4 flex justify-end">
-          <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
-        </div>`;
-    } else if (state === "choosingFriendRole") {
-      title = copy("add_friend_sheet.add_to", { name: p.name, albumName: p.albumName });
-      body = html`<div class="mt-3 flex flex-col gap-2">
+        <div class="mt-3 flex flex-col gap-2">
           ${roleButton(
-            true,
-            copy("add_friend_sheet.add_as_viewer", { name: p.name }),
+            copy("add_friend_sheet.add_as_viewers", { names }),
             copy("add_friend_sheet.viewer_meaning"),
             "add-friend-viewer-meaning",
             "reader",
+            none,
           )}
           ${roleButton(
-            false,
-            copy("add_friend_sheet.add_as_collaborator", { name: p.name }),
+            copy("add_friend_sheet.add_as_collaborators", { names }),
             copy("add_friend_sheet.collaborator_meaning"),
             "add-friend-collaborator-meaning",
             "member",
+            none,
           )}
         </div>
         <div class="mt-4 flex justify-end">
           <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
         </div>`;
-    } else if (state === "lookingForFriend") {
+    } else if (state === "askingFriends") {
       body = html`<div class="mt-3 flex items-center gap-3" role="status">
         <span
           class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-fg motion-reduce:animate-none"
         ></span>
         <div>
           <p class="text-sm font-medium text-fg">
-            ${t("add_friend_sheet.asking", { name: p.name })}
+            ${t("add_friend_sheet.asking", { name: nameList(p.friends.map((f) => f.name)) })}
           </p>
-          <p class="text-sm text-muted">
-            ${t("add_friend_sheet.if_doesn_t_have_justus", { name: p.name })}
-          </p>
+          <p class="text-sm text-muted">${t("add_friend_sheet.if_doesn_t_have_justus")}</p>
         </div>
       </div>`;
-    } else if (state === "inviteWaitingForFriend") {
-      body = html`<p class="mt-3 text-sm text-fg" role="status">
-          ${t("add_friend_sheet.doesn_t_have_justus_open", { name: p.name })}
-        </p>
-        <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
-            ${t("add_friend_sheet.close")}
-          </button>
-        </div>`;
-    } else if (state === "couldNotReachFriend") {
-      body = html`<p class="mt-3 text-sm text-fg" role="alert">${notReached(p.name, p.reason)}</p>
-        <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
-            ${t("add_friend_sheet.close")}
-          </button>
-        </div>`;
+    } else if (state === "showingWhoWasAsked") {
+      body = html`<ul class="mt-3 flex flex-col gap-2 text-sm text-fg" role="status">
+          ${p.answers.map((a) => html`<li>${answerLine(a)}</li>`)}
+        </ul>
+        ${closeButton}`;
     } else {
       return null;
     }
     focusInSheet();
     return html`<div
       class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-      @click=${() => state !== "lookingForFriend" && closeSheet()}
+      @click=${() => state !== "askingFriends" && closeSheet()}
       @keydown=${onKey}
     >
       <div
