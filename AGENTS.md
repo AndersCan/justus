@@ -116,6 +116,7 @@ layer, Host, Actor). Use those terms exactly.
 ## Designing with the AI
 
 - Any ask to design, plan or rethink a feature or a rule (who can do what included) is answered with a drawn design first: follow the mantaq skill (`.claude/skills/mantaq`, start with "First reply to a design ask" in `designing.md`). Never answer it with a prose design or only questions.
+- When the ask changes something the app already does (a share link, joining, roles), your FINAL reply, after any helper or UX worker returns, starts with a `Today:` block: one line per story, each a full `https://anderscan.github.io/justus/<feature>/?machine=<id>&run=<title>` link to a recorded walk of today's machine. Your change's preview links come after it. Check that line one is `Today:` before you send.
 - A design ask is a request for a preview link: push a branch and open a draft pull request without asking, then reply with one preview link per walk.
 - Open the live page with `pnpm flows:dev <feature|file>`.
 - A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/content/docs/<feature>.mdx`.
