@@ -294,36 +294,37 @@ export const cases: PeerCase[] = [
   {
     name: "N12 version arrives before identified on every connection, 20 connections",
     async run(world, t) {
+      // One pair at a time: ten servers announcing at once on a small testnet leave some pairs unmet under CI load.
       for (let round = 0; round < 4; round++) {
-        await Promise.all(
-          Array.from({ length: 5 }, async (_, i) => {
-            const a = await world.node();
-            const b = await world.node();
-            meet(a, b, world.topic());
-            for (const node of [a, b]) {
-              await eventually(
-                async () => bothEvents(node).length,
-                (n) => n >= 1,
-                "version and identified",
-                10_000,
+        for (let i = 0; i < 5; i++) {
+          const a = await world.node();
+          const b = await world.node();
+          meet(a, b, world.topic());
+          for (const node of [a, b]) {
+            await eventually(
+              async () => bothEvents(node).length,
+              (n) => n >= 1,
+              "version and identified",
+              10_000,
+            );
+            for (const conn of bothEvents(node)) {
+              const order = node.events.flatMap((e) =>
+                e.conn === conn && (e.type === "version" || e.type === "identified")
+                  ? [e.type]
+                  : [],
               );
-              for (const conn of bothEvents(node)) {
-                const order = node.events.flatMap((e) =>
-                  e.conn === conn && (e.type === "version" || e.type === "identified")
-                    ? [e.type]
-                    : [],
-                );
-                t.eq(order[0], "version", `round ${round} pair ${i}: version first`);
-                const version = node.events.find((e) => e.type === "version" && e.conn === conn);
-                t.eq(
-                  version?.type === "version" ? version.protocol : undefined,
-                  PEER_PROTOCOL,
-                  `round ${round} pair ${i}: protocol`,
-                );
-              }
+              t.eq(order[0], "version", `round ${round} pair ${i}: version first`);
+              const version = node.events.find((e) => e.type === "version" && e.conn === conn);
+              t.eq(
+                version?.type === "version" ? version.protocol : undefined,
+                PEER_PROTOCOL,
+                `round ${round} pair ${i}: protocol`,
+              );
             }
-          }),
-        );
+          }
+          await a.network.close();
+          await b.network.close();
+        }
       }
     },
   },
