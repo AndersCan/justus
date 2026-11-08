@@ -1,6 +1,46 @@
 {
   "requests": [
     {
+      "name": "Ana asks while Nils looks at his photos, and Nils hears she wants to join",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k7",
+                "requesterName": "Ana",
+                "folderId": "f1",
+                "folderName": "Summer",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Maya asks to join, and Nils accepts her as a Collaborator",
       "end": "showingRequests",
       "steps": [
