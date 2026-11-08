@@ -54,3 +54,18 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
     former: h?.former ?? [],
   };
 }
+
+/** The delete dialog's text: who loses the photo, and whose phones keep a copy. */
+export function deleteDetail(h: PhotoHolders | undefined): string {
+  const gone = copy("lightbox.it_will_be_gone_from");
+  const names = (h?.others ?? []).map((m) => `${m.name}'s`);
+  if (names.length === 0) return gone;
+  const keeps =
+    names.length === 1
+      ? copy("lightbox.phone_keeps_a_copy", { name: names[0] })
+      : copy("lightbox.and_phones_keep_a_copy", {
+          names: names.slice(0, -1).join(", "),
+          last: names[names.length - 1],
+        });
+  return `${gone} ${keeps} ${copy("lightbox.deleting_can_t_take_back", { k: names.length })}`;
+}

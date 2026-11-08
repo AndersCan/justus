@@ -16,6 +16,7 @@ import { onStateChange } from "../machines/actor-utils";
 import { foldersActor } from "../machines/folders-machine";
 import { canRemove, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
+import { deleteDetail } from "../utils/holders";
 import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
 
 import { copy, t } from "../copy/copy";
@@ -73,7 +74,7 @@ export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
     title: copy("lightbox.delete", { name: photo.name }),
-    detail: copy("lightbox.it_will_be_gone_from"),
+    detail: deleteDetail(photo.holders),
     confirmLabel: copy("lightbox.delete_2"),
     tone: "danger",
   });
