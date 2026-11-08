@@ -7,6 +7,7 @@ import {
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
 import { MAX_EARLIER, copyOwnEntries, countShownPhotos, moveAlbum } from "../../src/albums/move.ts";
+import { ensureHoldingMarker, markHeld } from "../../src/photos/holders.ts";
 import { parseEarlier } from "../../src/membership/records.ts";
 
 const M = "b".repeat(64);
@@ -64,6 +65,21 @@ const read = async (drive: Drive, path: string) =>
   JSON.parse((await drive.readSmall(path, 1e6)) ?? "null");
 
 describe("moveAlbum", () => {
+  it("carries the Admin's record of held photos to the new drive", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    await ensureHoldingMarker(old);
+    await markHeld(old, "p1");
+    const [err, moved] = await run(drives, old);
+    expect(err, "move: succeeds").toBeNull();
+    const target = await drives.openOwn("folder/f1/m1");
+    expect(target.key).toBe(moved!.shareKey);
+    expect(await target.readSmall("/holding.json", 1e6), "move: marker").toBe('{"version":1}');
+    const ids: string[] = [];
+    for await (const e of target.list("/held")) ids.push(e.path);
+    expect(ids, "move: held entry").toEqual(["/held/p1"]);
+  });
+
   it("copies the Admin's photos and writes the six files on a new drive", async () => {
     const drives = phone();
     const old = await oldAlbum(drives);
