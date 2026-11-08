@@ -1,0 +1,35 @@
+{
+  "sync": [
+    {
+      "name": "Anna opens Trip's Invite & members page and it is up to date",
+      "end": "showingAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "ALBUM_CHECKED",
+          "payload": {
+            "status": {
+              "folder": {
+                "id": "trip",
+                "role": "creator"
+              },
+              "members": [
+                {
+                  "key": "anna",
+                  "name": "Anna",
+                  "admin": true,
+                  "connected": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
