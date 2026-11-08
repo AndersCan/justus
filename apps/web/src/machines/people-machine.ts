@@ -253,8 +253,8 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
           },
         });
       }
-      /** The Invite card is on the album page whether or not the sheet is open, so Take back works from a closed sheet too. */
       for (const at of [peopleSheetClosed, showingPeople, couldNotTakeBackInvite]) {
+        /** The Invite card is on the album page whether or not the sheet is open, so Take back works from a closed sheet too; the machine shows that the invite is being taken back. */
         m.on(at, {
           event: takeBackInvite,
           to: [takingBackInvite],
