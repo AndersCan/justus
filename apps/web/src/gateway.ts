@@ -107,6 +107,9 @@ export const gateway = {
   dismissAlbumNotice: (folderId: string) => invoke(photoEvents.photos.dismissAlbumNotice(folderId)),
   makeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.makeMember(folderId, memberKey)),
+  /** Admin only: turns a Collaborator into a Viewer; the photos they added stay. */
+  makeViewer: (folderId: string, memberKey: string) =>
+    invoke(photoEvents.photos.makeViewer(folderId, memberKey)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

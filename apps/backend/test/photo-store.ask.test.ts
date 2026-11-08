@@ -460,18 +460,18 @@ describe("making a Collaborator a Viewer", () => {
   async function collaborator() {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
-    s.swarm.emit("connection", fakeConnection(s.outbox.key));
+    await connect(s);
     const { requests } = await s.admin.store.requests();
     const key = requests[0].requesterKey;
     expect((await s.admin.store.respond(s.folderId, key, true))[0]).toBeNull();
-    return { ...s, key, albumDrive: s.adminOwn[s.adminOwn.length - 1] };
+    return { ...s, key, albumDrive: await albumDriveOf(s) };
   }
 
   it("moves them to /viewers.json with a kept version and shows them as a Viewer", async () => {
     const s = await collaborator();
     expect((await s.admin.store.makeViewer(s.folderId, s.key.toUpperCase()))[0]).toBeNull();
-    const viewers = JSON.parse((await s.albumDrive.get("/viewers.json"))!.toString());
-    const members = JSON.parse((await s.albumDrive.get("/members.json"))!.toString());
+    const viewers = JSON.parse((await readText(s.albumDrive, "/viewers.json"))!);
+    const members = JSON.parse((await readText(s.albumDrive, "/members.json"))!);
     expect(Object.keys(members.members)).toEqual([]);
     expect(Number.isInteger(viewers.viewers[s.key].keptVersion)).toBe(true);
     const status = await s.admin.store.status();

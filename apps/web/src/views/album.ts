@@ -192,6 +192,25 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
     ${
       vm.isAdmin && !p.you && !p.admin && !p.viewer
         ? html`<button
+            class="text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
+            aria-label="Make ${p.name} a Viewer"
+            ?disabled=${vm.busy}
+            @click=${async () => {
+              const ok = await confirmAction({
+                title: `Make ${p.name} a Viewer?`,
+                detail: `${p.name} keeps seeing every photo but can't add more. The photos ${p.name} already added stay in the album.`,
+                confirmLabel: "Make Viewer",
+              });
+              if (ok && vm.folder) people.makeViewer(vm.folder.id, p.key);
+            }}
+          >
+            Make Viewer
+          </button>`
+        : null
+    }
+    ${
+      vm.isAdmin && !p.you && !p.admin && !p.viewer
+        ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
             ?disabled=${vm.busy}
             @click=${async () => {
