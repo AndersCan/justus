@@ -102,6 +102,8 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
   return {
     requests: s.context.requests,
     state,
+    /** A reload is under way; a tap now would be dropped, so the buttons wait. */
+    loading: state === "loadingRequests",
     responding: state === "sendingAnswer" || state === "sendingAnswersToAll",
     failedAnswer: state === "couldNotSendAnswer" ? s.context.pendingRespond : null,
     settled: state === "showingRequests" || state === "couldNotSendAnswer",

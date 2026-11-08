@@ -408,6 +408,7 @@ describe("requestsViewModel", () => {
     expect(requestsViewModel(actor.snapshot())).toEqual({
       requests: [],
       state: "requestsNotLoaded",
+      loading: false,
       responding: false,
       failedAnswer: null,
       settled: false,
@@ -424,5 +425,23 @@ describe("requestsViewModel", () => {
     const vm = requestsViewModel(actor.snapshot());
     expect(vm.state).toBe("sendingAnswer");
     expect(vm.responding).toBe(true);
+  });
+});
+
+describe("requestsViewModel loading", () => {
+  test("loading while a reload is under way, so the buttons wait", async () => {
+    const { actor } = setup({ requests: () => new Promise(() => {}) });
+    actor.send(refresh());
+    const vm = requestsViewModel(actor.snapshot());
+    expect(vm.state).toBe("loadingRequests");
+    expect(vm.loading).toBe(true);
+    expect(vm.responding).toBe(false);
+  });
+
+  test("not loading once the requests are shown", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    expect(requestsViewModel(actor.snapshot()).loading).toBe(false);
   });
 });

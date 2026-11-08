@@ -221,8 +221,8 @@ catalogs:
       specifier: ^0.26.1
       version: 0.26.1
     '@mantaq/lit':
-      specifier: ^0.2.0
-      version: 0.2.0
+      specifier: ^0.2.1
+      version: 0.2.1
     '@mantaq/sugar':
       specifier: ^2.1.1
       version: 2.1.1
@@ -404,7 +404,7 @@ importers:
         version: 0.7.1
       '@mantaq/lit':
         specifier: 'catalog:'
-        version: 0.2.0(@mantaq/core@0.7.1)(lit-html@3.3.3)
+        version: 0.2.1(@mantaq/core@0.7.1)(lit-html@3.3.3)
       '@mantaq/sugar':
         specifier: 'catalog:'
         version: 2.1.1
@@ -1117,8 +1117,8 @@ packages:
       vitest:
         optional: true
 
-  '@mantaq/lit@0.2.0':
-    resolution: {integrity: sha512-/x4fYN9An5SFgkWFrpkO+EpJdmfYMQHO+nPEhb7O6tmZPFk/yGyUu8purzb6w7ddwir/b3zlkxalw98GwPmaow==}
+  '@mantaq/lit@0.2.1':
+    resolution: {integrity: sha512-5ZeW5d1YffRsbsU1PdGNoe8JQJfnauLBeR2j4Ebhm/Cv+KCWIhzps9I7t39OIRK7UMWSoW9lTdmqX70X6JxwRQ==}
     peerDependencies:
       '@mantaq/core': ^0.7.0
       lit-html: ^3.3.0
@@ -4907,7 +4907,7 @@ snapshots:
       playwright: 1.62.1
       vitest: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4)
 
-  '@mantaq/lit@0.2.0(@mantaq/core@0.7.1)(lit-html@3.3.3)':
+  '@mantaq/lit@0.2.1(@mantaq/core@0.7.1)(lit-html@3.3.3)':
     dependencies:
       '@mantaq/core': 0.7.1
       lit-html: 3.3.3

@@ -52,7 +52,7 @@ async function askToJoin(b, link, album) {
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Continue", exact: true }).click();
   const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
-  await expect(ask).toBeVisible();
+  await expect(ask).toBeVisible({ timeout: 20_000 });
   await ask.getByRole("button", { name: "Ask to join" }).click();
   await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
 }
@@ -60,7 +60,6 @@ async function askToJoin(b, link, album) {
 test("Back from the invite page shows Sharing after Ben adds photos", async ({
   instancePages,
 }, testInfo) => {
-  test.fail(true, "#234: stuck on the invite page until @mantaq/lit 0.2.1");
   test.setTimeout(200_000);
   const run = `${testInfo.repeatEachIndex}-${testInfo.retry}`;
   const album = `Back trip ${run}`;

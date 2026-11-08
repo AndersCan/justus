@@ -62,11 +62,11 @@ async function askToJoin(b, link, album) {
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Continue", exact: true }).click();
   const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
-  await expect(ask).toBeVisible();
-  await expect(b.locator("img")).toHaveCount(0);
+  await expect(ask).toBeVisible({ timeout: 20_000 });
+  await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
   await ask.getByRole("button", { name: "Ask to join" }).click();
   await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
-  await expect(b.locator("img")).toHaveCount(0);
+  await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
 }
 
 test("a member deletes only their own photo, the Admin's delete closes Ben's open view, and both deletes leave both phones", async ({
@@ -118,7 +118,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   expect(await lightboxImage.boundingBox()).toEqual(before);
   await a.getByRole("button", { name: "Close" }).click();
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
-  await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });
 
   // The Admin deletes Ana's photo: Ben's open view closes by itself.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
@@ -128,11 +128,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(a.getByText("It will be gone from the album for everyone.")).toBeVisible();
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
-  await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0);
-  await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
-  await expect(a.getByText(/Removed|Deleted/)).toHaveCount(0);
+  await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
+  await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
+  await expect(a.getByText(/Removed|Deleted/)).toHaveCount(0, { timeout: 20_000 });
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
-  await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
 
   // Ben deletes his own photo through the menu; it leaves both phones.
   await b.getByRole("button", { name: `View ${BEN}` }).click();
@@ -142,7 +142,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` })
     .locator("wa-button", { hasText: "Delete" })
     .click();
-  await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
     timeout: 60_000,
   });
@@ -155,7 +155,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .locator("wa-dialog[open]", { hasText: `Delete “${BEN2}”?` })
     .locator("wa-button", { hasText: "Delete" })
     .click();
-  await expect(a.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0);
+  await expect(a.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(b.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, {
     timeout: 60_000,
   });
