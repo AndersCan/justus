@@ -14,6 +14,13 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
 });
 
 describe("holdersLine", () => {
+  it("does not count a leaver as a holder", () => {
+    expect(holdersLine(h({ left: ["Cleo"] })).text).toBe("Only on your phone");
+    expect(holdersLine(h({ others: [m("Nils")], left: ["Cleo"] })).text).toBe(
+      "On Nils's and your phone",
+    );
+  });
+
   it("can't tell without holders, and is not tappable", () => {
     expect(holdersLine(undefined)).toEqual({
       text: "Can't tell who has this photo yet",
@@ -99,6 +106,8 @@ describe("holdersSheetRows", () => {
     expect(rows.others).toEqual([m("a")]);
     expect(rows.unsure).toEqual([m("b")]);
     expect(rows.former).toEqual(["c"]);
+    expect(holdersSheetRows(h({ left: ["Cleo"] })).left).toEqual(["Cleo"]);
+    expect(holdersSheetRows(undefined).left).toEqual([]);
   });
 });
 

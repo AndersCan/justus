@@ -46,6 +46,7 @@ export type HoldersSheetRows = {
   unsure: PhotoMember[];
   waiting: PhotoMember[];
   former: string[];
+  left: string[];
 };
 
 /** What the "Who has this photo" sheet lists; empty sections are left out by the view. */
@@ -56,6 +57,7 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
     unsure: h?.unsure ?? [],
     waiting: h?.waiting ?? [],
     former: h?.former ?? [],
+    left: h?.left ?? [],
   };
 }
 
