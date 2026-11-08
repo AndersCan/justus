@@ -85,9 +85,17 @@ export function addFriendSheetView() {
         ></span>
         <div>
           <p class="text-sm font-medium text-fg">Asking ${p.name}...</p>
-          <p class="text-sm text-muted">${p.name} needs Justus open too.</p>
+          <p class="text-sm text-muted">If ${p.name} doesn't have Justus open, the invite waits.</p>
         </div>
       </div>`;
+    } else if (state === "inviteWaitingForFriend") {
+      body = html`<p class="mt-3 text-sm text-fg" role="status">
+          ${p.name} doesn't have Justus open right now. The invite goes out the next time you both
+          have Justus open, for up to 7 days.
+        </p>
+        <div class="mt-4 flex justify-end">
+          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
+        </div>`;
     } else if (state === "couldNotReachFriend") {
       body = html`<p class="mt-3 text-sm text-fg" role="alert">${notReached(p.name, p.reason)}</p>
         <div class="mt-4 flex justify-end">
