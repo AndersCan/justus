@@ -126,6 +126,31 @@ describe("Make Viewer", () => {
     }
   });
 
+  test("an Admin sees no action line on their own row or another Admin's row", () => {
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...viewerStatus,
+          members: [
+            { key: "k0", name: "Me", admin: true, connected: true },
+            { key: "k3", name: "Ada", admin: true, connected: true, identity: "i3" },
+            { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+          ],
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const rows = memberRows(host);
+    for (const name of ["Me", "Ada"]) {
+      const row = rows.find((r) => r.querySelector("p")?.textContent?.trim().startsWith(name));
+      expect(row!.childElementCount).toBe(1);
+    }
+    const nils = rows.find((r) => r.textContent?.includes("Nils"));
+    expect(nils!.childElementCount).toBe(2);
+  });
+
   test("no member-row button has an aria-label", () => {
     const host = open();
     expect(memberRows(host).flatMap((r) => [...r.querySelectorAll("button[aria-label]")])).toEqual(

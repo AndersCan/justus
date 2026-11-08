@@ -124,7 +124,6 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   );
 });
 
-/** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
 const LONG_NAME = "Alexandra Montgomery-Featherstonehaugh";
 
 async function expectRowFits(page: Page, name: string) {
@@ -145,6 +144,7 @@ async function expectRowFits(page: Page, name: string) {
   if (original) await page.setViewportSize(original);
 }
 
+/** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
 async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
   await page.evaluate(() => {
     const w = window as unknown as { __toasts?: string[] };
