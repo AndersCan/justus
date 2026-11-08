@@ -125,6 +125,28 @@ describe("people factory", () => {
     expect(actor.snapshot().path[0]).toBe("peopleSheetClosed");
   });
 
+  test("making a Viewer tells the view who", async () => {
+    const makeViewer = vi.fn().mockResolvedValue([null, {}]);
+    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { makeViewer } as any });
+    const outputs: string[] = [];
+    onOutput(actor, (e) => outputs.push(e.type));
+    send(actor, "OPEN");
+    send(actor, "MAKE_VIEWER", { folderId: "f", memberKey: "k" });
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("showingPeople"));
+    expect(outputs.at(-1)).toBe("MEMBER_MADE_VIEWER");
+  });
+
+  test("a failed Viewer change tells nobody", async () => {
+    const makeViewer = vi.fn().mockResolvedValue([{ message: "x" }, null]);
+    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { makeViewer } as any });
+    const outputs: string[] = [];
+    onOutput(actor, (e) => outputs.push(e.type));
+    send(actor, "OPEN");
+    send(actor, "MAKE_VIEWER", { folderId: "f", memberKey: "k" });
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("couldNotMakeViewer"));
+    expect(outputs).not.toContain("MEMBER_MADE_VIEWER");
+  });
+
   test("removed returns to the open sheet", async () => {
     const removeMember = vi.fn().mockResolvedValue([null, {}]);
     const { actor } = build(removeMember);
