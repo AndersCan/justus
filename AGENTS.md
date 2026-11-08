@@ -148,3 +148,5 @@ fails naming every draft id (`app`: all entries but `store.*`; `store`: the
 unapproved, and approval is by name, so reset it to false when re-recording). `release-android` runs both and
 `fastlane listing` runs `store`. Keep `store.*` text equal to the fastlane
 metadata files (the catalogue test checks).
+
+Before drafting or changing text, read `docs/voice.md`: what the owner has rejected and chosen so far.
