@@ -51,6 +51,11 @@ export function handleMessage(msg: WireMessage) {
       sync.refresh();
       return;
     }
+    // Who holds a photo changed: only the open photo's line needs the new list.
+    if (changeCause(h) === "holders") {
+      gallery.load();
+      return;
+    }
     gallery.synced(Date.now());
     gallery.load();
     sync.refresh();

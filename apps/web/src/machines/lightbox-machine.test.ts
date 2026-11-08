@@ -137,3 +137,77 @@ describe("lightbox machine", () => {
     expect(a.snapshot().context.sequence).toBeUndefined();
   });
 });
+
+describe("lightbox machine: who has this photo", () => {
+  const state = (a: ReturnType<typeof make>) => a.snapshot().path[0];
+
+  test("a list refresh swaps in the fresh photo and steps", () => {
+    const a = make();
+    const old = [photo("a"), photo("b")];
+    open(a, old[0], old);
+    const fresh = [photo("a"), photo("b")];
+    a.send(lightboxEvents.photoListChanged.create({ photos: fresh }));
+    expect(a.snapshot().context.photo).toBe(fresh[0]);
+    expect(a.snapshot().context.sequence).toEqual(fresh);
+    expect(a.snapshot().context.sequence?.[1]).toBe(fresh[1]);
+  });
+
+  test("the sheet opens and closes", () => {
+    const a = make();
+    open(a, photo("a"));
+    a.send(lightboxEvents.holdersOpened.create());
+    expect(state(a)).toBe("showingWhoHasThisPhoto");
+    a.send(lightboxEvents.holdersClosed.create());
+    expect(state(a)).toBe("showingPhoto");
+  });
+
+  test("the sheet does not open with no photo", () => {
+    const a = make();
+    a.send(lightboxEvents.holdersOpened.create());
+    expect(state(a)).toBe("noPhotoOpen");
+  });
+
+  test("stepping closes the sheet", () => {
+    const a = make();
+    const ps = [photo("a"), photo("b")];
+    open(a, ps[0]);
+    a.send(lightboxEvents.holdersOpened.create());
+    step(a, 1, ps);
+    expect(state(a)).toBe("showingPhoto");
+    expect(id(a)).toBe("b");
+  });
+
+  test("closing from the sheet closes the photo", () => {
+    const a = make();
+    open(a, photo("a"));
+    a.send(lightboxEvents.holdersOpened.create());
+    a.send(lightboxEvents.closed.create());
+    expect(state(a)).toBe("noPhotoOpen");
+  });
+
+  test("the photo removed while the sheet is open closes everything", () => {
+    const a = make();
+    open(a, photo("a"));
+    a.send(lightboxEvents.holdersOpened.create());
+    a.send(lightboxEvents.photoListChanged.create({ photos: [photo("b")] }));
+    expect(state(a)).toBe("noPhotoOpen");
+  });
+
+  test("a list refresh keeps the sheet open on the fresh photo", () => {
+    const a = make();
+    open(a, photo("a"));
+    a.send(lightboxEvents.holdersOpened.create());
+    const fresh = photo("a");
+    a.send(lightboxEvents.photoListChanged.create({ photos: [fresh] }));
+    expect(state(a)).toBe("showingWhoHasThisPhoto");
+    expect(a.snapshot().context.photo).toBe(fresh);
+  });
+
+  test("opening another photo from the sheet shows the photo", () => {
+    const a = make();
+    open(a, photo("a"));
+    a.send(lightboxEvents.holdersOpened.create());
+    open(a, photo("b"));
+    expect(state(a)).toBe("showingPhoto");
+  });
+});

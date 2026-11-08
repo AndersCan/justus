@@ -104,8 +104,10 @@ describe("machines on real backend payloads", () => {
       } as unknown as WireMessage);
     }
     expect(error).not.toHaveBeenCalled();
-    // Every push refreshes sync; only non-presence pushes reload the gallery.
-    expect(refresh).toHaveBeenCalledTimes(fixture.pushes.length);
+    // Every push but a holders one refreshes sync; only non-presence pushes reload the gallery.
+    expect(refresh).toHaveBeenCalledTimes(
+      fixture.pushes.filter((p) => p.cause !== "holders").length,
+    );
     expect(load).toHaveBeenCalledTimes(fixture.pushes.filter((p) => p.cause !== "presence").length);
   });
 

@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vite-plus/test";
+import type { PhotoHolders } from "@justus/core";
+import { holdersLine, holdersSheetRows } from "./holders";
+
+const m = (name: string) => ({ key: name, name });
+const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
+  here: true,
+  others: [],
+  unsure: [],
+  former: [],
+  ...p,
+});
+
+describe("holdersLine", () => {
+  it("can't tell without holders, and is not tappable", () => {
+    expect(holdersLine(undefined)).toEqual({
+      text: "Can't tell who has this photo yet",
+      tappable: false,
+    });
+  });
+  it("only on your phone", () => {
+    expect(holdersLine(h({}))).toEqual({ text: "Only on your phone", tappable: true });
+  });
+  it("others haven't said", () => {
+    expect(holdersLine(h({ unsure: [m("Jo")] })).text).toBe("On your phone. Others haven't said");
+  });
+  it("names one or two others, you last", () => {
+    expect(holdersLine(h({ others: [m("Nils")] })).text).toBe("On Nils's and your phone");
+    expect(holdersLine(h({ others: [m("Nils"), m("Maya")] })).text).toBe(
+      "On Nils's, Maya's and your phone",
+    );
+  });
+  it("keeps a named form of exactly 36 characters", () => {
+    const text = holdersLine(h({ others: [m("Nils"), m("Mia"), m("J")] })).text;
+    expect(text).toBe("On Nils's, Mia's, J's and your phone");
+    expect(text.length).toBe(36);
+  });
+  it("falls back to a count past 36 characters", () => {
+    expect(holdersLine(h({ others: [m("Nils"), m("Maya"), m("Jo")] })).text).toBe(
+      "On your phone and 3 others",
+    );
+  });
+  it("counts four or more", () => {
+    expect(holdersLine(h({ others: [m("a"), m("b"), m("c"), m("d")] })).text).toBe(
+      "On your phone and 4 others",
+    );
+  });
+  it("a former holder forces the count form", () => {
+    expect(holdersLine(h({ others: [m("Nils")], former: ["Ola"] })).text).toBe(
+      "On your phone and 2 others",
+    );
+    expect(holdersLine(h({ former: ["Ola"] })).text).toBe("On your phone and 1 other");
+  });
+  it("not here: one named other, else counts", () => {
+    expect(holdersLine(h({ here: false, others: [m("Maya")] })).text).toBe(
+      "On Maya's phone. Arriving on yours…",
+    );
+    expect(holdersLine(h({ here: false, others: [m("A very long name indeed")] })).text).toBe(
+      "On 1 phone. Arriving on yours…",
+    );
+    expect(holdersLine(h({ here: false, others: [m("a"), m("b")] })).text).toBe(
+      "On 2 phones. Arriving on yours…",
+    );
+    expect(holdersLine(h({ here: false, others: [m("a")], former: ["z"] })).text).toBe(
+      "On 2 phones. Arriving on yours…",
+    );
+  });
+  it("not here and nobody else", () => {
+    expect(holdersLine(h({ here: false })).text).toBe("Arriving on your phone…");
+  });
+});
+
+describe("holdersSheetRows", () => {
+  it("you are arriving only when not here", () => {
+    expect(holdersSheetRows(h({ here: false })).youArriving).toBe(true);
+    expect(holdersSheetRows(h({})).youArriving).toBe(false);
+  });
+  it("passes the sections through", () => {
+    const rows = holdersSheetRows(h({ others: [m("a")], unsure: [m("b")], former: ["c"] }));
+    expect(rows.others).toEqual([m("a")]);
+    expect(rows.unsure).toEqual([m("b")]);
+    expect(rows.former).toEqual(["c"]);
+  });
+});

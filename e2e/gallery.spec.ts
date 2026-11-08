@@ -277,6 +277,31 @@ test("a photo's Delete sits in its More menu and asks first", async ({ page }) =
   await expect(close).toHaveCount(0, { timeout: 5_000 });
 });
 
+test.describe("holders", () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  test("holders: a photo's line says who has it, and its sheet closes before the photo", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator("figure").first()).toBeAttached({ timeout: 20_000 });
+    await page.locator("figure").first().click();
+    const row = page.getByRole("button", { name: /show who has this photo$/ });
+    await expect(row).toContainText("Only on your phone", { timeout: 20_000 });
+    const image = await page.locator("div.fixed img").boundingBox();
+    const card = await row.boundingBox();
+    expect(image && card && image.y + image.height <= card.y).toBe(true);
+
+    await row.click();
+    const sheet = page.getByRole("dialog", { name: "Who has this photo" });
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 5_000 });
+  });
+});
+
 test.describe("dark", () => {
   test.use({ colorScheme: "dark" });
   test("the delete dialog follows the dark surface", async ({ page }) => {
