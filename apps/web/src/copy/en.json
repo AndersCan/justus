@@ -972,6 +972,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
+  "album.a_phone_gets_a_photo_when": {
+    "text": "A phone gets a photo when it is first opened there; the counts are what each phone last told yours.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
   "album.add_a_member_by_drive": {
     "text": "Add a member by drive key",
     "status": "draft",

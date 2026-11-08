@@ -438,36 +438,19 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
-const MEMBERS_CAPTION =
-  "Connected means they have Justus open and your phone can reach them right now. Everyone in the album sees this list. Viewers see every photo but can't add any.";
-const HOLDING_CAPTION =
-  " A phone gets a photo when it is first opened there; the counts are what each phone last told yours.";
 const NO_HOLDING: AlbumHolding = { total: 0, you: 0, byKey: new Map() };
 
 function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
-<<<<<<< HEAD
     <h2 class="ui-label">${t("album.members")}</h2>
-    <p class="mb-2 mt-1 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>
-    ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
-    <ul
-      class="divide-y divide-line"
-      ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
-    >
-      ${repeat(
-        vm.people,
-        (p) => p.key,
-        (p) => memberRow(vm, p),
-      )}
-    </ul>
-=======
-    <h2 class="ui-label">Members</h2>
     ${watch(galleryActor, (g) => {
       const { state, photos } = galleryViewModel(g, null);
       const loaded = state !== "photosNotLoaded" && state !== "couldNotLoadPhotos";
       const holding = loaded ? albumHolding(photos, id) : NO_HOLDING;
       return html`<p class="mb-2 mt-1 text-xs text-muted">
-          ${MEMBERS_CAPTION}${holding.total > 0 ? HOLDING_CAPTION : ""}
+          ${t("album.connected_means_they_have_justus")}${
+            holding.total > 0 ? html` ${t("album.a_phone_gets_a_photo_when")}` : null
+          }
         </p>
         ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
         <ul
@@ -481,7 +464,6 @@ function membersSection(vm: PeopleVm, id: string) {
           )}
         </ul>`;
     })}
->>>>>>> 3848f3e (Invite & members shows how many photos each person's phone has)
   </section>`;
 }
 
