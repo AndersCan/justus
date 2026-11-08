@@ -367,7 +367,10 @@ export function joinSheet() {
             Request to join sent to ${owner}. You'll see “${invite.album}” when accepted. ${owner}
             must be online too: keep Justus open on both phones.
           </p>
-          <div class="mt-4 flex justify-end">
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
+              Cancel request
+            </button>
             <button class="ui-btn-primary" @click=${() => join.closeWaiting()}>Close</button>
           </div>`,
         () => join.closeWaiting(),

@@ -52,4 +52,32 @@ test("an expired invite link says so and sends nothing", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: "Ask to join" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "OK" }).click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: /: Trip$/ })).toHaveCount(0);
+});
+
+test("a waiting request can be cancelled and asked again", async ({ page }) => {
+  const code = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+    "",
+  );
+  const link = `justus://join?i=${code}&o=${"b".repeat(64)}&n=Cancel%20test&a=Nils`;
+  const askName = "Ask to join “Cancel test”?";
+  await page.goto("/join");
+  await page.getByLabel("Invite link").fill(link);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: askName })).toBeVisible();
+  await page.getByRole("button", { name: "Ask to join" }).click();
+  const waiting = page.getByRole("dialog", { name: "Waiting for Nils" });
+  await expect(waiting).toBeVisible();
+  await waiting.getByRole("button", { name: "Cancel request" }).click();
+  await expect(waiting).toBeHidden();
+  const row = page.getByRole("button", { name: "Waiting for Nils to accept: Cancel test" });
+  await expect(row).toHaveCount(0);
+  await page.reload();
+  await expect(row).toHaveCount(0);
+  await page.goto("/join");
+  await page.getByLabel("Invite link").fill(link);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const again = page.getByRole("dialog", { name: askName });
+  await expect(again).toBeVisible();
+  await again.getByRole("button", { name: "Not now" }).click();
 });
