@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { identityMessage } from "../src/membership/records.ts";
 import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
-import { fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
+import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
 
 function device(hub: FakeHub, name: string) {
   const deps = fakeStoreDeps({ hub, deviceName: name });
@@ -76,5 +76,28 @@ describe("signed device records", () => {
       sig: undefined,
     });
     await phone.store.close();
+  });
+
+  it("the creator's record still verifies for its drive after a restart", async () => {
+    const hub = createFakeHub();
+    const phone = device(hub, "Anna");
+    await phone.store.ready();
+    const folder = (await phone.store.createFolder("Trip"))[1]!.folder;
+    await phone.store.close();
+
+    const deps = restarted(phone.deps);
+    const again = createPhotoStore(deps);
+    await again.ready();
+    const after = {
+      deps,
+      store: again,
+      identity: () => (again.debugState() as { identityDrive: string }).identityDrive,
+    };
+    const rec = await record(after, folder.shareKey);
+    expect(
+      signedFor(after, folder.shareKey, rec),
+      "Trip: creator record after restart verifies",
+    ).toBe(true);
+    await again.close();
   });
 });
