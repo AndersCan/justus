@@ -50,7 +50,7 @@ import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { checkCode } from "./membership/check-code";
 import { inviteTopic } from "./membership/invite";
-import { makeMemberViewer, makeViewerMember, seatViewer } from "./membership/viewers";
+import { makeMemberViewer, makeViewerMember, removeViewer, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
   DRIVE_PATH_VIEWERS,
@@ -1523,6 +1523,46 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Admin: a Viewer whose own drive says they left (after they were listed) is taken off the Viewers list. */
+  async function dropViewerWhoLeft(
+    rt: FolderRuntime,
+    viewerKey: string,
+    drive: Drive,
+  ): Promise<void> {
+    const busyKey = `${rt.record.id}/${viewerKey}`;
+    if (rt.record.role !== "creator" || droppingMembers.has(busyKey)) return;
+    droppingMembers.add(busyKey);
+    try {
+      const file = await readViewers(rt.folderDrive, { log });
+      const entry = file.viewers[viewerKey];
+      if (!entry) return;
+      const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
+      if (!note || note.leftAt <= entry.addedAt) return;
+      const identity = await identityOfDrive(drive);
+      await noteFormer(rt, await formerSnapshot(rt, viewerKey), identity);
+      const [removeErr, next] = await removeViewer(rt.folderDrive, { viewers: file, viewerKey });
+      if (removeErr) {
+        log("error", { where: "dropViewerWhoLeft", err: removeErr.message });
+        return;
+      }
+      rt.viewers = next.viewers;
+      if (identity !== undefined) setAnswer(rt, identity, undefined);
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: viewerKey });
+    } finally {
+      droppingMembers.delete(busyKey);
+    }
+  }
+
+  function dropViewersWhoLeft(keyHex: string, drive: Drive) {
+    for (const rt of runtimes.values()) {
+      if (rt.record.role !== "creator" || !rt.viewers[keyHex]) continue;
+      void dropViewerWhoLeft(rt, keyHex, drive).catch((e) =>
+        log("error", { where: "dropViewerWhoLeft", err: errText(e) }),
+      );
+    }
+  }
+
   /** On a phone that is not the Admin's: reads the Admin's list of earlier
    * drives. True when it changed. */
   async function refreshEarlier(rt: FolderRuntime): Promise<boolean> {
@@ -2893,6 +2933,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         timer = setTimeout(() => {
           refreshPresence();
           refreshViewerHeld(keyHex, drive);
+          dropViewersWhoLeft(keyHex, drive);
         }, 400);
       });
       viewerDeviceDrives.set(keyHex, {
@@ -2904,6 +2945,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       refreshPresence();
       refreshViewerHeld(keyHex, drive);
+      dropViewersWhoLeft(keyHex, drive);
     });
     opening.catch(() => viewerDevices.delete(keyHex));
     viewerDevices.set(keyHex, opening);

@@ -49,6 +49,25 @@ export async function seatViewer(
   return [null, { viewers: next, viewer: next.viewers[requesterKey] }];
 }
 
+/** Admin only: takes a Viewer off `/viewers.json`. The inputs are not changed. */
+export async function removeViewer(
+  folderDrive: Drive,
+  options: { viewers: ViewersFile; viewerKey: string },
+): Promise<ViewerResult<ViewersFile>> {
+  const { viewers, viewerKey } = options;
+  if (!viewers.viewers[viewerKey]) {
+    return [{ kind: "no-such-viewer", message: "No such Viewer" }, null];
+  }
+  const { [viewerKey]: _gone, ...rest } = viewers.viewers;
+  const next: ViewersFile = { ...viewers, viewers: rest };
+  try {
+    await folderDrive.put(DRIVE_PATH_VIEWERS, Buffer.from(JSON.stringify(next)));
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+  return [null, next];
+}
+
 /** Admin only: moves a Viewer into the registry, then out of `/viewers.json`.
  * If the second write fails the person is in both files, and the registry
  * wins, so they already show as a Collaborator. The inputs are not changed. */
