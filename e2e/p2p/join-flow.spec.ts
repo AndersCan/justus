@@ -315,7 +315,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   await expect(tap).toBeVisible({ timeout: 60_000 });
   const ownName = (((await tap.locator("p").first().innerText()) ?? "").split("·")[0] ?? "").trim();
   await tap.click();
-  await a.getByRole("button", { name: "Add to friends" }).click();
+  await a.getByRole("button", { name: "Add to friends", exact: true }).click();
   await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
   await a.getByRole("button", { name: "Save", exact: true }).click();
   await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
@@ -526,7 +526,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
   await expect(tap).toBeVisible({ timeout: 60_000 });
   await tap.click();
   // The instances outlive a test, so an earlier test may already have saved B as Sam.
-  const add = a.getByRole("button", { name: "Add to friends" });
+  const add = a.getByRole("button", { name: "Add to friends", exact: true });
   const known = a.getByText("Saved as a friend");
   await expect(add.or(known)).toBeVisible();
   if (await add.isVisible()) {
@@ -636,7 +636,7 @@ test("A saved friend and a stranger with the friend's name ask by link: only the
   await expect(tap).toBeVisible({ timeout: 60_000 });
   await tap.click();
   // The instances outlive a test, so an earlier test may already have saved B as Sam.
-  const add = a.getByRole("button", { name: "Add to friends" });
+  const add = a.getByRole("button", { name: "Add to friends", exact: true });
   const known = a.getByText("Saved as a friend");
   await expect(add.or(known)).toBeVisible();
   if (await add.isVisible()) {
@@ -703,7 +703,7 @@ test("A takes back the invite sent to friend B: the row goes on A and the invite
   await expect(tap).toBeVisible({ timeout: 60_000 });
   await tap.click();
   // The instances outlive a test, so an earlier test may already have saved B as Sam.
-  const add = a.getByRole("button", { name: "Add to friends" });
+  const add = a.getByRole("button", { name: "Add to friends", exact: true });
   const known = a.getByText("Saved as a friend");
   await expect(add.or(known)).toBeVisible();
   if (await add.isVisible()) {
