@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectFile } from "@mantaq/inspect";
 import { expect, test } from "vite-plus/test";
@@ -108,3 +108,31 @@ test("every walk link in sharing-flows.md names a machine and carries no step tr
       .map(([, text]) => text),
   ).toEqual([]);
 });
+
+test("every machine with more than one state has a recorded walk", async () => {
+  const problems: string[] = [];
+  for (const file of listed) {
+    const runsDir = join(root, dirname(file), "__runs__");
+    const walked = new Set<string>();
+    if (existsSync(runsDir)) {
+      for (const name of readdirSync(runsDir).filter((f) => f.endsWith(".json"))) {
+        const runs: Record<string, unknown[]> = JSON.parse(
+          readFileSync(join(runsDir, name), "utf8"),
+        );
+        for (const [id, list] of Object.entries(runs)) {
+          if (Array.isArray(list) && list.length > 0) walked.add(id);
+        }
+      }
+    }
+    const loaded = await inspectFile(join(root, file), { fuzz: false });
+    for (const machine of loaded.machines) {
+      const states = machine.states.filter((state) => !state.id.startsWith("__"));
+      if (states.length > 1 && !walked.has(machine.id)) {
+        problems.push(
+          `${file}: ${machine.id} has no recorded walk. Add a top-level test through recordRuns in a test file next to it (AGENTS.md "Designing with the AI").`,
+        );
+      }
+    }
+  }
+  expect(problems).toEqual([]);
+}, 120_000);

@@ -121,6 +121,7 @@ layer, Host, Actor). Use those terms exactly.
 - A design ask is a request for a preview link: push a branch and open a draft pull request without asking, then reply with one preview link per walk.
 - Open the live page with `pnpm flows:dev <feature|file>`.
 - A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/content/docs/<feature>.mdx`.
+- A machine with more than one state ships with walks of its page's stories (`*.walks.test.ts` next to it); `scripts/flows.test.ts` fails on one without.
 - A new backend machine also gets a `pnpm test:bare` scenario.
 - After merge the page is at `https://anderscan.github.io/justus/<feature>/?machine=<id>`.
 - Before merge, a pull request's preview is at `https://anderscan.github.io/justus/pr/<n>/<feature>/?machine=<id>`; the `Site preview of <sha>` comment says when it is live.
