@@ -268,14 +268,46 @@ describe("onboarding App lock offer", () => {
     expect(actor.snapshot().context.error).toBeNull();
   });
 
-  test("a failed attempt behaves like a cancel", async () => {
-    const { actor } = setup(vi.fn().mockResolvedValue([new Error("x"), null]));
+  test("a failed attempt returns to the offer with an error, and Enable clears it", async () => {
+    const setEnabled = vi
+      .fn()
+      .mockResolvedValueOnce([new Error("x"), null])
+      .mockReturnValue(new Promise(() => {}));
+    const { actor } = setup(setEnabled);
     readLock(actor, true, false);
     await saveName(actor);
     send(actor, "TURN_ON_APP_LOCK");
     await actor.settled();
     expect(actor.state.name).toBe("offeringAppLock");
     expect(actor.snapshot().context.lock).toEqual({ available: true, enabled: false });
+    expect(onboardingViewModel(actor.snapshot(), "").error).toBe(
+      "Couldn't turn on App lock. Try again.",
+    );
+    send(actor, "TURN_ON_APP_LOCK");
+    expect(actor.state.name).toBe("turningOnAppLock");
+    expect(onboardingViewModel(actor.snapshot(), "").error).toBeNull();
+  });
+
+  test("a thrown failure also shows the error", async () => {
+    const { actor } = setup(vi.fn().mockRejectedValue(new Error("boom")));
+    readLock(actor, true, false);
+    await saveName(actor);
+    send(actor, "TURN_ON_APP_LOCK");
+    await actor.settled();
+    expect(actor.state.name).toBe("offeringAppLock");
+    expect(onboardingViewModel(actor.snapshot(), "").error).toBe(
+      "Couldn't turn on App lock. Try again.",
+    );
+  });
+
+  test("cancelling the prompt shows no error", async () => {
+    const { actor } = setup(vi.fn().mockResolvedValue([null, { enabled: false }]));
+    readLock(actor, true, false);
+    await saveName(actor);
+    send(actor, "TURN_ON_APP_LOCK");
+    await actor.settled();
+    expect(actor.state.name).toBe("offeringAppLock");
+    expect(onboardingViewModel(actor.snapshot(), "").error).toBeNull();
   });
 
   test("Not now moves on without asking the phone", async () => {

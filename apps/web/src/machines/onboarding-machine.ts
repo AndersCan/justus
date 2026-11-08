@@ -79,10 +79,14 @@ const turnOnAppLock = event("TURN_ON_APP_LOCK")();
 const skipAppLock = event("SKIP_APP_LOCK")();
 /** The person confirmed: App lock is on. */
 const appLockTurnedOn = event("APP_LOCK_TURNED_ON")();
-/** The person cancelled the phone's prompt or it failed: App lock stays off. */
+/** The person cancelled the phone's prompt: App lock stays off. */
 const appLockLeftOff = event("APP_LOCK_LEFT_OFF")();
+/** The phone's prompt failed: App lock stays off and the person sees why. */
+const appLockFailed = event("APP_LOCK_FAILED")<{ message: string }>();
 /** The name was saved; the app records it as the person's name. */
 const nameSaved = event("NAME_SAVED")<{ name: string }>();
+
+const APP_LOCK_FAILED_MESSAGE = "Couldn't turn on App lock. Try again.";
 
 type OnboardingContext = {
   card: number;
@@ -107,7 +111,7 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
   const port = options.gateway ?? gateway;
   return Actor({
     inputs: [next, back, skip, editName, saveProfile, lockStatusRead, turnOnAppLock, skipAppLock],
-    internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff],
+    internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff, appLockFailed],
     outputs: [nameSaved],
     states: [
       showingIntroCards,
@@ -223,7 +227,10 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
       m.on(offeringAppLock, {
         event: turnOnAppLock,
         to: [turningOnAppLock],
-        handler: () => ({ state: turningOnAppLock }),
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: turningOnAppLock };
+        },
       });
       /** Not now moves on without App lock. */
       m.on(offeringAppLock, {
@@ -231,10 +238,10 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
         to: [choosingCreateOrJoin],
         handler: () => ({ state: choosingCreateOrJoin }),
       });
-      /** The phone is asked to turn App lock on; a cancel or a failure leaves it off. */
+      /** The phone is asked to turn App lock on; a cancel or a failure leaves it off; a failure says so. */
       m.effect(turningOnAppLock, {
         name: "turningOnAppLock",
-        sends: [appLockTurnedOn, appLockLeftOff],
+        sends: [appLockTurnedOn, appLockLeftOff, appLockFailed],
         fn: ({ signal, emit }) =>
           runInvoke(
             signal,
@@ -245,7 +252,7 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
                   ? appLockTurnedOn.create()
                   : appLockLeftOff.create(),
               ),
-            () => emit(appLockLeftOff.create()),
+            () => emit(appLockFailed.create({ message: APP_LOCK_FAILED_MESSAGE })),
           ),
       });
       /** The person confirmed: App lock is on and they move on. */
@@ -257,7 +264,16 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
           return { state: choosingCreateOrJoin };
         },
       });
-      /** Cancelled or failed: back on "Lock Justus?". */
+      /** The prompt failed: back on "Lock Justus?" with the error. */
+      m.on(turningOnAppLock, {
+        event: appLockFailed,
+        to: [offeringAppLock],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: e.payload.message });
+          return { state: offeringAppLock };
+        },
+      });
+      /** Cancelled: back on "Lock Justus?". */
       m.on(turningOnAppLock, {
         event: appLockLeftOff,
         to: [offeringAppLock],
