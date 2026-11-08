@@ -124,6 +124,26 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   );
 });
 
+const LONG_NAME = "Alexandra Montgomery-Featherstonehaugh";
+
+async function expectRowFits(page: Page, name: string) {
+  const original = page.viewportSize();
+  await page.setViewportSize({ width: 360, height: 800 });
+  const buttons = [`Make ${name} a Viewer`, `Remove ${name}`].map((label) =>
+    page.getByRole("button", { name: label, exact: true }),
+  );
+  const colours: string[] = [];
+  for (const button of buttons) {
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await button.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    colours.push(await button.evaluate((el) => getComputedStyle(el).color));
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  expect(colours[1]).not.toBe(colours[0]);
+  if (original) await page.setViewportSize(original);
+}
+
 /** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
 async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
   await page.evaluate(() => {
@@ -194,7 +214,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const bToasts = await recordToasts(b);
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
-  const row = members.locator("li", { hasText: "Viewer" });
+  const row = members.locator("li", { hasText: "Viewer · sees every photo" });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row).toContainText("connected", { timeout: 30_000 });
 
@@ -220,6 +240,11 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   const kept = "hub-kept.png";
   await createAlbum(a, album, PHOTO, 11);
   const link = await copyInviteLink(a);
+  await b.goto("/settings");
+  const bName = b.getByRole("textbox", { name: "Your name", exact: true });
+  await bName.fill(LONG_NAME);
+  await b.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(bName).toHaveValue(LONG_NAME);
   await askToJoin(b, link, album);
 
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
@@ -248,6 +273,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   const aToasts = await recordToasts(a);
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await expect(members).toBeVisible({ timeout: 60_000 });
+  await expectRowFits(a, LONG_NAME);
   await members.getByRole("button", { name: /^Make .* a Viewer$/ }).click();
   await a.getByRole("button", { name: "Make Viewer", exact: true }).click();
   await expect(a.getByText(/is a Viewer now$/)).toBeVisible({ timeout: 60_000 });
@@ -279,7 +305,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
     .first()
     .click();
   const people = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
-  await people.getByRole("button", { name: "Remove", exact: true }).click();
+  await people.getByRole("button", { name: /^Remove /, exact: false }).click();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
   await expect(a.getByText(`is no longer in ${album}`)).toBeVisible({ timeout: 60_000 });
 

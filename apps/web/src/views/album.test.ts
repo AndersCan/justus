@@ -67,6 +67,10 @@ const memberRows = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLLIElement>("ul.divide-y > li"),
 ];
 
+const controls = (row: Element) => [...row.querySelectorAll("button")].map((b) => flat(b).trim());
+const buttonNamed = (host: ParentNode, re: RegExp) =>
+  [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => re.test(flat(b).trim()));
+
 describe("Make Viewer", () => {
   const viewerStatus = {
     ...status,
@@ -84,16 +88,14 @@ describe("Make Viewer", () => {
     return host;
   };
 
-  test("a Collaborator row shows Make Viewer before Remove", () => {
+  test("a Collaborator row shows Make Nils a Viewer before Remove Nils", () => {
     const row = memberRows(open()).find((r) => r.textContent?.includes("Nils"));
-    const labels = [...row!.querySelectorAll("button")].map((b) => b.textContent?.trim());
-    expect(labels.indexOf("Make Viewer")).toBeGreaterThanOrEqual(0);
-    expect(labels.indexOf("Make Viewer")).toBeLessThan(labels.indexOf("Remove"));
+    expect(controls(row!).slice(-2)).toEqual(["Make Nils a Viewer", "Remove Nils"]);
   });
 
   test("confirm copy names the person", async () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
-    open().querySelector<HTMLButtonElement>('button[aria-label="Make Nils a Viewer"]')?.click();
+    buttonNamed(open(), /^Make Nils a Viewer$/)?.click();
     await vi.waitFor(() =>
       expect(confirmAction).toHaveBeenCalledWith({
         title: "Make Nils a Viewer?",
@@ -108,8 +110,7 @@ describe("Make Viewer", () => {
   test("confirming calls makeViewer; cancelling does not", async () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
     const host = open();
-    const button = () =>
-      host.querySelector<HTMLButtonElement>('button[aria-label="Make Nils a Viewer"]');
+    const button = () => buttonNamed(host, /^Make Nils a Viewer$/);
     button()?.click();
     await vi.waitFor(() => expect(confirmAction).toHaveBeenCalled());
     expect(gateway.makeViewer).not.toHaveBeenCalled();
@@ -117,11 +118,73 @@ describe("Make Viewer", () => {
     await vi.waitFor(() => expect(gateway.makeViewer).toHaveBeenCalledWith("f1", "k1"));
   });
 
-  test("a Viewer row and the Admin's own row have no Make Viewer", () => {
+  test("a Viewer row and the Admin's own row have no Make a Viewer button", () => {
     const rows = memberRows(open());
     for (const name of ["Vi", "Me"]) {
       const row = rows.find((r) => r.querySelector("p")?.textContent?.trim().startsWith(name));
-      expect(row?.textContent).not.toContain("Make Viewer");
+      expect(buttonNamed(row!, /^Make .* a Viewer$/)).toBeUndefined();
+    }
+  });
+
+  test("an Admin sees no action line on their own row or another Admin's row", () => {
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...viewerStatus,
+          members: [
+            { key: "k0", name: "Me", admin: true, connected: true },
+            { key: "k3", name: "Ada", admin: true, connected: true, identity: "i3" },
+            { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+          ],
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const rows = memberRows(host);
+    for (const name of ["Me", "Ada"]) {
+      const row = rows.find((r) => r.querySelector("p")?.textContent?.trim().startsWith(name));
+      expect(row!.childElementCount).toBe(1);
+    }
+    const nils = rows.find((r) => r.textContent?.includes("Nils"));
+    expect(nils!.childElementCount).toBe(2);
+  });
+
+  test("no member-row button has an aria-label", () => {
+    const host = open();
+    expect(memberRows(host).flatMap((r) => [...r.querySelectorAll("button[aria-label]")])).toEqual(
+      [],
+    );
+  });
+
+  test("Remove is a red ghost button; the role button is a plain ghost button", () => {
+    const host = open();
+    const remove = buttonNamed(host, /^Remove Nils$/)!;
+    const role = buttonNamed(host, /^Make Nils a Viewer$/)!;
+    for (const b of [remove, role]) {
+      expect(b.classList.contains("ui-btn-ghost")).toBe(true);
+      expect(b.classList.contains("ui-btn-primary")).toBe(false);
+    }
+    expect(remove.classList.contains("text-danger-fg")).toBe(true);
+    expect(role.classList.contains("text-danger-fg")).toBe(false);
+  });
+
+  test.each(["member", "reader"] as const)("a %s sees rows with no action line", (role) => {
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...viewerStatus,
+          folder: { ...viewerStatus.folder, role },
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    for (const row of memberRows(host)) {
+      expect(row.childElementCount).toBe(1);
+      expect(buttonNamed(row, /^(Remove|Make|Let) /)).toBeUndefined();
     }
   });
 });
@@ -603,8 +666,7 @@ describe("album viewer rows", () => {
     expect(row.textContent).toContain("Viewer · sees every photo, adds none");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
-    const labels = [...row.querySelectorAll("button")].map((b) => b.textContent?.trim());
-    expect(labels.at(-1)).toBe("Remove");
+    expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
   });
 
   test("Remove on a Viewer asks with the Viewer text", async () => {
@@ -620,9 +682,7 @@ describe("album viewer rows", () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
     const host = document.createElement("div");
     render(albumView("f1"), host);
-    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
-      (b) => b.textContent?.trim() === "Remove",
-    );
+    const remove = buttonNamed(memberRows(host)[1], /^Remove /);
     remove?.click();
     await vi.waitFor(() =>
       expect(confirmAction).toHaveBeenLastCalledWith({
@@ -641,9 +701,7 @@ describe("album viewer rows", () => {
     syncActor.send(statusSeen.create({ status }));
     people.open();
     render(albumView("f1"), host);
-    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
-      (b) => b.textContent?.trim() === "Remove",
-    );
+    const remove = buttonNamed(memberRows(host)[1], /^Remove /);
     remove?.click();
     await vi.waitFor(() =>
       expect(confirmAction).toHaveBeenLastCalledWith(
@@ -666,10 +724,8 @@ describe("album viewer rows", () => {
     people.open();
     const host = document.createElement("div");
     render(albumView("f1"), host);
-    const button = host.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Let "][aria-label$=" add photos"]',
-    );
-    expect(button?.textContent?.replace(/\s+/g, " ").trim()).toBe("Let Kimmy add photos");
+    const button = buttonNamed(host, /^Let .+ add photos$/);
+    expect(button && flat(button).trim()).toBe("Let Kimmy add photos");
     button?.click();
     await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalledWith("f1", "k1"));
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Kimmy can add photos now"));
@@ -682,9 +738,7 @@ describe("album viewer rows", () => {
     syncActor.send(statusSeen.create({ status }));
     people.open();
     render(albumView("f1"), host);
-    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
-      (b) => b.textContent?.trim() === "Remove",
-    );
+    const remove = buttonNamed(memberRows(host)[1], /^Remove /);
     remove?.click();
     await vi.waitFor(() =>
       expect(toast).toHaveBeenCalledWith(expect.stringMatching(/^Kimmy is no longer in .+/)),
@@ -705,14 +759,8 @@ describe("album viewer rows", () => {
     people.open();
     const host = document.createElement("div");
     render(albumView("f1"), host);
-    const letButton = () =>
-      host.querySelector<HTMLButtonElement>(
-        'button[aria-label^="Let "][aria-label$=" add photos"]',
-      );
-    const removeButton = () =>
-      [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
-        b.textContent?.includes("Remove"),
-      );
+    const letButton = () => buttonNamed(host, /^Let .+ add photos$/);
+    const removeButton = () => buttonNamed(host, /^Remove /);
     expect(letButton()?.disabled).toBe(false);
     expect(removeButton()?.disabled).toBe(false);
     letButton()?.click();
