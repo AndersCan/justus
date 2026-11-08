@@ -152,7 +152,7 @@ export function holdersFor(input: {
   people: ReadonlyArray<PhotoMember>;
   /** By drive key, self included. */
   held: ReadonlyMap<string, HeldReport>;
-  former: ReadonlyArray<{ name: string; ids: ReadonlySet<string> }>;
+  former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
 }): PhotoHolders {
   const { photo, selfKey, people, held, former } = input;
   const here = photo.driveKey === selfKey || holds(held.get(selfKey), photo.id);
@@ -168,14 +168,18 @@ export function holdersFor(input: {
     else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, person);
     else waiting.set(person.key, person);
   }
-  const names = new Set<string>();
-  for (const entry of former) if (entry.ids.has(photo.id)) names.add(entry.name);
+  const removed = new Set<string>();
+  const leavers = new Set<string>();
+  for (const entry of former) {
+    if (entry.ids.has(photo.id)) (entry.left === true ? leavers : removed).add(entry.name);
+  }
   return {
     here,
     others: [...others.values()].sort(byNameThenKey),
     unsure: [...unsure.values()].sort(byNameThenKey),
     waiting: [...waiting.values()].sort(byNameThenKey),
-    former: [...names].sort(),
+    former: [...removed].sort(),
+    left: [...leavers].sort(),
   };
 }
 
@@ -185,7 +189,12 @@ export const MAX_FORMER_PEOPLE = 50;
 export const MAX_FORMER_IDS = 5_000;
 
 /** A person no longer in the album and the photos they had a copy of when they went. */
-export type FormerPerson = { name: string; identity?: string; ids: ReadonlySet<string> };
+export type FormerPerson = {
+  name: string;
+  identity?: string;
+  ids: ReadonlySet<string>;
+  left?: true;
+};
 
 /** The Admin's list of people who left or were removed. Junk, a newer version or a slow read gives an empty list. */
 export async function readFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]> {
@@ -208,7 +217,12 @@ async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]
     const people: FormerPerson[] = [];
     for (const raw of former.slice(0, MAX_FORMER_PEOPLE)) {
       if (typeof raw !== "object" || raw === null) continue;
-      const { name, identity, ids } = raw as { name?: unknown; identity?: unknown; ids?: unknown };
+      const { name, identity, ids, left } = raw as {
+        name?: unknown;
+        identity?: unknown;
+        ids?: unknown;
+        left?: unknown;
+      };
       if (typeof name !== "string" || name === "" || !Array.isArray(ids)) continue;
       const safe = new Set<string>();
       for (const id of ids.slice(0, MAX_FORMER_IDS)) {
@@ -218,6 +232,7 @@ async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]
         name,
         ...(typeof identity === "string" ? { identity } : {}),
         ids: safe,
+        ...(left === true ? { left } : {}),
       });
     }
     return people;
@@ -232,6 +247,7 @@ async function writeFormer(drive: Drive, people: ReadonlyArray<FormerPerson>): P
     name: p.name,
     ...(p.identity !== undefined ? { identity: p.identity } : {}),
     ids: [...p.ids].slice(-MAX_FORMER_IDS),
+    ...(p.left === true ? { left: true } : {}),
   }));
   await drive.put(FORMER_PATH, Buffer.from(JSON.stringify({ version: 1, former })));
 }

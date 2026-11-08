@@ -951,6 +951,7 @@ describe("album holding", () => {
       unsure: [{ key: "k2", name: "Zed" }],
       waiting: [],
       former: [],
+      left: [],
     },
   });
   const open = async (photos: unknown[]) => {
