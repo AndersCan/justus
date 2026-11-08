@@ -3,7 +3,12 @@ import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { onOutput } from "@mantaq/sugar";
 import { expect, test } from "vite-plus/test";
-import { createRequestsActor, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import {
+  createRequestsActor,
+  collaboratorAcceptKeys,
+  requestsViewModel,
+  viewerAcceptKeys,
+} from "./requests-machine";
 
 const make = recordRuns(createRequestsActor);
 
@@ -95,6 +100,31 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
     actor.inject({
       type: "RESPONDED",
       payload: { folderId: "f1", requesterKey: person.requesterKey },
+    });
+  }
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [] } });
+  await actor.settled();
+  expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
+  expect(counts).toEqual([3]);
+});
+
+test("Wedding guests ask, and Nils accepts all three as Collaborators", async () => {
+  const actor = make({ clock: VirtualClock() });
+  const counts: number[] = [];
+  onOutput(actor, (e) => {
+    if (e.type === "ALL_ACCEPTED_AS_COLLABORATORS")
+      counts.push((e.payload as { count: number }).count);
+  });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: guests } });
+  actor.send({
+    type: "ACCEPT_ALL_AS_COLLABORATORS",
+    payload: { folderId: "f1", requesterKeys: collaboratorAcceptKeys(guests, "f1") },
+  });
+  for (const guest of guests) {
+    actor.inject({
+      type: "RESPONDED",
+      payload: { folderId: "f1", requesterKey: guest.requesterKey },
     });
   }
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [] } });

@@ -361,7 +361,7 @@ describe("album join requests", () => {
     expect(host.textContent).toContain("They can see the photos but not add or remove any.");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
       const h = await show(list);
-      expect([...h.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all"))).toBe(
+      expect([...h.querySelectorAll("button")].some((b) => name(b)?.endsWith("as Viewers"))).toBe(
         false,
       );
     }

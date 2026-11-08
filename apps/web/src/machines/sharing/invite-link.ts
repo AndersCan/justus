@@ -5,15 +5,17 @@ import { toast } from "../../views/toast";
 import { sync } from "../sync-machine";
 import {
   chooseLinkTime,
+  confirmNoEnd,
   createInviteLinkActor,
   createLink,
+  pickEndTime,
   turnOffLink,
   type ValidFor,
 } from "./invite-link-machine";
 
 /** What the invite panel draws: which state, for which album, and when the link ends. */
 export type InviteLinkView = {
-  state: "noLinkYet" | "linkMade" | "turningOff";
+  state: "noLinkYet" | "confirmingNoEnd" | "linkMade" | "linkWorksUntilTurnedOff" | "turningOff";
   folderId: string;
   validFor: ValidFor;
   /** The code that was just turned off; a link must not carry it. */
@@ -21,6 +23,8 @@ export type InviteLinkView = {
   /** The album whose links were just turned off; "" when none. */
   offFolderId: string;
   expiresAt?: number;
+  /** A link with no end time is made for `folderId`. */
+  noEnd?: true;
 };
 
 /** What the invite panel draws, as a pure function of the actor snapshot. */
@@ -41,6 +45,7 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     ...(state === "linkMade"
       ? { expiresAt: (snapshot.payload as { expiresAt: number }).expiresAt }
       : {}),
+    ...(state === "linkWorksUntilTurnedOff" ? { noEnd: true as const } : {}),
   };
 }
 
@@ -64,6 +69,8 @@ export const inviteLink = {
   chooseLinkTime: (validFor: ValidFor) => inviteLinkActor.send(chooseLinkTime.create({ validFor })),
   createLink: (folderId: string, code: string) =>
     inviteLinkActor.send(createLink.create({ folderId, code })),
+  confirmNoEnd: () => inviteLinkActor.send(confirmNoEnd.create()),
+  pickEndTime: () => inviteLinkActor.send(pickEndTime.create()),
   turnOffLink: (folderId: string, code: string) =>
     inviteLinkActor.send(turnOffLink.create({ folderId, code })),
 };

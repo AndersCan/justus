@@ -276,6 +276,91 @@
           }
         }
       ]
+    },
+    {
+      "name": "Wedding guests ask, and Nils accepts all three as Collaborators",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Ola",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Kari",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Per",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL_AS_COLLABORATORS",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": ["k1", "k2", "k3"]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": []
+          }
+        }
+      ]
     }
   ]
 }

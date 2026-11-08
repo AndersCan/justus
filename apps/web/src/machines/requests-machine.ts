@@ -10,8 +10,14 @@ import { removeRequestFromList } from "./requests-list";
  * the other machines.
  */
 
-/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
-type Batch = { folderId: string; next: string; after: string[]; sent: number };
+/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in, each as `role` (Viewer "reader", Collaborator "member"). */
+type Batch = {
+  folderId: string;
+  role: "reader" | "member";
+  next: string;
+  after: string[];
+  sent: number;
+};
 
 const REQUESTS_STATES = [
   "requestsNotLoaded",
@@ -52,6 +58,15 @@ const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
 }>();
 /** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
 export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
+/** The Admin taps Accept all as Collaborators; only the people on screen at the tap are answered. */
+const acceptAllAsCollaborators = event("ACCEPT_ALL_AS_COLLABORATORS")<{
+  folderId: string;
+  requesterKeys: string[];
+}>();
+/** Everyone in the batch is in as a Collaborator; the view says how many in one toast. */
+export const allAcceptedAsCollaborators = event("ALL_ACCEPTED_AS_COLLABORATORS")<{
+  count: number;
+}>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
@@ -116,9 +131,9 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry, acceptAllAsViewers],
+    inputs: [refresh, respond, retry, acceptAllAsViewers, acceptAllAsCollaborators],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent, allAcceptedAsViewers],
+    outputs: [answerSent, allAcceptedAsViewers, allAcceptedAsCollaborators],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -180,28 +195,33 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswer };
           },
         });
-        /** Accept all as Viewers starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
-        m.on(at, {
-          event: acceptAllAsViewers,
-          to: [sendingAnswersToAll],
-          handler: (e, opts) => {
-            const ctx = opts.context.get();
-            const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
-              ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
-            );
-            const [next, ...after] = keys;
-            if (next === undefined) return {};
-            opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
-            return {
-              state: sendingAnswersToAll.create({
-                folderId: e.payload.folderId,
-                next,
-                after,
-                sent: 0,
-              }),
-            };
-          },
-        });
+        /** Accept all as Viewers or as Collaborators starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+        for (const [acceptAll, role] of [
+          [acceptAllAsViewers, "reader"],
+          [acceptAllAsCollaborators, "member"],
+        ] as const)
+          m.on(at, {
+            event: acceptAll,
+            to: [sendingAnswersToAll],
+            handler: (e, opts) => {
+              const ctx = opts.context.get();
+              const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
+                ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
+              );
+              const [next, ...after] = keys;
+              if (next === undefined) return {};
+              opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
+              return {
+                state: sendingAnswersToAll.create({
+                  folderId: e.payload.folderId,
+                  role,
+                  next,
+                  after,
+                  sent: 0,
+                }),
+              };
+            },
+          });
       }
       /** A reload after an error starts and the error message goes away. */
       m.on(couldNotLoadRequests, {
@@ -301,10 +321,10 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         name: "sendingAnswersToAll",
         sends: [responded, respondFailed],
         fn: ({ signal, emit, state }) => {
-          const { folderId, next } = state.payload;
+          const { folderId, next, role } = state.payload;
           return runInvoke(
             signal,
-            () => port.respond(folderId, next, true, "reader"),
+            () => port.respond(folderId, next, true, role),
             () => emit(responded.create({ folderId, requesterKey: next })),
             (message) => emit(respondFailed.create({ message })),
           );
@@ -330,7 +350,11 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           if (next !== undefined) {
             return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
           }
-          return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+          const all =
+            p.role === "reader"
+              ? allAcceptedAsViewers.create({ count: sent })
+              : allAcceptedAsCollaborators.create({ count: sent });
+          return { state: loadingRequests, emit: [all] };
         },
       });
       /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
@@ -347,7 +371,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
               folderId: p.folderId,
               requesterKey: p.next,
               approve: true,
-              role: "reader",
+              role: p.role,
             },
           });
           return { state: couldNotSendAnswer };
@@ -428,7 +452,14 @@ export const requests = {
   retry: () => requestsActor.send(retry.create()),
   acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
     requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
+  acceptAllAsCollaborators: (folderId: string, requesterKeys: string[]) =>
+    requestsActor.send(acceptAllAsCollaborators.create({ folderId, requesterKeys })),
 };
+
+/** The requests Accept all as Collaborators answers in one album, in list order. */
+export function collaboratorAcceptKeys(requests: JoinRequest[], folderId: string): string[] {
+  return requests.filter((r) => r.folderId === folderId).map((r) => r.requesterKey);
+}
 
 /** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), in list order. */
 export function viewerAcceptKeys(requests: JoinRequest[], folderId: string): string[] {

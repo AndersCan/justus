@@ -38,7 +38,7 @@ export async function copyText(value: string): Promise<boolean> {
 export function inviteLinkFor(
   folder: FolderSummary,
   myName: string,
-  expiresAt: number,
+  expiresAt?: number,
 ): string | null {
   if (folder.role !== "creator" || !folder.invite) return null;
   return buildInviteLink({
@@ -46,7 +46,7 @@ export function inviteLinkFor(
     owner: folder.invite.owner,
     album: folder.name,
     ownerName: myName,
-    expiresAt,
+    ...(expiresAt === undefined ? {} : { expiresAt }),
   });
 }
 
@@ -54,6 +54,7 @@ export function inviteLinkFor(
 function madeLink(folder: FolderSummary, myName: string): string | null {
   inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
+  if (view.noEnd && view.folderId === folder.id) return inviteLinkFor(folder, myName);
   if (view.expiresAt === undefined) return null;
   return inviteLinkFor(folder, myName, view.expiresAt);
 }
@@ -160,12 +161,18 @@ export function invitePanel(
   }
   return watch(inviteLinkActor, (snapshot) => {
     const view = inviteLinkViewOf(snapshot);
-    const made = view.folderId === folder.id && view.expiresAt !== undefined ? view : null;
+    const mine = view.folderId === folder.id;
+    const made =
+      mine && view.expiresAt !== undefined
+        ? { expiresAt: view.expiresAt }
+        : mine && view.noEnd
+          ? {}
+          : null;
     return invitePanelBody(
       folder,
       myName,
       view,
-      made?.expiresAt ?? null,
+      made,
       qrShown,
       onShowQr,
       memberIdentities,
@@ -178,7 +185,7 @@ function invitePanelBody(
   folder: FolderSummary,
   myName: string,
   view: InviteLinkView,
-  expiresAt: number | null,
+  made: { expiresAt?: number } | null,
   qrShown: boolean,
   onShowQr: () => void,
   memberIdentities: string[],
@@ -191,7 +198,7 @@ function invitePanelBody(
   // One coloured button: Add a friend when a friend can be added, else the link.
   const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
   const canShare = typeof navigator.share === "function";
-  const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
+  const link = made === null ? null : inviteLinkFor(folder, myName, made.expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
   const linksOff = view.offFolderId === folder.id;
   const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
@@ -228,27 +235,42 @@ function invitePanelBody(
         gets in. They see no photos until you accept.
       </p>
       ${
-        expiresAt === null
-          ? html`<label class="mb-4 flex items-center gap-2 text-sm text-fg">
-              Link works for
-              <select
-                class="ui-input w-auto py-1"
-                @change=${(e: Event) =>
-                  inviteLink.chooseLinkTime(
-                    (e.currentTarget as HTMLSelectElement).value as ValidFor,
+        view.state === "confirmingNoEnd" && view.folderId === folder.id
+          ? html`<div class="mb-4 text-sm text-fg" role="alertdialog">
+              <p class="mb-2">
+                Anyone who gets this link can ask to join until you turn it off. You still say yes
+                to each person.
+              </p>
+              <button class="ui-btn-primary" @click=${() => inviteLink.confirmNoEnd()}>
+                Make link
+              </button>
+              <button class="ui-btn-ghost" @click=${() => inviteLink.pickEndTime()}>
+                Pick an end time
+              </button>
+            </div>`
+          : made === null
+            ? html`<label class="mb-4 flex items-center gap-2 text-sm text-fg">
+                Link works for
+                <select
+                  class="ui-input w-auto py-1"
+                  @change=${(e: Event) =>
+                    inviteLink.chooseLinkTime(
+                      (e.currentTarget as HTMLSelectElement).value as ValidFor,
+                    )}
+                >
+                  ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
+                    (key) =>
+                      html`<option value=${key} ?selected=${view.validFor === key}>
+                        ${VALID_FOR_LABEL[key]}
+                      </option>`,
                   )}
-              >
-                ${(Object.keys(VALID_FOR_LABEL) as ValidFor[]).map(
-                  (key) =>
-                    html`<option value=${key} ?selected=${view.validFor === key}>
-                      ${VALID_FOR_LABEL[key]}
-                    </option>`,
-                )}
-              </select>
-            </label>`
-          : html`<p class="mb-4 text-sm text-fg">
-              This link works until ${linkEndText(expiresAt)}.
-            </p>`
+                </select>
+              </label>`
+            : made.expiresAt === undefined
+              ? html`<p class="mb-4 text-sm text-fg">This link works until you turn it off.</p>`
+              : html`<p class="mb-4 text-sm text-fg">
+                  This link works until ${linkEndText(made.expiresAt)}.
+                </p>`
       }
       <div class="flex flex-wrap gap-2">
         ${

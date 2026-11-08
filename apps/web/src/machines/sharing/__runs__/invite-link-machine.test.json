@@ -88,6 +88,74 @@
           }
         }
       ]
+    },
+    {
+      "name": "Personal album: Nils makes a link with no end for his followers",
+      "end": "linkWorksUntilTurnedOff",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "chooseLinkTime",
+          "payload": {
+            "validFor": "noEnd"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "confirmNoEnd",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Two people: Nils makes a 1 hour link for Maya",
+      "end": "linkMade",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "chooseLinkTime",
+          "payload": {
+            "validFor": "1h"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wedding: Nils makes a 12 hour link for the guests",
+      "end": "linkMade",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "chooseLinkTime",
+          "payload": {
+            "validFor": "12h"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        }
+      ]
     }
   ]
 }
