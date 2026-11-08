@@ -391,6 +391,15 @@ describe("accept all as Viewers", () => {
     ];
     expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "d"]);
   });
+
+  test("viewerAcceptKeys skips asks whose name equals a saved friend's", () => {
+    const list = [
+      request("f1", "a", true),
+      { ...request("f1", "b", true), clash: "Dad" },
+      request("f1", "c", true),
+    ];
+    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "c"]);
+  });
 });
 
 describe("requestsViewModel", () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { JoinRequest, SyncStatus } from "@justus/core";
-import { buildPeople, presenceLabel } from "./people";
+import type { RequestRow } from "./people";
+import { buildPeople, clashFriend, presenceLabel, requestsHint } from "./people";
 
 const NOW = 1_000_000_000;
 
@@ -149,5 +150,110 @@ describe("presenceLabel", () => {
   it("never says online", () => {
     expect(presenceLabel({ connected: true })).toBe("connected");
     expect(presenceLabel({ connected: false })).toBe("not seen yet");
+  });
+});
+
+describe("clashFriend", () => {
+  const friends = { "id-ben": "Dad", "id-ann": "Ann Lee" };
+  it.each([
+    ["dad", "Dad"],
+    ["  DAD ", "Dad"],
+    ["ann   lee", "Ann Lee"],
+    ["Dadd", undefined],
+    ["Dad 2", undefined],
+    ["", undefined],
+    ["   ", undefined],
+  ])("%j -> %j", (name, want) => {
+    expect(clashFriend(name, friends)).toBe(want);
+  });
+  it("matches nothing without friends", () => {
+    expect(clashFriend("Dad", {})).toBeUndefined();
+  });
+  it("returns the smaller saved name when two friends match", () => {
+    expect(clashFriend("dad", { a: "dad", b: "Dad" })).toBe("Dad");
+    expect(clashFriend("dad", { a: "Dad", b: "dad" })).toBe("Dad");
+  });
+});
+
+describe("buildPeople name clash", () => {
+  const friends = { "id-ben": "Dad" };
+  const ask = (key: string, name: string, identity?: string): JoinRequest => ({
+    ...request("f1"),
+    requesterKey: key,
+    requesterName: name,
+    ...(identity !== undefined && { requesterIdentity: identity }),
+  });
+  const admin = (): SyncStatus =>
+    ({
+      folder: { id: "f1", role: "creator" },
+      members: [
+        { key: "me", name: "Dad", admin: true, connected: true, identity: "i-me" },
+        { key: "m1", name: "Ben", admin: false, connected: true, identity: "id-ben" },
+        { key: "m2", name: "dad", admin: false, connected: true, identity: "id-x" },
+        { key: "m3", name: "DAD", admin: false, connected: true },
+      ],
+    }) as SyncStatus;
+
+  it("marks non-friend requests that use a friend's name", () => {
+    const rows = buildPeople(
+      admin(),
+      [ask("r1", "Ben", "id-ben"), ask("r2", " dad ", "id-x"), ask("r3", "DAD")],
+      friends,
+      NOW,
+    ).requests;
+    expect(rows.find((r) => r.requesterKey === "r1")).not.toHaveProperty("clash");
+    expect(rows.find((r) => r.requesterKey === "r2")).toMatchObject({
+      clash: "Dad",
+      name: " dad ",
+    });
+    expect(rows.find((r) => r.requesterKey === "r3")).toMatchObject({ clash: "Dad" });
+  });
+
+  it("a friend is never a clash, even when another friend has the same name", () => {
+    const rows = buildPeople(
+      admin(),
+      [ask("r1", "Ben", "id-ben")],
+      { "id-ben": "Dad", z: "Ben" },
+      NOW,
+    ).requests;
+    expect(rows[0]).not.toHaveProperty("clash");
+  });
+
+  it("marks members that are not you or a friend", () => {
+    const p = buildPeople(admin(), [], friends, NOW).people;
+    const by = (k: string) => p.find((x) => x.key === k)!;
+    expect(by("m2").clash).toBe("Dad");
+    expect(by("m3").clash).toBe("Dad");
+    expect(by("m1")).not.toHaveProperty("clash");
+    expect(by("me")).not.toHaveProperty("clash");
+  });
+
+  it("marks nobody without friends", () => {
+    const vm = buildPeople(admin(), [ask("r2", "dad", "id-x")], {}, NOW);
+    expect(vm.requests.some((r) => "clash" in r)).toBe(false);
+    expect(vm.people.some((x) => "clash" in x)).toBe(false);
+  });
+});
+
+describe("requestsHint", () => {
+  const row = (over: Partial<RequestRow>): RequestRow => ({
+    ...request("f1"),
+    name: "Sam",
+    friend: false,
+    ...over,
+  });
+  it("asks for the code when a row has one", () => {
+    expect(requestsHint([row({ checkCode: "a b c" })])).toBe(
+      "Not sure who it is? Ask them which check code their phone shows.",
+    );
+  });
+  it("warns when a row clashes, even with a code", () => {
+    expect(requestsHint([row({ checkCode: "a b c", clash: "Dad" })])).toBe(
+      "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+    );
+  });
+  it("is empty otherwise", () => {
+    expect(requestsHint([row({})])).toBe("");
+    expect(requestsHint([])).toBe("");
   });
 });
