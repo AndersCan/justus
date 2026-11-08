@@ -6,16 +6,29 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPhotoStore } from "../src/photo-store.ts";
+import { createPhotoStore, type PhotoStoreDeps } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
+type Push = Parameters<PhotoStoreDeps["onChanged"]>[0];
+
+async function until(check: () => boolean) {
+  const deadline = Date.now() + 5_000;
+  while (!check() && Date.now() < deadline) await sleep(20);
+  expect(check()).toBe(true);
+}
+
+function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string, pushes?: Push[]) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const deps = fakeStoreDeps({ hub, node, deviceName });
+  const deps = fakeStoreDeps({
+    hub,
+    node,
+    deviceName,
+    ...(pushes ? { onChanged: (p: Push) => void pushes.push(p) } : {}),
+  });
   mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
@@ -41,12 +54,45 @@ function lagBehindUntilUpdated(deps: ReturnType<typeof phoneDeps>) {
   };
 }
 
+type DeviceRead = "missing" | "hangs" | { delayMs: number };
+
+/** Lets a test make this phone's reads of other phones' `/device.json` fail or slow down, from then on. */
+function deviceReads(deps: ReturnType<typeof phoneDeps>) {
+  const control: { how: DeviceRead | undefined; reads: number; adminDrive: string } = {
+    how: undefined,
+    reads: 0,
+    adminDrive: "",
+  };
+  const store = deps.drives;
+  const open = store.open.bind(store);
+  store.open = async (key: string, opts: { timeoutMs: number }) => {
+    const [err, drive] = await open(key, opts);
+    if (err || !drive) return [err, drive] as never;
+    const readSmall = drive.readSmall.bind(drive);
+    drive.readSmall = async (path: string, max: number) => {
+      const how = control.how;
+      if (path !== "/device.json" || how === undefined) return readSmall(path, max);
+      if (drive.key === control.adminDrive && new Error().stack?.includes("adminNameOf"))
+        control.reads += 1;
+      if (how === "missing") return null;
+      if (how === "hangs") return new Promise<never>(() => {});
+      await sleep(how.delayMs);
+      return readSmall(path, max);
+    };
+    return [null, drive];
+  };
+  return control;
+}
+
 async function album(options: { lag?: boolean } = {}) {
   const hub = createFakeHub();
-  const adminDeps = phoneDeps(hub, "Anna");
+  const adminPushes: Push[] = [];
+  const nilsPushes: Push[] = [];
+  const adminDeps = phoneDeps(hub, "Anna", adminPushes);
   if (options.lag) lagBehindUntilUpdated(adminDeps);
   const admin = createPhotoStore(adminDeps);
-  const nilsDeps = phoneDeps(hub, "Nils");
+  const nilsDeps = phoneDeps(hub, "Nils", nilsPushes);
+  const nilsReads = deviceReads(nilsDeps);
   const nils = createPhotoStore(nilsDeps);
   await admin.ready();
   await nils.ready();
@@ -54,6 +100,7 @@ async function album(options: { lag?: boolean } = {}) {
   const folderId = created[1]!.folder.id;
   const shareKey = created[1]!.folder.shareKey;
   const key = await joinAsMember(admin, folderId, nils, shareKey);
+  nilsReads.adminDrive = shareKey;
   const nilsFolderId = (await nils.folders()).folders.find((f) => f.shareKey === shareKey)!.id;
   await nils.setActive(nilsFolderId);
   await admin.setActive(folderId);
@@ -61,7 +108,18 @@ async function album(options: { lag?: boolean } = {}) {
     await admin.close();
     await nils.close();
   };
-  return { admin, nils, nilsDeps, folderId, nilsFolderId, key, close };
+  return {
+    admin,
+    nils,
+    nilsDeps,
+    nilsReads,
+    adminPushes,
+    nilsPushes,
+    folderId,
+    nilsFolderId,
+    key,
+    close,
+  };
 }
 
 describe("making a Collaborator a Viewer", () => {
@@ -135,6 +193,104 @@ describe("making a Collaborator a Viewer", () => {
     await s.nils.addBytes("after.jpg", new Uint8Array([9, 8, 7, 6]));
     await sleep(100);
     expect((await s.admin.list()).map((p) => p.name).sort()).toEqual(["after.jpg", "before.jpg"]);
+    await s.close();
+  });
+
+  it("their phone is told it was made a Viewer, by whom and in which album", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length > 0);
+    await sleep(300);
+    expect(roles()).toEqual([
+      {
+        cause: "role",
+        folderId: s.nilsFolderId,
+        role: { from: "member", to: "reader", albumName: "Trip", adminName: "Anna" },
+      },
+    ]);
+    await s.close();
+  });
+
+  it("turned back into a Collaborator, their phone is told once", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length === 1);
+    await s.admin.makeMember(s.folderId, s.key);
+    await until(() => roles().length === 2);
+    await sleep(300);
+    expect(roles().map((p) => [p.role?.from, p.role?.to])).toEqual([
+      ["member", "reader"],
+      ["reader", "member"],
+    ]);
+    await s.close();
+  });
+
+  it.each<[string, DeviceRead]>([
+    ["has no name published", "missing"],
+    ["does not answer in time", "hangs"],
+  ])("leaves the Admin's name out when their phone %s", async (_label, device) => {
+    const s = await album();
+    s.nilsReads.how = device;
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length > 0);
+    await sleep(300);
+    expect(roles()).toEqual([
+      {
+        cause: "role",
+        folderId: s.nilsFolderId,
+        role: { from: "member", to: "reader", albumName: "Trip" },
+      },
+    ]);
+    await s.close();
+  });
+
+  it("is told nothing when the Admin undoes the change while the name is read", async () => {
+    const s = await album();
+    s.nilsReads.how = { delayMs: 600 };
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => s.nilsReads.reads > 0);
+    await s.admin.makeMember(s.folderId, s.key);
+    await sleep(1_500);
+    expect(roles()).toEqual([]);
+    await s.close();
+  });
+
+  it("is told once when two checks overlap as the Admin makes them a Collaborator again", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length === 1);
+    s.nilsReads.how = { delayMs: 1_500 };
+    await s.admin.makeMember(s.folderId, s.key);
+    await until(() => s.nilsReads.reads > 0);
+    // a second change on the Admin's drive starts a second check while the first reads the name
+    await s.admin.addBytes("again.jpg", new Uint8Array([1, 2, 3, 4]), s.folderId);
+    await sleep(3_000);
+    expect(roles().map((p) => [p.role?.from, p.role?.to])).toEqual([
+      ["member", "reader"],
+      ["reader", "member"],
+    ]);
+    await s.close();
+  });
+
+  it("being let in and being removed are not role changes", async () => {
+    const s = await album();
+    const roles = (pushes: Push[]) => pushes.filter((p) => p.cause === "role");
+    expect(roles(s.nilsPushes)).toEqual([]);
+    expect((await s.admin.removeMember(s.folderId, s.key))[0]).toBeNull();
+    const removed = async () =>
+      (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.notice?.kind ===
+      "removed";
+    const deadline = Date.now() + 5_000;
+    while (!(await removed()) && Date.now() < deadline) await sleep(50);
+    expect(await removed()).toBe(true);
+    await sleep(300);
+    expect(roles(s.nilsPushes)).toEqual([]);
+    expect(roles(s.adminPushes)).toEqual([]);
     await s.close();
   });
 });

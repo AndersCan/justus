@@ -34,6 +34,14 @@ describe("photo contract", () => {
     expect(checkPhotoChanged("nope")).toContain("args: expected object, got string");
   });
 
+  it("accepts a role push and names a bad role", () => {
+    const role = { from: "member", to: "reader", albumName: "A" };
+    expect(checkPhotoChanged({ cause: "role", folderId: "f", role })).toBeNull();
+    expect(
+      checkPhotoChanged({ cause: "role", folderId: "f", role: { ...role, to: "creator" } }),
+    ).toContain("args.role.to");
+  });
+
   it("accepts linkOff as an ask answer and status", () => {
     expect(checkPhotoChanged({ cause: "ask", code: "c", answer: "linkOff" })).toBeNull();
     const ask = {

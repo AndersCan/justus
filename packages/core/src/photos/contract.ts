@@ -205,11 +205,20 @@ export const photoChangedSchema = s.object({
     "offer",
     "version",
     "holders",
+    "role",
   ),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
   answer: s.optional(s.oneOf("accepted", "declined", "linkOff")),
+  role: s.optional(
+    s.object({
+      from: s.oneOf("member", "reader"),
+      to: s.oneOf("member", "reader"),
+      albumName: s.string,
+      adminName: s.optional(s.string),
+    }),
+  ),
 });
 
 /** Result schema of every `photos.*` invoke the web reads, by event name. */
