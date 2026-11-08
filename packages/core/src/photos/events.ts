@@ -6,6 +6,7 @@ import type {
   JoinRequest,
   OfferSummary,
   Photo,
+  ChangedRole,
   PhotoChanged,
   Role,
   SyncStatus,
@@ -163,7 +164,7 @@ export const photoSpecs = {
   offerAlbum: {
     pluginId: "justus.photos",
     name: "photos.offerAlbum",
-    args: {} as { folderId: string; identity: string },
+    args: {} as { folderId: string; identity: string; role?: ChangedRole },
     result: {} as { ok: boolean; waiting?: boolean },
   },
   joinOffer: {
@@ -427,14 +428,15 @@ export const photoEvents = {
     offerAlbum(
       folderId: string,
       identity: string,
+      role?: ChangedRole,
     ): InvokeEnvelope<
       "photos.offerAlbum",
-      { folderId: string; identity: string },
+      { folderId: string; identity: string; role?: ChangedRole },
       { ok: boolean; waiting?: boolean }
     > {
       return invokeEvent(
         photoSpecs.offerAlbum,
-        { folderId, identity },
+        role === undefined ? { folderId, identity } : { folderId, identity, role },
         null,
         PHOTOS_OFFER_TIMEOUT_MS,
       );

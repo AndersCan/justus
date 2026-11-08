@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { holdOffer, MAX_OFFERS_PER_SENDER, mayShowOfferFrom } from "./offers";
+import { holdOffer, keepInvitedRoles, MAX_OFFERS_PER_SENDER, mayShowOfferFrom } from "./offers";
 
 const a = "a".repeat(64);
 const b = "b".repeat(64);
@@ -57,5 +57,21 @@ describe("mayShowOfferFrom", () => {
     expect(mayShowOfferFrom(a, { ...none, coMembers: new Set([a]) })).toBe(true);
     expect(mayShowOfferFrom(a, { ...none, albumAdmins: new Set([a]) })).toBe(true);
     expect(mayShowOfferFrom(a, { ...none, albumAdmins: new Set([b]) })).toBe(false);
+  });
+});
+
+describe("keepInvitedRoles", () => {
+  test("keeps the role of an invited friend", () => {
+    expect(keepInvitedRoles({ [a]: "reader", [b]: "member" }, [a], {})).toEqual({ [a]: "reader" });
+  });
+
+  test("keeps the role of a friend whose invite is waiting", () => {
+    expect(keepInvitedRoles({ [a]: "reader" }, [], { [a]: 1 })).toEqual({ [a]: "reader" });
+    expect(keepInvitedRoles({ [a]: "reader" }, undefined, { [a]: 0 })).toEqual({ [a]: "reader" });
+  });
+
+  test("is undefined when no friend is left or there were no roles", () => {
+    expect(keepInvitedRoles({ [a]: "reader" }, [], undefined)).toBeUndefined();
+    expect(keepInvitedRoles(undefined, [a], {})).toBeUndefined();
   });
 });

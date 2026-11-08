@@ -15,15 +15,21 @@ const FRIEND = "a".repeat(64);
 const OLD_FRIEND = "b".repeat(64);
 const NEW_FRIEND = "c".repeat(64);
 
-type Owed = { folders: { invited: string[]; offerOwed?: Record<string, number> }[] };
+type Owed = {
+  folders: {
+    invited: string[];
+    offerOwed?: Record<string, number>;
+    invitedRoles?: Record<string, string>;
+  }[];
+};
 
-async function waiting() {
+async function waiting(role?: "reader" | "member") {
   const deps = fakeStoreDeps({ hub: createFakeHub(), deviceName: "Admin", offerReachMs: 50 });
   const store = createPhotoStore(deps);
   await store.ready();
   const created = await store.createFolder("Trip");
   const folderId = created[1]!.folder.id;
-  const offered = await store.offerAlbum(folderId, FRIEND);
+  const offered = await store.offerAlbum(folderId, FRIEND, role);
   expect(offered[1]).toEqual({ ok: true, waiting: true });
   return { deps, store, folderId };
 }
@@ -69,5 +75,50 @@ describe("waiting friend invites", () => {
       FRIEND,
     ]);
     await reopened.close();
+  });
+});
+
+describe("the role of a waiting friend invite", () => {
+  it("is kept across a restart", async () => {
+    const { deps, store } = await waiting("reader");
+    await store.close();
+    const reopened = createPhotoStore(restarted(deps));
+    await reopened.ready();
+    expect((reopened.debugState() as Owed).folders[0].invitedRoles).toEqual({ [FRIEND]: "reader" });
+    await reopened.close();
+  });
+
+  it("is dropped when links are turned off", async () => {
+    const { store, folderId } = await waiting("reader");
+    await store.turnOffInvite(folderId);
+    expect((store.debugState() as Owed).folders[0].invitedRoles).toEqual({});
+    await store.close();
+  });
+
+  it("is dropped when the wait expires on restart", async () => {
+    const { deps, store } = await waiting("reader");
+    await store.close();
+    const file = join(deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.folders[0].offerOwed = { [FRIEND]: Date.now() - OFFER_HOLD_MS - 1000 };
+    writeFileSync(file, JSON.stringify(saved));
+    const reopened = createPhotoStore(restarted(deps));
+    await reopened.ready();
+    expect((reopened.debugState() as Owed).folders[0].invitedRoles).toEqual({});
+    await reopened.close();
+  });
+
+  it("is Collaborator when the Admin picked none", async () => {
+    const { store } = await waiting();
+    expect((store.debugState() as Owed).folders[0].invitedRoles).toEqual({ [FRIEND]: "member" });
+    await store.close();
+  });
+
+  it("refuses a role other than reader or member and saves nothing", async () => {
+    const { store, folderId } = await waiting();
+    const [error] = await store.offerAlbum(folderId, OLD_FRIEND, "creator" as never);
+    expect(error?.code).toBe("justus.photos/invalid-role");
+    expect((store.debugState() as Owed).folders[0].invitedRoles).toEqual({ [FRIEND]: "member" });
+    await store.close();
   });
 });

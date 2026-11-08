@@ -41,6 +41,19 @@ export function holdOwed(owed: OwedOffers | undefined, identity: string, now: nu
   return Object.fromEntries(byAge.slice(Math.max(0, byAge.length - MAX_OWED_PER_ALBUM)));
 }
 
+/** The roles of friends still invited or waiting; `undefined` when none are left. */
+export function keepInvitedRoles(
+  roles: Record<string, "reader" | "member"> | undefined,
+  invited: string[] | undefined,
+  owed: OwedOffers | undefined,
+): Record<string, "reader" | "member"> | undefined {
+  if (!roles) return undefined;
+  const kept = Object.fromEntries(
+    Object.entries(roles).filter(([id]) => invited?.includes(id) || owed?.[id] !== undefined),
+  );
+  return Object.keys(kept).length > 0 ? kept : undefined;
+}
+
 /** The entries of `owed` that have not expired. A time too far ahead of `now` (a clock jump) is dropped. */
 export function liveOwed(owed: OwedOffers | undefined, now: number): OwedOffers {
   const live: OwedOffers = {};

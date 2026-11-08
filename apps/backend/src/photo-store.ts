@@ -135,6 +135,7 @@ import {
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 import {
   dropOwed,
+  keepInvitedRoles,
   holdOffer,
   holdOwed,
   liveOwed,
@@ -291,6 +292,8 @@ type FolderRecord = {
   invited?: string[];
   /** Creator only: friend invites nobody answered yet, by identity, with when they started waiting. */
   offerOwed?: OwedOffers;
+  /** Creator only: the role each friend with an open or waiting invite gets on Join. Missing = Collaborator (invites from before this field). */
+  invitedRoles?: Record<string, "reader" | "member">;
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
@@ -431,10 +434,11 @@ export interface PhotoStore {
   ): Promise<EitherResult<{ invite: { code: string; owner: string } }>>;
   /** Admin only: remembers when a link just made stops working; asks sent outside every link's time are turned away. */
   saveInviteLink(folderId: string, expiresAt: number): Promise<EitherResult<{ ok: boolean }>>;
-  /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. */
+  /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. `role` is what the friend becomes when they tap Join; defaults to Collaborator (`member`). */
   offerAlbum(
     folderId: string,
     identity: string,
+    role?: "reader" | "member",
   ): Promise<EitherResult<{ ok: boolean; waiting?: boolean }>>;
   /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
   joinOffer(code: string, owner: string): Promise<EitherResult<{ ask: AskSummary }>>;
@@ -847,6 +851,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (isHexKey(id) && typeof t === "number" && Number.isFinite(t)) owed[id] = t;
       }
       if (Object.keys(owed).length > 0) out.offerOwed = owed;
+    }
+    if (isTextJSON(f.invitedRoles)) {
+      const roles: Record<string, "reader" | "member"> = {};
+      for (const [id, r] of Object.entries(f.invitedRoles)) {
+        if (isHexKey(id) && (r === "reader" || r === "member")) roles[id] = r;
+      }
+      if (Object.keys(roles).length > 0) out.invitedRoles = roles;
     }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
@@ -3969,6 +3980,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (seen && !target.invited?.includes(sender)) {
           target.invited = [...(target.invited ?? []), sender];
         }
+        target.invitedRoles = keepInvitedRoles(
+          target.invitedRoles,
+          target.invited,
+          target.offerOwed,
+        );
       }
       changed = record.id;
       log(seen ? "offer.owed.seen" : "offer.owed.refused", { friend: short(sender) });
@@ -4030,10 +4046,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const live = liveOwed(target.offerOwed, now);
       expired += Object.keys(target.offerOwed).length - Object.keys(live).length;
       target.offerOwed = Object.keys(live).length > 0 ? live : undefined;
+      target.invitedRoles = keepInvitedRoles(target.invitedRoles, target.invited, target.offerOwed);
       for (const id of Object.keys(live)) friends.add(id);
     }
     for (const rt of runtimes.values()) {
-      rt.record.offerOwed = state.folders.find((f) => f.id === rt.record.id)?.offerOwed;
+      const persisted = state.folders.find((f) => f.id === rt.record.id);
+      rt.record.offerOwed = persisted?.offerOwed;
+      rt.record.invitedRoles = persisted?.invitedRoles;
     }
     if (expired > 0) {
       saveState();
@@ -4065,12 +4084,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             rt.record.id,
             found.request.requesterKey,
             true,
-            moving?.role ?? "member",
+            moving?.role ?? rt.record.invitedRoles?.[identity] ?? "member",
           );
           if (error && error.code !== PhotoError.ALREADY_ENROLLED) continue;
           for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
             if (!target) continue;
             target.invited = target.invited?.filter((i) => i !== identity);
+            target.invitedRoles = keepInvitedRoles(
+              target.invitedRoles,
+              target.invited,
+              target.offerOwed,
+            );
             if (target.moving) {
               const { [identity]: _arrived, ...rest } = target.moving;
               target.moving = Object.keys(rest).length > 0 ? rest : undefined;
@@ -4794,6 +4818,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       rt.record.invited = undefined;
       rt.record.offerOwed = undefined;
+      rt.record.invitedRoles = undefined;
       rt.record.invite = next.invite;
       if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
@@ -4801,6 +4826,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.invite = next.invite;
         persisted.invited = undefined;
         persisted.offerOwed = undefined;
+        persisted.invitedRoles = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
@@ -4836,7 +4862,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
-    async offerAlbum(folderId, identity) {
+    async offerAlbum(folderId, identity, role = "member") {
+      if (role !== "reader" && role !== "member")
+        return err(PhotoError.INVALID_ROLE, "Role must be reader or member");
       await readyPromise;
       const rt = runtimes.get(folderId);
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
@@ -4866,7 +4894,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (offerErr?.kind === "unreachable") {
           const now = Date.now();
           for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
-            if (target) target.offerOwed = holdOwed(target.offerOwed, identity, now);
+            if (!target) continue;
+            target.offerOwed = holdOwed(target.offerOwed, identity, now);
+            target.invitedRoles = { ...target.invitedRoles, [identity]: role };
           }
           saveState();
           log("offer.owed", { friend: short(identity), folder: short(folderId) });
@@ -4881,6 +4911,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           if (!target.invited?.includes(identity)) {
             target.invited = [...(target.invited ?? []), identity];
           }
+          target.invitedRoles = { ...target.invitedRoles, [identity]: role };
         }
         saveState();
         deps.onChanged({ cause: "offer", folderId });
@@ -5180,6 +5211,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           pending: Boolean(rt.record.pending),
           invited: rt.record.invited ?? [],
           offerOwed: rt.record.offerOwed ?? {},
+          invitedRoles: rt.record.invitedRoles ?? {},
           answers: rt.record.answers ?? {},
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),

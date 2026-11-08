@@ -831,6 +831,27 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "friend: a friend added as a Viewer joins as a Viewer",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity, "reader"), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      t.noErr(await friend.store.joinOffer(offers[0].code, offers[0].owner), "joinOffer");
+      const joined = await eventually(
+        async () => (await friend.store.folders()).folders[0],
+        (f) => f?.role === "reader" && !f.pending,
+        "the friend is a Viewer",
+      );
+      t.eq(joined.role, "reader", "a Viewer, not a Collaborator");
+      const state = admin.store.debugState() as { folders: { invitedRoles: object }[] };
+      t.eq(state.folders[0].invitedRoles, {}, "the saved role is used up");
+    },
+  },
+  {
     name: "friend: a Join tapped while the Admin is off is finished when the Admin is back",
     async run(net, t) {
       const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
