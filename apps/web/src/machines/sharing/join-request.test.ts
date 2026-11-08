@@ -6,13 +6,18 @@ import type { JoinInvite } from "../../utils/invite-link";
 const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
   dismissDeclinedAsk: vi.fn(),
+  cancelAsk: vi.fn(),
   open: vi.fn(),
   refresh: vi.fn(),
   currentPage: vi.fn(() => undefined as { route: string } | undefined),
 }));
 
 vi.mock("../../gateway", () => ({
-  gateway: { ask: mocks.ask, dismissDeclinedAsk: mocks.dismissDeclinedAsk },
+  gateway: {
+    ask: mocks.ask,
+    dismissDeclinedAsk: mocks.dismissDeclinedAsk,
+    cancelAsk: mocks.cancelAsk,
+  },
 }));
 vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: mocks.currentPage }));
 vi.mock("../folders-machine", () => {
@@ -139,6 +144,22 @@ describe("join singleton", () => {
     join.dismissDecline();
     await settle();
     expect(mocks.dismissDeclinedAsk).toHaveBeenCalledWith(INVITE.code);
+    await vi.waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+    expect(view().state).toBe("noInviteOpen");
+  });
+
+  test("Cancel request asks the backend to take the request back and refreshes the albums", async () => {
+    mocks.ask.mockResolvedValue([null, { ok: true }]);
+    mocks.cancelAsk.mockResolvedValue([null, { ok: true }]);
+    join.openLink(LINK);
+    await settle();
+    join.askToJoin();
+    await settle();
+    expect(view().state).toBe("waitingForAdminToAccept");
+    mocks.refresh.mockClear();
+    join.cancelRequest();
+    await settle();
+    expect(mocks.cancelAsk).toHaveBeenCalledWith(INVITE.code);
     await vi.waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
     expect(view().state).toBe("noInviteOpen");
   });

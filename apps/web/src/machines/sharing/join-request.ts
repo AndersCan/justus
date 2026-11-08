@@ -9,6 +9,7 @@ import { folders, foldersActor } from "../folders-machine";
 import {
   requestAnswered,
   askToJoin,
+  cancelRequest,
   closeWaiting,
   createJoinRequestActor,
   dismissDecline,
@@ -75,6 +76,9 @@ onOutput(joinActor, (e) => {
       .dismissDeclinedAsk((e.payload as { code: string }).code)
       .then(() => folders.refresh());
   }
+  if (e.type === "cancelAsk") {
+    void gateway.cancelAsk((e.payload as { code: string }).code).then(() => folders.refresh());
+  }
 });
 
 export const join = {
@@ -84,6 +88,7 @@ export const join = {
   reopenRequest: (row: AskSummary) => joinActor.send(reopenRequest.create({ ask: row })),
   askToJoin: () => joinActor.send(askToJoin.create()),
   notNow: () => joinActor.send(notNow.create()),
+  cancelRequest: () => joinActor.send(cancelRequest.create()),
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
   dismissExpired: () => joinActor.send(dismissExpired.create()),

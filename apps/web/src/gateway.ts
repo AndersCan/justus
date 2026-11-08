@@ -107,6 +107,7 @@ export const gateway = {
   dismissAlbumNotice: (folderId: string) => invoke(photoEvents.photos.dismissAlbumNotice(folderId)),
   /** Takes a declined request off this phone. */
   dismissDeclinedAsk: (code: string) => invoke(photoEvents.photos.dismissDeclinedAsk(code)),
+  cancelAsk: (code: string) => invoke(photoEvents.photos.cancelAsk(code)),
   makeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.makeMember(folderId, memberKey)),
   /** Admin only: turns a Collaborator into a Viewer; the photos they added stay. */
