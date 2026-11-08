@@ -4,6 +4,8 @@ import type { WireMessage } from "@ekrooh/bare/core";
 import { askAnswer, changeCause, handleMessage } from "./handle-message";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
+import { gallery } from "./machines/gallery-machine";
+import { folders } from "./machines/folders-machine";
 
 const push = (args: unknown) =>
   ({
@@ -41,6 +43,18 @@ describe("handleMessage", () => {
     handleMessage(push({ cause: "add" }));
     expect(offer).not.toHaveBeenCalled();
     offer.mockRestore();
+  });
+});
+
+describe("handleMessage holders", () => {
+  it("a holders push reloads the gallery and not the albums", () => {
+    const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
+    const refresh = vi.spyOn(folders, "refresh").mockImplementation(() => {});
+    handleMessage(push({ cause: "holders" }));
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(refresh).not.toHaveBeenCalled();
+    load.mockRestore();
+    refresh.mockRestore();
   });
 });
 

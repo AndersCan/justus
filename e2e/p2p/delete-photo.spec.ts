@@ -101,8 +101,22 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
+  // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
+  await a.getByRole("button", { name: `View ${ANA}` }).click();
+  const anaLine = a.getByRole("button", { name: /show who has this photo$/ });
+  await expect(anaLine).toContainText("Only on your phone", { timeout: 20_000 });
+  const lightboxImage = a.locator("div.fixed img");
+  const before = await lightboxImage.boundingBox();
+
   // Ben (a member) has no menu on Ana's photo.
   await b.getByRole("button", { name: `View ${ANA}` }).click();
+  await expect(b.getByRole("button", { name: /show who has this photo$/ })).toContainText(
+    /^On .+'s and your phone$/,
+    { timeout: 60_000 },
+  );
+  await expect(anaLine).toContainText(/^On .+'s and your phone$/, { timeout: 60_000 });
+  expect(await lightboxImage.boundingBox()).toEqual(before);
+  await a.getByRole("button", { name: "Close" }).click();
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0);
 

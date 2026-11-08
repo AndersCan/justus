@@ -16,6 +16,7 @@ import { onStateChange } from "../machines/actor-utils";
 import { foldersActor } from "../machines/folders-machine";
 import { canRemove, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
+import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
 
 /** Full-screen photo detail. The open photo lives in the lightbox machine. */
 
@@ -57,6 +58,10 @@ if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => {
     if (document.querySelector("wa-dropdown[open], wa-dialog[open]")) return;
     if (!lightboxActor.snapshot().context.photo) return;
+    if (lightboxActor.snapshot().path[0] === "showingWhoHasThisPhoto") {
+      if (e.key === "Escape") closeHolders();
+      return;
+    }
     if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") step(-1);
     if (e.key === "ArrowRight") step(1);
@@ -140,7 +145,7 @@ function lightboxBody(photo: Photo) {
 
       <div class="flex flex-1 items-center justify-center p-4">
         <img
-          class="max-h-[72vh] max-w-full rounded-2xl object-contain shadow-2xl"
+          class="max-h-[min(72vh,calc(100dvh-17rem))] max-w-full rounded-2xl object-contain shadow-2xl"
           src="${photo.url}"
           alt="${photo.name}"
           referrerpolicy="no-referrer"
@@ -227,6 +232,7 @@ function lightboxBody(photo: Photo) {
                 : null,
             )}
           </div>
+          ${holdersRow(photo)}
         </div>
       </div>
     </div>
@@ -234,5 +240,9 @@ function lightboxBody(photo: Photo) {
 }
 
 export function lightboxView() {
-  return watch(lightboxActor, (s) => (s.context.photo ? lightboxBody(s.context.photo) : null));
+  return watch(lightboxActor, (s) =>
+    s.context.photo
+      ? html`${lightboxBody(s.context.photo)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(s.context.photo) : null}`
+      : null,
+  );
 }
