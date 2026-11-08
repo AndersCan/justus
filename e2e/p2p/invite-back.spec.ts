@@ -38,6 +38,9 @@ async function copyInviteLink(a) {
     .first()
     .click();
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await expect
+    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(/^justus:\/\/join\?/);
   const link = await a.evaluate(() => navigator.clipboard.readText());
   expect(link).toMatch(/^justus:\/\/join\?/);
   expect(link).toMatch(/[?&]e=\d+/);

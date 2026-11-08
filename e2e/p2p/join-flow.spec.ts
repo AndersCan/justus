@@ -53,6 +53,9 @@ async function copyInviteLink(a) {
     .first()
     .click();
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await expect
+    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(/^justus:\/\/join\?/);
   const link = await a.evaluate(() => navigator.clipboard.readText());
   expect(link).toMatch(/^justus:\/\/join\?/);
   expect(link).toMatch(/[?&]e=\d+/);
@@ -336,6 +339,9 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await a.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click({
     timeout: 20_000,
   });
+  await expect
+    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(/^justus:\/\/join\?/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
   expect(newLink).toMatch(/^justus:\/\/join\?/);
   expect(newLink).not.toBe(link);
