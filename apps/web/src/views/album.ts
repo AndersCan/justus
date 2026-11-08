@@ -6,7 +6,7 @@ import { friends, friendsActor } from "../machines/friends-machine";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
-  allAcceptedAsViewers,
+  allAccepted,
   answerSent,
   requests,
   requestsActor,
@@ -168,16 +168,30 @@ export function answerToast(a: {
     : copy("album.is_in", { requesterName: a.requesterName });
 }
 
-/** The one toast after Accept all: how many are in. */
-export function acceptAllToast(count: number): string {
+/** The one toast after Accept all: how many are in, and as what. */
+export function acceptAllToast(count: number, role: "reader" | "member"): string {
+  if (role === "reader") {
+    return count === 1
+      ? copy("album.1_person_is_in_as")
+      : copy("album.people_are_in_as_viewers", { count });
+  }
   return count === 1
-    ? copy("album.1_person_is_in_as")
-    : copy("album.people_are_in_as_viewers", { count });
+    ? copy("album.1_person_is_in_as_a_collaborator")
+    : copy("album.people_are_in_as_collaborators", { count });
+}
+
+/** The Accept all sheet's list: the first five names, then "and N more". */
+export function acceptAllNames(names: string[]): string {
+  const shown = names.slice(0, 5).join(", ");
+  return names.length > 5
+    ? copy("album.names_and_n_more", { names: shown, count: names.length - 5 })
+    : shown;
 }
 
 onOutput(requestsActor, (e) => {
-  if (e.type === allAcceptedAsViewers.type) {
-    toast(acceptAllToast((e.payload as { count: number }).count));
+  if (e.type === allAccepted.type) {
+    const p = e.payload as { count: number; role: "reader" | "member" };
+    toast(acceptAllToast(p.count, p.role));
     return;
   }
   if (e.type !== answerSent.type) return;
@@ -392,6 +406,34 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
   </li>`;
 }
 
+/** The Accept all sheet: who gets in, as what, and that they get every photo already here. */
+function acceptAllSheet(
+  vm: PeopleVm,
+  sheet: ReturnType<typeof requestsViewModel>["acceptAllSheet"],
+) {
+  if (!sheet) return null;
+  const names = sheet.requesterKeys.map(
+    (k) => vm.requests.find((r) => r.requesterKey === k)?.requesterName ?? copy("album.someone"),
+  );
+  const can =
+    sheet.role === "reader"
+      ? copy("album.accept_all_viewers_can")
+      : copy("album.accept_all_collaborators_can");
+  return html`<div class="mt-3 rounded-xl border border-line p-4" role="dialog">
+    <p class="font-medium">${t("album.let_n_people_in", { count: names.length })}</p>
+    <p class="mt-1 text-sm">${acceptAllNames(names)}</p>
+    <p class="mt-1 text-xs text-muted">${t("album.they_will", { can })}</p>
+    <div class="mt-3 flex gap-2">
+      <button class="ui-btn-primary flex-1" @click=${() => requests.confirmAcceptAll()}>
+        ${t("album.accept")}
+      </button>
+      <button class="ui-btn-ghost flex-1" @click=${() => requests.cancelAcceptAll()}>
+        ${t("album.cancel")}
+      </button>
+    </div>
+  </div>`;
+}
+
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
   const keys = viewerAcceptKeys(vm.requests, id);
@@ -408,11 +450,18 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
             <button
               class="ui-btn-primary w-full"
               ?disabled=${reqVm.responding || reqVm.loading}
-              @click=${() => requests.acceptAllAsViewers(id, keys)}
+              @click=${() => requests.acceptAll(id, keys, "reader")}
             >
               ${t("album.accept_all_as_viewers", { count: keys.length })}
             </button>
-            <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
+            <button
+              class="ui-btn-ghost mt-2 w-full"
+              ?disabled=${reqVm.responding || reqVm.loading}
+              @click=${() => requests.acceptAll(id, keys, "member")}
+            >
+              ${t("album.accept_all_as_collaborators", { count: keys.length })}
+            </button>
+            ${acceptAllSheet(vm, reqVm.acceptAllSheet)}
           </div>`
         : null
     }

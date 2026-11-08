@@ -93,7 +93,67 @@
       ]
     },
     {
-      "name": "Nils's family asks to look, and he accepts all three as Viewers",
+      "name": "Nils sees names he does not know among the asks, and cancels Accept all",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Mum",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "anon_442",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Phone",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": ["k1", "k2", "k3"],
+            "role": "reader"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CANCEL_ACCEPT_ALL",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Nils's family asks to look, he checks the names, and accepts all three as Viewers",
       "end": "showingRequests",
       "steps": [
         {
@@ -138,11 +198,108 @@
         },
         {
           "kind": "event",
-          "event": "ACCEPT_ALL_AS_VIEWERS",
+          "event": "ACCEPT_ALL",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": ["k1", "k2", "k3"]
+            "requesterKeys": ["k1", "k2", "k3"],
+            "role": "reader"
           }
+        },
+        {
+          "kind": "event",
+          "event": "CONFIRM_ACCEPT_ALL",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Three wedding guests ask, and Nils accepts all of them as Collaborators at once",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Ola",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Kari",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Per",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": ["k1", "k2", "k3"],
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CONFIRM_ACCEPT_ALL",
+          "payload": {}
         },
         {
           "kind": "event",
