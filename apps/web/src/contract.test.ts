@@ -14,6 +14,7 @@ import { folders, foldersActor } from "./machines/folders-machine";
 import { gallery, galleryActor } from "./machines/gallery-machine";
 import { requests, requestsActor } from "./machines/requests-machine";
 import { sync, syncActor } from "./machines/sync-machine";
+import { roleToast } from "./views/role-toast";
 
 const foldersNow = () => foldersActor.snapshot().context;
 const syncNow = () => syncActor.snapshot().context;
@@ -98,12 +99,16 @@ describe("machines on real backend payloads", () => {
     const refresh = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     vi.spyOn(folders, "refresh").mockImplementation(() => {});
     vi.spyOn(requests, "refresh").mockImplementation(() => {});
+    const roleShown = vi.spyOn(roleToast, "changed").mockImplementation(() => {});
     for (const args of fixture.pushes) {
       handleMessage({
         header: { type: "DISPATCH", pluginId: "justus.photos", event: "photos.changed", args },
       } as unknown as WireMessage);
     }
     expect(error).not.toHaveBeenCalled();
+    expect(roleShown).toHaveBeenCalledTimes(
+      fixture.pushes.filter((p) => p.cause === "role").length,
+    );
     // Every push but a holders one refreshes sync; only non-presence pushes reload the gallery.
     expect(refresh).toHaveBeenCalledTimes(
       fixture.pushes.filter((p) => p.cause !== "holders").length,

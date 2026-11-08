@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import { photoSpecs } from "@justus/core";
 import type { WireMessage } from "@ekrooh/bare/core";
-import { askAnswer, changeCause, handleMessage } from "./handle-message";
+import { askAnswer, changeCause, handleMessage, roleChangeOf } from "./handle-message";
+import { roleToast } from "./views/role-toast";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import { gallery } from "./machines/gallery-machine";
@@ -99,5 +100,35 @@ describe("askAnswer", () => {
     { cause: "ask", code: "c", answer: "maybe" },
   ])("ignores %j", (args) => {
     expect(askAnswer(args)).toBeUndefined();
+  });
+});
+
+describe("handleMessage role", () => {
+  const role = { from: "member", to: "reader", albumName: "Summer", adminName: "Anna" };
+
+  it("a role push tells the role toast", () => {
+    const spy = vi.spyOn(roleToast, "changed").mockImplementation(() => {});
+    handleMessage(push({ cause: "role", folderId: "f1", role }));
+    expect(spy).toHaveBeenCalledWith({ ...role, folderId: "f1" });
+    spy.mockRestore();
+  });
+
+  it("other pushes do not", () => {
+    const spy = vi.spyOn(roleToast, "changed").mockImplementation(() => {});
+    handleMessage(push({ cause: "enroll", folderId: "f1" }));
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("roleChangeOf needs a folder id and a role object", () => {
+    expect(roleChangeOf({ cause: "role", folderId: "f1", role })).toEqual({
+      ...role,
+      folderId: "f1",
+    });
+    expect(roleChangeOf({ cause: "role", role })).toBeUndefined();
+    expect(roleChangeOf({ cause: "role", folderId: "f1" })).toBeUndefined();
+    expect(roleChangeOf({ cause: "role", folderId: "f1", role: null })).toBeUndefined();
+    expect(roleChangeOf({ cause: "add", folderId: "f1", role })).toBeUndefined();
+    expect(roleChangeOf(undefined)).toBeUndefined();
   });
 });
