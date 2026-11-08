@@ -13,12 +13,14 @@ export type PortError = { reason: string };
 export type Keep = "nothing" | "leftNote" | "deleteNote";
 
 export type AlbumLifecyclePort = {
-  /** Member: writes `/left.json` into this phone's own drive in the album. */
+  /** Member or listed Viewer: writes `/left.json` into this phone's own drive in the album. */
   writeLeftNote(): Promise<Either<PortError, void>>;
   /** Admin: writes `/deleted.json` into the album's own drive. */
   writeDeleteNote(): Promise<Either<PortError, void>>;
   /** Removes this phone's photos and copies of the album, except what `keep` names. Never rejects; a drive it cannot remove is logged. Safe to run twice. */
   removeCopy(keep: Keep): Promise<void>;
+  /** Whether the Admin's lists name this phone, so a leave must be told: always for a Member, for a Viewer when `/viewers.json` lists them. */
+  adminListsYou(): Promise<boolean>;
   /** Removes what `removeCopy("leftNote")` kept. Never rejects. Safe to run twice. */
   forget(): Promise<void>;
 };
@@ -41,7 +43,7 @@ type LifecycleContext = { role: Role; error: string | null };
 const shownInYourAlbums = state("shownInYourAlbums")();
 /** The album only shows under Archived; it keeps syncing. */
 const archived = state("archived")();
-/** Leave was confirmed: a Member writes "left" into their own drive, then this phone's copy of the album is removed. */
+/** Leave was confirmed: a Member or a listed Viewer writes "left" into their own drive, then this phone's copy of the album is removed. */
 const leavingAlbum = state("leavingAlbum")();
 /** Gone from this phone; this phone's own drive keeps telling the Admin "left" until the Admin's member list drops it. */
 const waitingForAdminToSeeYouLeft = state("waitingForAdminToSeeYouLeft")();
@@ -73,8 +75,8 @@ const deleteHeard = event("deleteHeard")<{ adminName: string }>();
 /** The Admin's member list no longer lists this phone. */
 const adminSawYouLeave = event("adminSawYouLeave")();
 
-/** The left note is written (Members) and this phone's copy is removed. */
-const leaveSaved = event("leaveSaved")();
+/** The left note is written (when the Admin lists this phone) and this phone's copy is removed. */
+const leaveSaved = event("leaveSaved")<{ waiting: boolean }>();
 /** The left note could not be written; nothing was removed. */
 const leaveFailed = event("leaveFailed")<{ reason: string }>();
 /** The delete note is written and this phone's copy is removed. */
@@ -133,6 +135,7 @@ function startState(start: LifecycleStart) {
 
 /** Used when no port is given, as on the flows page: every call succeeds. */
 const previewPort: AlbumLifecyclePort = {
+  adminListsYou: async () => true,
   writeLeftNote: async () => Either.right(),
   writeDeleteNote: async () => Either.right(),
   removeCopy: async () => {},
@@ -231,22 +234,22 @@ export function createAlbumLifecycleActor(options: {
         handler: (_e, { context }) =>
           context.get().role === "creator" ? { state: deletingForEveryone } : {},
       });
-      /** A Member writes the left note and then removes the copy; a Viewer just removes it and forgets the album. */
+      /** A phone the Admin lists writes the left note and then removes the copy; any other just removes it and forgets the album. */
       m.effect(leavingAlbum, {
         name: "leaveAlbum",
         sends: [leaveSaved, leaveFailed],
         fn: (input) =>
           withPromise({
-            promise: Promise.resolve().then(async (): Promise<Either<PortError, void>> => {
-              if (input.context.get().role !== "member") {
+            promise: Promise.resolve().then(async (): Promise<Either<PortError, boolean>> => {
+              if (!(await port.adminListsYou())) {
                 await port.removeCopy("nothing");
                 await port.forget();
-                return Either.right();
+                return Either.right(false);
               }
               const written = await port.writeLeftNote();
               if (Either.isLeft(written)) return written;
               await port.removeCopy("leftNote");
-              return Either.right();
+              return Either.right(true);
             }),
             signal: input.signal,
             emit: input.emit,
@@ -254,18 +257,18 @@ export function createAlbumLifecycleActor(options: {
               success: (result) =>
                 Either.match<typeof result, LeaveResult>(result, {
                   onLeft: (err) => leaveFailed.create({ reason: err.reason }),
-                  onRight: () => leaveSaved.create(),
+                  onRight: (waiting) => leaveSaved.create({ waiting }),
                 }),
               error: (cause) => leaveFailed.create({ reason: String(cause) }),
             },
           }),
       });
-      /** The leave is done: a Member waits for the Admin to see it, a Viewer has nothing left. */
+      /** The leave is done: a phone the Admin lists waits for the Admin to see it, any other has nothing left. */
       m.on(leavingAlbum, {
         event: leaveSaved,
         to: [waitingForAdminToSeeYouLeft, leftAlbum],
-        handler: (_e, { context }) => ({
-          state: context.get().role === "member" ? waitingForAdminToSeeYouLeft : leftAlbum,
+        handler: (e) => ({
+          state: e.payload.waiting ? waitingForAdminToSeeYouLeft : leftAlbum,
         }),
       });
       /** The leave could not be saved, so the album stays and the reason is kept. */
@@ -384,7 +387,7 @@ export function createAlbumLifecycleActor(options: {
 /** What fuzzing must never see: the wrong role in a state that only another role can reach. */
 export const albumLifecycleExpectations: Expectations<typeof createAlbumLifecycleActor> = {
   leavingAlbum: { neverSee: [{ role: "creator" }] },
-  waitingForAdminToSeeYouLeft: { neverSee: [{ role: "creator" }, { role: "reader" }] },
+  waitingForAdminToSeeYouLeft: { neverSee: [{ role: "creator" }] },
   deletingForEveryone: { neverSee: [{ role: "member" }, { role: "reader" }] },
   deletedForEveryone: { neverSee: [{ role: "member" }, { role: "reader" }] },
   removingDeletedAlbum: { neverSee: [{ role: "creator" }] },

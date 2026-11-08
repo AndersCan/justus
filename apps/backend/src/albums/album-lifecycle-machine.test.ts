@@ -41,9 +41,11 @@ test("Maya leaves Hytta, and is gone once Nils's phone sees it", async () => {
   expect(actor.state.name).toBe("leftAlbum");
 });
 
-test("A Viewer leaves Hytta", async () => {
+test("Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it", async () => {
   const actor = make({ clock: VirtualClock() });
   await send(actor, seen("reader"), { type: "leave" });
+  expect(actor.state.name).toBe("waitingForAdminToSeeYouLeft");
+  await send(actor, { type: "adminSawYouLeave" });
   expect(actor.state.name).toBe("leftAlbum");
 });
 
@@ -78,10 +80,11 @@ test("Maya leaves Hytta, and Nils deletes it before his phone sees her leave", a
   expect(actor.state.name).toBe("leftAlbum");
 });
 
-function recordingPort(options: { failure?: PortError } = {}) {
+function recordingPort(options: { failure?: PortError; listed?: boolean } = {}) {
   const calls: string[] = [];
   const failed = options.failure ? Either.left(options.failure) : Either.right();
   const port: AlbumLifecyclePort = {
+    adminListsYou: async () => options.listed ?? true,
     writeLeftNote: async () => {
       calls.push("writeLeftNote");
       return failed;
@@ -172,12 +175,32 @@ describe("album lifecycle", () => {
     expect(calls).toEqual(["writeDeleteNote", "removeCopy:deleteNote"]);
   });
 
-  test("a Viewer's leave removes everything and writes no note", async () => {
-    const { port, calls } = recordingPort();
+  test("a leave nobody needs to hear removes everything and writes no note", async () => {
+    const { port, calls } = recordingPort({ listed: false });
     const actor = plain("reader", port);
     actor.send({ type: "leave" });
     await actor.settled();
     expect(calls).toEqual(["removeCopy:nothing", "forget"]);
+    expect(actor.state.name).toBe("leftAlbum");
+  });
+
+  test("a listed Viewer's leave writes the note and waits", async () => {
+    const { port, calls } = recordingPort();
+    const actor = plain("reader", port);
+    actor.send({ type: "leave" });
+    await actor.settled();
+    expect(calls).toEqual(["writeLeftNote", "removeCopy:leftNote"]);
+    expect(actor.state.name).toBe("waitingForAdminToSeeYouLeft");
+  });
+
+  test("a Viewer's note that cannot be written keeps the album", async () => {
+    const { port, calls } = recordingPort({ failure: { reason: "disk full" } });
+    const actor = plain("reader", port);
+    actor.send({ type: "leave" });
+    await actor.settled();
+    expect(calls).toEqual(["writeLeftNote"]);
+    expect(actor.state.name).toBe("shownInYourAlbums");
+    expect(actor.snapshot().context.error).toBe("disk full");
   });
 
   test("a payload that is not a role is ignored", async () => {
@@ -264,6 +287,7 @@ describe("album lifecycle design", () => {
     payloads: {
       roleSeen: [{ role: "creator" }, { role: "member" }, { role: "reader" }],
       deleteHeard: [{ adminName: "Nils" }],
+      leaveSaved: [{ waiting: true }, { waiting: false }],
     },
     tests: [
       {

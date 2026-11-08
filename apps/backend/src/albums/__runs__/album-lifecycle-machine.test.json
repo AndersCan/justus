@@ -1,7 +1,7 @@
 {
   "albumLifecycle": [
     {
-      "name": "A Viewer leaves Hytta",
+      "name": "Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it",
       "end": "leftAlbum",
       "steps": [
         {
@@ -19,6 +19,18 @@
         {
           "kind": "event",
           "event": "leaveSaved",
+          "payload": {
+            "waiting": true
+          }
+        },
+        {
+          "kind": "event",
+          "event": "adminSawYouLeave",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "lastCopyRemoved",
           "payload": {}
         }
       ]
@@ -95,7 +107,9 @@
         {
           "kind": "event",
           "event": "leaveSaved",
-          "payload": {}
+          "payload": {
+            "waiting": true
+          }
         },
         {
           "kind": "event",
@@ -128,7 +142,9 @@
         {
           "kind": "event",
           "event": "leaveSaved",
-          "payload": {}
+          "payload": {
+            "waiting": true
+          }
         },
         {
           "kind": "event",

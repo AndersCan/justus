@@ -176,7 +176,7 @@ A guest's side is the Story 1 Maya walks.
 
 - [Maya archives Summer and brings it back](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20archives%20Summer%20and%20brings%20it%20back)
 - [Maya leaves Hytta, and is gone once Nils's phone sees it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20leaves%20Hytta%2C%20and%20is%20gone%20once%20Nils's%20phone%20sees%20it)
-- [A Viewer leaves Hytta](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=A%20Viewer%20leaves%20Hytta)
+- [Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Ben%2C%20a%20Viewer%2C%20leaves%20Hytta%2C%20and%20is%20gone%20once%20Nils's%20phone%20sees%20it)
 - [Nils deletes Hytta for everyone](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Nils%20deletes%20Hytta%20for%20everyone)
 - [Maya's phone hears that Nils deleted Hytta, after being away](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya's%20phone%20hears%20that%20Nils%20deleted%20Hytta%2C%20after%20being%20away)
 - [Maya had archived Hytta when Nils deleted it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20had%20archived%20Hytta%20when%20Nils%20deleted%20it)

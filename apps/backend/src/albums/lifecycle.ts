@@ -130,19 +130,23 @@ export async function clearLeftNote(drive: Drive, options: { log: LifecycleLog }
   }
 }
 
-/** Whether the Admin's member list (as text) shows this phone gone: the list must exist and not list `memberKey`. */
-export function adminDroppedYou(registryText: string | null, memberKey: string): boolean {
-  if (registryText === null) return false;
+/** Whether the Admin's list (as text) shows this phone gone: the file must exist, `list` must be an object and not name `memberKey`. */
+export function adminDroppedYou(
+  listText: string | null,
+  memberKey: string,
+  list: "members" | "viewers" = "members",
+): boolean {
+  if (listText === null) return false;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(registryText);
+    parsed = JSON.parse(listText);
   } catch {
     return false;
   }
-  if (!isTextJSON(parsed) || !isTextJSON(parsed.members) || Array.isArray(parsed.members)) {
-    return false;
-  }
-  return !(memberKey in parsed.members);
+  if (!isTextJSON(parsed)) return false;
+  const names = parsed[list];
+  if (!isTextJSON(names) || Array.isArray(names)) return false;
+  return !(memberKey in names);
 }
 
 /** Clears the bytes of every photo and thumbnail in `drive`, then deletes their entries. Safe to run twice. */
