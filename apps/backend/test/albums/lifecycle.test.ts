@@ -272,6 +272,8 @@ describe("leave", () => {
     await member.store.ready();
     await joinAsMember(admin.store, album.id, member.store, album.shareKey);
     const mine = (await member.store.folders()).folders.find((f) => f.shareKey === album.shareKey)!;
+    // A left note only counts when it is newer than the join: never leave in the millisecond of the approval.
+    await sleep(5);
     return { member, mine };
   }
 
