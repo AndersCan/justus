@@ -83,6 +83,13 @@
     "who": "People joining by a link",
     "screen": ""
   },
+  "join_request.nothing_copied_yet": {
+    "text": "Nothing copied yet. Copy the link from your chat, then tap Paste.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "join_request.this_link_no_longer_works": {
     "text": "This link no longer works. Ask {ownerName} for a new invite link.",
     "status": "draft",

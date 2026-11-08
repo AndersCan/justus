@@ -36,10 +36,15 @@ export const oldLinkMessage = (ownerName: string) =>
 export const EXPIRED_LINK = copy("join_request.this_invite_link_has_expired");
 export const expiredBody = (owner: string) => copy("join_request.ask_for_a_new_one", { owner });
 export const LINK_TURNED_OFF = copy("join_request.this_invite_link_no_longer");
+export const NOTHING_COPIED = copy("join_request.nothing_copied_yet");
 export const SEND_FAILED = copy("join_request.couldn_t_send_your_request");
 
 /** No invite is open. */
 const noInviteOpen = state("noInviteOpen")();
+/** The first-run welcome is on screen and no invite link is waiting. */
+const showingWelcome = state("showingWelcome")();
+/** An invite link arrived during the welcome. No sheet shows; the question opens when the name is saved. */
+const holdingInviteUntilWelcomeEnds = state("holdingInviteUntilWelcomeEnds")<JoinInvite>();
 /** The opened text is not a link that works; the reason shows under the paste box. */
 const showingLinkProblem = state("showingLinkProblem")();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
@@ -57,6 +62,12 @@ const linkTurnedOff = state("linkTurnedOff")<JoinInvite>();
 /** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
 const joinedAlbum = state("joinedAlbum")();
 
+/** The first-run welcome opened on this phone. */
+export const welcomeStarted = event("welcomeStarted")();
+/** The person finished the welcome: their name is saved. */
+export const welcomeEnded = event("welcomeEnded")();
+/** The joiner tapped Paste with nothing copied. */
+export const pasteFoundNothing = event("pasteFoundNothing")();
 /** The joiner opens a link or pastes text. */
 export const openLink = event("openLink")<{ text: string }>();
 /** The joiner taps a request row in the albums list. */
@@ -119,8 +130,22 @@ export function createJoinRequestActor(options: {
   const asked = options.asked ?? ((code: string) => sent.get(code));
   const classify = typeof known === "function" ? known : () => known;
 
+  /** The screen a usable link opens, from what this phone knows about it. */
+  function screenFor(invite: JoinInvite) {
+    const found = classify(invite);
+    if (found.kind === "own" || found.kind === "member") {
+      return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
+    }
+    if (found.kind === "waiting") return { state: waitingForAdminToAccept.create(invite) };
+    if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
+    return { state: decidingToAsk.create(invite) };
+  }
+
   return Actor({
     inputs: [
+      welcomeStarted,
+      welcomeEnded,
+      pasteFoundNothing,
       openLink,
       reopenRequest,
       askToJoin,
@@ -136,6 +161,8 @@ export function createJoinRequestActor(options: {
     outputs: [openAlbum, dismissDeclinedAsk, cancelAsk],
     states: [
       noInviteOpen,
+      showingWelcome,
+      holdingInviteUntilWelcomeEnds,
       showingLinkProblem,
       joinedAlbum,
       decidingToAsk,
@@ -180,16 +207,7 @@ export function createJoinRequestActor(options: {
               return { state: unusableOrStay(actor) };
             }
             context.set({ error: "" });
-            const invite = parsed.invite;
-            const found = classify(invite);
-            if (found.kind === "own" || found.kind === "member") {
-              return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
-            }
-            if (found.kind === "waiting") return { state: waitingForAdminToAccept.create(invite) };
-            if (hasEnded(invite, clock.now())) {
-              return { state: linkExpired.create(invite) };
-            }
-            return { state: decidingToAsk.create(invite) };
+            return screenFor(parsed.invite);
           },
         });
         /** A tapped request row shows its current answer. */
@@ -203,6 +221,63 @@ export function createJoinRequestActor(options: {
             return row.status === "declined"
               ? { state: declinedByAdmin.create(invite) }
               : { state: waitingForAdminToAccept.create(invite) };
+          },
+        });
+      }
+
+      /** The first-run welcome opens. */
+      m.on(noInviteOpen, {
+        event: welcomeStarted,
+        to: [showingWelcome],
+        handler: (_e, { context }) => {
+          context.set({ error: "" });
+          return { state: showingWelcome };
+        },
+      });
+      /** A usable link during the welcome waits; an unusable one is dropped. */
+      m.on(showingWelcome, {
+        event: openLink,
+        to: [holdingInviteUntilWelcomeEnds, showingWelcome],
+        handler: (e) => {
+          const parsed = parseInviteLink(e.payload.text);
+          return parsed.kind === "invite"
+            ? { state: holdingInviteUntilWelcomeEnds.create(parsed.invite) }
+            : { state: showingWelcome };
+        },
+      });
+      /** A newer link replaces the held one; an unusable one leaves it. */
+      m.on(holdingInviteUntilWelcomeEnds, {
+        event: openLink,
+        to: [holdingInviteUntilWelcomeEnds],
+        handler: (e, { actor }) => {
+          const parsed = parseInviteLink(e.payload.text);
+          return {
+            state: holdingInviteUntilWelcomeEnds.create(
+              parsed.kind === "invite" ? parsed.invite : (actor.snapshot().payload as JoinInvite),
+            ),
+          };
+        },
+      });
+      /** The name is saved with no link waiting: nothing opens. */
+      m.on(showingWelcome, {
+        event: welcomeEnded,
+        to: [noInviteOpen],
+        handler: () => ({ state: noInviteOpen }),
+      });
+      /** The name is saved: the held link opens the screen that fits it now. */
+      m.on(holdingInviteUntilWelcomeEnds, {
+        event: welcomeEnded,
+        to: [joinedAlbum, waitingForAdminToAccept, linkExpired, decidingToAsk],
+        handler: (_e, { actor }) => screenFor(actor.snapshot().payload as JoinInvite),
+      });
+      for (const from of [noInviteOpen, showingLinkProblem]) {
+        /** Paste with nothing copied says so under the box. */
+        m.on(from, {
+          event: pasteFoundNothing,
+          to: [showingLinkProblem],
+          handler: (_e, { context }) => {
+            context.set({ error: NOTHING_COPIED });
+            return { state: showingLinkProblem };
           },
         });
       }
