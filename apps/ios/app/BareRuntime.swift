@@ -165,7 +165,7 @@ final class BareRuntime {
         .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
       var bootScript = "window.__ekrooh=" + payloadJSON + ";window.BareShell=true;"
       if let invite = pendingInvite {
-        bootScript += "window.__justusInvite=" + Self.jsString(invite) + ";"
+        bootScript += "window.__justusInvite=" + jsString(invite) + ";"
         pendingInvite = nil
       }
       webView.configuration.userContentController.addUserScript(
@@ -192,14 +192,8 @@ final class BareRuntime {
       return
     }
     webView.evaluateJavaScript(
-      "window.dispatchEvent(new CustomEvent('justus:invite',{detail:" + Self.jsString(link) + "}))"
+      "window.dispatchEvent(new CustomEvent('justus:invite',{detail:" + jsString(link) + "}))"
     )
-  }
-
-  private static func jsString(_ value: String) -> String {
-    (try? JSONSerialization.data(withJSONObject: [value], options: []))
-      .flatMap { String(data: $0, encoding: .utf8) }
-      .map { String($0.dropFirst().dropLast()) } ?? "\"\""
   }
 
   func terminate() {

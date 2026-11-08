@@ -37,6 +37,15 @@ xcodegen, so the embedded addon list always matches what `bare-link` emitted
 for `apps/backend`'s resolved dependency versions (xcodegen cannot glob
 framework dependencies). Simulator builds need no signing team.
 
+## Tests
+
+```bash
+xcodebuild test -project apps/ios/justus.xcodeproj -scheme justus \
+  -destination "id=<simulator UDID>" CODE_SIGNING_ALLOWED=NO
+```
+
+CI runs the `ios` workflow on PRs touching iOS, web, backend or core.
+
 ## Physical device
 
 1. Pair the device (unlock, tap **Trust**), add your Apple ID in Xcode
