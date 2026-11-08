@@ -99,10 +99,11 @@ export function addFriendSheetView() {
             (c, i) => html`<li>
               <button
                 data-add-friend-primary=${i === 0 ? "" : nothing}
-                class="w-full break-words py-3 text-left text-sm font-medium text-fg"
+                class="flex w-full items-center justify-between gap-2 py-3 text-left text-sm font-medium text-fg"
                 @click=${() => addFriend.pickFriend(c.identity)}
               >
-                ${c.name}
+                <span class="min-w-0 break-words">${c.name}</span>
+                <span class="text-muted" aria-hidden="true">›</span>
               </button>
             </li>`,
           )}
