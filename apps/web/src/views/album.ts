@@ -285,6 +285,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
                 title: copy("album.make_a_viewer_2", { name: p.name }),
                 detail: copy("album.keeps_seeing_every_photo_but", { name: p.name }),
                 confirmLabel: copy("album.make_viewer"),
+                cancelLabel: copy("album.keep_as_collaborator"),
               });
               if (ok && vm.folder) {
                 memberNames.set(p.key, p.name);
