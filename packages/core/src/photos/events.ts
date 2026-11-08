@@ -202,6 +202,12 @@ export const photoSpecs = {
     args: {} as { code: string },
     result: {} as { ok: boolean },
   },
+  cancelAsk: {
+    pluginId: "justus.photos",
+    name: "photos.cancelAsk",
+    args: {} as { code: string },
+    result: {} as { ok: boolean },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -452,6 +458,9 @@ export const photoEvents = {
       code: string,
     ): InvokeEnvelope<"photos.dismissDeclinedAsk", { code: string }, { ok: boolean }> {
       return invokeEvent(photoSpecs.dismissDeclinedAsk, { code }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    cancelAsk(code: string): InvokeEnvelope<"photos.cancelAsk", { code: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.cancelAsk, { code }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
   },
 } as const;

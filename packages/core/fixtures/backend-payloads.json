@@ -12,7 +12,7 @@
       {
         "folders": [
           {
-            "id": "mw778k06-ec10d32d",
+            "id": "mw7efkbj-7a68e5d1",
             "name": "Contract",
             "role": "creator",
             "pending": false,
@@ -28,14 +28,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k06-ec10d32d",
+        "activeFolderId": "mw7efkbj-7a68e5d1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "reader",
             "pending": true,
@@ -47,14 +47,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "reader",
             "pending": true,
@@ -66,14 +66,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "reader",
             "pending": true,
@@ -85,14 +85,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "reader",
             "pending": true,
@@ -104,14 +104,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "reader",
             "pending": true,
@@ -123,14 +123,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "member",
             "pending": false,
@@ -142,14 +142,14 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k1g-e8b6ccb1",
+            "id": "mw7efkc7-4c4538a1",
             "name": "Contract",
             "role": "member",
             "pending": false,
@@ -161,30 +161,30 @@
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k1g-e8b6ccb1",
+        "activeFolderId": "mw7efkc7-4c4538a1",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778k06-ec10d32d",
+            "id": "mw7efkbj-7a68e5d1",
             "name": "Contract",
             "role": "creator",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
+            "driveKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "members": 1,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778k06-ec10d32d",
+        "activeFolderId": "mw7efkbj-7a68e5d1",
         "asks": [],
         "offers": []
       },
@@ -195,7 +195,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -212,7 +212,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -229,7 +229,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -246,7 +246,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -263,7 +263,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -280,7 +280,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -297,7 +297,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -314,7 +314,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -331,7 +331,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -348,7 +348,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -365,7 +365,7 @@
         "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -388,9 +388,17 @@
         "archived": [],
         "deleted": [],
         "activeFolderId": "",
+        "asks": [],
+        "offers": []
+      },
+      {
+        "folders": [],
+        "archived": [],
+        "deleted": [],
+        "activeFolderId": "",
         "asks": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone",
@@ -408,7 +416,7 @@
         "asks": [],
         "offers": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone"
@@ -423,7 +431,7 @@
         "asks": [],
         "offers": [
           {
-            "code": "0202020202020202020202020202020202020202020202020202020202020202",
+            "code": "0606060606060606060606060606060606060606060606060606060606060606",
             "owner": "0303030303030303030303030303030303030303030303030303030303030303",
             "albumName": "Contract",
             "ownerName": "Phone"
@@ -433,23 +441,23 @@
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
@@ -457,16 +465,16 @@
         "folders": [],
         "archived": [
           {
-            "id": "mw778k06-ec10d32d",
+            "id": "mw7efkbj-7a68e5d1",
             "name": "Contract",
             "role": "creator",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
-            "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
+            "driveKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "members": 3,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0505050505050505050505050505050505050505050505050505050505050505",
+              "code": "0707070707070707070707070707070707070707070707070707070707070707",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
@@ -479,115 +487,115 @@
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
       {
         "folders": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "role": "reader",
             "pending": false,
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "driveKey": "",
             "members": 2,
             "addedAt": 1700000000000,
             "invite": {
-              "code": "0202020202020202020202020202020202020202020202020202020202020202",
+              "code": "0606060606060606060606060606060606060606060606060606060606060606",
               "owner": "0303030303030303030303030303030303030303030303030303030303030303"
             }
           }
         ],
         "archived": [],
         "deleted": [],
-        "activeFolderId": "mw778lni-8b730fb6",
+        "activeFolderId": "mw7eflx1-f65dac14",
         "asks": [],
         "offers": []
       },
@@ -596,7 +604,7 @@
         "archived": [],
         "deleted": [
           {
-            "id": "mw778lni-8b730fb6",
+            "id": "mw7eflx1-f65dac14",
             "name": "Contract",
             "adminName": "Phone"
           }
@@ -609,7 +617,7 @@
     "photos.createFolder": [
       {
         "folder": {
-          "id": "mw778k06-ec10d32d",
+          "id": "mw7efkbj-7a68e5d1",
           "name": "Contract",
           "role": "creator",
           "pending": false,
@@ -627,7 +635,7 @@
     "photos.setActive": [
       {
         "folder": {
-          "id": "mw778k06-ec10d32d",
+          "id": "mw7efkbj-7a68e5d1",
           "name": "Contract",
           "role": "creator",
           "pending": false,
@@ -642,7 +650,7 @@
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0606060606060606060606060606060606060606060606060606060606060606",
+        "discoveryKey": "0808080808080808080808080808080808080808080808080808080808080808",
         "peers": 0,
         "photos": 0,
         "members": [
@@ -665,8 +673,8 @@
     ],
     "photos.add": [
       {
-        "id": "mw778k0u-23a80571",
-        "url": "http://localhost:0/photos/mw778k06-ec10d32d/MGIxOTZmOGY2ZDEzOGVmNWQyZWViZTI1NmIyMjc3ZGQzNjUyYmQ5ZmY5MTViMGZlOWM1MGUwMDhmNGRkNDdlNjptdzc3OGswdS0yM2E4MDU3MTouanBn",
+        "id": "mw7efkbr-293937f3",
+        "url": "http://localhost:0/photos/mw7efkbj-7a68e5d1/NDdhNjlmMWI3YWQ5Y2NhNjYyOTliYmFlYzQ4YjViY2VjODlhNDcwZmY1MmMzZDIzZDYxZDkzYjA5ZDg4MzcwZTptdzdlZmtici0yOTM5MzdmMzouanBn",
         "name": "a.jpg",
         "mime": "image/jpeg",
         "size": 3,
@@ -675,7 +683,7 @@
           "key": "0101010101010101010101010101010101010101010101010101010101010101",
           "name": "Phone"
         },
-        "folderId": "mw778k06-ec10d32d",
+        "folderId": "mw7efkbj-7a68e5d1",
         "mine": true
       }
     ],
@@ -683,8 +691,8 @@
       {
         "photos": [
           {
-            "id": "mw778k0u-23a80571",
-            "url": "http://localhost:0/photos/mw778k06-ec10d32d/MGIxOTZmOGY2ZDEzOGVmNWQyZWViZTI1NmIyMjc3ZGQzNjUyYmQ5ZmY5MTViMGZlOWM1MGUwMDhmNGRkNDdlNjptdzc3OGswdS0yM2E4MDU3MTouanBn",
+            "id": "mw7efkbr-293937f3",
+            "url": "http://localhost:0/photos/mw7efkbj-7a68e5d1/NDdhNjlmMWI3YWQ5Y2NhNjYyOTliYmFlYzQ4YjViY2VjODlhNDcwZmY1MmMzZDIzZDYxZDkzYjA5ZDg4MzcwZTptdzdlZmtici0yOTM5MzdmMzouanBn",
             "name": "a.jpg",
             "mime": "image/jpeg",
             "size": 3,
@@ -693,8 +701,8 @@
               "key": "0101010101010101010101010101010101010101010101010101010101010101",
               "name": "Phone"
             },
-            "sha256": "0707070707070707070707070707070707070707070707070707070707070707",
-            "folderId": "mw778k06-ec10d32d",
+            "sha256": "0909090909090909090909090909090909090909090909090909090909090909",
+            "folderId": "mw7efkbj-7a68e5d1",
             "mine": true
           }
         ]
@@ -702,8 +710,8 @@
       {
         "photos": [
           {
-            "id": "mw778k0u-23a80571",
-            "url": "http://localhost:0/photos/mw778k1g-e8b6ccb1/MGIxOTZmOGY2ZDEzOGVmNWQyZWViZTI1NmIyMjc3ZGQzNjUyYmQ5ZmY5MTViMGZlOWM1MGUwMDhmNGRkNDdlNjptdzc3OGswdS0yM2E4MDU3MTouanBn",
+            "id": "mw7efkbr-293937f3",
+            "url": "http://localhost:0/photos/mw7efkc7-4c4538a1/NDdhNjlmMWI3YWQ5Y2NhNjYyOTliYmFlYzQ4YjViY2VjODlhNDcwZmY1MmMzZDIzZDYxZDkzYjA5ZDg4MzcwZTptdzdlZmtici0yOTM5MzdmMzouanBn",
             "name": "a.jpg",
             "mime": "image/jpeg",
             "size": 3,
@@ -712,8 +720,8 @@
               "key": "0101010101010101010101010101010101010101010101010101010101010101",
               "name": "Phone"
             },
-            "sha256": "0707070707070707070707070707070707070707070707070707070707070707",
-            "folderId": "mw778k1g-e8b6ccb1",
+            "sha256": "0909090909090909090909090909090909090909090909090909090909090909",
+            "folderId": "mw7efkc7-4c4538a1",
             "mine": false
           }
         ]
@@ -722,7 +730,7 @@
     "photos.status": [
       {
         "folder": {
-          "id": "mw778k06-ec10d32d",
+          "id": "mw7efkbj-7a68e5d1",
           "name": "Contract",
           "role": "creator",
           "pending": false,
@@ -737,7 +745,7 @@
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0606060606060606060606060606060606060606060606060606060606060606",
+        "discoveryKey": "0808080808080808080808080808080808080808080808080808080808080808",
         "peers": 0,
         "photos": 1,
         "members": [
@@ -754,7 +762,7 @@
       },
       {
         "folder": {
-          "id": "mw778k1g-e8b6ccb1",
+          "id": "mw7efkc7-4c4538a1",
           "name": "Contract",
           "role": "reader",
           "pending": true,
@@ -765,7 +773,7 @@
         },
         "name": "Desktop",
         "driveKey": "",
-        "discoveryKey": "0808080808080808080808080808080808080808080808080808080808080808",
+        "discoveryKey": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "peers": 1,
         "photos": 1,
         "members": [
@@ -774,7 +782,7 @@
             "name": "Desktop",
             "admin": false,
             "connected": true,
-            "identity": "0909090909090909090909090909090909090909090909090909090909090909"
+            "identity": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
           },
           {
             "key": "0101010101010101010101010101010101010101010101010101010101010101",
@@ -788,7 +796,7 @@
       },
       {
         "folder": {
-          "id": "mw778k06-ec10d32d",
+          "id": "mw7efkbj-7a68e5d1",
           "name": "Contract",
           "role": "creator",
           "pending": false,
@@ -803,7 +811,7 @@
         },
         "name": "Phone",
         "driveKey": "0101010101010101010101010101010101010101010101010101010101010101",
-        "discoveryKey": "0606060606060606060606060606060606060606060606060606060606060606",
+        "discoveryKey": "0808080808080808080808080808080808080808080808080808080808080808",
         "peers": 1,
         "photos": 1,
         "members": [
@@ -819,7 +827,7 @@
             "name": "Desktop",
             "admin": false,
             "connected": true,
-            "identity": "0909090909090909090909090909090909090909090909090909090909090909"
+            "identity": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
           }
         ],
         "updateNeeded": false,
@@ -829,7 +837,7 @@
     "photos.join": [
       {
         "folder": {
-          "id": "mw778k1g-e8b6ccb1",
+          "id": "mw7efkc7-4c4538a1",
           "name": "Contract",
           "role": "reader",
           "pending": true,
@@ -840,7 +848,7 @@
         },
         "name": "Desktop",
         "driveKey": "",
-        "discoveryKey": "0808080808080808080808080808080808080808080808080808080808080808",
+        "discoveryKey": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "peers": 1,
         "photos": 1,
         "members": [
@@ -849,7 +857,7 @@
             "name": "Desktop",
             "admin": false,
             "connected": true,
-            "identity": "0909090909090909090909090909090909090909090909090909090909090909"
+            "identity": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
           },
           {
             "key": "0101010101010101010101010101010101010101010101010101010101010101",
@@ -871,7 +879,7 @@
           {
             "requesterKey": "0404040404040404040404040404040404040404040404040404040404040404",
             "requesterName": "Desktop",
-            "folderId": "mw778k06-ec10d32d",
+            "folderId": "mw7efkbj-7a68e5d1",
             "folderName": "Contract",
             "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
             "requestedAt": 1700000000000
@@ -887,11 +895,11 @@
       {
         "requests": [
           {
-            "requesterKey": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+            "requesterKey": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
             "requesterName": "Watcher",
-            "folderId": "mw778k06-ec10d32d",
+            "folderId": "mw7efkbj-7a68e5d1",
             "folderName": "Contract",
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "requestedAt": 1700000000000,
             "viaInvite": true
           }
@@ -906,11 +914,11 @@
       {
         "requests": [
           {
-            "requesterKey": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+            "requesterKey": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
             "requesterName": "Tablet",
-            "folderId": "mw778k06-ec10d32d",
+            "folderId": "mw7efkbj-7a68e5d1",
             "folderName": "Contract",
-            "shareKey": "0101010101010101010101010101010101010101010101010101010101010101",
+            "shareKey": "0505050505050505050505050505050505050505050505050505050505050505",
             "requestedAt": 1700000000000,
             "viaInvite": true
           }
@@ -930,7 +938,7 @@
     ],
     "photos.remove": [
       {
-        "id": "mw778k0u-23a80571"
+        "id": "mw7efkbr-293937f3"
       }
     ],
     "photos.removeMember": [
@@ -946,7 +954,7 @@
     "photos.ask": [
       {
         "ask": {
-          "code": "0202020202020202020202020202020202020202020202020202020202020202",
+          "code": "0606060606060606060606060606060606060606060606060606060606060606",
           "owner": "0303030303030303030303030303030303030303030303030303030303030303",
           "albumName": "Contract",
           "ownerName": "Phone",
@@ -956,7 +964,7 @@
       },
       {
         "ask": {
-          "code": "0202020202020202020202020202020202020202020202020202020202020202",
+          "code": "0606060606060606060606060606060606060606060606060606060606060606",
           "owner": "0303030303030303030303030303030303030303030303030303030303030303",
           "albumName": "Contract",
           "ownerName": "Phone",
@@ -966,7 +974,17 @@
       },
       {
         "ask": {
-          "code": "0202020202020202020202020202020202020202020202020202020202020202",
+          "code": "0606060606060606060606060606060606060606060606060606060606060606",
+          "owner": "0303030303030303030303030303030303030303030303030303030303030303",
+          "albumName": "Contract",
+          "ownerName": "Phone",
+          "askedAt": 1700000000000,
+          "status": "waiting"
+        }
+      },
+      {
+        "ask": {
+          "code": "0606060606060606060606060606060606060606060606060606060606060606",
           "owner": "0303030303030303030303030303030303030303030303030303030303030303",
           "albumName": "Contract",
           "ownerName": "Phone",
@@ -990,6 +1008,11 @@
         "ok": true
       }
     ],
+    "photos.cancelAsk": [
+      {
+        "ok": true
+      }
+    ],
     "photos.offerAlbum": [
       {
         "ok": true
@@ -998,7 +1021,7 @@
     "photos.joinOffer": [
       {
         "ask": {
-          "code": "0202020202020202020202020202020202020202020202020202020202020202",
+          "code": "0606060606060606060606060606060606060606060606060606060606060606",
           "owner": "0303030303030303030303030303030303030303030303030303030303030303",
           "albumName": "Contract",
           "ownerName": "Phone",
@@ -1010,7 +1033,7 @@
     "photos.turnOffInvite": [
       {
         "invite": {
-          "code": "0505050505050505050505050505050505050505050505050505050505050505",
+          "code": "0707070707070707070707070707070707070707070707070707070707070707",
           "owner": "0303030303030303030303030303030303030303030303030303030303030303"
         }
       }
@@ -1039,29 +1062,29 @@
   "pushes": [
     {
       "cause": "enroll",
-      "folderId": "mw778k1g-e8b6ccb1",
+      "folderId": "mw7efkc7-4c4538a1",
       "memberKey": "0404040404040404040404040404040404040404040404040404040404040404"
     },
     {
       "cause": "add",
-      "folderId": "mw778k1g-e8b6ccb1",
+      "folderId": "mw7efkc7-4c4538a1",
       "memberKey": "0101010101010101010101010101010101010101010101010101010101010101"
     },
     {
       "cause": "presence",
-      "folderId": "mw778k1g-e8b6ccb1"
+      "folderId": "mw7efkc7-4c4538a1"
     },
     {
       "cause": "request",
-      "folderId": "mw778k1g-e8b6ccb1"
+      "folderId": "mw7efkc7-4c4538a1"
     },
     {
       "cause": "remove",
-      "folderId": "mw778k1g-e8b6ccb1"
+      "folderId": "mw7efkc7-4c4538a1"
     },
     {
       "cause": "offer",
-      "folderId": "mw778k06-ec10d32d"
+      "folderId": "mw7efkbj-7a68e5d1"
     }
   ]
 }

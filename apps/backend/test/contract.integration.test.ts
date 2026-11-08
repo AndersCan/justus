@@ -186,6 +186,15 @@ describe("backend -> web contract, from real backend output", () => {
     );
     await c("photos.dismissDeclinedAsk", { code: invite.code });
     expect((await c("photos.folders")).asks).toEqual([]);
+    // A joiner takes back a waiting request.
+    await c("photos.ask", {
+      code: invite.code,
+      owner: invite.owner,
+      albumName: "Contract",
+      ownerName: "Phone",
+    });
+    await c("photos.cancelAsk", { code: invite.code });
+    expect((await c("photos.folders")).asks).toEqual([]);
     // A stranger asks through the album's invite code.
     await c("photos.ask", {
       code: invite.code,

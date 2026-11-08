@@ -857,3 +857,62 @@ describe("turning off invite links", () => {
     await s.close();
   });
 });
+
+describe("cancel a waiting request", () => {
+  const savedAsks = (s: Awaited<ReturnType<typeof scenario>>) =>
+    JSON.parse(readFileSync(join(s.joiner.deps.storageDir, "justus.json"), "utf8")).asks;
+
+  it("takes the ask off the phone, the saved file and the outbox", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const cancelled = await s.joiner.store.cancelAsk(s.invite.code);
+    expect(cancelled).toEqual([null, { ok: true }]);
+    expect((await s.joiner.store.folders()).asks).toEqual([]);
+    expect(savedAsks(s)).toEqual([]);
+    expect(
+      JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`],
+    ).toBeUndefined();
+    await s.close();
+  });
+
+  it("the Admin stops seeing the request", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s);
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    await s.joiner.store.cancelAsk(s.invite.code);
+    await until(async () => (await s.admin.store.requests()).requests.length === 0);
+    await s.close();
+  });
+
+  it("asking again after Cancel files a new waiting ask", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await s.joiner.store.cancelAsk(s.invite.code);
+    const again = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(again[1]!.ask.status).toBe("waiting");
+    await connect(s);
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    await s.close();
+  });
+
+  it("is refused for an unknown code", async () => {
+    const s = await scenario();
+    const cancelled = await s.joiner.store.cancelAsk("e".repeat(64));
+    expect(cancelled[0]!.code).toBe(PhotoError.NOT_FOUND);
+    await s.close();
+  });
+
+  it("is refused for a declined ask, which stays", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s);
+    const { requests } = await s.admin.store.requests();
+    await s.admin.store.respond(s.folderId, requests[0].requesterKey, false);
+    await until(async () => (await s.joiner.store.folders()).asks[0]?.status === "declined");
+    const cancelled = await s.joiner.store.cancelAsk(s.invite.code);
+    expect(cancelled[0]!.code).toBe(PhotoError.NOT_FOUND);
+    expect(savedAsks(s)).toHaveLength(1);
+    await s.close();
+  });
+});
