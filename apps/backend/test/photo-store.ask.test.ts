@@ -875,6 +875,29 @@ describe("cancel a waiting request", () => {
     await s.close();
   });
 
+  it("leaves the invite topic", async () => {
+    const s = await scenario();
+    const topics = () =>
+      (s.joiner.store.debugState() as { joins: { topic: string }[] }).joins.map((j) => j.topic);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const before = topics();
+    await s.joiner.store.cancelAsk(s.invite.code);
+    const after = topics();
+    expect(after).toHaveLength(before.length - 1);
+    expect(after.every((t) => before.includes(t))).toBe(true);
+    await s.close();
+  });
+
+  it("tells the UI with an ask change", async () => {
+    const changes: unknown[] = [];
+    const s = await scenario(undefined, { onChanged: (c: unknown) => changes.push(c) });
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    changes.length = 0;
+    await s.joiner.store.cancelAsk(s.invite.code);
+    expect(changes).toContainEqual({ cause: "ask", code: s.invite.code });
+    await s.close();
+  });
+
   it("the Admin stops seeing the request", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
