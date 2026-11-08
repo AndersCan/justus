@@ -114,11 +114,12 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   });
 });
 
-/** Records the text of every toast the page shows from now on. Call again after a navigation. */
+/** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
 async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
   await page.evaluate(() => {
     const w = window as unknown as { __toasts?: string[] };
     w.__toasts = w.__toasts ?? [];
+    const seen = new Set<string | null>();
     new MutationObserver((records) => {
       for (const r of records) {
         for (const n of r.addedNodes) {
@@ -126,7 +127,12 @@ async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
           const toasts = n.matches(".justus-toast")
             ? [n]
             : [...n.querySelectorAll(".justus-toast")];
-          for (const t of toasts) w.__toasts?.push(t.textContent?.trim() ?? "");
+          for (const t of toasts) {
+            const key = t.getAttribute("data-motion-key");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            w.__toasts?.push(t.textContent?.trim() ?? "");
+          }
         }
       }
     }).observe(document.body, { childList: true, subtree: true });
