@@ -52,6 +52,15 @@ jobs:
       - name: Build the iOS inputs and project
         run: node apps/ios/scripts/build-ios.mjs
 
+      - name: Resolve Swift packages (retry on download errors)
+        run: |
+          for attempt in 1 2 3 4; do
+            xcodebuild -resolvePackageDependencies -project apps/ios/justus.xcodeproj -scheme justus \
+              -derivedDataPath apps/ios/build/dd && exit 0
+            echo "Package resolution failed (attempt $attempt)"; sleep $((attempt * 15))
+          done
+          exit 1
+
       - name: Build and run unit tests on a simulator
         run: |
           UDID=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
