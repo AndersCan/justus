@@ -1,122 +1,76 @@
 {
   "membership": [
     {
-      "name": "Maya asks to join, and Nils accepts her as a Collaborator",
-      "end": "memberOfAlbum",
+      "name": "Ben, a Viewer, leaves while Nils makes him a Collaborator",
+      "end": "leftAlbum",
       "steps": [
         {
           "kind": "event",
-          "event": "requestQueued",
+          "event": "makeCollaborator",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "leftNoteRead",
           "payload": {
-            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "requesterName": "Ann",
-            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "folderName": "Trip",
-            "requestedAt": 1
+            "leftAt": 2
           }
         },
         {
           "kind": "event",
-          "event": "accept",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "memberListSaved",
+          "event": "leaverMarked",
           "payload": {}
         }
       ]
     },
     {
-      "name": "Nils: accepts a guest as Collaborator",
-      "end": "memberOfAlbum",
+      "name": "Ben, a Viewer, leaves, and is gone from Nils's list",
+      "end": "leftAlbum",
       "steps": [
         {
           "kind": "event",
-          "event": "requestQueued",
+          "event": "leftNoteRead",
           "payload": {
-            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "requesterName": "Ann",
-            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "folderName": "Trip",
-            "requestedAt": 1
+            "leftAt": 2
           }
         },
         {
           "kind": "event",
-          "event": "accept",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "memberListSaved",
+          "event": "leaverMarked",
           "payload": {}
         }
       ]
     },
     {
-      "name": "Nils: accepts a relative as Viewer, later makes her a Collaborator",
-      "end": "memberOfAlbum",
+      "name": "Letting Ben add photos fails, and he stays a Viewer",
+      "end": "viewerInAlbum",
       "steps": [
         {
           "kind": "event",
-          "event": "requestQueued",
-          "payload": {
-            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "requesterName": "Ann",
-            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "folderName": "Trip",
-            "requestedAt": 1
-          }
-        },
-        {
-          "kind": "event",
-          "event": "accept",
-          "payload": {
-            "role": "reader"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "memberListSaved",
+          "event": "makeCollaborator",
           "payload": {}
         },
         {
           "kind": "event",
-          "event": "changeRole",
+          "event": "roleSaveFailed",
           "payload": {
-            "role": "member"
+            "reason": "The list could not be saved"
           }
+        }
+      ]
+    },
+    {
+      "name": "Nils lets Ben add photos",
+      "end": "collaboratorInAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "makeCollaborator",
+          "payload": {}
         },
         {
           "kind": "event",
           "event": "roleSaved",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "Nils: declines the request",
-      "end": "requestDeclined",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "requestQueued",
-          "payload": {
-            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "requesterName": "Ann",
-            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "folderName": "Trip",
-            "requestedAt": 1
-          }
-        },
-        {
-          "kind": "event",
-          "event": "decline",
           "payload": {}
         }
       ]

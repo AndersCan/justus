@@ -1,285 +1,116 @@
-import type { RegistryFile, RemovedFile, RequestsFile } from "./records";
-import { isEnrolled, isTextJSON } from "./records";
+import { isTextJSON } from "./records";
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
 import type { Expectations } from "@mantaq/inspect";
 import { withPromise } from "@mantaq/sugar";
 import { Either } from "@mantaq/utils";
 
-export type RequestEntry = RequestsFile["requests"][string];
-
 export type PortError = { reason: string };
 
 /** What a member may do: readers only look, members also add photos. */
 export type Role = "reader" | "member";
 
+/**
+ * One person already in the album, as the Admin's phone sees them: their role, and their phone saying they left.
+ * Asking and accepting stay with the requests machine; Remove, Make Viewer and the album-wide order of changes stay in the store.
+ */
 export type MembershipPort = {
-  addMember(entry: RequestEntry, role: Role): Promise<Either<PortError, void>>;
-  setRole(memberKey: string, role: Role): Promise<Either<PortError, void>>;
-  removeMember(memberKey: string): Promise<Either<PortError, void>>;
+  makeCollaborator(): Promise<Either<PortError, void>>;
+  markLeft(): Promise<Either<PortError, void>>;
 };
 
-export type MembershipRecords = {
-  registry: RegistryFile;
-  removed: RemovedFile;
-  requests: RequestsFile["requests"];
-};
+export type MembershipStart = { role: Role; joinedAt: number };
 
-/** This person has not asked to join and is not in the member list. */
-const noRequestYet = state("noRequestYet")();
-/** The person asked to join and waits for the Admin to accept or decline. */
-const requestWaitingForAdmin = state("requestWaitingForAdmin")<RequestEntry>();
-/** The Admin accepted, and the member list is being saved. */
-const addingMember = state("addingMember")<{ entry: RequestEntry; role: Role }>();
-/** The person is in the member list with their role. */
-const memberOfAlbum = state("memberOfAlbum")<{ role: Role }>();
-/** The Admin picked a different role, and it is being saved. */
-const savingRole = state("savingRole")<{ from: Role; to: Role }>();
-/** The Admin is taking the person out of the member list. */
-const removingMember = state("removingMember")<{ role: Role }>();
-/** The Admin declined the request; a new request starts again. */
-const requestDeclined = state("requestDeclined")();
-/** The person was removed and cannot rejoin. */
-const removedFromAlbum = state("removedFromAlbum")();
-const removed = removedFromAlbum.final();
+/** Listed as a Viewer. */
+const viewerInAlbum = state("viewerInAlbum")<{ joinedAt: number }>();
+/** Listed as a Collaborator. */
+const collaboratorInAlbum = state("collaboratorInAlbum")<{ joinedAt: number }>();
+/** The Admin's "Let them add photos" is being saved. */
+const makingCollaborator = state("makingCollaborator")<{ joinedAt: number }>();
+/** Their phone said they left: they are being taken off the lists and noted as left. */
+const markingAsLeft = state("markingAsLeft")<{ joinedAt: number; role: Role }>();
+/** The person left on their own. */
+const leftAlbum = state("leftAlbum")();
+const left = leftAlbum.final();
 
-/** The person's request to join reached the Admin. */
-const requestQueued = event("requestQueued")<RequestEntry>();
-/** The Admin accepts the request with the role the person joins with. */
-const accept = event("accept")<{ role: Role }>();
-/** The Admin gives a member a different role. */
-const changeRole = event("changeRole")<{ role: Role }>();
-/** The Admin declines the request. */
-const decline = event("decline")();
-/** The Admin removes a member. */
-const removeMember = event("removeMember")();
-
-/** The member list was saved with the new member. */
-const memberListSaved = event("memberListSaved")();
-/** The member list could not be saved, so the request stays pending. */
-const memberListSaveFailed = event("memberListSaveFailed")<{
-  reason: string;
-  entry: RequestEntry;
+/** The Admin lets a Viewer add photos. */
+const makeCollaborator = event("makeCollaborator")();
+/** The Admin's phone read a left note in their drive, written at `leftAt`. */
+const leftNoteRead = event("leftNoteRead")<{
+  /** @example 2 */
+  leftAt: number;
 }>();
-/** The new role was saved. */
+
+/** The Collaborator role was saved. */
 const roleSaved = event("roleSaved")();
-/** The new role could not be saved, so the member keeps the old role. */
+/** The Collaborator role could not be saved, so the person stays a Viewer. */
 const roleSaveFailed = event("roleSaveFailed")<{ reason: string }>();
-/** The member was taken out of the member list. */
-const removalSaved = event("removalSaved")();
-/** The member could not be taken out, so they stay a member. */
-const removalFailed = event("removalFailed")<{ reason: string }>();
+/** The leaver was taken off the lists and noted as left. */
+const leaverMarked = event("leaverMarked")();
+/** The leaver could not be taken off the lists, so they stay as they were. */
+const leaverMarkFailed = event("leaverMarkFailed")<{ reason: string }>();
 
-/** Tells the rest of the app that the person is now a member. */
-const memberJoined = event("memberJoined")<{ memberKey: string }>();
-/** Tells the joiner's side that the Admin accepted or declined. */
-const requestAnswered = event("requestAnswered")<{ answer: "accepted" | "declined" }>();
-/** Tells the rest of the app that the person is no longer a member. */
-const memberRemoved = event("memberRemoved")<{ memberKey: string }>();
-
-type AddResult =
-  | ReturnType<typeof memberListSaved.create>
-  | ReturnType<typeof memberListSaveFailed.create>;
 type RoleResult = ReturnType<typeof roleSaved.create> | ReturnType<typeof roleSaveFailed.create>;
-type DropResult = ReturnType<typeof removalSaved.create> | ReturnType<typeof removalFailed.create>;
+type MarkResult =
+  | ReturnType<typeof leaverMarked.create>
+  | ReturnType<typeof leaverMarkFailed.create>;
 
-function isRequestEntry(value: unknown): value is RequestEntry {
+function isJoinedAt(value: unknown): value is { joinedAt: number } {
+  return isTextJSON(value) && typeof value.joinedAt === "number";
+}
+
+function isLeaving(value: unknown): value is { joinedAt: number; role: Role } {
   return (
-    isTextJSON(value) &&
-    typeof value.requesterKey === "string" &&
-    typeof value.requesterName === "string" &&
-    typeof value.shareKey === "string" &&
-    typeof value.folderName === "string" &&
-    typeof value.requestedAt === "number"
+    isJoinedAt(value) && "role" in value && (value.role === "reader" || value.role === "member")
   );
 }
 
-function isRoleName(value: unknown): value is Role {
-  return value === "reader" || value === "member";
+function joinedAtOf(payload: unknown) {
+  return isJoinedAt(payload) ? payload.joinedAt : 0;
 }
 
-function isRole(value: unknown): value is { role: Role } {
-  return isTextJSON(value) && isRoleName(value.role);
-}
+const defaultStart: MembershipStart = { role: "reader", joinedAt: 1 };
 
-function isApproved(value: unknown): value is { entry: RequestEntry; role: Role } {
-  return isTextJSON(value) && isRoleName(value.role) && isRequestEntry(value.entry);
-}
-
-function isChange(value: unknown): value is { from: Role; to: Role } {
-  return isTextJSON(value) && isRoleName(value.from) && isRoleName(value.to);
-}
-
-export function initialStateFromRecords(options: {
-  records: MembershipRecords;
-  memberKey: string;
-}) {
-  const { records, memberKey } = options;
-  if (Object.values(records.removed.removed).some((r) => r.memberKey === memberKey)) {
-    return removed;
-  }
-  if (isEnrolled(records.registry, memberKey)) return memberOfAlbum.create({ role: "member" });
-  const entry = Object.values(records.requests).find((r) => r.requesterKey === memberKey);
-  if (entry) return requestWaitingForAdmin.create(entry);
-  return noRequestYet;
-}
-
-const noRecords: MembershipRecords = {
-  registry: { version: 1, members: {} },
-  removed: { version: 1, removed: {} },
-  requests: {},
-};
-
-/** Used when no port is given, as on the flow page: there is no member list, so every save works. */
+/** Used when no port is given, as on the flow page: there are no lists, so every save works. */
 const previewPort: MembershipPort = {
-  addMember: async () => Either.right(),
-  setRole: async () => Either.right(),
-  removeMember: async () => Either.right(),
+  makeCollaborator: async () => Either.right(),
+  markLeft: async () => Either.right(),
 };
 
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
 export function createMembershipActor(options: {
   clock: Clock;
   port?: MembershipPort;
-  records?: MembershipRecords;
-  memberKey?: string;
+  start?: MembershipStart;
 }) {
-  const { clock, port = previewPort, records = noRecords, memberKey = "" } = options;
+  const { clock, port = previewPort, start = defaultStart } = options;
   return Actor({
-    inputs: [requestQueued, accept, decline, changeRole, removeMember],
-    internal: [
-      memberListSaved,
-      memberListSaveFailed,
-      roleSaved,
-      roleSaveFailed,
-      removalSaved,
-      removalFailed,
-    ],
-    outputs: [memberJoined, memberRemoved, requestAnswered],
-    states: [
-      noRequestYet,
-      requestWaitingForAdmin,
-      addingMember,
-      memberOfAlbum,
-      savingRole,
-      removingMember,
-      requestDeclined,
-      removed,
-    ],
-    initial: initialStateFromRecords({ records, memberKey }),
-    /** Whether the Admin accepted this person; an enrolled member starts accepted. */
-    context: { accepted: isEnrolled(records.registry, memberKey) },
+    inputs: [makeCollaborator, leftNoteRead],
+    internal: [roleSaved, roleSaveFailed, leaverMarked, leaverMarkFailed],
+    outputs: [],
+    states: [viewerInAlbum, collaboratorInAlbum, makingCollaborator, markingAsLeft, left],
+    initial:
+      start.role === "member"
+        ? collaboratorInAlbum.create({ joinedAt: start.joinedAt })
+        : viewerInAlbum.create({ joinedAt: start.joinedAt }),
+    context: {},
     clock,
     setup: (m) => {
-      /** A request arrives and waits for the Admin's decision. */
-      m.on(noRequestYet, {
-        event: requestQueued,
-        to: [requestWaitingForAdmin],
-        handler: (e, { context }) => {
-          context.set({ accepted: false });
-          return { state: requestWaitingForAdmin.create(e.payload) };
-        },
-      });
-      /** The Admin declines, so the request ends. */
-      m.on(requestWaitingForAdmin, {
-        event: decline,
-        to: [requestDeclined],
-        handler: () => ({
-          state: requestDeclined,
-          emit: [requestAnswered.create({ answer: "declined" })],
+      /** The Admin lets a Viewer add photos, so the role is saved next. */
+      m.on(viewerInAlbum, {
+        event: makeCollaborator,
+        to: [makingCollaborator],
+        handler: (_e, { actor }) => ({
+          state: makingCollaborator.create({ joinedAt: joinedAtOf(actor.snapshot().payload) }),
         }),
       });
-      /** After a decline, a new request waits for the Admin to decide again. */
-      m.on(requestDeclined, {
-        event: requestQueued,
-        to: [requestWaitingForAdmin],
-        handler: (e, { context }) => {
-          context.set({ accepted: false });
-          return { state: requestWaitingForAdmin.create(e.payload) };
-        },
-      });
-      /** The Admin approves, so the member list is written next. */
-      m.on(requestWaitingForAdmin, {
-        event: accept,
-        to: [addingMember],
-        handler: (e, { actor, context }) => {
-          const { payload } = actor.snapshot();
-          if (!isRequestEntry(payload)) return {};
-          context.set({ accepted: true });
-          return { state: addingMember.create({ entry: payload, role: e.payload.role }) };
-        },
-      });
-      /** The accepted person is added to the album's member list; if the list cannot be written, the request fails and the Admin can try again. */
-      m.effect(addingMember, {
-        name: "saveNewMember",
-        sends: [memberListSaved, memberListSaveFailed],
-        fn: (input) =>
-          withPromise({
-            promise: Promise.resolve().then(() =>
-              port.addMember(input.state.payload.entry, input.state.payload.role),
-            ),
-            signal: input.signal,
-            emit: input.emit,
-            events: {
-              success: (result) =>
-                Either.match<typeof result, AddResult>(result, {
-                  onLeft: (err) =>
-                    memberListSaveFailed.create({
-                      reason: err.reason,
-                      entry: input.state.payload.entry,
-                    }),
-                  onRight: () => memberListSaved.create(),
-                }),
-              error: (cause) =>
-                memberListSaveFailed.create({
-                  reason: String(cause),
-                  entry: input.state.payload.entry,
-                }),
-            },
-          }),
-      });
-      /** The member list was saved, so the person becomes a member. */
-      m.on(addingMember, {
-        event: memberListSaved,
-        to: [memberOfAlbum],
-        handler: (_e, { actor }) => {
-          const { payload } = actor.snapshot();
-          const role = isApproved(payload) ? payload.role : "member";
-          return {
-            state: memberOfAlbum.create({ role }),
-            emit: [
-              memberJoined.create({ memberKey }),
-              requestAnswered.create({ answer: "accepted" }),
-            ],
-          };
-        },
-      });
-      /** The member list could not be saved, so the request goes back to waiting. */
-      m.on(addingMember, {
-        event: memberListSaveFailed,
-        to: [requestWaitingForAdmin],
-        handler: (e, { context }) => {
-          context.set({ accepted: false });
-          return { state: requestWaitingForAdmin.create(e.payload.entry) };
-        },
-      });
-      /** The Admin picks a different role, so the new role is saved next. */
-      m.on(memberOfAlbum, {
-        event: changeRole,
-        to: [savingRole],
-        handler: (e, { actor }) => {
-          const { payload } = actor.snapshot();
-          const from = isRole(payload) ? payload.role : "member";
-          return { state: savingRole.create({ from, to: e.payload.role }) };
-        },
-      });
-      /** The new role is saved; if it cannot be, the member keeps the old role. */
-      m.effect(savingRole, {
-        name: "saveRole",
+      /** The role is saved; if it cannot be, the person stays a Viewer. */
+      m.effect(makingCollaborator, {
+        name: "saveCollaborator",
         sends: [roleSaved, roleSaveFailed],
         fn: (input) =>
           withPromise({
-            promise: Promise.resolve().then(() => port.setRole(memberKey, input.state.payload.to)),
+            promise: Promise.resolve().then(() => port.makeCollaborator()),
             signal: input.signal,
             emit: input.emit,
             events: {
@@ -292,77 +123,95 @@ export function createMembershipActor(options: {
             },
           }),
       });
-      /** The new role was saved, so the member has it. */
-      m.on(savingRole, {
+      /** The role was saved, so the person is a Collaborator. */
+      m.on(makingCollaborator, {
         event: roleSaved,
-        to: [memberOfAlbum],
-        handler: (_e, { actor }) => {
-          const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: memberOfAlbum.create({ role: payload.to }) } : {};
-        },
+        to: [collaboratorInAlbum],
+        handler: (_e, { actor }) => ({
+          state: collaboratorInAlbum.create({ joinedAt: joinedAtOf(actor.snapshot().payload) }),
+        }),
       });
-      /** The new role could not be saved, so the member keeps the old role. */
-      m.on(savingRole, {
+      /** The role could not be saved, so the person stays a Viewer. */
+      m.on(makingCollaborator, {
         event: roleSaveFailed,
-        to: [memberOfAlbum],
-        handler: (_e, { actor }) => {
-          const { payload } = actor.snapshot();
-          return isChange(payload) ? { state: memberOfAlbum.create({ role: payload.from }) } : {};
+        to: [viewerInAlbum],
+        handler: (_e, { actor }) => ({
+          state: viewerInAlbum.create({ joinedAt: joinedAtOf(actor.snapshot().payload) }),
+        }),
+      });
+
+      /** A Viewer's left note is newer than their join, so they are taken off the lists; an older note changes nothing. */
+      m.on(viewerInAlbum, {
+        event: leftNoteRead,
+        to: [markingAsLeft],
+        handler: (e, { actor }) => {
+          const joinedAt = joinedAtOf(actor.snapshot().payload);
+          if (e.payload.leftAt <= joinedAt) return {};
+          return { state: markingAsLeft.create({ joinedAt, role: "reader" }) };
         },
       });
-      /** The Admin removes the member, so they are taken out of the list next. */
-      m.on(memberOfAlbum, {
-        event: removeMember,
-        to: [removingMember],
-        handler: (_e, { actor }) => {
-          const { payload } = actor.snapshot();
-          return {
-            state: removingMember.create({ role: isRole(payload) ? payload.role : "member" }),
-          };
+      /** A Collaborator's left note is newer than their join, so they are taken off the lists; an older note changes nothing. */
+      m.on(collaboratorInAlbum, {
+        event: leftNoteRead,
+        to: [markingAsLeft],
+        handler: (e, { actor }) => {
+          const joinedAt = joinedAtOf(actor.snapshot().payload);
+          if (e.payload.leftAt <= joinedAt) return {};
+          return { state: markingAsLeft.create({ joinedAt, role: "member" }) };
         },
       });
-      /** The member is removed from the album's member list; if the list cannot be written, removing fails and the member stays. */
-      m.effect(removingMember, {
-        name: "saveRemoval",
-        sends: [removalSaved, removalFailed],
+      /** They left while the Admin was making them a Collaborator: leaving wins, so they are taken off whichever list holds them. */
+      m.on(makingCollaborator, {
+        event: leftNoteRead,
+        to: [markingAsLeft],
+        handler: (e, { actor }) => {
+          const joinedAt = joinedAtOf(actor.snapshot().payload);
+          if (e.payload.leftAt <= joinedAt) return {};
+          return { state: markingAsLeft.create({ joinedAt, role: "reader" }) };
+        },
+      });
+      /** The leaver is taken off the lists and noted as left. */
+      m.effect(markingAsLeft, {
+        name: "markLeft",
+        sends: [leaverMarked, leaverMarkFailed],
         fn: (input) =>
           withPromise({
-            promise: Promise.resolve().then(() => port.removeMember(memberKey)),
+            promise: Promise.resolve().then(() => port.markLeft()),
             signal: input.signal,
             emit: input.emit,
             events: {
               success: (result) =>
-                Either.match<typeof result, DropResult>(result, {
-                  onLeft: (err) => removalFailed.create({ reason: err.reason }),
-                  onRight: () => removalSaved.create(),
+                Either.match<typeof result, MarkResult>(result, {
+                  onLeft: (err) => leaverMarkFailed.create({ reason: err.reason }),
+                  onRight: () => leaverMarked.create(),
                 }),
-              error: (cause) => removalFailed.create({ reason: String(cause) }),
+              error: (cause) => leaverMarkFailed.create({ reason: String(cause) }),
             },
           }),
       });
-      /** The member was taken out, so they are now removed. */
-      m.on(removingMember, {
-        event: removalSaved,
-        to: [removed],
-        handler: () => ({ state: removed, emit: [memberRemoved.create({ memberKey })] }),
+      /** They are off the lists, so they have left. */
+      m.on(markingAsLeft, {
+        event: leaverMarked,
+        to: [left],
+        handler: () => ({ state: left }),
       });
-      /** Taking the member out failed, so they stay a member. */
-      m.on(removingMember, {
-        event: removalFailed,
-        to: [memberOfAlbum],
+      /** Taking them off failed, so they stay in the album with the role they had. */
+      m.on(markingAsLeft, {
+        event: leaverMarkFailed,
+        to: [viewerInAlbum, collaboratorInAlbum],
         handler: (_e, { actor }) => {
           const { payload } = actor.snapshot();
-          return {
-            state: memberOfAlbum.create({ role: isRole(payload) ? payload.role : "member" }),
-          };
+          if (!isLeaving(payload)) return {};
+          return payload.role === "member"
+            ? { state: collaboratorInAlbum.create({ joinedAt: payload.joinedAt }) }
+            : { state: viewerInAlbum.create({ joinedAt: payload.joinedAt }) };
         },
       });
     },
   });
 }
 
-/** What fuzzing must never and must always see: nobody is added without the Admin's accept, and an accepted request still becomes a member. */
+/** What fuzzing must always see: a person who leaves ends as left. */
 export const membershipExpectations: Expectations<typeof createMembershipActor> = {
-  addingMember: { neverSee: [{ accepted: false }] },
-  memberOfAlbum: { neverSee: [{ accepted: false }], mustSee: [{ accepted: true }] },
+  leftAlbum: { mustSee: [{}] },
 };

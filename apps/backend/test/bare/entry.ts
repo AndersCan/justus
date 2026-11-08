@@ -183,41 +183,23 @@ await Promise.race([wiredWorlds.destroy(), new Promise((r) => setTimeout(r, 5_00
 {
   const started = Date.now();
   try {
-    const entry = {
-      requesterKey: "a".repeat(64),
-      requesterName: "Ann",
-      shareKey: "b".repeat(64),
-      folderName: "Trip",
-      requestedAt: 1,
-    };
     const actor = createMembershipActor({
       clock: VirtualClock(),
       port: {
-        addMember: () => Promise.resolve(Either.right()),
-        setRole: () => Promise.resolve(Either.right()),
-        removeMember: () => Promise.resolve(Either.right()),
+        makeCollaborator: () => Promise.resolve(Either.right()),
+        markLeft: () => Promise.resolve(Either.right()),
       },
-      memberKey: entry.requesterKey,
     });
     const states: string[] = [];
-    actor.send({ type: "requestQueued", payload: entry });
+    actor.send({ type: "makeCollaborator" });
     await actor.settled();
     states.push(String(actor.state.name));
-    actor.send({ type: "accept", payload: { role: "reader" } });
-    await actor.settled();
-    states.push(String(actor.state.name));
-    actor.send({ type: "changeRole", payload: { role: "member" } });
-    await actor.settled();
-    states.push(String(actor.state.name));
-    actor.send({ type: "removeMember" });
+    actor.send({ type: "leftNoteRead", payload: { leftAt: 2 } });
     await actor.settled();
     states.push(String(actor.state.name));
     const got = states.join(",");
-    if (got !== "requestWaitingForAdmin,memberOfAlbum,memberOfAlbum,removedFromAlbum")
-      throw new Error(`unexpected states ${got}`);
-    console.log(
-      `ok   membership-machine: request, accept, change role, remove (${Date.now() - started}ms)`,
-    );
+    if (got !== "collaboratorInAlbum,leftAlbum") throw new Error(`unexpected states ${got}`);
+    console.log(`ok   membership-machine: make Collaborator, leave (${Date.now() - started}ms)`);
   } catch (e) {
     failed++;
     console.log(
