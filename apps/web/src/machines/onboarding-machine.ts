@@ -26,6 +26,11 @@ export type OnboardingStateName = (typeof ONBOARDING_STATES)[number];
 
 const nameOf = stateNameOf(ONBOARDING_STATES);
 
+/** The app's tabs show everywhere except the first-run welcome before the name is saved. */
+export function showsAppNav(route: string | undefined, onboardingState: ReturnType<typeof nameOf>) {
+  return route !== "welcome" || onboardingState === "choosingCreateOrJoin";
+}
+
 /** The onboarding UI's view model as a pure function of the actor snapshot and
  * the device's saved name (owned by folders). */
 export function onboardingViewModel(s: Snapshot<OnboardingContext>, userName: string) {

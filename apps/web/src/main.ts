@@ -7,6 +7,7 @@ import { transport } from "./gateway";
 import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
+import { onboardingActor, onboardingViewModel, showsAppNav } from "./machines/onboarding-machine";
 import { requests, requestsActor } from "./machines/requests-machine";
 import { syncActor, sync } from "./machines/sync-machine";
 import { updateBanner, updateLines } from "./views/notices";
@@ -160,23 +161,38 @@ function navLink(
   >`;
 }
 
-function navLinks(layout: "rail" | "tab") {
+function navLinks(page: AppPage | undefined, layout: "rail" | "tab") {
+  return watch(requestsActor, (q) =>
+    NAV.map((item) => navLink(page, item, layout, q.context.requests.length)),
+  );
+}
+
+function withAppNav<T>(pick: (shows: boolean, page: AppPage | undefined) => T) {
   return watch(routerActor, (r) =>
-    watch(requestsActor, (q) =>
-      NAV.map((item) => navLink(r.context.page, item, layout, q.context.requests.length)),
+    watch(onboardingActor, (o) =>
+      pick(showsAppNav(r.context.page?.route, onboardingViewModel(o, "").state), r.context.page),
     ),
   );
 }
 
+const sideRail = (page: AppPage | undefined) => html`<aside
+  class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
+>
+  <span class="px-3 pb-5">${wordmark("h-8 w-auto")}</span>
+  <nav class="flex flex-col gap-1" aria-label=${copy("app.main")}>${navLinks(page, "rail")}</nav>
+</aside>`;
+
+const bottomTabs = (page: AppPage | undefined) => html`<nav
+  class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+  aria-label=${copy("app.main")}
+>
+  ${navLinks(page, "tab")}
+</nav>`;
+
 render(
   html`
-    <div class="min-h-screen bg-canvas text-fg md:pl-60">
-      <aside
-        class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
-      >
-        <span class="px-3 pb-5">${wordmark("h-8 w-auto")}</span>
-        <nav class="flex flex-col gap-1" aria-label=${copy("app.main")}>${navLinks("rail")}</nav>
-      </aside>
+    <div class="min-h-screen bg-canvas text-fg ${withAppNav((shows) => (shows ? "md:pl-60" : ""))}">
+      ${withAppNav((shows, page) => (shows ? sideRail(page) : null))}
       <!-- No mobile app bar: the bottom tabs carry navigation. This strip only
            keeps scrolled content out from under the status bar. -->
       <div
@@ -200,12 +216,7 @@ render(
         })}
         ${watch(routerActor, (s) => cache(routeView(s.context.page)))}
       </main>
-      <nav
-        class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-        aria-label=${copy("app.main")}
-      >
-        ${navLinks("tab")}
-      </nav>
+      ${withAppNav((shows, page) => (shows ? bottomTabs(page) : null))}
     </div>
     ${lightboxView()} ${joinSheet()}
   `,
