@@ -2834,6 +2834,20 @@
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": ""
   },
+  "lightbox.who_deletes_viewer": {
+    "text": "Viewers can't delete photos.",
+    "status": "draft",
+    "where": "Photo viewer › who can delete",
+    "who": "Viewers and Collaborators",
+    "screen": "lightbox"
+  },
+  "lightbox.who_deletes_adder_admin": {
+    "text": "Only the person who added this and the Admin can delete it.",
+    "status": "draft",
+    "where": "Photo viewer › who can delete",
+    "who": "Viewers and Collaborators",
+    "screen": "lightbox"
+  },
   "lightbox.delete_2": {
     "text": "Delete",
     "status": "draft",

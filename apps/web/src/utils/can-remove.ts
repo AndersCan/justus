@@ -14,3 +14,18 @@ export function roleFor(
 ): Role {
   return folders.find((f) => f.id === photo.folderId)?.role ?? "reader";
 }
+
+/** Which line says why this phone can't delete the photo; undefined when it can, or the album is unknown or removed. */
+export function whyNoDelete(
+  photo: Pick<Photo, "mine">,
+  album: Pick<FolderSummary, "role" | "notice"> | undefined,
+): "viewer" | "adder_admin" | undefined {
+  if (album === undefined || album.notice?.kind === "removed") return undefined;
+  if (canRemove(photo, album.role)) return undefined;
+  switch (album.role) {
+    case "reader":
+      return "viewer";
+    default:
+      return "adder_admin";
+  }
+}

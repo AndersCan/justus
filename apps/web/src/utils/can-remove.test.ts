@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { canRemove, roleFor } from "./can-remove";
+import { canRemove, roleFor, whyNoDelete } from "./can-remove";
 
 describe("canRemove", () => {
   test("Admin removes any photo", () => {
@@ -32,5 +32,26 @@ describe("roleFor", () => {
   test("the same id in another album does not match", () => {
     expect(roleFor({ folderId: "f1" }, folders)).toBe("creator");
     expect(roleFor({ folderId: "f1" }, [folders[1]])).toBe("reader");
+  });
+});
+
+describe("whyNoDelete", () => {
+  test("a viewer reads the viewer line", () => {
+    expect(whyNoDelete({ mine: true }, { role: "reader" })).toBe("viewer");
+  });
+  test("a collaborator on someone else's photo reads the adder and Admin line", () => {
+    expect(whyNoDelete({ mine: false }, { role: "member" })).toBe("adder_admin");
+  });
+  test("no line when the phone can delete", () => {
+    expect(whyNoDelete({ mine: true }, { role: "member" })).toBeUndefined();
+    expect(whyNoDelete({ mine: false }, { role: "creator" })).toBeUndefined();
+  });
+  test("no line in a removed album", () => {
+    expect(
+      whyNoDelete({ mine: false }, { role: "reader", notice: { kind: "removed" } }),
+    ).toBeUndefined();
+  });
+  test("no line when the album is unknown", () => {
+    expect(whyNoDelete({ mine: false }, undefined)).toBeUndefined();
   });
 });
