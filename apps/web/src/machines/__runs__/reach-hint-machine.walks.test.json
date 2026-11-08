@@ -1,0 +1,26 @@
+{
+  "reach": [
+    {
+      "name": "Nobody in Trip can be reached, and after a while Anna sees the WiFi hint",
+      "end": "showingWifiHint",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "UNREACHABLE",
+          "payload": {
+            "name": "Nils"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 30000
+        },
+        {
+          "kind": "event",
+          "event": "DUE",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}
