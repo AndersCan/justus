@@ -43,6 +43,7 @@ jobs:
       - name: Build site
         run: pnpm site:build
         env:
+          GH_TOKEN: ${{ github.token }}
           SITE_BASE: ${{ github.event_name == 'pull_request' && format('/justus/pr/{0}', github.event.pull_request.number) || '/justus' }}
 
       - name: Install Chromium
