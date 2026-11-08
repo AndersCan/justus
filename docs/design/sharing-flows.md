@@ -130,7 +130,7 @@ Today the app does not match these rules:
 
 There is no "never". A request is judged when it reaches the Admin's device. Requests already queued stay acceptable after expiry. **Cancel link** ends a link at once. Every join still needs an Accept, so expiry mostly stops old links from collecting strangers' requests.
 
-Expiry works with no server because only the Admin's phone hands out the key, so only it checks the clock. It cannot stop someone who already has the key from passing it on.
+Today only the joiner's phone checks the end time; the Admin's phone does not, so a link whose end time was cut out still delivers asks (every ask still needs an Accept). Making the Admin's phone check is a follow-up. It cannot stop someone who already has the key from passing it on.
 
 ## Open questions (recommendation in bold)
 
@@ -147,28 +147,30 @@ Auto-accept, Collaborators approving or inviting, handing over the Admin role, u
 
 ## Walks
 
-Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's decision about the person (`membership`). The page has no member list, so every save works there. In the Admin walks the requester's name is a sample ("Ann"), not the name used in the story.
+Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's request list (`requests`, how the app works today). `membership` is a design the app does not run yet. The page has no member list, so every save works there. In the `membership` walks the requester's name is a sample ("Ann"), not the name used in the story.
 
 ### Story 1: two friends
 
-- [Maya asks to join, and Nils accepts her as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&machine=membership&run=Maya%20asks%20to%20join%2C%20and%20Nils%20accepts%20her%20as%20a%20Collaborator)
-- [Maya: asks and is declined](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20declined)
+- [Maya asks to join, and Nils accepts her as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&machine=requests&run=Maya%20asks%20to%20join%2C%20and%20Nils%20accepts%20her%20as%20a%20Collaborator)
 - [Maya: reopens her ask while waiting](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20while%20waiting)
 - [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
 - [Maya: opens a link from before the new key](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
 - [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
 - [Nils turns off the links, it fails, and his link stays shown](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20turns%20off%20the%20links%2C%20it%20fails%2C%20and%20his%20link%20stays%20shown)
-- [Nils: declines the request](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20declines%20the%20request)
+- [Maya: asks and is declined](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&machine=requests&run=Maya%3A%20asks%20and%20is%20declined)
+- Design, not in the app yet: [Nils: declines the request](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20declines%20the%20request)
 
 ### Story 2: a big group where everyone adds photos
 
 A guest's side is the Story 1 Maya walks.
 
-- [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
+- [Three wedding guests ask, and Nils accepts each as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20each%20as%20a%20Collaborator)
+- Design, not in the app yet: [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
 
 ### Story 3: a big group joining your personal album
 
-- [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)
+- [Nils's family asks to look, and he accepts all three as Viewers](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20and%20he%20accepts%20all%20three%20as%20Viewers)
+- Design, not in the app yet: [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)
 
 ### Story 4: archive, leave or delete an album
 

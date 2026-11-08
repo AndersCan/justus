@@ -1,0 +1,281 @@
+{
+  "requests": [
+    {
+      "name": "Maya asks to join, and Nils accepts her as a Collaborator",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Maya",
+                "folderId": "f1",
+                "folderName": "Spain 2026",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1",
+            "approve": true,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya: asks and is declined",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Maya",
+                "folderId": "f1",
+                "folderName": "Spain 2026",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1",
+            "approve": false,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nils's family asks to look, and he accepts all three as Viewers",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Mum",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Dad",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Sara",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL_AS_VIEWERS",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": ["k1", "k2", "k3"]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Three wedding guests ask, and Nils accepts each as a Collaborator",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Ola",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Kari",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Per",
+                "folderId": "f1",
+                "folderName": "Wedding",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1",
+            "approve": true,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2",
+            "approve": true,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k2"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3",
+            "approve": true,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPONDED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k3"
+          }
+        }
+      ]
+    }
+  ]
+}

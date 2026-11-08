@@ -19,6 +19,13 @@ Two people, two phones. Ana wants in; Nils is the Admin.
 | Nils taps Accept all 2 as Viewers | Each lands as a Viewer `joinRequest.joinedAlbum`                                                                                                                                            | Each card leaves as its answer goes; one toast says how many are in `requests.sendingAnswersToAll` |
 | Nils taps Decline                 | "&lt;Admin&gt; didn't accept your request." `joinRequest.declinedByAdmin`                                                                                                                   | `requests.sendingAnswer`                                                                           |
 
+Walks of the Admin's side:
+
+- [Maya asks to join, and Nils accepts her as a Collaborator](?machine=joinRequest&machine=requests&run=Maya%20asks%20to%20join%2C%20and%20Nils%20accepts%20her%20as%20a%20Collaborator)
+- [Maya: asks and is declined](?machine=joinRequest&machine=requests&run=Maya%3A%20asks%20and%20is%20declined)
+- [Three wedding guests ask, and Nils accepts each as a Collaborator](?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20each%20as%20a%20Collaborator)
+- [Nils's family asks to look, and he accepts all three as Viewers](?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20and%20he%20accepts%20all%20three%20as%20Viewers)
+
 Not in the app yet: the Admin's side is planned as `membership.requestWaitingForAdmin`, then `membership.addingMember` and `membership.memberOfAlbum` when accepted, or `membership.requestDeclined` when declined.
 
 Albums joined by key before invite links existed show "Waiting for approval" until the Admin opens Justus (`sync.waitingForAdminApproval`).
