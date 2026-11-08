@@ -120,6 +120,7 @@ layer, Host, Actor). Use those terms exactly.
 - A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/content/docs/<feature>.mdx`.
 - A new backend machine also gets a `pnpm test:bare` scenario.
 - After merge the page is at `https://anderscan.github.io/justus/<feature>/?machine=<id>`.
+- Before merge, a pull request's preview is at `https://anderscan.github.io/justus/pr/<n>/<feature>/?machine=<id>`; the `Site preview of <sha>` comment says when it is live.
 - Refresh the skill with `npx skills update -p`.
 
 ## Agent skills
