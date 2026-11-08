@@ -685,13 +685,6 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.will_lose_their_photos_in": {
-    "text": " {list} will lose their photos in it.",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
   "album.delete": {
     "text": "Delete “{name}”?",
     "status": "draft",
@@ -714,10 +707,24 @@
     "screen": ""
   },
   "album.the_album_and_its_including": {
-    "text": "The album and its {count}, including the ones other people added, are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.{loseLine}",
+    "text": "The album and its {count}, including the ones other people added, will be removed from every member's phone.{now}{later} This can't be undone. Photos saved to a phone's camera roll are not touched.",
     "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
+    "where": "Album › Delete dialog",
+    "who": "Admins deleting an album for everyone",
+    "screen": ""
+  },
+  "album.lose_it_now": {
+    "text": " {list} {n?loses:lose} it now.",
+    "status": "draft",
+    "where": "Album › Delete dialog",
+    "who": "Admins deleting an album for everyone",
+    "screen": ""
+  },
+  "album.lose_it_when_they_connect": {
+    "text": " {list} {n?loses:lose} it the next time {n?their phone connects:their phones connect}.",
+    "status": "draft",
+    "where": "Album › Delete dialog",
+    "who": "Admins deleting an album for everyone",
     "screen": ""
   },
   "album.archive": {

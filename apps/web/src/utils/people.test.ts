@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { JoinRequest, SyncStatus } from "@justus/core";
 import type { RequestRow } from "./people";
-import { buildPeople, clashFriend, presenceLabel, requestRowOf, requestsHint } from "./people";
+import {
+  buildPeople,
+  clashFriend,
+  presenceLabel,
+  nameList,
+  requestRowOf,
+  requestsHint,
+} from "./people";
 
 const NOW = 1_000_000_000;
 
@@ -280,5 +287,17 @@ describe("requestRowOf", () => {
     const row = requestRowOf(r("Ben"), { "i-maya": "Mum" });
     expect(row).toMatchObject({ name: "Ben", friend: false });
     expect("clash" in row).toBe(false);
+  });
+});
+
+describe("nameList", () => {
+  it.each([
+    [[], ""],
+    [["Ann"], "Ann"],
+    [["Ann", "Bo"], "Ann and Bo"],
+    [["Ann", "Bo", "Cy"], "Ann, Bo and Cy"],
+    [["Ann", "Bo", "Cy", "Di", "Ed", "Flo"], "Ann, Bo, Cy, Di, Ed and Flo"],
+  ])("%j", (names, text) => {
+    expect(nameList(names)).toBe(text);
   });
 });

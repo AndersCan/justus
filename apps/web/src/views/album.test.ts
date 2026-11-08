@@ -843,18 +843,30 @@ describe("leave and delete copy", () => {
     expect(deleteSheet("Trip", photos, others)).toEqual({ title, detail });
   });
 
-  const everyone =
-    "are removed from every member's phone. This can't be undone. Photos saved to a phone's camera roll are not touched.";
+  const head = (photos: number) =>
+    `${tail} ${photos === 1 ? "1 photo" : `${photos} photos`}, including the ones other people added, will be removed from every member's phone.`;
+  const rest = " This can't be undone. Photos saved to a phone's camera roll are not touched.";
+  const on = (name: string) => ({ name, connected: true });
+  const off = (name: string) => ({ name, connected: false });
   test.each([
-    [1, ["Ann"], " Ann will lose their photos in it."],
-    [5, ["Ann", "Bo"], " Ann and Bo will lose their photos in it."],
-    [5, ["Ann", "Bo", "Cy"], " Ann, Bo and Cy will lose their photos in it."],
-    [5, ["Ann", "Bo", "Cy", "Di"], ""],
-  ])("with others, %i photos, names %j", (photos, others, lose) => {
-    const count = photos === 1 ? "1 photo" : `${photos} photos`;
+    [1, [on("Ann")], " Ann loses it now."],
+    [1, [off("Ann")], " Ann loses it the next time their phone connects."],
+    [
+      5,
+      [on("Ann"), off("Bo")],
+      " Ann loses it now. Bo loses it the next time their phone connects.",
+    ],
+    [5, [off("Ann"), off("Bo")], " Ann and Bo lose it the next time their phones connect."],
+    [5, [on("Ann"), on("Bo"), on("Cy")], " Ann, Bo and Cy lose it now."],
+    [
+      5,
+      [on("Ann"), on("Bo"), on("Cy"), on("Di"), off("Ed"), off("Flo")],
+      " Ann, Bo, Cy and Di lose it now. Ed and Flo lose it the next time their phones connect.",
+    ],
+  ])("with others, %i photos, %j", (photos, others, lose) => {
     expect(deleteSheet("Trip", photos, others)).toEqual({
       title: "Delete “Trip” for everyone?",
-      detail: `${tail} ${count}, including the ones other people added, ${everyone}${lose}`,
+      detail: head(photos) + lose + rest,
     });
   });
 });
