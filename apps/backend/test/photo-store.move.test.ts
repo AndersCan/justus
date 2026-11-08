@@ -443,7 +443,9 @@ describe("the other phones follow the move by themselves", () => {
 
   it("a Viewer follows without copying anything", async () => {
     const s = await invited();
-    const old = await s.vera.deps.drives.openOwn(`ask/${s.record().invite.code}`);
+    const selfNs = (savedOf(s.vera).folders[0] as { selfNs?: string }).selfNs;
+    expect(selfNs).toBeTruthy();
+    const old = await s.vera.deps.drives.openOwn(selfNs!);
     await old.put("/photos/stray.jpg", Buffer.from("stray"));
     await s.admin.store.removeMember(s.folderId, s.keys.ben);
     const next = s.record().shareKey;
@@ -453,6 +455,75 @@ describe("the other phones follow the move by themselves", () => {
     const copied: string[] = [];
     for await (const e of fresh.list("/photos")) copied.push(e.path);
     expect(copied).toEqual([]);
+    await s.close();
+  }, 40_000);
+
+  it("two offers sent at the same instant start one follow", async () => {
+    const s = await invited();
+    const nilsKey = identityOf(s.nils);
+    let release = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    const drives = s.nils.deps.drives;
+    const real = drives.openOwn.bind(drives);
+    const taken: number[] = [];
+    const network = s.nils.deps.network;
+    const sendAnswer = network.sendAnswer.bind(network);
+    network.sendAnswer = ((conn: number, msg: { kind: string }) => {
+      if (msg.kind === "offerTaken") taken.push(conn);
+      return sendAnswer(conn, msg as never);
+    }) as typeof network.sendAnswer;
+    drives.openOwn = (async (ns: string) => {
+      const drive = await real(ns);
+      if (!ns.startsWith("ask/")) return drive;
+      await gate;
+      return drive;
+    }) as typeof drives.openOwn;
+    const oldKey = s.record().shareKey;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const code = s.record().invite.code as string;
+    const links = (
+      s.admin.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+    ).connections.filter((c) => c.identityKey === nilsKey);
+    for (const link of links) {
+      for (let i = 0; i < 2; i++) {
+        s.admin.deps.network.sendAnswer(link.conn, {
+          kind: "offer",
+          code,
+          albumName: "Trip",
+          ownerName: "Anna",
+          move: { from: [oldKey], role: "member" },
+        });
+      }
+    }
+    await sleep(500);
+    release();
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await sleep(500);
+    expect(links.length).toBeGreaterThan(0);
+    expect(taken).toHaveLength(1);
+    await s.close();
+  }, 40_000);
+
+  it("the follow's own ask is never listed while the follow runs", async () => {
+    const s = await invited();
+    const seen: unknown[] = [];
+    let asked = 0;
+    const deps = s.nils.deps;
+    const onChanged = deps.onChanged.bind(deps);
+    deps.onChanged = ((change: { cause?: string }) => {
+      if (change.cause === "ask") {
+        asked++;
+        void s.nils.store.folders().then((f) => seen.push(...f.asks));
+      }
+      return onChanged(change);
+    }) as typeof deps.onChanged;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await sleep(100);
+    expect(asked).toBeGreaterThan(0);
+    expect(seen).toEqual([]);
     await s.close();
   }, 40_000);
 
