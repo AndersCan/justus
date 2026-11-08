@@ -78,6 +78,14 @@ export function holdersSheet(photo: Photo) {
           ${rows.others.map((m) => personRow(m.name))}
         </ul>
         ${
+          rows.waiting.length > 0
+            ? html`<h4 class="ui-label mt-4">${t("photo_holders.not_on_their_phone_yet")}</h4>
+                <ul>
+                  ${rows.waiting.map((m) => personRow(m.name))}
+                </ul>`
+            : null
+        }
+        ${
           rows.unsure.length > 0
             ? html`<h4 class="ui-label mt-4">${t("photo_holders.hasn_t_said_yet")}</h4>
                 <ul>

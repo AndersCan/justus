@@ -52,6 +52,7 @@ describe("holdersSheet", () => {
     const names = [...el.querySelectorAll("li .text-fg")].map((n) => n.textContent);
     expect(names).toEqual(["You", "Nils"]);
     expect(el.textContent).not.toContain("Hasn't said yet");
+    expect(el.textContent).not.toContain("Not on their phone yet");
     expect(el.textContent).not.toContain("No longer in this album");
     expect(el.textContent).not.toContain("Arriving…");
   });
@@ -63,6 +64,16 @@ describe("holdersSheet", () => {
     expect(el.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
       "Who has this photo",
     );
+  });
+});
+
+describe("holdersSheet waiting", () => {
+  it("shows Not on their phone yet with names, above Hasn't said yet", () => {
+    const el = draw(holdersSheet(photo(h({ waiting: [m("Maya")], unsure: [m("Jo")] }))));
+    const text = el.textContent ?? "";
+    expect(text).toContain("Maya");
+    expect(text.indexOf("Not on their phone yet")).toBeGreaterThan(-1);
+    expect(text.indexOf("Not on their phone yet")).toBeLessThan(text.indexOf("Hasn't said yet"));
   });
 });
 
