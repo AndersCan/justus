@@ -31,18 +31,28 @@ const request = (folderId: string): JoinRequest => ({
 });
 
 describe("buildPeople viewers", () => {
-  it("marks a viewer and says they can only look", () => {
+  it("a viewer gets a presence line like anyone else", () => {
     const s = {
       folder: { id: "f1", role: "creator" },
       members: [
         { key: "me", name: "Maya", admin: true, connected: true },
-        { key: "v", name: "Nils", admin: false, connected: false, viewer: true },
+        { key: "v", name: "Nils", admin: false, connected: true, viewer: true },
+        {
+          key: "w",
+          name: "Vera",
+          admin: false,
+          connected: false,
+          viewer: true,
+          lastSeenAt: NOW - 120_000,
+        },
         { key: "c", name: "Ana", admin: false, connected: false },
       ],
     } as SyncStatus;
-    const [, nils, ana] = buildPeople(s, [], {}, NOW).people;
+    const [, nils, vera, ana] = buildPeople(s, [], {}, NOW).people;
     expect(nils.viewer).toBe(true);
-    expect(nils.presence).toBe("can only look");
+    expect(nils.presence).toBe("connected");
+    expect(vera.viewer).toBe(true);
+    expect(vera.presence).toMatch(/^last seen/);
     expect(ana.viewer).toBe(false);
     expect(ana.presence).toBe("not seen yet");
   });

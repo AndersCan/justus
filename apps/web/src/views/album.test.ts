@@ -438,12 +438,12 @@ describe("album join requests", () => {
 });
 
 describe("album viewer rows", () => {
-  test("a Viewer row says Viewer and can only look, with no dot and no Remove", () => {
+  test("a Viewer row says Viewer with a presence dot and no Remove", () => {
     const viewerStatus = {
       ...status,
       members: [
         { key: "k0", name: "Me", admin: true, connected: true },
-        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
+        { key: "k1", name: "Nils", admin: false, connected: true, identity: "i1", viewer: true },
       ],
     } as unknown as SyncStatus;
     syncActor.send(statusSeen.create({ status: viewerStatus }));
@@ -452,8 +452,8 @@ describe("album viewer rows", () => {
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
     expect(row.textContent).toContain("Viewer");
-    expect(row.textContent).toContain("can only look");
-    expect(row.querySelector("span.h-1\\.5")).toBeNull();
+    expect(row.textContent).toContain("connected");
+    expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     expect(row.textContent).not.toContain("Remove");
     expect(host.textContent).toContain("Viewers see every photo but can't add any.");
   });

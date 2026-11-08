@@ -140,7 +140,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const row = members.locator("li", { hasText: "Viewer" });
   await expect(row).toBeVisible({ timeout: 60_000 });
-  await expect(row).toContainText("can only look");
+  await expect(row).toContainText("connected", { timeout: 30_000 });
 
   await row.getByRole("button", { name: /^Let .* add photos$/ }).click();
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
