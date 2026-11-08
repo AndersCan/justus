@@ -141,11 +141,7 @@
           "event": "ACCEPT_ALL_AS_VIEWERS",
           "payload": {
             "folderId": "f1",
-            "requesterKeys": [
-              "k1",
-              "k2",
-              "k3"
-            ]
+            "requesterKeys": ["k1", "k2", "k3"]
           }
         },
         {
