@@ -20,6 +20,7 @@ import {
   ensureHoldingMarker,
   heldPath,
   holdersFor,
+  markFormerLeft,
   markHeld,
   readFormer,
   readHeld,
@@ -535,6 +536,97 @@ describe("former people", () => {
     await addFormer(from, { name: "Cleo", ids: ids("p1") }, log);
     await copyFormer(from, to);
     expect(await readFormer(to, log)).toEqual([{ name: "Cleo", ids: ids("p1") }]);
+  });
+});
+
+describe("markFormerLeft", () => {
+  const ids = (...list: string[]) => new Set(list);
+  const A1 = "a".repeat(64);
+  const A0 = "b".repeat(64);
+  const none: ReadonlySet<string> = new Set();
+
+  async function seeded() {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Ben", identity: "bb", ids: ids("p2"), album: A1 }, log);
+    await addFormer(drive, { name: "Maya", identity: "mm", ids: ids("p1"), album: A1 }, log);
+    await addFormer(drive, { name: "Old", identity: "oo", ids: ids("p3") }, log);
+    return { drive, log };
+  }
+
+  it("album round-trips, and a non-hex album is dropped on read", async () => {
+    const { drive, log } = await seeded();
+    expect((await readFormer(drive, log)).map((p) => p.album)).toEqual([A1, A1, undefined]);
+    await drive.put(
+      FORMER_PATH,
+      Buffer.from(
+        JSON.stringify({ version: 1, former: [{ name: "X", ids: ["p1"], album: "nope" }] }),
+      ),
+    );
+    expect(await readFormer(drive, log)).toEqual([{ name: "X", ids: ids("p1") }]);
+  });
+
+  it("marks only the matching entry and leaves the others as they were", async () => {
+    const { drive, log } = await seeded();
+    const before = JSON.parse((await drive.readSmall(FORMER_PATH, 1_000_000))!);
+    expect(await markFormerLeft(drive, { identity: "mm", album: A1, current: none }, log)).toEqual([
+      null,
+      "marked",
+    ]);
+    const after = JSON.parse((await drive.readSmall(FORMER_PATH, 1_000_000))!);
+    expect(after.former[1]).toEqual({ ...before.former[1], left: true });
+    expect([after.former[0], after.former[2]]).toEqual([before.former[0], before.former[2]]);
+  });
+
+  it("finds no entry for a wrong album, a wrong identity or an entry without album", async () => {
+    const { drive, log } = await seeded();
+    const text = await drive.readSmall(FORMER_PATH, 1_000_000);
+    for (const input of [
+      { identity: "mm", album: A0 },
+      { identity: "zz", album: A1 },
+      { identity: "oo", album: A1 },
+    ]) {
+      expect(await markFormerLeft(drive, { ...input, current: none }, log)).toEqual([
+        null,
+        "no-entry",
+      ]);
+    }
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(text);
+  });
+
+  it("says already-left the second time and writes nothing", async () => {
+    const { drive, log } = await seeded();
+    await markFormerLeft(drive, { identity: "mm", album: A1, current: none }, log);
+    const text = await drive.readSmall(FORMER_PATH, 1_000_000);
+    expect(await markFormerLeft(drive, { identity: "mm", album: A1, current: none }, log)).toEqual([
+      null,
+      "already-left",
+    ]);
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(text);
+  });
+
+  it("says in-album for someone back in the album and writes nothing", async () => {
+    const { drive, log } = await seeded();
+    const text = await drive.readSmall(FORMER_PATH, 1_000_000);
+    const current = new Set(["mm"]);
+    expect(await markFormerLeft(drive, { identity: "mm", album: A1, current }, log)).toEqual([
+      null,
+      "in-album",
+    ]);
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(text);
+  });
+
+  it("returns the error and writes nothing when the list cannot be read", async () => {
+    const { drive, log } = await seeded();
+    const text = await drive.readSmall(FORMER_PATH, 1_000_000);
+    const read = drive.readSmall.bind(drive);
+    drive.readSmall = async () => {
+      throw new Error("timeout");
+    };
+    const [err] = await markFormerLeft(drive, { identity: "mm", album: A1, current: none }, log);
+    expect(err?.kind).toBe("write-failed");
+    drive.readSmall = read;
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(text);
   });
 });
 

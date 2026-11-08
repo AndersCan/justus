@@ -11,6 +11,8 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
   testers on v0.2.5 or older, already refused by protocol 4. Do: update Justus.
 - **People who left or were removed** (`/former.json` on the album drive, written by the Admin; entries may carry `"left": true`).
   Who: testers on v0.2.5 or older, already refused by protocol 4. Do: update Justus.
+- **A removed person's phone tells the Admin's phone it deleted its copy** (new peer messages `copyDeleted`, `copyDeletedSeen`; `/former.json` entries from a Remove carry `"album"`).
+  Who: testers on v0.2.5 or older, already refused by protocol 4. Do: update Justus.
 - **The Admin's phone turns away asks sent after its invite links ended.** Who: testers who
   sent a link before updating. An invite link sent before this update stops getting asks
   through once the Admin has made a link after updating and that newer link has ended. Do: send

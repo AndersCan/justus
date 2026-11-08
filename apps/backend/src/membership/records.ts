@@ -367,7 +367,7 @@ export const DEFAULT_ASK_ALBUM = "this album";
 /** Shown when a peer's invite names no Admin. */
 export const DEFAULT_ASK_OWNER = "the Admin";
 
-/** Messages between an Admin and a friend about an album invite. `code` is the album's invite code, never a key. */
+/** Messages between an Admin and a friend about an album invite. `code` is the album's invite code, never a key; `album` is an album key's discovery key. */
 export type FriendMessage =
   | {
       kind: "offer";
@@ -380,7 +380,11 @@ export type FriendMessage =
   | { kind: "offerSeen"; code: string }
   | { kind: "offerRefused"; code: string }
   | { kind: "offerWithdrawn"; code: string }
-  | { kind: "offerTaken"; code: string };
+  | { kind: "offerTaken"; code: string }
+  /** A removed phone deleted its copy of the album whose old key has this discovery key. */
+  | { kind: "copyDeleted"; album: string }
+  /** The Admin's phone handled `copyDeleted` for `album`; the sender can stop telling it. */
+  | { kind: "copyDeletedSeen"; album: string };
 
 export type MoveOffer = { from: string[]; role: "member" | "reader" };
 
@@ -405,7 +409,10 @@ export function isFriendMessageShape(value: unknown): boolean {
 /** A friend message off the wire, or undefined when it is malformed. */
 export function parseFriendMessage(value: unknown): FriendMessage | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { kind, code, albumName, ownerName } = value;
+  const { kind, code, albumName, ownerName, album } = value;
+  if (kind === "copyDeleted" || kind === "copyDeletedSeen") {
+    return typeof album === "string" && isHexKey(album) ? { kind, album } : undefined;
+  }
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
   if (kind === "offer") {
     const base = {

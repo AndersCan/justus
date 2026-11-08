@@ -371,6 +371,15 @@ describe("parseFriendMessage", () => {
     }
   });
 
+  test("accepts copyDeleted and copyDeletedSeen with only a hex album", () => {
+    for (const kind of ["copyDeleted", "copyDeletedSeen"] as const) {
+      expect(parseFriendMessage({ kind, album: code, x: 1 })).toEqual({ kind, album: code });
+      expect(parseFriendMessage({ kind, album: "nope" })).toBeUndefined();
+      expect(parseFriendMessage({ kind })).toBeUndefined();
+      expect(parseFriendMessage({ kind, code })).toBeUndefined();
+    }
+  });
+
   test("drops a bad code, an unknown kind and non-objects", () => {
     expect(parseFriendMessage({ kind: "offerSeen", code: "nope" })).toBeUndefined();
     expect(parseFriendMessage({ kind: "offerSeen" })).toBeUndefined();

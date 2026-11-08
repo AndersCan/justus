@@ -4,6 +4,7 @@
  */
 import type { PhotoHolders, PhotoMember } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
+import { isHexKey } from "../membership/records";
 import type { GalleryLog } from "./gallery";
 
 export const HOLDING_PATH = "/holding.json";
@@ -194,6 +195,8 @@ export type FormerPerson = {
   identity?: string;
   ids: ReadonlySet<string>;
   left?: true;
+  /** Discovery key of the album key this person held when removed. Set only by Remove. */
+  album?: string;
 };
 
 /** The Admin's list of people who left or were removed. Junk, a newer version or a slow read gives an empty list. */
@@ -217,11 +220,12 @@ async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]
     const people: FormerPerson[] = [];
     for (const raw of former.slice(0, MAX_FORMER_PEOPLE)) {
       if (typeof raw !== "object" || raw === null) continue;
-      const { name, identity, ids, left } = raw as {
+      const { name, identity, ids, left, album } = raw as {
         name?: unknown;
         identity?: unknown;
         ids?: unknown;
         left?: unknown;
+        album?: unknown;
       };
       if (typeof name !== "string" || name === "" || !Array.isArray(ids)) continue;
       const safe = new Set<string>();
@@ -233,6 +237,7 @@ async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]
         ...(typeof identity === "string" ? { identity } : {}),
         ids: safe,
         ...(left === true ? { left } : {}),
+        ...(typeof album === "string" && isHexKey(album) ? { album } : {}),
       });
     }
     return people;
@@ -248,6 +253,7 @@ async function writeFormer(drive: Drive, people: ReadonlyArray<FormerPerson>): P
     ...(p.identity !== undefined ? { identity: p.identity } : {}),
     ids: [...p.ids].slice(-MAX_FORMER_IDS),
     ...(p.left === true ? { left: true } : {}),
+    ...(p.album !== undefined ? { album: p.album } : {}),
   }));
   await drive.put(FORMER_PATH, Buffer.from(JSON.stringify({ version: 1, former })));
 }
@@ -291,6 +297,35 @@ export async function dropFormer(
     if (left.length === rest.length) return [null, false];
     await writeFormer(drive, left);
     return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
+/**
+ * A removed person's phone says it deleted its copy of the album with this discovery key.
+ * Marks their entry as left. Matches by identity and `album` only, never by name.
+ * `current` are the identities still in the album: someone back in it is never marked.
+ */
+export async function markFormerLeft(
+  drive: Drive,
+  input: { identity: string; album: string; current: ReadonlySet<string> },
+  log: GalleryLog,
+): Promise<HoldersResult<"marked" | "no-entry" | "already-left" | "in-album">> {
+  try {
+    const all = await loadFormer(drive, log);
+    if (all === undefined) {
+      return [{ kind: "write-failed", message: "Cannot read the former list" }, null];
+    }
+    if (input.current.has(input.identity)) return [null, "in-album"];
+    const entry = all.find((p) => p.identity === input.identity && p.album === input.album);
+    if (entry === undefined) return [null, "no-entry"];
+    if (entry.left === true) return [null, "already-left"];
+    await writeFormer(
+      drive,
+      all.map((p) => (p === entry ? { ...p, left: true as const } : p)),
+    );
+    return [null, "marked"];
   } catch (thrown: unknown) {
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }
