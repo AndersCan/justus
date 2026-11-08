@@ -1,4 +1,5 @@
 import type { Photo } from "@justus/core";
+import { copy } from "../copy/copy";
 
 /** What one person's phone holds of an album, as it last told this one. */
 export type Holding = { kind: "count"; held: number } | { kind: "silent" };
@@ -35,7 +36,7 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
 /** The line under a person, or undefined when there is nothing to say (total 0). */
 export function holdingLine(h: Holding | undefined, total: number): string | undefined {
   if (total === 0) return undefined;
-  if (h?.kind === "silent") return "Hasn't said yet which photos they have";
+  if (h?.kind === "silent") return copy("holding.silent");
   const held = h?.held ?? 0;
-  return `Has ${held} of ${total} ${total === 1 ? "photo" : "photos"}`;
+  return copy("holding.count", { held, total });
 }

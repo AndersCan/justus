@@ -147,7 +147,7 @@ export function friendNamesLine(choices: FriendChoice[]): string {
 /** Shown to the Admin while friend invites wait for a friend to open Justus; null when none wait. */
 export function waitingLine(waitingFor: string[] | undefined): string | null {
   if (!waitingFor || waitingFor.length === 0) return null;
-  return "Invites waiting for friends. They go out when both of you have Justus open.";
+  return copy("invite.waiting_for_friends");
 }
 
 /** Invite surface: pick how long the link works, then one tap sends it (share

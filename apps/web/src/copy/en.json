@@ -2547,6 +2547,27 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.waiting_for_friends": {
+    "text": "Invites waiting for friends. They go out when both of you have Justus open.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "holding.silent": {
+    "text": "Hasn't said yet which photos they have",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.count": {
+    "text": "Has {held} of {total} {total?photo:photos}",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
   "invite.invite_people": {
     "text": "Invite people",
     "status": "draft",
