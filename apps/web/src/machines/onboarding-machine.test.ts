@@ -3,6 +3,7 @@ import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import {
   onboardingViewModel,
+  showsAppNav,
   INTRO_CARD_COUNT,
   createOnboardingActor,
   onboarding,
@@ -358,4 +359,21 @@ describe("onboardingViewModel", () => {
     expect(vm.state).toBe("savingName");
     expect(vm.saving).toBe(true);
   });
+});
+
+describe("showsAppNav", () => {
+  test.each([
+    "showingIntroCards",
+    "askingForName",
+    "savingName",
+    "offeringAppLock",
+    "turningOnAppLock",
+  ] as const)("hides the tabs on the welcome during %s", (s) =>
+    expect(showsAppNav("welcome", s)).toBe(false),
+  );
+  test("shows the tabs on Start sharing", () =>
+    expect(showsAppNav("welcome", "choosingCreateOrJoin")).toBe(true));
+  test.each(["gallery", "sharing", "settings", undefined])("shows the tabs on %s", (route) =>
+    expect(showsAppNav(route, "showingIntroCards")).toBe(true),
+  );
 });

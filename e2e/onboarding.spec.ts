@@ -64,3 +64,19 @@ test("creating the first album opens it", async ({ page }) => {
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Add photos to Summer" })).toBeVisible();
 });
+
+test("the tabs stay hidden until the name is saved", async ({ page }) => {
+  const tabs = page.getByRole("navigation", { name: "Main" });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(tabs).toHaveCount(0);
+  await page.getByRole("button", { name: "Skip" }).click();
+  await expect(page.getByLabel("Your name")).toBeVisible();
+  await expect(tabs).toHaveCount(0);
+  await page.getByLabel("Your name").fill("Robin Park");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Start sharing" })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(tabs.getByRole("link", { name: "Photos" })).toBeVisible();
+});
