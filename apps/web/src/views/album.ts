@@ -15,6 +15,7 @@ import {
 } from "../machines/requests-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
+import { requestsHint } from "../utils/people";
 import { formatRelative } from "../utils/time";
 import { avatarBadge } from "./avatar";
 import { roleLabel } from "./albums";
@@ -195,6 +196,13 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">· Friend</span>` : null}
       </p>
       ${
+        p.clash
+          ? html`<p class="truncate text-xs font-semibold text-warn-fg">
+              Not your friend ${p.clash}
+            </p>`
+          : null
+      }
+      ${
         p.friend && p.ownName !== p.name
           ? html`<p class="truncate text-xs text-muted">${p.ownName}</p>`
           : null
@@ -316,6 +324,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
         r.friend ? html`<span class="ml-1 text-xs text-muted">· Friend</span>` : null
       }
     </p>
+    ${r.clash ? html`<p class="text-xs font-semibold text-warn-fg">Not your friend ${r.clash}</p>` : null}
     ${
       r.friend && r.requesterName !== r.name
         ? html`<p class="text-xs text-muted">${r.requesterName}</p>`
@@ -374,18 +383,13 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
   const keys = viewerAcceptKeys(vm.requests, id);
+  const hint = requestsHint(vm.requests);
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
     data-motion-key="section:requests"
   >
     <h2 class="ui-label mb-3">Asking to join</h2>
-    ${
-      vm.requests.some((r) => r.checkCode)
-        ? html`<p class="mb-3 text-xs text-muted">
-            Not sure who it is? Ask them which check code their phone shows.
-          </p>`
-        : null
-    }
+    ${hint !== "" ? html`<p class="mb-3 text-xs text-muted">${hint}</p>` : null}
     ${
       keys.length >= 2
         ? html`<div class="mb-3">
