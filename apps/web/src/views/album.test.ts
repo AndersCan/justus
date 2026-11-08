@@ -318,7 +318,7 @@ describe("album viewer rows", () => {
     const button = host.querySelector<HTMLButtonElement>(
       'button[aria-label^="Let "][aria-label$=" add photos"]',
     );
-    expect(button?.textContent).toContain("Let add photos");
+    expect(button?.textContent?.replace(/\s+/g, " ").trim()).toBe("Let Kimmy add photos");
     button?.click();
     await vi.waitFor(() => expect(gateway.makeMember).toHaveBeenCalledWith("f1", "k1"));
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Kimmy can add photos now"));
@@ -554,5 +554,27 @@ describe("album menu items", () => {
     expect(
       [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
     ).toEqual(["Archive", "Delete album"]);
+  });
+});
+
+describe("album member roles", () => {
+  test("a Collaborator row says Collaborator; Admin and Viewer rows do not", () => {
+    const mixed = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+        { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2", viewer: true },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: mixed }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const rows = [...host.querySelectorAll("li")];
+    const row = (name: string) => rows.find((r) => r.textContent?.includes(name))?.textContent;
+    expect(row("Nils")).toContain("Collaborator");
+    expect(row("Zed")).not.toContain("Collaborator");
+    expect(row("Me")).not.toContain("Collaborator");
   });
 });
