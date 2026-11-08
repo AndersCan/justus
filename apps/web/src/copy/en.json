@@ -795,7 +795,7 @@
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.viewer": {
     "text": "· Viewer",
@@ -963,28 +963,28 @@
     "status": "draft",
     "where": "Album › Invite & members › heading",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.connected_means_they_have_justus": {
     "text": "Connected means they have Justus open and your phone can reach them right now. Everyone in the album sees this list. Viewers see every photo but can't add any.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.add_a_member_by_drive": {
     "text": "Add a member by drive key",
     "status": "draft",
     "where": "Album › Invite & members › heading",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.paste_a_device_s_drive": {
     "text": "Paste a device's drive key and a name to let it add photos without a request.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.device_drive_key_hex": {
     "text": "device drive key (hex)",
@@ -1019,7 +1019,7 @@
     "status": "draft",
     "where": "Album › Invite & members › button",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.show": {
     "text": "Show {name}",
@@ -1033,28 +1033,28 @@
     "status": "draft",
     "where": "Album › Invite & members › section title",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.peers_reachable": {
     "text": "Peers reachable",
     "status": "draft",
     "where": "Album › Invite & members › term",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.photos_2": {
     "text": "Photos",
     "status": "draft",
     "where": "Album › Invite & members › term",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.technical_keys_for_troubleshooting_do": {
     "text": "Technical keys for troubleshooting. Do not share them unless you know what you are doing.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.discovery_key": {
     "text": "Discovery key",
@@ -1075,14 +1075,14 @@
     "status": "draft",
     "where": "Album › Invite & members › heading",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.anyone_with_one_of_these": {
     "text": "Anyone with one of these can see the photos, and they can't be changed.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.share_key": {
     "text": "Share key",
@@ -1117,7 +1117,7 @@
     "status": "draft",
     "where": "Album › Invite & members › link",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.this_album_isn_t_showing": {
     "text": "This album isn't showing right now.",
@@ -1145,7 +1145,7 @@
     "status": "draft",
     "where": "Album › Invite & members › link",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
   "album.can_add_photos_now": {
     "text": "{name} can add photos now",
@@ -1285,7 +1285,7 @@
     "status": "draft",
     "where": "Your albums › link",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "sharing"
   },
   "albums.archived_albums": {
     "text": "Archived albums",
@@ -1425,14 +1425,14 @@
     "status": "draft",
     "where": "Your albums › heading",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "sharing"
   },
   "albums.start_one_per_trip_family": {
     "text": "Start one per trip, family or group.",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "sharing"
   },
   "albums.album_name": {
     "text": "Album name",
@@ -1460,14 +1460,14 @@
     "status": "draft",
     "where": "Your albums › heading",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "join"
   },
   "albums.got_an_invite_link_from": {
     "text": "Got an invite link from someone? Paste it here to ask to join their album.",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "join"
   },
   "albums.paste_the_invite_link": {
     "text": "Paste the invite link",
@@ -1495,14 +1495,14 @@
     "status": "draft",
     "where": "Your albums › button",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "join"
   },
   "albums.continue": {
     "text": "Continue",
     "status": "draft",
     "where": "Your albums › button",
     "who": "Everyone, every time they open Your albums",
-    "screen": ""
+    "screen": "join"
   },
   "albums.tap_an_album_to_invite": {
     "text": "Tap an album to invite people or see who's in it. Each album has its own invite link.",
@@ -1796,7 +1796,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "gallery"
   },
   "gallery.date_added": {
     "text": "Date added",
@@ -1817,7 +1817,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "gallery"
   },
   "gallery.connected_now": {
     "text": "{connected} connected now",
@@ -2118,28 +2118,28 @@
     "status": "draft",
     "where": "Photos › heading",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "gallery"
   },
   "gallery.refresh": {
     "text": "Refresh",
     "status": "draft",
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "gallery"
   },
   "gallery.all_albums": {
     "text": "← All albums",
     "status": "draft",
     "where": "Photos › link",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "album-photos"
   },
   "gallery.invite_members": {
     "text": "Invite & members",
     "status": "draft",
     "where": "Photos › link",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "album-photos"
   },
   "gallery.waiting_for_approval": {
     "text": "{waiting} waiting for approval",
@@ -2174,14 +2174,14 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "albums"
   },
   "gallery.new_album": {
     "text": "New album",
     "status": "draft",
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
+    "screen": "albums"
   },
   "gallery.adding_to": {
     "text": "Adding {what} to",
@@ -2398,14 +2398,14 @@
     "status": "draft",
     "where": "Help › link",
     "who": "People who open Help from Settings",
-    "screen": ""
+    "screen": "help"
   },
   "help.help": {
     "text": "Help",
     "status": "draft",
     "where": "Help › heading",
     "who": "People who open Help from Settings",
-    "screen": ""
+    "screen": "help"
   },
   "help.frequently_asked_questions": {
     "text": "Frequently asked questions",
@@ -2573,7 +2573,7 @@
     "status": "draft",
     "where": "Invite & join › heading",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.ask_for_the_invite_link": {
     "text": "Ask {admin} for the invite link to “{name}”. Only {admin} can let new people in.",
@@ -2608,14 +2608,14 @@
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.link_works_for": {
     "text": "Link works for",
     "status": "draft",
     "where": "Invite & join › label",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.this_link_works_until": {
     "text": "This link works until {end}.",
@@ -2643,14 +2643,14 @@
     "status": "draft",
     "where": "Invite & join › button",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.send_it_in_any_chat": {
     "text": "Send it in any chat. They need Justus installed.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.they_scan_this_with_their": {
     "text": "They scan this with their phone's camera.",
@@ -2671,14 +2671,14 @@
     "status": "draft",
     "where": "Invite & join › button",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.both_of_you_need_justus": {
     "text": "Both of you need Justus open for a request to arrive. It shows up here for you to accept or decline.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
-    "screen": ""
+    "screen": "album"
   },
   "invite.ok": {
     "text": "OK",
@@ -2846,7 +2846,7 @@
     "status": "draft",
     "where": "Photo viewer › text",
     "who": "Everyone who opens a photo",
-    "screen": ""
+    "screen": "lightbox"
   },
   "lightbox.taken": {
     "text": "Taken {date}",
@@ -2895,14 +2895,14 @@
     "status": "draft",
     "where": "Settings › Advanced › Live logs › heading",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.updated": {
     "text": "Updated {time}",
     "status": "draft",
     "where": "Settings › Advanced › Live logs › text",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.resume_live": {
     "text": "Resume live",
@@ -2916,14 +2916,14 @@
     "status": "draft",
     "where": "Settings › Advanced › Live logs › text",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.severity": {
     "text": "Severity",
     "status": "draft",
     "where": "Settings › Advanced › Live logs › label",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.all": {
     "text": "All",
@@ -2965,21 +2965,21 @@
     "status": "draft",
     "where": "Settings › Advanced › Live logs › text",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.copy": {
     "text": "Copy",
     "status": "draft",
     "where": "Settings › Advanced › Live logs › button",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.download": {
     "text": "Download",
     "status": "draft",
     "where": "Settings › Advanced › Live logs › button",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.logs_cleared": {
     "text": "Logs cleared",
@@ -3000,7 +3000,7 @@
     "status": "draft",
     "where": "Settings › Advanced › Live logs › button",
     "who": "People troubleshooting, rarely",
-    "screen": ""
+    "screen": "settings"
   },
   "logs.couldn_t_load_logs": {
     "text": "Couldn't load logs — {error}",
@@ -3182,14 +3182,14 @@
     "status": "draft",
     "where": "Settings › heading",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.your_name_is_shown_to": {
     "text": "Your name is shown to others as the member behind the photos you add and the join requests you send. Your picture stays on this device.",
     "status": "draft",
     "where": "Settings › text",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.your_name": {
     "text": "Your name",
@@ -3217,42 +3217,42 @@
     "status": "draft",
     "where": "Settings › heading",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.photo_grid": {
     "text": "Photo grid",
     "status": "draft",
     "where": "Settings › heading",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.help": {
     "text": "Help",
     "status": "draft",
     "where": "Settings › text",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.how_peer_to_peer_works": {
     "text": "How peer to peer works, WiFi, and who can see an album",
     "status": "draft",
     "where": "Settings › text",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.advanced": {
     "text": "Advanced",
     "status": "draft",
     "where": "Settings › section title",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "settings.settings": {
     "text": "Settings",
     "status": "draft",
     "where": "Settings › heading",
     "who": "Everyone who opens Settings",
-    "screen": ""
+    "screen": "settings"
   },
   "sharing.verified_invite": {
     "text": "verified invite",
@@ -3399,7 +3399,7 @@
     "status": "draft",
     "where": "Sharing › text",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.refreshing": {
     "text": "Refreshing…",
@@ -3420,7 +3420,7 @@
     "status": "draft",
     "where": "Sharing › heading",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.loading": {
     "text": "Loading…",
@@ -3434,35 +3434,35 @@
     "status": "draft",
     "where": "Sharing › text",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.we_ll_ask_once_a": {
     "text": "We'll ask once a day if someone shows up holding one of your albums without an invite.",
     "status": "draft",
     "where": "Sharing › text",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.who_you_share_with": {
     "text": "Who you share with",
     "status": "draft",
     "where": "Sharing › heading",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.just_you_invite_someone_to": {
     "text": "Just you — invite someone to share.",
     "status": "draft",
     "where": "Sharing › text",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "devices"
   },
   "sharing.sharing_2": {
     "text": "Sharing",
     "status": "draft",
     "where": "Sharing › heading",
     "who": "Everyone who opens the Sharing tab",
-    "screen": ""
+    "screen": "sharing"
   },
   "sharing.your_albums": {
     "text": "Your albums",
@@ -3609,14 +3609,14 @@
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome"
   },
   "welcome.skip": {
     "text": "Skip",
     "status": "draft",
     "where": "Welcome › button",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome"
   },
   "welcome.back": {
     "text": "Back",
