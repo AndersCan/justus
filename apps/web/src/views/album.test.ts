@@ -7,7 +7,14 @@ import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { gateway } from "../gateway";
-import { albumMenuItems, albumView, answerToast, deleteSheet, leaveDetail } from "./album";
+import {
+  acceptAllToast,
+  albumMenuItems,
+  albumView,
+  answerToast,
+  deleteSheet,
+  leaveDetail,
+} from "./album";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
@@ -321,6 +328,94 @@ describe("album join requests", () => {
     expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
     await requestsActor.settled();
     await vi.waitFor(() => expect(card("nils")).toBeUndefined());
+  });
+
+  test("two invite requests show Accept all 2 as Viewers above the list", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    const all = button(host, "Accept all 2 as Viewers")!;
+    expect(all).toBeDefined();
+    expect(all.compareDocumentPosition(host.querySelector("li")!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(host.textContent).toContain("They can see the photos but not add or remove any.");
+    for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
+      const h = await show(list);
+      expect([...h.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all"))).toBe(
+        false,
+      );
+    }
+  });
+
+  test("Accept all sends a Viewer answer to each, disables the buttons, then one toast", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    const resolvers: ((v: unknown) => void)[] = [];
+    vi.mocked(gateway.respond).mockImplementation(
+      () => new Promise((r) => resolvers.push(r)) as never,
+    );
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+    await vi.waitFor(() => {
+      expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
+      const rowButtons = [
+        ...host.querySelectorAll<HTMLButtonElement>('li[data-motion-key^="request:"] button'),
+      ];
+      expect(rowButtons.every((b) => b.disabled)).toBe(true);
+    });
+    resolvers[0]([null, { ok: true }]);
+    await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+    expect(toast).not.toHaveBeenCalled();
+    resolvers[1]([null, { ok: true }]);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(gateway.respond).mock.calls).toEqual([
+      ["f1", "nils", true, "reader"],
+      ["f1", "ola", true, "reader"],
+    ]);
+    await requestsActor.settled();
+    vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
+  });
+
+  test("a dropped connection stops Accept all: reason and Retry, no toast; Retry finishes with one toast", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    vi.mocked(gateway.respond)
+      .mockResolvedValueOnce([null, { ok: true }] as never)
+      .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
+      .mockResolvedValueOnce([null, { ok: true }] as never);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
+    expect(host.querySelector("[role=alert]")?.textContent).toContain(
+      "Couldn't connect. Check your internet and try again.",
+    );
+    expect(toast).not.toHaveBeenCalled();
+    button(host, "Retry")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
+    expect(toast).toHaveBeenCalledTimes(1);
+    await requestsActor.settled();
+  });
+
+  test("Decline lowers the count and the button goes at one", async () => {
+    const host = await show([ask("nils", true), ask("ola", true), ask("kim", true)]);
+    vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
+    const decline = (k: string) =>
+      [...host.querySelectorAll("li")]
+        .find((li) => li.textContent?.includes(`${k} wants`))!
+        .querySelectorAll("button");
+    [...decline("nils")].find((b) => name(b) === "Decline")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeDefined());
+    [...decline("ola")].find((b) => name(b) === "Decline")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeUndefined());
+    expect(
+      [...host.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all")),
+    ).toBe(false);
+    await requestsActor.settled();
+    vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
+  });
+
+  test("acceptAllToast: singular and plural", () => {
+    expect(acceptAllToast(1)).toBe("1 person is in as a Viewer");
+    expect(acceptAllToast(13)).toBe("13 people are in as Viewers");
   });
 
   test("answerToast: no toast for a No; Viewer, Collaborator and plain Accept wording", () => {

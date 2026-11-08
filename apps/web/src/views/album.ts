@@ -6,10 +6,12 @@ import { friends, friendsActor } from "../machines/friends-machine";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
+  allAcceptedAsViewers,
   answerSent,
   requests,
   requestsActor,
   requestsViewModel,
+  viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
@@ -149,7 +151,16 @@ export function answerToast(a: {
   return a.viaInvite ? `${a.requesterName} is in as a Collaborator` : `${a.requesterName} is in`;
 }
 
+/** The one toast after Accept all: how many are in. */
+export function acceptAllToast(count: number): string {
+  return count === 1 ? "1 person is in as a Viewer" : `${count} people are in as Viewers`;
+}
+
 onOutput(requestsActor, (e) => {
+  if (e.type === allAcceptedAsViewers.type) {
+    toast(acceptAllToast((e.payload as { count: number }).count));
+    return;
+  }
   if (e.type !== answerSent.type) return;
   const text = answerToast(e.payload as Parameters<typeof answerToast>[0]);
   if (text) toast(text);
@@ -335,11 +346,28 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
 
 function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
+  const keys = viewerAcceptKeys(vm.requests, id);
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
     data-motion-key="section:requests"
   >
     <h2 class="ui-label mb-3">Asking to join</h2>
+    ${
+      keys.length >= 2
+        ? html`<div class="mb-3">
+            <button
+              class="ui-btn-primary w-full"
+              ?disabled=${reqVm.responding}
+              @click=${() => requests.acceptAllAsViewers(id, keys)}
+            >
+              Accept all ${keys.length} as Viewers
+            </button>
+            <p class="mt-1 text-xs text-muted">
+              They can see the photos but not add or remove any.
+            </p>
+          </div>`
+        : null
+    }
     <ul class="space-y-2" ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}>
       ${repeat(vm.requests, requestKey, (r) =>
         requestRow(

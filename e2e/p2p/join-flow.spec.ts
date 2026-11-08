@@ -424,3 +424,31 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     timeout: 60_000,
   });
 });
+
+test("A accepts B and C in one tap as Viewers: both land, A's waiting list is empty", async ({
+  instancePages,
+}) => {
+  test.setTimeout(180_000);
+  const [a, b, c] = instancePages;
+  await skipIntro([a, b, c]);
+  const album = "Group trip";
+  await createAlbum(a, album, PHOTO, 12);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, album);
+  await askToJoin(c, link, album);
+
+  await expect(a.getByText(`wants to join “${album}”`)).toHaveCount(2, { timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept all 2 as Viewers", exact: true }).click();
+  await expect(a.getByText("2 people are in as Viewers")).toBeVisible({ timeout: 30_000 });
+  await expect(a.getByText(/wants to join/)).toHaveCount(0);
+
+  for (const p of [b, c]) {
+    await expect(p).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+    await expect(p.getByText("You're a Viewer: you see every photo here.")).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(p.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+  }
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  await expect(members.locator("li", { hasText: "Viewer" })).toHaveCount(2, { timeout: 60_000 });
+});

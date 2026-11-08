@@ -21,7 +21,8 @@ const repoRoot = resolve(here, "..", "..");
 const HUB_SCRIPT = resolve(repoRoot, "scripts", "e2e-hub.mjs");
 
 export default async function globalSetup() {
-  const count = Number(process.env.JUSTUS_HUB_COUNT || 2);
+  // three phones: an Admin and two who ask (Accept all)
+  const count = Number(process.env.JUSTUS_HUB_COUNT || 3);
   // Ports are overridable so concurrent runs (other checkouts, CI shards) don't collide.
   const ports = [
     ...(process.env.JUSTUS_HUB_DHT_PORT ? ["--dht-port", process.env.JUSTUS_HUB_DHT_PORT] : []),
