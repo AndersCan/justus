@@ -584,6 +584,14 @@ type FolderRuntime = {
   heldBackfilled: boolean;
 };
 
+/** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
+export function adminToTellDeleted(record: {
+  notice?: { kind: string };
+  invite?: { owner?: string };
+}): string | undefined {
+  return record.notice?.kind === "removed" ? record.invite?.owner : undefined;
+}
+
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const fs = deps.fs;
   const path = deps.path;
@@ -2088,7 +2096,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       case "leftAlbum": {
         const removed = rt.record.notice?.kind === "removed";
-        const admin = removed ? rt.record.invite?.owner : undefined;
+        const admin = adminToTellDeleted(rt.record);
         finishLeave(id);
         if (admin) noteDeleted(rt.record, admin);
         else if (removed) log("copyDeleted.noAdmin", { folder: id });

@@ -193,9 +193,32 @@ describe("a removed phone that deletes the album", () => {
   it("a leave by someone still in the album sends nothing", async () => {
     const s = await removed();
     expect((await s.nils.store.leaveAlbum(s.nilsId))[0]).toBeNull();
+    await until(() => goneOf(s.nils).length === 0);
+    expect(goneOf(s.nils)).toEqual([]);
     await sleep(500);
-    expect(goneOf(s.nils).filter((g) => g.kind === "waitingForAdminToHearYouDeleted")).toEqual([]);
+    expect(goneOf(s.nils)).toEqual([]);
     expect((await s.holders(s.anna)).left).toEqual([]);
+    await s.close();
+  }, 40_000);
+
+  it("a copyDeletedSeen from someone who is not the Admin keeps the record", async () => {
+    const s = await removed();
+    await s.anna.store.close();
+    setFakeNodeConnected({ hub: s.hub, node: s.anna.node, connected: false });
+    expect((await s.cleo.store.leaveAlbum(s.cleoId))[0]).toBeNull();
+    await until(() => waiting(s.cleo).length === 1);
+    const shareKey = (goneOf(s.cleo)[0] as unknown as { shareKey: string }).shareKey;
+    const album = s.cleo.deps.drives.discoveryKeyOf(shareKey);
+    const cleoId = identityOf(s.cleo);
+    const links = (
+      s.nils.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+    ).connections.filter((c) => c.identityKey === cleoId);
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      s.nils.deps.network.sendAnswer(link.conn, { kind: "copyDeletedSeen", album });
+    }
+    await sleep(500);
+    expect(waiting(s.cleo)).toHaveLength(1);
     await s.close();
   }, 40_000);
 });
