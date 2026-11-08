@@ -1,0 +1,42 @@
+{
+  "folders": [
+    {
+      "name": "Anna creates the album Trip and sees it in her albums",
+      "end": "showingAlbums",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CREATE_FOLDER",
+          "payload": {
+            "name": "Trip"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CREATED",
+          "payload": {
+            "folder": {
+              "id": "trip",
+              "name": "Trip"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
