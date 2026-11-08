@@ -2270,7 +2270,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   function openViewerDevice(keyHex: string) {
     if (viewerDevices.has(keyHex) || closed) return;
     const opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
-      if (closed) return;
+      if (closed) {
+        void deps.drives.release(drive).catch(() => {});
+        return;
+      }
       let timer: ReturnType<typeof setTimeout> | null = null;
       const off = drive.onChange(() => {
         if (timer) clearTimeout(timer);

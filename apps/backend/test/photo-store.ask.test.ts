@@ -594,6 +594,106 @@ describe("making a Collaborator a Viewer", () => {
     await s.close();
   });
 
+  /** Counts the Viewer's drives the Admin's store opened since now and has not given back. */
+  function spy(s: Awaited<ReturnType<typeof collaborator>>) {
+    const refs = new Map<Drive, number>();
+    const log = {
+      opened: 0,
+      joins: [] as boolean[],
+      held: () => [...refs.values()].reduce((sum, n) => sum + n, 0),
+    };
+    const { drives, network } = s.admin.deps;
+    const open = drives.open.bind(drives);
+    drives.open = (async (key: string, opts: never) => {
+      const [err, drive] = await open(key, opts);
+      if (drive && key === s.key) {
+        log.opened++;
+        refs.set(drive, (refs.get(drive) ?? 0) + 1);
+      }
+      return [err, drive];
+    }) as typeof drives.open;
+    const openAt = drives.openAt.bind(drives);
+    drives.openAt = (async (key: string, version: number, opts: never) => {
+      const [err, drive] = await openAt(key, version, opts);
+      if (drive && key === s.key) refs.set(drive, (refs.get(drive) ?? 0) + 1);
+      return [err, drive];
+    }) as typeof drives.openAt;
+    const release = drives.release.bind(drives);
+    drives.release = (async (drive: Drive) => {
+      const n = refs.get(drive);
+      if (n) refs.set(drive, n - 1);
+      return release(drive);
+    }) as typeof drives.release;
+    const join = network.join.bind(network);
+    network.join = ((topic: string, opts: { server: boolean }) => {
+      log.joins.push(opts.server);
+      return join(topic, opts);
+    }) as typeof network.join;
+    return log;
+  }
+
+  it("reads a Viewer's drive without serving it, and gives it back when they are a Collaborator again", async () => {
+    const s = await collaborator();
+    const log = spy(s);
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    await connect(s);
+    await until(() => log.joins.length > 0);
+    await until(() => log.opened > 0);
+    expect(log.opened, "the Viewer's drive is opened for its device.json").toBeGreaterThan(0);
+    expect(log.joins.length).toBeGreaterThan(0);
+    expect(log.joins, "read-only").not.toContain(true);
+    expect((await s.admin.store.makeMember(s.folderId, s.key))[0]).toBeNull();
+    await s.admin.store.status();
+    await until(() => log.held() === 1);
+    expect(log.held(), "only the Collaborator's own drive is held").toBe(1);
+    await s.close();
+  });
+
+  it("gives the Viewer's drive back when the Admin's store closes", async () => {
+    const s = await collaborator();
+    const log = spy(s);
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    await connect(s);
+    await until(() => log.joins.length > 0);
+    await until(() => log.opened > 0);
+    await s.admin.store.close();
+    expect(log.held(), "every open of the Viewer's drive was given back").toBe(0);
+    await s.close();
+  });
+
+  it("a closed store does not keep a Viewer's drive that finished opening late", async () => {
+    const s = await collaborator();
+    const log = spy(s);
+    const open = s.admin.deps.drives.open.bind(s.admin.deps.drives);
+    let gate: () => void = () => {};
+    let waiting = 0;
+    let armed = false;
+    const held = new Promise<void>((r) => (gate = r));
+    s.admin.deps.drives.open = (async (key: string, opts: never) => {
+      if (key === s.key && armed) {
+        waiting++;
+        await held;
+      }
+      return open(key, opts);
+    }) as typeof s.admin.deps.drives.open;
+    expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
+    armed = true;
+    await connect(s);
+    await until(() => waiting > 0);
+    expect(waiting).toBeGreaterThan(0);
+    // The late open settles while the store is closing, before its drives shut.
+    const closeNetwork = s.admin.deps.network.close.bind(s.admin.deps.network);
+    s.admin.deps.network.close = async () => {
+      gate();
+      await new Promise((r) => setTimeout(r, 100));
+      return closeNetwork();
+    };
+    await s.admin.store.close();
+    await until(() => log.held() === 0);
+    expect(log.held(), "every drive opened was given back").toBe(0);
+    await s.close();
+  });
+
   it("a Viewer can be made a Collaborator again", async () => {
     const s = await collaborator();
     expect((await s.admin.store.makeViewer(s.folderId, s.key))[0]).toBeNull();
