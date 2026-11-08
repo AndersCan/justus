@@ -181,3 +181,36 @@ describe("a friend invited before a Remove", () => {
     await s.close();
   });
 });
+
+describe("a held friend invite after a Remove", () => {
+  it("is dropped when the Admin takes the invite back", async () => {
+    const s = await scene();
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    expect(s.record().heldAsks?.[identityOf(s.kim)]).toBeDefined();
+    expect((await s.admin.store.takeBackOffer(s.folderId, identityOf(s.kim)))[0]).toBeNull();
+    expect(s.record().heldAsks).toBeUndefined();
+    await s.close();
+  });
+
+  it("is dropped when the Admin turns off links", async () => {
+    const s = await scene();
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    expect(s.record().heldAsks?.[identityOf(s.kim)]).toBeDefined();
+    expect((await s.admin.store.turnOffInvite(s.folderId))[0]).toBeNull();
+    expect(s.record().heldAsks).toBeUndefined();
+    await s.close();
+  });
+
+  it("is never kept for the person removed, even if they also hold an invite", async () => {
+    const s = await scene();
+    const benId = identityOf(s.ben);
+    const offered = await s.admin.store.offerAlbum(s.folderId, benId, "reader");
+    expect(offered[0]).toBeNull();
+    await until(() => s.invited().includes(benId));
+    expect(s.invited()).toContain(benId);
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    expect(s.record().heldAsks?.[benId]).toBeUndefined();
+    expect(s.record().heldAsks?.[identityOf(s.kim)]).toBeDefined();
+    await s.close();
+  });
+});

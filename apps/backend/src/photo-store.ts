@@ -604,6 +604,16 @@ export function adminToTellDeleted(record: {
   return record.notice?.kind === "removed" ? record.invite?.owner : undefined;
 }
 
+/** `held` without these identities; undefined once empty. */
+function withoutHeld(
+  held: Record<string, string> | undefined,
+  identities: string[],
+): Record<string, string> | undefined {
+  if (!held) return undefined;
+  const left = Object.fromEntries(Object.entries(held).filter(([id]) => !identities.includes(id)));
+  return Object.keys(left).length > 0 ? left : undefined;
+}
+
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const fs = deps.fs;
   const path = deps.path;
@@ -5086,9 +5096,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         album: rt.record,
         newCode: newInviteCode(),
       });
+      const dropHeldFor = [...(rt.record.invited ?? [])];
       rt.record.invited = undefined;
       rt.record.offerOwed = undefined;
       rt.record.invitedRoles = undefined;
+      rt.record.heldAsks = withoutHeld(rt.record.heldAsks, dropHeldFor);
       rt.record.invite = next.invite;
       if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
@@ -5097,6 +5109,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.invited = undefined;
         persisted.offerOwed = undefined;
         persisted.invitedRoles = undefined;
+        persisted.heldAsks = withoutHeld(persisted.heldAsks, dropHeldFor);
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
@@ -5208,6 +5221,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const left = (target.invited ?? []).filter((i) => i !== identity);
         target.invited = left.length > 0 ? left : undefined;
         target.offerOwed = dropOwed(target.offerOwed, identity);
+        target.heldAsks = withoutHeld(target.heldAsks, [identity]);
         target.invitedRoles = keepInvitedRoles(
           target.invitedRoles,
           target.invited,
