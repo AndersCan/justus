@@ -129,6 +129,60 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   });
 });
 
+test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  const album = "Kept trip";
+  const kept = "hub-kept.png";
+  await createAlbum(a, album, PHOTO, 11);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, album);
+
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept, and let them add photos", exact: true }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  await b.setInputFiles("input[type=file]", {
+    name: kept,
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(23)),
+  });
+  await a.getByRole("link", { name: "See photos in this album" }).click();
+  await expect(a.getByRole("button", { name: `View ${kept}` })).toBeVisible({ timeout: 60_000 });
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  await members.getByRole("button", { name: /^Make .* a Viewer$/ }).click();
+  await a.getByRole("button", { name: "Make Viewer", exact: true }).click();
+
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0, {
+    timeout: 60_000,
+  });
+  await expect(b.getByText("You're a Viewer: you see every photo here.")).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(members.locator("li", { hasText: "Viewer" })).toBeVisible({ timeout: 60_000 });
+
+  await a.getByRole("link", { name: "See photos in this album" }).click();
+  for (const page of [a, b]) {
+    await expect(page.getByRole("button", { name: `View ${kept}` })).toBeVisible();
+  }
+  await b.goto("/sharing");
+  await b.getByText(album).click();
+  await b.getByRole("link", { name: "See photos in this album" }).click();
+  await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible({ timeout: 60_000 });
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+});
+
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
   instancePages,
 }) => {
