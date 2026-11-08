@@ -145,6 +145,7 @@ export const gateway = {
   friends: {
     list: () => invoke(friendEvents.list()),
     add: (identity: string, name: string) => invoke(friendEvents.add(identity, name)),
+    rename: (identity: string, name: string) => invoke(friendEvents.rename(identity, name)),
     remove: (identity: string) => invoke(friendEvents.remove(identity)),
   },
   grants: {

@@ -18,6 +18,12 @@ export const friendSpecs = {
     args: {} as { identity: string; name: string },
     result: {} as { friend: Friend },
   },
+  rename: {
+    pluginId: "justus.friends",
+    name: "friends.rename",
+    args: {} as { identity: string; name: string },
+    result: {} as { friend: Friend },
+  },
   remove: {
     pluginId: "justus.friends",
     name: "friends.remove",
@@ -32,6 +38,9 @@ export const friendEvents = {
   },
   add(identity: string, name: string) {
     return invokeEvent(friendSpecs.add, { identity, name }, null, FRIENDS_TIMEOUT_MS);
+  },
+  rename(identity: string, name: string) {
+    return invokeEvent(friendSpecs.rename, { identity, name }, null, FRIENDS_TIMEOUT_MS);
   },
   remove(identity: string) {
     return invokeEvent(friendSpecs.remove, { identity }, null, FRIENDS_TIMEOUT_MS);

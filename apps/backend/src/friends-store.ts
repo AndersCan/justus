@@ -8,6 +8,7 @@ type FriendsStoreOpts = { dir: string; files: Files; paths: Paths };
 export type FriendsStore = {
   list(): [null, Friend[]] | [CoreError, null];
   add(identity: string, name: string): Promise<[null, Friend] | [CoreError, null]>;
+  rename(identity: string, name: string): Promise<[null, Friend] | [CoreError, null]>;
   remove(identity: string): Promise<[null, { removed: boolean }] | [CoreError, null]>;
 };
 
@@ -81,6 +82,24 @@ export function createFriendsStore(opts: FriendsStoreOpts): FriendsStore {
       if (existing !== undefined) return ok({ identity: key, name: existing });
       const trimmed = name.trim().slice(0, FRIEND_NAME_MAX);
       if (trimmed === "") return err(FriendError.NAME_REQUIRED, "name is required");
+      const next = new Map(friends).set(key, trimmed);
+      try {
+        write(next);
+      } catch (e) {
+        return err(FriendError.WRITE_FAILED, `could not save friends: ${String(e)}`);
+      }
+      cache = next;
+      return ok({ identity: key, name: trimmed });
+    },
+    async rename(identity, name) {
+      if (!isHexKey(identity)) {
+        return err(FriendError.INVALID_KEY, "identity must be 64 hex characters");
+      }
+      const key = identity.toLowerCase();
+      const trimmed = name.trim().slice(0, FRIEND_NAME_MAX).trim();
+      if (trimmed === "") return err(FriendError.NAME_REQUIRED, "name is required");
+      const friends = load();
+      if (!friends.has(key)) return err(FriendError.NOT_FOUND, "that person is not saved");
       const next = new Map(friends).set(key, trimmed);
       try {
         write(next);
