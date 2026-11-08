@@ -3,14 +3,17 @@
  * back from a peer's drive, and clearing an album's photos. photo-store keeps
  * the saved records, the actors and the drives they run on.
  *
- * LIMITATION(#376): a phone hears the delete only while the Admin's phone can
- * still be reached. If the Admin uninstalls before an away member comes back,
- * that member keeps the album.
+ * A member's phone that hears the delete keeps the note and serves it for
+ * `PASS_ON_DELETE_MS`, so a member who was away hears it from any member who
+ * heard it. One who meets nobody in that time keeps the album.
  * LIMITATION(#377): a drive's history keeps old file names and dates after
  * `del`; only the bytes are gone. There is no fix short of a new drive.
  */
 import { DEFAULT_ASK_OWNER, isTextJSON, peerName } from "../membership/records";
 import type { Drive } from "../ports/drive-store";
+
+/** A member's phone keeps and serves the Admin's delete note this long after hearing it. */
+export const PASS_ON_DELETE_MS = 90 * 24 * 60 * 60 * 1000;
 
 export const DRIVE_PATH_DELETED = "/deleted.json";
 export const DRIVE_PATH_LEFT = "/left.json";

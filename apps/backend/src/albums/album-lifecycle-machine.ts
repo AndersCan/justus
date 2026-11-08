@@ -9,7 +9,7 @@ export type Role = "creator" | "member" | "reader";
 
 export type PortError = { reason: string };
 
-/** What removeCopy leaves on this phone. */
+/** What removeCopy leaves on this phone: `deleteNote` keeps the Admin's delete note (the Admin also keeps its own drive without photos). */
 export type Keep = "nothing" | "leftNote" | "deleteNote";
 
 export type AlbumLifecyclePort = {
@@ -55,7 +55,7 @@ const leftAlbum = state("leftAlbum")().final();
 const deletingForEveryone = state("deletingForEveryone")();
 /** The Admin's phone keeps only the delete note and offers it to members who were away. */
 const deletedForEveryone = state("deletedForEveryone")().final();
-/** This phone heard that the Admin deleted the album and is removing its copy. */
+/** This phone heard that the Admin deleted the album and removes its copy, keeping only the delete note to pass on. */
 const removingDeletedAlbum = state("removingDeletedAlbum")<{ adminName: string }>();
 /** Gone from this phone; the notice shows until dismissed. */
 const deletedByAdmin = state("deletedByAdmin")<{ adminName: string }>().final();
@@ -358,7 +358,7 @@ export function createAlbumLifecycleActor(options: {
         sends: [deletedAlbumRemoved],
         fn: (input) =>
           withPromise({
-            promise: Promise.resolve().then(() => port.removeCopy("nothing")),
+            promise: Promise.resolve().then(() => port.removeCopy("deleteNote")),
             signal: input.signal,
             emit: input.emit,
             events: {

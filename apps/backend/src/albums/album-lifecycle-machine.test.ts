@@ -235,7 +235,7 @@ describe("album lifecycle", () => {
     });
     await actor.settled();
     expect(actor.state.name).toBe("deletedByAdmin");
-    expect(calls).toEqual(["removeCopy:nothing"]);
+    expect(calls).toEqual(["removeCopy:deleteNote"]);
   });
 });
 

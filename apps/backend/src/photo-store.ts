@@ -42,11 +42,13 @@ import {
   adminDroppedYou,
   adminListsYou,
   clearLeftNote,
+  DRIVE_PATH_DELETED,
   deleteOwnPhotos,
   readDeleteNote,
   readLeftNote,
   writeDeleteNote,
   writeLeftNote,
+  PASS_ON_DELETE_MS,
 } from "./albums/lifecycle";
 import { addRemovedPerson, readRemovedPeople } from "./albums/removed-people";
 import { PEER_PROTOCOL } from "./versions";
@@ -229,6 +231,7 @@ type PersistedState = {
 /** An album removed from this phone. `deletedForEveryone`: this phone is the
  * Admin's and keeps only the delete note, to offer it to members who were away.
  * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed.
+ * `deletedByAdmin` with `passOn` also keeps the Admin's delete note to pass on to members who were away.
  * `waitingForAdminToSeeYouLeft`: a Member or Viewer left; this phone's own drive in the
  * album (`selfNs`) keeps saying so until the Admin's list (`listedIn`) drops it.
  * `waitingForAdminToHearYouDeleted`: this phone was removed and deleted its copy; it
@@ -248,6 +251,10 @@ type GoneRecord = {
   /** Which Admin list the leaver was on; absent means `/members.json`. */
   listedIn?: "viewers";
   adminName?: string;
+  /** `deletedByAdmin`: this phone keeps the Admin's album drive with only the delete note and serves it until `at` + PASS_ON_DELETE_MS. */
+  passOn?: true;
+  /** `deletedByAdmin`: the notice was dismissed; the record stays only to pass the note on. */
+  dismissed?: true;
   at: number;
 };
 
@@ -719,6 +726,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Self drives opened by namespace; Hyperdrive takes its core exclusively,
    * so a second open of the same namespace would wait on the first. */
   const selfDrives = new Map<string, Promise<Drive>>();
+  /** Albums whose Admin drive this phone kept with only the delete note, until their gone record is written. */
+  const keptDeleteNotes = new Set<string>();
   /** Which identity drive each request in a peer's outbox came from, and which
    * of them were made through an invite code. */
   const requesterIdentity = new Map<string, string>();
@@ -997,10 +1006,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(typeof g.adminName === "string"
           ? { adminName: peerName(g.adminName, DEFAULT_ASK_OWNER) }
           : {}),
+        ...(g.kind === "deletedByAdmin" && g.passOn === true ? { passOn: true as const } : {}),
+        ...(g.kind === "deletedByAdmin" && g.dismissed === true
+          ? { dismissed: true as const }
+          : {}),
         at: typeof g.at === "number" ? g.at : 0,
       });
     }
     return out;
+  }
+
+  function withoutPassOn(g: GoneRecord): GoneRecord {
+    const { passOn: _passOn, dismissed: _dismissed, ...rest } = g;
+    return rest;
   }
 
   function loadOffers(raw: unknown): OfferSummary[] {
@@ -1972,7 +1990,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     } catch (e) {
       log("error", { where: "removeAlbumCopy.unmount", folder: short(id), err: errText(e) });
     }
-    if (keep === "nothing") {
+    if (keep === "deleteNote" && rt.record.role !== "creator") {
+      keys.add(rt.selfDrive.key);
+      leaveTopic(hex(topicOf(rt.selfDrive)));
+      selfDrives.delete(rt.record.selfNs ?? `member/${rt.record.shareKey}`);
+      const [error] = await rt.folderDrive
+        .keepOnly(DRIVE_PATH_DELETED)
+        .catch((e): [Error, null] => [e instanceof Error ? e : new Error(errText(e)), null]);
+      if (error) {
+        keys.add(rt.folderDrive.key);
+        leaveTopic(hex(topicOf(rt.folderDrive)));
+      } else {
+        keptDeleteNotes.add(id);
+      }
+    } else if (keep === "nothing") {
       for (const [key, drive] of own) {
         keys.add(key);
         leaveTopic(hex(topicOf(drive)));
@@ -2034,6 +2065,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     adminName?: string,
     selfNs?: string,
     listedIn?: "viewers",
+    passOn?: true,
   ) {
     const id = rt.record.id;
     state.folders = state.folders.filter((f) => f.id !== id);
@@ -2047,6 +2079,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(adminName === undefined ? {} : { adminName }),
         ...(selfNs === undefined ? {} : { selfNs }),
         ...(listedIn === undefined ? {} : { listedIn }),
+        ...(passOn === undefined ? {} : { passOn }),
         at: Date.now(),
       },
     ];
@@ -2112,7 +2145,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           isTextJSON(payload) && typeof payload.adminName === "string"
             ? payload.adminName
             : DEFAULT_ASK_OWNER;
-        moveToGone(rt, "deletedByAdmin", adminName);
+        moveToGone(
+          rt,
+          "deletedByAdmin",
+          adminName,
+          undefined,
+          undefined,
+          keptDeleteNotes.delete(id) ? true : undefined,
+        );
         return;
       }
     }
@@ -3428,7 +3468,36 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watchDrive(fd, record.id, fd.key, isCreator ? "enroll" : "add");
     }
     // An album this phone deleted is still offered to members who were away.
-    for (const gone of state.gone) {
+    let passOnEnded = false;
+    for (const gone of [...state.gone]) {
+      if (gone.kind === "deletedByAdmin" && gone.passOn) {
+        try {
+          let keep = Date.now() - gone.at < PASS_ON_DELETE_MS;
+          if (keep) {
+            const [openErr, fd] = await deps.drives.open(gone.shareKey, {
+              timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+            });
+            const [keepErr] = openErr ? [openErr] : await fd.keepOnly(DRIVE_PATH_DELETED);
+            keep = !keepErr;
+            if (!keepErr && fd) {
+              joinTopic(topicOf(fd), { server: true });
+              rediscover(topicOf(fd), fd);
+            }
+          }
+          if (!keep) {
+            if (![...runtimes.values()].some((r) => r.record.shareKey === gone.shareKey)) {
+              await deps.drives.purge(gone.shareKey);
+            }
+            state.gone = gone.dismissed
+              ? state.gone.filter((g) => g !== gone)
+              : state.gone.map((g) => (g === gone ? withoutPassOn(g) : g));
+            passOnEnded = true;
+          }
+        } catch (e) {
+          log("error", { where: "gone.passOn", album: short(gone.id), err: errText(e) });
+        }
+        continue;
+      }
       if (gone.kind === "waitingForAdminToSeeYouLeft") {
         try {
           const self = await openSelfDrive(gone.shareKey, gone.selfNs);
@@ -3474,6 +3543,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("error", { where: "gone.reopen", album: short(gone.id), err: errText(e) });
       }
     }
+    if (passOnEnded) saveState();
     // Asks still waiting go back on their topic; an accepted one retries its join.
     for (const ask of state.asks) {
       if (ask.status === "waiting") {
@@ -4767,7 +4837,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (rt.record.lifecycle === "archived" ? archived : folders).push(toSummary(rt));
       }
       const deleted: DeletedAlbum[] = state.gone.flatMap((g) =>
-        g.kind === "deletedByAdmin"
+        g.kind === "deletedByAdmin" && !g.dismissed
           ? [{ id: g.id, name: g.name, adminName: g.adminName ?? DEFAULT_ASK_OWNER }]
           : [],
       );
@@ -5371,9 +5441,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     async dismissAlbumNotice(folderId) {
       await readyPromise;
-      const found = state.gone.find((g) => g.id === folderId && g.kind === "deletedByAdmin");
+      const found = state.gone.find(
+        (g) => g.id === folderId && g.kind === "deletedByAdmin" && !g.dismissed,
+      );
       if (!found) return err(PhotoError.FOLDER_NOT_FOUND, `No notice for ${folderId}`);
-      state.gone = state.gone.filter((g) => g !== found);
+      state.gone = found.passOn
+        ? state.gone.map((g) => (g === found ? { ...g, dismissed: true as const } : g))
+        : state.gone.filter((g) => g !== found);
       saveState();
       deps.onChanged({ cause: "remove", folderId });
       return ok({ ok: true });
