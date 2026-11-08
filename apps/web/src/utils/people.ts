@@ -71,7 +71,7 @@ export function buildPeople(
         viewer: m.viewer === true,
         you,
         connected: m.connected,
-        presence: you ? "you" : m.viewer ? "can only look" : presenceLabel(m, now),
+        presence: you ? "you" : presenceLabel(m, now),
       };
     })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));

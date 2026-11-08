@@ -186,14 +186,10 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
           : null
       }
       <p class="flex items-center gap-1.5 text-xs text-muted">
-        ${
-          p.viewer
-            ? null
-            : html`<span
-                class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
-                aria-hidden="true"
-              ></span>`
-        }
+        <span
+          class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
+          aria-hidden="true"
+        ></span>
         ${p.presence}
       </p>
     </div>`;
