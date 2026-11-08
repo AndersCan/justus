@@ -1145,6 +1145,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return parseDeviceName(await readText(drive, DRIVE_PATH_DEVICE));
   }
 
+  /** The Admin's name as their phone publishes it, or undefined when unknown. */
+  async function adminNameOf(rt: FolderRuntime): Promise<string | undefined> {
+    try {
+      const name = await withTimeout(readDeviceName(rt.folderDrive), 2_000);
+      return name === undefined || name === "Unknown device" ? undefined : name;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Tells the screen this phone's role changed. */
+  function roleChangePush(
+    rt: FolderRuntime,
+    from: "member" | "reader",
+    to: "member" | "reader",
+    adminName: string | undefined,
+  ) {
+    log("role.changed", { folder: short(rt.record.id), from, to });
+    deps.onChanged({
+      cause: "role",
+      folderId: rt.record.id,
+      role: { from, to, albumName: rt.record.name, ...(adminName ? { adminName } : {}) },
+    });
+  }
+
   /** The swarm's noise public key. Swarm connections identify a peer by this
    * key, not by its drive key, so each device publishes it in `/device.json`
    * and peers use it to tell which member a connection belongs to. */
@@ -1209,7 +1234,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               const changed = viewersChanged || (await refreshEarlier(rt));
               if (!changed) return;
               if (rt.record.role !== "creator") {
-                becomeViewerIfListed(rt);
+                await becomeViewerIfListed(rt);
                 await refreshMembersFor(rt);
                 armFolderWatchers(rt);
               }
@@ -1468,14 +1493,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** On a Collaborator's phone: the Admin has moved this phone's person to the
    * Viewers, so the phone reads like a Viewer's from now on. */
-  function becomeViewerIfListed(rt: FolderRuntime) {
-    if (rt.record.role !== "member") return;
-    if (!rt.viewers[selfKeyOf(rt)]) return;
+  async function becomeViewerIfListed(rt: FolderRuntime) {
+    const listed = () => rt.record.role === "member" && rt.viewers[selfKeyOf(rt)] !== undefined;
+    if (!listed()) return;
+    const adminName = await adminNameOf(rt);
+    if (!listed()) return;
     rt.record.role = "reader";
     rt.record.driveKey = "";
     rt.record.pending = false;
     saveState();
-    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKeyOf(rt) });
+    roleChangePush(rt, "member", "reader", adminName);
   }
 
   /** Re-reads the Admin's Viewer list. True when it changed. */
@@ -1779,15 +1806,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
     if (rt.record.role !== "reader" || rt.record.moved || rt.record.notice?.kind === "removed")
       return false;
+    const isStillReader = () => rt.record.role === "reader" && rt.record.notice?.kind !== "removed";
+    // Before the first await: the watcher's refreshViewers drops this phone
+    // from rt.viewers meanwhile.
+    const wasViewer = rt.viewers[selfKeyOf(rt)] !== undefined;
+    const adminName = wasViewer ? await adminNameOf(rt) : undefined;
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = selfKeyOf(rt);
     if (!isEnrolled(registry, selfKey)) return false;
+    // A second watcher tick may have flipped the role while we waited.
+    if (!isStillReader()) return false;
     rt.record.role = "member";
     rt.record.pending = false;
     rt.record.driveKey = selfKey;
     await refreshMembersFor(rt);
     await pruneJoinRequests();
-    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
+    if (wasViewer) roleChangePush(rt, "reader", "member", adminName);
+    else deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
     return true;
   }
 

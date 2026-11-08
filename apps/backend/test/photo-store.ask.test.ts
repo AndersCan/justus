@@ -660,6 +660,25 @@ describe("making a Collaborator a Viewer", () => {
     return { ...s, key, albumDrive: await albumDriveOf(s) };
   }
 
+  it("a joiner accepted as Collaborator through a link is not told about a role change", async () => {
+    const changes: { cause: string }[] = [];
+    const s = await scenario(undefined, { onChanged: (c: { cause: string }) => changes.push(c) });
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s);
+    const { requests } = await s.admin.store.requests();
+    const key = requests[0].requesterKey;
+    expect((await s.admin.store.respond(s.folderId, key, true))[0]).toBeNull();
+    await until(async () => {
+      const { folders } = await s.joiner.store.folders();
+      return folders.some((f) => f.role === "member");
+    });
+    expect(changes.filter((c) => c.cause === "role")).toEqual([]);
+    expect((await s.admin.store.makeViewer(s.folderId, key))[0]).toBeNull();
+    await until(() => changes.some((c) => c.cause === "role"));
+    expect(changes.filter((c) => c.cause === "role")).toHaveLength(1);
+    await s.close();
+  });
+
   it("moves them to /viewers.json with a kept version and shows them as a Viewer", async () => {
     const s = await collaborator();
     expect((await s.admin.store.makeViewer(s.folderId, s.key.toUpperCase()))[0]).toBeNull();

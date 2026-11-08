@@ -187,7 +187,21 @@ export type PhotoChangedCause =
   | "ask"
   | "offer"
   | "version"
-  | "holders";
+  | "holders"
+  | "role";
+
+/** A role this phone can be moved between by the Admin. The Admin's own role never changes. */
+export type ChangedRole = "member" | "reader";
+
+/** For cause "role": the Admin changed this phone's role in an album while it was running. */
+export type RoleChange = {
+  from: ChangedRole;
+  to: ChangedRole;
+  /** The album's name on this phone. */
+  albumName: string;
+  /** The Admin's name from their phone; unset when it is not known. */
+  adminName?: string;
+};
 
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {
@@ -200,4 +214,6 @@ export type PhotoChanged = {
   code?: string;
   /** "linkOff": the Admin turned this link off before answering. */
   answer?: "accepted" | "declined" | "linkOff";
+  /** For cause "role": what changed. */
+  role?: RoleChange;
 };

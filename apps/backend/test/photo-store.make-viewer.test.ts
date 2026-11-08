@@ -6,16 +6,29 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPhotoStore } from "../src/photo-store.ts";
+import { createPhotoStore, type PhotoStoreDeps } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
+type Push = Parameters<PhotoStoreDeps["onChanged"]>[0];
+
+async function until(check: () => boolean) {
+  const deadline = Date.now() + 5_000;
+  while (!check() && Date.now() < deadline) await sleep(20);
+  expect(check()).toBe(true);
+}
+
+function phoneDeps(hub: ReturnType<typeof createFakeHub>, deviceName: string, pushes?: Push[]) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const deps = fakeStoreDeps({ hub, node, deviceName });
+  const deps = fakeStoreDeps({
+    hub,
+    node,
+    deviceName,
+    ...(pushes ? { onChanged: (p: Push) => void pushes.push(p) } : {}),
+  });
   mkdirSync(deps.cacheDir, { recursive: true });
   return deps;
 }
@@ -43,10 +56,12 @@ function lagBehindUntilUpdated(deps: ReturnType<typeof phoneDeps>) {
 
 async function album(options: { lag?: boolean } = {}) {
   const hub = createFakeHub();
-  const adminDeps = phoneDeps(hub, "Anna");
+  const adminPushes: Push[] = [];
+  const nilsPushes: Push[] = [];
+  const adminDeps = phoneDeps(hub, "Anna", adminPushes);
   if (options.lag) lagBehindUntilUpdated(adminDeps);
   const admin = createPhotoStore(adminDeps);
-  const nilsDeps = phoneDeps(hub, "Nils");
+  const nilsDeps = phoneDeps(hub, "Nils", nilsPushes);
   const nils = createPhotoStore(nilsDeps);
   await admin.ready();
   await nils.ready();
@@ -61,7 +76,7 @@ async function album(options: { lag?: boolean } = {}) {
     await admin.close();
     await nils.close();
   };
-  return { admin, nils, nilsDeps, folderId, nilsFolderId, key, close };
+  return { admin, nils, nilsDeps, adminPushes, nilsPushes, folderId, nilsFolderId, key, close };
 }
 
 describe("making a Collaborator a Viewer", () => {
@@ -135,6 +150,54 @@ describe("making a Collaborator a Viewer", () => {
     await s.nils.addBytes("after.jpg", new Uint8Array([9, 8, 7, 6]));
     await sleep(100);
     expect((await s.admin.list()).map((p) => p.name).sort()).toEqual(["after.jpg", "before.jpg"]);
+    await s.close();
+  });
+
+  it("their phone is told it was made a Viewer, by whom and in which album", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length > 0);
+    await sleep(300);
+    expect(roles()).toEqual([
+      {
+        cause: "role",
+        folderId: s.nilsFolderId,
+        role: { from: "member", to: "reader", albumName: "Trip", adminName: "Anna" },
+      },
+    ]);
+    await s.close();
+  });
+
+  it("turned back into a Collaborator, their phone is told once", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length === 1);
+    await s.admin.makeMember(s.folderId, s.key);
+    await until(() => roles().length === 2);
+    await sleep(300);
+    expect(roles().map((p) => [p.role?.from, p.role?.to])).toEqual([
+      ["member", "reader"],
+      ["reader", "member"],
+    ]);
+    await s.close();
+  });
+
+  it("being let in and being removed are not role changes", async () => {
+    const s = await album();
+    const roles = (pushes: Push[]) => pushes.filter((p) => p.cause === "role");
+    expect(roles(s.nilsPushes)).toEqual([]);
+    expect((await s.admin.removeMember(s.folderId, s.key))[0]).toBeNull();
+    const removed = async () =>
+      (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.notice?.kind ===
+      "removed";
+    const deadline = Date.now() + 5_000;
+    while (!(await removed()) && Date.now() < deadline) await sleep(50);
+    expect(await removed()).toBe(true);
+    await sleep(300);
+    expect(roles(s.nilsPushes)).toEqual([]);
+    expect(roles(s.adminPushes)).toEqual([]);
     await s.close();
   });
 });

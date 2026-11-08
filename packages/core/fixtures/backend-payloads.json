@@ -1121,6 +1121,11 @@
   },
   "pushes": [
     {
+      "cause": "role",
+      "folderId": "mw7o4cvy-17a83f59",
+      "role": { "from": "member", "to": "reader", "albumName": "Contract", "adminName": "Phone" }
+    },
+    {
       "cause": "enroll",
       "folderId": "mw7o4cvy-17a83f59",
       "memberKey": "0404040404040404040404040404040404040404040404040404040404040404"
