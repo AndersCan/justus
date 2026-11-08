@@ -14,9 +14,11 @@ export function holdersLine(h: PhotoHolders | undefined): { text: string; tappab
     if (k === 0) {
       return {
         text:
-          h.unsure.length === 0
-            ? copy("holders.only_on_your_phone")
-            : copy("holders.on_your_phone_others_haven"),
+          h.unsure.length > 0
+            ? copy("holders.on_your_phone_others_haven")
+            : h.waiting.length > 0
+              ? copy("holders.only_on_your_phone_so")
+              : copy("holders.only_on_your_phone"),
         tappable: true,
       };
     }
@@ -42,6 +44,7 @@ export type HoldersSheetRows = {
   youArriving: boolean;
   others: PhotoMember[];
   unsure: PhotoMember[];
+  waiting: PhotoMember[];
   former: string[];
 };
 
@@ -51,6 +54,7 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
     youArriving: !h?.here,
     others: h?.others ?? [],
     unsure: h?.unsure ?? [],
+    waiting: h?.waiting ?? [],
     former: h?.former ?? [],
   };
 }

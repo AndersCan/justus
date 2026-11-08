@@ -22,6 +22,23 @@ describe("holdersLine", () => {
   it("only on your phone", () => {
     expect(holdersLine(h({}))).toEqual({ text: "Only on your phone", tappable: true });
   });
+  it("only on your phone so far when others can get it", () => {
+    expect(holdersLine(h({ waiting: [m("Nils")] })).text).toBe("Only on your phone so far");
+  });
+  it("others haven't said wins over so far", () => {
+    expect(holdersLine(h({ unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(
+      "On your phone. Others haven't said",
+    );
+  });
+  it("a named holder line ignores waiting", () => {
+    expect(holdersLine(h({ others: [m("Nils")], waiting: [m("Maya")] })).text).toBe(
+      "On Nils's and your phone",
+    );
+  });
+  it("sheet rows carry waiting", () => {
+    expect(holdersSheetRows(h({ waiting: [m("Maya")] })).waiting).toEqual([m("Maya")]);
+    expect(holdersSheetRows(undefined).waiting).toEqual([]);
+  });
   it("others haven't said", () => {
     expect(holdersLine(h({ unsure: [m("Jo")] })).text).toBe("On your phone. Others haven't said");
   });
