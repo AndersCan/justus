@@ -110,7 +110,7 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** "From your friends: A, B or C. No link needed." Up to three names, then "or N more". */
+/** "From your friends: A, B or C. They get the invite in Justus, no link needed." Up to three names, then "or N more". */
 export function friendNamesLine(choices: FriendChoice[]): string {
   const names = choices.map((c) => c.name);
   const shown = names.length <= 3 ? names : [...names.slice(0, 3), `${names.length - 3} more`];
@@ -118,7 +118,7 @@ export function friendNamesLine(choices: FriendChoice[]): string {
     shown.length === 1
       ? shown[0]
       : `${shown.slice(0, -1).join(", ")} or ${shown[shown.length - 1]}`;
-  return `From your friends: ${list}. No link needed.`;
+  return `From your friends: ${list}. They get the invite in Justus, no link needed.`;
 }
 
 /** Invite surface: pick how long the link works, then one tap sends it (share
@@ -174,6 +174,8 @@ function invitePanelBody(
     Object.entries(friends).map(([identity, name]) => ({ identity, name })),
     memberIdentities,
   );
+  // One coloured button: Add a friend when a friend can be added, else the link.
+  const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
@@ -230,7 +232,7 @@ function invitePanelBody(
         ${
           canShare
             ? html`<button
-                  class="ui-btn-primary"
+                  class=${linkButton}
                   ?disabled=${linkBlocked}
                   @click=${() => void shareInvite(folder, myName)}
                 >
@@ -244,7 +246,7 @@ function invitePanelBody(
                   Copy link
                 </button>`
             : html`<button
-                class="ui-btn-primary"
+                class=${linkButton}
                 ?disabled=${linkBlocked}
                 @click=${(e: Event) => void copy(folder, myName, e.currentTarget as HTMLElement)}
               >
