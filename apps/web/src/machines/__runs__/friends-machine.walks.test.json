@@ -1,0 +1,77 @@
+{
+  "friends": [
+    {
+      "name": "Anna removes Nils from her friends",
+      "end": "friendSheetClosed",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "FRIENDS_LOADED",
+          "payload": {
+            "friends": [
+              {
+                "identity": "nils",
+                "name": "Nils"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE",
+          "payload": {
+            "identity": "nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVED",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Anna taps Nils in Trip and saves him as a friend",
+      "end": "friendSheetClosed",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "FRIENDS_LOADED",
+          "payload": {
+            "friends": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {
+            "target": {
+              "identity": "nils",
+              "ownName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "friend": {
+              "identity": "nils",
+              "name": "Nils"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
