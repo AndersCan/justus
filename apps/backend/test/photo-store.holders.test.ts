@@ -611,4 +611,77 @@ describe("who has each photo", () => {
     expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
     await s.close();
   }, 20_000);
+
+  describe("copyDeleted from a removed phone", () => {
+    const identityOf = (s: { store: { debugState(): unknown } }) =>
+      (s.store.debugState() as { identityDrive: string }).identityDrive;
+
+    /** Cleo's phone tells Anna's phone it deleted its copy of `album`; returns the answers Anna sent back. */
+    async function cleoSays(s: Awaited<ReturnType<typeof threePhones>>, album: string) {
+      const answers: { kind: string; album?: string }[] = [];
+      const network = s.anna.deps.network;
+      const sendAnswer = network.sendAnswer.bind(network);
+      network.sendAnswer = ((conn: number, msg: { kind: string; album?: string }) => {
+        answers.push(msg);
+        return sendAnswer(conn, msg as never);
+      }) as typeof network.sendAnswer;
+      const annaId = identityOf(s.anna);
+      const links = (
+        s.cleo.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+      ).connections.filter((c) => c.identityKey === annaId);
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) {
+        s.cleo.deps.network.sendAnswer(link.conn, { kind: "copyDeleted", album });
+      }
+      await until(() => answers.some((a) => a.kind === "copyDeletedSeen"));
+      return answers;
+    }
+
+    it("marks the sender as left and answers copyDeletedSeen", async () => {
+      const s = await threePhones();
+      const before = (await s.anna.store.folders()).folders[0].driveKey;
+      const album = s.anna.deps.drives.discoveryKeyOf(before);
+      expect((await s.anna.store.removeMember(s.folderId, s.cleoKey))[0]).toBeNull();
+      await until(
+        async () => (await s.anna.store.list(s.folderId))[0]?.holders?.former.length === 1,
+      );
+      const answers = await cleoSays(s, album);
+      expect(answers).toContainEqual({ kind: "copyDeletedSeen", album });
+      await until(
+        async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 0,
+      );
+      expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
+      const drive = await s.anna.deps.drives.openOwn(`folder/${s.folderId}/m1`);
+      expect(await drive.readSmall("/former.json", 1_000_000)).toContain(identityOf(s.cleo));
+      await s.close();
+    }, 30_000);
+
+    it("marks nobody for an album that is not this one, but still answers", async () => {
+      const s = await threePhones();
+      expect((await s.anna.store.removeMember(s.folderId, s.cleoKey))[0]).toBeNull();
+      await until(
+        async () => (await s.anna.store.list(s.folderId))[0]?.holders?.former.length === 1,
+      );
+      const other = "ab".repeat(32);
+      const answers = await cleoSays(s, other);
+      expect(answers).toContainEqual({ kind: "copyDeletedSeen", album: other });
+      await sleep(300);
+      expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual(["New member"]);
+      await s.close();
+    }, 30_000);
+
+    it("does not mark a sender who is still in the album", async () => {
+      const s = await threePhones();
+      const before = (await s.anna.store.folders()).folders[0].driveKey;
+      const album = s.anna.deps.drives.discoveryKeyOf(before);
+      const drive = await s.anna.deps.drives.openOwn(`folder/${s.folderId}`);
+      const entry = { name: "Cleo", identity: identityOf(s.cleo), ids: ["a1"], album };
+      await drive.put("/former.json", Buffer.from(JSON.stringify({ version: 1, former: [entry] })));
+      const answers = await cleoSays(s, album);
+      expect(answers).toContainEqual({ kind: "copyDeletedSeen", album });
+      const text = (await drive.readSmall("/former.json", 1_000_000))!;
+      expect(JSON.parse(text).former[0].left).toBeUndefined();
+      await s.close();
+    }, 30_000);
+  });
 });
