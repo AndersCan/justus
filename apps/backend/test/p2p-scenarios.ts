@@ -768,6 +768,62 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "friend: two friends asked at once both get the invite",
+    async run(net, t) {
+      const { admin, kari, ole, folderId } = await twoFriendSetup(net);
+      const [karied, oled] = await Promise.all([
+        admin.store.offerAlbum(folderId, kari.identity, "member"),
+        admin.store.offerAlbum(folderId, ole.identity, "reader"),
+      ]);
+      t.noErr(karied, "offerAlbum for Kari");
+      t.noErr(oled, "offerAlbum for Ole");
+      t.ok(karied[1]?.waiting !== true, "Kari's invite did not wait");
+      t.ok(oled[1]?.waiting !== true, "Ole's invite did not wait");
+      for (const friend of [kari, ole]) {
+        const { offers } = await eventually(
+          () => friend.peer.store.folders(),
+          (f) => f.offers.length === 1,
+          "one invite on the friend",
+        );
+        t.eq(offers[0].albumName, "Lisbon", "the invite names the album");
+      }
+      const state = admin.store.debugState() as {
+        folders: { invited: string[]; invitedRoles?: Record<string, string> }[];
+      };
+      t.eq(
+        [...state.folders[0].invited].sort(),
+        [kari.identity, ole.identity].sort(),
+        "both are invited",
+      );
+      const roles = state.folders[0].invitedRoles ?? {};
+      t.eq(roles[kari.identity], "member", "Kari keeps the role she was asked with");
+      t.eq(roles[ole.identity], "reader", "Ole keeps the role he was asked with");
+      t.eq(Object.keys(roles).length, 2, "no other roles");
+    },
+  },
+  {
+    name: "friend: asked at once, an away friend waits while the other gets it",
+    async run(net, t) {
+      const { admin, kari, ole, folderId } = await twoFriendSetup(net, { offerReachMs: 3000 });
+      await ole.peer.stop();
+      const [here, away] = await Promise.all([
+        admin.store.offerAlbum(folderId, kari.identity),
+        admin.store.offerAlbum(folderId, ole.identity),
+      ]);
+      if (here[0]) throw here[0];
+      if (away[0]) throw away[0];
+      t.eq(here[1], { ok: true }, "the online friend's invite lands");
+      t.eq(away[1], { ok: true, waiting: true }, "the away friend's invite waits");
+      t.eq((await admin.store.folders()).folders[0].waitingFor, [ole.identity], "waitingFor");
+      const { offers } = await eventually(
+        () => kari.peer.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the online friend",
+      );
+      t.eq(offers[0].albumName, "Lisbon", "the invite names the album");
+    },
+  },
+  {
     name: "friend: a phone that doesn't know the Admin turns the invite down",
     async run(net, t) {
       const { admin, friend, folderId, friendIdentity } = await friendSetup(net, false);
@@ -1531,4 +1587,22 @@ async function friendSetup(net: Net, friendKnowsAdmin: boolean) {
   const created = await admin.store.createFolder("Lisbon");
   if (created[0]) throw created[0];
   return { admin, friend, folderId: created[1].folder.id, friendIdentity: idOf(friend) };
+}
+
+/** An Admin (Phone) with an album and two friends' phones (Kari, Ole) that both list it as a friend. */
+async function twoFriendSetup(net: Net, adminOptions?: { offerReachMs: number }) {
+  const friends: string[] = [];
+  const admin = await net.peer("Phone", undefined, adminOptions);
+  const idOf = (p: Peer) => (p.store.debugState() as { identityDrive: string }).identityDrive;
+  const kariPeer = await net.peer("Kari", undefined, { friends });
+  const olePeer = await net.peer("Ole", undefined, { friends });
+  friends.push(idOf(admin));
+  const created = await admin.store.createFolder("Lisbon");
+  if (created[0]) throw created[0];
+  return {
+    admin,
+    kari: { peer: kariPeer, identity: idOf(kariPeer) },
+    ole: { peer: olePeer, identity: idOf(olePeer) },
+    folderId: created[1].folder.id,
+  };
 }
