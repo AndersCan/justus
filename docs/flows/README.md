@@ -6,6 +6,21 @@ as pages that can be read and ticked off.
 
 Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus home page)
 
+## Previews
+
+Every open pull request from a branch in this repo gets the whole site under
+`https://anderscan.github.io/justus/pr/<n>/`, for example
+`.../pr/12/invite-someone/?machine=<id>&run=<run name>`. When it is live, the pull
+request has one comment, updated in place: `Site preview of <sha>: <url>`. `<sha>` is the first 7
+characters of the commit the preview was built from, so it says which push you are looking at. If it names an
+older commit, the new build is still running (or failed; the comment keeps the last good commit).
+
+- Forks get no preview and no comment.
+- A preview lasts 14 days after its build. After that the comment says so; push a commit to rebuild.
+- A closed pull request drops out at the next deploy; its comment stays as history.
+- Pages caches for up to 10 minutes: reload if the page shows the previous commit's design.
+- Done check for an AI-written flow: the reply links one preview URL per journey, and the comment names your head commit.
+
 ## Steps
 
 1. **Flows land first as machines.** A feature's flows go in
@@ -14,7 +29,7 @@ Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus ho
    JSDoc on its states, events and transitions (the page shows them as
    prose). No UI wiring in these PRs.
 2. **Link the page on the feature issue.** Once the machine PRs merge and the
-   Pages site is rebuilt, post the page link on the feature issue as a
+   Pages site is rebuilt (or, before merge, from the pull request's preview links), post the page link on the feature issue as a
    checklist, one box per flow.
 3. **Confirm.** The owner ticks the boxes or comments on a flow. Implementation
    tasks are queued only after every box is ticked.

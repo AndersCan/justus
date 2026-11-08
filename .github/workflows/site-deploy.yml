@@ -1,0 +1,60 @@
+name: site-deploy
+
+# Publishes main's site plus a preview of every open same-repo pull request.
+on:
+  workflow_run:
+    workflows: [site-pages]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: site-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.4"
+
+      - name: Assemble main and previews
+        run: node scripts/site-previews.mjs assemble out
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Comment the previews
+        run: node scripts/site-previews.mjs comment site-previews.json "$SITE_URL"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
