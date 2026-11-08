@@ -217,11 +217,18 @@ function archivedSection(view: FoldersViewModel) {
       <summary class="ui-label cursor-pointer select-none">
         ${archivedSummary(view.archived.length, waiting)}
       </summary>
-      <ul class="mt-3 space-y-3" aria-label="Archived albums">
+      <ul
+        class="mt-3 space-y-3"
+        aria-label="Archived albums"
+        ${gridMotion({ keys: view.archived.map((f) => "archived:" + f.id), settle: "archived" })}
+      >
         ${repeat(
           view.archived,
           (f) => f.id,
-          (f) => html`<li class="flex items-center gap-3 rounded-2xl border border-line p-4">
+          (f) => html`<li
+            class="flex items-center gap-3 rounded-2xl border border-line p-4"
+            data-motion-key=${"archived:" + f.id}
+          >
             <span class="min-w-0 flex-1">
               <span class="block truncate text-lg font-medium text-fg">${f.name}</span>
               <span class="mt-0.5 block text-xs text-muted">${roleAndCount(f)}</span>
@@ -253,6 +260,7 @@ function deletedNotices(view: FoldersViewModel) {
     newestFirst,
     (d) => d.id,
     (d) => html`<div
+      data-motion-key=${"notice:" + d.id}
       class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
     >
       <p class="min-w-0 flex-1 text-sm text-fg" role="status">${deletedNoticeText(d)}</p>
@@ -331,9 +339,24 @@ function albumListKeys(view: FoldersViewModel): string[] {
   ];
 }
 
+/** Every row key on Your albums: the page slides its sections when any of them changes. */
+function pageKeys(view: FoldersViewModel): string[] {
+  return [
+    ...view.deleted.map((d) => "notice:" + d.id),
+    ...albumListKeys(view),
+    ...view.archived.map((f) => "archived:" + f.id),
+  ];
+}
+
+/** The list shows "Loading…": nothing to animate from yet. */
+function listLoading(view: FoldersViewModel): boolean {
+  const empty = view.folders.length === 0 && view.asks.length === 0 && view.offers.length === 0;
+  return empty && (view.state === "albumsNotLoaded" || view.state === "loadingAlbums");
+}
+
 function albumList(view: FoldersViewModel) {
   const empty = view.folders.length === 0 && view.asks.length === 0 && view.offers.length === 0;
-  if (empty && (view.state === "albumsNotLoaded" || view.state === "loadingAlbums")) {
+  if (listLoading(view)) {
     return html`<p class="text-muted">Loading…</p>`;
   }
   const asks = view.asks;
@@ -368,7 +391,7 @@ function albumList(view: FoldersViewModel) {
 function newAlbumSection(view: FoldersViewModel) {
   const busy = view.state === "creatingAlbum";
   return html`
-    <section class="ui-card p-5">
+    <section class="ui-card p-5" data-motion-key="section:new">
       <h2 class="ui-label mb-1">New album</h2>
       <p class="mb-3 text-sm text-fg">Start one per trip, family or group.</p>
       <form
@@ -460,18 +483,22 @@ function joinSection(settled: boolean, busy: boolean) {
 export function albumsPanel() {
   return watch(foldersActor, (s) => {
     const view = foldersViewModel(s);
-    return html`
+    return html`<div
+      class="space-y-5"
+      ${gridMotion({ keys: pageKeys(view), settle: listLoading(view) ? "loading" : "albums-page" })}
+    >
       ${errorBanner(
         view.error,
         view.state === "couldNotLoadAlbums" && !view.fatal ? () => folders.retry() : undefined,
         view.fatal ? () => window.location.reload() : undefined,
       )}
       ${deletedNotices(view)}
-      <p class="text-sm text-muted">
+      <p class="text-sm text-muted" data-motion-key="section:hint">
         Tap an album to invite people or see who's in it. Each album has its own invite link.
       </p>
-      ${albumList(view)} ${archivedSection(view)} ${newAlbumSection(view)}
-    `;
+      <div data-motion-key="section:albums">${albumList(view)}</div>
+      ${archivedSection(view)} ${newAlbumSection(view)}
+    </div>`;
   });
 }
 

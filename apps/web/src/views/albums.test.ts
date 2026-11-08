@@ -439,6 +439,202 @@ describe("albums list motion", () => {
   });
 });
 
+describe("Your albums page motion", () => {
+  type Call = { el: Element; keyframes: any; options: any };
+  let calls: Call[];
+  const saved = {
+    animate: Element.prototype.animate,
+    getAnimations: Element.prototype.getAnimations,
+    rect: Element.prototype.getBoundingClientRect,
+    matchMedia: window.matchMedia,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+  };
+  const d1 = { id: "d1", name: "Old", adminName: "Nils" };
+
+  const H = (el: Element): number =>
+    el.matches('[data-motion-key^="notice:"]')
+      ? 48
+      : el.matches("li") || el.children.length === 0
+        ? 56
+        : [...el.children].reduce((n, c) => n + H(c), 0);
+  const top = (el: Element): number => {
+    const p = el.parentElement;
+    if (!p) return 0;
+    const i = [...p.children].indexOf(el);
+    return top(p) + [...p.children].slice(0, i).reduce((n, c) => n + H(c), 0);
+  };
+
+  beforeEach(() => {
+    calls = [];
+    Element.prototype.animate = function (this: Element, keyframes: any, options: any) {
+      calls.push({ el: this, keyframes, options });
+      return { finished: new Promise(() => {}) } as any;
+    };
+    Element.prototype.getAnimations = (() => []) as any;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      return { top: top(this), left: 0, width: 300, height: H(this) } as any;
+    };
+    window.matchMedia = (() => ({ matches: false })) as any;
+    window.innerWidth = 400;
+    window.innerHeight = 4000;
+  });
+
+  afterEach(() => {
+    Element.prototype.animate = saved.animate;
+    Element.prototype.getAnimations = saved.getAnimations;
+    Element.prototype.getBoundingClientRect = saved.rect;
+    window.matchMedia = saved.matchMedia;
+    window.innerWidth = saved.innerWidth;
+    window.innerHeight = saved.innerHeight;
+    document.body.replaceChildren();
+  });
+
+  type Data = { folders: string[]; archived?: string[]; deleted?: (typeof d1)[] };
+  const loadAll = async ({ folders: ids, archived = [], deleted = [] }: Data) => {
+    mock.folders.mockResolvedValue([
+      null,
+      {
+        folders: ids.map(album),
+        archived: archived.map(album),
+        deleted,
+        asks: [],
+        offers: [],
+        activeFolderId: ids[0] ?? null,
+      },
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => {
+      const c = foldersActor.snapshot().context;
+      expect(c.folders.map((f) => f.id)).toEqual(ids);
+      expect(c.archived.map((f) => f.id)).toEqual(archived);
+      expect(c.deleted).toEqual(deleted);
+    });
+    await foldersActor.settled();
+  };
+  const flush = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+  const mount = async (data: Data) => {
+    await loadAll(data);
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(albumsPanel(), host);
+    await flush();
+    calls = [];
+    const byKey = (k: string) => host.querySelector<HTMLElement>(`[data-motion-key="${k}"]`)!;
+    const callsOn = (el: Element) => calls.filter((c) => c.el === el);
+    return { host, byKey, callsOn };
+  };
+  const change = async (data: Data) => {
+    await loadAll(data);
+    await flush();
+    await flush();
+  };
+  const fadedOut = (el: HTMLElement, callsOn: (e: Element) => Call[]) => {
+    expect(el.parentElement).toBe(document.body);
+    expect(el.inert).toBe(true);
+    expect(callsOn(el)[0].keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+  };
+  const slid = (c: Call[], dy: number, delay?: number) => {
+    expect(c).toHaveLength(1);
+    expect(c[0].keyframes).toEqual([
+      { transform: `translate(0px, ${dy}px)` },
+      { transform: "none" },
+    ]);
+    if (delay !== undefined) expect(c[0].options.delay).toBe(delay);
+  };
+
+  test("a notice for a deleted album fades in and the albums slide down without moving twice", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a", "b"] });
+    const rowA = byKey("album:a");
+    const rowB = byKey("album:b");
+    await change({ folders: ["a"], deleted: [{ ...d1, id: "b" }] });
+    expect(callsOn(byKey("notice:b"))[0].keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    slid(callsOn(byKey("section:albums")), -48);
+    fadedOut(rowB, callsOn);
+    expect(callsOn(rowA)).toHaveLength(0);
+    expect(byKey("album:a")).toBe(rowA);
+  });
+
+  test("dismissing a notice fades it out and slides the page up", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], deleted: [d1] });
+    const notice = byKey("notice:d1");
+    await change({ folders: ["a"] });
+    fadedOut(notice, callsOn);
+    for (const k of ["section:hint", "section:albums", "section:new"]) {
+      slid(callsOn(byKey(k)), 48, 150);
+    }
+    expect(callsOn(byKey("album:a"))).toHaveLength(0);
+  });
+
+  test("Undo on the only archived album fades it into the list and fades the Archived card out", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: ["z"] });
+    const card = byKey("section:archived");
+    const newCard = byKey("section:new");
+    await change({ folders: ["a", "z"] });
+    expect(callsOn(byKey("album:z"))[0].keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    fadedOut(card, callsOn);
+    expect(byKey("section:new")).toBe(newCard);
+    slid(callsOn(newCard), 56, 150);
+    expect(callsOn(byKey("album:a"))).toHaveLength(0);
+  });
+
+  test("Restore under an open Archived fades the row out and slides the rest", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: ["y", "z"] });
+    const card = byKey("section:archived") as HTMLDetailsElement;
+    card.open = true;
+    const rowY = byKey("archived:y");
+    const rowZ = byKey("archived:z");
+    await change({ folders: ["a", "y"], archived: ["z"] });
+    expect(byKey("section:archived")).toBe(card);
+    expect(card.open).toBe(true);
+    slid(callsOn(card), -56);
+    fadedOut(rowY, callsOn);
+    expect(byKey("archived:z")).toBe(rowZ);
+    slid(callsOn(rowZ), 56, 150);
+    expect(callsOn(byKey("album:y"))[0].keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    expect(callsOn(byKey("section:new"))).toHaveLength(0);
+  });
+
+  test("an archived-only change slides the New album section", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: ["y", "z"] });
+    (byKey("section:archived") as HTMLDetailsElement).open = true;
+    await change({ folders: ["a"], archived: ["z"] });
+    const moved = callsOn(byKey("section:new"));
+    expect(moved).toHaveLength(1);
+    expect(moved[0].keyframes[1]).toEqual({ transform: "none" });
+  });
+
+  test("the archived list's first render animates no rows", async () => {
+    const { byKey, callsOn } = await mount({ folders: ["a"], archived: [] });
+    await change({ folders: ["a"], archived: ["z"] });
+    expect(callsOn(byKey("archived:z"))).toHaveLength(0);
+  });
+
+  test("the first load and a refresh with the same rows animate nothing", async () => {
+    await loadAll({ folders: [] });
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(albumsPanel(), host);
+    await flush();
+    calls = [];
+    const data = { folders: ["a"], archived: ["z"], deleted: [d1] };
+    await loadAll(data);
+    await vi.waitFor(() =>
+      expect(host.querySelector('[data-motion-key="album:a"]')).not.toBeNull(),
+    );
+    await flush();
+    await flush();
+    expect(calls.filter((c) => host.contains(c.el))).toHaveLength(0);
+    await loadAll(data);
+    await flush();
+    await flush();
+    expect(calls.filter((c) => host.contains(c.el))).toHaveLength(0);
+  });
+});
+
 describe("archived and deleted sections", () => {
   test("Archived shows with its count and Restore, and a notice has Dismiss", async () => {
     const host = document.createElement("div");
