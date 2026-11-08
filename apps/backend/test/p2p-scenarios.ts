@@ -11,6 +11,7 @@
 import type { PhotoStore, PhotoStoreDeps } from "../src/photo-store.ts";
 import type { P2pEvent } from "../src/p2p-log.ts";
 import type { DriveStore } from "../src/ports/drive-store.ts";
+import { PEER_PROTOCOL } from "../src/versions.ts";
 
 export type PhotoChanged = Parameters<PhotoStoreDeps["onChanged"]>[0];
 export type SyncStatus = Awaited<ReturnType<PhotoStore["status"]>>;
@@ -677,7 +678,7 @@ export const scenarios: Scenario[] = [
   {
     name: "V1b: a peer on a newer version is refused and flagged",
     async run(net, t) {
-      const ahead = await net.peer("Ahead", undefined, { peerProtocol: 4 });
+      const ahead = await net.peer("Ahead", undefined, { peerProtocol: PEER_PROTOCOL + 1 });
       const current = await net.peer("Current");
       const created = await ahead.store.createFolder("Shared");
       if (created[0]) throw created[0];

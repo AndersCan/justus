@@ -22,6 +22,15 @@ export type ViewersFile = {
   >;
 };
 
+/** An old drive of the album that stays a read source after a move. */
+export type EarlierEntry = { key: string; name: string; keptVersion?: number };
+
+/** `/earlier.json` on an album's drive: the drives the album moved away from. */
+export type EarlierFile = { version: 1; earlier: EarlierEntry[] };
+
+/** At most this many entries are read from `/earlier.json`. */
+export const MAX_EARLIER_ENTRIES = 1000;
+
 export type RemovedFile = {
   version: 1;
   removed: Record<string, { memberKey: string; removedAt: number }>;
@@ -113,6 +122,45 @@ export function parseViewers(text: string | null): ViewersFile {
     return { version: 1, viewers };
   } catch {
     return empty;
+  }
+}
+
+/** The entries of an `/earlier.json`. Missing, malformed or unknown-version files
+ * list none (an unknown version is reported through `onUnsupported`); entries
+ * with a bad key are dropped, repeats keep the first, and at most
+ * {@link MAX_EARLIER_ENTRIES} are read. */
+export function parseEarlier(text: string | null, onUnsupported?: () => void): EarlierEntry[] {
+  if (text === null) return [];
+  try {
+    const parsed = JSON.parse(text) as { version?: unknown; earlier?: unknown } | null;
+    if (!isTextJSON(parsed)) return [];
+    if (parsed.version !== 1) {
+      onUnsupported?.();
+      return [];
+    }
+    if (!Array.isArray(parsed.earlier)) return [];
+    const out: EarlierEntry[] = [];
+    const seen = new Set<string>();
+    for (const raw of parsed.earlier.slice(0, MAX_EARLIER_ENTRIES) as unknown[]) {
+      if (!isTextJSON(raw) || typeof raw.key !== "string" || !isHexKey(raw.key)) continue;
+      const key = raw.key.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const keptVersion =
+        typeof raw.keptVersion === "number" &&
+        Number.isInteger(raw.keptVersion) &&
+        raw.keptVersion >= 0
+          ? raw.keptVersion
+          : undefined;
+      out.push({
+        key,
+        name: peerName(raw.name, "Unknown device"),
+        ...(keptVersion === undefined ? {} : { keptVersion }),
+      });
+    }
+    return out;
+  } catch {
+    return [];
   }
 }
 
@@ -287,11 +335,30 @@ export const DEFAULT_ASK_OWNER = "the Admin";
 
 /** Messages between an Admin and a friend about an album invite. `code` is the album's invite code, never a key. */
 export type FriendMessage =
-  | { kind: "offer"; code: string; albumName: string; ownerName: string }
+  | {
+      kind: "offer";
+      code: string;
+      albumName: string;
+      ownerName: string;
+      /** Set when the Admin moved the album: `from` are the keys it had before. */
+      move?: MoveOffer;
+    }
   | { kind: "offerSeen"; code: string }
   | { kind: "offerRefused"; code: string }
   | { kind: "offerWithdrawn"; code: string }
   | { kind: "offerTaken"; code: string };
+
+export type MoveOffer = { from: string[]; role: "member" | "reader" };
+
+/** A `move` off the wire, or undefined when it is not fully valid. */
+function parseMove(value: unknown): MoveOffer | undefined {
+  if (!isTextJSON(value)) return undefined;
+  const { from, role } = value;
+  if (role !== "member" && role !== "reader") return undefined;
+  if (!Array.isArray(from) || from.length < 1 || from.length > 10) return undefined;
+  if (!from.every((k) => typeof k === "string" && isHexKey(k))) return undefined;
+  return { from: from as string[], role };
+}
 
 /** Everything the answer channel carries. */
 export type ChannelMessage = Answer | FriendMessage;
@@ -307,12 +374,16 @@ export function parseFriendMessage(value: unknown): FriendMessage | undefined {
   const { kind, code, albumName, ownerName } = value;
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
   if (kind === "offer") {
-    return {
+    const base = {
       kind,
       code,
       albumName: peerName(albumName, DEFAULT_ASK_ALBUM),
       ownerName: peerName(ownerName, DEFAULT_ASK_OWNER),
-    };
+    } as const;
+    if (value.move === undefined) return base;
+    // An offer with a bad move must not show as a plain invite.
+    const move = parseMove(value.move);
+    return move ? { ...base, move } : undefined;
   }
   if (
     kind === "offerSeen" ||
