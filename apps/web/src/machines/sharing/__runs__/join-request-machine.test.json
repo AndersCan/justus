@@ -1,6 +1,59 @@
 {
   "joinRequest": [
     {
+      "name": "Joe opens Tom's link during the welcome and asks once his name is saved",
+      "end": "joinedAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "welcomeStarted",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "welcomeEnded",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "accepted",
+            "folderId": "f1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Joe taps Paste with nothing copied",
+      "end": "showingLinkProblem",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "pasteFoundNothing",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "Maya asks to join, and Nils accepts her as a Collaborator",
       "end": "joinedAlbum",
       "steps": [

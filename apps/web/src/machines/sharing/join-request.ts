@@ -8,6 +8,9 @@ import type { AskSummary } from "@justus/core";
 import { folders, foldersActor } from "../folders-machine";
 import {
   requestAnswered,
+  welcomeStarted,
+  welcomeEnded,
+  pasteFoundNothing,
   askToJoin,
   cancelRequest,
   closeLinkTurnedOff,
@@ -27,6 +30,8 @@ export type JoinView = {
     | "showingLinkProblem"
     | "joinedAlbum"
     | "decidingToAsk"
+    | "showingWelcome"
+    | "holdingInviteUntilWelcomeEnds"
     | "sendingRequest"
     | "waitingForAdminToAccept"
     | "declinedByAdmin"
@@ -42,7 +47,10 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
   return {
     state: name,
     invite:
-      name === "noInviteOpen" || name === "showingLinkProblem" || name === "joinedAlbum"
+      name === "noInviteOpen" ||
+      name === "showingWelcome" ||
+      name === "showingLinkProblem" ||
+      name === "joinedAlbum"
         ? null
         : (snapshot.payload as JoinInvite),
     error: (snapshot.context as { error: string }).error,
@@ -84,6 +92,12 @@ onOutput(joinActor, (e) => {
 });
 
 export const join = {
+  /** The first-run welcome opened. */
+  welcomeStarted: () => joinActor.send(welcomeStarted.create()),
+  /** The name is saved; a held link now asks. */
+  welcomeEnded: () => joinActor.send(welcomeEnded.create()),
+  /** Paste found nothing copied. */
+  pasteFoundNothing: () => joinActor.send(pasteFoundNothing.create()),
   /** Pasted text, a scanned code or a link the host opened. */
   openLink: (text: string) => joinActor.send(openLink.create({ text })),
   /** A tapped request row in the albums list. */

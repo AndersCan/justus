@@ -419,6 +419,8 @@ export function joinSheet() {
     const { state, invite, error } = joinViewOf(snapshot);
     if (
       state === "noInviteOpen" ||
+      state === "showingWelcome" ||
+      state === "holdingInviteUntilWelcomeEnds" ||
       state === "showingLinkProblem" ||
       state === "joinedAlbum" ||
       !invite

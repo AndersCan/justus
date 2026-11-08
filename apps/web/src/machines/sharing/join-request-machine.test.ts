@@ -8,6 +8,7 @@ import type { JoinInvite } from "../../utils/invite-link";
 import {
   EXPIRED_LINK,
   GARBLED_LINK,
+  NOTHING_COPIED,
   SEND_FAILED,
   oldLinkMessage,
   createJoinRequestActor,
@@ -555,6 +556,116 @@ describe("answers with no sheet open", () => {
   });
 });
 
+describe("the welcome", () => {
+  const known = (kind: Known["kind"]): Known =>
+    kind === "member" ? { kind, folderId: "f1" } : ({ kind } as Known);
+
+  test("a link opened during the welcome asks once the name is saved", async () => {
+    const s = setup();
+    await s.send("welcomeStarted");
+    expect(s.actor.state.name).toBe("showingWelcome");
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
+    expect(payload(s)).toEqual(INVITE);
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("a second link replaces the held one", async () => {
+    const s = setup();
+    const other = { ...INVITE, album: "Garden", ownerName: "Tom" };
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("openLink", { text: buildInviteLink(other) });
+    expect(payload(s)).toEqual(other);
+  });
+
+  test("a garbled link keeps the held one and shows no error", async () => {
+    const s = setup();
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("openLink", { text: "hello" });
+    expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
+    expect(payload(s)).toEqual(INVITE);
+    expect(error(s)).toBe("");
+  });
+
+  test("an unusable link during the welcome is dropped", async () => {
+    const s = setup();
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: "hello" });
+    expect(s.actor.state.name).toBe("showingWelcome");
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(error(s)).toBe("");
+  });
+
+  test("a link that ended during the welcome shows as ended", async () => {
+    const s = setup();
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    s.clock.advance(600_000);
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("linkExpired");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("a link to an album already joined opens the album", async () => {
+    const s = setup({ known: known("member") });
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
+  });
+
+  test("a link already asked through shows the waiting screen", async () => {
+    const s = setup({ known: known("waiting") });
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+  });
+
+  test("answers while holding change nothing", async () => {
+    const s = setup();
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+    await s.send("reopenRequest", { ask: ask("waiting") });
+    expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("welcomeStarted and welcomeEnded outside the welcome are dropped", async () => {
+    const s = setup();
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    await s.send("openLink", { text: LINK });
+    await s.send("welcomeStarted");
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+});
+
+describe("pasteFoundNothing", () => {
+  test("says nothing is copied", async () => {
+    const s = setup();
+    await s.send("pasteFoundNothing");
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe("Nothing copied yet. Copy the link from your chat, then tap Paste.");
+    expect(NOTHING_COPIED).toBe(error(s));
+  });
+
+  test("is dropped while a question is open", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    await s.send("pasteFoundNothing");
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+});
+
 const make = recordRuns(createJoinRequestActor);
 const ROW = (status: AskSummary["status"]) => ask(status);
 
@@ -578,6 +689,24 @@ test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
     await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
   });
   expect(actor.state.name).toBe("joinedAlbum");
+});
+
+test("Joe opens Tom's link during the welcome and asks once his name is saved", async () => {
+  const actor = await drive(async (send) => {
+    await send("welcomeStarted");
+    await send("openLink", { text: LINK });
+    await send("welcomeEnded");
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+  });
+  expect(actor.state.name).toBe("joinedAlbum");
+});
+
+test("Joe taps Paste with nothing copied", async () => {
+  const actor = await drive(async (send) => {
+    await send("pasteFoundNothing");
+  });
+  expect(actor.state.name).toBe("showingLinkProblem");
 });
 
 test("Maya: asks and is declined", async () => {
