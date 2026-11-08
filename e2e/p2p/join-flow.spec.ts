@@ -33,6 +33,8 @@ async function createAlbum(a, name, file, colour) {
   await a.goto("/sharing");
   await a.getByLabel("Album name").fill(name);
   await a.getByRole("button", { name: "Create album" }).click();
+  await expect(a).toHaveURL(/\/sharing\/[^/]+$/, { timeout: 20_000 });
+  await a.getByRole("link", { name: "See photos in this album" }).click();
   await expect(a).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await a.setInputFiles("input[type=file]", {
     name: file,

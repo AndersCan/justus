@@ -59,8 +59,8 @@ onStateChange(syncActor, SYNC_STATES, () => {
   syncSeen = true;
 });
 
-// A new album opens in Photos (ready for its first photos) once the create
-// lands; a failed create stays here with its error.
+// A new album made in Sharing opens on its Invite & members page, ready to
+// send its link; a failed create stays here with its error.
 onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   const { error, activeId } = foldersActor.snapshot().context;
   if (
@@ -69,7 +69,7 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
     !error &&
     currentPage()?.route === "sharing"
   ) {
-    open(activeId ? `/albums/${activeId}` : "/albums");
+    open(activeId ? `/sharing/${activeId}` : "/sharing");
   }
 });
 
