@@ -500,6 +500,18 @@ describe("album lifecycle in the folders machine", () => {
     expect(actor.snapshot().context.deleted).toEqual([notice]);
   });
 
+  test("leaving as a removed person keeps removed on the change", async () => {
+    const { actor, gw } = await loaded();
+    send(actor, "LEAVE_ALBUM", { ...trip, removed: true });
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(gw.leaveAlbum).toHaveBeenCalledWith("f1");
+    expect(actor.snapshot().context.pendingChange).toEqual({
+      kind: "leave",
+      ...trip,
+      removed: true,
+    });
+  });
+
   test("busy while leaving", async () => {
     const { actor } = await loaded({ leaveAlbum: vi.fn(() => new Promise(() => {})) });
     send(actor, "LEAVE_ALBUM", trip);

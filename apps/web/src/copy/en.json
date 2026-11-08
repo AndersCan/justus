@@ -755,6 +755,41 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.delete_from_this_phone": {
+    "text": "Delete from this phone",
+    "status": "draft",
+    "where": "Album › menu",
+    "who": "People removed from an album",
+    "screen": ""
+  },
+  "album.delete_from_this_phone_title": {
+    "text": "Delete “{name}” from this phone?",
+    "status": "draft",
+    "where": "Album › dialog",
+    "who": "People removed from an album",
+    "screen": ""
+  },
+  "album.you_re_no_longer_in_this": {
+    "text": "You're no longer in this album. Its photos are deleted from this phone, and {adminName} sees that it no longer has them. To come back you need a new invite from {adminName}.",
+    "status": "draft",
+    "where": "Album › dialog",
+    "who": "People removed from an album",
+    "screen": ""
+  },
+  "album.delete_2": {
+    "text": "Delete",
+    "status": "draft",
+    "where": "Album › dialog button",
+    "who": "People removed from an album",
+    "screen": ""
+  },
+  "albums.deleted_from_this_phone": {
+    "text": "Deleted “{name}” from this phone",
+    "status": "draft",
+    "where": "Your albums › toast",
+    "who": "People removed from an album",
+    "screen": ""
+  },
   "album.more_options": {
     "text": "More options",
     "status": "draft",
@@ -3248,7 +3283,7 @@
     "screen": ""
   },
   "photo_holders.left_their_phone_deleted_its": {
-    "text": "Left. Their phone deleted its copy.",
+    "text": "Their phone deleted its copy.",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",

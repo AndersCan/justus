@@ -65,15 +65,27 @@ export function deleteSheet(name: string, photos: number, otherNames: string[]) 
   };
 }
 
+/** The dialog for a person the Admin removed: it deletes the album from this phone. */
+export function removedDeleteSheet(name: string, adminName: string) {
+  return {
+    title: copy("album.delete_from_this_phone_title", { name }),
+    detail: copy("album.you_re_no_longer_in_this", { adminName }),
+    confirmLabel: copy("album.delete_2"),
+  };
+}
+
 /** The ••• menu entries by role: everyone archives; the Admin deletes, others leave. */
 export function albumMenuItems(
   role: "creator" | "member" | "reader",
   pending: boolean,
+  removed = false,
 ): { value: "archive" | "leave" | "delete"; label: string; danger: boolean }[] {
   const archive = { value: "archive", label: copy("album.archive"), danger: false } as const;
   if (pending) return [archive];
   if (role === "creator")
     return [archive, { value: "delete", label: copy("album.delete_album"), danger: true }];
+  if (removed)
+    return [archive, { value: "leave", label: copy("album.delete_from_this_phone"), danger: true }];
   return [archive, { value: "leave", label: copy("album.leave_album"), danger: true }];
 }
 
@@ -81,6 +93,14 @@ async function chooseAlbumAction(value: string, status: Status) {
   const { id, name, role } = status.folder;
   if (value === "archive") {
     folders.archive(id, name);
+    return;
+  }
+  if (value === "leave" && status.folder.notice?.kind === "removed") {
+    const ok = await confirmAction({
+      ...removedDeleteSheet(name, adminName(status)),
+      tone: "danger",
+    });
+    if (ok) folders.leave(id, name, true);
     return;
   }
   if (value === "leave") {
@@ -106,7 +126,11 @@ async function chooseAlbumAction(value: string, status: Status) {
 }
 
 function albumMenu(status: Status, busy: boolean) {
-  const items = albumMenuItems(status.folder.role, Boolean(status.folder.pending));
+  const items = albumMenuItems(
+    status.folder.role,
+    Boolean(status.folder.pending),
+    status.folder.notice?.kind === "removed",
+  );
   return html`<wa-dropdown
     placement="bottom-end"
     @wa-select=${(e: CustomEvent<{ item: { value: string } }>) =>
