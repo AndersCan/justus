@@ -8,6 +8,11 @@ import { defineConfig } from "astro/config";
 process.env.VITE_TRANSPORT_MODE = "mock";
 process.env.MANTAQ_SEED = "1";
 
+const base = process.env.SITE_BASE ?? "/justus";
+if (!/^\/justus(\/pr\/[1-9]\d*)?$/.test(base)) {
+  throw new Error(`SITE_BASE must be /justus or /justus/pr/<number>, got "${base}"`);
+}
+
 const manifest = JSON.parse(
   readFileSync(new URL("../flows/manifest.json", import.meta.url), "utf8"),
 );
@@ -19,11 +24,11 @@ export default defineConfig({
   outDir: "./site-dist",
   publicDir: "./docs/site/public",
   site: "https://anderscan.github.io",
-  base: "/justus",
+  base,
   redirects: {
-    "/albums": "/justus/make-an-album/",
-    "/sharing": "/justus/join-an-album/",
-    "/app": "/justus/internals/",
+    "/albums": `${base}/make-an-album/`,
+    "/sharing": `${base}/join-an-album/`,
+    "/app": `${base}/internals/`,
   },
   vite: { define: { "import.meta.env.VITE_TRANSPORT_MODE": JSON.stringify("mock") } },
   integrations: [
