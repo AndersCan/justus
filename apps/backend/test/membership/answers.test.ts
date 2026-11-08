@@ -13,6 +13,7 @@ import {
   answersOwed,
   arrivingAnswer,
   deliverOwed,
+  forgetSent,
   proveIdentity,
   type AnswerLog,
   type ClaimedConn,
@@ -382,6 +383,24 @@ describe("answers: delivering what is owed", () => {
     const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
     expect((await deliverOwed(ports, options)).sent).toBe(1);
     answers = { [id]: "accepted" };
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+  });
+
+  it("delivery: an accept taken back and given again is sent again on one connection", async () => {
+    const w = await adminAndJoiners();
+    const id = w.joiner.identity.key;
+    let answers: Record<string, "accepted" | "declined"> = { [id]: "accepted" };
+    const options = {
+      identity: id,
+      owed: () => answersOwed([album({ answers })], id),
+      log: noLog,
+    };
+    const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    answers = {};
+    answers = { [id]: "accepted" };
+    expect((await deliverOwed(ports, options)).sent).toBe(0);
+    forgetSent(w.sent.get(w.toJoiner.conn)!, [CODE]);
     expect((await deliverOwed(ports, options)).sent).toBe(1);
   });
 
