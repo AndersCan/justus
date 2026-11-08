@@ -55,6 +55,39 @@ describe("photo contract", () => {
     ).not.toContain("status");
   });
 
+  it("checks the optional check code on requests and asks", () => {
+    const request = {
+      requesterKey: "k",
+      requesterName: "n",
+      folderId: "f",
+      folderName: "Trip",
+      shareKey: "s",
+      requestedAt: 1,
+    };
+    expect(checkPhotoResult("photos.requests", { requests: [request] })).toBeNull();
+    expect(
+      checkPhotoResult("photos.requests", { requests: [{ ...request, checkCode: "4821 9035" }] }),
+    ).toBeNull();
+    const ask = {
+      code: "c",
+      owner: "o",
+      albumName: "a",
+      ownerName: "n",
+      askedAt: 1,
+      status: "waiting",
+      checkCode: 5,
+    };
+    expect(
+      checkPhotoResult("photos.folders", {
+        folders: [],
+        archived: [],
+        deleted: [],
+        activeFolderId: "f",
+        asks: [ask],
+      }),
+    ).toContain("checkCode");
+  });
+
   it("ignores unknown extra fields", () => {
     expect(checkPhotoResult("photos.setName", { name: "x", extra: 1 })).toBeNull();
   });

@@ -143,6 +143,7 @@ export const askSummarySchema = s.object({
   ownerName: s.string,
   askedAt: s.number,
   status: s.oneOf("waiting", "declined", "linkOff"),
+  checkCode: s.optional(s.string),
 });
 
 export const offerSummarySchema = s.object({
@@ -178,6 +179,7 @@ export const joinRequestSchema = s.object({
   shareKey: s.string,
   requestedAt: s.number,
   viaInvite: s.optional(s.boolean),
+  checkCode: s.optional(s.string),
 });
 
 export const photoChangedSchema = s.object({

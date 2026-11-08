@@ -36,6 +36,7 @@ import {
 import { addRemovedPerson, readRemovedPeople } from "./albums/removed-people";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
+import { checkCode } from "./membership/check-code";
 import { inviteTopic } from "./membership/invite";
 import { makeMemberViewer, makeViewerMember, seatViewer } from "./membership/viewers";
 import {
@@ -2973,6 +2974,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       ownerName: a.ownerName,
       askedAt: a.askedAt,
       status: a.status === "declined" || a.status === "linkOff" ? a.status : "waiting",
+      checkCode: checkCode(ownDrive.key, crypto),
     };
   }
 
@@ -3970,6 +3972,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             declinedAsks: rt.record.declinedAsks,
             invited: new Set(rt.record.invited ?? []),
             viewers: new Set(Object.keys(rt.viewers)),
+            checkCodeOf: (id) => checkCode(id, crypto),
           }),
         );
       }

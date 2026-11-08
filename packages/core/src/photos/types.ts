@@ -106,6 +106,8 @@ export type AskSummary = {
   askedAt: number;
   /** "linkOff": the Admin's phone said this link no longer works. */
   status: "waiting" | "declined" | "linkOff";
+  /** This phone's check code, shown while it waits. */
+  checkCode?: string;
 };
 
 /** An album invite a friend sent straight to this phone, not answered yet.
@@ -152,6 +154,8 @@ export type JoinRequest = {
   requestedAt: number;
   /** Asked through this album's invite link, so it can be accepted as a Viewer. */
   viaInvite?: boolean;
+  /** The asker's check code, the same one their phone shows. */
+  checkCode?: string;
 };
 
 export type PhotoChangedCause =
