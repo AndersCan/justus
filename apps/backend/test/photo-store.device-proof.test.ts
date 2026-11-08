@@ -100,4 +100,38 @@ describe("signed device records", () => {
     ).toBe(true);
     await again.close();
   });
+
+  it("a member who copies another member's identity is shown without one", async () => {
+    const hub = createFakeHub();
+    const [anna, ben, mallory] = [device(hub, "Anna"), device(hub, "Ben"), device(hub, "Mallory")];
+    await Promise.all([anna.store.ready(), ben.store.ready(), mallory.store.ready()]);
+    const folder = (await anna.store.createFolder("Trip"))[1]!.folder;
+    const benKey = await joinAsMember(anna.store, folder.id, ben.store, folder.shareKey);
+    const malloryKey = await joinAsMember(anna.store, folder.id, mallory.store, folder.shareKey);
+
+    const benRec = await record(ben, benKey);
+    const forged = await mallory.deps.drives.openOwn(`member/${folder.shareKey}`);
+    await forged.put(
+      "/device.json",
+      Buffer.from(JSON.stringify({ name: "Mallory", swarmKey: "e".repeat(64), ...benRec })),
+    );
+
+    const deadline = Date.now() + 3000;
+    let members: { key: string; identity?: string }[] = [];
+    while (Date.now() < deadline) {
+      members = (await anna.store.status()).members;
+      if (members.find((m) => m.key === benKey)?.identity) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(
+      members
+        .filter((m) => m.key === benKey || m.key === malloryKey)
+        .map((m) => [m.key === benKey ? "Ben" : "Mallory", m.identity])
+        .sort(),
+    ).toEqual([
+      ["Ben", ben.identity()],
+      ["Mallory", undefined],
+    ]);
+    await Promise.all([anna.store.close(), ben.store.close(), mallory.store.close()]);
+  });
 });

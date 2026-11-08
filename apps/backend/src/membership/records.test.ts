@@ -1,7 +1,8 @@
 import {
   isEnrolled,
   isHexKey,
-  parseDeviceIdentity,
+  identityMessage,
+  verifiedDeviceIdentity,
   parseDeviceName,
   parseAnswer,
   parseFriendMessage,
@@ -16,6 +17,7 @@ import {
   peerName,
 } from "./records";
 import { describe, expect, test } from "vite-plus/test";
+import type { IdentityProof } from "../ports/drive-store";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "B".repeat(64);
@@ -126,16 +128,51 @@ describe("parseDeviceSwarmKey", () => {
   });
 });
 
-describe("parseDeviceIdentity", () => {
-  test("returns a valid identity key lowercased", () => {
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: KEY_B }))).toBe(KEY_B.toLowerCase());
+describe("verifiedDeviceIdentity", () => {
+  const driveKey = KEY_A;
+  const proofFields = { identityPublicKey: "c".repeat(64), identitySig: "d".repeat(128) };
+  const check = (record: unknown, verify: (proof: IdentityProof) => boolean = () => true) =>
+    verifiedDeviceIdentity(typeof record === "string" ? record : JSON.stringify(record), {
+      driveKey,
+      verify,
+    });
+
+  test("returns a verified identity key lowercased, checked against this drive's message", () => {
+    const seen: IdentityProof[] = [];
+    const identity = check({ identityKey: KEY_B, ...proofFields }, (proof) => {
+      seen.push(proof);
+      return true;
+    });
+    expect(identity).toBe(KEY_B.toLowerCase());
+    expect(seen).toEqual([
+      {
+        identityKey: KEY_B,
+        publicKey: proofFields.identityPublicKey,
+        signature: proofFields.identitySig,
+        message: identityMessage(driveKey),
+      },
+    ]);
   });
-  test("returns undefined for missing, non-hex, short, non-string and non-JSON", () => {
-    expect(parseDeviceIdentity(JSON.stringify({}))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "z".repeat(64) }))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "a".repeat(63) }))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: 5 }))).toBeUndefined();
-    expect(parseDeviceIdentity("{nope")).toBeUndefined();
+  test("returns undefined when the signature does not verify", () => {
+    expect(check({ identityKey: KEY_B, ...proofFields }, () => false)).toBeUndefined();
+  });
+  test("returns undefined without proof fields, or with proof fields of the wrong type", () => {
+    expect(check({ identityKey: KEY_B })).toBeUndefined();
+    expect(check({ identityKey: KEY_B, identitySig: proofFields.identitySig })).toBeUndefined();
+    expect(check({ identityKey: KEY_B, identityPublicKey: 5, identitySig: "x" })).toBeUndefined();
+  });
+  test("returns undefined for missing, non-hex, short, non-string and non-JSON keys", () => {
+    expect(check({ ...proofFields })).toBeUndefined();
+    expect(check({ identityKey: "z".repeat(64), ...proofFields })).toBeUndefined();
+    expect(check({ identityKey: "a".repeat(63), ...proofFields })).toBeUndefined();
+    expect(check({ identityKey: 5, ...proofFields })).toBeUndefined();
+    expect(check("{nope")).toBeUndefined();
+  });
+  test("returns undefined when verify throws", () => {
+    const boom = () => {
+      throw new Error("boom");
+    };
+    expect(check({ identityKey: KEY_B, ...proofFields }, boom)).toBeUndefined();
   });
 });
 
