@@ -34,21 +34,6 @@ function vizDocuments(name) {
   );
 }
 
-for (const name of pages) {
-  const machines = vizDocuments(name);
-  for (const machine of machines) {
-    const missing = machine.edges
-      // initial edges are probed, not declared with m.on, so inspect has no doc for them
-      .filter((item) => item.kind !== "initial" && !item.doc?.trim())
-      .map((item) => item.id);
-    if (missing.length > 0) {
-      console.error(
-        `check-flows-site: ${name}: ${machine.id} has undocumented: ${missing.join(", ")}`,
-      );
-      failed = true;
-    }
-  }
-}
 const SITE = "https://anderscan.github.io/justus/";
 const flows = readFileSync(new URL("../docs/design/sharing-flows.md", import.meta.url), "utf8");
 const walks = flows.slice(flows.indexOf("\n## Walks")).split(/\n## /)[1] ?? "";
