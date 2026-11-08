@@ -406,4 +406,83 @@ describe("who has each photo", () => {
     expect(s.nils.heldPuts).toEqual([]);
     await s.close();
   });
+
+  async function threePhones() {
+    const hub = createFakeHub();
+    const anna = phone(hub, "Anna");
+    const nils = phone(hub, "Nils");
+    const cleo = phone(hub, "Cleo");
+    for (const p of [anna, nils, cleo]) await p.store.ready();
+    const created = await anna.store.createFolder("Trip");
+    const folderId = created[1]!.folder.id;
+    const shareKey = created[1]!.folder.shareKey;
+    await joinAsMember(anna.store, folderId, nils.store, shareKey);
+    const cleoKey = await joinAsMember(anna.store, folderId, cleo.store, shareKey);
+    const nilsFolder = (await nils.store.folders()).folders.find((f) => f.shareKey === shareKey)!;
+    const cleoFolder = (await cleo.store.folders()).folders.find((f) => f.shareKey === shareKey)!;
+    await nils.store.setActive(nilsFolder.id);
+    await cleo.store.setActive(cleoFolder.id);
+    await anna.store.setActive(folderId);
+    await anna.store.addBytes("sunset.jpg", new Uint8Array([1, 2, 3, 4, 5]));
+    await until(async () => (await cleo.store.list(cleoFolder.id)).length === 1);
+    const photo = (await cleo.store.list(cleoFolder.id))[0];
+    await cleo.server.getForTest(new URL(photo.url).pathname);
+    await until(async () => (await anna.store.list(folderId))[0].holders!.others.length === 1);
+    await until(async () => (await nils.store.list(nilsFolder.id))[0].holders!.others.length === 2);
+    const close = async () => {
+      for (const p of [anna, nils, cleo]) await p.store.close();
+    };
+    return {
+      anna,
+      nils,
+      cleo,
+      folderId,
+      nilsFolderId: nilsFolder.id,
+      cleoFolderId: cleoFolder.id,
+      cleoKey,
+      close,
+    };
+  }
+
+  it("names a removed person who still has a copy, and counts them in the line", async () => {
+    const s = await threePhones();
+    expect((await s.anna.store.removeMember(s.folderId, s.cleoKey))[0]).toBeNull();
+    await until(async () => (await s.anna.store.list(s.folderId))[0]?.holders?.former.length === 1);
+    const holders = (await s.anna.store.list(s.folderId))[0].holders!;
+    expect(holders.former).toEqual(["New member"]);
+    expect(holders.others.map((m: { name: string }) => m.name)).toEqual([]);
+    expect(holders.here).toBe(true);
+    const moved = (await s.anna.store.folders()).folders[0].driveKey;
+    const drive = await s.anna.deps.drives.openOwn(`folder/${s.folderId}/m1`);
+    expect(moved).toBe(drive.key);
+    expect(await drive.readSmall("/former.json", 1_000_000)).toContain("New member");
+    await s.close();
+  }, 20_000);
+
+  it("names a Collaborator who left", async () => {
+    const s = await threePhones();
+    expect((await s.cleo.store.leaveAlbum(s.cleoFolderId))[0]).toBeNull();
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 1);
+    const holders = (await s.anna.store.list(s.folderId))[0].holders!;
+    expect(holders.former).toEqual(["New member"]);
+    expect(holders.others.map((m: { name: string }) => m.name)).toEqual([]);
+    const nilsFolder = (await s.nils.store.folders()).folders[0].id;
+    await until(async () => (await s.nils.store.list(nilsFolder))[0]?.holders?.former.length === 1);
+    const seen = (await s.nils.store.list(nilsFolder))[0].holders!;
+    expect(seen.former).toEqual(["New member"]);
+    expect(seen.others.map((m: { name: string }) => m.name)).toEqual(["Anna"]);
+    await s.close();
+  }, 20_000);
+
+  it("drops the name when the person is accepted again", async () => {
+    const s = await threePhones();
+    const shareKey = (await s.cleo.store.folders()).folders[0].shareKey;
+    expect((await s.cleo.store.leaveAlbum(s.cleoFolderId))[0]).toBeNull();
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 1);
+    const key = await joinAsMember(s.anna.store, s.folderId, s.cleo.store, shareKey);
+    expect(key).toBeTruthy();
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 0);
+    expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
+    await s.close();
+  }, 20_000);
 });
