@@ -1044,6 +1044,129 @@ export const scenarios: Scenario[] = [
       );
     },
   },
+  {
+    name: "move: remove a Viewer and the rest follow the album to its new key",
+    async run(net, t) {
+      const admin = await net.peer("Phone");
+      const nils = await net.peer("Nils");
+      const vera = await net.peer("Vera");
+      const ben = await net.peer("Ben");
+      const created = await admin.store.createFolder("Trip");
+      if (created[0]) throw created[0];
+      const { id: folderId, shareKey, invite } = created[1].folder;
+      const adminIdentity = (admin.store.debugState() as { identityDrive: string }).identityDrive;
+      const keys: Record<string, string> = {};
+      for (const [who, role] of [
+        [nils, "member"],
+        [vera, "reader"],
+        [ben, "reader"],
+      ] as const) {
+        t.noErr(
+          await who.store.ask({
+            code: invite!.code,
+            owner: adminIdentity,
+            albumName: "Trip",
+            ownerName: "Phone",
+          }),
+          `${who.name} asks`,
+        );
+        const { requests } = await eventually(
+          () => admin.store.requests(),
+          (r) => r.requests.length === 1,
+          `${who.name}'s ask on the Admin`,
+        );
+        keys[who.name] = requests[0].requesterKey;
+        t.noErr(
+          await admin.store.respond(folderId, keys[who.name], true, role),
+          `accept ${who.name}`,
+        );
+        await eventually(
+          () => albumIn(who.store, shareKey),
+          (f) => f?.role === role && !f.pending,
+          `${who.name} joined`,
+        );
+      }
+      const photosOf = async (p: Peer, id: string) =>
+        (await p.store.list({ all: true })).filter((x) => x.folderId === id);
+      const idIn = async (p: Peer) => (await albumIn(p.store, shareKey))!.id;
+      const nilsId = await idIn(nils);
+      const veraId = await idIn(vera);
+      const benId = await idIn(ben);
+      t.noErr(await nils.store.addBytes("old.jpg", new Uint8Array([7, 7, 7]), nilsId), "old photo");
+      await eventually(
+        () => photosOf(admin, folderId),
+        (l) => l.some((p) => p.name === "old.jpg"),
+        "the old photo on the Admin",
+      );
+
+      t.noErr(await admin.store.removeMember(folderId, keys.Ben), "remove Ben");
+      const moved = (await admin.store.folders()).folders.find((f) => f.id === folderId)!;
+      t.ok(moved.shareKey !== shareKey, "the album has a new key");
+      for (const [who, id] of [
+        [nils, nilsId],
+        [vera, veraId],
+      ] as const) {
+        await eventually(
+          async () => (await who.store.folders()).folders.find((f) => f.id === id),
+          (f) => f?.shareKey === moved.shareKey,
+          `${who.name} followed to the new key`,
+          60_000,
+        );
+      }
+
+      t.noErr(
+        await admin.store.addBytes("from-admin.jpg", new Uint8Array([1, 1, 1]), folderId),
+        "admin adds",
+      );
+      const nilsNew = await eventually(
+        async () => (await nils.store.folders()).folders.find((f) => f.id === nilsId),
+        (f) => f?.role === "member" && !f.pending,
+        "Nils is a Collaborator on the new key",
+        60_000,
+      );
+      t.noErr(
+        await nils.store.addBytes("from-nils.jpg", new Uint8Array([2, 2, 2]), nilsNew!.id),
+        "Nils adds",
+      );
+      const names = async (p: Peer, id: string) =>
+        (await photosOf(p, id)).map((x) => x.name).sort((a, b) => a.localeCompare(b));
+      const all = ["from-admin.jpg", "from-nils.jpg", "old.jpg"];
+      await eventually(
+        () => names(vera, veraId),
+        (n) => JSON.stringify(n) === JSON.stringify(all),
+        "Vera sees everything once",
+        60_000,
+      );
+      await eventually(
+        () => names(admin, folderId),
+        (n) => JSON.stringify(n) === JSON.stringify(all),
+        "the Admin sees everything once",
+        60_000,
+      );
+      await eventually(
+        () => names(nils, nilsId),
+        (n) => JSON.stringify(n) === JSON.stringify(all),
+        "Nils sees everything once",
+        60_000,
+      );
+
+      await new Promise((r) => setTimeout(r, 5_000));
+      const seenByBen = await names(ben, benId);
+      t.ok(
+        !seenByBen.includes("from-admin.jpg") && !seenByBen.includes("from-nils.jpg"),
+        "Ben sees nothing added after Remove",
+      );
+      t.ok((await albumIn(ben.store, moved.shareKey)) === undefined, "Ben never holds the new key");
+
+      const old = (await photosOf(nils, nilsId)).find((p) => p.name === "old.jpg")!;
+      t.noErr(await nils.store.remove(old.id, nilsId), "Nils deletes the old photo");
+      await eventually(
+        () => names(nils, nilsId),
+        (n) => !n.includes("old.jpg"),
+        "the old photo is gone for Nils",
+      );
+    },
+  },
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */

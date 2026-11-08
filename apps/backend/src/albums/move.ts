@@ -113,3 +113,47 @@ export async function moveAlbum(
     }
   }
 }
+
+/** The id a photo path carries: `/photos/<id>.<ext>` or `/thumbs/<id>.jpg`. */
+function idOfPath(path: string): string {
+  const base = path.slice(path.lastIndexOf("/") + 1);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(0, dot) : base;
+}
+
+/** A Collaborator's phone moving with the album: copies its own photos and
+ * thumbnails onto its new drive, leaving out the ones the album removed (their
+ * ids in `removedIds`). Existing paths of the same size are skipped, so a run
+ * cut short can be repeated. */
+export async function copyOwnEntries(
+  from: Drive,
+  to: Drive,
+  removedIds: ReadonlySet<string>,
+): Promise<number> {
+  let copied = 0;
+  for (const dir of ["/photos", "/thumbs"]) {
+    const have = new Map<string, number>();
+    for await (const entry of to.list(dir)) have.set(entry.path, entry.size);
+    for await (const entry of from.list(dir)) {
+      if (removedIds.has(idOfPath(entry.path))) continue;
+      const bytes = await from.readBytes(entry.path);
+      if (!bytes) throw new Error(`follow: cannot read ${entry.path}`);
+      if (have.get(entry.path) === bytes.byteLength) continue;
+      await to.put(entry.path, bytes, { metadata: entry.metadata });
+      if (dir === "/photos") copied++;
+    }
+  }
+  return copied;
+}
+
+/** How many photos `drive` shows once the album's removed ones are left out. */
+export async function countShownPhotos(
+  drive: Drive,
+  removedIds: ReadonlySet<string>,
+): Promise<number> {
+  let shown = 0;
+  for await (const entry of drive.list("/photos")) {
+    if (!removedIds.has(idOfPath(entry.path))) shown++;
+  }
+  return shown;
+}
