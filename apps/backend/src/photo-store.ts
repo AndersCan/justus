@@ -2974,19 +2974,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log,
       });
       if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
-<<<<<<< HEAD
       const filed = replaces ? { ...ask, replaces } : ask;
-      state.asks = [...state.asks.filter((a) => a.code !== code), filed];
-=======
       state.asks = [
         ...state.asks.filter(
           (a) =>
             a.code !== code &&
             !(a.status === "linkOff" && a.owner === owner && a.albumName === ask.albumName),
         ),
-        ask,
+        filed,
       ];
->>>>>>> 116f192 (Backend: answer a request through a turned-off link with 'link no longer works')
       saveState();
       await watchInvite(filed);
       deps.onChanged({ cause: "ask", code });
