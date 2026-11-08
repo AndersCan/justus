@@ -86,9 +86,14 @@ test("B archives and restores A's album without A noticing; A deletes it and it 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
   await openAlbumPage(b, ALBUM);
-  await b.getByRole("button", { name: "More options" }).click();
-  await b.getByRole("menuitem", { name: "Archive" }).click();
-  await expect(b).toHaveURL(/\/sharing$/, { timeout: 30_000 });
+  // B's phone is still catching up after joining; a tap that lands while the
+  // album list reloads is ignored, so open the menu and tap again until it sticks.
+  await expect(async () => {
+    if (b.url().endsWith("/sharing")) return;
+    await b.getByRole("button", { name: "More options" }).click({ timeout: 5_000 });
+    await b.getByRole("menuitem", { name: "Archive" }).click({ timeout: 5_000 });
+    await expect(b).toHaveURL(/\/sharing$/, { timeout: 5_000 });
+  }).toPass({ timeout: 40_000 });
   const rowOf = (page) => page.getByRole("link", { name: `Invite & members of ${ALBUM}` });
   await expect(rowOf(b)).toHaveCount(0);
   await expect(b.getByText("Archived (1)")).toBeVisible();
