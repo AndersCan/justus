@@ -324,7 +324,8 @@ export function pendingJoinRequests(
       return true;
     })
     .map((f) => {
-      const base = f.viaInvite ? { ...f.request, viaInvite: true } : f.request;
+      const withIdentity = { ...f.request, requesterIdentity: f.identity };
+      const base = f.viaInvite ? { ...withIdentity, viaInvite: true } : withIdentity;
       return options.checkCodeOf ? { ...base, checkCode: options.checkCodeOf(f.identity) } : base;
     });
 }
