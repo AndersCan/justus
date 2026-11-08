@@ -4539,12 +4539,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         newCode: newInviteCode(),
       });
       rt.record.invited = undefined;
+      rt.record.offerOwed = undefined;
       rt.record.invite = next.invite;
       if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted) {
         persisted.invite = next.invite;
         persisted.invited = undefined;
+        persisted.offerOwed = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
