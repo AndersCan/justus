@@ -71,6 +71,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Gate on check + unit tests
         run: pnpm exec vp check && pnpm exec vp run -r test
+      - name: Gate on approved text
+        working-directory: .
+        run: node scripts/check-copy-release.mjs app && node scripts/check-copy-release.mjs store
       # Device gate: the debug APK on an x86_64 emulator, running .maestro/flows
       # (boot + native photo picker). Runs before any signing material exists.
       - name: Enable KVM

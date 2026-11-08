@@ -3757,5 +3757,26 @@
     "where": "Friends › Add a friend › text",
     "who": "Admins inviting a friend",
     "screen": ""
+  },
+  "store.title": {
+    "text": "Justus: Private Family Photos",
+    "status": "draft",
+    "where": "Play Store listing › Title",
+    "who": "Everyone who finds Justus on Google Play",
+    "screen": ""
+  },
+  "store.short_description": {
+    "text": "Nobody sees your photos unless you accept them. No account, no cloud.",
+    "status": "draft",
+    "where": "Play Store listing › Short description",
+    "who": "Everyone who finds Justus on Google Play",
+    "screen": ""
+  },
+  "store.full_description": {
+    "text": "Nobody sees your photos unless you accept them. No account, no cloud.\n\nStart an album for your family, send the invite link, and choose who gets in. Photos go straight from your phone to the phones of the people in your album, and only to them. Nobody else can see them, including us.\n\nMost photo apps upload your pictures to a company's servers, and everyone else downloads them from there. Justus works peer to peer, with no server in the middle.\n\nALBUMS FOR THE PEOPLE YOU CHOOSE\n• Start an album and invite friends or family.\n• You approve everyone who asks to join, and you can remove members.\n• Everyone in the album sees all of its photos, including older ones.\n• Add photos from your gallery or take them with the camera.\n\nPRIVACY YOU CAN SEE\n• No account, no sign-up, no cloud storage.\n• Photos are stored on the phones in the album, nowhere else.\n• Connections between phones are encrypted.\n• The People tab shows who is connected right now and when everyone else was last seen.\n• No ads, no tracking, no analytics.\n\nGOOD TO KNOW\n• Photos travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you are both online.\n• Two phones on mobile data sometimes can't find each other. Switching one of them to WiFi usually helps.\n• Your photos live on your devices, so a photo is safe as long as at least one phone in the album has synced it.\n\nJustus is for sharing with friends and family. It holds only the photos you deliberately add, not your whole library.",
+    "status": "draft",
+    "where": "Play Store listing › Full description",
+    "who": "Everyone who finds Justus on Google Play",
+    "screen": ""
   }
 }

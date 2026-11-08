@@ -92,7 +92,22 @@ describe("copy catalogue", () => {
 
   it("uses every id", () => {
     const used = new Set(uses.map((u) => u.id));
-    expect(Object.keys(en).filter((id) => !used.has(id))).toEqual([]);
+    expect(Object.keys(en).filter((id) => !used.has(id) && !id.startsWith("store."))).toEqual([]);
+  });
+
+  it("keeps the store listing files and their store.* entries in step", () => {
+    const dir = join(SRC, "../../android/fastlane/metadata/android/en-US");
+    const files = {
+      "store.title": "title.txt",
+      "store.short_description": "short_description.txt",
+      "store.full_description": "full_description.txt",
+    };
+    const text = (id: string) => (en as Record<string, { text: string }>)[id]?.text;
+    const differs = Object.entries(files).filter(
+      ([id, file]) => text(id) !== readFileSync(join(dir, file), "utf8").replace(/\r?\n$/, ""),
+    );
+    expect(differs.map(([id]) => id)).toEqual([]);
+    expect(Object.keys(en).filter((id) => id.startsWith("store.") && !(id in files))).toEqual([]);
   });
 
   it("passes exactly the params each text asks for", () => {
