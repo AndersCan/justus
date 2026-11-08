@@ -248,24 +248,35 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(host.textContent).toContain("wants to join"));
     return host;
   }
+  const name = (b: HTMLElement) => {
+    const c = b.cloneNode(true) as HTMLElement;
+    for (const h of c.querySelectorAll('[aria-hidden="true"]')) h.remove();
+    return c.textContent?.trim();
+  };
   const button = (host: HTMLElement, text: string) =>
-    [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
+    [...host.querySelectorAll("button")].find((b) => name(b) === text);
 
-  test("an invite request offers both accepts and the caption; each sends its role", async () => {
+  test("an invite request offers Accept as Viewer, Accept as Collaborator and Decline, each with its meaning; Viewer sends reader", async () => {
     const host = await show([ask("nils", true)]);
-    expect(host.textContent).toContain(
-      "A Viewer sees every photo. A Collaborator can add photos too.",
-    );
+    expect(
+      [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"] button')].map(name),
+    ).toEqual(["Accept as Viewer", "Accept as Collaborator", "Decline"]);
+    expect(host.textContent).toContain("Sees every photo, can't add any");
+    expect(host.textContent).toContain("Sees every photo and can add their own");
+    expect(host.textContent).not.toContain("A Viewer sees every photo. A Collaborator");
     expect(button(host, "Accept")).toBeUndefined();
+    expect(button(host, "Accept as Viewer")!.className).toBe(
+      button(host, "Accept as Collaborator")!.className,
+    );
     button(host, "Accept as Viewer")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
     );
   });
 
-  test("Accept, and let them add photos sends the member role", async () => {
+  test("Accept as Collaborator sends the member role", async () => {
     const host = await show([ask("nils", true)]);
-    button(host, "Accept, and let them add photos")!.click();
+    button(host, "Accept as Collaborator")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "member"),
     );
@@ -273,7 +284,7 @@ describe("album join requests", () => {
 
   test("a plain request keeps a single Accept that sends the member role", async () => {
     const host = await show([ask("ola", false)]);
-    expect(host.textContent).not.toContain("A Viewer sees every photo");
+    expect(host.textContent).not.toContain("Sees every photo");
     expect(button(host, "Accept as Viewer")).toBeUndefined();
     button(host, "Accept")!.click();
     await vi.waitFor(() =>

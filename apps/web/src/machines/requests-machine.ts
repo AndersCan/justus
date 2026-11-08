@@ -39,7 +39,7 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The person taps Decline, Accept as Viewer ("reader") or Accept and let them add photos ("member") on a request. */
+/** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
   requesterKey: string;

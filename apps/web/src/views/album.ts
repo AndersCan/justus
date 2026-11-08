@@ -239,6 +239,27 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
 const requestKey = (r: { folderId: string; requesterKey: string }) =>
   `request:${r.folderId}/${r.requesterKey}`;
 
+function inviteAccept(
+  r: { folderId: string; requesterKey: string },
+  busy: boolean,
+  label: string,
+  meaning: string,
+  onClick: () => void,
+) {
+  const descId = `${requestKey(r)}:${label}`;
+  return html`<button
+    class="ui-btn-primary w-full"
+    aria-describedby=${descId}
+    ?disabled=${busy}
+    @click=${onClick}
+  >
+    <span class="flex w-full flex-col items-start text-left">
+      <span>${label}</span>
+      <span class="text-xs font-normal" id=${descId} aria-hidden="true">${meaning}</span>
+    </span>
+  </button>`;
+}
+
 function requestRow(r: PeopleVm["requests"][number], busy = false) {
   const accept = (role: "reader" | "member", toastText: string) => () => {
     requests.respond(r.folderId, r.requesterKey, true, role);
@@ -251,47 +272,45 @@ function requestRow(r: PeopleVm["requests"][number], busy = false) {
     <p class="mt-1 text-xs text-muted">Asked ${formatRelative(r.requestedAt)}</p>
     ${
       r.viaInvite
-        ? html`<p class="mt-1 text-xs text-muted">
-            A Viewer sees every photo. A Collaborator can add photos too.
-          </p>`
-        : null
-    }
-    <div class="mt-2 flex gap-2">
-      <button
-        class="ui-btn-ghost"
-        ?disabled=${busy}
-        @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
-      >
-        Decline
-      </button>
-      ${
-        r.viaInvite
-          ? html`<button
-              class="ui-btn-primary"
+        ? html`<div class="mt-2 flex flex-col gap-2">
+            ${inviteAccept(
+              r,
+              busy,
+              "Accept as Viewer",
+              "Sees every photo, can't add any",
+              accept("reader", `${r.requesterName} is in as a Viewer`),
+            )}
+            ${inviteAccept(
+              r,
+              busy,
+              "Accept as Collaborator",
+              "Sees every photo and can add their own",
+              accept("member", `${r.requesterName} is in as a Collaborator`),
+            )}
+            <button
+              class="ui-btn-ghost w-full"
               ?disabled=${busy}
-              @click=${accept("reader", `${r.requesterName} is in as a Viewer`)}
+              @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
             >
-              Accept as Viewer
-            </button>`
-          : html`<button
+              Decline
+            </button>
+          </div>`
+        : html`<div class="mt-2 flex gap-2">
+            <button
+              class="ui-btn-ghost"
+              ?disabled=${busy}
+              @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
+            >
+              Decline
+            </button>
+            <button
               class="ui-btn-primary"
               ?disabled=${busy}
               @click=${accept("member", `${r.requesterName} is in`)}
             >
               Accept
-            </button>`
-      }
-    </div>
-    ${
-      r.viaInvite
-        ? html`<button
-            class="mt-2 text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
-            ?disabled=${busy}
-            @click=${accept("member", `${r.requesterName} is in and can add photos`)}
-          >
-            Accept, and let them add photos
-          </button>`
-        : null
+            </button>
+          </div>`
     }
   </li>`;
 }

@@ -74,7 +74,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept, and let them add photos", exact: true }).click();
+  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
   // Accepting happens on the members page; the photos are one tap away.
   await a.getByRole("link", { name: "See photos in this album" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
