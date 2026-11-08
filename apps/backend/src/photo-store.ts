@@ -39,6 +39,7 @@ import { inviteTopic } from "./membership/invite";
 import { makeMemberViewer, makeViewerMember, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
+  DRIVE_PATH_VIEWERS,
   DRIVE_PATH_REQUESTS,
   readViewers,
   openAlbum,
@@ -70,10 +71,12 @@ import {
   verifiedDeviceIdentity,
   identityMessage,
   peerName,
+  type EarlierEntry,
   type RegistryFile,
   type ViewersFile,
   type RemovedFile,
 } from "./membership/records";
+import { moveAlbum } from "./albums/move";
 import {
   checkAsk,
   fileInviteAsk,
@@ -204,6 +207,12 @@ type AskRecord = Omit<AskSummary, "status"> & {
 
 type Answers = Record<string, "accepted" | "declined">;
 
+/** Someone the album moved away from who has not arrived on the new key yet. */
+type MovingEntry = { role: "member" | "reader"; name: string; key: string };
+
+/** How many earlier keys of a moved album are kept for people still to follow. */
+const MAX_PAST_KEYS = 10;
+
 /**
  * One folder this device holds. `id` is a stable local id (across sessions);
  * `shareKey` is the creator drive's key (hex), `driveKey` is the drive THIS
@@ -236,7 +245,17 @@ type FolderRecord = {
   /** Creator: when this album moved to a new key (the rerun guard). */
   rotatedAt?: number;
   /** Creator: the old member drives, kept as read-only photo sources. */
-  earlier?: Array<{ key: string; name: string }>;
+  earlier?: EarlierEntry[];
+  /** Creator: the keys the album had before each move, newest first (at most 10). */
+  pastKeys?: string[];
+  /** Creator: how many times the album moved because someone was removed. */
+  moves?: number;
+  /** Creator: people who have not yet followed the album to its new key, by
+   * identity, with the role they get and the drive and name they had. */
+  moving?: Record<string, MovingEntry>;
+  /** Creator: keys removed whose move to new keys has not finished; a retry
+   * of Remove runs the move again. */
+  moveOwed?: string[];
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
@@ -739,13 +758,45 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
     if (Array.isArray(f.earlier)) {
-      const earlier: Array<{ key: string; name: string }> = [];
+      const earlier: EarlierEntry[] = [];
       for (const e of f.earlier as unknown[]) {
         if (isTextJSON(e) && typeof e.key === "string" && isHexKey(e.key)) {
-          earlier.push({ key: e.key, name: peerName(e.name, "Unknown device") });
+          earlier.push({
+            key: e.key,
+            name: peerName(e.name, "Unknown device"),
+            ...(typeof e.keptVersion === "number" &&
+            Number.isInteger(e.keptVersion) &&
+            e.keptVersion >= 0
+              ? { keptVersion: e.keptVersion }
+              : {}),
+          });
         }
       }
       out.earlier = earlier;
+    }
+    if (Array.isArray(f.pastKeys)) {
+      out.pastKeys = (f.pastKeys as unknown[])
+        .filter((k): k is string => typeof k === "string" && isHexKey(k))
+        .slice(0, MAX_PAST_KEYS);
+    }
+    if (typeof f.moves === "number" && Number.isInteger(f.moves) && f.moves > 0) {
+      out.moves = f.moves;
+    }
+    if (isTextJSON(f.moving)) {
+      const moving: Record<string, MovingEntry> = {};
+      for (const [identity, m] of Object.entries(f.moving)) {
+        if (!isHexKey(identity) || !isTextJSON(m)) continue;
+        if ((m.role !== "member" && m.role !== "reader") || typeof m.key !== "string") continue;
+        if (!isHexKey(m.key)) continue;
+        moving[identity] = { role: m.role, name: peerName(m.name, "Unknown device"), key: m.key };
+      }
+      if (Object.keys(moving).length > 0) out.moving = moving;
+    }
+    if (Array.isArray(f.moveOwed)) {
+      const owed = (f.moveOwed as unknown[]).filter(
+        (k): k is string => typeof k === "string" && isHexKey(k),
+      );
+      if (owed.length > 0) out.moveOwed = owed;
     }
     if (f.moved === true) out.moved = true;
     if (f.lifecycle === "archived" || f.lifecycle === "leaving" || f.lifecycle === "deleting") {
@@ -1318,15 +1369,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       name: m.name,
     }));
     for (const e of rt.record.earlier ?? []) {
+      if (e.keptVersion !== undefined) continue;
       if (!entries.some((x) => x.key === e.key)) entries.push(e);
     }
     const live = new Set(entries.map((e) => e.key));
     live.add(selfKeyOf(rt));
     // A Collaborator made a Viewer keeps their photos up to the version the
     // Admin recorded; their drive is read as a copy at that version.
-    const kept = Object.values(rt.viewers).filter(
-      (v) => v.keptVersion !== undefined && !registry.members[v.key],
-    );
+    // A moved album keeps such a copy in its earlier drives.
+    const kept = [
+      ...Object.values(rt.viewers).filter(
+        (v) => v.keptVersion !== undefined && !registry.members[v.key],
+      ),
+      ...(rt.record.earlier ?? []).filter(
+        (e) => e.keptVersion !== undefined && !registry.members[e.key] && !rt.viewers[e.key],
+      ),
+    ];
     for (const [key, drive] of [...rt.memberDrives]) {
       const keptVersion = kept.find((v) => v.key === key)?.keptVersion;
       const stays =
@@ -2169,6 +2227,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         .filter((v) => v.key !== selfKey && v.key !== adminKey && !registry.members[v.key])
         .sort((a, b) => a.addedAt - b.addedAt)
         .map((v) => ({ ...peer(v.key, v.name, false), viewer: true })),
+      ...(isAdmin
+        ? Object.values(rt.record.moving ?? {}).map((m) => ({
+            ...peer(m.key, m.name, false),
+            ...(m.role === "reader" ? { viewer: true as const } : {}),
+          }))
+        : []),
     ];
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
@@ -2356,9 +2420,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
       // A Join tapped while we were offline: the friend is here, finish it.
-      if (state.folders.some((f) => f.role === "creator" && f.invited?.includes(keyHex))) {
+      if (
+        state.folders.some(
+          (f) => f.role === "creator" && (f.invited?.includes(keyHex) || f.moving?.[keyHex]),
+        )
+      ) {
         void acceptOfferedFriend(keyHex).catch(answerErr("acceptOffered"));
       }
+      for (const seen of [...moveSeen]) if (seen.startsWith(`${keyHex}:`)) moveSeen.delete(seen);
+      void deliverMoveOffers(keyHex).catch(answerErr("moveOffer"));
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
         if (ask.status === "accepted" && ask.owner === keyHex) {
@@ -2478,6 +2548,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           saveState();
         }
         serveInvite(record.invite.code);
+        // People who have not followed a move still read the album's old drives.
+        for (const past of Object.keys(record.moving ?? {}).length > 0
+          ? (record.pastKeys ?? [])
+          : []) {
+          const [pastErr, pastDrive] = await deps.drives.open(past, {
+            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+          });
+          if (pastErr) {
+            log("error", { where: "move.past", err: pastErr.message });
+            continue;
+          }
+          joinTopic(topicOf(pastDrive), { server: true });
+          rediscover(topicOf(pastDrive), pastDrive);
+        }
       } else {
         fd = await openDriveWithTopic(record.shareKey, { server: false });
       }
@@ -2937,6 +3021,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!sender) return log("friend.ignored", { conn: connId, reason: "unverified" });
     if (message.kind === "offerSeen" || message.kind === "offerRefused") {
       const key = `${sender}:${message.code}`;
+      if (message.kind === "offerSeen") moveSeen.add(key);
       offerWaiters.get(key)?.(message.kind === "offerSeen" ? "seen" : "refused");
       return;
     }
@@ -2957,6 +3042,120 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     receiveOffer(connId, sender, message);
   }
 
+  /** Move offers a phone has said it saw, by `identity:code`. */
+  const moveSeen = new Set<string>();
+
+  /** Admin: after someone was removed, moves the album to new drives and
+   * records who still has to follow. Returns an error text, or undefined. The
+   * record changes only once every write succeeded. */
+  async function moveAfterRemove(
+    rt: FolderRuntime,
+    options: { removedKey: string },
+  ): Promise<string | undefined> {
+    const { removedKey } = options;
+    const record = rt.record;
+    const registry = await readRegistryIn(rt.folderDrive);
+    await resolveSwarmKeys().catch(() => false);
+    const people = new Map<string, MovingEntry>();
+    for (const m of Object.values(registry.members)) {
+      const identity = presence.identities.get(m.key);
+      if (identity) people.set(identity, { role: "member", name: m.name, key: m.key });
+    }
+    for (const v of Object.values(rt.viewers)) {
+      const identity = presence.identities.get(v.key);
+      if (identity) people.set(identity, { role: "reader", name: v.name, key: v.key });
+    }
+    const moving: Record<string, MovingEntry> = {};
+    for (const [identity, m] of Object.entries(record.moving ?? {})) {
+      if (m.key !== removedKey) moving[identity] = m;
+    }
+    for (const [identity, m] of people) moving[identity] = m;
+    const [moveErr, moved] = await moveAlbum(
+      { drives: deps.drives, log },
+      {
+        record,
+        oldDrive: rt.folderDrive,
+        remaining: { members: registry.members, viewers: rt.viewers },
+        removedKey,
+        device: (driveKey) => deviceJson(state.name, driveKey),
+        inviteCode: newInviteCode(),
+      },
+    );
+    if (moveErr) {
+      log("error", { where: "move.failed", folder: short(record.id), err: moveErr.message });
+      return moveErr.message;
+    }
+    const [openErr, fresh] = await deps.drives.open(moved.shareKey, {
+      timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+    });
+    if (openErr) return openErr.message;
+    const oldInvite = record.invite?.code;
+    const answers: Answers = {};
+    for (const [identity, answer] of Object.entries(record.answers ?? {})) {
+      if (answer === "declined" || moving[identity]) answers[identity] = answer;
+    }
+    const patch: Partial<FolderRecord> = {
+      shareKey: moved.shareKey,
+      driveKey: moved.driveKey,
+      pastKeys: [record.shareKey, ...(record.pastKeys ?? [])].slice(0, MAX_PAST_KEYS),
+      moves: moved.moves,
+      invite: moved.invite,
+      retiredInvites: oldInvite
+        ? [oldInvite, ...(record.retiredInvites ?? [])]
+        : record.retiredInvites,
+      answers,
+      moving: Object.keys(moving).length > 0 ? moving : undefined,
+      moveOwed: undefined,
+      earlier: moved.earlier,
+    };
+    const persisted = state.folders.find((f) => f.id === record.id);
+    for (const target of persisted ? [record, persisted] : [record]) Object.assign(target, patch);
+    rt.folderDrive = fresh;
+    rt.selfDrive = fresh;
+    rt.viewers = {};
+    saveState();
+    joinTopic(topicOf(fresh), { server: true });
+    rediscover(topicOf(fresh), fresh);
+    if (oldInvite) leaveTopic(hex(inviteTopic(oldInvite, crypto)));
+    serveInvite(moved.invite.code);
+    log("move.start", { folder: short(record.id), moves: moved.moves });
+    for (const identity of Object.keys(moving)) {
+      void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
+    }
+    return undefined;
+  }
+
+  /** Tells `identity` the album moved, on every connection proven to be them,
+   * until their phone says it saw the offer. */
+  async function deliverMoveOffers(identity: string, attempt = 0): Promise<void> {
+    if (closed || !setupDone) return;
+    let waiting = false;
+    for (const rt of Array.from(runtimes.values())) {
+      const entry = rt.record.role === "creator" ? rt.record.moving?.[identity] : undefined;
+      const invite = rt.record.invite;
+      if (!entry || !invite || moveSeen.has(`${identity}:${invite.code}`)) continue;
+      waiting = true;
+      await tellIdentity(invitePorts, {
+        identity,
+        message: {
+          kind: "offer",
+          code: invite.code,
+          albumName: rt.record.name,
+          ownerName: state.name,
+          move: { from: rt.record.pastKeys ?? [], role: entry.role },
+        },
+        timeoutMs: 2_000,
+      });
+    }
+    if (waiting && attempt < 5) {
+      const timer = setTimeout(() => {
+        retryTimers.delete(timer);
+        void deliverMoveOffers(identity, attempt + 1).catch(answerErr("moveOffer"));
+      }, OFFER_RESEND_MS);
+      retryTimers.add(timer);
+    }
+  }
+
   /** Identities whose auto-accept is running, so a repeated Join tap doesn't start a second one. */
   const acceptingFriends = new Set<string>();
 
@@ -2967,22 +3166,39 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       for (let attempt = 0; attempt < 5 && !closed; attempt++) {
         for (const rt of Array.from(runtimes.values())) {
-          if (rt.record.role !== "creator" || !rt.record.invited?.includes(identity)) continue;
+          const moving = rt.record.moving?.[identity];
+          if (rt.record.role !== "creator" || (!rt.record.invited?.includes(identity) && !moving))
+            continue;
           await openPeerOutbox(identity).catch(() => undefined);
           await withTimeout(peerOutboxDrives.get(identity)?.update() ?? Promise.resolve(), 2_000);
           const found = (await readRequestsFromPeers(rt)).find(
             (f) => f.identity === identity && f.viaInvite,
           );
           if (!found) continue;
-          const [error] = await store.respond(rt.record.id, found.request.requesterKey, true);
+          const [error] = await store.respond(
+            rt.record.id,
+            found.request.requesterKey,
+            true,
+            moving?.role ?? "member",
+          );
           if (error && error.code !== PhotoError.ALREADY_ENROLLED) continue;
           for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
-            if (target) target.invited = target.invited?.filter((i) => i !== identity);
+            if (!target) continue;
+            target.invited = target.invited?.filter((i) => i !== identity);
+            if (target.moving) {
+              const { [identity]: _arrived, ...rest } = target.moving;
+              target.moving = Object.keys(rest).length > 0 ? rest : undefined;
+            }
           }
           saveState();
           deps.onChanged({ cause: "offer", folderId: rt.record.id });
         }
-        if (![...runtimes.values()].some((rt) => rt.record.invited?.includes(identity))) return;
+        if (
+          ![...runtimes.values()].some(
+            (rt) => rt.record.invited?.includes(identity) || rt.record.moving?.[identity],
+          )
+        )
+          return;
         await sleep(1_000);
       }
     } finally {
@@ -2996,6 +3212,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     sender: string,
     offer: Extract<FriendMessage, { kind: "offer" }>,
   ) {
+    if (offer.move) {
+      // A moved album is followed by the phones already in it, never shown as an invite.
+      log("move.ignored", { sender: short(sender), reason: "not-followed" });
+      return;
+    }
     const known = {
       isFriend: deps.isFriend?.(sender) ?? false,
       coMembers: new Set(presence.identities.values()),
@@ -3717,12 +3938,65 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
       if (!isHexKey(memberKey))
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
-      const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
-      if (removeErr?.kind === "no-such-member") return err(PhotoError.NOT_FOUND, "No such member");
-      if (removeErr) throw new Error(removeErr.message);
+      memberKey = memberKey.toLowerCase();
+      if (memberKey === selfKeyOf(rt) || memberKey === ownDrive.key)
+        return err(PhotoError.INVALID_KEY, "You cannot remove yourself");
+      await refreshViewers(rt);
+      const registry = await readRegistryIn(rt.folderDrive);
+      const stillMoving = Object.entries(rt.record.moving ?? {}).find(
+        ([, m]) => m.key === memberKey,
+      );
+      const isMember = Boolean(registry.members[memberKey]);
+      const isViewer = Boolean(rt.viewers[memberKey]);
+      const owed = (rt.record.moveOwed ?? []).includes(memberKey);
+      if (!isMember && !isViewer && !stillMoving && !owed)
+        return err(PhotoError.NOT_FOUND, "No such member");
+      // Mark the move as owed before the removal, so a failed move can be retried.
+      if (isMember || isViewer) {
+        const persisted = state.folders.find((f) => f.id === rt.record.id);
+        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+          target.moveOwed = [memberKey, ...(target.moveOwed ?? []).filter((k) => k !== memberKey)];
+        }
+        saveState();
+      }
+      const clearOwed = () => {
+        const persisted = state.folders.find((f) => f.id === rt.record.id);
+        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+          target.moveOwed = target.moveOwed?.filter((k) => k !== memberKey);
+          if (!target.moveOwed?.length) delete target.moveOwed;
+        }
+        saveState();
+      };
+      // Today's removal first, on the old drive: the removed phone sees itself removed.
+      if (isMember) {
+        const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
+        if (removeErr?.kind === "no-such-member") {
+          clearOwed();
+          return err(PhotoError.NOT_FOUND, "No such member");
+        }
+        if (removeErr) {
+          clearOwed();
+          throw new Error(removeErr.message);
+        }
+      } else if (isViewer) {
+        const { [memberKey]: _gone, ...left } = rt.viewers;
+        try {
+          await rt.folderDrive.put(
+            DRIVE_PATH_VIEWERS,
+            Buffer.from(JSON.stringify({ version: 1, viewers: left })),
+          );
+        } catch (e) {
+          clearOwed();
+          return err(ErrorCode.HOST_ERROR, `Cannot remove: ${errText(e)}`);
+        }
+        rt.viewers = left;
+      }
       // Stop loading their drive; a re-filed request must not resurface at once.
       deniedRequesters.add(memberKey);
+      const moved = await moveAfterRemove(rt, { removedKey: memberKey });
+      if (moved) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${moved}`);
       await refreshMembersFor(rt);
+      armFolderWatchers(rt);
       deps.onChanged({ cause: "enroll", folderId, memberKey });
       return ok({ ok: true });
     },
