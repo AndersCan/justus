@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { albumAddRow, missingAlbumText, scopePhotos, viewerLine } from "./gallery";
+import { albumAddRow, albumHeader, missingAlbumText, scopePhotos, viewerLine } from "./gallery";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -282,6 +282,39 @@ describe("albumAddRow for a removed album", () => {
       "You're no longer in Trip. You can still see the photos you have.",
     );
     expect(host.querySelector("button")).toBeNull();
+  });
+});
+
+describe("albumHeader for a removed album", () => {
+  const status = {
+    folder: { id: "f1" },
+    members: [
+      { key: "k0", name: "Me", connected: true },
+      { key: "k1", name: "Anna", connected: true },
+    ],
+  };
+  const render_ = (album: Record<string, unknown>) => {
+    const host = document.createElement("div");
+    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    render(albumHeader(page as never, album as never), host);
+    return { host, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
+  };
+  const base = { id: "f1", name: "Trip", role: "reader", members: 2 };
+
+  test("shows no connected, shared or updated line once removed", () => {
+    const { host, text } = render_({ ...base, notice: { kind: "removed" } });
+    expect(text).not.toContain("connected now");
+    expect(text).not.toContain("shared with");
+    expect(text).not.toContain("updated");
+    expect(host.querySelector("[data-presence-dots]")).toBeNull();
+    expect(text).toContain("You're no longer in Trip. You can still see the photos you have.");
+  });
+
+  test("still shows who is connected while in the album", () => {
+    const { host, text } = render_(base);
+    expect(text).toContain("1 connected now");
+    expect(text).toContain("shared with 1 other");
+    expect(host.querySelector("[data-presence-dots]")).not.toBeNull();
   });
 });
 

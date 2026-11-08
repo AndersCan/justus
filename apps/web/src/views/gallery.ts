@@ -738,7 +738,7 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
   `;
 }
 
-function albumHeader(page: PhotosPage, album: FolderSummary) {
+export function albumHeader(page: PhotosPage, album: FolderSummary) {
   const status = page.status?.folder.id === album.id ? page.status : null;
   const waiting =
     album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id).length : 0;
@@ -763,7 +763,8 @@ function albumHeader(page: PhotosPage, album: FolderSummary) {
           }
         </a>
       </div>
-      ${status ? presenceStrip(status, page.lastSync) : null} ${albumAddRow(page, album)}
+      ${status && album.notice?.kind !== "removed" ? presenceStrip(status, page.lastSync) : null}
+      ${albumAddRow(page, album)}
     </div>
   `;
 }

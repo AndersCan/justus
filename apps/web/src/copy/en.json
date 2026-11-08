@@ -882,7 +882,7 @@
     "screen": ""
   },
   "album.won_t_see_photos_added": {
-    "text": "{name} won't see photos added from now on{added}. {name} keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.",
+    "text": "{name} won't see photos added from now on{added}. {name} keeps the photos already on their phone and sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
