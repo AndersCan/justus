@@ -120,6 +120,26 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1"));
   });
 
+  test("a kept invite says it waits and offers one Close", async () => {
+    const { gateway } = await import("../gateway");
+    vi.mocked(gateway.offerAlbum).mockResolvedValue([null, { ok: true, waiting: true }]);
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
+    button(host, "Kari")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector("[role=dialog]")!.textContent!.replace(/\s+/g, " ")).toContain(
+        "Kari doesn't have Justus open right now. The invite goes out the next time you both have Justus open, for up to 7 days.",
+      ),
+    );
+    const dialog = host.querySelector<HTMLElement>("[role=dialog]")!;
+    expect([...dialog.querySelectorAll("button")].map((b) => b.textContent!.trim())).toEqual([
+      "Close",
+    ]);
+    button(dialog, "Close")!.click();
+    await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
+  });
+
   test("backdrop click is ignored while asking", async () => {
     const { gateway } = await import("../gateway");
     vi.mocked(gateway.offerAlbum).mockReturnValue(new Promise(() => {}));
@@ -130,5 +150,6 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari"));
     (host.querySelector("[role=dialog]")!.parentElement as HTMLElement).click();
     expect(host.querySelector("[role=dialog]")).not.toBeNull();
+    expect(host.textContent).toContain("If Kari doesn't have Justus open, the invite waits.");
   });
 });

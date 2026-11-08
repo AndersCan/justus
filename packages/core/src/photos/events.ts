@@ -430,7 +430,7 @@ export const photoEvents = {
     ): InvokeEnvelope<
       "photos.offerAlbum",
       { folderId: string; identity: string },
-      { ok: boolean }
+      { ok: boolean; waiting?: boolean }
     > {
       return invokeEvent(
         photoSpecs.offerAlbum,

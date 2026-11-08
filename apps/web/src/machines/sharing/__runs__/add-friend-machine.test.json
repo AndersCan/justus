@@ -4373,6 +4373,52 @@
       ]
     },
     {
+      "name": "closePicker > closes from inviteWaitingForFriend",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendAway",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "closePicker",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "closePicker > is ignored when nothing is open",
       "end": "showingPeopleWithAddFriend",
       "steps": []
@@ -4558,6 +4604,70 @@
       ]
     },
     {
+      "name": "openPicker > opens again from inviteWaitingForFriend",
+      "end": "choosingFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendAway",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        }
+      ]
+    },
+    {
       "name": "openPicker > sorts ignoring case",
       "end": "choosingFriend",
       "steps": [
@@ -4583,6 +4693,47 @@
             ],
             "memberIdentities": []
           }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > a kept invite lands in inviteWaitingForFriend with no toast",
+      "end": "inviteWaitingForFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendAway",
+          "payload": {}
         }
       ]
     },
@@ -4631,6 +4782,49 @@
     },
     {
       "name": "pickFriend > a thrown invoke says unreachable",
+      "end": "couldNotReachFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendNotReached",
+          "payload": {
+            "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > an error wins over waiting",
       "end": "couldNotReachFriend",
       "steps": [
         {
@@ -4880,6 +5074,47 @@
     },
     {
       "name": "pickFriend > shows lookingForFriend while the phone is asked",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendReached",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > waiting: false still counts as asked",
       "end": "showingPeopleWithAddFriend",
       "steps": [
         {

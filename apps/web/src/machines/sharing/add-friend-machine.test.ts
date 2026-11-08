@@ -73,6 +73,14 @@ describe("openPicker", () => {
     expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
   });
 
+  test("opens again from inviteWaitingForFriend", async () => {
+    const s = setup({ offerAlbum: async () => [null, { ok: true, waiting: true }] });
+    await s.send("openPicker", OPEN);
+    await s.send("pickFriend", { identity: KARI });
+    await s.send("openPicker", OPEN);
+    expect(s.actor.state.name).toBe("choosingFriend");
+  });
+
   test("opens again from couldNotReachFriend", async () => {
     const s = setup(failing());
     await s.send("openPicker", OPEN);
@@ -98,6 +106,30 @@ describe("pickFriend", () => {
     expect(calls).toEqual([["f1", KARI]]);
     expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
     expect(s.outputs).toEqual([{ type: "friendAsked", payload: { name: "Kari" } }]);
+  });
+
+  test("a kept invite lands in inviteWaitingForFriend with no toast", async () => {
+    const s = setup({ offerAlbum: async () => [null, { ok: true, waiting: true }] });
+    await s.send("openPicker", OPEN);
+    await s.send("pickFriend", { identity: KARI });
+    expect(s.actor.state.name).toBe("inviteWaitingForFriend");
+    expect(s.actor.snapshot().payload).toMatchObject({ identity: KARI, name: "Kari" });
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("waiting: false still counts as asked", async () => {
+    const s = setup({ offerAlbum: async () => [null, { ok: true, waiting: false }] });
+    await s.send("openPicker", OPEN);
+    await s.send("pickFriend", { identity: KARI });
+    expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
+    expect(s.outputs).toEqual([{ type: "friendAsked", payload: { name: "Kari" } }]);
+  });
+
+  test("an error wins over waiting", async () => {
+    const s = setup({ offerAlbum: async () => [new Error("no"), { waiting: true }] });
+    await s.send("openPicker", OPEN);
+    await s.send("pickFriend", { identity: KARI });
+    expect(s.actor.state.name).toBe("couldNotReachFriend");
   });
 
   test("shows lookingForFriend while the phone is asked", async () => {
@@ -158,6 +190,14 @@ describe("closePicker", () => {
     await s.send("openPicker", OPEN);
     if (name === "couldNotReachFriend") await s.send("pickFriend", { identity: KARI });
     expect(s.actor.state.name).toBe(name);
+    await s.send("closePicker");
+    expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
+  });
+
+  test("closes from inviteWaitingForFriend", async () => {
+    const s = setup({ offerAlbum: async () => [null, { ok: true, waiting: true }] });
+    await s.send("openPicker", OPEN);
+    await s.send("pickFriend", { identity: KARI });
     await s.send("closePicker");
     expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
   });
@@ -229,7 +269,10 @@ describe("add friend design", () => {
       create: () =>
         createAddFriendActor({
           clock: VirtualClock(),
-          port: { offerAlbum: async () => [new Error("x"), null] },
+          port: {
+            offerAlbum: async (_f, identity) =>
+              identity === KARI ? [new Error("x"), null] : [null, { ok: true, waiting: true }],
+          },
         }),
     });
   });
