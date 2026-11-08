@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import { CoreError } from "@ekrooh/bare/core";
 import { createFriendsPlugin } from "./friends-plugin";
 import type { FriendsStore } from "./friends-store";
 
@@ -23,6 +24,12 @@ describe("justus.friends plugin", () => {
         stored.push({ identity, name });
         return [null, { identity, name }];
       },
+      rename: async (identity, name) => {
+        const f = stored.find((x) => x.identity === identity);
+        if (!f) return [new CoreError("justus.friends/not-found", "no"), null];
+        f.name = name;
+        return [null, { identity, name }];
+      },
       remove: async (identity) => {
         const at = stored.findIndex((f) => f.identity === identity);
         if (at >= 0) stored.splice(at, 1);
@@ -38,6 +45,15 @@ describe("justus.friends plugin", () => {
       null,
       { friends: [{ identity: A, name: "Sam" }] },
     ]);
+    expect(await invoke(plugin, "friends.rename", { identity: A, name: "Samuel" })).toEqual([
+      null,
+      { friend: { identity: A, name: "Samuel" } },
+    ]);
+    const [renameErr] = await invoke(plugin, "friends.rename", {
+      identity: "b".repeat(64),
+      name: "X",
+    });
+    expect(renameErr?.code).toBe("justus.friends/not-found");
     expect(await invoke(plugin, "friends.remove", { identity: A })).toEqual([
       null,
       { removed: true },

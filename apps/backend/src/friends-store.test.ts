@@ -26,6 +26,51 @@ describe("friends store", () => {
     expect(store.list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
   });
 
+  test("rename changes the name and survives a restart", async () => {
+    const store = open();
+    await store.add(A, "Ben B");
+    expect(await store.rename(A, "  Ben ")).toEqual([null, { identity: A, name: "Ben" }]);
+    expect(store.list()).toEqual([null, [{ identity: A, name: "Ben" }]]);
+    expect(open().list()).toEqual([null, [{ identity: A, name: "Ben" }]]);
+  });
+
+  test("rename accepts an uppercase identity and cuts a long name", async () => {
+    const store = open();
+    await store.add(A, "Sam");
+    const [e, friend] = await store.rename("A".repeat(64), "x".repeat(60));
+    expect(e).toBeNull();
+    expect(friend).toEqual({ identity: A, name: "x".repeat(40) });
+  });
+
+  test("rename errors leave the file unchanged", async () => {
+    const store = open();
+    await store.add(A, "Sam");
+    const file = path.join(dir, "friends.json");
+    const before = fs.readFileSync(file, "utf8");
+    expect((await store.rename(A, "   "))[0]?.code).toBe(FriendError.NAME_REQUIRED);
+    expect((await store.rename("nope", "Ben"))[0]?.code).toBe(FriendError.INVALID_KEY);
+    expect((await store.rename(B, "Ben"))[0]?.code).toBe(FriendError.NOT_FOUND);
+    expect(fs.readFileSync(file, "utf8")).toBe(before);
+    expect(store.list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
+  });
+
+  test("a failed rename write keeps the old name", async () => {
+    const store = createFriendsStore({
+      dir,
+      files: {
+        ...fs,
+        renameSync: (from: string, to: string) => {
+          if (to.endsWith("friends.json") && fs.existsSync(to)) throw new Error("disk full");
+          fs.renameSync(from, to);
+        },
+      } as never,
+      paths: path as never,
+    });
+    await store.add(A, "Sam");
+    expect((await store.rename(A, "Ben"))[0]?.code).toBe(FriendError.WRITE_FAILED);
+    expect(store.list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
+  });
+
   test("remove takes a friend off and survives a restart", async () => {
     const store = open();
     await store.add(A, "Sam");
