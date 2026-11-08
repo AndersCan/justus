@@ -148,7 +148,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
     .filter({ hasNot: a.getByText("(you)") });
   const tap = row.getByRole("button").first();
   await expect(tap).toBeVisible({ timeout: 60_000 });
-  const ownName = ((await tap.locator("p").first().innerText()) ?? "").trim();
+  const ownName = (((await tap.locator("p").first().innerText()) ?? "").split("·")[0] ?? "").trim();
   await tap.click();
   await a.getByRole("button", { name: "Add to friends" }).click();
   await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
