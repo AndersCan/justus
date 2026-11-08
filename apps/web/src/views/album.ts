@@ -438,6 +438,10 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
+const MEMBERS_CAPTION =
+  "Connected means they have Justus open and your phone can reach them right now. Everyone in the album sees this list. Viewers see every photo but can't add any.";
+const HOLDING_CAPTION =
+  " A phone gets a photo when it is first opened there; the counts are what each phone last told yours.";
 const NO_HOLDING: AlbumHolding = { total: 0, you: 0, byKey: new Map() };
 
 function membersSection(vm: PeopleVm, id: string) {
@@ -463,13 +467,7 @@ function membersSection(vm: PeopleVm, id: string) {
       const loaded = state !== "photosNotLoaded" && state !== "couldNotLoadPhotos";
       const holding = loaded ? albumHolding(photos, id) : NO_HOLDING;
       return html`<p class="mb-2 mt-1 text-xs text-muted">
-          Connected means they have Justus open and your phone can reach them right now. Everyone in
-          the album sees this list. Viewers see every photo but can't add
-          any.${
-            holding.total > 0
-              ? " A phone gets a photo when it is first opened there; the counts are what each phone last told yours."
-              : ""
-          }
+          ${MEMBERS_CAPTION}${holding.total > 0 ? HOLDING_CAPTION : ""}
         </p>
         ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
         <ul
