@@ -599,9 +599,12 @@ describe("the other phones follow the move by themselves", () => {
     const s = await invited();
     const nilsId = s.ids.nils;
     const before = (await albumOf(s.nils, s.ids.nils))!.shareKey;
-    const links = (
-      s.ben.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
-    ).connections.filter((c) => c.identityKey === identityOf(s.nils));
+    const linksToNils = () =>
+      (
+        s.ben.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+      ).connections.filter((c) => c.identityKey === identityOf(s.nils));
+    await until(() => linksToNils().length > 0, 15_000);
+    const links = linksToNils();
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) {
       s.ben.deps.network.sendAnswer(link.conn, {
