@@ -92,18 +92,35 @@ export type OwingAlbum = {
   declinedAsks?: Readonly<Record<string, number>>;
 };
 
+export type AskedCode = { code: string; requestedAt: number };
+
 /** Every answer owed to `identity`: per creator album with an invite and an
  * answer for it, one message per code (current code first, then retired codes
- * in order). Albums in the order given. */
-export function answersOwed(albums: Iterable<OwingAlbum>, identity: string): Answer[] {
+ * in order). Then, for each code in `asked` that this album turned off and no
+ * saved answer settles, a "linkOff". Albums in the order given. */
+export function answersOwed(
+  albums: Iterable<OwingAlbum>,
+  identity: string,
+  asked: readonly AskedCode[] = [],
+): Answer[] {
   const owed: Answer[] = [];
   for (const album of albums) {
+    if (album.role !== "creator" || !album.invite) continue;
     const answer = album.answers?.[identity];
-    if (album.role !== "creator" || !album.invite || !answer) continue;
     const askedAt = album.declinedAsks?.[identity];
-    for (const code of [album.invite.code, ...(album.retiredInvites ?? [])]) {
-      if (answer === "accepted") owed.push({ code, answer, shareKey: album.shareKey });
-      else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
+    if (answer) {
+      for (const code of [album.invite.code, ...(album.retiredInvites ?? [])]) {
+        if (answer === "accepted") owed.push({ code, answer, shareKey: album.shareKey });
+        else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
+      }
+    }
+    for (const a of asked) {
+      if (!album.retiredInvites?.includes(a.code)) continue;
+      // Same rule as join.ts answerClosesRequest; duplicated because use-case modules don't import siblings.
+      const settled =
+        answer === "accepted" ||
+        (answer === "declined" && (askedAt === undefined || a.requestedAt <= askedAt));
+      if (!settled) owed.push({ code: a.code, answer: "linkOff", askedAt: a.requestedAt });
     }
   }
   return owed;
@@ -134,7 +151,7 @@ export async function deliverOwed(
       continue;
     }
     for (const message of owed()) {
-      const key = `${message.code}:${message.answer}:${message.answer === "declined" ? (message.askedAt ?? "") : ""}`;
+      const key = `${message.code}:${message.answer}:${message.answer === "accepted" ? "" : (message.askedAt ?? "")}`;
       if (codes.has(key)) continue;
       codes.add(key);
       if (ports.sendAnswer(conn, message) === true) {
@@ -157,6 +174,7 @@ export type AnswerArrival =
       reason: "version" | "malformed" | "no-waiting-ask" | "unverified" | "settled" | "stale";
     }
   | { kind: "declined"; code: string }
+  | { kind: "linkOff"; code: string }
   | { kind: "accepted"; code: string; shareKey: string };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
@@ -177,12 +195,13 @@ export async function arrivingAnswer(
   const ask = waiting(answer.code);
   if (!ask) return { kind: "ignored", reason: "no-waiting-ask" };
   const stale =
-    answer.answer === "declined" && answer.askedAt !== undefined && answer.askedAt < ask.askedAt;
+    answer.answer !== "accepted" && answer.askedAt !== undefined && answer.askedAt < ask.askedAt;
   if (stale) return { kind: "ignored", reason: "stale" };
   if ((await ports.provenIdentity(conn)) !== ask.owner) {
     return { kind: "ignored", reason: "unverified" };
   }
   if (!waiting(answer.code)) return { kind: "ignored", reason: "settled" };
   if (answer.answer === "declined") return { kind: "declined", code: answer.code };
+  if (answer.answer === "linkOff") return { kind: "linkOff", code: answer.code };
   return { kind: "accepted", code: answer.code, shareKey: answer.shareKey };
 }

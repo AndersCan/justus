@@ -142,7 +142,7 @@ export const askSummarySchema = s.object({
   albumName: s.string,
   ownerName: s.string,
   askedAt: s.number,
-  status: s.oneOf("waiting", "declined"),
+  status: s.oneOf("waiting", "declined", "linkOff"),
 });
 
 export const offerSummarySchema = s.object({
@@ -185,7 +185,7 @@ export const photoChangedSchema = s.object({
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
-  answer: s.optional(s.oneOf("accepted", "declined")),
+  answer: s.optional(s.oneOf("accepted", "declined", "linkOff")),
 });
 
 /** Result schema of every `photos.*` invoke the web reads, by event name. */

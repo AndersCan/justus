@@ -6,6 +6,8 @@
 import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as nodeCrypto from "node:crypto";
+import { inviteTopic } from "../src/membership/invite.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
@@ -936,6 +938,135 @@ describe("cancel a waiting request", () => {
     const cancelled = await s.joiner.store.cancelAsk(s.invite.code);
     expect(cancelled[0]!.code).toBe(PhotoError.NOT_FOUND);
     expect(savedAsks(s)).toHaveLength(1);
+    await s.close();
+  });
+});
+
+describe("a request through a turned-off link", () => {
+  type Arrived = { code: string; answer: string; askedAt?: number };
+  const topicHex = (code: string) =>
+    Buffer.from(inviteTopic(code, nodeCrypto as unknown as typeof import("bare-crypto"))).toString(
+      "hex",
+    );
+  const joinsOf = (store: { debugState(): unknown }) =>
+    (store.debugState() as { joins: { topic: string }[] }).joins.map((j) => j.topic);
+
+  /** A scenario whose joiner network records the answers that reach it. */
+  async function teed(adminDeps?: Partial<FakeStoreDeps>, joinerDeps?: Partial<FakeStoreDeps>) {
+    const hub = createFakeHub();
+    const net = createFakePeerNetwork({ hub });
+    const arrived: Arrived[] = [];
+    const joinerNetwork: PeerNetwork = {
+      ...net,
+      start: (identity, on, protocol) =>
+        net.start(
+          identity,
+          (e: PeerEvent) => {
+            if (e.type === "answer") arrived.push(e.value as Arrived);
+            on(e);
+          },
+          protocol,
+        ),
+    };
+    const changes: unknown[] = [];
+    const s = await scenario(
+      adminDeps,
+      { network: joinerNetwork, onChanged: (c: unknown) => changes.push(c), ...joinerDeps },
+      hub,
+    );
+    return { s, arrived, changes, joinerNetwork };
+  }
+
+  const askStatus = async (s: Awaited<ReturnType<typeof scenario>>) =>
+    (await s.joiner.store.folders()).asks[0]?.status;
+
+  it("a joiner waiting when links are turned off is told the link no longer works, and nothing else", async () => {
+    const { s, arrived, changes, joinerNetwork } = await teed();
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const askedAt = asked[1]!.ask.askedAt;
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    await s.admin.store.turnOffInvite(s.folderId);
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    const linkOff = arrived.filter((m) => m.answer === "linkOff");
+    expect(linkOff).toEqual([{ code: s.invite.code, answer: "linkOff", askedAt }]);
+    expect(Object.keys(linkOff[0]).sort()).toEqual(["answer", "askedAt", "code"]);
+    expect((await s.joiner.store.folders()).folders).toEqual([]);
+    expect(JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`]).toBe(
+      undefined,
+    );
+    expect(joinsOf(s.joiner.store)).not.toContain(topicHex(s.invite.code));
+    expect(joinsOf(s.admin.store)).toContain(topicHex(s.invite.code));
+    expect(changes).toContainEqual({ cause: "ask", code: s.invite.code, answer: "linkOff" });
+    await s.close();
+  });
+
+  it("after a restart the Admin still serves a turned-off code and tells a joiner who asks through it", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.turnOffInvite(s.folderId);
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    expect(joinsOf(reopened)).toContain(topicHex(s.invite.code));
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("a request through the live code gets no linkOff", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+    await s.joiner.store.ask({ code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await askStatus(s)).toBe("waiting");
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    expect(arrived.filter((m) => m.answer === "linkOff")).toEqual([]);
+    await s.close();
+  });
+
+  it("an answer given before the turn-off is not followed by a linkOff", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const first = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
+    await until(() => arrived.length >= 1, 4_000);
+    await s.admin.store.turnOffInvite(s.folderId);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(arrived.some((m) => m.answer === "linkOff")).toBe(false);
+    await s.close();
+  });
+
+  it("Cancel takes a linkOff request off the phone", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    await s.admin.store.turnOffInvite(s.folderId);
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await s.joiner.store.cancelAsk(s.invite.code)).toEqual([null, { ok: true }]);
+    expect((await s.joiner.store.folders()).asks).toEqual([]);
+    await s.close();
+  });
+
+  it("a new ask to the same Admin and album replaces the linkOff row", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    await s.joiner.store.ask({ code, owner: s.owner });
+    const asks = (await s.joiner.store.folders()).asks;
+    expect(asks.map((a) => [a.code, a.status])).toEqual([[code, "waiting"]]);
     await s.close();
   });
 });

@@ -302,10 +302,27 @@ export function parseJoinRequests(
   return out;
 }
 
+/** The invite codes an outbox's requests were made through, with when. */
+export function invitesAsked(text: string): Array<{ code: string; requestedAt: number }> {
+  const file = parseRequestsFile(text);
+  if (!file) return [];
+  const out: Array<{ code: string; requestedAt: number }> = [];
+  for (const raw of Object.values(file.requests) as unknown[]) {
+    if (!isTextJSON(raw)) continue;
+    const req = raw as Record<string, unknown>;
+    if (typeof req.invite !== "string" || !isHexKey(req.invite)) continue;
+    if (typeof req.requestedAt !== "number" || !Number.isFinite(req.requestedAt)) continue;
+    out.push({ code: req.invite, requestedAt: req.requestedAt });
+  }
+  return out;
+}
+
 /** What an Admin tells a joiner who asked through an invite code (`justus/answer/v1`). */
 export type Answer =
   | { code: string; answer: "accepted"; shareKey: string }
-  | { code: string; answer: "declined"; askedAt?: number };
+  | { code: string; answer: "declined"; askedAt?: number }
+  /** The code was turned off before this ask was answered. Nothing else is said. */
+  | { code: string; answer: "linkOff"; askedAt: number };
 
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
@@ -321,6 +338,11 @@ export function parseAnswer(value: unknown): Answer | undefined {
     return typeof askedAt === "number" && Number.isFinite(askedAt)
       ? { code, answer, askedAt }
       : { code, answer };
+  }
+  if (answer === "linkOff") {
+    return typeof askedAt === "number" && Number.isFinite(askedAt)
+      ? { code, answer, askedAt }
+      : undefined;
   }
   if (answer === "accepted" && typeof shareKey === "string" && isHexKey(shareKey)) {
     return { code, answer, shareKey };
