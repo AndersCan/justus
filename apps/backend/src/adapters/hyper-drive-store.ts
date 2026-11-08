@@ -57,8 +57,64 @@ function readOnlyCopy(): never {
 
 function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
   const readOnly = wrapOpts.readOnly === true;
-  /** The live download of the file index that `keepOnly` starts once. */
-  let liveIndex: unknown;
+  /** The live download of the file index that `keepOnly` runs, and the block it starts from. */
+  let liveIndex: { from: number; range: { destroy(): void } } | undefined;
+  let growthWatched = false;
+
+  /** True when `path` is the only file and the last write put it; then every block between the header and that write is cleared. The header is already local: `getBlobs` read it. */
+  async function clearOlderVersions(path: string): Promise<boolean> {
+    const len: number = raw.core.length;
+    const node = await raw.entry(path, { wait: false });
+    if (!node || node.seq !== len - 1) return false;
+    for await (const e of raw.list("/")) if (e.key !== path) return false;
+    if (len > 2) await raw.core.clear(1, len - 1);
+    return true;
+  }
+
+  /** Downloads the file index from block 0, or from its last block once older versions are cleared. */
+  function followIndex(cleared: boolean): void {
+    if (raw.core.writable) return;
+    const from = cleared ? raw.core.length - 1 : 0;
+    if (liveIndex && (!cleared || liveIndex.from === from)) return;
+    liveIndex?.range.destroy();
+    liveIndex = { from, range: raw.core.download({ start: from, end: -1 }) };
+  }
+
+  async function keepPath(path: string): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
+    const missing: OpenResult<{ olderVersionsCleared: boolean }> = [
+      new Error(`${path} is not on this device`),
+      null,
+    ];
+    try {
+      const node = await raw.entry(path, { wait: false }).catch(() => undefined);
+      const blob = node?.value?.blob;
+      if (!blob) return missing;
+      const blobs = await raw.getBlobs();
+      const { blockOffset, blockLength } = blob;
+      if (!(await blobs.core.has(blockOffset, blockOffset + blockLength))) return missing;
+      if (blockOffset > 0) await blobs.core.clear(0, blockOffset);
+      const end = blobs.core.length;
+      if (end > blockOffset + blockLength) await blobs.core.clear(blockOffset + blockLength, end);
+      const olderVersionsCleared = await clearOlderVersions(path);
+      followIndex(olderVersionsCleared);
+      return [null, { olderVersionsCleared }];
+    } catch (e: unknown) {
+      return [e instanceof Error ? e : new Error(String(e)), null];
+    }
+  }
+
+  /** Each time the kept drive grows: fetch the new note, then keep again. Errors wait for the next append or start. */
+  function keepOnGrowth(path: string): void {
+    let chain: Promise<void> = Promise.resolve();
+    raw.core.on("append", () => {
+      chain = chain
+        .then(async () => {
+          await raw.get(path, { timeout: 10_000 });
+          await keepPath(path);
+        })
+        .catch(() => {});
+    });
+  }
   return {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
@@ -92,24 +148,14 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
       if (readOnly) readOnlyCopy();
       await raw.clear(path);
     },
-    async keepOnly(path): Promise<OpenResult<void>> {
+    async keepOnly(path): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
       if (readOnly) readOnlyCopy();
-      const missing: OpenResult<void> = [new Error(`${path} is not on this device`), null];
-      try {
-        const node = await raw.entry(path, { wait: false }).catch(() => undefined);
-        const blob = node?.value?.blob;
-        if (!blob) return missing;
-        const blobs = await raw.getBlobs();
-        const { blockOffset, blockLength } = blob;
-        if (!(await blobs.core.has(blockOffset, blockOffset + blockLength))) return missing;
-        if (blockOffset > 0) await blobs.core.clear(0, blockOffset);
-        const end = blobs.core.length;
-        if (end > blockOffset + blockLength) await blobs.core.clear(blockOffset + blockLength, end);
-        if (!liveIndex) liveIndex = raw.core.download({ start: 0, end: -1 });
-        return [null, undefined];
-      } catch (e: unknown) {
-        return [e instanceof Error ? e : new Error(String(e)), null];
+      const result = await keepPath(path);
+      if (result[0] === null && !raw.core.writable && !growthWatched) {
+        growthWatched = true;
+        keepOnGrowth(path);
       }
+      return result;
     },
     async *list(dir): AsyncGenerator<DriveEntry> {
       for await (const e of raw.list(dir)) {
