@@ -14,6 +14,8 @@ import {
   parseRemoved,
   parseRequestsFile,
   invitesAsked,
+  inLinkTime,
+  CLOCK_SLACK_MS,
   parseViewers,
   peerName,
 } from "./records";
@@ -456,6 +458,22 @@ describe("linkOff answers", () => {
     expect(parseAnswer({ code, answer: "linkOff" })).toBeUndefined();
     expect(parseAnswer({ code, answer: "linkOff", askedAt: "7" })).toBeUndefined();
     expect(parseAnswer({ code, answer: "linkOff", askedAt: Number.NaN })).toBeUndefined();
+  });
+
+  test("inLinkTime: no windows count as on time; slack edges and gaps", () => {
+    const links = [
+      { from: 1_000_000, to: 2_000_000 },
+      { from: 9_000_000, to: 9_500_000 },
+    ];
+    expect(inLinkTime(undefined, 5)).toBe(true);
+    expect(inLinkTime([], 5)).toBe(true);
+    expect(inLinkTime(links, 1_500_000)).toBe(true);
+    expect(inLinkTime(links, 2_000_000 + CLOCK_SLACK_MS)).toBe(true);
+    expect(inLinkTime(links, 2_000_000 + CLOCK_SLACK_MS + 1)).toBe(false);
+    expect(inLinkTime(links, 1_000_000 - CLOCK_SLACK_MS)).toBe(true);
+    expect(inLinkTime(links, 1_000_000 - CLOCK_SLACK_MS - 1)).toBe(false);
+    expect(inLinkTime(links, 5_000_000)).toBe(false);
+    expect(inLinkTime(links, 9_200_000)).toBe(true);
   });
 
   test("invitesAsked lists invite entries and skips the rest", () => {

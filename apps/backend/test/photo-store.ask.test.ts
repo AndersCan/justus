@@ -1081,4 +1081,112 @@ describe("a request through a turned-off link", () => {
     expect(asks.map((a) => [a.code, a.status])).toEqual([[code, "waiting"]]);
     await s.close();
   });
+
+  /** Back-dates the joiner's ask by writing `requestedAt` in its outbox. */
+  async function backdate(s: Awaited<ReturnType<typeof scenario>>, ms: number) {
+    const file = JSON.parse(await outboxText(s.outbox));
+    file.requests[`invite:${s.invite.code}`].requestedAt -= ms;
+    await s.outbox.put("/requests.json", Buffer.from(JSON.stringify(file)));
+  }
+
+  it("an ask sent after every link ended is not listed, and the joiner hears the link no longer works", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    const [saveErr] = await s.admin.store.saveInviteLink(s.folderId, Date.now() + 60_000);
+    expect(saveErr).toBeNull();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await backdate(s, -2 * 60 * 60_000);
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    expect(arrived.filter((m) => m.answer === "linkOff")).toHaveLength(1);
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    await s.close();
+  });
+
+  it("an ask sent while the link works is listed", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.saveInviteLink(s.folderId, Date.now() + 60_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    expect(await askStatus(s)).toBe("waiting");
+    await s.close();
+  });
+
+  it("link times survive a restart, so a late ask is still turned away", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.saveInviteLink(s.folderId, Date.now() + 60_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await backdate(s, -2 * 60 * 60_000);
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    expect((await reopened.requests()).requests).toEqual([]);
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("a late invite ask is not listed, while an in-time ask is", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.saveInviteLink(s.folderId, Date.now() + 60_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    await backdate(s, -2 * 60 * 60_000);
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    await s.close();
+  });
+
+  it("asking the Admin again about a late ask pushes linkOff once", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    await s.admin.store.saveInviteLink(s.folderId, Date.now() + 60_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await backdate(s, -2 * 60 * 60_000);
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => arrived.some((m) => m.answer === "linkOff"), 4_000);
+    for (let i = 0; i < 5; i++) await s.admin.store.requests();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(arrived.filter((m) => m.answer === "linkOff")).toHaveLength(1);
+    await s.close();
+  });
+
+  it("the same end time saved twice is one link, and only the last 50 links are kept", async () => {
+    const { s } = await teed();
+    const base = Date.now() + 60_000;
+    const savedLinks = () => {
+      const state = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+      return state.folders.find((f: { id: string }) => f.id === s.folderId).invite.links;
+    };
+    await s.admin.store.saveInviteLink(s.folderId, base);
+    await s.admin.store.saveInviteLink(s.folderId, base);
+    await s.admin.store.saveInviteLink(s.folderId, base + 1);
+    expect(savedLinks()).toHaveLength(2);
+    for (let i = 2; i < 52; i++) await s.admin.store.saveInviteLink(s.folderId, base + i);
+    const links = savedLinks();
+    expect(links).toHaveLength(50);
+    expect(links.map((l: { to: number }) => l.to)).toEqual(
+      Array.from({ length: 50 }, (_, i) => base + i + 2),
+    );
+    await s.close();
+  });
+
+  it("saveInviteLink refuses a time more than 7 days ahead, a past time and an unknown album", async () => {
+    const { s } = await teed();
+    const far = Date.now() + 8 * 24 * 60 * 60_000;
+    expect((await s.admin.store.saveInviteLink(s.folderId, far))[0]!.code).toBe(
+      PhotoError.INVALID_LINK_TIME,
+    );
+    expect((await s.admin.store.saveInviteLink(s.folderId, Date.now() - 1))[0]!.code).toBe(
+      PhotoError.INVALID_LINK_TIME,
+    );
+    expect((await s.admin.store.saveInviteLink("nope", Date.now() + 1000))[0]!.code).toBe(
+      PhotoError.FOLDER_NOT_FOUND,
+    );
+    await s.close();
+  });
 });

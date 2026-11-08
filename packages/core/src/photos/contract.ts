@@ -225,6 +225,7 @@ export const photoResultSchemas = {
   "photos.dismissDeclinedAsk": s.object({ ok: s.boolean }),
   "photos.cancelAsk": s.object({ ok: s.boolean }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
+  "photos.saveInviteLink": s.object({ ok: s.boolean }),
 } as const;
 
 /** Validates an invoke result; returns a message naming the field, or null. */

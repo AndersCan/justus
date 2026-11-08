@@ -577,3 +577,42 @@ describe("join, request, accept", () => {
     expect(isEnrolled(seen, self.key)).toEqual(true);
   });
 });
+
+describe("pendingJoinRequests and link times", () => {
+  const key = "1".repeat(64);
+  const links = [{ from: 1_000_000, to: 2_000_000 }];
+  const list = (requestedAt: number, viaInvite: boolean, invited?: string[]) =>
+    pendingJoinRequests(
+      [
+        {
+          request: {
+            folderId: "f1",
+            folderName: "Trip",
+            requesterKey: key,
+            requesterName: "Bo",
+            requestedAt,
+          },
+          identity: "i",
+          viaInvite,
+        },
+      ],
+      {
+        registry: { version: 1, members: {} },
+        denied: new Set(),
+        answers: undefined,
+        linkTimes: links,
+        invited: new Set(invited),
+      },
+    ).length;
+
+  it("drops a late invite ask and lists an on-time one", () => {
+    expect(list(1_500_000, true)).toBe(1);
+    expect(list(9_000_000_000, true)).toBe(0);
+  });
+
+  it("never drops a non-invite ask for time, and an invited friend is left to the invited rule", () => {
+    expect(list(9_000_000_000, false)).toBe(1);
+    expect(list(9_000_000_000, true, ["i"])).toBe(0);
+    expect(list(1_500_000, true, ["i"])).toBe(0);
+  });
+});

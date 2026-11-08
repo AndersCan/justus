@@ -582,3 +582,29 @@ describe("answers: an answer arriving", () => {
     }
   });
 });
+
+describe("answers: asks outside the link times", () => {
+  const b = hex("b");
+  const links = [{ from: 1_000_000, to: 2_000_000 }];
+  const withLinks = (extra: Partial<OwingAlbum> = {}) =>
+    album({ invite: { code: CODE, links }, answers: undefined, ...extra });
+  const ask = (requestedAt: number) => [{ code: CODE, requestedAt }];
+
+  it("a late ask on the current code gets a linkOff with its askedAt", () => {
+    expect(answersOwed([withLinks()], b, ask(9_000_000))).toEqual([
+      { code: CODE, answer: "linkOff", askedAt: 9_000_000 },
+    ]);
+  });
+
+  it("an on-time ask, an invited friend and an album with no links get nothing", () => {
+    expect(answersOwed([withLinks()], b, ask(1_500_000))).toEqual([]);
+    expect(answersOwed([withLinks({ invited: [b] })], b, ask(9_000_000))).toEqual([]);
+    expect(answersOwed([album({ answers: undefined })], b, ask(9_000_000))).toEqual([]);
+  });
+
+  it("a late ask already accepted gets only the accept", () => {
+    expect(answersOwed([withLinks({ answers: { [b]: "accepted" } })], b, ask(9_000_000))).toEqual([
+      { code: CODE, answer: "accepted", shareKey: SHARE },
+    ]);
+  });
+});

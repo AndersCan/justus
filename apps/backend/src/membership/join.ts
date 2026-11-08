@@ -7,12 +7,14 @@ import type { PeerNetwork } from "../ports/peer-network";
 import type { JoinRequest } from "@justus/core";
 import {
   isHexKey,
+  inLinkTime,
   isTextJSON,
   parseFolderName,
   parseJoinRequests,
   parseRegistry,
   parseRequestsFile,
   parseViewers,
+  type LinkTime,
   type RegistryFile,
   type RequestsFile,
   type ViewersFile,
@@ -301,6 +303,8 @@ export function pendingJoinRequests(
     /** Identities with an open friend invite to this album: the Admin's phone lets
      * them in itself (`acceptOfferedFriend`), so they are not listed. */
     invited?: ReadonlySet<string>;
+    /** When the album's invite links worked; an invite ask sent outside them is not listed. */
+    linkTimes?: readonly LinkTime[];
     /** Keys accepted as Viewers: no longer pending. */
     viewers?: ReadonlySet<string>;
     /** Works out the check code for an identity; when absent, requests carry none. */
@@ -312,6 +316,7 @@ export function pendingJoinRequests(
     .filter((f) => {
       const key = f.request.requesterKey;
       if (options.invited?.has(f.identity)) return false;
+      if (f.viaInvite && !inLinkTime(options.linkTimes, f.request.requestedAt)) return false;
       if (enrolled.has(key)) return false;
       if (options.viewers?.has(key)) return false;
       if (options.denied.has(key)) return false;
