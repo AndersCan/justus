@@ -13,8 +13,10 @@ import {
   requestsViewModel,
   viewerAcceptKeys,
 } from "../machines/requests-machine";
+import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
+import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
 import { requestsHint } from "../utils/people";
 import { formatRelative } from "../utils/time";
 import { avatarBadge } from "./avatar";
@@ -191,7 +193,11 @@ export function removeDetail(name: string, viewer: boolean): string {
   return copy("album.won_t_see_photos_added", { name, added });
 }
 
-function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
+function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHolding) {
+  const line = holdingLine(
+    p.you ? { kind: "count", held: holding.you } : holding.byKey.get(p.key),
+    holding.total,
+  );
   const body = html`${avatarBadge(p.name)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
@@ -226,6 +232,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ></span>
         ${p.presence}
       </p>
+      ${line === undefined ? null : html`<p class="truncate text-xs text-muted">${line}</p>`}
     </div>`;
   const identity = p.identity;
   return html`<li class="flex items-center gap-3 py-2" data-motion-key=${p.key}>
@@ -431,21 +438,32 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
+const NO_HOLDING: AlbumHolding = { total: 0, you: 0, byKey: new Map() };
+
 function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
     <h2 class="ui-label">${t("album.members")}</h2>
-    <p class="mb-2 mt-1 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>
-    ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
-    <ul
-      class="divide-y divide-line"
-      ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
-    >
-      ${repeat(
-        vm.people,
-        (p) => p.key,
-        (p) => memberRow(vm, p),
-      )}
-    </ul>
+    ${watch(galleryActor, (g) => {
+      const { state, photos } = galleryViewModel(g, null);
+      const loaded = state !== "photosNotLoaded" && state !== "couldNotLoadPhotos";
+      const holding = loaded ? albumHolding(photos, id) : NO_HOLDING;
+      return html`<p class="mb-2 mt-1 text-xs text-muted">
+          ${t("album.connected_means_they_have_justus")}${
+            holding.total > 0 ? html` ${t("album.a_phone_gets_a_photo_when")}` : null
+          }
+        </p>
+        ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
+        <ul
+          class="divide-y divide-line"
+          ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
+        >
+          ${repeat(
+            vm.people,
+            (p) => p.key,
+            (p) => memberRow(vm, p, holding),
+          )}
+        </ul>`;
+    })}
   </section>`;
 }
 

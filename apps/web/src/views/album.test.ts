@@ -8,6 +8,7 @@ import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { folders } from "../machines/folders-machine";
 import { gateway } from "../gateway";
+import { gallery } from "../machines/gallery-machine";
 import {
   acceptAllToast,
   albumMenuItems,
@@ -36,6 +37,10 @@ vi.mock("../gateway", () => ({
     makeViewer: vi.fn().mockResolvedValue([null, { ok: true }]),
     respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
+    list: vi.fn().mockResolvedValue([null, { photos: [] }]),
+    add: vi.fn(),
+    upload: vi.fn(),
+    remove: vi.fn(),
   },
 }));
 
@@ -917,5 +922,61 @@ describe("removed from the album", () => {
   test("the Remove confirm says the person sees they are out", () => {
     expect(removeDetail("Nils", false)).toContain("sees they're no longer in the album");
     expect(removeDetail("Nils", true)).toContain("sees they're no longer in the album");
+  });
+});
+
+describe("album holding", () => {
+  const photo = (id: string, folderId: string, kimHas: boolean, here = true) => ({
+    id,
+    folderId,
+    holders: {
+      here,
+      others: kimHas ? [{ key: "k1", name: "Kim" }] : [],
+      unsure: [{ key: "k2", name: "Zed" }],
+      former: [],
+    },
+  });
+  const open = async (photos: unknown[]) => {
+    vi.mocked(gateway.list).mockResolvedValue([null, { photos }] as never);
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    return host;
+  };
+
+  test("each member shows how many photos they hold, once", async () => {
+    const host = await open([
+      photo("a", "f1", true),
+      photo("b", "f1", true, false),
+      photo("c", "f1", false),
+      photo("x", "f2", true),
+    ]);
+    const rows = memberRows(host);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.textContent).toContain("Has 2 of 3 photos");
+    expect(rows[1]?.textContent).toContain("Has 2 of 3 photos");
+    expect(rows[2]?.textContent).toContain("Hasn't said yet which photos they have");
+    expect(host.textContent).toContain("first opened there");
+  });
+
+  test("an album with no photos says nothing about holdings", async () => {
+    const host = await open([]);
+    expect(host.textContent).not.toContain("Has ");
+    expect(host.textContent).not.toContain("first opened there");
+  });
+
+  test("a holders push updates the same row", async () => {
+    const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
+    const kim = memberRows(host)[1];
+    expect(kim?.textContent).toContain("Has 1 of 2 photos");
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      { photos: [photo("a", "f1", true), photo("b", "f1", true)] },
+    ] as never);
+    await gallery.load();
+    await vi.waitFor(() => expect(kim?.textContent).toContain("Has 2 of 2 photos"));
+    expect(memberRows(host)[1]).toBe(kim);
   });
 });

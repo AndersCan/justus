@@ -117,6 +117,20 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(anaLine).toContainText(/On .+'s and your phone/, { timeout: 60_000 });
   expect(await lightboxImage.boundingBox()).toEqual(before);
   await a.getByRole("button", { name: "Close" }).click();
+
+  // Ben opened every photo: Ana's members page says his phone has all of them.
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  await expect(
+    a.locator("li", { hasText: /Has (\d+) of \1 photos/ }).filter({ hasNotText: "(you)" }),
+  ).toHaveCount(1, { timeout: 60_000 });
+  await a
+    .getByRole("link", { name: /See photos in this album/ })
+    .first()
+    .click();
+
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });
 
