@@ -163,6 +163,11 @@ export function parseDeviceSwarmKey(text: string): string | undefined {
   return undefined;
 }
 
+/** What a phone signs into the `/device.json` of a drive: the key of that drive. */
+export function identityMessage(driveKey: string): Uint8Array {
+  return Buffer.from(`justus-device/v1:${driveKey.toLowerCase()}`, "utf8");
+}
+
 /** The identity drive key in a `/device.json` (lowercased), or undefined when
  * missing, non-hex or malformed. */
 export function parseDeviceIdentity(text: string): string | undefined {

@@ -57,13 +57,13 @@ async function readText(
  * drive) and writes who made it and its name. */
 export async function createAlbumDrive(
   drives: DriveStore,
-  options: { id: string; name: string; device: Uint8Array },
+  options: { id: string; name: string; device: (driveKey: string) => Promise<Uint8Array> },
 ): Promise<AlbumResult<Drive>> {
   const { id, name, device } = options;
   try {
     // Without a namespace, `openOwn()` is the device's own identity drive.
     const drive = await drives.openOwn(`folder/${id}`);
-    await drive.put(DRIVE_PATH_DEVICE, device);
+    await drive.put(DRIVE_PATH_DEVICE, await device(drive.key));
     await drive.put(DRIVE_PATH_FOLDER, Buffer.from(JSON.stringify({ version: 1, name })));
     return [null, drive];
   } catch (thrown: unknown) {
@@ -181,7 +181,7 @@ export async function rotateAlbum(
     record: { id: string; name: string; shareKey: string };
     /** The identity drive. An album from before #195 lives on it; it is never released. */
     ownDrive: Drive;
-    device: Uint8Array;
+    device: (driveKey: string) => Promise<Uint8Array>;
     inviteCode: string;
     now: number;
   },
@@ -212,7 +212,7 @@ export async function rotateAlbum(
         ([id]) => keys.has(id.split(":")[0]),
       ),
     );
-    await target.put(DRIVE_PATH_DEVICE, device);
+    await target.put(DRIVE_PATH_DEVICE, await device(target.key));
     await target.put(
       DRIVE_PATH_FOLDER,
       Buffer.from(JSON.stringify({ version: 1, name: record.name })),
