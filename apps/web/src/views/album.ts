@@ -166,6 +166,12 @@ onOutput(requestsActor, (e) => {
   if (text) toast(text);
 });
 
+/** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
+export function removeDetail(name: string, viewer: boolean): string {
+  const added = viewer ? "" : `, and the photos ${name} added leave the album`;
+  return `${name} won't see photos added from now on${added}. ${name} keeps the photos already on their phone. Everyone else moves with the album the next time their phone and yours are connected.`;
+}
+
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const body = html`${avatarBadge(p.name)}
     <div class="min-w-0 flex-1">
@@ -244,15 +250,14 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         : null
     }
     ${
-      vm.isAdmin && !p.you && !p.admin && !p.viewer
+      vm.isAdmin && !p.you && !p.admin
         ? html`<button
             class="text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
             ?disabled=${vm.busy}
             @click=${async () => {
               const ok = await confirmAction({
                 title: `Remove ${p.name}?`,
-                detail:
-                  "They can no longer add photos. They keep what they already have, and can still see new photos if they kept the invite link. To shut someone out, start a new album.",
+                detail: removeDetail(p.name, p.viewer === true),
                 confirmLabel: "Remove",
                 tone: "danger",
               });

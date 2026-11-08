@@ -81,7 +81,7 @@ A mantaq state machine that owns a slice of app state. All state in Justus is mo
 _Avoid_: reducer, store, controller
 
 **Encryption**:
-Photos are encrypted in transit (Hyperswarm's Noise connections). At rest they are not encrypted by Justus: the corestore, which holds the seed every drive key is derived from, lives in the app's storage dir (Android `filesDir/bare`, iOS `Documents/bare`) and the photo spool in its cache dir; both are plain files, protected only by the OS (Android and iOS encrypt app storage; desktops only with FileVault/LUKS). The storage dir is kept out of OS backups and device transfer, so keys never leave the phone and a new phone starts fresh. Access is keyed by the share key: anyone holding it can read every photo, approved or not, and removal does not revoke it.
+Photos are encrypted in transit (Hyperswarm's Noise connections). At rest they are not encrypted by Justus: the corestore, which holds the seed every drive key is derived from, lives in the app's storage dir (Android `filesDir/bare`, iOS `Documents/bare`) and the photo spool in its cache dir; both are plain files, protected only by the OS (Android and iOS encrypt app storage; desktops only with FileVault/LUKS). The storage dir is kept out of OS backups and device transfer, so keys never leave the phone and a new phone starts fresh. Access is keyed by the share key: anyone holding it can read every photo, approved or not, and removing someone moves the album to new keys, so they get nothing added after it.
 _Avoid_: e2e encrypted (misleading), end-to-end encrypted
 
 ## User-facing words
