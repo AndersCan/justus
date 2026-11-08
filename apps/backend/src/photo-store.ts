@@ -98,6 +98,8 @@ import {
   peerName,
   CLOCK_SLACK_MS,
   DRIVE_FIELD_BOX,
+  boxKeyOf,
+  sealedAskBytes,
   inLinkTime,
   type EarlierEntry,
   type LinkTime,
@@ -109,6 +111,7 @@ import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
   checkAsk,
   fileInviteAsk,
+  newInviteAsk,
   offerAlbumTo,
   offerToTake,
   replyTo,
@@ -1972,6 +1975,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   const onePerPerson = oneAtATime();
+  /** Filing an ask and pruning the outbox take turns, so a prune cannot drop a
+   * just-filed ask and filing cannot bring back a cancelled one. */
+  const outboxTurn = oneAtATime();
 
   /** Finds the person's actor and sends it one event, one caller at a time per person, so a second caller finds the change the first started. */
   function sendToMember(
@@ -3415,6 +3421,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (c) c.identityKey = keyHex;
     if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
+      for (const ask of state.asks) {
+        if (ask.status === "waiting" && ask.owner === keyHex) void sendAsk(ask);
+      }
       // A Join tapped while we were offline: the friend is here, finish it.
       if (
         state.folders.some(
@@ -3703,6 +3712,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         try {
           await openSelfDriveIn(`ask/${ask.code}`);
           await watchInvite(ask);
+          void sendAsk(ask);
         } catch (e) {
           log("error", { where: "ask.resume", code: short(ask.code), err: errText(e) });
         }
@@ -3776,7 +3786,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * is keyed by share key and lives on the identity drive, which every holder
    * of a pre-#195 album can read (its share key *is* the identity drive key),
    * so a stale entry hands them read access to another album. */
-  async function pruneJoinRequests(): Promise<void> {
+  function pruneJoinRequests(): Promise<void> {
+    return outboxTurn("outbox", pruneOutbox);
+  }
+
+  async function pruneOutbox(): Promise<void> {
     const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
     if (!text) return;
     const file = parseRequestsFile(text);
@@ -3882,18 +3896,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     replaces?: string,
   ): Promise<EitherResult<{ ask: AskSummary }>> {
     try {
-      const drive = await openSelfDriveIn(`ask/${code}`);
-      const [askErr, ask] = await fileInviteAsk(ownDrive, {
-        askDriveKey: drive.key,
-        code,
-        owner,
-        albumName,
-        ownerName,
-        requesterName: state.name,
-        now: Date.now(),
-        log,
-      });
-      if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
+      await openSelfDriveIn(`ask/${code}`);
+      const ask = newInviteAsk({ code, owner, albumName, ownerName, now: Date.now() });
       const filed = replaces ? { ...ask, replaces } : ask;
       state.asks = [
         ...state.asks.filter(
@@ -3906,9 +3910,73 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       saveState();
       await watchInvite(filed);
       deps.onChanged({ cause: "ask", code });
+      void sendAsk(filed);
       return ok({ ask: askSummary(ask) });
     } catch (e) {
       return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${errMsg(e)}`);
+    }
+  }
+
+  /** Whether the outbox already holds this ask (the same ask time, so an
+   * earlier ask through the same code does not count). */
+  async function askIsFiled(ask: AskRecord): Promise<boolean> {
+    const text = await readText(ownDrive, DRIVE_PATH_REQUESTS);
+    const entry = (text ? parseRequestsFile(text) : undefined)?.requests[`invite:${ask.code}`];
+    return entry?.requestedAt === ask.askedAt;
+  }
+
+  /** Seals the ask drive's key to the Admin's phone and files it in the outbox.
+   * Stops quietly when the ask is over, already filed, or the Admin's sealing
+   * key is not known yet: the Admin's next connection tries again. */
+  async function sendAsk({ code, owner }: AskRecord): Promise<void> {
+    try {
+      const waiting = () => state.asks.find((a) => a.code === code && a.status === "waiting");
+      const drive = await openSelfDriveIn(`ask/${code}`);
+      const text = await withTimeout(
+        openPeerOutbox(owner).then(async (outbox) => {
+          // The file may not have replicated yet: wait for it.
+          while (!closed) {
+            await outbox.update();
+            const device = await readText(outbox, DRIVE_PATH_DEVICE);
+            if (device !== null) return device;
+            await sleep(100);
+          }
+          return null;
+        }),
+        5_000,
+      ).catch(() => null);
+      const boxKey = boxKeyOf(text ?? null);
+      if (!boxKey) {
+        log("ask.unsealed", {
+          code: short(code),
+          reason: text ? "no-box-key" : "unreachable",
+        });
+        return;
+      }
+      const [sealErr, sealedKey] = deps.drives.sealFor(
+        boxKey,
+        sealedAskBytes({ key: drive.key, identity: ownDrive.key, invite: code }),
+      );
+      if (sealErr) {
+        log("error", { where: "ask.seal", err: sealErr.message });
+        return;
+      }
+      await outboxTurn("outbox", async () => {
+        // Read again in the turn: a Cancel may have landed while the Admin's drive was read.
+        const ask = waiting();
+        if (!ask || (await askIsFiled(ask))) return;
+        const [fileErr] = await fileInviteAsk(ownDrive, {
+          sealedKey,
+          code,
+          requesterName: state.name,
+          requestedAt: ask.askedAt,
+          log,
+        });
+        if (fileErr) log("error", { where: "ask.file", err: fileErr.message });
+        else log("ask.filed", { code: short(code), sealed: true });
+      });
+    } catch (e) {
+      log("error", { where: "ask.send", err: errMsg(e) });
     }
   }
 

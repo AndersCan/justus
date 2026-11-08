@@ -12,7 +12,13 @@ import { boxKeyOf } from "../src/membership/records.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
-import { createFakeHub, createFakePeerNetwork, setFakeNodeConnected } from "./fakes/fake-world.ts";
+import {
+  addFakeNode,
+  createFakeDriveStore,
+  createFakeHub,
+  createFakePeerNetwork,
+  setFakeNodeConnected,
+} from "./fakes/fake-world.ts";
 import {
   fakeStoreDeps,
   peerPhone,
@@ -95,6 +101,12 @@ async function outboxText(drive: Drive): Promise<string> {
   return (await drive.readSmall("/requests.json", 1 << 20)) ?? "";
 }
 
+/** The joiner's outbox once its ask is filed: Ask returns before the write. */
+async function filedOutbox(s: { outbox: Drive }): Promise<string> {
+  await until(async () => (await outboxText(s.outbox)).includes("sealedKey"));
+  return outboxText(s.outbox);
+}
+
 const readText = async (drive: Drive, path: string) => drive.readSmall(path, 1 << 20);
 
 describe("ask after a No", () => {
@@ -141,7 +153,6 @@ describe("ask after a No", () => {
     const kept = saved().asks.filter((a: { code: string }) => a.code === CODE);
     expect(kept).toHaveLength(1);
     expect(kept[0].status).toBe("waiting");
-    expect(JSON.parse(await outboxText(s.outbox)).requests[`invite:${CODE}`]).toBeDefined();
     await s.close();
   });
 
@@ -192,7 +203,7 @@ describe("ask", () => {
     expect(asked[0]).toBeNull();
     expect(asked[1]!.ask).toMatchObject({ code: s.invite.code, status: "waiting" });
 
-    const text = await outboxText(s.outbox);
+    const text = await filedOutbox(s);
     const entry = JSON.parse(text).requests[`invite:${s.invite.code}`];
     expect(entry.invite).toBe(s.invite.code);
     expect(entry.shareKey).toBeUndefined();
@@ -215,7 +226,7 @@ describe("ask", () => {
     const first = await s.joiner.store.ask(args);
     const second = await s.joiner.store.ask(args);
     expect(second[1]!.ask).toEqual(first[1]!.ask);
-    expect(Object.keys(JSON.parse(await outboxText(s.outbox)).requests)).toHaveLength(1);
+    expect(Object.keys(JSON.parse(await filedOutbox(s)).requests)).toHaveLength(1);
     expect((await s.joiner.store.folders()).asks).toHaveLength(1);
     await s.close();
   });
@@ -270,7 +281,7 @@ describe("ask", () => {
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
     const identity = s.outboxKey;
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
-    const outbox = JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`];
+    const outbox = JSON.parse(await filedOutbox(s)).requests[`invite:${s.invite.code}`];
     expect(saved.folders[0].declinedAsks).toEqual({ [identity]: outbox.requestedAt });
     await s.close();
   });
@@ -282,7 +293,7 @@ describe("ask", () => {
     const first = (await s.admin.store.requests()).requests;
     await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
     expect((await s.admin.store.requests()).requests).toEqual([]);
-    const file = JSON.parse(await outboxText(s.outbox));
+    const file = JSON.parse(await filedOutbox(s));
     file.requests[`invite:${s.invite.code}`].requestedAt += 1;
     await s.outbox.put("/requests.json", Buffer.from(JSON.stringify(file)));
     const again = (await s.admin.store.requests()).requests;
@@ -324,7 +335,7 @@ describe("ask", () => {
     await s.close();
   });
 
-  it("a requester key listed by two outboxes is dropped, in either read order", async () => {
+  it("an ask copied into another phone's outbox is listed once, for the phone that sealed it", async () => {
     for (const aliceLast of [true, false]) {
       const s = await scenario();
       const mallory = buildStore("Mallory", s.hub);
@@ -333,21 +344,18 @@ describe("ask", () => {
       const mallBox = await openDrive(mallory, mallKey);
       await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
       await mallory.store.ask({ code: s.invite.code, owner: s.owner });
-      const aliceKey = Object.values(JSON.parse(await outboxText(s.outbox)).requests as object)[0]
-        .requesterKey as string;
-      const file = JSON.parse(await outboxText(mallBox));
-      for (const entry of Object.values(file.requests) as { requesterKey: string }[])
-        entry.requesterKey = aliceKey;
-      await mallBox.put("/requests.json", Buffer.from(JSON.stringify(file)));
+      const aliceFile = JSON.parse(await filedOutbox(s));
+      await filedOutbox({ outbox: mallBox });
+      // Mallory puts Alice's sealed entry verbatim in her own outbox, in place of hers.
+      await mallBox.put("/requests.json", Buffer.from(JSON.stringify(aliceFile)));
 
       const order = aliceLast ? [mallKey, s.outboxKey] : [s.outboxKey, mallKey];
       for (const key of order) await connect(s, key);
+      await until(async () => (await s.admin.store.requests()).requests.length > 0);
       const { requests } = await s.admin.store.requests();
-      expect(requests.filter((r) => r.requesterKey === aliceKey)).toEqual([]);
-
-      const res = await s.admin.store.respond(s.folderId, aliceKey, true);
-      const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
-      expect(saved.folders[0].answers ?? {}).toEqual({});
+      expect(requests, "one row for the one ask").toHaveLength(1);
+      expect(requests[0]!.requesterName).toBe("Joiner");
+      const res = await s.admin.store.respond(s.folderId, requests[0]!.requesterKey, true);
       expect(res[0] === null).toBe(true);
       await mallory.store.close();
       await s.close();
@@ -964,6 +972,7 @@ describe("cancel a waiting request", () => {
   it("takes the ask off the phone, the saved file and the outbox", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await filedOutbox(s);
     const cancelled = await s.joiner.store.cancelAsk(s.invite.code);
     expect(cancelled).toEqual([null, { ok: true }]);
     expect((await s.joiner.store.folders()).asks).toEqual([]);
@@ -979,6 +988,7 @@ describe("cancel a waiting request", () => {
     const topics = () =>
       (s.joiner.store.debugState() as { joins: { topic: string }[] }).joins.map((j) => j.topic);
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await filedOutbox(s);
     const before = topics();
     await s.joiner.store.cancelAsk(s.invite.code);
     const after = topics();
@@ -1281,7 +1291,7 @@ describe("a request through a turned-off link", () => {
 
   /** Back-dates the joiner's ask by writing `requestedAt` in its outbox. */
   async function backdate(s: Awaited<ReturnType<typeof scenario>>, ms: number) {
-    const file = JSON.parse(await outboxText(s.outbox));
+    const file = JSON.parse(await filedOutbox(s));
     file.requests[`invite:${s.invite.code}`].requestedAt -= ms;
     await s.outbox.put("/requests.json", Buffer.from(JSON.stringify(file)));
   }
@@ -1423,5 +1433,203 @@ describe("the Admin's sealing key", () => {
     expect(events.some((e) => e.event === "error" && e.fields.where === "box.key")).toBe(true);
     await failing.close();
     await s.joiner.store.close();
+  });
+});
+
+describe("a joiner's ask is sealed to the Admin's phone", () => {
+  it("no version of the joiner's outbox names the drive it asked with", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await filedOutbox(s);
+    await connect(s);
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const driveKey = (await s.admin.store.requests()).requests[0]!.requesterKey;
+    const accepted = await s.admin.store.respond(s.folderId, driveKey, true, "member");
+    expect(accepted[0]).toBeNull();
+    await until(async () => (await s.joiner.store.folders()).folders.length === 1);
+    const versions = s.outbox.version();
+    expect(versions, "the outbox has history").toBeGreaterThan(1);
+    for (let v = 1; v <= versions; v++) {
+      const [err, old] = await s.joiner.deps.drives.openAt(s.outboxKey, v, { timeoutMs: 1_000 });
+      if (err || !old) throw err ?? new Error("version did not open");
+      const text = (await old.readSmall("/requests.json", 1 << 20)) ?? "";
+      expect(text.includes(driveKey), `version ${v} of the outbox`).toBe(false);
+    }
+    await s.close();
+  });
+
+  it(
+    "an ask made while the Admin's phone is away is filed when it comes back",
+    { timeout: 20_000 },
+    async () => {
+      const s = await scenario();
+      await s.admin.store.close();
+      for (const node of s.hub.nodes) {
+        if (node === s.admin.deps.node)
+          setFakeNodeConnected({ hub: s.hub, node, connected: false });
+      }
+      const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+      expect(asked[1]!.ask.status).toBe("waiting");
+      // Longer than the 5 s the filing waits for the Admin's key.
+      await until(async () => false, 5_500);
+      expect(await outboxText(s.outbox)).not.toContain("invite:");
+      for (const node of s.hub.nodes) setFakeNodeConnected({ hub: s.hub, node, connected: true });
+      const back = createPhotoStore(restarted(s.admin.deps));
+      await back.ready();
+      await until(async () => (await back.requests()).requests.length === 1, 6_000);
+      const { requests } = await back.requests();
+      expect(requests).toHaveLength(1);
+      expect(requests[0]!.requestedAt).toBe(asked[1]!.ask.askedAt);
+      await back.close();
+      await s.joiner.store.close();
+    },
+  );
+
+  it("a cancelled ask is never filed later", async () => {
+    const { s, events } = await loggedScenario();
+    const drives = s.joiner.deps.drives;
+    let release: () => void = () => {};
+    const paused = new Promise<void>((resolve) => (release = resolve));
+    const open = drives.open.bind(drives);
+    drives.open = (async (key: string, opts: never) => {
+      if (key === s.owner) await paused;
+      return open(key, opts);
+    }) as typeof drives.open;
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(await s.joiner.store.cancelAsk(s.invite.code)).toEqual([null, { ok: true }]);
+    release();
+    await until(async () => false, 1_000);
+    expect(await outboxText(s.outbox)).not.toContain(`invite:${s.invite.code}`);
+    expect(
+      events.filter((e) => e.event === "error"),
+      "cancelling is not an error",
+    ).toEqual([]);
+    await s.close();
+  });
+
+  it("an ask still waiting when the joiner restarts is filed at start-up", async () => {
+    const s = await scenario();
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: false });
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => false, 300);
+    expect(await outboxText(s.outbox)).not.toContain("invite:");
+    await s.joiner.store.close();
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: true });
+    const deps = restarted(s.joiner.deps);
+    // No connection can form, so only the start-up pass can file the ask.
+    deps.network.join = () => {};
+    const again = createPhotoStore(deps);
+    await again.ready();
+    const outbox = await openDrive({ deps }, s.outboxKey);
+    await until(async () => (await outboxText(outbox)).includes("sealedKey"), 6_000);
+    expect(await outboxText(outbox)).toContain(`invite:${s.invite.code}`);
+    await again.close();
+    await s.admin.store.close();
+  });
+
+  it("an ask already filed is not filed again when the joiner restarts", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await filedOutbox(s);
+    await s.joiner.store.close();
+    const deps = restarted(s.joiner.deps);
+    let puts = 0;
+    const openOwn = deps.drives.openOwn.bind(deps.drives);
+    deps.drives.openOwn = (async (ns?: string) => {
+      const drive = await openOwn(ns);
+      const put = drive.put.bind(drive);
+      drive.put = (async (path: string, bytes: Uint8Array) => {
+        if (path === "/requests.json") puts++;
+        return put(path, bytes);
+      }) as typeof drive.put;
+      return drive;
+    }) as typeof deps.drives.openOwn;
+    const again = createPhotoStore(deps);
+    await again.ready();
+    await until(async () => false, 800);
+    expect(puts).toBe(0);
+    await again.close();
+    await s.admin.store.close();
+  });
+
+  it("an ask filed while another ask is taken back keeps its entry", async () => {
+    const hub = createFakeHub();
+    const node = addFakeNode(hub);
+    setFakeNodeConnected({ hub, node, connected: true });
+    const drives = createFakeDriveStore({ hub, node });
+    const gate = { armed: false, hit: false, release: () => {} };
+    const held = new Promise<void>((resolve) => (gate.release = resolve));
+    const openOwn = drives.openOwn.bind(drives);
+    drives.openOwn = (async (ns?: string) => {
+      const drive = await openOwn(ns);
+      if (ns !== undefined && ns !== "") return drive;
+      const put = drive.put.bind(drive);
+      drive.put = (async (path: string, bytes: Uint8Array) => {
+        if (path === "/requests.json" && gate.armed) {
+          gate.armed = false;
+          gate.hit = true;
+          await held;
+        }
+        return put(path, bytes);
+      }) as typeof drive.put;
+      return drive;
+    }) as typeof drives.openOwn;
+    const s = await scenario(undefined, { hub, node, drives }, hub);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await filedOutbox(s);
+    const second = (await s.admin.store.createFolder("Two"))[1]!.folder.invite!;
+    gate.armed = true;
+    const cancelling = s.joiner.store.cancelAsk(s.invite.code);
+    await until(() => gate.hit);
+    await s.joiner.store.ask({ code: second.code, owner: s.owner });
+    await until(async () => false, 300);
+    gate.release();
+    await cancelling;
+    await until(async () => (await outboxText(s.outbox)).includes(second.code));
+    expect(await outboxText(s.outbox)).toContain(`invite:${second.code}`);
+    await s.close();
+  });
+
+  /** A scenario whose joiner records its log events. */
+  async function loggedScenario() {
+    const events: Array<{ event: string; fields: Record<string, unknown> }> = [];
+    const s = await scenario(undefined, {
+      log: (e: { event: string; fields: Record<string, unknown> }) => events.push(e),
+    });
+    return { s, events };
+  }
+
+  it("an Admin phone that publishes no sealing key gets no ask, and the joiner logs why", async () => {
+    const { s, events } = await loggedScenario();
+    const identity = await s.admin.deps.drives.openOwn();
+    await identity.put("/device.json", Buffer.from(JSON.stringify({ name: "Admin" })));
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => events.some((e) => e.event === "ask.unsealed"));
+    expect(events.find((e) => e.event === "ask.unsealed")?.fields.reason).toBe("no-box-key");
+    expect(await outboxText(s.outbox)).not.toContain("invite:");
+    await s.close();
+  });
+
+  it("an Admin phone that cannot be reached gets no ask, and the joiner logs why", async () => {
+    const { s, events } = await loggedScenario();
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: false });
+    await s.admin.store.close();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => events.some((e) => e.event === "ask.unsealed"), 8_000);
+    expect(events.find((e) => e.event === "ask.unsealed")?.fields.reason).toBe("unreachable");
+    await s.joiner.store.close();
+  }, 15_000);
+
+  it("a seal that fails is logged and nothing is filed", async () => {
+    const { s, events } = await loggedScenario();
+    s.joiner.deps.drives.sealFor = () => [new Error("no seal"), null];
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => events.some((e) => e.event === "error"));
+    expect(events.find((e) => e.event === "error")?.fields).toMatchObject({
+      where: "ask.seal",
+      err: "no seal",
+    });
+    expect(await outboxText(s.outbox)).not.toContain("invite:");
+    await s.close();
   });
 });

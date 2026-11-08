@@ -84,44 +84,50 @@ export type InviteAsk = {
   status: "waiting";
 };
 
+/** The saved record of a new ask: names the link carried are clipped. */
+export function newInviteAsk(options: {
+  code: string;
+  owner: string;
+  albumName: unknown;
+  ownerName: unknown;
+  now: number;
+}): InviteAsk {
+  return {
+    code: options.code,
+    owner: options.owner,
+    albumName: peerName(options.albumName, DEFAULT_ASK_ALBUM),
+    ownerName: peerName(options.ownerName, DEFAULT_ASK_OWNER),
+    askedAt: options.now,
+    status: "waiting",
+  };
+}
+
 /** Writes this phone's ask to its own outbox (the identity drive's
- * `/requests.json`) under `invite:<code>`: the code and the ask drive's key, never
- * an album key. Other entries stay. Names the link carried are clipped. */
+ * `/requests.json`) under `invite:<code>`: the code and the ask drive's key
+ * sealed to the Admin's phone, never in plain text and never an album key.
+ * Other entries stay. */
 export async function fileInviteAsk(
   identityDrive: Drive,
   options: {
-    askDriveKey: string;
+    sealedKey: string;
     code: string;
-    owner: string;
-    albumName: unknown;
-    ownerName: unknown;
     requesterName: string;
-    now: number;
+    requestedAt: number;
     log: InviteLog;
   },
-): Promise<InviteResult<InviteAsk>> {
-  const { askDriveKey, code, owner, requesterName, now, log } = options;
+): Promise<InviteResult<undefined>> {
+  const { sealedKey, code, requesterName, requestedAt, log } = options;
   try {
     const text = await readText(identityDrive, { path: DRIVE_PATH_REQUESTS, log });
     const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
     file.requests[`invite:${code}`] = {
-      requesterKey: askDriveKey,
+      sealedKey,
       requesterName,
       invite: code,
-      requestedAt: now,
+      requestedAt,
     };
     await identityDrive.put(DRIVE_PATH_REQUESTS, Buffer.from(JSON.stringify(file)));
-    return [
-      null,
-      {
-        code,
-        owner,
-        albumName: peerName(options.albumName, DEFAULT_ASK_ALBUM),
-        ownerName: peerName(options.ownerName, DEFAULT_ASK_OWNER),
-        askedAt: now,
-        status: "waiting",
-      },
-    ];
+    return [null, undefined];
   } catch (thrown: unknown) {
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }

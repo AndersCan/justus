@@ -12,6 +12,7 @@ import {
 import {
   checkAsk,
   fileInviteAsk,
+  newInviteAsk,
   offerAlbumTo,
   offerToTake,
   replyTo,
@@ -20,7 +21,7 @@ import {
   type InvitePorts,
 } from "../../src/membership/invites.ts";
 import type { ChannelMessage } from "../../src/membership/records.ts";
-import { isEnrolled } from "../../src/membership/records.ts";
+import { isEnrolled, sealedAskBytes } from "../../src/membership/records.ts";
 import {
   acceptJoinRequest,
   pendingJoinRequests,
@@ -57,18 +58,21 @@ async function askWorld() {
       openSealed: (s) => admin.drives.openSealed(s),
       log: admin.log,
     });
-  const ask = (extra: { albumName?: unknown; ownerName?: unknown } = {}) =>
-    fileInviteAsk(identity, {
-      askDriveKey: askDrive.key,
+  const ask = async (extra: { requestedAt?: number } = {}) => {
+    const [, boxKey] = await admin.drives.boxPublicKey();
+    const [, sealedKey] = joiner.drives.sealFor(
+      boxKey!,
+      sealedAskBytes({ key: askDrive.key, identity: identity.key, invite: C }),
+    );
+    return fileInviteAsk(identity, {
+      sealedKey: sealedKey!,
       code: C,
-      owner: hex("a"),
-      albumName: "Trip",
-      ownerName: "Maya",
       requesterName: "Nils",
-      now: 1234,
+      requestedAt: 1234,
       log: joiner.log,
       ...extra,
     });
+  };
   return { album, identity, askDrive, adminReads, ask };
 }
 
@@ -76,46 +80,28 @@ const outbox = async (identity: Drive) =>
   (await identity.readSmall("/requests.json", 1024 * 1024)) ?? "";
 
 describe("invites: asking through a link", () => {
-  it("an ask puts the code, never a key, in the joiner's outbox", async () => {
+  it("an ask puts a sealed key and the code in the joiner's outbox, never the key", async () => {
     const { album, identity, askDrive, ask } = await askWorld();
     const [error, result] = await ask();
     expect(error, "ask: no error").toBeNull();
-    expect(result, "ask: the ask record").toEqual({
-      code: C,
-      owner: hex("a"),
-      albumName: "Trip",
-      ownerName: "Maya",
-      askedAt: 1234,
-      status: "waiting",
-    });
+    expect(result, "ask: nothing returned").toBeUndefined();
     const text = await outbox(identity);
-    expect(JSON.parse(text), "ask: the outbox holds a code, never a key").toEqual({
-      version: 1,
-      requests: {
-        ["invite:" + C]: {
-          requesterKey: askDrive.key,
-          requesterName: "Nils",
-          invite: C,
-          requestedAt: 1234,
-        },
-      },
-    });
-    expect(text.includes(album.key), "ask: no album key in the outbox").toBe(false);
-    expect(text.includes("shareKey"), "ask: no shareKey in the outbox").toBe(false);
-    expect(Object.keys(JSON.parse(text).requests["invite:" + C]), "ask: entry key order").toEqual([
-      "requesterKey",
+    const entry = JSON.parse(text).requests["invite:" + C];
+    expect(Object.keys(entry), "ask: entry keys").toEqual([
+      "sealedKey",
       "requesterName",
       "invite",
       "requestedAt",
     ]);
-    expect(Object.keys(result!), "ask: result key order").toEqual([
-      "code",
-      "owner",
-      "albumName",
-      "ownerName",
-      "askedAt",
-      "status",
-    ]);
+    expect(!("requesterKey" in entry), "ask: no requesterKey").toBe(true);
+    expect({ ...entry, sealedKey: undefined }, "ask: the other fields").toEqual({
+      requesterName: "Nils",
+      invite: C,
+      requestedAt: 1234,
+    });
+    expect(text.includes(askDrive.key), "ask: no drive key in the outbox").toBe(false);
+    expect(text.includes(album.key), "ask: no album key in the outbox").toBe(false);
+    expect(text.includes("shareKey"), "ask: no shareKey in the outbox").toBe(false);
   });
 
   it("the Admin finds the ask as an invite request", async () => {
@@ -147,13 +133,21 @@ describe("invites: asking through a link", () => {
     );
   });
 
-  it("names the link carried are clipped, and missing ones say who", async () => {
-    const { ask } = await askWorld();
-    const [, blank] = await ask({ albumName: "  ", ownerName: 7 });
-    expect(blank?.albumName, "ask: blank album name").toBe("this album");
-    expect(blank?.ownerName, "ask: non-string owner name").toBe("the Admin");
-    const [, long] = await ask({ albumName: "x".repeat(200) });
-    expect(long?.albumName, "ask: clipped to 80").toBe("x".repeat(80));
+  it("names the link carried are clipped, and missing ones say who", () => {
+    const fields = { code: C, owner: hex("a"), now: 5 };
+    const blank = newInviteAsk({ ...fields, albumName: "  ", ownerName: 7 });
+    expect(blank.albumName, "ask: blank album name").toBe("this album");
+    expect(blank.ownerName, "ask: non-string owner name").toBe("the Admin");
+    const long = newInviteAsk({ ...fields, albumName: "x".repeat(200), ownerName: "Maya" });
+    expect(long.albumName, "ask: clipped to 80").toBe("x".repeat(80));
+    expect(long, "ask: a waiting record").toEqual({
+      code: C,
+      owner: hex("a"),
+      albumName: "x".repeat(80),
+      ownerName: "Maya",
+      askedAt: 5,
+      status: "waiting",
+    });
   });
 
   it("a failed write is a value, not a throw", async () => {
@@ -165,17 +159,14 @@ describe("invites: asking through a link", () => {
       },
     } as unknown as Drive;
     const [error, result] = await fileInviteAsk(stub, {
-      askDriveKey: hex("2"),
+      sealedKey: "ab",
       code: C,
-      owner: hex("a"),
-      albumName: "Trip",
-      ownerName: "Maya",
       requesterName: "Nils",
-      now: 1,
+      requestedAt: 1,
       log: () => {},
     });
     expect(error, "ask: the write failure").toEqual({ kind: "write-failed", message: "disk full" });
-    expect(result, "ask: no ask").toBeNull();
+    expect(result, "ask: no result").toBeNull();
   });
 
   it("an ask needs two keys, a new album and no ask before", () => {
