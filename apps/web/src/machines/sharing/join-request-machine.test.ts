@@ -624,14 +624,11 @@ test("Maya: closes the waiting screen and Nils accepts", async () => {
 });
 
 test("Maya: closes the waiting screen and Nils declines", async () => {
-  const actor = await drive(
-    async (send) => {
-      await send("openLink", { text: LINK });
-      await send("askToJoin");
-      await send("closeWaiting");
-      await send("requestAnswered", { code: INVITE.code, answer: "declined" });
-    },
-    { asked: () => ROW("waiting") },
-  );
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("closeWaiting");
+    await send("requestAnswered", { code: INVITE.code, answer: "declined" });
+  });
   expect(actor.state.name).toBe("declinedByAdmin");
 });
