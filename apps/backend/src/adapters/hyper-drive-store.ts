@@ -23,6 +23,8 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+const HEX64 = /^[0-9a-f]{64}$/i;
+
 function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
 }
@@ -289,6 +291,26 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
     return { raw, drive: wrap(raw), refs: 0 };
   }
 
+  /** The x25519 pair for sealed messages, derived from the identity key pair. */
+  async function boxPair(
+    openOwn: () => Promise<Drive>,
+  ): Promise<OpenResult<{ publicKey: Uint8Array; secretKey: Uint8Array }>> {
+    let drive: Drive | undefined;
+    try {
+      drive = await openOwn();
+      const raw = (await byKey.get(drive.key))?.raw;
+      await raw.ready();
+      const kp = raw.core.keyPair;
+      if (!kp?.secretKey) return [new Error("identity drive has no secret key"), null];
+      const seed = crypto.hash([Buffer.from("justus-box/v1"), kp.secretKey]);
+      return [null, crypto.encryptionKeyPair(seed)];
+    } catch (e: unknown) {
+      return [e instanceof Error ? e : new Error(String(e)), null];
+    } finally {
+      if (drive) await release(drive).catch(() => {});
+    }
+  }
+
   return {
     replicate: (conn) => corestore.replicate(conn as never),
     ready: () => corestore.ready(),
@@ -318,6 +340,31 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
         return [e instanceof Error ? e : new Error(String(e)), null];
       } finally {
         if (drive) await release(drive).catch(() => {});
+      }
+    },
+    async boxPublicKey(): Promise<OpenResult<string>> {
+      const [err, box] = await boxPair(() => this.openOwn());
+      return err ? [err, null] : [null, toHex(box.publicKey)];
+    },
+    sealFor(boxPublicKey, message): OpenResult<string> {
+      if (!HEX64.test(boxPublicKey)) return [new Error("box key is not 64 hex"), null];
+      try {
+        const sealed = crypto.encrypt(Buffer.from(message), Buffer.from(boxPublicKey, "hex"));
+        return [null, toHex(sealed)];
+      } catch (e: unknown) {
+        return [e instanceof Error ? e : new Error(String(e)), null];
+      }
+    },
+    async openSealed(sealed): Promise<OpenResult<Uint8Array>> {
+      if (!/^(?:[0-9a-f]{2})+$/i.test(sealed)) return [new Error("sealed text is not hex"), null];
+      const [err, box] = await boxPair(() => this.openOwn());
+      if (err) return [err, null];
+      try {
+        const opened = crypto.decrypt(Buffer.from(sealed, "hex"), box);
+        if (!opened) return [new Error("not sealed to this phone"), null];
+        return [null, new Uint8Array(opened)];
+      } catch (e: unknown) {
+        return [e instanceof Error ? e : new Error(String(e)), null];
       }
     },
     verifyIdentity: (proof) => verifyIdentityProof(proof),

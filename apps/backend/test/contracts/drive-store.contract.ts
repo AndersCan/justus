@@ -1080,4 +1080,50 @@ export const cases: DriveCase[] = [
       );
     },
   },
+  {
+    name: "D39 a message sealed for a's box key opens on a, also after a restart, and on no other node",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const c = await world.node();
+      const [pubErr, aPub] = await a.store.boxPublicKey();
+      t.noErr([pubErr], "a box key");
+      if (!aPub) throw new Error("no box key");
+      const [sealErr, sealed] = b.store.sealFor(aPub, bytes("secret"));
+      t.noErr([sealErr], "seal");
+      if (!sealed) throw new Error("not sealed");
+      const [openErr, opened] = await a.store.openSealed(sealed);
+      t.noErr([openErr], "a opens");
+      t.eq(Buffer.from(opened ?? []).toString(), "secret", "a reads the message");
+      const [bErr, bOpened] = await b.store.openSealed(sealed);
+      t.ok(bErr !== null && bOpened === null, "b cannot open");
+      const [cErr, cOpened] = await c.store.openSealed(sealed);
+      t.ok(cErr !== null && cOpened === null, "c cannot open");
+      const store = await a.restart();
+      const [, again] = await store.boxPublicKey();
+      t.eq(again, aPub, "same box key after restart");
+      const [err2, reopened] = await store.openSealed(sealed);
+      t.noErr([err2], "opens after restart");
+      t.eq(Buffer.from(reopened ?? []).toString(), "secret", "same message after restart");
+    },
+  },
+  {
+    name: "D40 boxPublicKey is 64 hex and differs per node; sealFor refuses a malformed key; openSealed refuses garbage without throwing",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const [, aPub] = await a.store.boxPublicKey();
+      const [, bPub] = await b.store.boxPublicKey();
+      t.ok(/^[0-9a-f]{64}$/.test(aPub ?? ""), "64 hex");
+      t.ok(aPub !== bPub, "differs per node");
+      for (const bad of ["zz", "", "a".repeat(63), "ab".repeat(100)]) {
+        const [err, out] = a.store.sealFor(bad, bytes("x"));
+        t.ok(err !== null && out === null, `sealFor refuses ${bad.length} chars`);
+      }
+      for (const garbage of ["zz", "", "ab".repeat(100), "00".repeat(53)]) {
+        const [err, out] = await a.store.openSealed(garbage);
+        t.ok(err !== null && out === null, `openSealed refuses ${garbage.length} chars`);
+      }
+    },
+  },
 ];

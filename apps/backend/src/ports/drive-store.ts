@@ -68,6 +68,12 @@ export type DriveStore = {
   openOwn(namespace?: string): Promise<Drive>;
   /** Signs `message` with the identity drive's key pair (the drive `openOwn()` returns). An error value when the store is closed or the drive has no secret key. */
   signAsIdentity(message: Uint8Array): Promise<OpenResult<IdentitySignature>>;
+  /** This phone's public key for messages sealed to it (x25519, 64 hex). Derived from the identity key pair: the same after a restart. An error value when the store is closed or the identity drive has no secret key. */
+  boxPublicKey(): Promise<OpenResult<string>>;
+  /** Seals `message` so only the phone whose `boxPublicKey()` is `boxPublicKey` can open it. Hex. An error value for a key that is not 64 hex. Never throws. */
+  sealFor(boxPublicKey: string, message: Uint8Array): OpenResult<string>;
+  /** Opens a message sealed to this phone. An error value when it is malformed, sealed to another phone, or the store is closed. Never throws. */
+  openSealed(sealed: string): Promise<OpenResult<Uint8Array>>;
   /** True when `signature` is `publicKey`'s signature over `message` and `publicKey` is the signer of the drive whose key is `identityKey`. False, never a throw, for malformed hex. */
   verifyIdentity(proof: IdentityProof): boolean;
   /**
