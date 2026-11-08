@@ -80,7 +80,13 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await skipIntro([a, b]);
   await createAlbum(a, ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
+  await a.getByRole("link", { name: "Photos", exact: true }).click();
   await askToJoin(b, link, ALBUM);
+  const asked = a.getByRole("status").filter({ hasText: `wants to join “${ALBUM}”` });
+  await expect(asked).toBeVisible({ timeout: 60_000 });
+  await asked.getByRole("button", { name: "Review" }).click();
+  await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
+  await expect(asked).toHaveCount(0);
   const codeSpan = b
     .getByRole("dialog", { name: /^Waiting for / })
     .getByText(/^[a-z]+ [a-z]+ [a-z]+$/);
