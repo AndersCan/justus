@@ -6,7 +6,7 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { moveAlbum } from "../../src/albums/move.ts";
+import { MAX_EARLIER, moveAlbum } from "../../src/albums/move.ts";
 import { parseEarlier } from "../../src/membership/records.ts";
 
 const M = "b".repeat(64);
@@ -135,30 +135,104 @@ describe("moveAlbum", () => {
     expect((await drives.openOwn("folder/f1/m2")).key).toBe(moved!.shareKey);
   });
 
+  it("never lists the old drive or the new drive as a source", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const target = await drives.openOwn("folder/f1/m1");
+    const [, moved] = await run(drives, old, {
+      record: { id: "f1", name: "Trip", earlier: [{ key: old.key, name: "Self" }] },
+      remaining: {
+        members: { ...remaining.members, [target.key]: { key: target.key, name: "T", addedAt: 4 } },
+        viewers: remaining.viewers,
+      },
+    });
+    const keys = moved!.earlier.map((e: { key: string }) => e.key);
+    expect(keys, "move: old drive not a source").not.toContain(old.key);
+    expect(keys, "move: new drive not a source").not.toContain(target.key);
+    expect(keys, "move: others stay").toEqual([M, N, V]);
+  });
+
+  it("a Viewer without keptVersion is not a source", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const [, moved] = await run(drives, old, {
+      remaining: { members: {}, viewers: { [V]: { key: V, name: "Vi", addedAt: 3 } } },
+    });
+    expect(moved!.earlier).toEqual([]);
+  });
+
+  it("caps the earlier list, keeping the earliest sources first", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const keyOf = (i: number) => (i + 1).toString(16).padStart(64, "0");
+    const earlier = Array.from({ length: MAX_EARLIER }, (_, i) => ({ key: keyOf(i), name: "n" }));
+    const [, moved] = await run(drives, old, { record: { id: "f1", name: "Trip", earlier } });
+    expect(moved!.earlier.map((e: { key: string }) => e.key)).toEqual(earlier.map((e) => e.key));
+    const target = await drives.openOwn("folder/f1/m1");
+    expect(
+      parseEarlier((await target.readSmall("/earlier.json", 1e6)) ?? null),
+      "move: file capped too",
+    ).toHaveLength(MAX_EARLIER);
+  });
+
+  it("releases the new drive on success and on failure", async () => {
+    for (const fail of [false, true]) {
+      const drives = phone();
+      const old = await oldAlbum(drives);
+      const released: string[] = [];
+      const base = fail ? failingPut(drives) : drives;
+      const spy: DriveStore = {
+        ...base,
+        openOwn: (ns) => base.openOwn(ns),
+        release: async (d) => {
+          released.push(d.key);
+          return drives.release(d);
+        },
+      };
+      const [err] = await run(spy, old);
+      expect(err === null, `move: fail=${fail}`).toBe(!fail);
+      const target = await drives.openOwn("folder/f1/m1");
+      expect(released, `release: fail=${fail}`).toEqual([target.key]);
+    }
+  });
+
+  it("a retry after a partial failure lands on the same namespace", async () => {
+    const drives = phone();
+    const old = await oldAlbum(drives);
+    const [err1] = await run(failingPut(drives), old);
+    expect(err1).not.toBeNull();
+    const [err2, moved] = await run(drives, old);
+    expect(err2).toBeNull();
+    expect(moved!.moves).toBe(1);
+    const target = await drives.openOwn("folder/f1/m1");
+    expect(parseEarlier((await target.readSmall("/earlier.json", 1e6)) ?? null)).toHaveLength(3);
+  });
+
   it("a failed put returns an error and leaves the old drive unchanged", async () => {
     const drives = phone();
     const old = await oldAlbum(drives);
     const before = JSON.stringify(await listAll(old));
-    const failing: DriveStore = {
-      ...drives,
-      openOwn: async (ns) => {
-        const d = await drives.openOwn(ns);
-        return new Proxy(d, {
-          get: (t, p) =>
-            p === "put"
-              ? async (path: string, ...rest: unknown[]) => {
-                  if (path === "/earlier.json") throw new Error("disk full");
-                  return (t.put as (...a: unknown[]) => Promise<void>)(path, ...rest);
-                }
-              : (t as never)[p],
-        });
-      },
-    };
-    const [err, moved] = await run(failing, old);
+    const [err, moved] = await run(failingPut(drives), old);
     expect(err, "move: error").toMatchObject({ message: "disk full" });
     expect(moved).toBeNull();
     expect(JSON.stringify(await listAll(old)), "move: old drive untouched").toBe(before);
   });
+});
+
+const failingPut = (drives: DriveStore): DriveStore => ({
+  ...drives,
+  openOwn: async (ns) => {
+    const d = await drives.openOwn(ns);
+    return new Proxy(d, {
+      get: (t, p) =>
+        p === "put"
+          ? async (path: string, ...rest: unknown[]) => {
+              if (path === "/earlier.json") throw new Error("disk full");
+              return (t.put as (...a: unknown[]) => Promise<void>)(path, ...rest);
+            }
+          : (t as never)[p],
+    });
+  },
 });
 
 async function listAll(drive: Drive) {

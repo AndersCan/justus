@@ -56,6 +56,14 @@ describe("parseEarlier", () => {
       ),
     ).toEqual([{ key: A, name: "x" }]);
   });
+  it("drops a negative keptVersion but keeps the entry", () => {
+    expect(parseEarlier(file([{ key: A, name: "x", keptVersion: -1 }]))).toEqual([
+      { key: A, name: "x" },
+    ]);
+    expect(parseEarlier(file([{ key: A, name: "x", keptVersion: 0 }]))).toEqual([
+      { key: A, name: "x", keptVersion: 0 },
+    ]);
+  });
   it("caps the list", () => {
     const many = Array.from({ length: MAX_EARLIER_ENTRIES + 5 }, (_, i) => ({
       key: i.toString(16).padStart(64, "0"),
