@@ -23,7 +23,7 @@ Nils (Admin) made "Spain 2026" and wants Maya to see and add photos.
 
 1. Opens the album, taps **Invite**, picks how long the link lasts (10 minutes, 1 hour, **1 day**, 7 days).
 2. Sees the link and QR with "Valid until tomorrow, 14:05" and a **Cancel link** button. Sends it to Maya.
-3. Later a request appears in People: "Maya wants to join". Taps **Accept as Collaborator** (or **Accept as Viewer**, the default).
+3. Later a request appears in People: "Maya wants to join". Taps **Accept as Collaborator** (or **Accept as Viewer**).
 4. Maya now shows in People with her role. He can change it any time.
 
 **Maya's side**
