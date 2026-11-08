@@ -11,6 +11,7 @@ import {
   adminListsYou,
   clearLeftNote,
   deleteOwnPhotos,
+  listedWithin,
   parseDeleteNote,
   parseLeftNote,
 } from "../../src/albums/lifecycle.ts";
@@ -492,5 +493,43 @@ describe("adminDroppedYou", () => {
     for (const text of [null, "", "nope", "{}", "[]", '{"members":[]}', '{"members":null}']) {
       expect(adminDroppedYou(text, "a")).toBe(false);
     }
+  });
+});
+
+describe("listedWithin", () => {
+  it("is true as soon as the list names us, without waiting", async () => {
+    const sleep = vi.fn(async () => {});
+    expect(await listedWithin({ isListed: async () => true, tries: 3, waitMs: 10, sleep })).toBe(
+      true,
+    );
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("looks again when the list trails, and is true once it catches up", async () => {
+    let looks = 0;
+    const sleep = vi.fn(async () => {});
+    const listed = await listedWithin({
+      isListed: async () => ++looks === 3,
+      tries: 5,
+      waitMs: 10,
+      sleep,
+    });
+    expect(listed).toBe(true);
+    expect(looks).toBe(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("is false after the last look, with no wait after it", async () => {
+    let looks = 0;
+    const sleep = vi.fn(async () => {});
+    const listed = await listedWithin({
+      isListed: async () => (looks++, false),
+      tries: 4,
+      waitMs: 10,
+      sleep,
+    });
+    expect(listed).toBe(false);
+    expect(looks).toBe(4);
+    expect(sleep).toHaveBeenCalledTimes(3);
   });
 });

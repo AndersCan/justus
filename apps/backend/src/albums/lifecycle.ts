@@ -183,3 +183,18 @@ export async function deleteOwnPhotos(drive: Drive, options: { log: LifecycleLog
     }
   }
 }
+
+/** True once `isListed` says so, looking again up to `tries` times, `waitMs` apart: a phone's copy of the Admin's list can trail the Admin's accept. */
+export async function listedWithin(options: {
+  isListed: () => Promise<boolean>;
+  tries: number;
+  waitMs: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<boolean> {
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  for (let attempt = 0; attempt < options.tries; attempt++) {
+    if (await options.isListed()) return true;
+    if (attempt < options.tries - 1) await sleep(options.waitMs);
+  }
+  return false;
+}
