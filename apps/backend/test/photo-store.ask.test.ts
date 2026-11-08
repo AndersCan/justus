@@ -1114,6 +1114,118 @@ describe("a request through a turned-off link", () => {
     await s.joiner.store.close();
   });
 
+  const savedGone = (s: { admin: { deps: { storageDir: string } } }) =>
+    (
+      JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8")) as {
+        gone: { kind: string; inviteCodes?: string[] }[];
+      }
+    ).gone;
+
+  it("a joiner waiting when the Admin deletes the album is told the link no longer works", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const askedAt = asked[1]!.ask.askedAt;
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    expect((await s.admin.store.requests()).requests).toHaveLength(1);
+    const deleted = await s.admin.store.deleteAlbum(s.folderId);
+    expect(deleted[0]).toBe(null);
+    await until(async () => (await askStatus(s)) === "linkOff", 600);
+    expect(await askStatus(s)).toBe("linkOff");
+    expect(arrived.filter((m) => m.answer === "linkOff")).toEqual([
+      { code: s.invite.code, answer: "linkOff", askedAt },
+    ]);
+    expect((await s.joiner.store.folders()).folders).toEqual([]);
+    expect(joinsOf(s.joiner.store)).not.toContain(topicHex(s.invite.code));
+    expect(joinsOf(s.admin.store)).toContain(topicHex(s.invite.code));
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    await s.close();
+  });
+
+  it("an ask through a deleted album's link is told it no longer works", async () => {
+    const { s, joinerNetwork } = await teed();
+    expect((await s.admin.store.deleteAlbum(s.folderId))[0]).toBe(null);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    await s.close();
+  });
+
+  it("a turned-off code of a deleted album is answered too", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.turnOffInvite(s.folderId);
+    expect((await s.admin.store.deleteAlbum(s.folderId))[0]).toBe(null);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    expect(savedGone(s)[0]!.inviteCodes).toHaveLength(2);
+    await s.close();
+  });
+
+  it("after a restart the Admin still serves a deleted album's codes", async () => {
+    const { s, joinerNetwork } = await teed();
+    expect((await s.admin.store.deleteAlbum(s.folderId))[0]).toBe(null);
+    expect(savedGone(s)).toMatchObject([
+      { kind: "deletedForEveryone", inviteCodes: [s.invite.code] },
+    ]);
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    expect(joinsOf(reopened)).toContain(topicHex(s.invite.code));
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect(await askStatus(s)).toBe("linkOff");
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("a gone record with bad codes keeps only hex ones", async () => {
+    const storageDir = makeTmpDir("justus-gone-codes-");
+    const code = "ab".repeat(32);
+    const other = "ba".repeat(32);
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({
+        version: 2,
+        name: "Admin",
+        folders: [],
+        activeFolderId: null,
+        asks: [],
+        offers: [],
+        gone: [
+          {
+            id: "f1",
+            name: "Trip",
+            shareKey: "cd".repeat(32),
+            kind: "deletedForEveryone",
+            inviteCodes: ["zz", code, 7],
+            at: 1,
+          },
+          {
+            id: "f2",
+            name: "Other",
+            shareKey: "ef".repeat(32),
+            kind: "deletedByAdmin",
+            inviteCodes: [other],
+            at: 1,
+          },
+        ],
+      }),
+    );
+    const { store } = buildStore("Admin", createFakeHub(), { storageDir });
+    await store.ready();
+    const gone = (store.debugState() as { gone: { id: string; inviteCodes?: string[] }[] }).gone;
+    expect(gone.find((g) => g.id === "f1")?.inviteCodes).toEqual([code]);
+    expect(gone.find((g) => g.id === "f2")?.inviteCodes).toBeUndefined();
+    expect(joinsOf(store)).toContain(topicHex(code));
+    expect(joinsOf(store)).not.toContain(topicHex(other));
+    await store.close();
+  });
+
   it("a request through the live code gets no linkOff", async () => {
     const { s, arrived, joinerNetwork } = await teed();
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;

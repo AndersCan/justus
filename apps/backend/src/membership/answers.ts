@@ -142,6 +142,16 @@ export function answersOwed(
   return owed;
 }
 
+/** A "linkOff" for each code in `asked` that belongs to an album this phone deleted. */
+export function deletedAlbumAnswers(
+  deletedCodes: ReadonlySet<string>,
+  asked: readonly AskedCode[],
+): Answer[] {
+  return asked
+    .filter((a) => deletedCodes.has(a.code))
+    .map((a) => ({ code: a.code, answer: "linkOff", askedAt: a.requestedAt }));
+}
+
 export type DeliveryPorts = {
   /** Open connections: the identity each claims and the answers already sent on it (mutated by deliverOwed). */
   connections(): Array<{ conn: number; identity: string | undefined; sent: Set<string> }>;
