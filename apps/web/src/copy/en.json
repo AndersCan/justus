@@ -3925,5 +3925,33 @@
     "where": "Toast › someone asks to join",
     "who": "Admins, when someone asks to join one of their albums",
     "screen": ""
+  },
+  "role_toast.made_you_a_viewer": {
+    "text": "{name} made you a Viewer in {album}",
+    "status": "draft",
+    "where": "Toast › your role changed",
+    "who": "Collaborators and Viewers, when the Admin changes their role",
+    "screen": ""
+  },
+  "role_toast.the_admin_made_you_a_viewer": {
+    "text": "The Admin made you a Viewer in {album}",
+    "status": "draft",
+    "where": "Toast › your role changed",
+    "who": "Collaborators and Viewers, when the Admin changes their role",
+    "screen": ""
+  },
+  "role_toast.made_you_a_collaborator": {
+    "text": "{name} made you a Collaborator in {album}",
+    "status": "draft",
+    "where": "Toast › your role changed",
+    "who": "Collaborators and Viewers, when the Admin changes their role",
+    "screen": ""
+  },
+  "role_toast.the_admin_made_you_a_collaborator": {
+    "text": "The Admin made you a Collaborator in {album}",
+    "status": "draft",
+    "where": "Toast › your role changed",
+    "who": "Collaborators and Viewers, when the Admin changes their role",
+    "screen": ""
   }
 }

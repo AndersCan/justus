@@ -7,6 +7,7 @@ import { requests } from "./machines/requests-machine";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import { sync } from "./machines/sync-machine";
+import { roleToast, type RoleChangeIn } from "./views/role-toast";
 
 /** The `cause` carried in a `photos.changed` dispatch, if any. */
 export function changeCause(header: unknown): string | undefined {
@@ -38,6 +39,14 @@ export function askAnswer(args: unknown): AskAnswer | undefined {
   };
 }
 
+/** The role change carried by a `photos.changed` push with cause "role". */
+export function roleChangeOf(args: unknown): RoleChangeIn | undefined {
+  const a = (args ?? {}) as { cause?: unknown; folderId?: unknown; role?: unknown };
+  if (a.cause !== "role" || typeof a.folderId !== "string") return undefined;
+  if (typeof a.role !== "object" || a.role === null) return undefined;
+  return { ...(a.role as Omit<RoleChangeIn, "folderId">), folderId: a.folderId };
+}
+
 /** Routes inbound wire messages: backend→web pushes refresh the actors;
  * invoke failures log. */
 export function handleMessage(msg: WireMessage) {
@@ -61,6 +70,8 @@ export function handleMessage(msg: WireMessage) {
     sync.refresh();
     folders.refresh();
     requests.refresh();
+    const roleChange = roleChangeOf(h.args);
+    if (roleChange) roleToast.changed(roleChange);
     const answer = askAnswer(h.args);
     if (answer) {
       join.requestAnswered(answer.code, answer.answer, answer.folderId);

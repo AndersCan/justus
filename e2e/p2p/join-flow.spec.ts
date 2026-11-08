@@ -8,6 +8,7 @@
  * Set JUSTUS_HUB_DHT_PORT / JUSTUS_HUB_BASE_PORT when the defaults are taken.
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
+import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
 
@@ -113,6 +114,32 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   });
 });
 
+/** Records the text of every toast the page shows from now on, once per toast (the list re-inserts a toast's node when others move). Call again after a navigation. */
+async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __toasts?: string[] };
+    w.__toasts = w.__toasts ?? [];
+    const seen = new Set<string | null>();
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const n of r.addedNodes) {
+          if (!(n instanceof Element)) continue;
+          const toasts = n.matches(".justus-toast")
+            ? [n]
+            : [...n.querySelectorAll(".justus-toast")];
+          for (const t of toasts) {
+            const key = t.getAttribute("data-motion-key");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            w.__toasts?.push(t.textContent?.trim() ?? "");
+          }
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  return () => page.evaluate(() => (window as unknown as { __toasts?: string[] }).__toasts ?? []);
+}
+
 test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's Members shows B as Viewer", async ({
   instancePages,
 }) => {
@@ -154,6 +181,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
     timeout: 60_000,
   });
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+  const bToasts = await recordToasts(b);
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const row = members.locator("li", { hasText: "Viewer" });
@@ -164,6 +192,12 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
   });
+  await expect
+    .poll(async () =>
+      (await bToasts()).filter((t) => t.endsWith("made you a Collaborator in Viewer trip")),
+    )
+    .toHaveLength(1);
+  expect((await bToasts()).filter((t) => /made you a Viewer/.test(t))).toEqual([]);
 });
 
 test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A removes B: B is no longer in the album and keeps the photo", async ({
@@ -179,11 +213,13 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   await askToJoin(b, link, album);
 
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  const bFirst = await recordToasts(b);
   await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
   });
+  expect((await bFirst()).filter((t) => /made you a/.test(t))).toEqual([]);
 
   await b.setInputFiles("input[type=file]", {
     name: kept,
@@ -199,6 +235,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
 
   // Reload on the members page: the case where its buttons used to do nothing.
   await a.reload();
+  const aToasts = await recordToasts(a);
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await expect(members).toBeVisible({ timeout: 60_000 });
   await members.getByRole("button", { name: /^Make .* a Viewer$/ }).click();
@@ -212,12 +249,16 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
     timeout: 60_000,
   });
   await expect(members.locator("li", { hasText: "Viewer" })).toBeVisible({ timeout: 60_000 });
+  await expect
+    .poll(async () => (await bFirst()).filter((t) => t.endsWith("made you a Viewer in Kept trip")))
+    .toHaveLength(1);
 
   await a.getByRole("link", { name: "See photos in this album" }).click();
   for (const page of [a, b]) {
     await expect(page.getByRole("button", { name: `View ${kept}` })).toBeVisible();
   }
   await b.goto("/sharing");
+  const bAfter = await recordToasts(b);
   await b.getByText(album).click();
   await b.getByRole("link", { name: "See photos in this album" }).click();
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible({ timeout: 60_000 });
@@ -239,6 +280,8 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible();
   await b.goto("/sharing");
   await expect(b.getByText("No longer in this album")).toBeVisible({ timeout: 60_000 });
+  expect((await bAfter()).filter((t) => /made you a/.test(t))).toEqual([]);
+  expect((await aToasts()).filter((t) => /made you a/.test(t))).toEqual([]);
 });
 
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
