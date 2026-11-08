@@ -5,7 +5,8 @@ import { folders, foldersActor } from "../machines/folders-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
 import { join, joinActor } from "../machines/sharing/join-request";
 import { buildInviteLink } from "../utils/invite-link";
-import { sharingView } from "./sharing";
+import { requests, requestsActor } from "../machines/requests-machine";
+import { sharingView, waitingForYou } from "./sharing";
 import {
   albumVanished,
   leaveToast,
@@ -741,6 +742,50 @@ describe("an album that vanishes under an open page", () => {
     expect(albumVanished(before, ["a", "b"], "b")).toBe(false);
     expect(albumVanished(before, ["a"], "never")).toBe(false);
     expect(albumVanished(before, [], null)).toBe(false);
+  });
+});
+
+describe("waiting for you", () => {
+  const joinRequest = { folderId: "a", requesterKey: "k1", requesterName: "Kim", viaInvite: false };
+  beforeEach(() => vi.restoreAllMocks());
+  const loadRequests = async (list: (typeof joinRequest)[]) => {
+    mock.requests.mockResolvedValue([null, { requests: list }]);
+    requests.refresh();
+    await vi.waitFor(() =>
+      expect(requestsActor.snapshot().context.requests.length).toBe(list.length),
+    );
+  };
+
+  test("counts join requests plus invites", async () => {
+    const host = document.createElement("div");
+    render(
+      waitingForYou((n) => html`${n}`),
+      host,
+    );
+    await loadRequests([joinRequest]);
+    await load(["a"], [], [offer]);
+    await vi.waitFor(() => expect(host.textContent).toBe("2"));
+    await loadRequests([]);
+    await vi.waitFor(() => expect(host.textContent).toBe("1"));
+    await load(["a"]);
+    await vi.waitFor(() => expect(host.textContent).toBe("0"));
+    render(html``, host);
+  });
+
+  test("the Your albums tab carries the total and says what it is", async () => {
+    const host = document.createElement("div");
+    render(sharingView("albums"), host);
+    await loadRequests([joinRequest]);
+    await load(["a"], [], [offer]);
+    await vi.waitFor(() =>
+      expect(host.querySelector("[aria-label='2 waiting for you']")?.textContent).toBe("2"),
+    );
+    await loadRequests([]);
+    await load(["a"]);
+    await vi.waitFor(() =>
+      expect(host.querySelector("[aria-label$='waiting for you']")).toBeNull(),
+    );
+    render(html``, host);
   });
 });
 

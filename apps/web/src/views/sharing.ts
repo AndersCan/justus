@@ -1,6 +1,7 @@
 import { html } from "lit-html";
 import type { GrantRecord } from "@justus/core";
 import { watch } from "@mantaq/lit";
+import { foldersActor } from "../machines/folders-machine";
 import { requestsActor } from "../machines/requests-machine";
 import { grants, grantsActor, grantsViewModel } from "../machines/grants-machine";
 import { albumsPanel, joinPanel, pendingAsks } from "./albums";
@@ -182,6 +183,13 @@ function devicesPanel() {
   return watch(grantsActor, (s) => devicesBody(grantsViewModel(s)));
 }
 
+/** Renders `view` with the number of things waiting for this person: join requests to answer plus friends' invites to join. */
+export function waitingForYou<T>(view: (waiting: number) => T) {
+  return watch(requestsActor, (q) =>
+    watch(foldersActor, (f) => view(q.context.requests.length + f.context.offers.length)),
+  );
+}
+
 export type SharingTab = "albums" | "join" | "devices";
 
 /** Sharing: your albums' people and invites, and joining with an invite link.
@@ -192,7 +200,7 @@ export function sharingView(tab: SharingTab) {
   return html`
     <div class="max-w-2xl space-y-5">
       <h1 class="text-2xl font-semibold tracking-tight text-fg">${t("sharing.sharing_2")}</h1>
-      ${watch(requestsActor, (q) =>
+      ${waitingForYou((waiting) =>
         tabs(
           copy("sharing.sharing_2"),
           [
@@ -200,7 +208,7 @@ export function sharingView(tab: SharingTab) {
               id: "albums",
               label: copy("sharing.your_albums"),
               href: "/sharing",
-              badge: q.context.requests.length,
+              badge: waiting,
             },
             { id: "join", label: copy("sharing.join_an_album"), href: "/join" },
             ...(tab === "devices"

@@ -139,8 +139,8 @@
     "who": "Everyone, on every screen",
     "screen": ""
   },
-  "app.waiting_for_approval": {
-    "text": "{badge} waiting for approval",
+  "app.waiting_for_you": {
+    "text": "{badge} waiting for you",
     "status": "draft",
     "where": "App shell › screen reader label",
     "who": "Everyone, on every screen",
@@ -3738,7 +3738,7 @@
     "screen": ""
   },
   "tabs.waiting": {
-    "text": "{badge} waiting",
+    "text": "{badge} waiting for you",
     "status": "draft",
     "where": "Tab bar › screen reader label",
     "who": "Everyone, on every screen",

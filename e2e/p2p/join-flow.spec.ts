@@ -540,6 +540,13 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
   await a.getByRole("button", { name: "Add Sam as a Viewer", exact: true }).click();
   await expect(a.getByText("Asked Sam to join as a Viewer")).toBeVisible({ timeout: 60_000 });
 
+  // Hub state persists across tests, so other things may already be waiting for B.
+  await b.goto("/");
+  const waitingPill = b.getByLabel(/^\d+ waiting for you$/).filter({ visible: true });
+  await expect(waitingPill).toBeVisible({ timeout: 60_000 });
+  const waitingBefore = Number((await waitingPill.textContent()) ?? "0");
+  expect(waitingBefore).toBeGreaterThanOrEqual(1);
+
   await b.goto("/sharing");
   const invite = b.locator("li", { hasText: "invited you" });
   await expect(invite).toContainText(lisbon, { timeout: 60_000 });
@@ -555,6 +562,9 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     timeout: 60_000,
   });
   await expect(b.getByRole("button", { name: `Add photos to ${lisbon}` })).toHaveCount(0);
+  await b.goto("/");
+  if (waitingBefore === 1) await expect(waitingPill).toHaveCount(0);
+  else await expect(waitingPill).toHaveText(String(waitingBefore - 1));
 
   await expect(a.getByText("wants to join")).toHaveCount(0);
   const lisbonMembers = a.locator("section", {
