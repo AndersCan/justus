@@ -265,6 +265,78 @@ describe("waitingForAdminToAccept", () => {
   });
 });
 
+describe("cancelRequest", () => {
+  test("Cancel request takes the request back", async () => {
+    const s = await waitingSetup();
+    await s.send("cancelRequest");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs.at(-1)).toEqual({ type: "cancelAsk", payload: { code: INVITE.code } });
+  });
+
+  test("after Cancel request, a decline for that code stays quiet", async () => {
+    const s = await waitingSetup();
+    await s.send("cancelRequest");
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    expect(s.actor.state.name).toBe("noInviteOpen");
+  });
+
+  test("Cancel request does nothing outside the waiting screen", async () => {
+    const deciding = setup();
+    await deciding.send("openLink", { text: LINK });
+    const declined = await waitingSetup();
+    await declined.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    const expired = setup();
+    expired.clock.advance(600_000);
+    await expired.send("openLink", {
+      text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }),
+    });
+    for (const [s, name] of [
+      [deciding, "decidingToAsk"],
+      [declined, "declinedByAdmin"],
+      [expired, "linkExpired"],
+    ] as const) {
+      const before = s.outputs.length;
+      await s.send("cancelRequest");
+      expect(s.actor.state.name).toBe(name);
+      expect(s.outputs.length).toBe(before);
+    }
+  });
+});
+
+describe("askToJoin at the end", () => {
+  const END = 600_000;
+  const timed = buildInviteLink({ ...INVITE, expiresAt: END });
+
+  test("Ask at the end shows the expired screen and sends nothing", async () => {
+    let asked = 0;
+    const s = setup({ port: { ask: async () => (asked++, [undefined, {}]) } });
+    await s.send("openLink", { text: timed });
+    s.clock.advance(END);
+    await s.send("askToJoin");
+    expect(s.actor.state.name).toBe("linkExpired");
+    expect(asked).toBe(0);
+  });
+
+  test("Ask before the end still sends", async () => {
+    const s = setup();
+    await s.send("openLink", { text: timed });
+    s.clock.advance(END - 1);
+    await s.send("askToJoin");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+  });
+
+  test("a failed send, retried after the end, shows expired and clears the error", async () => {
+    const s = setup({ port: { ask: async () => [new Error("x"), undefined] } });
+    await s.send("openLink", { text: timed });
+    await s.send("askToJoin");
+    expect(error(s)).toBe(SEND_FAILED);
+    s.clock.advance(END);
+    await s.send("askToJoin");
+    expect(s.actor.state.name).toBe("linkExpired");
+    expect(error(s)).toBe("");
+  });
+});
+
 describe("linkExpired", () => {
   const END = 600_000;
   const timed = buildInviteLink({ ...INVITE, expiresAt: END });
@@ -552,12 +624,61 @@ test("Maya opens Nils's link after it ended", async () => {
     actor.send({ type, payload } as never);
     await actor.settled();
   };
+  clock.advance(600_000);
+  await send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+  expect(actor.state.name).toBe("linkExpired");
+});
+
+test("Maya reopens the ended link she already asked through", async () => {
+  const clock = VirtualClock();
+  let asked = false;
+  const actor = make({
+    clock,
+    port: { ask: async () => ((asked = true), [undefined, {}]) },
+    known: () => (asked ? { kind: "waiting" } : { kind: "new" }),
+  });
+  const send = async (type: string, payload?: unknown) => {
+    actor.send({ type, payload } as never);
+    await actor.settled();
+  };
   const timed = buildInviteLink({ ...INVITE, expiresAt: 600_000 });
   await send("openLink", { text: timed });
   await send("askToJoin");
   await send("closeWaiting");
   clock.advance(600_000);
   await send("openLink", { text: timed });
+  expect(actor.state.name).toBe("waitingForAdminToAccept");
+});
+
+test("Maya cancels her request", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("cancelRequest");
+  });
+  expect(actor.state.name).toBe("noInviteOpen");
+});
+
+test("Maya cancels, then asks again with the same link", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("cancelRequest");
+    await send("openLink", { text: LINK });
+  });
+  expect(actor.state.name).toBe("decidingToAsk");
+});
+
+test("Maya leaves the question open past the end, then taps Ask", async () => {
+  const clock = VirtualClock();
+  const actor = make({ clock });
+  const send = async (type: string, payload?: unknown) => {
+    actor.send({ type, payload } as never);
+    await actor.settled();
+  };
+  await send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+  clock.advance(600_000);
+  await send("askToJoin");
   expect(actor.state.name).toBe("linkExpired");
 });
 
