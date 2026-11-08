@@ -269,12 +269,12 @@ describe("album join requests", () => {
 
   test("rows show their check code and the section says what it is for", async () => {
     const host = await show([
-      { ...ask("a", true, "1234 5678"), requesterName: "Ben" },
-      { ...ask("b", true, "8765 4321"), requesterName: "Ben" },
+      { ...ask("a", true, "maple river stone"), requesterName: "Ben" },
+      { ...ask("b", true, "lamp ocean tiger"), requesterName: "Ben" },
     ]);
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
-    expect(rows[0]!.textContent).toContain("Check code 1234 5678");
-    expect(rows[1]!.textContent).toContain("Check code 8765 4321");
+    expect(rows[0]!.textContent).toContain("Check code maple river stone");
+    expect(rows[1]!.textContent).toContain("Check code lamp ocean tiger");
     expect(host.textContent).toContain("Not sure who it is?");
   });
 
