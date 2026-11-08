@@ -17,7 +17,8 @@ Two people, two phones. Ana wants in; Nils is the Admin.
 | Ana taps "Cancel request"                      | The waiting screen closes and her row leaves "Waiting to join"; the link can be asked through again while it works `joinRequest.noInviteOpen`                                               | The request leaves his list at the next refresh                                                               |
 | Nils taps Accept as Viewer                     | The album opens, and Ana sees every photo but cannot add any `joinRequest.joinedAlbum`                                                                                                      | `requests.sendingAnswer`                                                                                      |
 | Nils taps Accept as Collaborator               | The album opens, and Ana can add photos `joinRequest.joinedAlbum`                                                                                                                           | `requests.sendingAnswer`                                                                                      |
-| Nils taps Accept all 2 as Viewers              | Each lands as a Viewer `joinRequest.joinedAlbum`                                                                                                                                            | Each card leaves as its answer goes; one toast says how many are in `requests.sendingAnswersToAll`            |
+| Nils taps Accept all 2 as Viewers              | Nothing yet                                                                                                                                                                                 | Every name it lets in, with Accept all and Cancel `requests.confirmingAcceptAll`                              |
+| Nils taps Accept all                           | Each lands as a Viewer `joinRequest.joinedAlbum`                                                                                                                                            | Each card leaves as its answer goes; one toast says how many are in `requests.sendingAnswersToAll`            |
 | Nils taps Decline                              | "&lt;Admin&gt; didn't accept your request." `joinRequest.declinedByAdmin`                                                                                                                   | `requests.sendingAnswer`                                                                                      |
 
 Walks of the Admin's side:
@@ -27,6 +28,7 @@ Walks of the Admin's side:
 - [Maya: asks and is declined](?machine=joinRequest&machine=requests&run=Maya%3A%20asks%20and%20is%20declined)
 - [Three wedding guests ask, and Nils accepts each as a Collaborator](?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20each%20as%20a%20Collaborator)
 - [Nils's family asks to look, and he accepts all three as Viewers](?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20and%20he%20accepts%20all%20three%20as%20Viewers)
+- [Nils's link reaches a group chat, he sees a stranger among the names, and cancels Accept all](?machine=requests&run=Nils's%20link%20reaches%20a%20group%20chat%2C%20he%20sees%20a%20stranger%20among%20the%20names%2C%20and%20cancels%20Accept%20all)
 
 Not in the app yet: the Admin's side is planned as `membership.requestWaitingForAdmin`, then `membership.addingMember` and `membership.memberOfAlbum` when accepted, or `membership.requestDeclined` when declined.
 

@@ -455,6 +455,10 @@ describe("album join requests", () => {
       () => new Promise((r) => resolvers.push(r)) as never,
     );
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept all")).toBeDefined());
+    expect(flat(host)).toContain("Let these 2 people see every photo?");
+    expect(gateway.respond).not.toHaveBeenCalled();
+    button(host, "Accept all")!.click();
     await vi.waitFor(() => expect(resolvers).toHaveLength(1));
     await vi.waitFor(() => {
       expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
@@ -485,6 +489,8 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept all")).toBeDefined());
+    button(host, "Accept all")!.click();
     await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
     expect(host.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn't connect. Check your internet and try again.",
@@ -512,6 +518,18 @@ describe("album join requests", () => {
     ).toBe(false);
     await requestsActor.settled();
     vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
+  });
+
+  test("Cancel on Accept all's names answers nobody and offers Accept all again", async () => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Cancel")).toBeDefined());
+    expect(flat(host)).toContain("ola");
+    button(host, "Cancel")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeDefined());
+    expect(gateway.respond).not.toHaveBeenCalled();
+    await requestsActor.settled();
   });
 
   test("acceptAllToast: singular and plural", () => {

@@ -421,18 +421,20 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
     <h2 class="ui-label mb-3">${t("album.asking_to_join")}</h2>
     ${hint !== "" ? html`<p class="mb-3 text-xs text-muted">${hint}</p>` : null}
     ${
-      keys.length >= 2
-        ? html`<div class="mb-3">
-            <button
-              class="ui-btn-primary w-full"
-              ?disabled=${reqVm.responding || reqVm.loading}
-              @click=${() => requests.acceptAllAsViewers(id, keys)}
-            >
-              ${t("album.accept_all_as_viewers", { count: keys.length })}
-            </button>
-            <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
-          </div>`
-        : null
+      reqVm.confirmingAll?.folderId === id
+        ? confirmAllCard({ keys: reqVm.confirmingAll.requesterKeys, asks: vm.requests })
+        : keys.length >= 2
+          ? html`<div class="mb-3">
+              <button
+                class="ui-btn-primary w-full"
+                ?disabled=${reqVm.responding || reqVm.loading}
+                @click=${() => requests.acceptAllAsViewers(id, keys)}
+              >
+                ${t("album.accept_all_as_viewers", { count: keys.length })}
+              </button>
+              <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
+            </div>`
+          : null
     }
     <ul class="space-y-2" ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}>
       ${repeat(vm.requests, requestKey, (r) =>
@@ -573,6 +575,29 @@ function secretValue(name: string, value: string) {
       ${eyeIcon(false, "hidden group-has-[:checked]:block")}
     </label>
   </dd>`;
+}
+
+/** Accept all waits here: every name it lets in, then Accept all or Cancel. */
+function confirmAllCard(options: {
+  keys: string[];
+  asks: { requesterKey: string; requesterName: string }[];
+}) {
+  const { keys, asks } = options;
+  const names = keys.map((k) => asks.find((r) => r.requesterKey === k)?.requesterName ?? k);
+  return html`<div class="mb-3 space-y-2" data-motion-key="section:confirm-all">
+    <p class="text-sm text-fg">${t("album.let_these_people_see_every", { count: names.length })}</p>
+    <ul class="text-sm">
+      ${names.map((n) => html`<li>${n}</li>`)}
+    </ul>
+    <div class="flex gap-2">
+      <button class="ui-btn-primary flex-1" @click=${() => requests.confirmAcceptAll()}>
+        ${t("album.accept_all")}
+      </button>
+      <button class="ui-btn-ghost flex-1" @click=${() => requests.cancelAcceptAll()}>
+        ${t("album.cancel_accept_all")}
+      </button>
+    </div>
+  </div>`;
 }
 
 function advancedSection(status: Status, settled: boolean, busy: boolean) {

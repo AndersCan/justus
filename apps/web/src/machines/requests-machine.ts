@@ -19,6 +19,7 @@ const REQUESTS_STATES = [
   "loadingRequests",
   "showingRequests",
   "sendingAnswer",
+  "confirmingAcceptAll",
   "sendingAnswersToAll",
   "couldNotLoadRequests",
   "couldNotSendAnswer",
@@ -33,6 +34,11 @@ const loadingRequests = state("loadingRequests")();
 const showingRequests = state("showingRequests")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const sendingAnswer = state("sendingAnswer")();
+/** The Admin tapped Accept all as Viewers and sees every name it lets in, with Accept all and Cancel; nothing is sent yet, and a reload waits until the Admin picks. */
+const confirmingAcceptAll = state("confirmingAcceptAll")<{
+  folderId: string;
+  requesterKeys: string[];
+}>();
 /** Accept all as Viewers is sending the answers one by one; every button is off and each card leaves as its answer is sent. */
 const sendingAnswersToAll = state("sendingAnswersToAll")<Batch>();
 /** The Yes or No did not go through; the request stays and its card shows why, with Retry. */
@@ -51,6 +57,10 @@ const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
   folderId: string;
   requesterKeys: string[];
 }>();
+/** The Admin checked the names and taps Accept all. */
+const confirmAcceptAll = event("CONFIRM_ACCEPT_ALL")();
+/** The Admin taps Cancel on the names; nobody is answered. */
+const cancelAcceptAll = event("CANCEL_ACCEPT_ALL")();
 /** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
 export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
 /** Asks this phone had not listed before came in with a reload; never sent for asks already waiting at the first load. */
@@ -121,6 +131,11 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     loading: state === "loadingRequests",
     responding: state === "sendingAnswer" || state === "sendingAnswersToAll",
     failedAnswer: state === "couldNotSendAnswer" ? s.context.pendingRespond : null,
+    /** Accept all is waiting for the Admin to check these names; null otherwise. */
+    confirmingAll:
+      state === "confirmingAcceptAll"
+        ? (s.payload as { folderId: string; requesterKeys: string[] })
+        : null,
     settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
@@ -133,7 +148,7 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry, acceptAllAsViewers],
+    inputs: [refresh, respond, retry, acceptAllAsViewers, confirmAcceptAll, cancelAcceptAll],
     internal: [loaded, loadFailed, responded, respondFailed],
     outputs: [answerSent, allAcceptedAsViewers, requestsArrived],
     states: [
@@ -141,6 +156,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
       loadingRequests,
       showingRequests,
       sendingAnswer,
+      confirmingAcceptAll,
       sendingAnswersToAll,
       couldNotLoadRequests,
       couldNotSendAnswer,
@@ -197,29 +213,40 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswer };
           },
         });
-        /** Accept all as Viewers starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+        /** Accept all as Viewers first shows the names of the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
         m.on(at, {
           event: acceptAllAsViewers,
-          to: [sendingAnswersToAll],
+          to: [confirmingAcceptAll],
           handler: (e, opts) => {
             const ctx = opts.context.get();
-            const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
+            const requesterKeys = [...new Set(e.payload.requesterKeys)].filter((k) =>
               ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
             );
-            const [next, ...after] = keys;
-            if (next === undefined) return {};
+            if (requesterKeys.length === 0) return {};
             opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
             return {
-              state: sendingAnswersToAll.create({
-                folderId: e.payload.folderId,
-                next,
-                after,
-                sent: 0,
-              }),
+              state: confirmingAcceptAll.create({ folderId: e.payload.folderId, requesterKeys }),
             };
           },
         });
       }
+      /** The Admin checked the names: the answers go out one by one, as Viewers. */
+      m.on(confirmingAcceptAll, {
+        event: confirmAcceptAll,
+        to: [sendingAnswersToAll, showingRequests],
+        handler: (_e, opts) => {
+          const { folderId, requesterKeys } = opts.state.payload;
+          const [next, ...after] = requesterKeys;
+          if (next === undefined) return { state: showingRequests };
+          return { state: sendingAnswersToAll.create({ folderId, next, after, sent: 0 }) };
+        },
+      });
+      /** The Admin cancels: the asks stay waiting and the list shows again. */
+      m.on(confirmingAcceptAll, {
+        event: cancelAcceptAll,
+        to: [showingRequests],
+        handler: () => ({ state: showingRequests }),
+      });
       /** A reload after an error starts and the error message goes away. */
       m.on(couldNotLoadRequests, {
         event: refresh,
@@ -450,6 +477,8 @@ export const requests = {
   retry: () => requestsActor.send(retry.create()),
   acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
     requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
+  confirmAcceptAll: () => requestsActor.send(confirmAcceptAll.create()),
+  cancelAcceptAll: () => requestsActor.send(cancelAcceptAll.create()),
 };
 
 /** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, in list order. */

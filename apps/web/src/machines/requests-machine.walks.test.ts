@@ -91,6 +91,7 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
     type: "ACCEPT_ALL_AS_VIEWERS",
     payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(family, "f1") },
   });
+  actor.send({ type: "CONFIRM_ACCEPT_ALL" });
   for (const person of family) {
     actor.inject({
       type: "RESPONDED",
@@ -120,4 +121,21 @@ test("Ana asks while Nils looks at his photos, and Nils hears she wants to join"
   await actor.settled();
   expect(arrived).toEqual(["Ana"]);
   expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
+});
+
+test("Nils's link reaches a group chat, he sees a stranger among the names, and cancels Accept all", async () => {
+  const stranger = ask("Nils's photos", "k9", "Tor");
+  const asks = [...family, stranger];
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: asks } });
+  actor.send({
+    type: "ACCEPT_ALL_AS_VIEWERS",
+    payload: { folderId: "f1", requesterKeys: viewerAcceptKeys(asks, "f1") },
+  });
+  actor.send({ type: "CANCEL_ACCEPT_ALL" });
+  await actor.settled();
+  const view = requestsViewModel(actor.snapshot());
+  expect(view.state).toBe("showingRequests");
+  expect(view.requests).toHaveLength(4);
 });

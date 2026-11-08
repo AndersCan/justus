@@ -3925,5 +3925,26 @@
     "where": "Toast › someone asks to join",
     "who": "Admins, when someone asks to join one of their albums",
     "screen": ""
+  },
+  "album.let_these_people_see_every": {
+    "text": "Let these {count} people see every photo?",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Admins, after tapping Accept all as Viewers",
+    "screen": ""
+  },
+  "album.accept_all": {
+    "text": "Accept all",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Admins, after tapping Accept all as Viewers",
+    "screen": ""
+  },
+  "album.cancel_accept_all": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Admins, after tapping Accept all as Viewers",
+    "screen": ""
   }
 }
