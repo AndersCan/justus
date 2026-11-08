@@ -22,6 +22,10 @@ describe("checkCode", () => {
     expect(checkCode(key, crypto)).toBe(expected);
   });
 
+  it("gives a fixed phrase for a fixed key", () => {
+    expect(checkCode(key, crypto)).toBe("prevent goat health");
+  });
+
   it("is deterministic and ignores hex case", () => {
     const hex = "abcdef".repeat(10) + "abcd";
     expect(checkCode(hex, crypto)).toBe(checkCode(hex, crypto));
