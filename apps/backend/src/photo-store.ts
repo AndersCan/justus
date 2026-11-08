@@ -550,6 +550,8 @@ type FolderRuntime = {
   memberNameCache: Map<string, string>;
   /** Viewers the Admin listed in `/viewers.json`; their drives are never opened. */
   viewers: ViewersFile["viewers"];
+  /** Set while a check is turning this phone's Viewer into a Collaborator, so an overlapping check still reports it as a role change. */
+  upgradingViewer?: boolean;
   /** Loopback routes served for this folder's photos (see `lazyMedia`). */
   mounted: Set<string>;
   /** `remove` closures for this folder's `onDriveChange` watchers, drained
@@ -1809,14 +1811,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const isStillReader = () => rt.record.role === "reader" && rt.record.notice?.kind !== "removed";
     // Before the first await: the watcher's refreshViewers drops this phone
     // from rt.viewers meanwhile.
-    const wasViewer = rt.viewers[selfKeyOf(rt)] !== undefined;
+    const wasViewer = rt.upgradingViewer === true || rt.viewers[selfKeyOf(rt)] !== undefined;
+    if (wasViewer) rt.upgradingViewer = true;
     const adminName = wasViewer ? await adminNameOf(rt) : undefined;
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = selfKeyOf(rt);
-    if (!isEnrolled(registry, selfKey)) return false;
+    if (!isEnrolled(registry, selfKey)) {
+      rt.upgradingViewer = false;
+      return false;
+    }
     // A second watcher tick may have flipped the role while we waited.
     if (!isStillReader()) return false;
     rt.record.role = "member";
+    rt.upgradingViewer = false;
     rt.record.pending = false;
     rt.record.driveKey = selfKey;
     await refreshMembersFor(rt);

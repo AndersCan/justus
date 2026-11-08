@@ -54,6 +54,36 @@ function lagBehindUntilUpdated(deps: ReturnType<typeof phoneDeps>) {
   };
 }
 
+type DeviceRead = "missing" | "hangs" | { delayMs: number };
+
+/** Lets a test make this phone's reads of other phones' `/device.json` fail or slow down, from then on. */
+function deviceReads(deps: ReturnType<typeof phoneDeps>) {
+  const control: { how: DeviceRead | undefined; reads: number; adminDrive: string } = {
+    how: undefined,
+    reads: 0,
+    adminDrive: "",
+  };
+  const store = deps.drives;
+  const open = store.open.bind(store);
+  store.open = async (key: string, opts: { timeoutMs: number }) => {
+    const [err, drive] = await open(key, opts);
+    if (err || !drive) return [err, drive] as never;
+    const readSmall = drive.readSmall.bind(drive);
+    drive.readSmall = async (path: string, max: number) => {
+      const how = control.how;
+      if (path !== "/device.json" || how === undefined) return readSmall(path, max);
+      if (drive.key === control.adminDrive && new Error().stack?.includes("adminNameOf"))
+        control.reads += 1;
+      if (how === "missing") return null;
+      if (how === "hangs") return new Promise<never>(() => {});
+      await sleep(how.delayMs);
+      return readSmall(path, max);
+    };
+    return [null, drive];
+  };
+  return control;
+}
+
 async function album(options: { lag?: boolean } = {}) {
   const hub = createFakeHub();
   const adminPushes: Push[] = [];
@@ -62,6 +92,7 @@ async function album(options: { lag?: boolean } = {}) {
   if (options.lag) lagBehindUntilUpdated(adminDeps);
   const admin = createPhotoStore(adminDeps);
   const nilsDeps = phoneDeps(hub, "Nils", nilsPushes);
+  const nilsReads = deviceReads(nilsDeps);
   const nils = createPhotoStore(nilsDeps);
   await admin.ready();
   await nils.ready();
@@ -69,6 +100,7 @@ async function album(options: { lag?: boolean } = {}) {
   const folderId = created[1]!.folder.id;
   const shareKey = created[1]!.folder.shareKey;
   const key = await joinAsMember(admin, folderId, nils, shareKey);
+  nilsReads.adminDrive = shareKey;
   const nilsFolderId = (await nils.folders()).folders.find((f) => f.shareKey === shareKey)!.id;
   await nils.setActive(nilsFolderId);
   await admin.setActive(folderId);
@@ -76,7 +108,18 @@ async function album(options: { lag?: boolean } = {}) {
     await admin.close();
     await nils.close();
   };
-  return { admin, nils, nilsDeps, adminPushes, nilsPushes, folderId, nilsFolderId, key, close };
+  return {
+    admin,
+    nils,
+    nilsDeps,
+    nilsReads,
+    adminPushes,
+    nilsPushes,
+    folderId,
+    nilsFolderId,
+    key,
+    close,
+  };
 }
 
 describe("making a Collaborator a Viewer", () => {
@@ -177,6 +220,56 @@ describe("making a Collaborator a Viewer", () => {
     await s.admin.makeMember(s.folderId, s.key);
     await until(() => roles().length === 2);
     await sleep(300);
+    expect(roles().map((p) => [p.role?.from, p.role?.to])).toEqual([
+      ["member", "reader"],
+      ["reader", "member"],
+    ]);
+    await s.close();
+  });
+
+  it.each<[string, DeviceRead]>([
+    ["has no name published", "missing"],
+    ["does not answer in time", "hangs"],
+  ])("leaves the Admin's name out when their phone %s", async (_label, device) => {
+    const s = await album();
+    s.nilsReads.how = device;
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length > 0);
+    await sleep(300);
+    expect(roles()).toEqual([
+      {
+        cause: "role",
+        folderId: s.nilsFolderId,
+        role: { from: "member", to: "reader", albumName: "Trip" },
+      },
+    ]);
+    await s.close();
+  });
+
+  it("is told nothing when the Admin undoes the change while the name is read", async () => {
+    const s = await album();
+    s.nilsReads.how = { delayMs: 600 };
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => s.nilsReads.reads > 0);
+    await s.admin.makeMember(s.folderId, s.key);
+    await sleep(1_500);
+    expect(roles()).toEqual([]);
+    await s.close();
+  });
+
+  it("is told once when two checks overlap as the Admin makes them a Collaborator again", async () => {
+    const s = await album();
+    const roles = () => s.nilsPushes.filter((p) => p.cause === "role");
+    await s.admin.makeViewer(s.folderId, s.key);
+    await until(() => roles().length === 1);
+    s.nilsReads.how = { delayMs: 1_500 };
+    await s.admin.makeMember(s.folderId, s.key);
+    await until(() => s.nilsReads.reads > 0);
+    // a second change on the Admin's drive starts a second check while the first reads the name
+    await s.admin.addBytes("again.jpg", new Uint8Array([1, 2, 3, 4]), s.folderId);
+    await sleep(3_000);
     expect(roles().map((p) => [p.role?.from, p.role?.to])).toEqual([
       ["member", "reader"],
       ["reader", "member"],
