@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { inviteLink } from "../machines/sharing/invite-link";
-import { checkCodeLine, friendNamesLine, invitePanel, joinSheet } from "./invite";
+import { checkCodeLine, friendNamesLine, invitePanel, joinSheet, waitingLine } from "./invite";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -151,5 +151,38 @@ describe("joinSheet waiting screen", () => {
   });
   test("shows no code when the ask has none", () => {
     expect(text([{ code: "c1" }])).not.toContain("check code");
+  });
+});
+
+describe("waiting invites line", () => {
+  const WAIT = "Invites waiting for friends.";
+  const mountWith = (role: string, waitingFor?: string[], friends: Record<string, string> = {}) => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const f = { ...folder(role), waitingFor } as FolderSummary;
+    render(
+      invitePanel(f, "Nils", "Nils", false, () => {}, [], friends),
+      host,
+    );
+    return host;
+  };
+
+  test("no line without waiting invites", () => {
+    expect(waitingLine(undefined)).toBeNull();
+    expect(waitingLine([])).toBeNull();
+    expect(mountWith("creator", []).textContent).not.toContain(WAIT);
+  });
+
+  test("the Admin sees the line", () => {
+    expect(waitingLine(["k"])).toContain(WAIT);
+    expect(mountWith("creator", ["k"], { k: "Kari" }).textContent).toContain(WAIT);
+  });
+
+  test("the line shows when no friend can be added", () => {
+    expect(mountWith("creator", ["k"]).textContent).toContain(WAIT);
+  });
+
+  test("a member never sees it", () => {
+    expect(mountWith("member", ["k"]).textContent).not.toContain(WAIT);
   });
 });
