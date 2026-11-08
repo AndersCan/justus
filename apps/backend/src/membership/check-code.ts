@@ -1,4 +1,6 @@
-/** The 8-digit check code both phones show for one identity key: "4821 9035". */
+import { WORDS } from "./words";
+
+/** The three-word check code both phones show for one identity key: "maple river stone". */
 export function checkCode(
   identity: string,
   crypto: Pick<typeof import("bare-crypto"), "createHash">,
@@ -7,6 +9,5 @@ export function checkCode(
     crypto.createHash("sha-256").update(`justus-check:${identity.toLowerCase()}`).digest("hex"),
     "hex",
   );
-  const digits = String(hash.readUInt32BE(0) % 100_000_000).padStart(8, "0");
-  return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+  return [0, 2, 4].map((offset) => WORDS[hash.readUInt16BE(offset) & 2047]).join(" ");
 }

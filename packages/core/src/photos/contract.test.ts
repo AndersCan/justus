@@ -66,7 +66,9 @@ describe("photo contract", () => {
     };
     expect(checkPhotoResult("photos.requests", { requests: [request] })).toBeNull();
     expect(
-      checkPhotoResult("photos.requests", { requests: [{ ...request, checkCode: "4821 9035" }] }),
+      checkPhotoResult("photos.requests", {
+        requests: [{ ...request, checkCode: "maple river stone" }],
+      }),
     ).toBeNull();
     const ask = {
       code: "c",

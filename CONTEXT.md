@@ -41,7 +41,7 @@ A device's request to join an album through an invite code. It waits until the A
 _Avoid_: join request (the older request made with a share key)
 
 **Check code**:
-Eight digits worked out from a phone's identity drive key. The asker's waiting screen and the Admin's request row show the same code, so the Admin can ask which code a person sees before accepting. It proves nothing alone.
+Three words from a 2048-word list, worked out from a phone's identity drive key. The asker's waiting screen and the Admin's request row show the same code, so the Admin can ask which code a person sees before accepting. It proves nothing alone.
 _Avoid_: PIN, password, safety number
 
 **Delete note**:

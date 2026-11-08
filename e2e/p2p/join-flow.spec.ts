@@ -78,7 +78,9 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await createAlbum(a, ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
-  const codeSpan = b.getByRole("dialog", { name: /^Waiting for / }).getByText(/^\d{4} \d{4}$/);
+  const codeSpan = b
+    .getByRole("dialog", { name: /^Waiting for / })
+    .getByText(/^[a-z]+ [a-z]+ [a-z]+$/);
   await expect(codeSpan).toBeVisible({ timeout: 20_000 });
   const code = (await codeSpan.textContent())!;
 

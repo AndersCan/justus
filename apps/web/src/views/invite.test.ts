@@ -126,9 +126,9 @@ describe("checkCodeLine", () => {
   });
   test("names the code and who sees it", () => {
     const host = document.createElement("div");
-    render(checkCodeLine("1234 5678", "Anna"), host);
+    render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Your check code is 1234 5678. Anna sees the same code next to your request.",
+      "Your check code is maple river stone. Anna sees the same code next to your request.",
     );
   });
 });
@@ -141,12 +141,12 @@ describe("joinSheet waiting screen", () => {
     return host.textContent?.replace(/\s+/g, " ") ?? "";
   };
   test("shows the code stored on this invite's ask", () => {
-    expect(text([{ code: "c1", checkCode: "1234 5678" }])).toContain(
-      "Your check code is 1234 5678",
+    expect(text([{ code: "c1", checkCode: "maple river stone" }])).toContain(
+      "Your check code is maple river stone",
     );
   });
   test("shows no code for another invite's ask", () => {
-    expect(text([{ code: "c2", checkCode: "9999 0000" }])).not.toContain("check code");
+    expect(text([{ code: "c2", checkCode: "zoo wrap cat" }])).not.toContain("check code");
   });
   test("shows no code when the ask has none", () => {
     expect(text([{ code: "c1" }])).not.toContain("check code");

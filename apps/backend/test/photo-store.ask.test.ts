@@ -249,7 +249,7 @@ describe("ask", () => {
     await connect(s);
     const { requests } = await s.admin.store.requests();
     const { asks } = await s.joiner.store.folders();
-    expect(requests[0]!.checkCode).toMatch(/^\d{4} \d{4}$/);
+    expect(requests[0]!.checkCode).toMatch(/^[a-z]+ [a-z]+ [a-z]+$/);
     expect(asks[0]!.checkCode).toBe(requests[0]!.checkCode);
     expect(asked[1]!.ask.checkCode).toBe(requests[0]!.checkCode);
     await s.close();
