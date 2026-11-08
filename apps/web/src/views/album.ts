@@ -7,6 +7,7 @@ import { folders, foldersActor, foldersViewModel } from "../machines/folders-mac
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
   allAcceptedAsViewers,
+  requestCancelledBeforeAnswer,
   answerSent,
   requests,
   requestsActor,
@@ -221,6 +222,11 @@ export function acceptAllToast(count: number): string {
 onOutput(requestsActor, (e) => {
   if (e.type === allAcceptedAsViewers.type) {
     toast(acceptAllToast((e.payload as { count: number }).count));
+    return;
+  }
+  if (e.type === requestCancelledBeforeAnswer.type) {
+    const { requesterName } = e.payload as { requesterName: string };
+    toast(copy("album.cancelled_this_request", { requesterName }));
     return;
   }
   if (e.type !== answerSent.type) return;

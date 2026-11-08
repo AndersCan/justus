@@ -514,3 +514,90 @@ describe("asks that arrive", () => {
     expect(types).toContain("ALL_ACCEPTED_AS_VIEWERS");
   });
 });
+
+describe("a request the joiner cancelled", () => {
+  const cancelled = [
+    { code: "justus.photos/request-cancelled", message: "The request was cancelled" },
+    null,
+  ];
+  const named = (folderId: string, requesterKey: string, requesterName: string) =>
+    ({ ...request(folderId, requesterKey, true), requesterName }) as JoinRequest;
+
+  async function loaded(list: JoinRequest[], answer: (key: string) => [unknown, unknown]) {
+    const s = setup({ requests: async () => [null, { requests: list }] });
+    s.port.respond.mockImplementation((async (_f: string, key: string) => answer(key)) as never);
+    const outputs: { type: string; payload?: unknown }[] = [];
+    s.actor.on("output", {
+      fn: (e) => void (e.type !== "REQUESTS_ARRIVED" && outputs.push(e as never)),
+    });
+    s.actor.send(refresh());
+    await s.actor.settled();
+    return { ...s, outputs };
+  }
+
+  test("an answer to a cancelled request takes the card off and says who cancelled", async () => {
+    const { actor, outputs } = await loaded(
+      [named("f1", "k1", "Sam"), named("f1", "k2", "Ola")],
+      () => cancelled as never,
+    );
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    expect(actor.state.name).toBe("showingRequests");
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
+    expect(actor.snapshot().context.error).toBeNull();
+    expect(outputs).toEqual([
+      { type: "REQUEST_CANCELLED_BEFORE_ANSWER", payload: { requesterName: "Sam" } },
+    ]);
+  });
+
+  test("a decline of a cancelled request is told the same way", async () => {
+    const { actor, outputs } = await loaded([named("f1", "k1", "Sam")], () => cancelled as never);
+    actor.send(respond("f1", "k1", false));
+    await actor.settled();
+    expect(actor.state.name).toBe("showingRequests");
+    expect(actor.snapshot().context.requests).toEqual([]);
+    expect(outputs.map((o) => o.type)).toEqual(["REQUEST_CANCELLED_BEFORE_ANSWER"]);
+  });
+
+  test("a card with no name falls back to They", async () => {
+    const { actor, outputs } = await loaded([named("f1", "k1", "")], () => cancelled as never);
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    expect(outputs[0]!.payload).toEqual({ requesterName: "They" });
+  });
+
+  test("Accept all skips a cancelled person and counts the rest", async () => {
+    const { actor, port, outputs } = await loaded(
+      [named("f1", "k1", "Sam"), named("f1", "k2", "Ola")],
+      (key) => (key === "k1" ? (cancelled as never) : [null, { ok: true }]),
+    );
+    actor.send(acceptAll("f1", ["k1", "k2"]));
+    await actor.settled();
+    expect(outputs).toEqual([{ type: "ALL_ACCEPTED_AS_VIEWERS", payload: { count: 1 } }]);
+    expect(port.respond).toHaveBeenCalledTimes(2);
+  });
+
+  test("Accept all with everyone cancelled announces no count", async () => {
+    const { actor, port, outputs } = await loaded(
+      [named("f1", "k1", "Sam"), named("f1", "k2", "Ola")],
+      () => cancelled as never,
+    );
+    actor.send(acceptAll("f1", ["k1", "k2"]));
+    await actor.settled();
+    expect(outputs).toEqual([]);
+    expect(port.respond).toHaveBeenCalledTimes(2);
+    expect(actor.state.name).toBe("showingRequests");
+  });
+
+  test("an error with another code still keeps the request", async () => {
+    const { actor, outputs } = await loaded([named("f1", "k1", "Sam")], () => [
+      { code: "other", message: "boom" },
+      null,
+    ]);
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    expect(actor.snapshot().context.requests).toHaveLength(1);
+    expect(outputs).toEqual([]);
+  });
+});

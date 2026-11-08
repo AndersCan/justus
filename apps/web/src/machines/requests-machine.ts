@@ -64,6 +64,15 @@ const respond = event("RESPOND")<{
 }>();
 /** The answer was sent. */
 const responded = event("RESPONDED")<{ folderId: string; requesterKey: string }>();
+/** The joiner cancelled before the answer; the card leaves and the Admin is told. */
+const requestWasCancelled = event("REQUEST_WAS_CANCELLED")<{
+  folderId: string;
+  requesterKey: string;
+}>();
+/** The Admin answered a request its joiner had already cancelled; the view says who cancelled. */
+export const requestCancelledBeforeAnswer = event("REQUEST_CANCELLED_BEFORE_ANSWER")<{
+  requesterName: string;
+}>();
 /** The answer could not be sent. */
 const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
 /** The Yes or No went through; the view thanks the Admin with who is in and how. */
@@ -98,6 +107,20 @@ const initialContext: RequestsContext = {
   error: null,
   stoppedBatch: null,
 };
+
+/** The error code the backend gives when the joiner cancelled the request. */
+export const REQUEST_CANCELLED_CODE = "justus.photos/request-cancelled";
+
+function codeOf(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    return typeof error.code === "string" ? error.code : "";
+  }
+  return "";
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown error";
+}
 
 /** The same ask: one person, one album, one time of asking (a re-ask after a No differs). */
 function sameAsk(a: JoinRequest, b: JoinRequest): boolean {
@@ -134,8 +157,8 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
   const { clock, gateway: port = gateway } = options;
   return Actor({
     inputs: [refresh, respond, retry, acceptAllAsViewers],
-    internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent, allAcceptedAsViewers, requestsArrived],
+    internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
+    outputs: [answerSent, allAcceptedAsViewers, requestsArrived, requestCancelledBeforeAnswer],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -296,40 +319,53 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
       /** The Admin's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
       m.effect(sendingAnswer, {
         name: "sendingAnswer",
-        sends: [responded, respondFailed],
+        sends: [responded, respondFailed, requestWasCancelled],
         fn: ({ signal, emit, context }) => {
           const pending = context.get().pendingRespond;
           if (!pending) {
             emit(respondFailed.create({ message: "no pending response" }));
             return;
           }
-          return runInvoke(
-            signal,
-            () =>
-              port.respond(pending.folderId, pending.requesterKey, pending.approve, pending.role),
-            () =>
-              emit(
-                responded.create({
-                  folderId: pending.folderId,
-                  requesterKey: pending.requesterKey,
-                }),
-              ),
-            (message) => emit(respondFailed.create({ message })),
-          );
+          const { folderId, requesterKey } = pending;
+          return (async () => {
+            try {
+              const [error] = await port.respond(
+                folderId,
+                requesterKey,
+                pending.approve,
+                pending.role,
+              );
+              if (signal.aborted) return;
+              if (!error) emit(responded.create({ folderId, requesterKey }));
+              else if (codeOf(error) === REQUEST_CANCELLED_CODE)
+                emit(requestWasCancelled.create({ folderId, requesterKey }));
+              else emit(respondFailed.create({ message: messageOf(error) }));
+            } catch (e) {
+              if (signal.aborted) return;
+              emit(respondFailed.create({ message: messageOf(e) }));
+            }
+          })();
         },
       });
       /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
       m.effect(sendingAnswersToAll, {
         name: "sendingAnswersToAll",
-        sends: [responded, respondFailed],
+        sends: [responded, respondFailed, requestWasCancelled],
         fn: ({ signal, emit, state }) => {
           const { folderId, next } = state.payload;
-          return runInvoke(
-            signal,
-            () => port.respond(folderId, next, true, "reader"),
-            () => emit(responded.create({ folderId, requesterKey: next })),
-            (message) => emit(respondFailed.create({ message })),
-          );
+          return (async () => {
+            try {
+              const [error] = await port.respond(folderId, next, true, "reader");
+              if (signal.aborted) return;
+              if (!error) emit(responded.create({ folderId, requesterKey: next }));
+              else if (codeOf(error) === REQUEST_CANCELLED_CODE)
+                emit(requestWasCancelled.create({ folderId, requesterKey: next }));
+              else emit(respondFailed.create({ message: messageOf(error) }));
+            } catch (e) {
+              if (signal.aborted) return;
+              emit(respondFailed.create({ message: messageOf(e) }));
+            }
+          })();
         },
       });
       /** One answer of Accept all went through: that person leaves the list and the next is sent; after the last, the list reloads and the Admin hears how many are in. */
@@ -353,6 +389,31 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
           }
           return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+        },
+      });
+      /** A person in Accept all cancelled: they are skipped, the rest go on, and only who got in is counted. */
+      m.on(sendingAnswersToAll, {
+        event: requestWasCancelled,
+        to: [sendingAnswersToAll, loadingRequests],
+        handler: (e, opts) => {
+          const ctx = opts.context.get();
+          const p = opts.state.payload;
+          opts.context.set({
+            ...ctx,
+            requests: removeRequestFromList(
+              ctx.requests,
+              e.payload.folderId,
+              e.payload.requesterKey,
+            ),
+          });
+          const [next, ...after] = p.after;
+          if (next !== undefined) {
+            return { state: sendingAnswersToAll.create({ ...p, next, after }) };
+          }
+          return {
+            state: loadingRequests,
+            emit: p.sent > 0 ? [allAcceptedAsViewers.create({ count: p.sent })] : [],
+          };
         },
       });
       /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
@@ -404,6 +465,35 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
                 approve: pending.approve,
                 role: pending.role,
                 viaInvite: request?.viaInvite === true,
+              }),
+            ],
+          };
+        },
+      });
+      /** The joiner cancelled: the card leaves and the Admin is told who. */
+      m.on(sendingAnswer, {
+        event: requestWasCancelled,
+        to: [showingRequests],
+        handler: (e, opts) => {
+          const ctx = opts.context.get();
+          const request = ctx.requests.find(
+            (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
+          );
+          opts.context.set({
+            ...ctx,
+            error: null,
+            requests: removeRequestFromList(
+              ctx.requests,
+              e.payload.folderId,
+              e.payload.requesterKey,
+            ),
+            pendingRespond: null,
+          });
+          return {
+            state: showingRequests,
+            emit: [
+              requestCancelledBeforeAnswer.create({
+                requesterName: request?.requesterName || copy("requests.they"),
               }),
             ],
           };

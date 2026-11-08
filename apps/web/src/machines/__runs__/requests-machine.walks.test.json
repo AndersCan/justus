@@ -87,6 +87,52 @@
       ]
     },
     {
+      "name": "Maya cancels before Nils accepts, and Nils is told",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Maya",
+                "folderId": "f1",
+                "folderName": "Spain 2026",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RESPOND",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1",
+            "approve": true,
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REQUEST_WAS_CANCELLED",
+          "payload": {
+            "folderId": "f1",
+            "requesterKey": "k1"
+          }
+        }
+      ]
+    },
+    {
       "name": "Maya: asks and is declined",
       "end": "showingRequests",
       "steps": [
