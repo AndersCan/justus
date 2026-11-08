@@ -48,7 +48,7 @@ export const HELP_QA: { q: string; a: string[] }[] = [
   {
     q: "What can the Admin see and do?",
     a: [
-      "The Admin is the person who started the album. They decide who joins, and they can remove Collaborators, and let Viewers add photos.",
+      "The Admin is the person who started the album. They decide who joins, and they can remove people, and let Viewers add photos.",
       "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
     ],
   },

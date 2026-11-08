@@ -438,7 +438,7 @@ describe("album join requests", () => {
 });
 
 describe("album viewer rows", () => {
-  test("a Viewer row says Viewer with a presence dot and no Remove", () => {
+  test("a Viewer row says Viewer with a presence dot and Remove last", () => {
     const viewerStatus = {
       ...status,
       members: [
@@ -454,8 +454,56 @@ describe("album viewer rows", () => {
     expect(row.textContent).toContain("Viewer");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
-    expect(row.textContent).not.toContain("Remove");
+    const labels = [...row.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(labels.at(-1)).toBe("Remove");
     expect(host.textContent).toContain("Viewers see every photo but can't add any.");
+  });
+
+  test("Remove on a Viewer asks with the Viewer text", async () => {
+    const viewerStatus = {
+      ...status,
+      members: [
+        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k1", name: "Nils", admin: false, connected: true, identity: "i1", viewer: true },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: viewerStatus }));
+    people.open();
+    vi.mocked(confirmAction).mockResolvedValueOnce(false);
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
+      (b) => b.textContent?.trim() === "Remove",
+    );
+    remove?.click();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenLastCalledWith({
+        title: "Remove Kimmy?",
+        detail:
+          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone. Everyone else moves with the album the next time their phone and yours are connected.",
+        confirmLabel: "Remove",
+        tone: "danger",
+      }),
+    );
+  });
+
+  test("Remove on a Collaborator says their photos leave", async () => {
+    vi.mocked(confirmAction).mockResolvedValueOnce(false);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
+      (b) => b.textContent?.trim() === "Remove",
+    );
+    remove?.click();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          detail: expect.stringContaining("and the photos Kimmy added leave the album."),
+        }),
+      ),
+    );
   });
 
   test("the Admin taps Let add photos on a Viewer and gets a toast", async () => {
