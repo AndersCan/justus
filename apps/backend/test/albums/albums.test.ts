@@ -50,7 +50,7 @@ async function created(
   name: string,
   device = json({ name: "Maya" }),
 ) {
-  const [err, drive] = await createAlbumDrive(drives, { id, name, device });
+  const [err, drive] = await createAlbumDrive(drives, { id, name, device: async () => device });
   if (err) throw new Error(err.message);
   return drive;
 }
@@ -105,7 +105,11 @@ describe("create", () => {
         } as Drive;
       },
     };
-    const result = await createAlbumDrive(failing, { id: "f1", name: "Trip", device: json({}) });
+    const result = await createAlbumDrive(failing, {
+      id: "f1",
+      name: "Trip",
+      device: async () => json({}),
+    });
     expect(result, "Trip: create: failure is returned").toEqual([
       { kind: "write-failed", message: "disk full" },
       null,
@@ -346,7 +350,7 @@ describe("rotate", () => {
     const [err, rotated] = await rotateAlbum(ports(admin), {
       record: { id: "f1", name: "Trip", shareKey: old.key },
       ownDrive: await admin.drives.openOwn(),
-      device,
+      device: async () => device,
       inviteCode: "code-1",
       now: 42,
     });
@@ -394,7 +398,7 @@ describe("rotate", () => {
     await rotateAlbum(ports(admin), {
       record: { id: "f1", name: "Trip", shareKey: old.key },
       ownDrive: await admin.drives.openOwn(),
-      device,
+      device: async () => device,
       inviteCode: "c",
       now: 1,
     });
@@ -422,7 +426,7 @@ describe("rotate", () => {
       {
         record: { id: "f1", name: "Trip", shareKey: own.key },
         ownDrive: own,
-        device,
+        device: async () => device,
         inviteCode: "c",
         now: 1,
       },
@@ -455,7 +459,7 @@ describe("rotate", () => {
     };
     const first = await rotateAlbum(
       { ...ports(admin), drives: flaky },
-      { record, ownDrive: own, device, inviteCode: "c", now: 1 },
+      { record, ownDrive: own, device: async () => device, inviteCode: "c", now: 1 },
     );
     expect(first, "Trip: rotate: failure is returned").toEqual([
       { kind: "rotate-failed", message: "disk full" },
@@ -465,7 +469,7 @@ describe("rotate", () => {
     const [err, rotated] = await rotateAlbum(ports(admin), {
       record,
       ownDrive: own,
-      device,
+      device: async () => device,
       inviteCode: "c",
       now: 2,
     });
@@ -490,7 +494,7 @@ describe("rotate", () => {
       {
         record: { id: "f1", name: "Trip", shareKey: "ab".repeat(32) },
         ownDrive: own,
-        device,
+        device: async () => device,
         inviteCode: "c",
         now: 1,
       },
@@ -500,5 +504,31 @@ describe("rotate", () => {
       message: "drive not ready",
     });
     expect(rotated, "Trip: rotate: nothing returned").toBeNull();
+  });
+});
+
+describe("device record", () => {
+  it("createAlbumDrive and rotateAlbum ask device() for the new drive's own key", async () => {
+    const [admin] = devices(1);
+    const asked: string[] = [];
+    const device = async (key: string) => {
+      asked.push(key);
+      return json({ name: "Maya" });
+    };
+    const [, drive] = await createAlbumDrive(admin.drives, { id: "f1", name: "Trip", device });
+    const [, rotated] = await rotateAlbum(
+      { drives: admin.drives, log: admin.log, openTimeoutMs: 500 },
+      {
+        record: { id: "f1", name: "Trip", shareKey: drive!.key },
+        ownDrive: await admin.drives.openOwn(),
+        device,
+        inviteCode: "c",
+        now: 1,
+      },
+    );
+    expect(asked, "Trip: create then rotate: device() gets each new drive's key").toEqual([
+      drive!.key,
+      rotated!.shareKey,
+    ]);
   });
 });

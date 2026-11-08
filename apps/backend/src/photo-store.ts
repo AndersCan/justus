@@ -68,6 +68,7 @@ import {
   parseRemoved,
   parseRequestsFile,
   parseDeviceIdentity,
+  identityMessage,
   peerName,
   type RegistryFile,
   type ViewersFile,
@@ -931,9 +932,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return network.peerKey() || undefined;
   }
 
-  function deviceJson(name: string): Buffer {
+  /** The record this phone writes into a drive. With `driveKey`, it carries this
+   * phone's identity signature for that drive. Without, it is unsigned. */
+  async function deviceJson(name: string, driveKey?: string): Promise<Buffer> {
+    const base = { name, swarmKey: ownSwarmKey(), identityKey: ownDrive.key };
+    if (driveKey === undefined) return Buffer.from(JSON.stringify(base));
+    const [signErr, signed] = await deps.drives.signAsIdentity(identityMessage(driveKey));
+    if (signErr) return Buffer.from(JSON.stringify(base));
     return Buffer.from(
-      JSON.stringify({ name, swarmKey: ownSwarmKey(), identityKey: ownDrive.key }),
+      JSON.stringify({
+        ...base,
+        identityPublicKey: signed.publicKey,
+        identitySig: signed.signature,
+      }),
     );
   }
 
@@ -941,7 +952,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const text = await readText(ownDrive, DRIVE_PATH_DEVICE);
     // The swarm key is random per boot, so rewrite whenever it differs.
     if (text === null || !text.includes(`"swarmKey":"${ownSwarmKey()}"`)) {
-      await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+      await ownDrive.put(DRIVE_PATH_DEVICE, await deviceJson(state.name));
     }
   }
 
@@ -1161,7 +1172,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       opening = (async () => {
         const drive = await deps.drives.openOwn(ns);
         // Presence reads the swarm key from here, and it changes every boot.
-        await drive.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+        await drive.put(DRIVE_PATH_DEVICE, await deviceJson(state.name, drive.key));
         joinTopic(topicOf(drive));
         rediscover(topicOf(drive), drive);
         return drive;
@@ -2307,7 +2318,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             {
               record,
               ownDrive,
-              device: deviceJson(state.name),
+              device: (driveKey) => deviceJson(state.name, driveKey),
               inviteCode: newInviteCode(),
               now: Date.now(),
             },
@@ -2430,7 +2441,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
         try {
-          await fd.put(DRIVE_PATH_DEVICE, deviceJson(state.name));
+          await fd.put(DRIVE_PATH_DEVICE, await deviceJson(state.name, fd.key));
         } catch (e) {
           console.error(`[justus] failed to refresh creator device identity: ${errMsg(e)}`);
         }
@@ -2521,7 +2532,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const [createErr, newDrive] = await createAlbumDrive(deps.drives, {
       id: folderId,
       name,
-      device: deviceJson(state.name),
+      device: (driveKey) => deviceJson(state.name, driveKey),
     });
     if (createErr) throw new Error(createErr.message);
 
@@ -3328,12 +3339,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const cleanName = name.trim();
       state.name = cleanName;
       saveState();
-      await ownDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
+      await ownDrive.put(DRIVE_PATH_DEVICE, await deviceJson(cleanName));
       // Update the device.json on each drive this device writes in an album
       // (creator drives and per-album member drives) to match.
       for (const rt of runtimes.values()) {
         try {
-          await rt.selfDrive.put(DRIVE_PATH_DEVICE, deviceJson(cleanName));
+          await rt.selfDrive.put(DRIVE_PATH_DEVICE, await deviceJson(cleanName, rt.selfDrive.key));
         } catch (e) {
           const message = errMsg(e);
           console.error(`[justus] failed to update device name: ${message}`);
