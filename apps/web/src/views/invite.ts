@@ -14,7 +14,7 @@ import {
   type InviteLinkView,
 } from "../machines/sharing/invite-link";
 import { VALID_FOR_LABEL, type ValidFor } from "../machines/sharing/invite-link-machine";
-import { friendsActor } from "../machines/friends-machine";
+import { friendChoices, type FriendChoice } from "../machines/sharing/add-friend-machine";
 import { confirmAction } from "./confirm";
 import { openAddFriend } from "./add-friend-sheet";
 import { toast } from "./toast";
@@ -110,6 +110,17 @@ function qrCode(link: string) {
   </svg>`;
 }
 
+/** "From your friends: A, B or C. No link needed." Up to three names, then "or N more". */
+export function friendNamesLine(choices: FriendChoice[]): string {
+  const names = choices.map((c) => c.name);
+  const shown = names.length <= 3 ? names : [...names.slice(0, 3), `${names.length - 3} more`];
+  const list =
+    shown.length === 1
+      ? shown[0]
+      : `${shown.slice(0, -1).join(", ")} or ${shown[shown.length - 1]}`;
+  return `From your friends: ${list}. No link needed.`;
+}
+
 /** Invite surface: pick how long the link works, then one tap sends it (share
  * sheet, or copy where there is none). The link itself is never drawn; the QR,
  * for someone standing next to you, only after a tap and only once a link is made.
@@ -121,6 +132,7 @@ export function invitePanel(
   qrShown: boolean,
   onShowQr: () => void,
   memberIdentities: string[] = [],
+  friends: Record<string, string> = {},
 ) {
   if (folder.role !== "creator" || !folder.invite) {
     return html`
@@ -143,6 +155,7 @@ export function invitePanel(
       qrShown,
       onShowQr,
       memberIdentities,
+      friends,
     );
   });
 }
@@ -155,7 +168,12 @@ function invitePanelBody(
   qrShown: boolean,
   onShowQr: () => void,
   memberIdentities: string[],
+  friends: Record<string, string>,
 ) {
+  const choices = friendChoices(
+    Object.entries(friends).map(([identity, name]) => ({ identity, name })),
+    memberIdentities,
+  );
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
@@ -163,19 +181,24 @@ function invitePanelBody(
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
-      <button
-        class="ui-btn-primary mb-4"
-        @click=${(e: Event) =>
-          openAddFriend(
-            e.currentTarget as HTMLElement,
-            { folderId: folder.id, albumName: folder.name },
-            friendsActor.snapshot().context.friends,
-            memberIdentities,
-          )}
-      >
-        Add a friend
-      </button>
-      <h3 class="ui-label mb-1">Or send a link</h3>
+      ${
+        choices.length === 0
+          ? null
+          : html`<button
+                class="ui-btn-primary mb-1"
+                @click=${(e: Event) =>
+                  openAddFriend(
+                    e.currentTarget as HTMLElement,
+                    { folderId: folder.id, albumName: folder.name },
+                    friends,
+                    memberIdentities,
+                  )}
+              >
+                Add a friend
+              </button>
+              <p class="mb-4 text-sm text-muted">${friendNamesLine(choices)}</p>
+              <h3 class="ui-label mb-1">Or send a link</h3>`
+      }
       <p class="mb-4 text-sm text-fg">
         Send the link to people you want in “${folder.name}”. They ask to join and you choose who
         gets in. They see no photos until you accept.

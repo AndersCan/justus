@@ -93,14 +93,6 @@ export function addFriendSheetView() {
         <div class="mt-4 flex justify-end">
           <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
         </div>`;
-    } else if (state === "noFriendsYet") {
-      title = "No friends yet";
-      body = html`<p class="mt-3 text-sm text-fg">
-          Tap someone in People to save them as a friend. Then you can add them to new albums here.
-        </p>
-        <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
-        </div>`;
     } else {
       return null;
     }
