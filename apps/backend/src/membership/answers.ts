@@ -98,6 +98,8 @@ export type OwingAlbum = {
   answers?: Readonly<Record<string, "accepted" | "declined">>;
   /** When the ask a decline answered was made, per identity. */
   declinedAsks?: Readonly<Record<string, number>>;
+  /** Requests the Admin's phone listed when their code was retired at a Remove: identity -> code. Never turned away. */
+  heldAsks?: Readonly<Record<string, string>>;
 };
 
 export type AskedCode = { code: string; requestedAt: number };
@@ -123,6 +125,7 @@ export function answersOwed(
       }
     }
     for (const a of asked) {
+      if (album.heldAsks?.[identity] === a.code) continue;
       const retired = album.retiredInvites?.includes(a.code) ?? false;
       const late =
         a.code === album.invite.code &&

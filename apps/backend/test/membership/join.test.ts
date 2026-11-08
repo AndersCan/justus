@@ -397,6 +397,31 @@ describe("pendingJoinRequests", () => {
     expect(pending.map((r) => r.requesterKey)).toEqual([keys[3], keys[4]]);
   });
 
+  it("a held request is listed outside the current link times", () => {
+    const found = (held: boolean) => [
+      {
+        request: {
+          folderId: "f1",
+          folderName: "Trip",
+          requesterKey: "1".repeat(64),
+          requesterName: "Bo",
+          requestedAt: 1_000,
+        },
+        identity: "i",
+        viaInvite: true,
+        ...(held ? { held: true as const } : {}),
+      },
+    ];
+    const options = {
+      registry: { version: 1, members: {} },
+      denied: new Set<string>(),
+      answers: undefined,
+      linkTimes: [{ from: 10_000_000, to: 20_000_000 }],
+    };
+    expect(pendingJoinRequests(found(true), options)).toHaveLength(1);
+    expect(pendingJoinRequests(found(false), options)).toHaveLength(0);
+  });
+
   it("carries each asker's identity key", () => {
     const found = ["x", "y"].map((id, i) => ({
       request: {

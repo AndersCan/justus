@@ -421,6 +421,69 @@ describe("someone who asked through the invite and is removed", () => {
   });
 });
 
+describe("someone waiting when the Admin removes another person", () => {
+  async function waiting() {
+    const s = await album();
+    const kim = phone(s.hub, "Kim");
+    await kim.store.ready();
+    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const [askErr] = await kim.store.ask({
+      code: folder.invite!.code,
+      owner: identityOf(s.admin),
+      albumName: "Trip",
+      ownerName: "Anna",
+    });
+    expect(askErr).toBeNull();
+    let key = "";
+    await until(async () => {
+      key = (await s.admin.store.requests()).requests[0]?.requesterKey ?? "";
+      return key !== "";
+    });
+    expect(key).not.toBe("");
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    const status = () => (kim.store.debugState() as { asks: { status: string }[] }).asks[0]?.status;
+    return { ...s, kim, key, status };
+  }
+
+  it("stays on the Admin's list after the Remove", async () => {
+    const s = await waiting();
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const listed = (await s.admin.store.requests()).requests;
+    expect(listed).toHaveLength(1);
+    expect(listed[0].requesterKey).toBe(s.key);
+    expect(listed[0].viaInvite).toBe(true);
+    expect(listed[0].checkCode).toBeTruthy();
+    await sleep(300);
+    expect(s.status()).toBe("waiting");
+    await s.kim.store.close();
+    await s.close();
+  });
+
+  it("Accept lets them into the album's new key", async () => {
+    const s = await waiting();
+    expect((await s.admin.store.respond(s.folderId, s.key, true, "reader"))[0]).toBeNull();
+    const newKey = s.record().shareKey;
+    await until(async () =>
+      (await s.kim.store.folders()).folders.some((f) => f.shareKey === newKey && !f.pending),
+    );
+    const got = (await s.kim.store.folders()).folders.find((f) => f.shareKey === newKey);
+    expect(got).toBeDefined();
+    expect(got?.pending).toBeFalsy();
+    expect(s.record().heldAsks).toBeUndefined();
+    await s.kim.store.close();
+    await s.close();
+  });
+
+  it("Decline reaches them", async () => {
+    const s = await waiting();
+    expect((await s.admin.store.respond(s.folderId, s.key, false))[0]).toBeNull();
+    await until(() => s.status() === "declined");
+    expect(s.status()).toBe("declined");
+    await s.kim.store.close();
+    await s.close();
+  });
+});
+
 describe("a Remove whose move fails", () => {
   it("can be retried and still moves the album", async () => {
     const s = await album();

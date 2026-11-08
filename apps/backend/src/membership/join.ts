@@ -59,6 +59,8 @@ export type FoundJoinRequest = {
   identity: string;
   /** Made through the folder's invite code. */
   viaInvite: boolean;
+  /** Asked through a code held at a Remove: link times of the current code do not apply. */
+  held?: true;
 };
 
 export type FoundJoinRequests = {
@@ -316,7 +318,8 @@ export function pendingJoinRequests(
     .filter((f) => {
       const key = f.request.requesterKey;
       if (options.invited?.has(f.identity)) return false;
-      if (f.viaInvite && !inLinkTime(options.linkTimes, f.request.requestedAt)) return false;
+      if (f.viaInvite && !f.held && !inLinkTime(options.linkTimes, f.request.requestedAt))
+        return false;
       if (enrolled.has(key)) return false;
       if (options.viewers?.has(key)) return false;
       if (options.denied.has(key)) return false;
