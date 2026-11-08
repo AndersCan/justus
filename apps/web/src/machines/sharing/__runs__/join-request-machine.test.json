@@ -103,45 +103,6 @@
       ]
     },
     {
-      "name": "Maya reopens the ended link she already asked through",
-      "end": "waitingForAdminToAccept",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openLink",
-          "payload": {
-            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "askToJoin",
-          "payload": {}
-        },
-        {
-          "kind": "event",
-          "event": "requestSent",
-          "payload": {}
-        },
-        {
-          "kind": "event",
-          "event": "closeWaiting",
-          "payload": {}
-        },
-        {
-          "kind": "advance",
-          "ms": 600000
-        },
-        {
-          "kind": "event",
-          "event": "openLink",
-          "payload": {
-            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
-          }
-        }
-      ]
-    },
-    {
       "name": "Maya: asks and is accepted",
       "end": "joinedAlbum",
       "steps": [

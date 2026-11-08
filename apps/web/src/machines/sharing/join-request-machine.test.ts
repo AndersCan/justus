@@ -27,7 +27,7 @@ const LINK = buildInviteLink(INVITE);
 function setup(
   options: {
     port?: JoinPort;
-    known?: Known;
+    known?: Known | ((invite: JoinInvite) => Known);
     asked?: (code: string) => AskSummary | undefined;
   } = {},
 ) {
@@ -630,24 +630,18 @@ test("Maya opens Nils's link after it ended", async () => {
 });
 
 test("Maya reopens the ended link she already asked through", async () => {
-  const clock = VirtualClock();
   let asked = false;
-  const actor = make({
-    clock,
+  const s = setup({
     port: { ask: async () => ((asked = true), [undefined, {}]) },
     known: () => (asked ? { kind: "waiting" } : { kind: "new" }),
   });
-  const send = async (type: string, payload?: unknown) => {
-    actor.send({ type, payload } as never);
-    await actor.settled();
-  };
   const timed = buildInviteLink({ ...INVITE, expiresAt: 600_000 });
-  await send("openLink", { text: timed });
-  await send("askToJoin");
-  await send("closeWaiting");
-  clock.advance(600_000);
-  await send("openLink", { text: timed });
-  expect(actor.state.name).toBe("waitingForAdminToAccept");
+  await s.send("openLink", { text: timed });
+  await s.send("askToJoin");
+  await s.send("closeWaiting");
+  s.clock.advance(600_000);
+  await s.send("openLink", { text: timed });
+  expect(s.actor.state.name).toBe("waitingForAdminToAccept");
 });
 
 test("Maya cancels her request", async () => {
