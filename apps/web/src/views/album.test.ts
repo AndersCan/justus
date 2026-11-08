@@ -136,6 +136,31 @@ describe("album people", () => {
     after.forEach((row, i) => expect(row).toBe(before[i]));
   });
 
+  test("a member with a saved friend's name, not saved themselves, is marked", async () => {
+    friends.open({ identity: "id-ben", ownName: "Ben" });
+    friends.add();
+    friends.type("Dad");
+    friends.save();
+    await friendsActor.settled();
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...status,
+          members: [
+            { key: "k0", name: "Me", admin: true, connected: true },
+            { key: "k1", name: "dad", admin: false, connected: true, identity: "id-x" },
+          ],
+        },
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    await vi.waitFor(() => expect(host.textContent).toContain("Not your friend Dad"));
+    expect(memberRows(host)[1].textContent).toContain("Not your friend Dad");
+    expect(memberRows(host)[0].textContent).not.toContain("Not your friend");
+  });
+
   test("asking for the QR code sets the flag the invite panel reads", () => {
     people.close();
     people.open();
@@ -292,6 +317,37 @@ describe("album join requests", () => {
     const row = host.querySelector<HTMLElement>('li[data-motion-key^="request:"]')!;
     expect(row.textContent).toContain("Friend");
     expect(row.textContent).toContain("Ben");
+  });
+
+  test("a stranger with a saved friend's name is marked and left out of Accept all", async () => {
+    friends.open({ identity: "id-ben", ownName: "Ben" });
+    friends.add();
+    friends.type("Dad");
+    friends.save();
+    await friendsActor.settled();
+    const host = await show([
+      {
+        ...ask("a", true, "maple river stone"),
+        requesterName: "Ben",
+        requesterIdentity: "id-ben",
+      },
+      { ...ask("b", true, "lamp ocean tiger"), requesterName: "dad", requesterIdentity: "id-x" },
+    ]);
+    await vi.waitFor(() => expect(host.textContent).toContain("Not your friend Dad"));
+    const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
+    const rowB = rows.find((r) => r.textContent?.includes("Check code lamp ocean tiger"))!;
+    const rowA = rows.find((r) => r.textContent?.includes("Check code maple river stone"))!;
+    expect(rowB.textContent).toContain("Not your friend Dad");
+    expect(rowA.textContent).not.toContain("Not your friend");
+    expect(host.textContent).toContain("typed a friend's name.");
+    expect(host.textContent).not.toContain("Not sure who it is?");
+    expect(button(host, "Accept all 1 as Viewers")).toBeUndefined();
+    expect(
+      [...host.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all")),
+    ).toBe(false);
+    expect(
+      [...host.querySelectorAll("button")].filter((b) => name(b) === "Accept as Viewer"),
+    ).toHaveLength(2);
   });
 
   test("without codes there is no check code text", async () => {

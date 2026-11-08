@@ -539,12 +539,12 @@ test("A accepts B and C in one tap as Viewers: both land, A's waiting list is em
   await expect(members.locator("li", { hasText: "Viewer" })).toHaveCount(2, { timeout: 60_000 });
 });
 
-test("A saved friend asks by link: A sees the friend name and Friend", async ({
+test("A saved friend and a stranger with the friend's name ask by link: only the stranger is marked", async ({
   instancePages,
 }) => {
-  test.setTimeout(240_000);
-  const [a, b] = instancePages;
-  await skipIntro([a, b]);
+  test.setTimeout(360_000);
+  const [a, b, c] = instancePages;
+  await skipIntro([a, b, c]);
   const first = "Friend first album";
   await createAlbum(a, first, PHOTO, 21);
   await askToJoin(b, await copyInviteLink(a), first);
@@ -575,9 +575,33 @@ test("A saved friend asks by link: A sees the friend name and Friend", async ({
 
   const second = "Friend second album";
   await createAlbum(a, second, "friend-second.png", 44);
-  await askToJoin(b, await copyInviteLink(a), second);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, second);
   const row = a.locator("li", { hasText: `wants to join “${second}”` });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row).toContainText("Sam");
   await expect(row).toContainText("Friend");
+
+  await c.goto("/settings");
+  const nameInput = c.getByRole("textbox", { name: "Your name", exact: true });
+  await nameInput.fill("sam");
+  await c.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(nameInput).toHaveValue("sam");
+  await askToJoin(c, link, second);
+
+  const stranger = a.locator("li", { hasText: "Not your friend Sam" });
+  await expect(stranger).toBeVisible({ timeout: 60_000 });
+  await expect(stranger).toContainText(`sam wants to join “${second}”`);
+  await expect(row.filter({ hasNotText: "Not your friend" })).toContainText("Friend");
+  await expect(row).toHaveCount(2);
+  await expect(a.getByText("typed a friend's name.", { exact: false })).toBeVisible();
+  await expect(a.getByRole("button", { name: /^Accept all/ })).toHaveCount(0);
+  await stranger.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+  await expect(c).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  const secondMembers = a.locator("section", {
+    has: a.getByRole("heading", { name: "Members" }),
+  });
+  await expect(secondMembers.locator("li", { hasText: "Not your friend Sam" })).toBeVisible({
+    timeout: 60_000,
+  });
 });
