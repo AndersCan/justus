@@ -134,6 +134,7 @@ import {
   serializeLastSeen,
   type DeviceSource,
 } from "./presence/presence";
+import { oneAtATime } from "./membership/one-at-a-time";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
 import {
   dropOwed,
@@ -3974,6 +3975,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Move offers a phone has said it saw, by `identity:code`. */
   const moveSeen = new Set<string>();
 
+  /** Accept, Decline and Remove for one album run one at a time, so a move never works from a member list an Accept is changing (or the reverse). Nothing run inside may await store.respond or store.removeMember: that would wait on itself. */
+  const oneChangePerAlbum = oneAtATime();
+
   /** Admin: after someone was removed, moves the album to new drives and
    * records who still has to follow. Returns an error text, or undefined. The
    * record changes only once every write succeeded. */
@@ -4884,107 +4888,109 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return { requests: out };
     },
 
-    async respond(folderId, requesterKey, approve, role = "member") {
-      await readyPromise;
-      if (role !== "reader" && role !== "member")
-        return err(PhotoError.INVALID_ROLE, "Role must be reader or member");
-      const rt = runtimes.get(folderId);
-      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
-      if (rt.record.role !== "creator")
-        return err(PhotoError.NOT_CREATOR, "Only the creator can respond to requests");
-      if (!isHexKey(requesterKey))
-        return err(PhotoError.INVALID_KEY, "Requester key must be a 64-char hex key");
-      requesterKey = requesterKey.toLowerCase();
-      if (!requesterIdentity.has(requesterKey)) await readRequestsFromPeers(rt);
-      const identity = requesterIdentity.get(requesterKey);
-      const askedBy =
-        identity && rt.record.invite && inviteRequesters.has(requesterKey) ? identity : undefined;
-      const registry = await readRegistryIn(rt.folderDrive);
-      const reply = replyTo(
-        { askedBy, enrolled: Boolean(registry.members[requesterKey]) },
-        { approve },
-      );
-      if (reply.kind === "decline-ask") {
-        // The joiner is told; a newer ask from them is a new request.
-        const asked = (await readRequestsFromPeers(rt)).find(
-          (f) => f.request.requesterKey === requesterKey && f.viaInvite,
+    respond(folderId, requesterKey, approve, role = "member") {
+      return oneChangePerAlbum(folderId, async () => {
+        await readyPromise;
+        if (role !== "reader" && role !== "member")
+          return err(PhotoError.INVALID_ROLE, "Role must be reader or member");
+        const rt = runtimes.get(folderId);
+        if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+        if (rt.record.role !== "creator")
+          return err(PhotoError.NOT_CREATOR, "Only the creator can respond to requests");
+        if (!isHexKey(requesterKey))
+          return err(PhotoError.INVALID_KEY, "Requester key must be a 64-char hex key");
+        requesterKey = requesterKey.toLowerCase();
+        if (!requesterIdentity.has(requesterKey)) await readRequestsFromPeers(rt);
+        const identity = requesterIdentity.get(requesterKey);
+        const askedBy =
+          identity && rt.record.invite && inviteRequesters.has(requesterKey) ? identity : undefined;
+        const registry = await readRegistryIn(rt.folderDrive);
+        const reply = replyTo(
+          { askedBy, enrolled: Boolean(registry.members[requesterKey]) },
+          { approve },
         );
-        setAnswer(rt, reply.identity, "declined");
-        if (asked) rememberDeclinedAsk(rt, reply.identity, asked.request.requestedAt);
-        deps.onChanged({ cause: "request", folderId });
-        void deliverAnswers(reply.identity).catch(answerErr("deliver"));
-        return ok({ ok: true });
-      }
-      if (reply.kind === "decline") {
-        // Denials have no state to write — the request just stays on the
-        // requester's own drive until it is superseded. Remember it for the
-        // session so a re-filed request doesn't resurface as pending (#85).
-        deniedRequesters.add(requesterKey);
-        deps.onChanged({ cause: "request", folderId });
-        return ok({ ok: true });
-      }
-      if (reply.kind === "already-enrolled" || rt.viewers[requesterKey]) {
-        return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
-      }
-      // The requester's own reported name comes from its `/requests.json`;
-      // acceptJoinRequest falls back to a neutral label.
-      const found = await readRequestsFromPeers(rt);
-      if (role === "reader") {
-        if (reply.kind !== "accept" || !reply.identity) {
-          return err(
-            PhotoError.VIEWER_NEEDS_INVITE,
-            "Only someone who asked through an invite link can join as a Viewer",
+        if (reply.kind === "decline-ask") {
+          // The joiner is told; a newer ask from them is a new request.
+          const asked = (await readRequestsFromPeers(rt)).find(
+            (f) => f.request.requesterKey === requesterKey && f.viaInvite,
           );
+          setAnswer(rt, reply.identity, "declined");
+          if (asked) rememberDeclinedAsk(rt, reply.identity, asked.request.requestedAt);
+          deps.onChanged({ cause: "request", folderId });
+          void deliverAnswers(reply.identity).catch(answerErr("deliver"));
+          return ok({ ok: true });
         }
-        // Same order as a Collaborator: the answer is recorded first and taken
-        // back if the seat cannot be written. A Viewer's drive is read only for its
-        // /device.json (who is connected); their photos never are.
-        const asker = reply.identity;
-        setAnswer(rt, asker, "accepted");
-        const [seatErr, seated] = await seatViewer(rt.folderDrive, {
-          viewers: { version: 1, viewers: rt.viewers },
+        if (reply.kind === "decline") {
+          // Denials have no state to write — the request just stays on the
+          // requester's own drive until it is superseded. Remember it for the
+          // session so a re-filed request doesn't resurface as pending (#85).
+          deniedRequesters.add(requesterKey);
+          deps.onChanged({ cause: "request", folderId });
+          return ok({ ok: true });
+        }
+        if (reply.kind === "already-enrolled" || rt.viewers[requesterKey]) {
+          return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
+        }
+        // The requester's own reported name comes from its `/requests.json`;
+        // acceptJoinRequest falls back to a neutral label.
+        const found = await readRequestsFromPeers(rt);
+        if (role === "reader") {
+          if (reply.kind !== "accept" || !reply.identity) {
+            return err(
+              PhotoError.VIEWER_NEEDS_INVITE,
+              "Only someone who asked through an invite link can join as a Viewer",
+            );
+          }
+          // Same order as a Collaborator: the answer is recorded first and taken
+          // back if the seat cannot be written. A Viewer's drive is read only for its
+          // /device.json (who is connected); their photos never are.
+          const asker = reply.identity;
+          setAnswer(rt, asker, "accepted");
+          const [seatErr, seated] = await seatViewer(rt.folderDrive, {
+            viewers: { version: 1, viewers: rt.viewers },
+            registry,
+            requesterKey,
+            requests: found.map((f) => f.request),
+          });
+          if (seatErr) {
+            setAnswer(rt, asker, undefined);
+            if (seatErr.kind === "already-enrolled")
+              return err(PhotoError.ALREADY_ENROLLED, seatErr.message);
+            return err(ErrorCode.HOST_ERROR, `Cannot add the Viewer: ${seatErr.message}`);
+          }
+          rt.viewers = seated.viewers.viewers;
+          await forgetFormer(rt, asker);
+          deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
+          void deliverAnswers(asker).catch(answerErr("deliver"));
+          return ok({ ok: true });
+        }
+        // The answer is recorded before the key can leave: if the registry write
+        // fails the answer is taken back, so no one holds a key without a seat.
+        const seated = reply.kind === "accept" ? reply.identity : undefined;
+        if (seated) setAnswer(rt, seated, "accepted");
+        const [acceptErr, accepted] = await acceptJoinRequest(rt.folderDrive, {
           registry,
           requesterKey,
           requests: found.map((f) => f.request),
         });
-        if (seatErr) {
-          setAnswer(rt, asker, undefined);
-          if (seatErr.kind === "already-enrolled")
-            return err(PhotoError.ALREADY_ENROLLED, seatErr.message);
-          return err(ErrorCode.HOST_ERROR, `Cannot add the Viewer: ${seatErr.message}`);
+        if (acceptErr) {
+          if (seated) setAnswer(rt, seated, undefined);
+          if (acceptErr.kind === "already-enrolled")
+            return err(PhotoError.ALREADY_ENROLLED, acceptErr.message);
+          return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
         }
-        rt.viewers = seated.viewers.viewers;
-        await forgetFormer(rt, asker);
+        await loadMemberDrive(rt, requesterKey, accepted.member.name);
+        const joined = rt.memberDrives.get(requesterKey);
+        await forgetFormer(
+          rt,
+          seated ??
+            requesterIdentity.get(requesterKey) ??
+            (joined ? await identityOfDrive(joined) : undefined),
+        );
         deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-        void deliverAnswers(asker).catch(answerErr("deliver"));
+        if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
         return ok({ ok: true });
-      }
-      // The answer is recorded before the key can leave: if the registry write
-      // fails the answer is taken back, so no one holds a key without a seat.
-      const seated = reply.kind === "accept" ? reply.identity : undefined;
-      if (seated) setAnswer(rt, seated, "accepted");
-      const [acceptErr, accepted] = await acceptJoinRequest(rt.folderDrive, {
-        registry,
-        requesterKey,
-        requests: found.map((f) => f.request),
       });
-      if (acceptErr) {
-        if (seated) setAnswer(rt, seated, undefined);
-        if (acceptErr.kind === "already-enrolled")
-          return err(PhotoError.ALREADY_ENROLLED, acceptErr.message);
-        return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
-      }
-      await loadMemberDrive(rt, requesterKey, accepted.member.name);
-      const joined = rt.memberDrives.get(requesterKey);
-      await forgetFormer(
-        rt,
-        seated ??
-          requesterIdentity.get(requesterKey) ??
-          (joined ? await identityOfDrive(joined) : undefined),
-      );
-      deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
-      if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
-      return ok({ ok: true });
     },
 
     async turnOffInvite(folderId) {
@@ -5185,89 +5191,94 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
-    async removeMember(folderId, memberKey) {
-      await readyPromise;
-      const rt = runtimes.get(folderId);
-      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
-      if (rt.record.role !== "creator")
-        return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
-      if (!isHexKey(memberKey))
-        return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
-      memberKey = memberKey.toLowerCase();
-      if (memberKey === selfKeyOf(rt) || memberKey === ownDrive.key)
-        return err(PhotoError.INVALID_KEY, "You cannot remove yourself");
-      await refreshViewers(rt);
-      const registry = await readRegistryIn(rt.folderDrive);
-      const stillMoving = Object.entries(rt.record.moving ?? {}).find(
-        ([, m]) => m.key === memberKey,
-      );
-      const stillUnknown = Object.values(rt.record.movingUnknown ?? {}).some(
-        (m) => m.key === memberKey,
-      );
-      const isMember = Boolean(registry.members[memberKey]);
-      const isViewer = Boolean(rt.viewers[memberKey]);
-      const owed = (rt.record.moveOwed ?? []).includes(memberKey);
-      if (!isMember && !isViewer && !stillMoving && !stillUnknown && !owed)
-        return err(PhotoError.NOT_FOUND, "No such member");
-      // Mark the move as owed before the removal, so a failed move can be retried.
-      if (isMember || isViewer) {
-        const persisted = state.folders.find((f) => f.id === rt.record.id);
-        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
-          target.moveOwed = [memberKey, ...(target.moveOwed ?? []).filter((k) => k !== memberKey)];
-        }
-        saveState();
-      }
-      const clearOwed = () => {
-        const persisted = state.folders.find((f) => f.id === rt.record.id);
-        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
-          target.moveOwed = target.moveOwed?.filter((k) => k !== memberKey);
-          if (!target.moveOwed?.length) delete target.moveOwed;
-        }
-        saveState();
-      };
-      const leaving = await formerSnapshot(rt, memberKey);
-      // Today's removal first, on the old drive: the removed phone sees itself removed.
-      if (isMember) {
-        const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
-        if (removeErr?.kind === "no-such-member") {
-          clearOwed();
-          return err(PhotoError.NOT_FOUND, "No such member");
-        }
-        if (removeErr) {
-          clearOwed();
-          throw new Error(removeErr.message);
-        }
-      } else if (isViewer) {
-        const { [memberKey]: _gone, ...left } = rt.viewers;
-        try {
-          await rt.folderDrive.put(
-            DRIVE_PATH_VIEWERS,
-            Buffer.from(JSON.stringify({ version: 1, viewers: left })),
-          );
-        } catch (e) {
-          clearOwed();
-          return err(ErrorCode.HOST_ERROR, `Cannot remove: ${errText(e)}`);
-        }
-        rt.viewers = left;
-      }
-      if (isMember || isViewer || owed) {
-        const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
-        if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
-        const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
-        await noteFormer(
-          rt,
-          leaving && { ...leaving, album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
-          gone ? await identityOfDrive(gone) : undefined,
+    removeMember(folderId, memberKey) {
+      return oneChangePerAlbum(folderId, async () => {
+        await readyPromise;
+        const rt = runtimes.get(folderId);
+        if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+        if (rt.record.role !== "creator")
+          return err(PhotoError.NOT_CREATOR, "Only the Admin can remove a member");
+        if (!isHexKey(memberKey))
+          return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
+        memberKey = memberKey.toLowerCase();
+        if (memberKey === selfKeyOf(rt) || memberKey === ownDrive.key)
+          return err(PhotoError.INVALID_KEY, "You cannot remove yourself");
+        await refreshViewers(rt);
+        const registry = await readRegistryIn(rt.folderDrive);
+        const stillMoving = Object.entries(rt.record.moving ?? {}).find(
+          ([, m]) => m.key === memberKey,
         );
-      }
-      // Stop loading their drive; a re-filed request must not resurface at once.
-      deniedRequesters.add(memberKey);
-      const moved = await moveAfterRemove(rt, { removedKey: memberKey });
-      if (moved) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${moved}`);
-      await refreshMembersFor(rt);
-      armFolderWatchers(rt);
-      deps.onChanged({ cause: "enroll", folderId, memberKey });
-      return ok({ ok: true });
+        const stillUnknown = Object.values(rt.record.movingUnknown ?? {}).some(
+          (m) => m.key === memberKey,
+        );
+        const isMember = Boolean(registry.members[memberKey]);
+        const isViewer = Boolean(rt.viewers[memberKey]);
+        const owed = (rt.record.moveOwed ?? []).includes(memberKey);
+        if (!isMember && !isViewer && !stillMoving && !stillUnknown && !owed)
+          return err(PhotoError.NOT_FOUND, "No such member");
+        // Mark the move as owed before the removal, so a failed move can be retried.
+        if (isMember || isViewer) {
+          const persisted = state.folders.find((f) => f.id === rt.record.id);
+          for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+            target.moveOwed = [
+              memberKey,
+              ...(target.moveOwed ?? []).filter((k) => k !== memberKey),
+            ];
+          }
+          saveState();
+        }
+        const clearOwed = () => {
+          const persisted = state.folders.find((f) => f.id === rt.record.id);
+          for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+            target.moveOwed = target.moveOwed?.filter((k) => k !== memberKey);
+            if (!target.moveOwed?.length) delete target.moveOwed;
+          }
+          saveState();
+        };
+        const leaving = await formerSnapshot(rt, memberKey);
+        // Today's removal first, on the old drive: the removed phone sees itself removed.
+        if (isMember) {
+          const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
+          if (removeErr?.kind === "no-such-member") {
+            clearOwed();
+            return err(PhotoError.NOT_FOUND, "No such member");
+          }
+          if (removeErr) {
+            clearOwed();
+            throw new Error(removeErr.message);
+          }
+        } else if (isViewer) {
+          const { [memberKey]: _gone, ...left } = rt.viewers;
+          try {
+            await rt.folderDrive.put(
+              DRIVE_PATH_VIEWERS,
+              Buffer.from(JSON.stringify({ version: 1, viewers: left })),
+            );
+          } catch (e) {
+            clearOwed();
+            return err(ErrorCode.HOST_ERROR, `Cannot remove: ${errText(e)}`);
+          }
+          rt.viewers = left;
+        }
+        if (isMember || isViewer || owed) {
+          const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
+          if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
+          const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
+          await noteFormer(
+            rt,
+            leaving && { ...leaving, album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
+            gone ? await identityOfDrive(gone) : undefined,
+          );
+        }
+        // Stop loading their drive; a re-filed request must not resurface at once.
+        deniedRequesters.add(memberKey);
+        const moved = await moveAfterRemove(rt, { removedKey: memberKey });
+        if (moved) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${moved}`);
+        await refreshMembersFor(rt);
+        armFolderWatchers(rt);
+        deps.onChanged({ cause: "enroll", folderId, memberKey });
+        return ok({ ok: true });
+      });
     },
 
     async archiveAlbum(folderId) {

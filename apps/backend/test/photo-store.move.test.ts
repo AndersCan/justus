@@ -1066,3 +1066,117 @@ describe("away when removed", () => {
     for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
   }, 40_000);
 });
+
+describe("an Accept or a Remove during a Remove", () => {
+  async function asking() {
+    const s = await album();
+    const kim = phone(s.hub, "Kim");
+    await kim.store.ready();
+    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const [askErr] = await kim.store.ask({
+      code: folder.invite!.code,
+      owner: identityOf(s.admin),
+      albumName: "Trip",
+      ownerName: "Anna",
+    });
+    expect(askErr).toBeNull();
+    let key = "";
+    await until(async () => {
+      key = (await s.admin.store.requests()).requests[0]?.requesterKey ?? "";
+      return key !== "";
+    });
+    expect(key).not.toBe("");
+    const status = () => (kim.store.debugState() as { asks: { status: string }[] }).asks[0]?.status;
+    return { ...s, kim, key, status };
+  }
+
+  /** Pauses the move's new-drive open on the Admin's phone. */
+  function holdMove(s: { admin: { deps: { drives: unknown } }; folderId: string }) {
+    const drives = s.admin.deps.drives as { openOwn(ns?: string): Promise<unknown> };
+    const open = drives.openOwn.bind(drives);
+    let reached = false;
+    let release = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    drives.openOwn = async (ns?: string) => {
+      if (ns?.startsWith(`folder/${s.folderId}/m`)) {
+        reached = true;
+        await gate;
+      }
+      return open(ns);
+    };
+    return { reached: () => reached, release: () => release() };
+  }
+
+  async function kimOnNewKey(s: Awaited<ReturnType<typeof asking>>) {
+    const newKey = s.record().shareKey;
+    await until(async () =>
+      (await s.kim.store.folders()).folders.some((f) => f.shareKey === newKey && !f.pending),
+    );
+    const got = (await s.kim.store.folders()).folders.find((f) => f.shareKey === newKey);
+    expect(got).toBeDefined();
+    expect(got?.pending).toBeFalsy();
+  }
+
+  it.each(["member", "reader"] as const)(
+    "Accept tapped during a Remove lets them into the new key (%s)",
+    async (role) => {
+      const s = await asking();
+      const hold = holdMove(s);
+      const removing = s.admin.store.removeMember(s.folderId, s.keys.ben);
+      await until(() => hold.reached());
+      expect(hold.reached()).toBe(true);
+      let settled = false;
+      const accepting = s.admin.store.respond(s.folderId, s.key, true, role).then((r) => {
+        settled = true;
+        return r;
+      });
+      await sleep(100);
+      expect(settled).toBe(false);
+      hold.release();
+      expect((await removing)[0]).toBeNull();
+      expect((await accepting)[0]).toBeNull();
+      await kimOnNewKey(s);
+      const members = (await s.admin.store.status()).members as {
+        key: string;
+        viewer?: boolean;
+      }[];
+      const row = members.find((m) => m.key === s.key);
+      expect(row).toBeDefined();
+      expect(Boolean(row?.viewer)).toBe(role === "reader");
+      expect(members.some((m) => m.key === s.keys.ben)).toBe(false);
+      expect(s.record().heldAsks).toBeUndefined();
+      await s.kim.store.close();
+      await s.close();
+    },
+  );
+
+  it("Decline tapped during a Remove reaches them", async () => {
+    const s = await asking();
+    const hold = holdMove(s);
+    const removing = s.admin.store.removeMember(s.folderId, s.keys.ben);
+    await until(() => hold.reached());
+    const declining = s.admin.store.respond(s.folderId, s.key, false);
+    hold.release();
+    expect((await removing)[0]).toBeNull();
+    expect((await declining)[0]).toBeNull();
+    await until(() => s.status() === "declined");
+    expect(s.status()).toBe("declined");
+    await s.kim.store.close();
+    await s.close();
+  });
+
+  it("a Remove tapped right after an Accept keeps the removed person out", async () => {
+    const s = await asking();
+    const accepting = s.admin.store.respond(s.folderId, s.key, true, "member");
+    const removing = s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect((await accepting)[0]).toBeNull();
+    expect((await removing)[0]).toBeNull();
+    const members = (await s.admin.store.status()).members as { key: string }[];
+    expect(members.some((m) => m.key === s.keys.ben)).toBe(false);
+    const moving = Object.values(s.record().moving ?? {}) as { key: string }[];
+    expect(moving.some((m) => m.key === s.keys.ben)).toBe(false);
+    await kimOnNewKey(s);
+    await s.kim.store.close();
+    await s.close();
+  });
+});
