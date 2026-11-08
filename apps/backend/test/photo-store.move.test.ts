@@ -189,30 +189,159 @@ describe("Remove moves the album", () => {
   });
 });
 
-describe("someone who is moving asks through the new code", () => {
-  /** Their phone asks through the new invite code, then reconnects, as after a restart. */
-  async function follow(s: Awaited<ReturnType<typeof album>>, who: typeof s.nils, name: string) {
-    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
-    const asked = await who.store.ask({
-      code: folder.invite!.code,
-      owner: identityOf(s.admin),
-      albumName: "Trip",
-      ownerName: "Anna",
-    });
-    expect(asked[0]).toBeNull();
-    await who.store.close();
-    const again = createPhotoStore(restarted(who.deps));
-    await again.ready();
-    expect(name).toBeTruthy();
-    return again;
-  }
+/** Their phone asks through the new invite code, then reconnects, as after a restart. */
+async function follow(
+  s: Pick<Awaited<ReturnType<typeof album>>, "admin" | "folderId">,
+  who: ReturnType<typeof phone>,
+) {
+  const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+  const asked = await who.store.ask({
+    code: folder.invite!.code,
+    owner: identityOf(s.admin),
+    albumName: "Trip",
+    ownerName: "Anna",
+  });
+  expect(asked[0]).toBeNull();
+  await who.store.close();
+  const again = createPhotoStore(restarted(who.deps));
+  await again.ready();
+  return again;
+}
 
+/** Like `album()`, but the Admin's phone cannot yet tell who `who` is. */
+async function albumWithUnknown(who: "nils" | "vera") {
+  const hub = createFakeHub();
+  const admin = phone(hub, "Anna");
+  const nils = phone(hub, "Nils");
+  const ben = phone(hub, "Ben");
+  const vera = phone(hub, "Vera");
+  for (const p of [admin, nils, ben, vera]) await p.store.ready();
+  const target = identityOf(who === "nils" ? nils : vera);
+  let blocked = true;
+  const real = admin.deps.drives.verifyIdentity.bind(admin.deps.drives);
+  admin.deps.drives.verifyIdentity = (proof: Parameters<typeof real>[0]) =>
+    blocked && proof.identityKey === target ? false : real(proof);
+  const created = await admin.store.createFolder("Trip");
+  const folderId = created[1]!.folder.id;
+  const shareKey = created[1]!.folder.shareKey;
+  const keys: Record<string, string> = {};
+  for (const [name, p] of [
+    ["nils", nils],
+    ["ben", ben],
+    ["vera", vera],
+  ] as const) {
+    keys[name] = await joinAsMember(admin.store, folderId, p.store, shareKey);
+  }
+  expect((await admin.store.makeViewer(folderId, keys.vera))[0]).toBeNull();
+  await until(async () => {
+    const m = (await admin.store.status()).members as { identity?: string }[];
+    return m.length === 4 && m.filter((x) => x.identity !== undefined).length >= 3;
+  });
+  const saved = () => JSON.parse(readFileSync(join(admin.deps.storageDir, "justus.json"), "utf8"));
+  const record = () => saved().folders.find((f: { id: string }) => f.id === folderId);
+  const unblock = () => {
+    blocked = false;
+  };
+  const reconnect = async (p: typeof nils) => {
+    setFakeNodeConnected({ hub, node: p.node, connected: false });
+    await sleep(50);
+    setFakeNodeConnected({ hub, node: p.node, connected: true });
+  };
+  const close = async () => {
+    for (const p of [admin, nils, ben, vera]) await p.store.close();
+  };
+  return { hub, admin, nils, ben, vera, folderId, keys, record, unblock, reconnect, close };
+}
+
+describe("someone not known at the Remove", () => {
+  type Scene = Awaited<ReturnType<typeof albumWithUnknown>>;
+  const listed = async (s: Scene, key: string) =>
+    ((await s.admin.store.status()).members as { key: string; viewer?: boolean }[]).find(
+      (m) => m.key === key,
+    );
+
+  it("is still on the Admin's people list after the Remove", async () => {
+    const s = await albumWithUnknown("nils");
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    const row = await listed(s, s.keys.nils);
+    expect(row).toBeDefined();
+    expect(row!.viewer).toBeUndefined();
+    await s.close();
+  }, 20_000);
+
+  it("gets the move once the Admin's phone learns who they are", async () => {
+    const s = await albumWithUnknown("nils");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    s.unblock();
+    await s.reconnect(s.nils);
+    const id = identityOf(s.nils);
+    await until(() => s.record().moving?.[id] !== undefined, 6_000);
+    expect(s.record().moving[id].key).toBe(s.keys.nils);
+    expect(s.record().movingUnknown).toBeUndefined();
+    const again = await follow(s, s.nils);
+    await until(() => !s.record().moving?.[id], 6_000);
+    expect(s.record().moving?.[id]).toBeUndefined();
+    expect(s.record().answers[id]).toBe("accepted");
+    await again.close();
+    for (const p of [s.admin, s.ben, s.vera]) await p.store.close();
+  }, 20_000);
+
+  it("a Viewer not known at the Remove follows as a Viewer", async () => {
+    const s = await albumWithUnknown("vera");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect((await listed(s, s.keys.vera))?.viewer).toBe(true);
+    s.unblock();
+    await s.reconnect(s.vera);
+    const id = identityOf(s.vera);
+    await until(() => s.record().moving?.[id] !== undefined, 6_000);
+    expect(s.record().moving[id].role).toBe("reader");
+    const again = await follow(s, s.vera);
+    await until(() => !s.record().moving?.[id], 6_000);
+    expect(s.record().answers[id]).toBe("accepted");
+    expect((await again.folders()).folders[0]!.role).toBe("reader");
+    await again.close();
+    for (const p of [s.admin, s.nils, s.ben]) await p.store.close();
+  }, 20_000);
+
+  it("is kept across a restart", async () => {
+    const s = await albumWithUnknown("nils");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const unknown = Object.values(s.record().movingUnknown ?? {}) as { key: string }[];
+    expect(unknown.map((m) => m.key)).toEqual([s.keys.nils]);
+    await s.admin.store.close();
+    const again = createPhotoStore(restarted(s.admin.deps));
+    await again.ready();
+    expect(
+      ((await again.status()).members as { key: string }[]).some((m) => m.key === s.keys.nils),
+    ).toBe(true);
+    s.unblock();
+    await s.reconnect(s.nils);
+    const id = identityOf(s.nils);
+    const saved = () =>
+      JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    await until(() => saved().folders[0].moving?.[id] !== undefined, 6_000);
+    expect(saved().folders[0].moving[id].key).toBe(s.keys.nils);
+    expect(saved().folders[0].movingUnknown).toBeUndefined();
+    await again.close();
+    for (const p of [s.nils, s.ben, s.vera]) await p.store.close();
+  }, 20_000);
+
+  it("removing them while unknown takes them off the list", async () => {
+    const s = await albumWithUnknown("nils");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.nils))[0]).toBeNull();
+    expect(await listed(s, s.keys.nils)).toBeUndefined();
+    await s.close();
+  }, 20_000);
+});
+
+describe("someone who is moving asks through the new code", () => {
   it("seats a Collaborator with their role and takes them off the moving list", async () => {
     const s = await album();
     await s.admin.store.removeMember(s.folderId, s.keys.ben);
     const nilsIdentity = identityOf(s.nils);
     expect(s.record().moving[nilsIdentity]).toBeDefined();
-    const again = await follow(s, s.nils, "Nils");
+    const again = await follow(s, s.nils);
     await until(() => !s.record().moving?.[nilsIdentity]);
     expect(s.record().moving?.[nilsIdentity]).toBeUndefined();
     const registry = JSON.parse(
@@ -230,7 +359,7 @@ describe("someone who is moving asks through the new code", () => {
     const s = await album();
     await s.admin.store.removeMember(s.folderId, s.keys.ben);
     const veraIdentity = identityOf(s.vera);
-    const again = await follow(s, s.vera, "Vera");
+    const again = await follow(s, s.vera);
     await until(() => !s.record().moving?.[veraIdentity]);
     expect(s.record().moving?.[veraIdentity]).toBeUndefined();
     const drive = (await s.admin.deps.drives.open(s.record().shareKey, { timeoutMs: 1000 }))[1]!;
