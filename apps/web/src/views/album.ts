@@ -528,9 +528,7 @@ function membersSection(vm: PeopleVm, id: string) {
       const loaded = state !== "photosNotLoaded" && state !== "couldNotLoadPhotos";
       const holding = loaded ? albumHolding(photos, id) : NO_HOLDING;
       return html`<p class="mb-2 mt-1 text-xs text-muted">
-          ${t("album.connected_means_they_have_justus")}${
-            holding.total > 0 ? html` ${t("album.a_phone_gets_a_photo_when")}` : null
-          }
+          ${t("album.everyone_in_the_album_sees")}
         </p>
         ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
         <ul
@@ -542,7 +540,12 @@ function membersSection(vm: PeopleVm, id: string) {
             (p) => p.key,
             (p) => memberRow(vm, p, holding),
           )}
-        </ul>`;
+        </ul>
+        <p class="mt-2 text-xs text-muted">
+          ${t("album.connected_means_they_have_justus")}${
+            holding.total > 0 ? html` ${t("album.a_phone_gets_a_photo_when")}` : null
+          }
+        </p>`;
     })}
   </section>`;
 }

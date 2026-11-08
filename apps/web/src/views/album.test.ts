@@ -1104,6 +1104,20 @@ describe("album holding", () => {
     expect(host.textContent).toContain("first opened there");
   });
 
+  test("the Members card shows one line, then the people, then what the lines mean", async () => {
+    const host = await open([photo("a", "f1", true)]);
+    const section = host.querySelector('[data-motion-key="section:members"]')!;
+    const ul = section.querySelector("ul")!;
+    const caption = section.querySelector("p")!;
+    expect(caption.textContent?.trim()).toBe("Everyone in the album sees this list.");
+    expect(caption.compareDocumentPosition(ul) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const after = ul.nextElementSibling!;
+    expect(after.tagName).toBe("P");
+    expect(after.textContent).toContain("Connected means they have Justus open");
+    expect(after.textContent).toContain("first opened there");
+    expect(section.textContent).not.toContain("Viewers see every photo");
+  });
+
   test("an album with no photos says nothing about holdings", async () => {
     const host = await open([]);
     expect(host.textContent).not.toContain("Has ");

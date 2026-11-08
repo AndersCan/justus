@@ -1098,8 +1098,15 @@
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
+  "album.everyone_in_the_album_sees": {
+    "text": "Everyone in the album sees this list.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
   "album.connected_means_they_have_justus": {
-    "text": "Connected means they have Justus open and your phone can reach them right now. Everyone in the album sees this list. Viewers see every photo but can't add any.",
+    "text": "Connected means they have Justus open and your phone can reach them right now.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
