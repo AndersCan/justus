@@ -18,6 +18,8 @@ export type InviteLinkView = {
   validFor: ValidFor;
   /** The code that was just turned off; a link must not carry it. */
   offCode: string;
+  /** The album whose links were just turned off; "" when none. */
+  offFolderId: string;
   expiresAt?: number;
 };
 
@@ -27,6 +29,7 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     folderId: string;
     validFor: ValidFor;
     offCode: string;
+    offFolderId: string;
   };
   const state = snapshot.path[0] as InviteLinkView["state"];
   return {
@@ -34,6 +37,7 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     folderId: context.folderId,
     validFor: context.validFor,
     offCode: context.offCode,
+    offFolderId: context.offFolderId,
     ...(state === "linkMade"
       ? { expiresAt: (snapshot.payload as { expiresAt: number }).expiresAt }
       : {}),

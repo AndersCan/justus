@@ -179,10 +179,18 @@ function invitePanelBody(
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
+  const linksOff = view.offFolderId === folder.id;
   const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">Invite people</h2>
+      ${
+        linksOff
+          ? html`<p class="mb-4 text-sm text-fg" role="status">
+              Links turned off. Links you sent no longer work.
+            </p>`
+          : null
+      }
       ${
         choices.length === 0
           ? null
@@ -276,13 +284,17 @@ function invitePanelBody(
                 With them now? Show a QR code
               </button>`
       }
-      <button
-        class="mt-3 block text-sm text-muted underline underline-offset-2 hover:text-fg"
-        ?disabled=${view.state === "turningOff"}
-        @click=${() => void turnOff(folder)}
-      >
-        Turn off links you sent
-      </button>
+      ${
+        linksOff
+          ? null
+          : html`<button
+              class="mt-3 block text-sm text-muted underline underline-offset-2 hover:text-fg"
+              ?disabled=${view.state === "turningOff"}
+              @click=${() => void turnOff(folder)}
+            >
+              Turn off links you sent
+            </button>`
+      }
       <p class="mt-4 text-xs text-muted">
         Both of you need Justus open for a request to arrive. It shows up here for you to accept or
         decline.

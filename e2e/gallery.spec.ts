@@ -213,8 +213,18 @@ test("the owner can turn off the links they sent", async ({ page }) => {
   await page.getByRole("button", { name: "Turn off links you sent" }).click();
   await expect(page.getByRole("heading", { name: "Turn off links you sent?" })).toBeVisible();
   await page.getByRole("button", { name: "Turn off", exact: true }).click();
-  await expect(page.getByText("Links turned off")).toBeVisible();
+  await expect(page.getByText("Links turned off", { exact: true })).toBeVisible();
+  const line = page.getByText("Links turned off. Links you sent no longer work.");
+  const turnOffButton = page.getByRole("button", { name: "Turn off links you sent" });
+  await expect(line).toBeVisible();
+  await expect(turnOffButton).toHaveCount(0);
   await expect(page.getByText("Link works for")).toBeVisible();
+  await page
+    .getByRole("button", { name: /^(Send invite link|Copy invite link)$/ })
+    .click({ timeout: 20_000 });
+  await expect(page.getByText(/This link works until/)).toBeVisible();
+  await expect(line).toHaveCount(0);
+  await expect(turnOffButton).toBeVisible();
 });
 
 test("keeping the links leaves the invite panel as it was", async ({ page }) => {
