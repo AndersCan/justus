@@ -16,6 +16,9 @@ import { onStateChange } from "../machines/actor-utils";
 import { joinPanel, pendingAsks } from "./albums";
 import { currentPage, open } from "../machines/router-machine";
 import { avatarColor, initialsOf } from "../utils/avatar";
+import { gateway } from "../gateway";
+import { isLockStatus } from "./app-lock";
+import { toast } from "./toast";
 import { friendlyError } from "../utils/friendly-error";
 import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
@@ -46,6 +49,18 @@ export function markWelcomeSeen(): void {
 onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
   if (state === "choosingCreateOrJoin") markWelcomeSeen();
 });
+
+// Turning App lock on from the first-run card confirms itself, as the Settings switch does.
+onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
+  if (prev === "turningOnAppLock" && state === "choosingCreateOrJoin") toast("App lock is on");
+});
+
+/** Tells onboarding whether the phone has a screen lock; elsewhere, or on any error, the card is skipped. */
+export async function readLockForOnboarding(load = gateway.lock.status) {
+  if ((window as { BareShell?: boolean }).BareShell !== true) return;
+  const [err, status] = await load();
+  if (!err && isLockStatus(status)) onboarding.lockStatusRead(status);
+}
 
 // Creating an album finishes onboarding: open it once the create lands, so the
 // first thing on screen is where photos go. Joining opens the album when the
@@ -176,6 +191,35 @@ function profileStep(vm: ReturnType<typeof onboardingViewModel>) {
   `;
 }
 
+function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
+  return html`
+    <div class="ui-card mx-auto max-w-md space-y-4 p-6">
+      <h2 class="text-xl font-bold text-fg">Lock Justus?</h2>
+      <p class="text-sm text-fg">
+        Uses your phone's fingerprint, face or PIN. Applies after you've been away for 30 seconds.
+      </p>
+      <div class="flex justify-between gap-3">
+        <button
+          class="ui-btn-ghost"
+          type="button"
+          ?disabled=${vm.turningOnLock}
+          @click=${() => onboarding.skipAppLock()}
+        >
+          Not now
+        </button>
+        <button
+          class="ui-btn-primary"
+          type="button"
+          ?disabled=${vm.turningOnLock}
+          @click=${() => onboarding.turnOnAppLock()}
+        >
+          Enable
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4">
@@ -240,7 +284,9 @@ export function welcomeView() {
               ? cardsStep(vm.card)
               : vm.state === "choosingCreateOrJoin"
                 ? chooseStep()
-                : profileStep(vm);
+                : vm.state === "offeringAppLock" || vm.state === "turningOnAppLock"
+                  ? lockStep(vm)
+                  : profileStep(vm);
           return html`${header}${step}`;
         }),
       )}

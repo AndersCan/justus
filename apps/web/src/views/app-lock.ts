@@ -9,7 +9,7 @@ type Result<T> = Promise<[Error, null] | [null, T]>;
 type Load = () => Result<LockStatus>;
 type SetEnabled = (enabled: boolean) => Result<{ enabled: boolean }>;
 
-function isStatus(v: unknown): v is LockStatus {
+export function isLockStatus(v: unknown): v is LockStatus {
   return (
     typeof v === "object" &&
     v !== null &&
@@ -22,7 +22,7 @@ function isStatus(v: unknown): v is LockStatus {
 export async function refreshAppLock(load: Load = gateway.lock.status as Load) {
   if ((window as { BareShell?: boolean }).BareShell !== true) return;
   const [err, status] = await load();
-  const next = !err && isStatus(status) ? status : undefined;
+  const next = !err && isLockStatus(status) ? status : undefined;
   appLockActor.send(appLockEvents.statusRead.create({ status: next }));
 }
 

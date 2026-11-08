@@ -18,7 +18,7 @@ import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
 import { reachActor, reachHintOf } from "./machines/reach-hint-machine";
-import { welcomeView, hasSeenWelcome } from "./views/welcome";
+import { welcomeView, hasSeenWelcome, readLockForOnboarding } from "./views/welcome";
 import { joinSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
@@ -32,6 +32,7 @@ if (window.location.pathname.endsWith("/index.html")) {
 // First run: show the "no servers" welcome screen once per install.
 if (!hasSeenWelcome()) {
   open("/welcome", { replace: true });
+  void readLockForOnboarding();
 }
 
 // Capture web-layer diagnostics (console + page errors) into the shared log
