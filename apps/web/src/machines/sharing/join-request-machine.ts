@@ -86,8 +86,6 @@ export const dismissDeclinedAsk = event("dismissDeclinedAsk")<{ code: string }>(
 
 type JoinContext = { error: string };
 
-const allowAll: JoinPort = { ask: async () => [undefined, {}] };
-
 export function createJoinRequestActor(options: {
   clock: Clock;
   port?: JoinPort;
@@ -95,7 +93,16 @@ export function createJoinRequestActor(options: {
   /** The ask this phone stored for an invite code, so an answer that arrives after the sheet closed can name the album. */
   asked?: (code: string) => AskSummary | undefined;
 }) {
-  const { clock, port = allowAll, known = { kind: "new" }, asked = () => undefined } = options;
+  const { clock, known = { kind: "new" } } = options;
+  // The default port remembers what it asked, so an answer after the sheet closed finds the ask, as the app's stored asks do.
+  const sent = new Map<string, AskSummary>();
+  const port: JoinPort = options.port ?? {
+    ask: async (invite) => {
+      sent.set(invite.code, askOf(invite, clock.now()));
+      return [undefined, {}];
+    },
+  };
+  const asked = options.asked ?? ((code: string) => sent.get(code));
   const classify = typeof known === "function" ? known : () => known;
 
   return Actor({
@@ -302,6 +309,17 @@ export function createJoinRequestActor(options: {
       });
     },
   });
+}
+
+function askOf(invite: JoinInvite, askedAt: number): AskSummary {
+  return {
+    code: invite.code,
+    owner: invite.owner,
+    albumName: invite.album,
+    ownerName: invite.ownerName,
+    askedAt,
+    status: "waiting",
+  };
 }
 
 function inviteOf(row: AskSummary): JoinInvite {
