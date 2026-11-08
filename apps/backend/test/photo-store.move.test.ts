@@ -4,9 +4,10 @@
  * one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
+import { ErrorCode } from "@ekrooh/bare/core";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
 
@@ -654,5 +655,93 @@ describe("the removed phone sees the album turn read-only", () => {
     expect((await again.list({ all: true })).map((p) => p.name)).toContain("ben.jpg");
     await again.close();
     for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
+  }, 40_000);
+
+  const REGISTRY = "/members.json";
+  const oldDriveOf = async (s: Awaited<ReturnType<typeof album>>, shareKey: string) =>
+    (await s.admin.deps.drives.open(shareKey, { timeoutMs: 1000 }))[1]!;
+
+  it("stays read-only when the old registry still lists the removed phone", async () => {
+    const s = await album();
+    const oldDrive = await oldDriveOf(s, s.record().shareKey);
+    const listed = (await oldDrive.readSmall(REGISTRY, 1 << 20))!;
+    expect(JSON.parse(listed).members[s.keys.ben]).toBeDefined();
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
+    await oldDrive.put(REGISTRY, Buffer.from(listed));
+    await sleep(1_500);
+    const folder = await albumOf(s.ben);
+    expect(folder.role).toBe("reader");
+    expect(folder.notice).toEqual({ kind: "removed" });
+    const added = await s.ben.store.addBytes("late.jpg", new Uint8Array([9]), folder.id);
+    expect(added[0]!.code).toBe(PhotoError.NOT_A_MEMBER);
+    await s.close();
+  }, 40_000);
+
+  it("a restart with the registry still listing the phone stays read-only", async () => {
+    const s = await album();
+    const oldDrive = await oldDriveOf(s, s.record().shareKey);
+    const listed = (await oldDrive.readSmall(REGISTRY, 1 << 20))!;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
+    await oldDrive.put(REGISTRY, Buffer.from(listed));
+    await s.ben.store.close();
+    const again = createPhotoStore(restarted(s.ben.deps));
+    await again.ready();
+    const folder = (await again.folders()).folders[0]!;
+    expect(folder.role).toBe("reader");
+    expect(folder.notice).toEqual({ kind: "removed" });
+    await again.close();
+    for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
+  }, 40_000);
+
+  it("a phone that was off when it was removed hears it at start-up", async () => {
+    const s = await album();
+    await s.ben.store.close();
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    const again = createPhotoStore(restarted(s.ben.deps));
+    await again.ready();
+    await until(async () => (await again.folders()).folders[0]?.notice?.kind === "removed", 15_000);
+    const folder = (await again.folders()).folders[0]!;
+    expect(folder.notice).toEqual({ kind: "removed" });
+    expect(folder.role).toBe("reader");
+    await again.close();
+    for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
+  }, 40_000);
+
+  it("hearing it clears a pending badge", async () => {
+    const s = await album();
+    await s.ben.store.close();
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    const file = join(s.ben.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    for (const f of saved.folders) f.pending = true;
+    writeFileSync(file, JSON.stringify(saved));
+    const again = createPhotoStore(restarted(s.ben.deps));
+    await again.ready();
+    await until(async () => (await again.folders()).folders[0]?.notice?.kind === "removed", 15_000);
+    const folder = (await again.folders()).folders[0]!;
+    expect(folder.notice).toEqual({ kind: "removed" });
+    expect(folder.pending).toBeFalsy();
+    await again.close();
+    for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
+  }, 40_000);
+
+  it("Remove fails with HOST_ERROR when the note cannot be written, and a retry succeeds", async () => {
+    const s = await album();
+    const drive = await oldDriveOf(s, s.record().shareKey);
+    const put = drive.put.bind(drive);
+    let broken = true;
+    drive.put = async (path: string, ...rest: never[]) => {
+      if (broken && path === "/removed-people.json") throw new Error("disk full");
+      return put(path, ...rest);
+    };
+    const failed = await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect(failed[0]!.code).toBe(ErrorCode.HOST_ERROR);
+    broken = false;
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
+    expect((await noticeOf(s.ben))?.kind).toBe("removed");
+    await s.close();
   }, 40_000);
 });
