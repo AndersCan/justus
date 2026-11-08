@@ -130,6 +130,10 @@ describe("who has each photo", () => {
     expect(holders.here).toBe(true);
     expect(holders.others).toEqual([]);
     expect(holders.unsure).toEqual([]);
+    await until(async () => (await s.annaPhoto()).holders!.waiting.length === 1);
+    expect(
+      (await s.annaPhoto()).holders!.waiting.map((m: { key: string; name: string }) => m.key),
+    ).toEqual([s.nilsKey]);
     await s.close();
   });
 
@@ -153,6 +157,7 @@ describe("who has each photo", () => {
     expect(
       (await s.annaPhoto()).holders!.others.map((m: { key: string; name: string }) => m.key),
     ).toEqual([s.nilsKey]);
+    expect((await s.annaPhoto()).holders!.waiting).toEqual([]);
     expect(s.anna.pushes.filter((p) => p.cause === "holders").length).toBeGreaterThan(before);
     await s.close();
   });

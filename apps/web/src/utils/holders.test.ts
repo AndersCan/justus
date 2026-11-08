@@ -7,6 +7,7 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   here: true,
   others: [],
   unsure: [],
+  waiting: [],
   former: [],
   ...p,
 });

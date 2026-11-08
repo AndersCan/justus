@@ -7,7 +7,14 @@ const photo = (folderId: string, holders?: Partial<PhotoHolders>): Photo =>
   ({
     id: "p",
     folderId,
-    holders: holders && { here: false, others: [], unsure: [], former: [], ...holders },
+    holders: holders && {
+      here: false,
+      others: [],
+      unsure: [],
+      waiting: [],
+      former: [],
+      ...holders,
+    },
   }) as Photo;
 
 describe("albumHolding", () => {

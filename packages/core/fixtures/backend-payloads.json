@@ -739,6 +739,7 @@
               "here": true,
               "others": [],
               "unsure": [],
+              "waiting": [],
               "former": []
             }
           }
@@ -769,6 +770,7 @@
                 }
               ],
               "unsure": [],
+              "waiting": [],
               "former": []
             }
           }

@@ -156,7 +156,13 @@ describe("Delete", () => {
   it("names the phones that keep a copy", async () => {
     await reload([a, b]);
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
-    const holders = { here: true, others: [{ key: "n", name: "Nils" }], unsure: [], former: [] };
+    const holders = {
+      here: true,
+      others: [{ key: "n", name: "Nils" }],
+      unsure: [],
+      waiting: [],
+      former: [],
+    };
     await deleteFromLightbox({ ...a, holders });
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({

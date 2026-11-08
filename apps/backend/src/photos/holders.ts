@@ -161,10 +161,12 @@ export function holdersFor(input: {
     others.set(photo.driveKey, { key: photo.driveKey, name: photo.memberName });
   }
   const unsure = new Map<string, PhotoMember>();
+  const waiting = new Map<string, PhotoMember>();
   for (const person of people) {
     if (person.key === selfKey || person.key === photo.driveKey) continue;
     if (holds(held.get(person.key), photo.id)) others.set(person.key, person);
     else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, person);
+    else waiting.set(person.key, person);
   }
   const names = new Set<string>();
   for (const entry of former) if (entry.ids.has(photo.id)) names.add(entry.name);
@@ -172,6 +174,7 @@ export function holdersFor(input: {
     here,
     others: [...others.values()].sort(byNameThenKey),
     unsure: [...unsure.values()].sort(byNameThenKey),
+    waiting: [...waiting.values()].sort(byNameThenKey),
     former: [...names].sort(),
   };
 }
