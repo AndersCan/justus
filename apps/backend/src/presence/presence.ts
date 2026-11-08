@@ -22,6 +22,8 @@ export type Presence = {
   peerKeys: Map<string, string>;
   /** Member drive key to the identity drive key named in their `/device.json`. */
   identities: Map<string, string>;
+  /** Member drive key to why their `/device.json` identity is not trusted. */
+  unverified: Map<string, "unsigned" | "rejected">;
   /** Member drive key to the last time (ms epoch) their last connection closed. */
   lastSeen: Map<string, number>;
 };
@@ -47,6 +49,7 @@ export function createPresence(options: { lastSeen: [string, number][] }): Prese
     connections: new Map(),
     peerKeys: new Map(),
     identities: new Map(),
+    unverified: new Map(),
     lastSeen: new Map(options.lastSeen),
   };
 }
@@ -154,10 +157,16 @@ async function learnDevice(
   ]).finally(() => clearTimeout(timer));
   if (!text) return false;
   let changed = false;
-  const identity = verifiedDeviceIdentity(text, { driveKey: source.drive.key, verify });
-  if (identity !== undefined && presence.identities.get(memberKey) !== identity) {
-    presence.identities.set(memberKey, identity);
-    changed = true;
+  const device = verifiedDeviceIdentity(text, { driveKey: source.drive.key, verify });
+  if (device.status === "verified") {
+    presence.unverified.delete(memberKey);
+    if (presence.identities.get(memberKey) !== device.identityKey) {
+      presence.identities.set(memberKey, device.identityKey);
+      changed = true;
+    }
+  } else if (presence.unverified.get(memberKey) !== device.status) {
+    presence.unverified.set(memberKey, device.status);
+    log("identity.unverified", { member: short(memberKey), status: device.status });
   }
   const peerKey = parseDeviceSwarmKey(text);
   if (peerKey === undefined) return changed;

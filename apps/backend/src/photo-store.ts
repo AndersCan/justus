@@ -1266,7 +1266,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (addedAt === undefined) return;
       const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
       if (!note || note.leftAt <= addedAt) return;
-      const identity = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
+      const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
         driveKey: drive.key,
         verify: (p) => deps.drives.verifyIdentity(p),
       });
@@ -1275,7 +1275,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
         return;
       }
-      if (identity) setAnswer(rt, identity, undefined);
+      if (device.status === "verified") setAnswer(rt, device.identityKey, undefined);
       await refreshMembersFor(rt);
       deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey });
     } finally {

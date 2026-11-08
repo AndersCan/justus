@@ -296,6 +296,7 @@ describe("identity in /device.json", () => {
     });
     const p = await learnFrom(forgerDrive);
     expect(memberPresence(p, forgerDrive.key)).toEqual({ connected: false });
+    expect(p.unverified.get(forgerDrive.key)).toBe("rejected");
     expect(p.peerKeys.size).toBe(1);
   });
 
@@ -304,6 +305,7 @@ describe("identity in /device.json", () => {
     await publishDevice(forgerDrive, forger, { identityKey: benIdentity });
     const p = await learnFrom(forgerDrive);
     expect(memberPresence(p, forgerDrive.key)).toEqual({ connected: false });
+    expect(p.unverified.get(forgerDrive.key)).toBe("rejected");
   });
 
   it("an unsigned record keeps the member, without an identity", async () => {
@@ -311,6 +313,7 @@ describe("identity in /device.json", () => {
     await publishDevice(benDrive, ben, { sign: false });
     const p = await learnFrom(benDrive);
     expect(memberPresence(p, benDrive.key)).toEqual({ connected: false });
+    expect(p.unverified.get(benDrive.key)).toBe("unsigned");
     expect(p.peerKeys.size).toBe(1);
   });
 });

@@ -4,7 +4,8 @@
  * a copied claim.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { identityMessage } from "../src/membership/records.ts";
 import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
@@ -133,5 +134,46 @@ describe("signed device records", () => {
       ["Mallory", undefined],
     ]);
     await Promise.all([anna.store.close(), ben.store.close(), mallory.store.close()]);
+  });
+
+  it("a member who leaves with a copy of another member's identity does not clear that member's answer", async () => {
+    const hub = createFakeHub();
+    const [anna, ben, mallory] = [device(hub, "Anna"), device(hub, "Ben"), device(hub, "Mallory")];
+    await Promise.all([anna.store.ready(), ben.store.ready(), mallory.store.ready()]);
+    const folder = (await anna.store.createFolder("Trip"))[1]!.folder;
+    const benKey = await joinAsMember(anna.store, folder.id, ben.store, folder.shareKey);
+    const malloryKey = await joinAsMember(anna.store, folder.id, mallory.store, folder.shareKey);
+    const benRec = await record(ben, benKey);
+    await anna.store.close();
+
+    const stateFile = join(anna.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(stateFile, "utf8"));
+    saved.folders[0].answers = { [ben.identity()]: "accepted" };
+    writeFileSync(stateFile, JSON.stringify(saved));
+
+    const forged = await mallory.deps.drives.openOwn(`member/${folder.shareKey}`);
+    await forged.put(
+      "/device.json",
+      Buffer.from(JSON.stringify({ name: "Mallory", swarmKey: "e".repeat(64), ...benRec })),
+    );
+    await forged.put(
+      "/left.json",
+      Buffer.from(JSON.stringify({ version: 1, leftAt: Date.now() + 60_000 })),
+    );
+
+    const deps = restarted(anna.deps);
+    const again = createPhotoStore(deps);
+    await again.ready();
+    const deadline = Date.now() + 3000;
+    let keys: string[] = [];
+    while (Date.now() < deadline) {
+      keys = (await again.status()).members.map((m: { key: string }) => m.key);
+      if (!keys.includes(malloryKey)) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(keys, "Mallory was dropped after leaving").not.toContain(malloryKey);
+    const after = JSON.parse(readFileSync(stateFile, "utf8"));
+    expect(after.folders[0].answers).toEqual({ [ben.identity()]: "accepted" });
+    await Promise.all([again.close(), ben.store.close(), mallory.store.close()]);
   });
 });

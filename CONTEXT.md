@@ -73,7 +73,7 @@ The noise public key of a device's swarm connection. It is random and changes ev
 _Avoid_: device key, identity key, node id
 
 **Identity drive**:
-The device's own keyless drive. It holds `/device.json` and the join-request outbox, and no photos. Peers learn its key over the identity greeting on each connection, so an Admin can read the requests a device filed.
+The device's own keyless drive. It holds `/device.json` and the join-request outbox, and no photos. Peers learn its key over the identity greeting on each connection, so an Admin can read the requests a device filed. Each album drive's `/device.json` names the identity drive and carries a signature by it for that drive, and a member's identity is trusted only when that signature checks out.
 _Avoid_: own drive, profile drive
 
 **Actor**:
