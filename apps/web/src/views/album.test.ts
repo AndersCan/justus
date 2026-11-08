@@ -688,7 +688,7 @@ describe("album viewer rows", () => {
       expect(confirmAction).toHaveBeenLastCalledWith({
         title: "Remove Kimmy?",
         detail:
-          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.",
+          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone and sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
         confirmLabel: "Remove",
         tone: "danger",
       }),

@@ -306,12 +306,17 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
     .click();
   const people = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await people.getByRole("button", { name: /^Remove /, exact: false }).click();
+  await expect(
+    a.getByText(/Everyone else stays in the album and keeps their photos/),
+  ).toBeVisible();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
   await expect(a.getByText(`is no longer in ${album}`)).toBeVisible({ timeout: 60_000 });
 
   await expect(
     b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),
   ).toBeVisible({ timeout: 60_000 });
+  await expect(b.getByText(/connected now|shared with/)).toHaveCount(0);
+  await expect(b.locator("[data-presence-dots]")).toHaveCount(0);
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible();
   await b.goto("/sharing");
