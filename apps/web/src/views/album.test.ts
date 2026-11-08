@@ -628,6 +628,22 @@ describe("album viewer rows", () => {
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Kimmy can add photos now"));
   });
 
+  test("the Admin removes a Collaborator and gets a toast naming them", async () => {
+    vi.mocked(gateway.removeMember).mockResolvedValue([null, { ok: true }] as any);
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    const remove = [...memberRows(host)[1].querySelectorAll("button")].find(
+      (b) => b.textContent?.trim() === "Remove",
+    );
+    remove?.click();
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/^Kimmy is no longer in .+/)),
+    );
+  });
+
   test("both member buttons are disabled while Let add photos is in progress", async () => {
     vi.mocked(gateway.makeMember).mockReturnValue(new Promise(() => {}));
     const busyStatus = {

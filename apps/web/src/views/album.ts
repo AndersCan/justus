@@ -139,6 +139,7 @@ type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
 
 const memberNames = new Map<string, string>();
+const removedPeople = new Map<string, { name: string; album: string }>();
 
 onOutput(peopleActor, (e) => {
   if (e.type !== "viewerLetAddPhotos" && e.type !== "VIEWER_LET_ADD_PHOTOS") return;
@@ -153,6 +154,14 @@ onOutput(peopleActor, (e) => {
   const name = memberNames.get(key);
   toast(name ? copy("album.is_a_viewer_now", { name }) : copy("album.they_re_a_viewer_now"));
   memberNames.delete(key);
+});
+
+onOutput(peopleActor, (e) => {
+  if (e.type !== "memberRemoved" && e.type !== "MEMBER_REMOVED") return;
+  const key = (e.payload as { memberKey: string }).memberKey;
+  const removed = removedPeople.get(key);
+  removedPeople.delete(key);
+  if (removed) toast(copy("album.is_no_longer_in", { name: removed.name, album: removed.album }));
 });
 
 /** The toast after an answer went through; a No gets none. */
@@ -299,7 +308,9 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
                 confirmLabel: copy("album.remove_2"),
                 tone: "danger",
               });
-              if (ok && vm.folder) people.remove(vm.folder.id, p.key);
+              if (!ok || !vm.folder) return;
+              removedPeople.set(p.key, { name: p.name, album: vm.folder.name });
+              people.remove(vm.folder.id, p.key);
             }}
           >
             ${t("album.remove_2")}

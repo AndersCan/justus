@@ -80,6 +80,9 @@ const viewerLetAddPhotos = event("VIEWER_LET_ADD_PHOTOS")<{ memberKey: string }>
 /** The Collaborator is a Viewer now; the view tells the Admin. */
 const memberMadeViewer = event("MEMBER_MADE_VIEWER")<{ memberKey: string }>();
 
+/** The member is out of the album; the view tells the Admin. */
+const memberRemoved = event("MEMBER_REMOVED")<{ memberKey: string }>();
+
 type PeopleContext = {
   pending: { folderId: string; memberKey: string } | null;
   error: string | null;
@@ -129,7 +132,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       madeViewer,
       makeViewerFailed,
     ],
-    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer],
+    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer, memberRemoved],
     states: [
       peopleSheetClosed,
       showingPeople,
@@ -332,8 +335,13 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         event: removed,
         to: [showingPeople],
         handler: (_e, opts) => {
+          const pending = opts.context.get().pending;
           opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          return { state: showingPeople };
+          if (!pending) return { state: showingPeople };
+          return {
+            state: showingPeople,
+            emit: [memberRemoved.create({ memberKey: pending.memberKey })],
+          };
         },
       });
       /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
