@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
+import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
 import { createRequestsActor, requestsViewModel } from "./requests-machine";
 
@@ -7,8 +8,8 @@ vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
 }));
 
-const request = (folderId: string, requesterKey: string) =>
-  ({ folderId, requesterKey, requesterName: requesterKey }) as unknown as JoinRequest;
+const request = (folderId: string, requesterKey: string, viaInvite = false) =>
+  ({ folderId, requesterKey, requesterName: requesterKey, viaInvite }) as unknown as JoinRequest;
 
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
@@ -28,7 +29,8 @@ function setup(
   const port = {
     requests: vi.fn(
       options.requests ??
-        (async () => [null, { requests: [request("f1", "k1"), request("f1", "k2")] }] as never),
+        (async () =>
+          [null, { requests: [request("f1", "k1", true), request("f1", "k2")] }] as never),
     ),
     respond: vi.fn(options.respond ?? (async () => [null, { ok: true }] as never)),
   };
@@ -141,6 +143,76 @@ describe("requests machine factory", () => {
     await actor.settled();
     expect(actor.state.name).toBe("showingRequests");
   });
+
+  test("a sent answer announces who is in and how", async () => {
+    const { actor } = setup();
+    const sent: unknown[] = [];
+    onOutput(actor, (e) => {
+      if (e.type === "ANSWER_SENT") sent.push(e.payload);
+    });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true, "reader"));
+    await actor.settled();
+    actor.send(respond("f1", "k2", false));
+    await actor.settled();
+    expect(sent).toEqual([
+      { requesterName: "k1", approve: true, role: "reader", viaInvite: true },
+      { requesterName: "k2", approve: false, role: "member", viaInvite: false },
+    ]);
+  });
+
+  test("a failed answer is kept: the view model names it and nothing is announced", async () => {
+    const { actor } = setup({ respond: async () => [new Error("invoke timeout"), null] });
+    const sent: string[] = [];
+    onOutput(actor, (e) => sent.push(e.type));
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    expect(requestsViewModel(actor.snapshot()).failedAnswer).toEqual({
+      folderId: "f1",
+      requesterKey: "k1",
+      approve: true,
+      role: "member",
+    });
+    expect(sent).toEqual([]);
+  });
+
+  test("Retry after a failed answer sends the same answer again", async () => {
+    const { actor, port } = setup();
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    const sent: string[] = [];
+    onOutput(actor, (e) => sent.push(e.type));
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true, "reader"));
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    actor.send(retry());
+    expect(actor.state.name).toBe("sendingAnswer");
+    expect(actor.snapshot().context.error).toBeNull();
+    await actor.settled();
+    expect(port.respond).toHaveBeenCalledTimes(2);
+    expect(port.respond).toHaveBeenNthCalledWith(1, "f1", "k1", true, "reader");
+    expect(port.respond).toHaveBeenNthCalledWith(2, "f1", "k1", true, "reader");
+    expect(actor.state.name).toBe("showingRequests");
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
+    expect(requestsViewModel(actor.snapshot()).failedAnswer).toBeNull();
+    expect(sent).toEqual(["ANSWER_SENT"]);
+  });
+
+  test("Refresh after a failed answer forgets it", async () => {
+    const { actor } = setup({ respond: async () => [new Error("invoke timeout"), null] });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true));
+    await actor.settled();
+    actor.send(refresh());
+    await actor.settled();
+    expect(requestsViewModel(actor.snapshot()).failedAnswer).toBeNull();
+    expect(actor.snapshot().context.pendingRespond).toBeNull();
+  });
 });
 
 describe("requestsViewModel", () => {
@@ -150,6 +222,7 @@ describe("requestsViewModel", () => {
       requests: [],
       state: "requestsNotLoaded",
       responding: false,
+      failedAnswer: null,
       settled: false,
       error: null,
       fatal: false,

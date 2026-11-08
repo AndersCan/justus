@@ -28,7 +28,7 @@ const loadingRequests = state("loadingRequests")();
 const showingRequests = state("showingRequests")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const sendingAnswer = state("sendingAnswer")();
-/** The Yes or No did not reach the app; the request stays in the list. No message is shown. */
+/** The Yes or No did not go through; the request stays and its card shows why, with Retry. */
 const couldNotSendAnswer = state("couldNotSendAnswer")();
 /** The requests could not be loaded; the person sees the problem and can try again. */
 const couldNotLoadRequests = state("couldNotLoadRequests")();
@@ -39,7 +39,7 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator ("member") on a request. */
+/** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
   requesterKey: string;
@@ -50,7 +50,14 @@ const respond = event("RESPOND")<{
 const responded = event("RESPONDED")<{ folderId: string; requesterKey: string }>();
 /** The answer could not be sent. */
 const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
-/** The person taps Try again after an error. */
+/** The Yes or No went through; the view thanks the Admin with who is in and how. */
+export const answerSent = event("ANSWER_SENT")<{
+  requesterName: string;
+  approve: boolean;
+  role: "reader" | "member";
+  viaInvite: boolean;
+}>();
+/** The person taps Try again after an error, or Retry after a failed answer (the same answer is sent again). */
 const retry = event("RETRY")();
 
 type RequestsContext = {
@@ -76,6 +83,7 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     requests: s.context.requests,
     state,
     responding: state === "sendingAnswer",
+    failedAnswer: state === "couldNotSendAnswer" ? s.context.pendingRespond : null,
     settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
@@ -90,7 +98,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
   return Actor({
     inputs: [refresh, respond, retry],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [],
+    outputs: [answerSent],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -108,7 +116,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: refresh,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
+          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
           return { state: loadingRequests };
         },
       });
@@ -118,7 +126,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           event: refresh,
           to: [loadingRequests],
           handler: (_e, opts) => {
-            opts.context.set({ ...opts.context.get(), error: null });
+            opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
             return { state: loadingRequests };
           },
         });
@@ -146,7 +154,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: refresh,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
+          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
           return { state: loadingRequests };
         },
       });
@@ -155,7 +163,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: retry,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
+          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
           return { state: loadingRequests };
         },
       });
@@ -229,17 +237,33 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: responded,
         to: [showingRequests],
         handler: (e, opts) => {
+          const ctx = opts.context.get();
+          const pending = ctx.pendingRespond;
+          const request = ctx.requests.find(
+            (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
+          );
           opts.context.set({
-            ...opts.context.get(),
+            ...ctx,
             error: null,
             requests: removeRequestFromList(
-              opts.context.get().requests,
+              ctx.requests,
               e.payload.folderId,
               e.payload.requesterKey,
             ),
             pendingRespond: null,
           });
-          return { state: showingRequests };
+          if (!pending) return { state: showingRequests };
+          return {
+            state: showingRequests,
+            emit: [
+              answerSent.create({
+                requesterName: request?.requesterName ?? "They",
+                approve: pending.approve,
+                role: pending.role,
+                viaInvite: request?.viaInvite === true,
+              }),
+            ],
+          };
         },
       });
       /** Sending failed: the person sees an error and the request stays in the list. */
@@ -250,9 +274,17 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           opts.context.set({
             ...opts.context.get(),
             error: e.payload.message,
-            pendingRespond: null,
           });
           return { state: couldNotSendAnswer };
+        },
+      });
+      /** Retry after a failed answer: the same answer is sent again. */
+      m.on(couldNotSendAnswer, {
+        event: retry,
+        to: [sendingAnswer],
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), error: null });
+          return { state: sendingAnswer };
         },
       });
     },
