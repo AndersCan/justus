@@ -253,6 +253,9 @@ type FolderRecord = {
   /** Creator: people who have not yet followed the album to its new key, by
    * identity, with the role they get and the drive and name they had. */
   moving?: Record<string, MovingEntry>;
+  /** Creator: keys removed whose move to new keys has not finished; a retry
+   * of Remove runs the move again. */
+  moveOwed?: string[];
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
@@ -788,6 +791,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         moving[identity] = { role: m.role, name: peerName(m.name, "Unknown device"), key: m.key };
       }
       if (Object.keys(moving).length > 0) out.moving = moving;
+    }
+    if (Array.isArray(f.moveOwed)) {
+      const owed = (f.moveOwed as unknown[]).filter(
+        (k): k is string => typeof k === "string" && isHexKey(k),
+      );
+      if (owed.length > 0) out.moveOwed = owed;
     }
     if (f.moved === true) out.moved = true;
     if (f.lifecycle === "archived" || f.lifecycle === "leaving" || f.lifecycle === "deleting") {
@@ -3096,6 +3105,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         : record.retiredInvites,
       answers,
       moving: Object.keys(moving).length > 0 ? moving : undefined,
+      moveOwed: undefined,
       earlier: moved.earlier,
     };
     const persisted = state.folders.find((f) => f.id === record.id);
@@ -3938,14 +3948,36 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       );
       const isMember = Boolean(registry.members[memberKey]);
       const isViewer = Boolean(rt.viewers[memberKey]);
-      if (!isMember && !isViewer && !stillMoving)
+      const owed = (rt.record.moveOwed ?? []).includes(memberKey);
+      if (!isMember && !isViewer && !stillMoving && !owed)
         return err(PhotoError.NOT_FOUND, "No such member");
+      // Mark the move as owed before the removal, so a failed move can be retried.
+      if (isMember || isViewer) {
+        const persisted = state.folders.find((f) => f.id === rt.record.id);
+        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+          target.moveOwed = [memberKey, ...(target.moveOwed ?? []).filter((k) => k !== memberKey)];
+        }
+        saveState();
+      }
+      const clearOwed = () => {
+        const persisted = state.folders.find((f) => f.id === rt.record.id);
+        for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+          target.moveOwed = target.moveOwed?.filter((k) => k !== memberKey);
+          if (!target.moveOwed?.length) delete target.moveOwed;
+        }
+        saveState();
+      };
       // Today's removal first, on the old drive: the removed phone sees itself removed.
       if (isMember) {
         const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
-        if (removeErr?.kind === "no-such-member")
+        if (removeErr?.kind === "no-such-member") {
+          clearOwed();
           return err(PhotoError.NOT_FOUND, "No such member");
-        if (removeErr) throw new Error(removeErr.message);
+        }
+        if (removeErr) {
+          clearOwed();
+          throw new Error(removeErr.message);
+        }
       } else if (isViewer) {
         const { [memberKey]: _gone, ...left } = rt.viewers;
         try {
@@ -3954,6 +3986,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             Buffer.from(JSON.stringify({ version: 1, viewers: left })),
           );
         } catch (e) {
+          clearOwed();
           return err(ErrorCode.HOST_ERROR, `Cannot remove: ${errText(e)}`);
         }
         rt.viewers = left;

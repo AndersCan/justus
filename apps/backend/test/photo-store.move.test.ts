@@ -268,3 +268,49 @@ describe("someone who asked through the invite and is removed", () => {
     await s.close();
   });
 });
+
+describe("a Remove whose move fails", () => {
+  it("can be retried and still moves the album", async () => {
+    const s = await album();
+    const before = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const drives = s.admin.deps.drives;
+    const realOpen = drives.open.bind(drives);
+    let failing = true;
+    drives.open = (async (...args: Parameters<typeof realOpen>) => {
+      if (failing) return [new Error("drive offline"), null];
+      return realOpen(...args);
+    }) as typeof drives.open;
+    const [first] = await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect(first).not.toBeNull();
+    expect(s.record().moveOwed).toEqual([s.keys.ben]);
+    expect(s.record().shareKey).toBe(before.shareKey);
+    failing = false;
+    const [retry] = await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect(retry).toBeNull();
+    const record = s.record();
+    expect(record.shareKey).not.toBe(before.shareKey);
+    expect(record.pastKeys).toEqual([before.shareKey]);
+    expect(record.moveOwed).toBeUndefined();
+    expect(Object.values(record.moving ?? {}).map((m) => (m as { key: string }).key)).not.toContain(
+      s.keys.ben,
+    );
+    await s.close();
+  });
+
+  it("keeps the owed move across a restart", async () => {
+    const s = await album();
+    const drives = s.admin.deps.drives;
+    drives.open = (async () => [new Error("drive offline"), null]) as unknown as typeof drives.open;
+    await s.admin.store.removeMember(s.folderId, s.keys.vera);
+    expect(s.record().moveOwed).toEqual([s.keys.vera]);
+    await s.admin.store.close();
+    const again = createPhotoStore(restarted(s.admin.deps));
+    await again.ready();
+    const [retry] = await again.removeMember(s.folderId, s.keys.vera);
+    expect(retry).toBeNull();
+    expect(s.record().moveOwed).toBeUndefined();
+    expect(s.record().moves).toBe(1);
+    await again.close();
+    for (const p of [s.nils, s.ben, s.vera]) await p.store.close();
+  });
+});
