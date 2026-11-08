@@ -1130,6 +1130,11 @@ export const scenarios: Scenario[] = [
         (l) => l.some((p) => p.name === "old.jpg"),
         "the old photo on the Admin",
       );
+      await eventually(
+        () => photosOf(ben, benId),
+        (l) => l.some((p) => p.name === "old.jpg"),
+        "the old photo on Ben's phone",
+      );
 
       t.noErr(await admin.store.removeMember(folderId, keys.Ben), "remove Ben");
       const moved = (await admin.store.folders()).folders.find((f) => f.id === folderId)!;

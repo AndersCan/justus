@@ -255,6 +255,8 @@ const DRIVE_PATH_EARLIER = "/earlier.json";
 /** How many earlier keys of a moved album are kept for people still to follow. */
 const MAX_PAST_KEYS = 10;
 const MAX_LINK_TIMES = 50;
+/** How many other people's drives a removed phone keeps at a fixed version. */
+const MAX_KEPT_DRIVES = 200;
 /** A link lasts at most 7 days; the slack covers clocks that differ. */
 const MAX_LINK_MS = 7 * 24 * 60 * 60_000 + CLOCK_SLACK_MS;
 
@@ -303,6 +305,8 @@ type FolderRecord = {
   /** Creator: keys removed whose move to new keys has not finished; a retry
    * of Remove runs the move again. */
   moveOwed?: string[];
+  /** Removed phone: the version of each other person's drive it keeps. */
+  keptUntil?: Record<string, number>;
   /** Not creator: an album from before the key move; read-only. */
   moved?: true;
   notice?: FolderNotice;
@@ -879,6 +883,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (k): k is string => typeof k === "string" && isHexKey(k),
       );
       if (owed.length > 0) out.moveOwed = owed;
+    }
+    if (isTextJSON(f.keptUntil)) {
+      const kept: Record<string, number> = {};
+      for (const [key, version] of Object.entries(f.keptUntil)) {
+        if (Object.keys(kept).length >= MAX_KEPT_DRIVES) break;
+        if (!isHexKey(key) || typeof version !== "number") continue;
+        if (!Number.isInteger(version) || version < 0) continue;
+        kept[key] = version;
+      }
+      out.keptUntil = kept;
     }
     if (f.moved === true) out.moved = true;
     if (f.lifecycle === "archived" || f.lifecycle === "leaving" || f.lifecycle === "deleting") {
@@ -1505,11 +1519,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await refreshViewers(rt);
     await refreshEarlier(rt);
     const registry = await readRegistryIn(rt.folderDrive);
-    const entries = Object.values(registry.members).map((m) => ({
-      key: m.key,
-      name: m.name,
-    }));
-    for (const e of rt.record.earlier ?? []) {
+    // A removed phone keeps each other drive as it was when it heard.
+    const frozen = rt.record.notice?.kind === "removed" ? rt.record.keptUntil : undefined;
+    const entries = frozen
+      ? []
+      : Object.values(registry.members).map((m) => ({
+          key: m.key,
+          name: m.name,
+        }));
+    for (const e of frozen ? [] : (rt.record.earlier ?? [])) {
       if (e.keptVersion !== undefined) continue;
       if (!entries.some((x) => x.key === e.key)) entries.push(e);
     }
@@ -1519,6 +1537,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Admin recorded; their drive is read as a copy at that version.
     // A moved album keeps such a copy in its earlier drives.
     const kept = [
+      ...Object.entries(frozen ?? {}).map(([key, keptVersion]) => ({
+        key,
+        keptVersion,
+        name: rt.memberNameCache.get(key) ?? registry.members[key]?.name ?? "Unknown device",
+      })),
       ...Object.values(rt.viewers).filter(
         (v) => v.keptVersion !== undefined && !registry.members[v.key],
       ),
@@ -2006,16 +2029,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** This phone was removed: the album stays on it, read-only, with the photos it has. */
   async function markRemoved(rt: FolderRuntime) {
     const persisted = state.folders.find((f) => f.id === rt.record.id);
+    const keptUntil: Record<string, number> = {};
+    for (const [key, drive] of rt.memberDrives) {
+      if (key === selfKeyOf(rt)) continue;
+      keptUntil[key] = rt.keptAt.get(key) ?? drive.version();
+    }
     for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
       target.role = "reader";
       target.driveKey = "";
       target.pending = false;
       target.notice = { kind: "removed" };
+      target.keptUntil = keptUntil;
     }
     saveState();
     await refreshMembersFor(rt);
     armFolderWatchers(rt);
-    log("removed.heard", { folder: short(rt.record.id) });
+    log("removed.heard", {
+      folder: short(rt.record.id),
+      kept: Object.keys(keptUntil).length,
+    });
     deps.onChanged({ cause: "enroll", folderId: rt.record.id });
   }
 
