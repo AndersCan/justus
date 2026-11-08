@@ -17,6 +17,7 @@ const VERIFIED: Record<string, string> = {
   protomux: "3.11.0",
   hyperdht: "6.33.1",
   hypercore: "11.40.3",
+  "hypercore-crypto": "3.7.0",
 };
 
 const require = createRequire(import.meta.url);

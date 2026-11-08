@@ -1,7 +1,15 @@
 import { short, type P2pLog } from "../p2p-log";
-import type { Drive, DriveEntry, DriveStore, OpenResult } from "../ports/drive-store";
+import type {
+  Drive,
+  DriveEntry,
+  DriveStore,
+  IdentityProof,
+  IdentitySignature,
+  OpenResult,
+} from "../ports/drive-store";
 import Corestore from "corestore";
 import Hypercore from "hypercore";
+import crypto from "hypercore-crypto";
 import Hyperdrive from "hyperdrive";
 
 type Entry = { raw: any; drive: Drive; refs: number };
@@ -17,6 +25,21 @@ function errText(e: unknown): string {
 
 function toHex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
+}
+
+/** True when `proof` is a signature by the signer of the drive `proof.identityKey`. Never throws. */
+function verifyIdentityProof(proof: IdentityProof): boolean {
+  try {
+    const { identityKey, publicKey, signature, message } = proof;
+    if (!/^[0-9a-f]{64}$/i.test(identityKey)) return false;
+    if (!/^[0-9a-f]{64}$/i.test(publicKey)) return false;
+    if (!/^[0-9a-f]{128}$/i.test(signature)) return false;
+    const pub = Buffer.from(publicKey, "hex");
+    if (!Hypercore.key(pub).equals(Buffer.from(identityKey, "hex"))) return false;
+    return crypto.verify(Buffer.from(message), Buffer.from(signature, "hex"), pub);
+  } catch {
+    return false;
+  }
 }
 
 /** Maps a raw Hyperdrive list entry to the port's `DriveEntry`. */
@@ -214,6 +237,23 @@ export function createHyperDriveStore(dir: string, log: P2pLog = () => {}): Hype
         return track(raw);
       });
     },
+    async signAsIdentity(message): Promise<OpenResult<IdentitySignature>> {
+      let drive: Drive | undefined;
+      try {
+        drive = await this.openOwn();
+        const raw = (await byKey.get(drive.key))?.raw;
+        await raw.ready();
+        const kp = raw.core.keyPair;
+        if (!kp?.secretKey) return [new Error("identity drive has no secret key"), null];
+        const sig = crypto.sign(Buffer.from(message), kp.secretKey);
+        return [null, { publicKey: toHex(kp.publicKey), signature: toHex(sig) }];
+      } catch (e: unknown) {
+        return [e instanceof Error ? e : new Error(String(e)), null];
+      } finally {
+        if (drive) await release(drive).catch(() => {});
+      }
+    },
+    verifyIdentity: (proof) => verifyIdentityProof(proof),
     open: (key, { timeoutMs }) => open(key, timeoutMs),
     openAt: (key, version, { timeoutMs }) => openAt(key, version, timeoutMs),
     release,

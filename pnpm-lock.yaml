@@ -339,6 +339,9 @@ importers:
       hypercore:
         specifier: 11.40.3
         version: 11.40.3(bare-buffer@3.7.0)(bare-url@2.5.2)
+      hypercore-crypto:
+        specifier: 3.7.0
+        version: 3.7.0(bare-buffer@3.7.0)(bare-events@2.9.1)(bare-url@2.5.2)
       hyperdrive:
         specifier: 13.3.3
         version: 13.3.3(bare-buffer@3.7.0)(bare-url@2.5.2)

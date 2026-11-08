@@ -46,10 +46,19 @@ export type Drive = {
 
 export type OpenResult<T> = [Error, null] | [null, T];
 
+/** An ed25519 signature by the identity drive's key pair. Both hex. `publicKey` is not the drive key. */
+export type IdentitySignature = { publicKey: string; signature: string };
+/** A claim that the identity drive `identityKey` signed `message`. All hex except `message`. */
+export type IdentityProof = IdentitySignature & { identityKey: string; message: Uint8Array };
+
 export type DriveStore = {
   ready(): Promise<void>;
   /** Keyless (identity) drive, or the drive of a namespace such as `folder/<id>` or `member/<shareKey>`. */
   openOwn(namespace?: string): Promise<Drive>;
+  /** Signs `message` with the identity drive's key pair (the drive `openOwn()` returns). An error value when the store is closed or the drive has no secret key. */
+  signAsIdentity(message: Uint8Array): Promise<OpenResult<IdentitySignature>>;
+  /** True when `signature` is `publicKey`'s signature over `message` and `publicKey` is the signer of the drive whose key is `identityKey`. False, never a throw, for malformed hex. */
+  verifyIdentity(proof: IdentityProof): boolean;
   /**
    * Opens a drive by key; an error value when it is not ready within `timeoutMs`.
    * An unserved remote key opens empty (hyperdrive 13.3.3) rather than giving an error.
