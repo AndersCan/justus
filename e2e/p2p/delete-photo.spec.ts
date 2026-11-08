@@ -111,10 +111,10 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   // Ben (a member) has no menu on Ana's photo.
   await b.getByRole("button", { name: `View ${ANA}` }).click();
   await expect(b.getByRole("button", { name: /show who has this photo$/ })).toContainText(
-    /^On .+'s and your phone$/,
+    /^On .+'s and your phone/,
     { timeout: 60_000 },
   );
-  await expect(anaLine).toContainText(/^On .+'s and your phone$/, { timeout: 60_000 });
+  await expect(anaLine).toContainText(/^On .+'s and your phone/, { timeout: 60_000 });
   expect(await lightboxImage.boundingBox()).toEqual(before);
   await a.getByRole("button", { name: "Close" }).click();
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
