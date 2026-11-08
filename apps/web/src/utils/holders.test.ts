@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { PhotoHolders } from "@justus/core";
-import { holdersLine, holdersSheetRows } from "./holders";
+import { deleteDetail, holdersLine, holdersSheetRows } from "./holders";
 
 const m = (name: string) => ({ key: name, name });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
@@ -80,5 +80,30 @@ describe("holdersSheetRows", () => {
     expect(rows.others).toEqual([m("a")]);
     expect(rows.unsure).toEqual([m("b")]);
     expect(rows.former).toEqual(["c"]);
+  });
+});
+
+describe("deleteDetail", () => {
+  const gone = "It will be gone from the album for everyone.";
+  it("says only that it is gone without holders", () => {
+    expect(deleteDetail(undefined)).toBe(gone);
+  });
+  it("says only that it is gone when no one else has it", () => {
+    expect(deleteDetail(h({ unsure: [m("Jo")], former: ["Al"] }))).toBe(gone);
+  });
+  it("names one phone", () => {
+    expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
+      `${gone} Nils's phone keeps a copy. Deleting can't take it back.`,
+    );
+  });
+  it("names two phones", () => {
+    expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
+      `${gone} Nils's and Maya's phones keep a copy. Deleting can't take them back.`,
+    );
+  });
+  it("names three phones", () => {
+    expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
+      `${gone} Nils's, Maya's and Ben's phones keep a copy. Deleting can't take them back.`,
+    );
   });
 });

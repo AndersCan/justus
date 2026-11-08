@@ -153,6 +153,19 @@ describe("Delete", () => {
     });
   });
 
+  it("names the phones that keep a copy", async () => {
+    await reload([a, b]);
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    const holders = { here: true, others: [{ key: "n", name: "Nils" }], unsure: [], former: [] };
+    await deleteFromLightbox({ ...a, holders });
+    expect(confirmAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail:
+          "It will be gone from the album for everyone. Nils's phone keeps a copy. Deleting can't take it back.",
+      }),
+    );
+  });
+
   it("keeps the photo open until the album answers, then closes it", async () => {
     await reload([a, b]);
     openLightbox(b, [a, b]);
