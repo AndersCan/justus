@@ -184,6 +184,8 @@ export function holdersFor(input: {
   };
 }
 
+/** A removed phone tells the Admin it deleted its copy for at most this long. */
+export const COPY_DELETED_HOLD_MS = 90 * 24 * 60 * 60 * 1000;
 export const FORMER_PATH = "/former.json";
 const MAX_FORMER_BYTES = 1024 * 1024;
 export const MAX_FORMER_PEOPLE = 50;

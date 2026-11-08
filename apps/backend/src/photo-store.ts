@@ -12,6 +12,7 @@ import {
   copyHeld,
   dropFormer,
   markFormerLeft,
+  COPY_DELETED_HOLD_MS,
   ensureHoldingMarker,
   holdersFor,
   markHeld,
@@ -226,13 +227,21 @@ type PersistedState = {
  * Admin's and keeps only the delete note, to offer it to members who were away.
  * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed.
  * `waitingForAdminToSeeYouLeft`: a Member or Viewer left; this phone's own drive in the
- * album (`selfNs`) keeps saying so until the Admin's list (`listedIn`) drops it. */
+ * album (`selfNs`) keeps saying so until the Admin's list (`listedIn`) drops it.
+ * `waitingForAdminToHearYouDeleted`: this phone was removed and deleted its copy; it
+ * tells the Admin (`admin`) until that phone answers, at most `COPY_DELETED_HOLD_MS`. */
 type GoneRecord = {
   id: string;
   name: string;
   shareKey: string;
-  kind: "deletedForEveryone" | "deletedByAdmin" | "waitingForAdminToSeeYouLeft";
+  kind:
+    | "deletedForEveryone"
+    | "deletedByAdmin"
+    | "waitingForAdminToSeeYouLeft"
+    | "waitingForAdminToHearYouDeleted";
   selfNs?: string;
+  /** The Admin's identity, for `waitingForAdminToHearYouDeleted`. */
+  admin?: string;
   /** Which Admin list the leaver was on; absent means `/members.json`. */
   listedIn?: "viewers";
   adminName?: string;
@@ -574,6 +583,14 @@ type FolderRuntime = {
   /** True once the photos opened before holding records existed were recorded. */
   heldBackfilled: boolean;
 };
+
+/** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
+export function adminToTellDeleted(record: {
+  notice?: { kind: string };
+  invite?: { owner?: string };
+}): string | undefined {
+  return record.notice?.kind === "removed" ? record.invite?.owner : undefined;
+}
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const fs = deps.fs;
@@ -954,16 +971,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (
         g.kind !== "deletedForEveryone" &&
         g.kind !== "deletedByAdmin" &&
-        g.kind !== "waitingForAdminToSeeYouLeft"
+        g.kind !== "waitingForAdminToSeeYouLeft" &&
+        g.kind !== "waitingForAdminToHearYouDeleted"
       ) {
         continue;
       }
+      if (
+        g.kind === "waitingForAdminToHearYouDeleted" &&
+        (typeof g.admin !== "string" || !isHexKey(g.admin))
+      )
+        continue;
       out.push({
         id: g.id,
         name: peerName(g.name, DEFAULT_ASK_ALBUM),
         shareKey: g.shareKey,
         kind: g.kind,
         ...(typeof g.selfNs === "string" ? { selfNs: g.selfNs } : {}),
+        ...(typeof g.admin === "string" ? { admin: g.admin } : {}),
         ...(g.listedIn === "viewers" ? { listedIn: "viewers" as const } : {}),
         ...(typeof g.adminName === "string"
           ? { adminName: peerName(g.adminName, DEFAULT_ASK_OWNER) }
@@ -2070,9 +2094,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         return;
       }
-      case "leftAlbum":
+      case "leftAlbum": {
+        const removed = rt.record.notice?.kind === "removed";
+        const admin = adminToTellDeleted(rt.record);
         finishLeave(id);
+        if (admin) noteDeleted(rt.record, admin);
+        else if (removed) log("copyDeleted.noAdmin", { folder: id });
         return;
+      }
       case "deletedByAdmin": {
         const adminName =
           isTextJSON(payload) && typeof payload.adminName === "string"
@@ -2097,6 +2126,54 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (state.activeFolderId === id) state.activeFolderId = shownFolders()[0]?.id ?? null;
     saveState();
     if (wasShown) deps.onChanged({ cause: "remove", folderId: id });
+  }
+
+  /** A removed phone deleted the album: keeps a record and tells the Admin's phone. */
+  function noteDeleted(record: FolderRecord, admin: string) {
+    state.gone.push({
+      id: record.id,
+      name: record.name,
+      shareKey: record.shareKey,
+      kind: "waitingForAdminToHearYouDeleted",
+      admin,
+      at: Date.now(),
+    });
+    saveState();
+    log("copyDeleted.noted", { folder: record.id, admin: short(admin) });
+    lookFor(admin);
+    void tellAdminYouDeleted(admin).catch(answerErr("copyDeleted"));
+  }
+
+  /** Tells `identity`, the Admin, once on each proven connection to it, that this phone deleted its copy. */
+  async function tellAdminYouDeleted(identity: string): Promise<void> {
+    if (closed || !setupDone) return;
+    for (const g of [...state.gone]) {
+      if (g.kind !== "waitingForAdminToHearYouDeleted" || g.admin !== identity) continue;
+      await tellIdentity(invitePorts, {
+        identity,
+        message: { kind: "copyDeleted", album: deps.drives.discoveryKeyOf(g.shareKey) },
+        timeoutMs: 2_000,
+      });
+      log("copyDeleted.sent", { admin: short(identity) });
+    }
+  }
+
+  /** Drops delete records older than the hold and looks for the Admins of the rest. */
+  function resumeDeleted() {
+    const now = Date.now();
+    const before = state.gone.length;
+    state.gone = state.gone.filter(
+      (g) => g.kind !== "waitingForAdminToHearYouDeleted" || now - g.at < COPY_DELETED_HOLD_MS,
+    );
+    if (state.gone.length !== before) {
+      saveState();
+      log("copyDeleted.expired", { n: before - state.gone.length });
+    }
+    const admins = new Set<string>();
+    for (const g of state.gone) {
+      if (g.kind === "waitingForAdminToHearYouDeleted" && g.admin) admins.add(g.admin);
+    }
+    for (const a of admins) lookFor(a);
   }
 
   /** Albums a Member left, waiting for the Admin's member list to drop this phone: the stop function of each watcher. */
@@ -3152,6 +3229,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const seen of [...moveSeen]) if (seen.startsWith(`${keyHex}:`)) moveSeen.delete(seen);
       void deliverMoveOffers(keyHex).catch(answerErr("moveOffer"));
       void deliverOwedOffers(keyHex).catch(answerErr("owedOffer"));
+      void tellAdminYouDeleted(keyHex).catch(answerErr("copyDeleted"));
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
         if (ask.status === "accepted" && ask.owner === keyHex) {
@@ -3837,6 +3915,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       return;
     }
+    if (message.kind === "copyDeletedSeen") {
+      const before = state.gone.length;
+      state.gone = state.gone.filter(
+        (g) =>
+          !(
+            g.kind === "waitingForAdminToHearYouDeleted" &&
+            g.admin === sender &&
+            deps.drives.discoveryKeyOf(g.shareKey) === message.album
+          ),
+      );
+      if (state.gone.length !== before) {
+        saveState();
+        log("copyDeleted.seen", { admin: short(sender) });
+      }
+      return;
+    }
     if (message.kind === "copyDeleted") {
       await onCopyDeleted(connId, sender, message.album);
       return;
@@ -4312,6 +4406,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (ask.status === "accepted") void completeAccepted(ask).catch(answerErr("complete"));
     }
     resumeOwed();
+    resumeDeleted();
   }
 
   /** Joins the album with `key`. `via` is set when the Admin accepted an ask: the
