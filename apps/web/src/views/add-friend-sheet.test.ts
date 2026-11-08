@@ -47,7 +47,9 @@ const mount = (
 
 const button = (host: HTMLElement, text: string) =>
   [...host.querySelectorAll("button")].find(
-    (b) => b.textContent?.trim() === text || b.querySelector("span > span")?.textContent === text,
+    (b) =>
+      b.textContent?.replace(/\s*›\s*$/, "").trim() === text ||
+      b.querySelector("span > span")?.textContent === text,
   );
 
 const primaries = (h: HTMLElement) =>
@@ -89,6 +91,13 @@ describe("add a friend", () => {
     expect(primaries(mount("creator"))).toEqual(["Copy invite link"]);
     document.body.replaceChildren();
     expect(primaries(mount("creator", { i1: "Kari" }, ["i1"]))).toEqual(["Copy invite link"]);
+  });
+
+  test("friend rows in the picker end in a chevron", async () => {
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
+    expect(button(host, "Kari")!.textContent).toContain("›");
   });
 
   test("a member sees neither", () => {

@@ -147,6 +147,51 @@ describe("album people", () => {
     after.forEach((row, i) => expect(row).toBe(before[i]));
   });
 
+  describe("Add to friends hint", () => {
+    const hint = "Add to friends ›";
+    const rows = (members: unknown[]) => {
+      syncActor.send(statusSeen.create({ status: { ...status, members } as never }));
+      people.open();
+      const host = document.createElement("div");
+      render(albumView("f1"), host);
+      return memberRows(host);
+    };
+    const me = { key: "k0", name: "Me", admin: true, connected: true, identity: "id-me" };
+
+    test("shows on a tappable non-friend row, and nowhere else", () => {
+      const r = rows([
+        me,
+        { key: "k1", name: "Qux", admin: false, connected: true, identity: "id-q" },
+        { key: "k2", name: "Nox", admin: false, connected: true },
+      ]);
+      expect(flat(r[0])).not.toContain(hint);
+      expect(flat(r[1])).toContain(hint);
+      expect(r[1].querySelector("button")?.textContent).toContain(hint);
+      expect(flat(r[2])).not.toContain(hint);
+    });
+
+    test("hidden once the person is a friend", async () => {
+      friends.open({ identity: "id-q", ownName: "Qux" });
+      friends.add();
+      friends.type("Qux");
+      friends.save();
+      await friendsActor.settled();
+      const r = rows([
+        me,
+        { key: "k1", name: "Qux", admin: false, connected: true, identity: "id-q" },
+      ]);
+      expect(flat(r[1])).not.toContain(hint);
+    });
+
+    test("same for a Viewer row", () => {
+      const r = rows([
+        me,
+        { key: "k1", name: "Vi", admin: false, viewer: true, connected: true, identity: "id-v" },
+      ]);
+      expect(flat(r[1])).toContain(hint);
+    });
+  });
+
   test("a member with a saved friend's name, not saved themselves, is marked", async () => {
     friends.open({ identity: "id-ben", ownName: "Ben" });
     friends.add();

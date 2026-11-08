@@ -245,6 +245,8 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
     p.you ? { kind: "count", held: holding.you } : holding.byKey.get(p.key),
     holding.total,
   );
+  const identity = p.identity;
+  const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${avatarBadge(p.name)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
@@ -280,11 +282,17 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
         ${p.presence}
       </p>
       ${line === undefined ? null : html`<p class="truncate text-xs text-muted">${line}</p>`}
+      ${
+        tappable && !p.friend
+          ? html`<p class="truncate text-xs font-medium text-accent">
+              ${t("friend_sheet.add_to_friends")} ›
+            </p>`
+          : null
+      }
     </div>`;
-  const identity = p.identity;
   return html`<li class="flex items-center gap-3 py-2" data-motion-key=${p.key}>
     ${
-      p.tappable && identity !== undefined
+      tappable
         ? html`<button
             class="flex min-w-0 flex-1 items-center gap-3 text-left"
             @click=${(e: Event) => {
