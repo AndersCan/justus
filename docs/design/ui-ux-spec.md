@@ -162,10 +162,11 @@ photos) carries the color; chrome stays quiet.
 
 - **Brand:** indigo `#4B3FD6` (dark mode `#8B7CF6`) is the accent; coral
   `#FF8A5B` appears only as the dot in the just·us wordmark (`views/wordmark.ts`,
-  sources in `assets/brand/`), one per screen. Coral is never text.
+  sources in `assets/brand/`), one per screen. Coral is never text. The main
+  create button uses `--action` (deep coral `#BD4A22`, white text).
   App icons for iOS and desktop: `node scripts/render-app-icons.mjs`; Android
   and Play art: `apps/android/scripts/render-store-art.mjs`.
-- **Tokens** are CSS variables in `apps/web/index.html`, exposed as Uno
+- **Tokens** are CSS variables in `apps/web/src/tokens.css`, exposed as Uno
   colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
   `muted`, `accent`, `accent-strong`, `accent-soft` (selected items, chips),
   `on-fill` (text on a solid accent/danger fill), `brand`, `danger`, `ok`,

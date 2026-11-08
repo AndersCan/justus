@@ -10,15 +10,15 @@
   --wa-color-text-link: rgb(var(--accent));
   --wa-color-focus: rgb(var(--accent));
 
-  --wa-color-brand-fill-loud: rgb(var(--brand));
-  --wa-color-brand-on-loud: rgb(var(--on-brand));
-  --wa-color-brand-fill-quiet: rgb(var(--brand) / 0.12);
-  --wa-color-brand-fill-normal: rgb(var(--brand) / 0.2);
+  --wa-color-brand-fill-loud: rgb(var(--action));
+  --wa-color-brand-on-loud: rgb(var(--on-action));
+  --wa-color-brand-fill-quiet: rgb(var(--action) / 0.12);
+  --wa-color-brand-fill-normal: rgb(var(--action) / 0.2);
   --wa-color-brand-on-quiet: rgb(var(--fg));
   --wa-color-brand-on-normal: rgb(var(--fg));
-  --wa-color-brand-border-quiet: rgb(var(--brand));
-  --wa-color-brand-border-normal: rgb(var(--brand));
-  --wa-color-brand-border-loud: rgb(var(--brand));
+  --wa-color-brand-border-quiet: rgb(var(--action));
+  --wa-color-brand-border-normal: rgb(var(--action));
+  --wa-color-brand-border-loud: rgb(var(--action));
 
   --wa-color-danger-fill-loud: rgb(var(--danger-fg));
   --wa-color-danger-on-loud: rgb(var(--on-fill));
