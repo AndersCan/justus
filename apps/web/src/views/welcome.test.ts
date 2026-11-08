@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vite-plus/test";
-import { hasSeenWelcome, markWelcomeSeen } from "./welcome";
+
+vi.mock("./toast", () => ({ toast: vi.fn() }));
+vi.mock("../gateway", () => ({ gateway: { lock: { status: vi.fn(), setEnabled: vi.fn() } } }));
+
+import { onboardingActor } from "../machines/onboarding-machine";
+import { hasSeenWelcome, markWelcomeSeen, readLockForOnboarding } from "./welcome";
 
 function fakeStorage(): Storage {
   const map = new Map<string, string>();
@@ -33,5 +38,31 @@ describe("welcome seen flag", () => {
     // No localStorage global in this environment — the non-browser branch must
     // still resolve to "seen" rather than throwing or looping on welcome.
     expect(hasSeenWelcome()).toBe(true);
+  });
+});
+
+describe("readLockForOnboarding", () => {
+  const ok = <T>(v: T) => Promise.resolve([null, v] as [null, T]);
+  const lock = () => onboardingActor.snapshot().context.lock;
+
+  it("never asks the phone outside the shell", async () => {
+    vi.stubGlobal("window", {});
+    const load = vi.fn();
+    await readLockForOnboarding(load);
+    expect(load).not.toHaveBeenCalled();
+    expect(lock()).toBeUndefined();
+  });
+
+  it("hands a valid status to onboarding", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    await readLockForOnboarding(() => ok({ available: true, enabled: false }));
+    expect(lock()).toEqual({ available: true, enabled: false });
+  });
+
+  it("leaves onboarding unchanged on an error or a malformed status", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    await readLockForOnboarding(() => Promise.resolve([new Error("x"), null]) as never);
+    await readLockForOnboarding(() => ok({ available: "yes" }) as never);
+    expect(lock()).toEqual({ available: true, enabled: false });
   });
 });

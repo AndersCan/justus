@@ -141,11 +141,15 @@ class ListingScreenshots {
     find("Start sharing", 20)
     typeInField("Summer%s2026")
     find("No photos in this album yet.", 20)
-    find("Add photos to Summer 2026", 20).click()
-
-    val thumbs = device.wait(
-      Until.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))), 20000
-    )
+    // The picker can open empty on a cold emulator: close it and open it again.
+    var thumbs: List<UiObject2>? = null
+    for (attempt in 1..3) {
+      find("Add photos to Summer 2026", 20).click()
+      thumbs = device.wait(Until.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))), 20000)
+      if (thumbs != null && thumbs.size >= 3) break
+      device.pressBack()
+      Thread.sleep(2000)
+    }
     if (thumbs == null || thumbs.size < 3) {
       fail("picker thumbnails: " + thumbs?.size, "icon_thumbnail")
     }
@@ -194,15 +198,19 @@ class ListingScreenshots {
 
     // Help is a row in Settings. It opens on "What is Justus?", which explains there is no
     // server in the middle.
-    find("Settings", 10).click()
-    // The row sits below App lock, so it can be under the fold on a short screen.
-    repeat(4) {
-      if (device.findObject(By.text("Help")) == null) {
-        device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
-        Thread.sleep(500)
+    // The tap on Settings or Help can land before the web view binds its handlers: try again.
+    for (attempt in 1..4) {
+      find("Settings", 10).click()
+      // The row sits below App lock, so it can be under the fold on a short screen.
+      repeat(4) {
+        if (device.findObject(By.text("Help")) == null) {
+          device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 4, 20)
+          Thread.sleep(500)
+        }
       }
+      device.findObject(By.text("Help"))?.click()
+      if (device.wait(Until.hasObject(By.text("What is Justus?")), 5000)) break
     }
-    find("Help", 10).click()
     find("What is Justus?", 10).click()
     Thread.sleep(1000)
     captioned("4_help", "No server in the middle. Photos go phone to phone")
