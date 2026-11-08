@@ -1539,12 +1539,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
       if (!note || note.leftAt <= entry.addedAt) return;
       const identity = await identityOfDrive(drive);
-      await noteFormer(rt, await formerSnapshot(rt, viewerKey), identity);
-      const [removeErr, next] = await removeViewer(rt.folderDrive, { viewers: file, viewerKey });
+      const snapshot = await formerSnapshot(rt, viewerKey);
+      // Re-read right before the write: a Viewer seated during the awaits above
+      // must not be overwritten by the stale copy.
+      const fresh = await readViewers(rt.folderDrive, { log });
+      const [removeErr, next] = await removeViewer(rt.folderDrive, {
+        viewers: fresh,
+        viewerKey,
+      });
       if (removeErr) {
         log("error", { where: "dropViewerWhoLeft", err: removeErr.message });
         return;
       }
+      await noteFormer(rt, snapshot, identity);
       rt.viewers = next.viewers;
       if (identity !== undefined) setAnswer(rt, identity, undefined);
       await refreshMembersFor(rt);
