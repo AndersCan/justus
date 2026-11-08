@@ -10,11 +10,18 @@ import {
   HELD_DIR,
   HOLDING_PATH,
   MAX_HELD,
+  FORMER_PATH,
+  MAX_FORMER_IDS,
+  MAX_FORMER_PEOPLE,
+  addFormer,
+  copyFormer,
   copyHeld,
+  dropFormer,
   ensureHoldingMarker,
   heldPath,
   holdersFor,
   markHeld,
+  readFormer,
   readHeld,
   type HeldReport,
 } from "../../src/photos/holders.ts";
@@ -333,5 +340,153 @@ describe("holdersFor", () => {
       ],
     });
     expect(result.former).toEqual(["Abe", "Zed"]);
+  });
+});
+
+describe("former people", () => {
+  const ids = (...list: string[]) => new Set(list);
+
+  it("addFormer notes a person and readFormer gives them back", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    expect(
+      await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1", "p2") }, log),
+    ).toEqual([null, true]);
+    expect(await readFormer(drive, log)).toEqual([
+      { name: "Cleo", identity: "aa", ids: ids("p1", "p2") },
+    ]);
+  });
+
+  it("addFormer notes nobody who had nothing", async () => {
+    const [drive] = await twoDrives();
+    expect(await addFormer(drive, { name: "Cleo", ids: ids() }, logger().log)).toEqual([
+      null,
+      false,
+    ]);
+    expect(await drive.readSmall(FORMER_PATH, 100)).toBeUndefined();
+  });
+
+  it("addFormer merges the same identity", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1") }, log);
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p2") }, log);
+    expect(await readFormer(drive, log)).toEqual([
+      { name: "Cleo", identity: "aa", ids: ids("p1", "p2") },
+    ]);
+  });
+
+  it("addFormer keeps 50 people and drops the oldest first", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    for (let i = 0; i < MAX_FORMER_PEOPLE + 3; i++) {
+      await addFormer(drive, { name: `P${i}`, ids: ids("p1") }, log);
+    }
+    const people = await readFormer(drive, log);
+    expect(people).toHaveLength(MAX_FORMER_PEOPLE);
+    expect(people[0].name).toBe("P3");
+    expect(people.at(-1)!.name).toBe(`P${MAX_FORMER_PEOPLE + 2}`);
+  });
+
+  it("addFormer keeps at most 5,000 ids a person", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    const many = Array.from({ length: MAX_FORMER_IDS + 10 }, (_, i) => `p${i}`);
+    await addFormer(drive, { name: "Cleo", ids: new Set(many) }, log);
+    expect((await readFormer(drive, log))[0].ids.size).toBe(MAX_FORMER_IDS);
+  });
+
+  it("readFormer ignores version 2 and logs it", async () => {
+    const [drive] = await twoDrives();
+    const { events, log } = logger();
+    await drive.put(
+      FORMER_PATH,
+      Buffer.from(JSON.stringify({ version: 2, former: [{ name: "A", ids: ["x"] }] })),
+    );
+    expect(await readFormer(drive, log)).toEqual([]);
+    expect(events).toContain("holding.unsupported");
+  });
+
+  it("readFormer skips junk entries and unsafe ids", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    const body = {
+      version: 1,
+      former: [
+        7,
+        { name: "", ids: ["x"] },
+        { name: "A", ids: "x" },
+        { name: "B", ids: ["ok", "../x", 3] },
+      ],
+    };
+    await drive.put(FORMER_PATH, Buffer.from(JSON.stringify(body)));
+    expect(await readFormer(drive, log)).toEqual([{ name: "B", ids: ids("ok") }]);
+    await drive.put(FORMER_PATH, Buffer.from("not json"));
+    expect(await readFormer(drive, log)).toEqual([]);
+  });
+
+  it("dropFormer removes the person with that identity only", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1") }, log);
+    await addFormer(drive, { name: "Ben", identity: "bb", ids: ids("p1") }, log);
+    expect(await dropFormer(drive, "aa", log)).toEqual([null, true]);
+    expect((await readFormer(drive, log)).map((p) => p.name)).toEqual(["Ben"]);
+    expect(await dropFormer(drive, "aa", log)).toEqual([null, false]);
+  });
+
+  it("copyFormer copies the list to the new drive", async () => {
+    const [from, to] = await twoDrives();
+    const { log } = logger();
+    await copyFormer(from, to);
+    expect(await readFormer(to, log)).toEqual([]);
+    await addFormer(from, { name: "Cleo", ids: ids("p1") }, log);
+    await copyFormer(from, to);
+    expect(await readFormer(to, log)).toEqual([{ name: "Cleo", ids: ids("p1") }]);
+  });
+});
+
+describe("former people when the list cannot be read", () => {
+  const ids = (...list: string[]) => new Set(list);
+
+  async function unreadable() {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1") }, log);
+    await addFormer(drive, { name: "Ben", identity: "bb", ids: ids("p2") }, log);
+    const read = drive.readSmall.bind(drive);
+    return { drive, log, read };
+  }
+
+  it("addFormer keeps the earlier people when the read fails", async () => {
+    const { drive, log, read } = await unreadable();
+    drive.readSmall = async () => {
+      throw new Error("timeout");
+    };
+    const [err] = await addFormer(drive, { name: "Dan", identity: "dd", ids: ids("p3") }, log);
+    expect(err?.kind).toBe("write-failed");
+    drive.readSmall = read;
+    expect((await readFormer(drive, log)).map((p) => p.name)).toEqual(["Cleo", "Ben"]);
+  });
+
+  it("dropFormer keeps the earlier people when the read fails", async () => {
+    const { drive, log, read } = await unreadable();
+    drive.readSmall = async () => {
+      throw new Error("timeout");
+    };
+    const [err] = await dropFormer(drive, "aa", log);
+    expect(err?.kind).toBe("write-failed");
+    drive.readSmall = read;
+    expect((await readFormer(drive, log)).map((p) => p.name)).toEqual(["Cleo", "Ben"]);
+  });
+
+  it("addFormer leaves a list of a newer version alone", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    const newer = JSON.stringify({ version: 2, former: [{ name: "A", ids: ["x"] }] });
+    await drive.put(FORMER_PATH, Buffer.from(newer));
+    const [err] = await addFormer(drive, { name: "Dan", ids: ids("p3") }, log);
+    expect(err?.kind).toBe("write-failed");
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(newer);
   });
 });

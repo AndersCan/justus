@@ -12,7 +12,7 @@ import {
   type RegistryFile,
   type ViewersFile,
 } from "../membership/records";
-import { copyHeld } from "../photos/holders";
+import { copyFormer, copyHeld } from "../photos/holders";
 import { copyAlbumEntries } from "../rotate-album";
 import type { AlbumLog, AlbumPorts, AlbumResult } from "./albums";
 
@@ -65,6 +65,7 @@ export async function moveAlbum(
     fresh = target;
     await copyAlbumEntries(oldDrive, target);
     await copyHeld(oldDrive, target);
+    await copyFormer(oldDrive, target);
 
     const sources = new Map<string, EarlierEntry>();
     for (const e of record.earlier ?? []) sources.set(e.key, { key: e.key, name: e.name });

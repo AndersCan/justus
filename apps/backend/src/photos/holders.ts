@@ -175,3 +175,110 @@ export function holdersFor(input: {
     former: [...names].sort(),
   };
 }
+
+export const FORMER_PATH = "/former.json";
+const MAX_FORMER_BYTES = 1024 * 1024;
+export const MAX_FORMER_PEOPLE = 50;
+export const MAX_FORMER_IDS = 5_000;
+
+/** A person no longer in the album and the photos they had a copy of when they went. */
+export type FormerPerson = { name: string; identity?: string; ids: ReadonlySet<string> };
+
+/** The Admin's list of people who left or were removed. Junk, a newer version or a slow read gives an empty list. */
+export async function readFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]> {
+  return (await loadFormer(drive, log)) ?? [];
+}
+
+/** Like `readFormer`, but undefined when the list could not be read, so a writer never overwrites what it could not see. A missing file is an empty list. */
+async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[] | undefined> {
+  try {
+    const text = await drive.readSmall(FORMER_PATH, MAX_FORMER_BYTES, { timeoutMs: 1_500 });
+    if (text === undefined) return [];
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const { version, former } = parsed as { version?: unknown; former?: unknown };
+    if (version !== 1) {
+      log("holding.unsupported", { version: typeof version === "number" ? version : -1 });
+      return undefined;
+    }
+    if (!Array.isArray(former)) return undefined;
+    const people: FormerPerson[] = [];
+    for (const raw of former.slice(0, MAX_FORMER_PEOPLE)) {
+      if (typeof raw !== "object" || raw === null) continue;
+      const { name, identity, ids } = raw as { name?: unknown; identity?: unknown; ids?: unknown };
+      if (typeof name !== "string" || name === "" || !Array.isArray(ids)) continue;
+      const safe = new Set<string>();
+      for (const id of ids.slice(0, MAX_FORMER_IDS)) {
+        if (typeof id === "string" && SAFE_ID.test(id)) safe.add(id);
+      }
+      people.push({
+        name,
+        ...(typeof identity === "string" ? { identity } : {}),
+        ids: safe,
+      });
+    }
+    return people;
+  } catch (thrown: unknown) {
+    log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
+    return undefined;
+  }
+}
+
+async function writeFormer(drive: Drive, people: ReadonlyArray<FormerPerson>): Promise<void> {
+  const former = people.slice(-MAX_FORMER_PEOPLE).map((p) => ({
+    name: p.name,
+    ...(p.identity !== undefined ? { identity: p.identity } : {}),
+    ids: [...p.ids].slice(-MAX_FORMER_IDS),
+  }));
+  await drive.put(FORMER_PATH, Buffer.from(JSON.stringify({ version: 1, former })));
+}
+
+/** Notes a person who is going, with what they had. Newest last; the oldest entries go first. The same identity is merged. */
+export async function addFormer(
+  drive: Drive,
+  person: FormerPerson,
+  log: GalleryLog,
+): Promise<HoldersResult<boolean>> {
+  if (person.ids.size === 0) return [null, false];
+  try {
+    const rest = await loadFormer(drive, log);
+    if (rest === undefined) {
+      return [{ kind: "write-failed", message: "Cannot read the former list" }, null];
+    }
+    const same =
+      person.identity === undefined ? undefined : rest.find((p) => p.identity === person.identity);
+    const merged: FormerPerson = same
+      ? { ...person, ids: new Set([...same.ids, ...person.ids]) }
+      : person;
+    await writeFormer(drive, [...rest.filter((p) => p !== same), merged]);
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
+/** The person is back in the album: their entry goes. False when there was none. */
+export async function dropFormer(
+  drive: Drive,
+  identity: string,
+  log: GalleryLog,
+): Promise<HoldersResult<boolean>> {
+  try {
+    const rest = await loadFormer(drive, log);
+    if (rest === undefined) {
+      return [{ kind: "write-failed", message: "Cannot read the former list" }, null];
+    }
+    const left = rest.filter((p) => p.identity !== identity);
+    if (left.length === rest.length) return [null, false];
+    await writeFormer(drive, left);
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
+/** Copies the list to another drive when the album moves. */
+export async function copyFormer(from: Drive, to: Drive): Promise<void> {
+  const text = await from.readSmall(FORMER_PATH, MAX_FORMER_BYTES);
+  if (text !== undefined) await to.put(FORMER_PATH, Buffer.from(text));
+}

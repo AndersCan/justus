@@ -376,6 +376,21 @@ describe("accepting as a Viewer", () => {
     return { ...s, key: requests[0].requesterKey, request: requests[0] };
   }
 
+  it("drops the former name of a Viewer who is accepted again", async () => {
+    const s = await asked();
+    const albumDrive = await albumDriveOf(s);
+    const identity = s.outboxKey;
+    await albumDrive.put(
+      "/former.json",
+      Buffer.from(
+        JSON.stringify({ version: 1, former: [{ name: "Joiner", identity, ids: ["p1"] }] }),
+      ),
+    );
+    const done = await s.admin.store.respond(s.folderId, s.key, true, "reader");
+    expect(done[0]).toBeNull();
+    expect(JSON.parse((await readText(albumDrive, "/former.json"))!).former).toEqual([]);
+  });
+
   it("lists the asker in /viewers.json, loads no drive and leaves the request list", async () => {
     const s = await asked();
     expect(s.request.viaInvite).toBe(true);

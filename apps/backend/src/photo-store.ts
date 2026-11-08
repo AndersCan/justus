@@ -8,11 +8,15 @@ import {
   listGallery,
 } from "./photos/gallery";
 import {
+  addFormer,
   copyHeld,
+  dropFormer,
   ensureHoldingMarker,
   holdersFor,
   markHeld,
+  readFormer,
   readHeld,
+  type FormerPerson,
   type HeldReport,
 } from "./photos/holders";
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
@@ -533,6 +537,8 @@ type FolderRuntime = {
   watcherRemoves: Set<() => void>;
   /** What each phone says it holds, by drive key (this phone's own included). */
   held: Map<string, HeldReport>;
+  /** People who left or were removed, from the Admin's `/former.json`. */
+  former: FormerPerson[];
   /** True once the photos opened before holding records existed were recorded. */
   heldBackfilled: boolean;
 };
@@ -1137,6 +1143,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         // The Admin's drive changed (or first replicated in after we joined
         // with only the invite's name): take the album name from it.
         if (rt && drive === rt.folderDrive) {
+          void refreshFormer(rt).catch((e) =>
+            log("error", { where: "refreshFormer", err: errText(e) }),
+          );
           void refreshViewers(rt)
             .then(async (viewersChanged) => {
               const changed = viewersChanged || (await refreshEarlier(rt));
@@ -1438,6 +1447,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         driveKey: drive.key,
         verify: (p) => deps.drives.verifyIdentity(p),
       });
+      await noteFormer(
+        rt,
+        await formerSnapshot(rt, memberKey),
+        device.status === "verified" ? device.identityKey : undefined,
+      );
       const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
       if (removeErr) {
         log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
@@ -1528,6 +1542,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // drive that is offline is skipped (its entries are already indexed from
     // when it was reachable) — never evicted.
     await seedContentIndex(rt);
+    await refreshFormer(rt);
     refreshHeldOfEveryone(rt);
     if (await dropCaughtUpEarlier(rt)) await refreshMembersFor(rt);
   }
@@ -2078,7 +2093,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           selfKey,
           people,
           held: rt.held,
-          former: [],
+          former: rt.former,
         }),
       });
     }
@@ -2480,6 +2495,70 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (sameReport(prev, next)) return;
     rt.held.set(key, next);
     deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
+  function sameFormer(a: FormerPerson[], b: FormerPerson[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((p, i) => {
+      const q = b[i];
+      return (
+        p.name === q.name &&
+        p.identity === q.identity &&
+        p.ids.size === q.ids.size &&
+        [...p.ids].every((id) => q.ids.has(id))
+      );
+    });
+  }
+
+  /** Reads the Admin's list of people who left. A change pushes the photos' holders. */
+  async function refreshFormer(rt: FolderRuntime) {
+    const next = await readFormer(rt.folderDrive, log);
+    if (sameFormer(rt.former, next)) return;
+    rt.former = next;
+    deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
+  /** Admin: a person is going. Notes what they had, so their copies are still named. */
+  async function formerSnapshot(
+    rt: FolderRuntime,
+    memberKey: string,
+  ): Promise<{ name: string; ids: ReadonlySet<string> } | undefined> {
+    const report = rt.held.get(memberKey);
+    if (report?.kind !== "reports" || report.ids.size === 0) return undefined;
+    const name = (await albumPeople(rt)).find((p) => p.key === memberKey)?.name;
+    return name === undefined ? undefined : { name, ids: report.ids };
+  }
+
+  async function noteFormer(
+    rt: FolderRuntime,
+    snapshot: { name: string; ids: ReadonlySet<string> } | undefined,
+    identity: string | undefined,
+  ) {
+    if (snapshot === undefined) return;
+    const [noteErr] = await addFormer(
+      rt.folderDrive,
+      { ...snapshot, ...(identity !== undefined ? { identity } : {}) },
+      log,
+    );
+    if (noteErr) log("error", { where: "noteFormer", err: noteErr.message });
+    await refreshFormer(rt);
+  }
+
+  /** The identity a drive's `/device.json` proves, if any. */
+  async function identityOfDrive(drive: Drive): Promise<string | undefined> {
+    const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
+      driveKey: drive.key,
+      verify: (p) => deps.drives.verifyIdentity(p),
+    });
+    return device.status === "verified" ? device.identityKey : undefined;
+  }
+
+  /** Admin: this person is back in the album, so they are no longer "former". */
+  async function forgetFormer(rt: FolderRuntime, identity: string | undefined) {
+    if (identity === undefined) return;
+    const [dropErr, dropped] = await dropFormer(rt.folderDrive, identity, log);
+    if (dropErr) log("error", { where: "forgetFormer", err: dropErr.message });
+    if (dropped) await refreshFormer(rt);
   }
 
   function refreshHeldOfEveryone(rt: FolderRuntime) {
@@ -2983,6 +3062,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         watcherRemoves: new Set(),
         held: new Map(),
         heldBackfilled: false,
+        former: [],
       };
       runtimes.set(record.id, rt);
       // A delete the Admin made while this phone was away, or work a restart
@@ -3118,6 +3198,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watcherRemoves: new Set(),
       held: new Map(),
       heldBackfilled: false,
+      former: [],
     };
     runtimes.set(folderId, rt);
     state.folders.push(rt.record);
@@ -3825,6 +3906,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             watcherRemoves: new Set(),
             held: new Map(),
             heldBackfilled: false,
+            former: [],
           };
           runtimes.set(existing.id, rt);
           await refreshMembersFor(rt);
@@ -3898,6 +3980,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watcherRemoves: new Set(),
       held: new Map(),
       heldBackfilled: false,
+      former: [],
     };
     runtimes.set(folderId, rt);
 
@@ -4302,6 +4385,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return err(ErrorCode.HOST_ERROR, `Cannot add the Viewer: ${seatErr.message}`);
         }
         rt.viewers = seated.viewers.viewers;
+        await forgetFormer(rt, asker);
         deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
         void deliverAnswers(asker).catch(answerErr("deliver"));
         return ok({ ok: true });
@@ -4322,6 +4406,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
       }
       await loadMemberDrive(rt, requesterKey, accepted.member.name);
+      const joined = rt.memberDrives.get(requesterKey);
+      await forgetFormer(
+        rt,
+        seated ??
+          requesterIdentity.get(requesterKey) ??
+          (joined ? await identityOfDrive(joined) : undefined),
+      );
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
       if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
       return ok({ ok: true });
@@ -4540,6 +4631,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         saveState();
       };
+      const leaving = await formerSnapshot(rt, memberKey);
       // Today's removal first, on the old drive: the removed phone sees itself removed.
       if (isMember) {
         const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
@@ -4567,6 +4659,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (isMember || isViewer || owed) {
         const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
         if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
+        const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
+        await noteFormer(rt, leaving, gone ? await identityOfDrive(gone) : undefined);
       }
       // Stop loading their drive; a re-filed request must not resurface at once.
       deniedRequesters.add(memberKey);
