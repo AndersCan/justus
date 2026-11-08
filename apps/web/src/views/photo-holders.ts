@@ -95,11 +95,14 @@ export function holdersSheet(photo: Photo) {
             : null
         }
         ${
-          rows.former.length > 0
+          rows.former.length + rows.left.length > 0
             ? html`<h4 class="ui-label mt-4">${t("photo_holders.no_longer_in_this_album")}</h4>
                 <ul>
                   ${rows.former.map((name) =>
                     personRow(name, copy("photo_holders.has_a_copy_from_before")),
+                  )}
+                  ${rows.left.map((name) =>
+                    personRow(name, copy("photo_holders.left_their_phone_deleted_its")),
                   )}
                 </ul>`
             : null

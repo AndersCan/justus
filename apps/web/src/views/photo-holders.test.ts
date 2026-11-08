@@ -68,6 +68,23 @@ describe("holdersSheet", () => {
   });
 });
 
+describe("holdersSheet leavers", () => {
+  it("says a leaver's phone deleted its copy", () => {
+    const text = draw(holdersSheet(photo(h({ left: ["Cleo"] })))).textContent ?? "";
+    expect(text).toContain("No longer in this album");
+    expect(text).toContain("Cleo");
+    expect(text).toContain("Left. Their phone deleted its copy.");
+    expect(text).not.toContain("Has a copy from before");
+  });
+  it("lists removed people before leavers, each with its own text", () => {
+    const text =
+      draw(holdersSheet(photo(h({ former: ["Maya"], left: ["Cleo"] })))).textContent ?? "";
+    expect(text.indexOf("Maya")).toBeLessThan(text.indexOf("Cleo"));
+    expect(text).toContain("Has a copy from before");
+    expect(text).toContain("Left. Their phone deleted its copy.");
+  });
+});
+
 describe("holdersSheet waiting", () => {
   it("shows Not on their phone yet with names, above Hasn't said yet", () => {
     const el = draw(holdersSheet(photo(h({ waiting: [m("Maya")], unsure: [m("Jo")] }))));

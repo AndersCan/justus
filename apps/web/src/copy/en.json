@@ -3198,6 +3198,13 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "photo_holders.left_their_phone_deleted_its": {
+    "text": "Left. Their phone deleted its copy.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "photo_holders.close": {
     "text": "Close",
     "status": "draft",
