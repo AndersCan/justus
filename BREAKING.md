@@ -7,6 +7,9 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 
 ## Unreleased · next release after v0.2.1 · peer protocol 3, saved state 2
 
+- **Signed device records** (`/device.json` gains `identityPublicKey` and `identitySig`).
+  Who: testers on internal builds from before this change. Their phones show in albums
+  without a Friend label and cannot be saved as a friend. Do: update Justus.
 - **Viewers** (`/viewers.json` on the album's drive). Who: albums with phones on
   different versions. An older Justus would not list Viewers or count them. Do:
   everyone updates; the newer phone shows "<name> needs to update Justus". A

@@ -1,4 +1,5 @@
 import type { JoinRequest } from "@justus/core";
+import type { IdentityProof } from "../ports/drive-store";
 
 export type RegistryFile = {
   version: 1;
@@ -168,18 +169,47 @@ export function identityMessage(driveKey: string): Uint8Array {
   return Buffer.from(`justus-device/v1:${driveKey.toLowerCase()}`, "utf8");
 }
 
-/** The identity drive key in a `/device.json` (lowercased), or undefined when
- * missing, non-hex or malformed. */
-export function parseDeviceIdentity(text: string): string | undefined {
+export type DeviceIdentity =
+  | { status: "verified"; identityKey: string }
+  | { status: "unsigned" }
+  | { status: "rejected" };
+
+/** The identity in a `/device.json` read from the drive `driveKey`. Verified
+ * (key lowercased) only when the identity signed this drive; unsigned when the
+ * record names no identity or carries no proof (an older build); rejected when
+ * the proof is malformed or does not verify. */
+export function verifiedDeviceIdentity(
+  text: string,
+  options: { driveKey: string; verify: (proof: IdentityProof) => boolean },
+): DeviceIdentity {
   try {
-    const parsed = JSON.parse(text) as { identityKey?: unknown };
-    // LIMITATION(#277): identityKey is the member's own claim, unsigned
-    if (typeof parsed.identityKey === "string" && isHexKey(parsed.identityKey))
-      return parsed.identityKey.toLowerCase();
+    const parsed = JSON.parse(text) as {
+      identityKey?: unknown;
+      identityPublicKey?: unknown;
+      identitySig?: unknown;
+    };
+    const { identityKey, identityPublicKey, identitySig } = parsed;
+    if (typeof identityKey !== "string" || !isHexKey(identityKey)) return { status: "unsigned" };
+    if (identityPublicKey === undefined && identitySig === undefined) return { status: "unsigned" };
+    if (
+      typeof identityPublicKey !== "string" ||
+      !isHexKey(identityPublicKey) ||
+      typeof identitySig !== "string" ||
+      !/^[0-9a-f]{128}$/i.test(identitySig)
+    )
+      return { status: "rejected" };
+    const verified = options.verify({
+      identityKey,
+      publicKey: identityPublicKey,
+      signature: identitySig,
+      message: identityMessage(options.driveKey),
+    });
+    return verified
+      ? { status: "verified", identityKey: identityKey.toLowerCase() }
+      : { status: "rejected" };
   } catch {
-    // not JSON
+    return { status: "unsigned" };
   }
-  return undefined;
 }
 
 /** The outbox in a `/requests.json`, or undefined when malformed or not version 1. */

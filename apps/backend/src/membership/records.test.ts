@@ -1,7 +1,8 @@
 import {
   isEnrolled,
   isHexKey,
-  parseDeviceIdentity,
+  identityMessage,
+  verifiedDeviceIdentity,
   parseDeviceName,
   parseAnswer,
   parseFriendMessage,
@@ -16,6 +17,7 @@ import {
   peerName,
 } from "./records";
 import { describe, expect, test } from "vite-plus/test";
+import type { IdentityProof } from "../ports/drive-store";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "B".repeat(64);
@@ -126,16 +128,70 @@ describe("parseDeviceSwarmKey", () => {
   });
 });
 
-describe("parseDeviceIdentity", () => {
-  test("returns a valid identity key lowercased", () => {
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: KEY_B }))).toBe(KEY_B.toLowerCase());
+describe("verifiedDeviceIdentity", () => {
+  const driveKey = KEY_A;
+  const proofFields = { identityPublicKey: "c".repeat(64), identitySig: "d".repeat(128) };
+  const check = (record: unknown, verify: (proof: IdentityProof) => boolean = () => true) =>
+    verifiedDeviceIdentity(typeof record === "string" ? record : JSON.stringify(record), {
+      driveKey,
+      verify,
+    });
+
+  test("returns a verified identity key lowercased, checked against this drive's message", () => {
+    const seen: IdentityProof[] = [];
+    const identity = check({ identityKey: KEY_B, ...proofFields }, (proof) => {
+      seen.push(proof);
+      return true;
+    });
+    expect(identity).toEqual({ status: "verified", identityKey: KEY_B.toLowerCase() });
+    expect(seen).toEqual([
+      {
+        identityKey: KEY_B,
+        publicKey: proofFields.identityPublicKey,
+        signature: proofFields.identitySig,
+        message: identityMessage(driveKey),
+      },
+    ]);
   });
-  test("returns undefined for missing, non-hex, short, non-string and non-JSON", () => {
-    expect(parseDeviceIdentity(JSON.stringify({}))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "z".repeat(64) }))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: "a".repeat(63) }))).toBeUndefined();
-    expect(parseDeviceIdentity(JSON.stringify({ identityKey: 5 }))).toBeUndefined();
-    expect(parseDeviceIdentity("{nope")).toBeUndefined();
+  test("is rejected when the signature does not verify", () => {
+    expect(check({ identityKey: KEY_B, ...proofFields }, () => false)).toEqual({
+      status: "rejected",
+    });
+  });
+  test("is unsigned without proof fields, and the verifier is not asked", () => {
+    const never = () => {
+      throw new Error("verify called");
+    };
+    expect(check({ identityKey: KEY_B }, never)).toEqual({ status: "unsigned" });
+    expect(check({ identityKey: KEY_B, name: "old build" }, never)).toEqual({ status: "unsigned" });
+  });
+  test("is rejected with one proof field missing, of the wrong type or the wrong length", () => {
+    const rejected = { status: "rejected" };
+    expect(check({ identityKey: KEY_B, identitySig: proofFields.identitySig })).toEqual(rejected);
+    expect(check({ identityKey: KEY_B, identityPublicKey: proofFields.identityPublicKey })).toEqual(
+      rejected,
+    );
+    expect(check({ identityKey: KEY_B, identityPublicKey: 5, identitySig: "x" })).toEqual(rejected);
+    expect(check({ identityKey: KEY_B, ...proofFields, identitySig: "d".repeat(127) })).toEqual(
+      rejected,
+    );
+    expect(
+      check({ identityKey: KEY_B, ...proofFields, identityPublicKey: "c".repeat(63) }),
+    ).toEqual(rejected);
+  });
+  test("is unsigned for missing, non-hex, short, non-string and non-JSON keys", () => {
+    const unsigned = { status: "unsigned" };
+    expect(check({ ...proofFields })).toEqual(unsigned);
+    expect(check({ identityKey: "z".repeat(64), ...proofFields })).toEqual(unsigned);
+    expect(check({ identityKey: "a".repeat(63), ...proofFields })).toEqual(unsigned);
+    expect(check({ identityKey: 5, ...proofFields })).toEqual(unsigned);
+    expect(check("{nope")).toEqual(unsigned);
+  });
+  test("is unsigned when verify throws", () => {
+    const boom = () => {
+      throw new Error("boom");
+    };
+    expect(check({ identityKey: KEY_B, ...proofFields }, boom)).toEqual({ status: "unsigned" });
   });
 });
 

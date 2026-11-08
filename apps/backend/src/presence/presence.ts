@@ -3,8 +3,8 @@
  * each member publishes in its `/device.json`. photo-store feeds it
  * connection events and keeps the stored file and the web notification.
  */
-import type { Drive } from "../ports/drive-store";
-import { isTextJSON, parseDeviceIdentity, parseDeviceSwarmKey } from "../membership/records";
+import type { Drive, IdentityProof } from "../ports/drive-store";
+import { isTextJSON, verifiedDeviceIdentity, parseDeviceSwarmKey } from "../membership/records";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
@@ -22,6 +22,8 @@ export type Presence = {
   peerKeys: Map<string, string>;
   /** Member drive key to the identity drive key named in their `/device.json`. */
   identities: Map<string, string>;
+  /** Member drive key to why their `/device.json` identity is not trusted. */
+  unverified: Map<string, "unsigned" | "rejected">;
   /** Member drive key to the last time (ms epoch) their last connection closed. */
   lastSeen: Map<string, number>;
 };
@@ -47,6 +49,7 @@ export function createPresence(options: { lastSeen: [string, number][] }): Prese
     connections: new Map(),
     peerKeys: new Map(),
     identities: new Map(),
+    unverified: new Map(),
     lastSeen: new Map(options.lastSeen),
   };
 }
@@ -136,9 +139,14 @@ async function readDevice(drive: Drive, log: PresenceLog): Promise<string | unde
 /** Re-read every time: the peer key changes on every boot. True when the key or identity is new or changed. */
 async function learnDevice(
   presence: Presence,
-  options: { source: DeviceSource; timeoutMs: number; log: PresenceLog },
+  options: {
+    source: DeviceSource;
+    timeoutMs: number;
+    log: PresenceLog;
+    verify: (proof: IdentityProof) => boolean;
+  },
 ): Promise<boolean> {
-  const { source, timeoutMs, log } = options;
+  const { source, timeoutMs, log, verify } = options;
   const { memberKey } = source;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const text = await Promise.race([
@@ -149,10 +157,16 @@ async function learnDevice(
   ]).finally(() => clearTimeout(timer));
   if (!text) return false;
   let changed = false;
-  const identity = parseDeviceIdentity(text);
-  if (identity !== undefined && presence.identities.get(memberKey) !== identity) {
-    presence.identities.set(memberKey, identity);
-    changed = true;
+  const device = verifiedDeviceIdentity(text, { driveKey: source.drive.key, verify });
+  if (device.status === "verified") {
+    presence.unverified.delete(memberKey);
+    if (presence.identities.get(memberKey) !== device.identityKey) {
+      presence.identities.set(memberKey, device.identityKey);
+      changed = true;
+    }
+  } else if (presence.unverified.get(memberKey) !== device.status) {
+    presence.unverified.set(memberKey, device.status);
+    log("identity.unverified", { member: short(memberKey), status: device.status });
   }
   const peerKey = parseDeviceSwarmKey(text);
   if (peerKey === undefined) return changed;
@@ -170,11 +184,16 @@ async function learnDevice(
 /** Read every source's `/device.json`, each cut off after `timeoutMs`. True when anything was learned. */
 export async function learnDevices(
   presence: Presence,
-  options: { sources: DeviceSource[]; timeoutMs: number; log: PresenceLog },
+  options: {
+    sources: DeviceSource[];
+    timeoutMs: number;
+    log: PresenceLog;
+    verify: (proof: IdentityProof) => boolean;
+  },
 ): Promise<boolean> {
-  const { sources, timeoutMs, log } = options;
+  const { sources, timeoutMs, log, verify } = options;
   const results = await Promise.all(
-    sources.map((source) => learnDevice(presence, { source, timeoutMs, log })),
+    sources.map((source) => learnDevice(presence, { source, timeoutMs, log, verify })),
   );
   return results.some(Boolean);
 }

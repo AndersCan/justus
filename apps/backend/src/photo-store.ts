@@ -67,7 +67,7 @@ import {
   parseDeviceName,
   parseRemoved,
   parseRequestsFile,
-  parseDeviceIdentity,
+  verifiedDeviceIdentity,
   identityMessage,
   peerName,
   type RegistryFile,
@@ -877,7 +877,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }));
       if (rt.record.role !== "creator")
         sources.push({ memberKey: rt.record.shareKey, drive: rt.folderDrive });
-      learned = (await learnDevices(presence, { sources, timeoutMs: 1500, log })) || learned;
+      learned =
+        (await learnDevices(presence, {
+          sources,
+          timeoutMs: 1500,
+          log,
+          verify: (p) => deps.drives.verifyIdentity(p),
+        })) || learned;
     }
     return learned;
   }
@@ -1260,13 +1266,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (addedAt === undefined) return;
       const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
       if (!note || note.leftAt <= addedAt) return;
-      const identity = parseDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "");
+      const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
+        driveKey: drive.key,
+        verify: (p) => deps.drives.verifyIdentity(p),
+      });
       const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
       if (removeErr) {
         log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
         return;
       }
-      if (identity) setAnswer(rt, identity, undefined);
+      if (device.status === "verified") setAnswer(rt, device.identityKey, undefined);
       await refreshMembersFor(rt);
       deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey });
     } finally {
