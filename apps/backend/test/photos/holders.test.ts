@@ -445,3 +445,48 @@ describe("former people", () => {
     expect(await readFormer(to, log)).toEqual([{ name: "Cleo", ids: ids("p1") }]);
   });
 });
+
+describe("former people when the list cannot be read", () => {
+  const ids = (...list: string[]) => new Set(list);
+
+  async function unreadable() {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1") }, log);
+    await addFormer(drive, { name: "Ben", identity: "bb", ids: ids("p2") }, log);
+    const read = drive.readSmall.bind(drive);
+    return { drive, log, read };
+  }
+
+  it("addFormer keeps the earlier people when the read fails", async () => {
+    const { drive, log, read } = await unreadable();
+    drive.readSmall = async () => {
+      throw new Error("timeout");
+    };
+    const [err] = await addFormer(drive, { name: "Dan", identity: "dd", ids: ids("p3") }, log);
+    expect(err?.kind).toBe("write-failed");
+    drive.readSmall = read;
+    expect((await readFormer(drive, log)).map((p) => p.name)).toEqual(["Cleo", "Ben"]);
+  });
+
+  it("dropFormer keeps the earlier people when the read fails", async () => {
+    const { drive, log, read } = await unreadable();
+    drive.readSmall = async () => {
+      throw new Error("timeout");
+    };
+    const [err] = await dropFormer(drive, "aa", log);
+    expect(err?.kind).toBe("write-failed");
+    drive.readSmall = read;
+    expect((await readFormer(drive, log)).map((p) => p.name)).toEqual(["Cleo", "Ben"]);
+  });
+
+  it("addFormer leaves a list of a newer version alone", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    const newer = JSON.stringify({ version: 2, former: [{ name: "A", ids: ["x"] }] });
+    await drive.put(FORMER_PATH, Buffer.from(newer));
+    const [err] = await addFormer(drive, { name: "Dan", ids: ids("p3") }, log);
+    expect(err?.kind).toBe("write-failed");
+    expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(newer);
+  });
+});

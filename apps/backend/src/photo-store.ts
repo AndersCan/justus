@@ -4406,7 +4406,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return err(ErrorCode.HOST_ERROR, `Cannot enroll the member: ${acceptErr.message}`);
       }
       await loadMemberDrive(rt, requesterKey, accepted.member.name);
-      await forgetFormer(rt, seated ?? requesterIdentity.get(requesterKey));
+      const joined = rt.memberDrives.get(requesterKey);
+      await forgetFormer(
+        rt,
+        seated ??
+          requesterIdentity.get(requesterKey) ??
+          (joined ? await identityOfDrive(joined) : undefined),
+      );
       deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
       if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
       return ok({ ok: true });

@@ -485,4 +485,16 @@ describe("who has each photo", () => {
     expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
     await s.close();
   }, 20_000);
+
+  it("drops the name when an Admin-removed person is accepted again", async () => {
+    const s = await threePhones();
+    const shareKey = (await s.cleo.store.folders()).folders[0].shareKey;
+    expect((await s.anna.store.removeMember(s.folderId, s.cleoKey))[0]).toBeNull();
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 1);
+    const key = await joinAsMember(s.anna.store, s.folderId, s.cleo.store, shareKey);
+    expect(key).toBeTruthy();
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 0);
+    expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
+    await s.close();
+  }, 20_000);
 });

@@ -186,17 +186,22 @@ export type FormerPerson = { name: string; identity?: string; ids: ReadonlySet<s
 
 /** The Admin's list of people who left or were removed. Junk, a newer version or a slow read gives an empty list. */
 export async function readFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[]> {
+  return (await loadFormer(drive, log)) ?? [];
+}
+
+/** Like `readFormer`, but undefined when the list could not be read, so a writer never overwrites what it could not see. A missing file is an empty list. */
+async function loadFormer(drive: Drive, log: GalleryLog): Promise<FormerPerson[] | undefined> {
   try {
     const text = await drive.readSmall(FORMER_PATH, MAX_FORMER_BYTES, { timeoutMs: 1_500 });
     if (text === undefined) return [];
     const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== "object" || parsed === null) return [];
+    if (typeof parsed !== "object" || parsed === null) return undefined;
     const { version, former } = parsed as { version?: unknown; former?: unknown };
     if (version !== 1) {
       log("holding.unsupported", { version: typeof version === "number" ? version : -1 });
-      return [];
+      return undefined;
     }
-    if (!Array.isArray(former)) return [];
+    if (!Array.isArray(former)) return undefined;
     const people: FormerPerson[] = [];
     for (const raw of former.slice(0, MAX_FORMER_PEOPLE)) {
       if (typeof raw !== "object" || raw === null) continue;
@@ -215,7 +220,7 @@ export async function readFormer(drive: Drive, log: GalleryLog): Promise<FormerP
     return people;
   } catch (thrown: unknown) {
     log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
-    return [];
+    return undefined;
   }
 }
 
@@ -236,7 +241,10 @@ export async function addFormer(
 ): Promise<HoldersResult<boolean>> {
   if (person.ids.size === 0) return [null, false];
   try {
-    const rest = await readFormer(drive, log);
+    const rest = await loadFormer(drive, log);
+    if (rest === undefined) {
+      return [{ kind: "write-failed", message: "Cannot read the former list" }, null];
+    }
     const same =
       person.identity === undefined ? undefined : rest.find((p) => p.identity === person.identity);
     const merged: FormerPerson = same
@@ -256,7 +264,10 @@ export async function dropFormer(
   log: GalleryLog,
 ): Promise<HoldersResult<boolean>> {
   try {
-    const rest = await readFormer(drive, log);
+    const rest = await loadFormer(drive, log);
+    if (rest === undefined) {
+      return [{ kind: "write-failed", message: "Cannot read the former list" }, null];
+    }
     const left = rest.filter((p) => p.identity !== identity);
     if (left.length === rest.length) return [null, false];
     await writeFormer(drive, left);
