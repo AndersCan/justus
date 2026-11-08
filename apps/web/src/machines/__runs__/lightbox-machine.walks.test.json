@@ -1,0 +1,229 @@
+{
+  "lightbox": [
+    {
+      "name": "Anna opens a photo and steps to the next one",
+      "end": "showingPhoto",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {
+            "photo": {
+              "id": "p1",
+              "folderId": "trip",
+              "url": "blob:p1",
+              "name": "beach.jpg",
+              "mime": "image/jpeg",
+              "size": 1,
+              "addedAt": 0,
+              "member": {
+                "key": "anna",
+                "name": "Anna"
+              }
+            },
+            "within": [
+              {
+                "id": "p1",
+                "folderId": "trip",
+                "url": "blob:p1",
+                "name": "beach.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              },
+              {
+                "id": "p2",
+                "folderId": "trip",
+                "url": "blob:p2",
+                "name": "picnic.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "STEP",
+          "payload": {
+            "dir": 1,
+            "photos": [
+              {
+                "id": "p1",
+                "folderId": "trip",
+                "url": "blob:p1",
+                "name": "beach.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              },
+              {
+                "id": "p2",
+                "folderId": "trip",
+                "url": "blob:p2",
+                "name": "picnic.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anna opens Who has this photo, then closes it",
+      "end": "showingPhoto",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {
+            "photo": {
+              "id": "p1",
+              "folderId": "trip",
+              "url": "blob:p1",
+              "name": "beach.jpg",
+              "mime": "image/jpeg",
+              "size": 1,
+              "addedAt": 0,
+              "member": {
+                "key": "anna",
+                "name": "Anna"
+              }
+            },
+            "within": [
+              {
+                "id": "p1",
+                "folderId": "trip",
+                "url": "blob:p1",
+                "name": "beach.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              },
+              {
+                "id": "p2",
+                "folderId": "trip",
+                "url": "blob:p2",
+                "name": "picnic.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "OPEN_HOLDERS",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "CLOSE_HOLDERS",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "The open photo is deleted on another phone, and the viewer closes",
+      "end": "noPhotoOpen",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {
+            "photo": {
+              "id": "p1",
+              "folderId": "trip",
+              "url": "blob:p1",
+              "name": "beach.jpg",
+              "mime": "image/jpeg",
+              "size": 1,
+              "addedAt": 0,
+              "member": {
+                "key": "anna",
+                "name": "Anna"
+              }
+            },
+            "within": [
+              {
+                "id": "p1",
+                "folderId": "trip",
+                "url": "blob:p1",
+                "name": "beach.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              },
+              {
+                "id": "p2",
+                "folderId": "trip",
+                "url": "blob:p2",
+                "name": "picnic.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "PHOTO_LIST_CHANGED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p2",
+                "folderId": "trip",
+                "url": "blob:p2",
+                "name": "picnic.jpg",
+                "mime": "image/jpeg",
+                "size": 1,
+                "addedAt": 0,
+                "member": {
+                  "key": "anna",
+                  "name": "Anna"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

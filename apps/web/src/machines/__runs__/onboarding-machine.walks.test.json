@@ -1,0 +1,271 @@
+{
+  "onboarding": [
+    {
+      "name": "App lock could not be turned on, so Maya sees why on Lock Justus?",
+      "end": "offeringAppLock",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOCK_STATUS_READ",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "TURN_ON_APP_LOCK",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "APP_LOCK_FAILED",
+          "payload": {
+            "message": "App lock could not be turned on"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya cancels the phone's unlock prompt and is back on Lock Justus?",
+      "end": "offeringAppLock",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOCK_STATUS_READ",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "TURN_ON_APP_LOCK",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "APP_LOCK_LEFT_OFF",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya saves her name and says Not now to App lock",
+      "end": "choosingCreateOrJoin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOCK_STATUS_READ",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP_APP_LOCK",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya skips the cards, saves her name and turns on App lock",
+      "end": "choosingCreateOrJoin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOCK_STATUS_READ",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "TURN_ON_APP_LOCK",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "APP_LOCK_TURNED_ON",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya's name could not be saved, so she is back on the name step",
+      "end": "askingForName",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_FAILED",
+          "payload": {
+            "message": "Your name could not be saved"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya's phone has no screen lock, so she is never asked about App lock",
+      "end": "choosingCreateOrJoin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOCK_STATUS_READ",
+          "payload": {
+            "status": {
+              "available": false,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          }
+        }
+      ]
+    }
+  ]
+}
