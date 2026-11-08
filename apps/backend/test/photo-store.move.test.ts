@@ -28,7 +28,7 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const server = new FakeLoopbackServer();
   const deps = fakeStoreDeps({ hub, node, deviceName, server });
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { deps, server, store: createPhotoStore(deps) };
+  return { deps, node, server, store: createPhotoStore(deps) };
 }
 
 const identityOf = (s: { store: { debugState(): unknown } }) =>
@@ -769,5 +769,49 @@ describe("the removed phone sees the album turn read-only", () => {
     await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
     expect((await noticeOf(s.ben))?.kind).toBe("removed");
     await s.close();
+  }, 40_000);
+});
+
+describe("away when removed", () => {
+  const albumOf = async (p: ReturnType<typeof phone>) => (await p.store.folders()).folders[0]!;
+  const names = async (p: ReturnType<typeof phone>) =>
+    (await p.store.list({ all: true })).map((x) => x.name).sort();
+
+  async function benHearsWhileNilsIsAway() {
+    const s = await album();
+    const nilsId = (await albumOf(s.nils)).id;
+    expect((await s.nils.store.addBytes("nils.jpg", new Uint8Array([7]), nilsId))[0]).toBeNull();
+    await until(async () => (await names(s.ben)).includes("nils.jpg"));
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: false });
+    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    await until(async () => (await albumOf(s.ben)).notice?.kind === "removed", 15_000);
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.node, connected: false });
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
+    setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: true });
+    return { s, nilsId };
+  }
+
+  it("the removed phone never lists a photo added after it heard", async () => {
+    const { s, nilsId } = await benHearsWhileNilsIsAway();
+    expect((await s.nils.store.addBytes("late.jpg", new Uint8Array([9]), nilsId))[0]).toBeNull();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: true });
+    await sleep(3_000);
+    expect(await names(s.ben)).toEqual(["nils.jpg"]);
+    await s.close();
+  }, 40_000);
+
+  it("the kept versions survive a restart", async () => {
+    const { s, nilsId } = await benHearsWhileNilsIsAway();
+    await s.nils.store.addBytes("late.jpg", new Uint8Array([9]), nilsId);
+    const saved = JSON.parse(readFileSync(join(s.ben.deps.storageDir, "justus.json"), "utf8"));
+    expect(Object.keys(saved.folders[0].keptUntil).length).toBeGreaterThan(0);
+    await s.ben.store.close();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: true });
+    const again = createPhotoStore(restarted(s.ben.deps));
+    await again.ready();
+    await sleep(3_000);
+    expect((await again.list({ all: true })).map((x) => x.name).sort()).toEqual(["nils.jpg"]);
+    await again.close();
+    for (const p of [s.admin, s.nils, s.vera]) await p.store.close();
   }, 40_000);
 });
