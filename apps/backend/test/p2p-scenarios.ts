@@ -1157,6 +1157,14 @@ export const scenarios: Scenario[] = [
         "Ben sees nothing added after Remove",
       );
       t.ok((await albumIn(ben.store, moved.shareKey)) === undefined, "Ben never holds the new key");
+      const benAlbum = await eventually(
+        () => albumIn(ben.store, shareKey),
+        (f) => f?.notice?.kind === "removed" && f.role === "reader",
+        "Ben hears he was removed",
+        60_000,
+      );
+      t.ok(benAlbum?.id === benId, "Ben's removed album is the one he had");
+      t.ok((await names(ben, benId)).includes("old.jpg"), "Ben still lists the old photo");
 
       const old = (await photosOf(nils, nilsId)).find((p) => p.name === "old.jpg")!;
       t.noErr(await nils.store.remove(old.id, nilsId), "Nils deletes the old photo");
@@ -1164,6 +1172,85 @@ export const scenarios: Scenario[] = [
         () => names(nils, nilsId),
         (n) => !n.includes("old.jpg"),
         "the old photo is gone for Nils",
+      );
+    },
+  },
+  {
+    name: "move: a Collaborator removed while away hears it when back",
+    async run(net, t) {
+      const admin = await net.peer("Phone");
+      const vera = await net.peer("Vera");
+      const nils = await net.peer("Nils");
+      const created = await admin.store.createFolder("Trip");
+      if (created[0]) throw created[0];
+      const { id: folderId, shareKey, invite } = created[1].folder;
+      const adminIdentity = (admin.store.debugState() as { identityDrive: string }).identityDrive;
+      const keys: Record<string, string> = {};
+      for (const [who, role] of [
+        [vera, "reader"],
+        [nils, "member"],
+      ] as const) {
+        t.noErr(
+          await who.store.ask({
+            code: invite!.code,
+            owner: adminIdentity,
+            albumName: "Trip",
+            ownerName: "Phone",
+          }),
+          `${who.name} asks`,
+        );
+        const { requests } = await eventually(
+          () => admin.store.requests(),
+          (r) => r.requests.length === 1,
+          `${who.name}'s ask on the Admin`,
+        );
+        keys[who.name] = requests[0].requesterKey;
+        t.noErr(
+          await admin.store.respond(folderId, keys[who.name], true, role),
+          `accept ${who.name}`,
+        );
+        await eventually(
+          () => albumIn(who.store, shareKey),
+          (f) => f?.role === role && !f.pending,
+          `${who.name} joined`,
+        );
+      }
+      const nilsId = (await albumIn(nils.store, shareKey))!.id;
+      const veraId = (await albumIn(vera.store, shareKey))!.id;
+      t.noErr(
+        await nils.store.addBytes("nils-old.jpg", new Uint8Array([4, 4, 4]), nilsId),
+        "Nils adds",
+      );
+      await eventually(
+        async () =>
+          (await admin.store.list({ all: true })).filter(
+            (x) => x.folderId === folderId && x.name === "nils-old.jpg",
+          ),
+        (l) => l.length > 0,
+        "Nils's photo on the Admin",
+      );
+      await nils.stop();
+      t.noErr(await admin.store.removeMember(folderId, keys.Nils), "remove Nils");
+      const moved = (await admin.store.folders()).folders.find((f) => f.id === folderId)!;
+      await eventually(
+        async () => (await vera.store.folders()).folders.find((f) => f.id === veraId),
+        (f) => f?.shareKey === moved.shareKey,
+        "Vera followed to the new key",
+        60_000,
+      );
+      await admin.stop();
+      await net.peer("Phone", admin.storageDir);
+      const back = await net.peer("Nils", nils.storageDir);
+      const album = await eventually(
+        () => albumIn(back.store, shareKey),
+        (f) => f?.notice?.kind === "removed" && f.role === "reader",
+        "Nils hears he was removed",
+        60_000,
+      );
+      const listed = (await back.store.list({ all: true })).filter((x) => x.folderId === album!.id);
+      t.ok(
+        listed.some((x) => x.name === "nils-old.jpg"),
+        "Nils still lists his photo",
       );
     },
   },
