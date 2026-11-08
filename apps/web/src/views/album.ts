@@ -5,7 +5,12 @@ import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { folders, foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
-import { requests, requestsActor, requestsViewModel } from "../machines/requests-machine";
+import {
+  answerSent,
+  requests,
+  requestsActor,
+  requestsViewModel,
+} from "../machines/requests-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { formatRelative } from "../utils/time";
@@ -130,6 +135,24 @@ onOutput(peopleActor, (e) => {
   const key = (e.payload as { memberKey: string }).memberKey;
   toast(`${letNames.get(key) ?? "They"} can add photos now`);
   letNames.delete(key);
+});
+
+/** The toast after an answer went through; a No gets none. */
+export function answerToast(a: {
+  requesterName: string;
+  approve: boolean;
+  role: "reader" | "member";
+  viaInvite: boolean;
+}): string {
+  if (!a.approve) return "";
+  if (a.role === "reader") return `${a.requesterName} is in as a Viewer`;
+  return a.viaInvite ? `${a.requesterName} is in as a Collaborator` : `${a.requesterName} is in`;
+}
+
+onOutput(requestsActor, (e) => {
+  if (e.type !== answerSent.type) return;
+  const text = answerToast(e.payload as Parameters<typeof answerToast>[0]);
+  if (text) toast(text);
 });
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
@@ -260,11 +283,9 @@ function inviteAccept(
   </button>`;
 }
 
-function requestRow(r: PeopleVm["requests"][number], busy = false) {
-  const accept = (role: "reader" | "member", toastText: string) => () => {
+function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {
+  const accept = (role: "reader" | "member") => () =>
     requests.respond(r.folderId, r.requesterKey, true, role);
-    toast(toastText);
-  };
   return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
     <p class="text-sm text-fg">
       <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
@@ -278,14 +299,14 @@ function requestRow(r: PeopleVm["requests"][number], busy = false) {
               busy,
               "Accept as Viewer",
               "Sees every photo, can't add any",
-              accept("reader", `${r.requesterName} is in as a Viewer`),
+              accept("reader"),
             )}
             ${inviteAccept(
               r,
               busy,
               "Accept as Collaborator",
               "Sees every photo and can add their own",
-              accept("member", `${r.requesterName} is in as a Collaborator`),
+              accept("member"),
             )}
             <button
               class="ui-btn-ghost w-full"
@@ -303,19 +324,16 @@ function requestRow(r: PeopleVm["requests"][number], busy = false) {
             >
               Decline
             </button>
-            <button
-              class="ui-btn-primary"
-              ?disabled=${busy}
-              @click=${accept("member", `${r.requesterName} is in`)}
-            >
+            <button class="ui-btn-primary" ?disabled=${busy} @click=${accept("member")}>
               Accept
             </button>
           </div>`
     }
+    ${failure ? html`<div class="mt-2">${errorBanner(failure, () => requests.retry())}</div>` : null}
   </li>`;
 }
 
-function requestsSection(vm: PeopleVm, id: string) {
+function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requestsViewModel>) {
   if (vm.requests.length === 0) return null;
   return html`<section
     class="ui-card border-l-4 border-l-warn p-5"
@@ -324,7 +342,14 @@ function requestsSection(vm: PeopleVm, id: string) {
     <h2 class="ui-label mb-3">Asking to join</h2>
     <ul class="space-y-2" ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}>
       ${repeat(vm.requests, requestKey, (r) =>
-        requestRow(r, requestsViewModel(requestsActor.snapshot()).responding),
+        requestRow(
+          r,
+          reqVm.responding,
+          reqVm.failedAnswer?.folderId === r.folderId &&
+            reqVm.failedAnswer.requesterKey === r.requesterKey
+            ? reqVm.error
+            : null,
+        ),
       )}
     </ul>
   </section>`;
@@ -493,6 +518,7 @@ function albumBody(
   vm: PeopleVm,
   syncVm: ReturnType<typeof syncViewModel>,
   friends: Record<string, string>,
+  reqVm: ReturnType<typeof requestsViewModel>,
 ) {
   const { status, state, busy, settled, error, fatal } = syncVm;
   const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
@@ -534,7 +560,7 @@ function albumBody(
       state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
       fatal ? () => window.location.reload() : undefined,
     )}
-    ${requestsSection(vm, id)}
+    ${requestsSection(vm, id, reqVm)}
     <div data-motion-key="section:invite">
       ${invitePanel(
         status.folder,
@@ -562,7 +588,7 @@ export function albumView(id: string) {
             requests: rs.context.requests,
             friends: fs.context.friends,
           });
-          return albumBody(id, vm, syncVm, fs.context.friends);
+          return albumBody(id, vm, syncVm, fs.context.friends, requestsViewModel(rs));
         }),
       ),
     ),

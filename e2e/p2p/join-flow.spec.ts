@@ -102,6 +102,17 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const [a, b] = instancePages;
   await skipIntro([a, b]);
   const album = "Viewer trip";
+  // A's first answer never leaves A's phone; frames are decoded as text to find it.
+  let blockAnswer = true;
+  await a.routeWebSocket(/.*/, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((m) => {
+      const text = typeof m === "string" ? m : Buffer.from(m).toString("latin1");
+      if (blockAnswer && text.includes('"photos.respond"')) return;
+      server.send(m);
+    });
+    server.onMessage((m) => ws.send(m));
+  });
   await createAlbum(a, album, PHOTO, 11);
   const link = await copyInviteLink(a);
   await askToJoin(b, link, album);
@@ -109,6 +120,14 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
   await expect(a.getByText("Sees every photo, can't add any")).toBeVisible();
   await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+
+  const card = a.locator("li", { hasText: `wants to join “${album}”` });
+  await expect(card.getByRole("alert")).toContainText("Couldn't connect", { timeout: 40_000 });
+  await expect(a.getByText(/is in as a Viewer/)).toHaveCount(0);
+  expect(b.url()).not.toMatch(/\/albums\//);
+  blockAnswer = false;
+  await card.getByRole("button", { name: "Retry" }).click();
+  await expect(a.getByText(/is in as a Viewer/)).toBeVisible({ timeout: 15_000 });
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
