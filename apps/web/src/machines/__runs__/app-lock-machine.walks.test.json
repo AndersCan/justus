@@ -1,0 +1,51 @@
+{
+  "appLock": [
+    {
+      "name": "Maya turns on App lock in Settings",
+      "end": "showingLockSwitch",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "STATUS_READ",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": false
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_STARTED",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_ENDED",
+          "payload": {
+            "status": {
+              "available": true,
+              "enabled": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya's phone has no screen lock, so the App lock switch is greyed out",
+      "end": "showingLockSwitch",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "STATUS_READ",
+          "payload": {
+            "status": {
+              "available": false,
+              "enabled": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
