@@ -13,6 +13,7 @@ const mock = vi.hoisted(() => ({
   requests: vi.fn(),
   status: vi.fn(),
   joinOffer: vi.fn(),
+  createFolder: vi.fn(),
 }));
 vi.mock("../gateway", () => ({
   gateway: {
@@ -21,6 +22,7 @@ vi.mock("../gateway", () => ({
     status: mock.status,
     ask: vi.fn(),
     joinOffer: mock.joinOffer,
+    createFolder: mock.createFolder,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
@@ -103,6 +105,32 @@ describe("albums wiring", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
     sync.refresh();
     await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(3));
+  });
+
+  test("creating an album on Sharing opens its Invite & members page", async () => {
+    const { open, currentPage } = await import("../machines/router-machine");
+    mock.createFolder.mockResolvedValue([
+      null,
+      { folder: { id: "n", name: "Trip", role: "creator", members: 1, pending: false } },
+    ]);
+    await load(["a"]);
+    open("/sharing");
+    folders.create("Trip");
+    await vi.waitFor(() => expect(currentPage()).toEqual({ route: "album", params: { id: "n" } }));
+  });
+
+  test("creating an album from Photos leaves the landing to Photos", async () => {
+    const { open, currentPage } = await import("../machines/router-machine");
+    mock.createFolder.mockResolvedValue([
+      null,
+      { folder: { id: "m", name: "Trip", role: "creator", members: 1, pending: false } },
+    ]);
+    await load(["a"]);
+    open("/albums");
+    folders.create("Trip");
+    await vi.waitFor(() => expect(foldersActor.snapshot().context.activeId).toBe("m"));
+    await foldersActor.settled();
+    expect(currentPage()?.route).toBe("photoAlbums");
   });
 
   test("moving from one album to another closes the people sheet", async () => {

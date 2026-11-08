@@ -2,11 +2,11 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Photos is where you look; Sharing is where you manage. An album created in
- * Sharing opens in Photos, the All tab keeps showing every photo, and the
+ * Sharing opens on its Invite & members page, See photos opens it in Photos, the All tab keeps showing every photo, and the
  * Albums tab narrows the grid to one album. Ends on the seed album so later
  * specs add photos there.
  */
-test("a new album opens in Photos; All shows every photo; Albums narrows to one", async ({
+test("a new album made in Sharing opens its invite page; All shows every photo; Albums narrows to one", async ({
   page,
 }) => {
   // Settle on the gallery first, then navigate in-app (one socket for the test).
@@ -28,8 +28,25 @@ test("a new album opens in Photos; All shows every photo; Albums narrows to one"
   ).trim();
 
   await page.getByLabel("Album name").fill("Trip 2026");
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__sawFallback = false;
+    new MutationObserver(() => {
+      if (document.body.innerText.includes("This album isn't showing right now")) {
+        w.__sawFallback = true;
+      }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
   await page.getByRole("button", { name: "Create album" }).click();
 
+  await expect(page).toHaveURL(/\/sharing\/[^/]+$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Trip 2026", level: 1 })).toBeVisible({
+    timeout: 20_000,
+  });
+  const photos = page.getByRole("link", { name: "See photos in this album" });
+  await expect(photos).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__sawFallback)).toBe(false);
+  await photos.click();
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
   // The e2e worklet seeds sample photos into every new album.

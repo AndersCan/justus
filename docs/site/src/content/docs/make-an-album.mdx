@@ -5,11 +5,13 @@ description: "Someone with photos to share creates an album and opens it."
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-| What the person sees                                                                   | What they do        | State                   |
-| -------------------------------------------------------------------------------------- | ------------------- | ----------------------- |
-| The list of albums                                                                     | Taps "Create album" | `folders.showingAlbums` |
-| "Creating…" on the button                                                              | Waits               | `folders.creatingAlbum` |
-| The new album open in Photos with an empty grid (see [Share photos](../share-photos/)) | Adds photos         | `gallery.showingPhotos` |
+| What the person sees                                                                               | What they do                                        | State                   |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------- |
+| Your albums in Sharing                                                                             | Taps "Create album"                                 | `folders.showingAlbums` |
+| "Creating…" on the button                                                                          | Waits                                               | `folders.creatingAlbum` |
+| The new album's Invite & members page, with its invite link (see [Share photos](../share-photos/)) | Copies the link, or taps "See photos in this album" | `sync.showingAlbum`     |
+
+"New album" in Photos and "Create an album" on the first-run screen open the new album in Photos instead.
 
 **When it goes wrong.**
 
