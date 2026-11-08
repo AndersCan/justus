@@ -108,6 +108,9 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |
 | Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                         |
 
+**Holding record**:
+`/holding.json` and `/held/<id>` in a phone's own album drive: the photos it has a full copy of. A claim the phone makes; it never expires; only that phone withdraws it, by leaving. Every listed photo carries `holders`, worked out from these records.
+
 **Profile**:
 The user's display name and auto-assigned colour, set on first run. No account, email or password. Device labels are derived automatically.
 

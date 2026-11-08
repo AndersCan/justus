@@ -7,6 +7,14 @@ import {
   galleryDrives,
   listGallery,
 } from "./photos/gallery";
+import {
+  copyHeld,
+  ensureHoldingMarker,
+  holdersFor,
+  markHeld,
+  readHeld,
+  type HeldReport,
+} from "./photos/holders";
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
 import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
@@ -523,6 +531,10 @@ type FolderRuntime = {
   /** `remove` closures for this folder's `onDriveChange` watchers, drained
    * on unmount/close so inactive folders stop firing `onChanged` (#46). */
   watcherRemoves: Set<() => void>;
+  /** What each phone says it holds, by drive key (this phone's own included). */
+  held: Map<string, HeldReport>;
+  /** True once the photos opened before holding records existed were recorded. */
+  heldBackfilled: boolean;
 };
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
@@ -1175,6 +1187,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               }),
             );
         }
+        if (rt && drive !== rt.selfDrive) {
+          void refreshHeld(rt, drive.key, drive).catch((e) =>
+            log("error", { where: "refreshHeld", err: errText(e) }),
+          );
+        }
         refreshPresence();
         // Drive metadata changed locally or via replication — the gallery is
         // derived, so a refresh always suffices.
@@ -1191,6 +1208,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function armFolderWatchers(rt: FolderRuntime) {
+    void startHolding(rt).catch((e) => log("error", { where: "startHolding", err: errText(e) }));
     for (const remove of rt.watcherRemoves) {
       try {
         remove();
@@ -1510,6 +1528,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // drive that is offline is skipped (its entries are already indexed from
     // when it was reachable) — never evicted.
     await seedContentIndex(rt);
+    refreshHeldOfEveryone(rt);
     if (await dropCaughtUpEarlier(rt)) await refreshMembersFor(rt);
   }
 
@@ -2035,10 +2054,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
     const driveByKey = new Map(sources.map((s) => [s.key, s.drive]));
 
+    const people = await albumPeople(rt);
     const photos: Photo[] = [];
+    const listed: { id: string; ext: string; driveKey: string }[] = [];
     for (const d of derived) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
+      listed.push({ id: d.id, ext: d.ext, driveKey: d.driveKey });
       photos.push({
         id: d.id,
         ...(await servePhoto(rt, drive, d.driveKey, d)),
@@ -2051,7 +2073,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(d.takenAt ? { takenAt: d.takenAt } : {}),
         folderId: rt.record.id,
         mine: d.driveKey === selfKey,
+        holders: holdersFor({
+          photo: { id: d.id, driveKey: d.driveKey, memberName: d.memberName },
+          selfKey,
+          people,
+          held: rt.held,
+          former: [],
+        }),
       });
+    }
+    if (!rt.heldBackfilled) {
+      rt.heldBackfilled = true;
+      void startHolding(rt)
+        .then(() => backfillHeld(rt, listed))
+        .catch((e) => log("error", { where: "backfillHeld", err: errText(e) }));
     }
     return photos;
   }
@@ -2068,7 +2103,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     p: { id: string; ext: string; mime: string; hasThumb?: true },
   ): Promise<{ url: string; thumbUrl?: string }> {
     const origin = await deps.server.origin();
-    const serve = (drivePath: string, spoolName: string, mime: string) => {
+    const serve = (drivePath: string, spoolName: string, mime: string, display = false) => {
       // `p.id`/`p.ext` derive from untrusted drive photo keys, so the spool
       // name must be filesystem-safe — never interpolate them raw (issue #71).
       const route = `/photos/${rt.record.id}/${spoolName}`;
@@ -2077,6 +2112,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         mime,
         open: async () => {
           await spoolToFile(drive, drivePath, spoolPath);
+          if (display && driveKey !== selfKeyOf(rt)) {
+            void noteHeld(rt, p.id).catch((e) =>
+              log("error", { where: "noteHeld", err: errText(e) }),
+            );
+          }
           return spoolPath;
         },
       });
@@ -2087,6 +2127,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       `${DRIVE_PATH_PHOTOS}/${p.id}${p.ext}`,
       spoolNameFor(driveKey, p.id, p.ext),
       p.mime,
+      true,
     );
     if (!p.hasThumb) return { url };
     const thumbUrl = serve(
@@ -2364,6 +2405,183 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return albumSummary(rt, { ownIdentity: ownDrive.key });
   }
 
+  type AlbumPerson = {
+    key: string;
+    name: string;
+    admin: boolean;
+    self: boolean;
+    viewer: boolean;
+  };
+
+  /** Everyone in the album as this phone sees it: this phone, the Admin, the
+   * enrolled members, the Viewers, and (on the Admin's phone) people still moving. */
+  async function albumPeople(rt: FolderRuntime): Promise<AlbumPerson[]> {
+    const registry = await readRegistryIn(rt.folderDrive);
+    const selfKey = selfKeyOf(rt);
+    // Dedupe self in case the registry already lists this device (issue #89).
+    const isAdmin = rt.record.role === "creator";
+    const adminKey = rt.record.shareKey;
+    const person = (key: string, name: string, viewer: boolean): AlbumPerson => ({
+      key,
+      name,
+      admin: false,
+      self: false,
+      viewer,
+    });
+    return [
+      {
+        key: selfKey,
+        name: state.name,
+        admin: isAdmin,
+        self: true,
+        viewer: rt.record.role === "reader" && rt.viewers[selfKey] !== undefined,
+      },
+      // A member sees the Admin too: the registry only lists enrolled writers.
+      ...(!isAdmin && selfKey !== adminKey
+        ? [{ ...person(adminKey, await readDeviceName(rt.folderDrive), false), admin: true }]
+        : []),
+      ...Object.values(registry.members)
+        .filter((m) => m.key !== selfKey && m.key !== adminKey)
+        .map((m) => person(m.key, m.name, false)),
+      ...Object.values(rt.viewers)
+        .filter((v) => v.key !== selfKey && v.key !== adminKey && !registry.members[v.key])
+        .sort((a, b) => a.addedAt - b.addedAt)
+        .map((v) => person(v.key, v.name, true)),
+      ...(isAdmin
+        ? Object.values(rt.record.moving ?? {}).map((m) =>
+            person(m.key, m.name, m.role === "reader"),
+          )
+        : []),
+    ];
+  }
+
+  /** The drive a person's holding record is read from, when this phone has it open. */
+  function driveOfPerson(rt: FolderRuntime, key: string): Drive | undefined {
+    if (key === selfKeyOf(rt)) return undefined;
+    const member = rt.memberDrives.get(key);
+    if (member) return member;
+    if (key === rt.record.shareKey && rt.folderDrive !== rt.selfDrive) return rt.folderDrive;
+    return viewerDeviceDrives.get(key)?.drive;
+  }
+
+  function sameReport(a: HeldReport | undefined, b: HeldReport): boolean {
+    if (a === undefined || a.kind !== b.kind) return false;
+    if (a.kind === "silent" || b.kind === "silent") return true;
+    if (a.ids.size !== b.ids.size) return false;
+    for (const id of a.ids) if (!b.ids.has(id)) return false;
+    return true;
+  }
+
+  /** Reads another phone's record. A failed read never replaces a report already known. */
+  async function refreshHeld(rt: FolderRuntime, key: string, drive: Drive) {
+    const prev = rt.held.get(key);
+    const next = await readHeld(drive, { timeoutMs: 1_500, log });
+    if (next.kind === "silent" && prev?.kind === "reports") return;
+    if (sameReport(prev, next)) return;
+    rt.held.set(key, next);
+    deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
+  function refreshHeldOfEveryone(rt: FolderRuntime) {
+    void albumPeople(rt)
+      .then((people) => {
+        for (const { key } of people) {
+          const drive = driveOfPerson(rt, key);
+          if (drive) {
+            void refreshHeld(rt, key, drive).catch((e) =>
+              log("error", { where: "refreshHeld", err: errText(e) }),
+            );
+          }
+        }
+      })
+      .catch((e) => log("error", { where: "refreshHeldOfEveryone", err: errText(e) }));
+  }
+
+  function refreshViewerHeld(keyHex: string, drive: Drive) {
+    for (const rt of runtimes.values()) {
+      if (!rt.viewers[keyHex]) continue;
+      void refreshHeld(rt, keyHex, drive).catch((e) =>
+        log("error", { where: "refreshHeld", err: errText(e) }),
+      );
+    }
+  }
+
+  /** Writes this phone's marker and reads back what it already holds. Once per own drive. */
+  async function startHolding(rt: FolderRuntime) {
+    const drive = rt.selfDrive;
+    if (rt.held.has(drive.key)) return;
+    rt.held.set(drive.key, { kind: "silent" });
+    const [markerErr] = await ensureHoldingMarker(drive);
+    if (markerErr) log("error", { where: "holding.marker", err: markerErr.message });
+    const report = await readHeld(drive, { timeoutMs: 2_000, log });
+    const current = rt.held.get(drive.key);
+    const ids = new Set<string>();
+    for (const r of [report, current])
+      if (r?.kind === "reports") for (const id of r.ids) ids.add(id);
+    rt.held.set(
+      drive.key,
+      ids.size > 0 || report.kind === "reports" ? { kind: "reports", ids } : report,
+    );
+    if (ids.size > 0) deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
+  const heldPending = new Set<string>();
+
+  /** A full copy of the photo is now on this phone: record it. */
+  async function noteHeld(rt: FolderRuntime, id: string) {
+    const drive = rt.selfDrive;
+    const mine = rt.held.get(drive.key);
+    if (mine?.kind === "reports" && mine.ids.has(id)) return;
+    const slot = `${rt.record.id}:${id}`;
+    if (heldPending.has(slot)) return;
+    heldPending.add(slot);
+    try {
+      const [writeErr, wrote] = await markHeld(drive, id);
+      if (writeErr) {
+        log("error", { where: "holding.mark", err: writeErr.message });
+        return;
+      }
+      if (!wrote) return;
+      const now = rt.held.get(drive.key);
+      const ids = new Set(now?.kind === "reports" ? now.ids : []);
+      ids.add(id);
+      rt.held.set(drive.key, { kind: "reports", ids });
+      deps.onChanged({ cause: "holders", folderId: rt.record.id });
+    } finally {
+      heldPending.delete(slot);
+    }
+  }
+
+  /** Photos opened before holding records existed: their display copy is already spooled. */
+  async function backfillHeld(
+    rt: FolderRuntime,
+    photos: ReadonlyArray<{ id: string; ext: string; driveKey: string }>,
+  ) {
+    const drive = rt.selfDrive;
+    const mine = rt.held.get(drive.key);
+    let marked = 0;
+    for (const p of photos) {
+      if (p.driveKey === drive.key) continue;
+      if (mine?.kind === "reports" && mine.ids.has(p.id)) continue;
+      const spooled = path.join(spoolDirFor(rt.record.id), spoolNameFor(p.driveKey, p.id, p.ext));
+      if (!fs.existsSync(spooled)) continue;
+      await ensureHoldingMarker(drive);
+      const [writeErr, wrote] = await markHeld(drive, p.id);
+      if (writeErr) {
+        log("error", { where: "holding.backfill", err: writeErr.message });
+        continue;
+      }
+      if (!wrote) continue;
+      const now = rt.held.get(drive.key);
+      const ids = new Set(now?.kind === "reports" ? now.ids : []);
+      ids.add(p.id);
+      rt.held.set(drive.key, { kind: "reports", ids });
+      marked++;
+    }
+    log("holding.backfill", { folder: short(rt.record.id), marked });
+    if (marked > 0) deps.onChanged({ cause: "holders", folderId: rt.record.id });
+  }
+
   async function computeStatus(): Promise<SyncStatus> {
     const rt = activeRuntime();
     if (!rt) {
@@ -2388,47 +2606,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         peersBehind: [...peersBehind],
       };
     }
-    const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = selfKeyOf(rt);
-    // Every role reports a self-consistent member set: the local device first,
-    // then the enrolled members from the registry. Dedupe self in case the
-    // registry already lists this device (issue #89) — a member/reader's own key
-    // may appear in `registry.members`, but must not be double-counted.
-    const isAdmin = rt.record.role === "creator";
-    const adminKey = rt.record.shareKey;
-    const peer = (key: string, name: string, admin: boolean): SyncMember => ({
-      key,
-      name,
-      admin,
-      ...memberPresence(presence, key),
-    });
-    const memberList: SyncMember[] = [
-      {
-        key: selfKey,
-        name: state.name,
-        admin: isAdmin,
-        connected: true,
-        identity: ownDrive.key,
-        ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
-      },
-      // A member sees the Admin too: the registry only lists enrolled writers.
-      ...(!isAdmin && selfKey !== adminKey
-        ? [peer(adminKey, await readDeviceName(rt.folderDrive), true)]
-        : []),
-      ...Object.values(registry.members)
-        .filter((m) => m.key !== selfKey && m.key !== adminKey)
-        .map((m) => peer(m.key, m.name, false)),
-      ...Object.values(rt.viewers)
-        .filter((v) => v.key !== selfKey && v.key !== adminKey && !registry.members[v.key])
-        .sort((a, b) => a.addedAt - b.addedAt)
-        .map((v) => ({ ...peer(v.key, v.name, false), viewer: true })),
-      ...(isAdmin
-        ? Object.values(rt.record.moving ?? {}).map((m) => ({
-            ...peer(m.key, m.name, false),
-            ...(m.role === "reader" ? { viewer: true as const } : {}),
-          }))
-        : []),
-    ];
+    const memberList: SyncMember[] = (await albumPeople(rt)).map((person) =>
+      person.self
+        ? {
+            key: selfKey,
+            name: state.name,
+            admin: person.admin,
+            connected: true,
+            identity: ownDrive.key,
+            ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
+          }
+        : {
+            key: person.key,
+            name: person.name,
+            admin: person.admin,
+            ...memberPresence(presence, person.key),
+            ...(person.viewer ? { viewer: true as const } : {}),
+          },
+    );
     const photos = (await listPhotosIn(rt)).length;
     const role = rt.record.role;
     return {
@@ -2536,7 +2732,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       let timer: ReturnType<typeof setTimeout> | null = null;
       const off = drive.onChange(() => {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(refreshPresence, 400);
+        timer = setTimeout(() => {
+          refreshPresence();
+          refreshViewerHeld(keyHex, drive);
+        }, 400);
       });
       viewerDeviceDrives.set(keyHex, {
         drive,
@@ -2546,6 +2745,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         },
       });
       refreshPresence();
+      refreshViewerHeld(keyHex, drive);
     });
     opening.catch(() => viewerDevices.delete(keyHex));
     viewerDevices.set(keyHex, opening);
@@ -2781,6 +2981,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         viewers: {},
         mounted: new Set(),
         watcherRemoves: new Set(),
+        held: new Map(),
+        heldBackfilled: false,
       };
       runtimes.set(record.id, rt);
       // A delete the Admin made while this phone was away, or work a restart
@@ -2914,6 +3116,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       viewers: {},
       mounted: new Set(),
       watcherRemoves: new Set(),
+      held: new Map(),
+      heldBackfilled: false,
     };
     runtimes.set(folderId, rt);
     state.folders.push(rt.record);
@@ -3511,6 +3715,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         await copyOwnEntries(rt.selfDrive, ask, ids);
       }
+      await copyHeld(rt.selfDrive, ask);
       const [askErr] = await fileAsk(code, sender, offer.albumName, offer.ownerName, rt.record.id);
       if (askErr) {
         log("error", { where: "followMove.ask", err: askErr.message });
@@ -3618,6 +3823,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             viewers: {},
             mounted: new Set(),
             watcherRemoves: new Set(),
+            held: new Map(),
+            heldBackfilled: false,
           };
           runtimes.set(existing.id, rt);
           await refreshMembersFor(rt);
@@ -3689,6 +3896,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       viewers: {},
       mounted: new Set(),
       watcherRemoves: new Set(),
+      held: new Map(),
+      heldBackfilled: false,
     };
     runtimes.set(folderId, rt);
 

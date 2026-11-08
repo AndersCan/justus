@@ -9,7 +9,12 @@ import { join } from "node:path";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { ErrorCode } from "@ekrooh/bare/core";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
+import {
+  FakeLoopbackServer,
+  fakeStoreDeps,
+  joinAsMember,
+  restarted,
+} from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -20,9 +25,10 @@ async function until(done: () => boolean | Promise<boolean>, ms = 3_000): Promis
 function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const deps = fakeStoreDeps({ hub, node, deviceName });
+  const server = new FakeLoopbackServer();
+  const deps = fakeStoreDeps({ hub, node, deviceName, server });
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { deps, store: createPhotoStore(deps) };
+  return { deps, server, store: createPhotoStore(deps) };
 }
 
 const identityOf = (s: { store: { debugState(): unknown } }) =>
@@ -392,6 +398,26 @@ describe("the other phones follow the move by themselves", () => {
     expect(mine).toHaveLength(1);
     await s.close();
   }, 40_000);
+  it("a Collaborator's record of held photos follows to the new drive", async () => {
+    const s = await invited();
+    await s.admin.store.setActive(s.folderId);
+    await s.admin.store.addBytes("sunset.jpg", new Uint8Array([1, 2, 3, 4, 5]));
+    await until(async () => (await s.nils.store.list({ all: true })).length === 1);
+    const photo = (await s.nils.store.list({ all: true }))[0];
+    expect((await s.nils.server.getForTest(new URL(photo.url).pathname)).status).toBe(200);
+    await until(async () => (await s.admin.store.list())[0].holders!.others.length === 1);
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    const code = s.record().invite.code as string;
+    const ask = await s.nils.deps.drives.openOwn(`ask/${code}`);
+    const held: string[] = [];
+    for await (const e of ask.list("/held")) held.push(e.path);
+    expect(held).toEqual([`/held/${photo.id}`]);
+    expect(await ask.readSmall("/holding.json", 1e6)).toBe('{"version":1}');
+    await s.close();
+  }, 40_000);
+
   const savedOf = (p: ReturnType<typeof phone>) =>
     JSON.parse(readFileSync(join(p.deps.storageDir, "justus.json"), "utf8")) as {
       folders: { id: string; shareKey: string }[];
