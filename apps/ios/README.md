@@ -46,6 +46,18 @@ xcodebuild test -project apps/ios/justus.xcodeproj -scheme justus \
 
 CI runs the `ios` workflow on PRs touching iOS, web, backend or core.
 
+## App lock
+
+Settings > "Require unlock to open Justus" turns the lock on; the choice is the
+`UserDefaults` key `appLock.enabled`. Try it on a simulator:
+
+1. Features > Face ID > Enrolled (the simulator has no passcode, so the switch
+   stays disabled until Face ID is enrolled).
+2. Open Settings in Justus and turn the switch on; choose Features > Face ID >
+   Matching Face. A toast says "App lock is on".
+3. Go Home, wait 30 s, reopen: the cover shows and the prompt opens. Matching
+   Face unlocks; Non-matching Face leaves the cover up.
+
 ## Physical device
 
 1. Pair the device (unlock, tap **Trust**), add your Apple ID in Xcode

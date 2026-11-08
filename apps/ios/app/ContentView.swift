@@ -8,7 +8,7 @@ struct ContentView: View {
 
   var body: some View {
     ZStack {
-      BareWebView(runtime: runtime)
+      BareWebView(runtime: runtime, lock: lock)
         .opacity(lock.state.hidden ? 0 : 1)
         .accessibilityHidden(lock.state.hidden)
       if lock.state.hidden {
@@ -23,12 +23,13 @@ struct ContentView: View {
 /// server (URL loaded after the origin/bootstrap handoff in `BareRuntime`).
 struct BareWebView: UIViewRepresentable {
   let runtime: BareRuntime
+  let lock: AppLockController
 
   func makeUIView(context: Context) -> WKWebView {
     let configuration = WKWebViewConfiguration()
     let webView = WKWebView(frame: .zero, configuration: configuration)
 
-    runtime.attach(webView: webView)
+    runtime.attach(webView: webView, lock: lock)
 
     return webView
   }

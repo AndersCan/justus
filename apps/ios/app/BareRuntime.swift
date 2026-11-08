@@ -110,7 +110,7 @@ final class BareRuntime {
   /// host capability queries and host invokes; the page itself talks to the
   /// worklet over the loopback WebSocket socket (cookie auth). Also installs a
   /// navigation delegate that confines the WebView to the loopback origin.
-  func attach(webView: WKWebView) {
+  func attach(webView: WKWebView, lock: AppLockController) {
     guard let ipc, attached == false else { return }
     attached = true
     self.webView = webView
@@ -122,6 +122,7 @@ final class BareRuntime {
     let hostPlugins = HostPluginRegistry()
     registerDefaultHostPlugins(hostPlugins)
     registerMediaHostPlugins(hostPlugins)
+    registerLockHostPlugins(hostPlugins, lock: lock)
 
     coordinator = HostIpcCoordinator(ipc: ipc, hostPlugins: hostPlugins)
     coordinator?.start()
