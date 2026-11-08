@@ -54,6 +54,7 @@ async function askWorld() {
     readJoinRequests((k) => admin.drives.open(k, { timeoutMs: 200 }), {
       identities: [identity.key],
       folder: { id: "f1", name: "Trip", shareKey: album.key, inviteCode },
+      openSealed: (s) => admin.drives.openSealed(s),
       log: admin.log,
     });
   const ask = (extra: { albumName?: unknown; ownerName?: unknown } = {}) =>

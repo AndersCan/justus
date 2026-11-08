@@ -8,6 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeCrypto from "node:crypto";
 import { inviteTopic } from "../src/membership/invite.ts";
+import { boxKeyOf } from "../src/membership/records.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
@@ -1384,5 +1385,22 @@ describe("a request through a turned-off link", () => {
       PhotoError.FOLDER_NOT_FOUND,
     );
     await s.close();
+  });
+});
+
+describe("the Admin's sealing key", () => {
+  it("the Admin's identity /device.json names its sealing key, also after a restart", async () => {
+    const s = await scenario();
+    const [boxErr, box] = await s.admin.deps.drives.boxPublicKey();
+    expect(boxErr).toBeNull();
+    const named = async (on: { deps: FakeStoreDeps }) =>
+      boxKeyOf((await readText(await openDrive(on, s.owner), "/device.json")) ?? null);
+    expect(await named(s.joiner)).toBe(box);
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    expect(await named(s.joiner)).toBe(box);
+    await reopened.close();
+    await s.joiner.store.close();
   });
 });
