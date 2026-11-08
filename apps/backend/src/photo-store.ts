@@ -70,6 +70,7 @@ import {
   parseEarlier,
   parseRemoved,
   parseRequestsFile,
+  invitesAsked,
   verifiedDeviceIdentity,
   identityMessage,
   peerName,
@@ -89,7 +90,13 @@ import {
   withdrawInvite,
   type InvitePorts,
 } from "./membership/invites";
-import { answersOwed, arrivingAnswer, deliverOwed, proveIdentity } from "./membership/answers";
+import {
+  answersOwed,
+  arrivingAnswer,
+  type AskedCode,
+  deliverOwed,
+  proveIdentity,
+} from "./membership/answers";
 import {
   albumNameUpdate,
   albumSummary,
@@ -203,7 +210,7 @@ type GoneRecord = {
 /** A request to join through an invite code. `shareKey` is set only once the
  * Admin accepted and the join is not done yet; it never touches a drive. */
 type AskRecord = Omit<AskSummary, "status"> & {
-  status: "waiting" | "declined" | "accepted";
+  status: "waiting" | "declined" | "accepted" | "linkOff";
   shareKey?: string;
   /** Joining this ask's album replaces the album with this local id: the
    * Admin moved it to new keys and this phone is following. */
@@ -873,7 +880,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!isTextJSON(a)) continue;
       if (typeof a.code !== "string" || !isHexKey(a.code)) continue;
       if (typeof a.owner !== "string" || !isHexKey(a.owner)) continue;
-      if (a.status !== "waiting" && a.status !== "declined" && a.status !== "accepted") continue;
+      if (
+        a.status !== "waiting" &&
+        a.status !== "declined" &&
+        a.status !== "accepted" &&
+        a.status !== "linkOff"
+      )
+        continue;
       out.push({
         code: a.code,
         owner: a.owner,
@@ -2663,6 +2676,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           saveState();
         }
         serveInvite(record.invite.code);
+        serveRetiredInvites(record);
         // People who have not followed a move still read the album's old drives.
         for (const past of Object.keys(record.moving ?? {}).length > 0
           ? (record.pastKeys ?? [])
@@ -2909,7 +2923,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       albumName: a.albumName,
       ownerName: a.ownerName,
       askedAt: a.askedAt,
-      status: a.status === "declined" ? "declined" : "waiting",
+      status: a.status === "declined" || a.status === "linkOff" ? a.status : "waiting",
     };
   }
 
@@ -2918,6 +2932,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const topic = inviteTopic(code, crypto);
     joinTopic(topic, { server: true });
     network.findPeers(hex(topic), () => false, { drive: code });
+  }
+
+  /** A turned-off link keeps its topic (announce only), so a joiner who asked
+   * through it can still be told it no longer works. */
+  function serveRetiredInvites(record: FolderRecord) {
+    for (const code of record.retiredInvites ?? []) {
+      joinTopic(inviteTopic(code, crypto), { server: true });
+    }
   }
 
   /** The joiner serves the same topic until its owner connects. */
@@ -2952,8 +2974,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log,
       });
       if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
+<<<<<<< HEAD
       const filed = replaces ? { ...ask, replaces } : ask;
       state.asks = [...state.asks.filter((a) => a.code !== code), filed];
+=======
+      state.asks = [
+        ...state.asks.filter(
+          (a) =>
+            a.code !== code &&
+            !(a.status === "linkOff" && a.owner === owner && a.albumName === ask.albumName),
+        ),
+        ask,
+      ];
+>>>>>>> 116f192 (Backend: answer a request through a turned-off link with 'link no longer works')
       saveState();
       await watchInvite(filed);
       deps.onChanged({ cause: "ask", code });
@@ -3032,13 +3065,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return proven;
   }
 
+  /** The codes `identity` asked through, read from its outbox; only when some
+   * album here has turned a link off. */
+  async function askedThrough(identity: string): Promise<AskedCode[]> {
+    const hasRetired = [...runtimes.values()].some((rt) => rt.record.retiredInvites?.length);
+    if (!hasRetired) return [];
+    try {
+      const drive = await withTimeout(openPeerOutbox(identity), 5_000);
+      if (!drive) return [];
+      const text = await withTimeout(readText(drive, DRIVE_PATH_REQUESTS), 5_000);
+      return text ? invitesAsked(text) : [];
+    } catch (thrown: unknown) {
+      log("error", { where: "answer.asked", err: errMsg(thrown) });
+      return [];
+    }
+  }
+
   /** Sends each answer owed to `identity` on every connection proven to be it. */
   async function deliverAnswers(identity: string, attempt = 0): Promise<void> {
     if (closed || !setupDone) return;
+    const asked = await askedThrough(identity);
     const owed = () =>
       answersOwed(
         [...runtimes.values()].map((rt) => rt.record),
         identity,
+        asked,
       );
     const { retry } = await deliverOwed(
       {
@@ -3077,6 +3128,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const ask = state.asks.find((a) => a.code === arrival.code);
     if (!ask) return;
+    if (arrival.kind === "linkOff") {
+      ask.status = "linkOff";
+      saveState();
+      leaveTopic(hex(inviteTopic(ask.code, crypto)));
+      await pruneJoinRequests();
+      deps.onChanged({ cause: "ask", code: ask.code, answer: "linkOff" });
+      return;
+    }
     if (arrival.kind === "declined") {
       ask.status = "declined";
       saveState();
@@ -3987,9 +4046,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
-      if (next.retired) leaveTopic(hex(inviteTopic(next.retired, crypto)));
       serveInvite(next.invite.code);
       deps.onChanged({ cause: "request", folderId });
+      const connected = new Set<string>();
+      for (const c of conns.values()) {
+        if (c.identityKey && !c.refused && c.identityKey !== ownDrive.key) {
+          connected.add(c.identityKey);
+        }
+      }
+      for (const id of connected) void deliverAnswers(id).catch(answerErr("deliver"));
       return ok({ invite: { code: next.invite.code, owner: ownDrive.key } });
     },
 
@@ -4255,8 +4320,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
     async cancelAsk(code) {
       await readyPromise;
-      const found = state.asks.find((a) => a.code === code && a.status === "waiting");
-      if (!found) return err(PhotoError.NOT_FOUND, `No waiting request for ${code}`);
+      const found = state.asks.find(
+        (a) => a.code === code && (a.status === "waiting" || a.status === "linkOff"),
+      );
+      if (!found) return err(PhotoError.NOT_FOUND, `No open request for ${code}`);
       state.asks = state.asks.filter((a) => a !== found);
       saveState();
       leaveTopic(hex(inviteTopic(code, crypto)));

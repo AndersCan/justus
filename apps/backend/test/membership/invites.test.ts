@@ -489,6 +489,13 @@ describe("invites: friends and turning a link off", () => {
       offerToTake({ offers: [held], asks: [declined] }, { code: C, owner: hex("a") }).kind,
       "take: declined ask is refiled",
     ).toBe("file-ask");
+    expect(
+      offerToTake(
+        { offers: [held], asks: [{ code: C, status: "linkOff" }] },
+        { code: C, owner: hex("a") },
+      ).kind,
+      "take: linkOff ask is refiled",
+    ).toBe("file-ask");
     const out = offerToTake({ offers: [held], asks: [waiting] }, { code: C, owner: hex("a") });
     expect(out.kind === "asked" && out.ask, "take: ask already out").toBe(waiting);
   });

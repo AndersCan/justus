@@ -237,7 +237,9 @@ export function offerToTake<A extends { code: string; status: string }>(
   const offer = held.offers.find((o) => o.code === wanted.code && o.owner === wanted.owner);
   if (!offer) return { kind: "gone" };
   const ask = held.asks.find((a) => a.code === wanted.code);
-  if (!ask || ask.status === "declined") return { kind: "file-ask", offer };
+  if (!ask || ask.status === "declined" || ask.status === "linkOff") {
+    return { kind: "file-ask", offer };
+  }
   return { kind: "asked", ask };
 }
 

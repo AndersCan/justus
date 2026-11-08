@@ -13,6 +13,7 @@ import {
   parseRegistry,
   parseRemoved,
   parseRequestsFile,
+  invitesAsked,
   parseViewers,
   peerName,
 } from "./records";
@@ -437,5 +438,37 @@ describe("parseViewers", () => {
     const { viewers } = parseViewers(text);
     expect(viewers[KEY_A].name).toHaveLength(80);
     expect(viewers[KEY_B].name).toBe("New member");
+  });
+});
+
+describe("linkOff answers", () => {
+  const code = "c".repeat(64);
+  test("parseAnswer keeps only code, answer and askedAt", () => {
+    expect(
+      parseAnswer({
+        code,
+        answer: "linkOff",
+        askedAt: 7,
+        shareKey: "k".repeat(64),
+        albumName: "x",
+      }),
+    ).toEqual({ code, answer: "linkOff", askedAt: 7 });
+    expect(parseAnswer({ code, answer: "linkOff" })).toBeUndefined();
+    expect(parseAnswer({ code, answer: "linkOff", askedAt: "7" })).toBeUndefined();
+    expect(parseAnswer({ code, answer: "linkOff", askedAt: Number.NaN })).toBeUndefined();
+  });
+
+  test("invitesAsked lists invite entries and skips the rest", () => {
+    const text = JSON.stringify({
+      version: 1,
+      requests: {
+        [`invite:${code}`]: { invite: code, requestedAt: 5 },
+        plain: { shareKey: "k".repeat(64), requestedAt: 6 },
+        bad: { invite: "zz", requestedAt: 6 },
+        late: { invite: "d".repeat(64) },
+      },
+    });
+    expect(invitesAsked(text)).toEqual([{ code, requestedAt: 5 }]);
+    expect(invitesAsked("nope")).toEqual([]);
   });
 });

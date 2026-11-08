@@ -34,6 +34,27 @@ describe("photo contract", () => {
     expect(checkPhotoChanged("nope")).toContain("args: expected object, got string");
   });
 
+  it("accepts linkOff as an ask answer and status", () => {
+    expect(checkPhotoChanged({ cause: "ask", code: "c", answer: "linkOff" })).toBeNull();
+    const ask = {
+      code: "c",
+      owner: "o",
+      albumName: "a",
+      ownerName: "n",
+      askedAt: 1,
+      status: "linkOff",
+    };
+    expect(
+      checkPhotoResult("photos.folders", {
+        folders: [],
+        archived: [],
+        deleted: [],
+        activeFolderId: null,
+        asks: [ask],
+      }),
+    ).not.toContain("status");
+  });
+
   it("ignores unknown extra fields", () => {
     expect(checkPhotoResult("photos.setName", { name: "x", extra: 1 })).toBeNull();
   });

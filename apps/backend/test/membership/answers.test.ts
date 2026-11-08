@@ -202,33 +202,135 @@ describe("answers: what is owed", () => {
   });
 });
 
-describe("answers: delivering what is owed", () => {
-  async function adminAndJoiners() {
-    const [admin, joiner, other] = await phones(["admin", "joiner", "other"]);
-    await meet(admin, joiner);
-    await meet(admin, other);
-    const toJoiner = connTo(admin, joiner);
-    const toOther = connTo(admin, other);
-    const sent = new Map<number, Set<string>>([
-      [toJoiner.conn, new Set()],
-      [toOther.conn, new Set()],
-    ]);
-    const ports = (claims: { conn: number; identity: string }[]) => ({
-      connections: () => claims.map((c) => ({ ...c, sent: sent.get(c.conn)! })),
-      provenIdentity: (conn: number) =>
-        prove(admin, () => {
-          const c = [toJoiner, toOther].find((x) => x.conn === conn)!;
-          return {
-            identity: claims.find((x) => x.conn === conn)?.identity,
-            peerKey: c.peerKey,
-            verified: false,
-          };
-        }),
-      sendAnswer: admin.network.sendAnswer.bind(admin.network),
-    });
-    return { admin, joiner, other, toJoiner, toOther, sent, ports };
-  }
+async function adminAndJoiners() {
+  const [admin, joiner, other] = await phones(["admin", "joiner", "other"]);
+  await meet(admin, joiner);
+  await meet(admin, other);
+  const toJoiner = connTo(admin, joiner);
+  const toOther = connTo(admin, other);
+  const sent = new Map<number, Set<string>>([
+    [toJoiner.conn, new Set()],
+    [toOther.conn, new Set()],
+  ]);
+  const ports = (claims: { conn: number; identity: string }[]) => ({
+    connections: () => claims.map((c) => ({ ...c, sent: sent.get(c.conn)! })),
+    provenIdentity: (conn: number) =>
+      prove(admin, () => {
+        const c = [toJoiner, toOther].find((x) => x.conn === conn)!;
+        return {
+          identity: claims.find((x) => x.conn === conn)?.identity,
+          peerKey: c.peerKey,
+          verified: false,
+        };
+      }),
+    sendAnswer: admin.network.sendAnswer.bind(admin.network),
+  });
+  return { admin, joiner, other, toJoiner, toOther, sent, ports };
+}
 
+describe("answers: a turned-off link", () => {
+  const b = hex("b");
+  const asked = (requestedAt: number, code = RETIRED) => [{ code, requestedAt }];
+
+  it("owed: a retired code asked through with no answer gets a linkOff", () => {
+    expect(
+      answersOwed([album({ answers: undefined, retiredInvites: [RETIRED] })], b, asked(7)),
+    ).toEqual([{ code: RETIRED, answer: "linkOff", askedAt: 7 }]);
+  });
+
+  it("owed: the current code asked through gets no linkOff", () => {
+    expect(answersOwed([album({ answers: undefined })], b, asked(7, CODE))).toEqual([]);
+  });
+
+  it("owed: an accepted answer is not followed by a linkOff", () => {
+    expect(answersOwed([album({ retiredInvites: [RETIRED] })], b, asked(7))).toEqual([
+      { code: CODE, answer: "accepted", shareKey: SHARE },
+      { code: RETIRED, answer: "accepted", shareKey: SHARE },
+    ]);
+  });
+
+  it("owed: a decline covering the ask is the only answer, an older decline is followed by a linkOff", () => {
+    const declined = (askedAt: number) =>
+      album({
+        answers: { [b]: "declined" },
+        declinedAsks: { [b]: askedAt },
+        retiredInvites: [RETIRED],
+      });
+    expect(answersOwed([declined(7)], b, asked(7))).toEqual([
+      { code: CODE, answer: "declined", askedAt: 7 },
+      { code: RETIRED, answer: "declined", askedAt: 7 },
+    ]);
+    expect(answersOwed([declined(5)], b, asked(7))).toEqual([
+      { code: CODE, answer: "declined", askedAt: 5 },
+      { code: RETIRED, answer: "declined", askedAt: 5 },
+      { code: RETIRED, answer: "linkOff", askedAt: 7 },
+    ]);
+  });
+
+  it("owed: another album's retired code gets no linkOff", () => {
+    expect(
+      answersOwed([album({ answers: undefined, retiredInvites: [hex("9")] })], b, asked(7)),
+    ).toEqual([]);
+  });
+
+  it("delivery: a linkOff is sent for each ask time, once per connection", async () => {
+    const w = await adminAndJoiners();
+    const id = w.joiner.identity.key;
+    let requestedAt = 7;
+    const options = {
+      identity: id,
+      owed: () =>
+        answersOwed(
+          [album({ answers: undefined, retiredInvites: [RETIRED] })],
+          id,
+          asked(requestedAt),
+        ),
+      log: noLog,
+    };
+    const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    expect((await deliverOwed(ports, options)).sent).toBe(0);
+    requestedAt = 9;
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+  });
+
+  describe("arriving", () => {
+    const OWNER = hex("a");
+    const ask = { code: RETIRED, owner: OWNER, status: "waiting", askedAt: 7 };
+    const arrive = (who: string | undefined, value: unknown, list = [ask]) =>
+      arrivingAnswer(
+        { provenIdentity: async () => who },
+        {
+          conn: 1,
+          value,
+          refused: false,
+          asks: () => list,
+        },
+      );
+    const linkOff = (askedAt: number) => ({ code: RETIRED, answer: "linkOff", askedAt });
+
+    it("settles a waiting ask from the proven owner", async () => {
+      expect(await arrive(OWNER, linkOff(7))).toEqual({ kind: "linkOff", code: RETIRED });
+    });
+    it("is unverified from another identity", async () => {
+      expect(await arrive(hex("f"), linkOff(7))).toEqual({
+        kind: "ignored",
+        reason: "unverified",
+      });
+    });
+    it("is stale when it names an older ask", async () => {
+      expect(await arrive(OWNER, linkOff(6))).toEqual({ kind: "ignored", reason: "stale" });
+    });
+    it("is ignored with no waiting ask", async () => {
+      expect(await arrive(OWNER, linkOff(7), [])).toEqual({
+        kind: "ignored",
+        reason: "no-waiting-ask",
+      });
+    });
+  });
+});
+
+describe("answers: delivering what is owed", () => {
   it("delivery: only connections proven to be the identity get the answer", async () => {
     const w = await adminAndJoiners();
     const id = w.joiner.identity.key;

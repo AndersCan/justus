@@ -104,7 +104,8 @@ export type AskSummary = {
   ownerName: string;
   /** When this device asked (ms epoch). */
   askedAt: number;
-  status: "waiting" | "declined";
+  /** "linkOff": the Admin's phone said this link no longer works. */
+  status: "waiting" | "declined" | "linkOff";
 };
 
 /** An album invite a friend sent straight to this phone, not answered yet.
@@ -172,5 +173,6 @@ export type PhotoChanged = {
   memberKey?: string;
   /** For cause "ask": the invite code asked through, and the Admin's answer. */
   code?: string;
-  answer?: "accepted" | "declined";
+  /** "linkOff": the Admin turned this link off before answering. */
+  answer?: "accepted" | "declined" | "linkOff";
 };
