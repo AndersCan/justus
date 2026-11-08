@@ -8,6 +8,7 @@ vi.mock("../gateway", () => ({
   gateway: {
     friends: { list: async () => [null, { friends: [] }] },
     turnOffInvite: mock.turnOffInvite,
+    saveInviteLink: async () => [null, { ok: true }],
     folders: async () => [null, { folders: [] }],
     requests: async () => [null, { requests: [] }],
     status: async () => [null, {}],

@@ -130,7 +130,7 @@ Today the app does not match these rules:
 
 There is no "never". A request is judged when it reaches the Admin's device. Requests already queued stay acceptable after expiry. **Cancel link** ends a link at once. Every join still needs an Accept, so expiry mostly stops old links from collecting strangers' requests.
 
-Today only the joiner's phone checks the end time; the Admin's phone does not, so a link whose end time was cut out still delivers asks (every ask still needs an Accept). Making the Admin's phone check is a follow-up. It cannot stop someone who already has the key from passing it on.
+A request counts when it was sent while one of the Admin's links worked: the Admin's phone saves each link's time when it is made, and allows phone clocks 10 minutes apart. A request sent later is not shown to the Admin, and the joiner sees 'This invite link no longer works.' Requests already waiting stay acceptable. It cannot stop someone who already has the key from passing it on.
 
 ## Open questions (recommendation in bold)
 
@@ -143,7 +143,7 @@ Today only the joiner's phone checks the end time; the Admin's phone does not, s
 
 ## Not included
 
-Auto-accept, Collaborators approving or inviting, handing over the Admin role, undo or a "recently removed" bin, verifying who a requester really is, taking back the key from someone already removed, and making links expire on the network (a follow-up).
+Auto-accept, Collaborators approving or inviting, handing over the Admin role, undo or a "recently removed" bin, verifying who a requester really is, taking back the key from someone already removed.
 
 ## Walks
 

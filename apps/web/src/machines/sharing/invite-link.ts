@@ -13,7 +13,7 @@ import {
 
 /** What the invite panel draws: which state, for which album, and when the link ends. */
 export type InviteLinkView = {
-  state: "noLinkYet" | "linkMade" | "turningOff";
+  state: "noLinkYet" | "savingLinkTime" | "linkMade" | "turningOff";
   folderId: string;
   validFor: ValidFor;
   /** The code that was just turned off; a link must not carry it. */
@@ -47,6 +47,7 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
 export const inviteLinkActor = createInviteLinkActor({
   clock: RealClock(),
   port: {
+    saveLinkTime: (folderId, expiresAt) => gateway.saveInviteLink(folderId, expiresAt),
     turnOff: async (folderId) => {
       const outcome = await gateway.turnOffInvite(folderId);
       if (!outcome[0]) sync.refresh();
@@ -57,6 +58,7 @@ export const inviteLinkActor = createInviteLinkActor({
 
 onOutput(inviteLinkActor, (e) => {
   if (e.type === "linkTurnedOff") toast("Links turned off");
+  if (e.type === "linkNotSaved") toast("Couldn't make the link. Try again.");
   if (e.type === "turnOffFailed") toast("Couldn't turn off the links. Try again.");
 });
 
