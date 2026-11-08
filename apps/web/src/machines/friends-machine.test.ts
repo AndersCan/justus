@@ -6,6 +6,7 @@ import {
   createFriendsActor,
   friends,
   friendsActor,
+  savedFriends,
   type FriendsPort,
 } from "./friends-machine";
 
@@ -14,6 +15,7 @@ vi.mock("../gateway", () => ({
     friends: {
       list: vi.fn(async () => [null, { friends: [] }]),
       add: vi.fn(async (identity: string, name: string) => [null, { friend: { identity, name } }]),
+      remove: vi.fn(async () => [null, { removed: true }]),
     },
   },
 }));
@@ -27,13 +29,14 @@ const type = (text: string) => ({ type: "TYPE", payload: { text } }) as never;
 const save = () => ({ type: "SAVE" }) as never;
 const close = () => ({ type: "CLOSE" }) as never;
 
-async function setup(options: { list?: Reply; add?: Reply } = {}) {
+async function setup(options: { list?: Reply; add?: Reply; remove?: Reply } = {}) {
   const port = {
     list: vi.fn(options.list ?? (async () => [null, { friends: [] }])),
     add: vi.fn(
       options.add ??
         (async (identity: string, name: string) => [null, { identity, name }] as [null, unknown]),
     ),
+    remove: vi.fn(options.remove ?? (async () => [null, { removed: true }] as [null, unknown])),
   };
   const actor = createFriendsActor({ clock: VirtualClock(), port: port as unknown as FriendsPort });
   const outputs: unknown[] = [];
@@ -170,6 +173,54 @@ describe("friends machine", () => {
     await Promise.resolve();
     expect(actor.state.name).toBe("savingFriend");
     expect((actor.snapshot().payload as { identity: string }).identity).toBe("k1");
+  });
+});
+
+const remove = (identity: string) => ({ type: "REMOVE", payload: { identity } }) as never;
+const sam = async () => [null, { friends: [{ identity: "k9", name: "Sam" }] }] as [null, unknown];
+
+describe("removing a friend", () => {
+  test("REMOVE takes the friend off the list and says so", async () => {
+    const { actor, port, outputs } = await setup({ list: sam });
+    actor.send(remove("k9"));
+    expect(actor.state.name).toBe("removingFriend");
+    await actor.settled();
+    expect(port.remove).toHaveBeenCalledWith("k9");
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(actor.snapshot().context.friends).toEqual({});
+    expect(outputs).toEqual([
+      expect.objectContaining({ type: "FRIEND_REMOVED", payload: { name: "Sam" } }),
+    ]);
+  });
+
+  test("a failed removal keeps the friend and says so", async () => {
+    const { actor, outputs } = await setup({
+      list: sam,
+      remove: async () => [new Error("disk"), null],
+    });
+    actor.send(remove("k9"));
+    await actor.settled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(actor.snapshot().context.friends).toEqual({ k9: "Sam" });
+    expect(outputs).toEqual([
+      expect.objectContaining({ type: "FRIEND_NOT_REMOVED", payload: { name: "Sam" } }),
+    ]);
+  });
+
+  test("REMOVE of someone not on the list does nothing", async () => {
+    const { actor, port } = await setup({ list: sam });
+    actor.send(remove("k1"));
+    await actor.settled();
+    expect(port.remove).not.toHaveBeenCalled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+  });
+
+  test("savedFriends sorts by name", () => {
+    expect(savedFriends({ b: "Sam", a: "Ben", c: "adam" }).map((f) => f.name)).toEqual([
+      "adam",
+      "Ben",
+      "Sam",
+    ]);
   });
 });
 

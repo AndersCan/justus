@@ -11,7 +11,7 @@ import { copy } from "../copy/copy";
  */
 
 export type FriendTarget = { identity: string; ownName: string };
-export type FriendsPort = Pick<typeof gateway.friends, "list" | "add">;
+export type FriendsPort = Pick<typeof gateway.friends, "list" | "add" | "remove">;
 
 export const FRIEND_NAME_LIMIT = 40;
 export const SAVE_FAILED_COPY = copy("friends.couldn_t_save_try_again");
@@ -20,6 +20,8 @@ export const SAVE_FAILED_COPY = copy("friends.couldn_t_save_try_again");
 const loadingFriends = state("loadingFriends")();
 /** No friend sheet is showing. */
 const friendSheetClosed = state("friendSheetClosed")();
+/** A friend is being taken off this phone's list; the Remove buttons wait. */
+const removingFriend = state("removingFriend")<{ identity: string; name: string }>();
 /** The sheet shows one person from the album and whether they are already a friend. */
 const showingMember = state("showingMember")<FriendTarget>();
 /** The person is typing the name to give this friend. */
@@ -43,10 +45,21 @@ const loaded = event("FRIENDS_LOADED")<{ friends: Friend[] }>();
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The friend was saved. */
 const saved = event("SAVED")<{ friend: Friend }>();
+/** The person confirmed taking a saved friend off the list. */
+const remove = event("REMOVE")<{ identity: string }>();
+/** The friend was taken off the list. */
+const removed = event("REMOVED")();
+/** The friend could not be taken off the list. */
+const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 /** The friend could not be saved. */
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 /** A new friend was saved under this name, so the app can say so. */
 const friendSaved = event("FRIEND_SAVED")<{ name: string }>();
+
+/** A friend was taken off the list, so the app can say so. */
+const friendRemoved = event("FRIEND_REMOVED")<{ name: string }>();
+/** A friend could not be taken off the list, so the app can say so. */
+const friendNotRemoved = event("FRIEND_NOT_REMOVED")<{ name: string }>();
 
 type FriendsContext = { friends: Record<string, string>; error: string | null };
 
@@ -56,10 +69,17 @@ const initialContext: FriendsContext = { friends: {}, error: null };
 export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }) {
   const { clock, port = gateway.friends } = options;
   return Actor({
-    inputs: [open, add, type, save, close],
-    internal: [loaded, loadFailed, saved, saveFailed],
-    outputs: [friendSaved],
-    states: [loadingFriends, friendSheetClosed, showingMember, namingFriend, savingFriend],
+    inputs: [open, add, type, save, close, remove],
+    internal: [loaded, loadFailed, saved, saveFailed, removed, removeFailed],
+    outputs: [friendSaved, friendRemoved, friendNotRemoved],
+    states: [
+      loadingFriends,
+      friendSheetClosed,
+      showingMember,
+      namingFriend,
+      savingFriend,
+      removingFriend,
+    ],
     initial: loadingFriends,
     clock,
     context: initialContext,
@@ -210,12 +230,63 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
           return { state: namingFriend.create({ identity, ownName, draft: name }) };
         },
       });
+
+      /** Remove starts only for someone on the list. */
+      m.on(friendSheetClosed, {
+        event: remove,
+        to: [removingFriend, friendSheetClosed],
+        handler: (e, opts) => {
+          const { identity } = e.payload;
+          const name = opts.context.get().friends[identity];
+          if (name === undefined) return { state: friendSheetClosed };
+          return { state: removingFriend.create({ identity, name }) };
+        },
+      });
+      /** The friend is taken off this phone's list. */
+      m.effect(removingFriend, {
+        name: "removingFriend",
+        sends: [removed, removeFailed],
+        fn: ({ signal, emit, state: current }) =>
+          runInvoke(
+            signal,
+            () => port.remove(current.payload.identity),
+            () => emit(removed.create()),
+            (message) => emit(removeFailed.create({ message })),
+          ),
+      });
+      /** The friend is gone from the list and the app is told the name. */
+      m.on(removingFriend, {
+        event: removed,
+        to: [friendSheetClosed],
+        handler: (_e, opts) => {
+          const { identity, name } = opts.state.payload;
+          const rest = { ...opts.context.get().friends };
+          delete rest[identity];
+          opts.context.set({ friends: rest, error: null });
+          return { state: friendSheetClosed, emit: [friendRemoved.create({ name })] };
+        },
+      });
+      /** Removing failed: the friend stays and the app is told the name. */
+      m.on(removingFriend, {
+        event: removeFailed,
+        to: [friendSheetClosed],
+        handler: (_e, opts) => ({
+          state: friendSheetClosed,
+          emit: [friendNotRemoved.create({ name: opts.state.payload.name })],
+        }),
+      });
     },
   });
 }
 
 export type FriendSheet = {
-  state: "loadingFriends" | "friendSheetClosed" | "showingMember" | "namingFriend" | "savingFriend";
+  state:
+    | "loadingFriends"
+    | "friendSheetClosed"
+    | "showingMember"
+    | "namingFriend"
+    | "savingFriend"
+    | "removingFriend";
   target: FriendTarget | null;
   draft: string;
   error: string | null;
@@ -242,6 +313,15 @@ export function friendSheetOf(snapshot: Snapshot<FriendsContext>): FriendSheet {
   };
 }
 
+/** The saved friends as rows, sorted by name. */
+export function savedFriends(
+  friends: Record<string, string>,
+): { identity: string; name: string }[] {
+  return Object.entries(friends)
+    .map(([identity, name]) => ({ identity, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export const friendsActor = createFriendsActor({ clock: RealClock() });
 
 export const friends = {
@@ -250,4 +330,5 @@ export const friends = {
   type: (text: string) => friendsActor.send(type.create({ text })),
   save: () => friendsActor.send(save.create()),
   close: () => friendsActor.send(close.create()),
+  remove: (identity: string) => friendsActor.send(remove.create({ identity })),
 };
