@@ -45,7 +45,12 @@ export function roleLabel(role: FolderSummary["role"], pending = false): string 
 
 async function pasteKey(input: HTMLInputElement) {
   try {
-    input.value = (await navigator.clipboard.readText()).trim();
+    const text = (await navigator.clipboard.readText()).trim();
+    if (text === "") {
+      join.pasteFoundNothing();
+      return;
+    }
+    input.value = text;
   } catch {
     toast(copy("albums.couldn_t_read_the_clipboard"));
   }
