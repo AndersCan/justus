@@ -359,40 +359,15 @@ class MainActivity : AppCompatActivity() {
         poll()
     }
 
-    /** Copies `index.html` and the `assets/` directory out of the APK so the
-     * worklet can serve them from the filesystem. */
+    /** Copies the web build (`assets/web/` in the APK) so the worklet can
+     * serve it from the filesystem. */
     private fun copyWebAssets(destDir: File) {
         destDir.deleteRecursively()
         destDir.mkdirs()
         try {
-            assets.open("index.html").use { input ->
-                File(destDir, "index.html").outputStream().use { input.copyTo(it) }
-            }
-            copyAssetTree("assets", destDir)
+            copyAssetDir({ assets.list(it) }, { assets.open(it) }, "web", destDir)
         } catch (e: Exception) {
             Log.e("JUSTUS_ANDROID", "Failed to copy web assets", e)
-        }
-    }
-
-    private fun copyAssetTree(prefix: String, destDir: File) {
-        val names = assets.list(prefix) ?: return
-        for (name in names) {
-            val assetPath = if (prefix.isEmpty()) name else "$prefix/$name"
-            val dest = File(destDir, assetPath)
-            val children = assets.list(assetPath)
-            if (children != null && children.isNotEmpty()) {
-                dest.mkdirs()
-                copyAssetTree(assetPath, destDir)
-            } else {
-                try {
-                    assets.open(assetPath).use { input ->
-                        dest.parentFile?.mkdirs()
-                        dest.outputStream().use { input.copyTo(it) }
-                    }
-                } catch (e: java.io.FileNotFoundException) {
-                    dest.mkdirs()
-                }
-            }
         }
     }
 
