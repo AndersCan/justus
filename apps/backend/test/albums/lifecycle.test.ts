@@ -204,9 +204,6 @@ describe("delete clears what it should", () => {
     expect(await drive.readSmall("/deleted.json", 1 << 20)).toBeDefined();
   });
 
-<<<<<<< HEAD
-  it("purges the other drives and keeps the invite topic of the album", async () => {
-=======
   async function listed(drive: Drive): Promise<string[]> {
     const paths: string[] = [];
     for await (const entry of drive.list("/")) paths.push(entry.path);
@@ -245,8 +242,8 @@ describe("delete clears what it should", () => {
     await third.ready();
     expect((await driveOf(admin.deps, album.shareKey)).version()).toBe(version);
   });
-  it("purges the other drives and leaves the invite topic of the album", async () => {
->>>>>>> d76eb62 (Deleting an album for everyone leaves only the delete note and drops older versions)
+
+  it("purges the other drives and keeps the invite topic of the album", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const member = device("Maya", admin.deps.hub);
     await member.store.ready();
