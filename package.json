@@ -18,6 +18,7 @@
     "test:native": "bash scripts/maestro-e2e.sh",
     "prepare": "vp config",
     "site:build": "gh release download store-screenshots -R AndersCan/justus -p '*.png' -D docs/site/src/assets/store-screenshots --clobber && astro build --config docs/site/astro.config.mjs",
+    "copy:shots": "node scripts/copy-shots.mjs",
     "flows:dev": "node scripts/flows-dev.mjs",
     "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev"
   },
