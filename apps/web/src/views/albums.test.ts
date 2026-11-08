@@ -6,7 +6,14 @@ import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer"
 import { join, joinActor } from "../machines/sharing/join-request";
 import { buildInviteLink } from "../utils/invite-link";
 import { sharingView } from "./sharing";
-import { albumVanished, albumsPanel, archivedSummary, joinPanel, pendingAsks } from "./albums";
+import {
+  albumVanished,
+  albumsHint,
+  albumsPanel,
+  archivedSummary,
+  joinPanel,
+  pendingAsks,
+} from "./albums";
 
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
@@ -27,10 +34,10 @@ vi.mock("../gateway", () => ({
   },
 }));
 
-const album = (id: string) => ({
+const album = (id: string, role = "creator") => ({
   id,
   name: `Album ${id}`,
-  role: "creator",
+  role,
   members: 1,
   pending: false,
 });
@@ -57,7 +64,7 @@ async function load(
 ) {
   mock.folders.mockResolvedValue([
     null,
-    { folders: ids.map(album), asks, offers, activeFolderId: ids[0] ?? null },
+    { folders: ids.map((id) => album(id)), asks, offers, activeFolderId: ids[0] ?? null },
   ]);
   folders.refresh();
   await vi.waitFor(() =>
@@ -544,8 +551,8 @@ describe("Your albums page motion", () => {
     mock.folders.mockResolvedValue([
       null,
       {
-        folders: ids.map(album),
-        archived: archived.map(album),
+        folders: ids.map((id) => album(id)),
+        archived: archived.map((id) => album(id)),
         deleted,
         asks: [],
         offers: [],
@@ -725,5 +732,36 @@ describe("an album that vanishes under an open page", () => {
     expect(albumVanished(before, ["a", "b"], "b")).toBe(false);
     expect(albumVanished(before, ["a"], "never")).toBe(false);
     expect(albumVanished(before, [], null)).toBe(false);
+  });
+});
+
+describe("Sharing hint", () => {
+  const f = (role: string, pending = false) => ({ ...album("x", role), pending });
+  const invite =
+    "Tap an album to invite people or see who's in it. Each album has its own invite link.";
+  const see = "Tap an album to see who's in it.";
+
+  test("no albums or an Admin album keeps the invite text", () => {
+    expect(albumsHint([])).toBe(invite);
+    expect(albumsHint([f("creator"), f("member")] as never)).toBe(invite);
+  });
+
+  test("Admin of none says what a tap shows", () => {
+    expect(albumsHint([f("member"), f("reader")] as never)).toBe(see);
+    expect(albumsHint([f("reader", true)] as never)).toBe(see);
+  });
+
+  test("the panel shows it", async () => {
+    mock.folders.mockResolvedValue([
+      null,
+      { folders: [album("m", "member")], asks: [], offers: [], activeFolderId: "m" },
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(foldersActor.snapshot().context.folders.length).toBe(1));
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await vi.waitFor(() => expect(host.textContent).toContain(see));
+    expect(host.textContent).not.toContain("invite people");
+    render(html``, host);
   });
 });

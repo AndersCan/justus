@@ -498,13 +498,18 @@ export function albumsPanel() {
         view.fatal ? () => window.location.reload() : undefined,
       )}
       ${deletedNotices(view)}
-      <p class="text-sm text-muted" data-motion-key="section:hint">
-        Tap an album to invite people or see who's in it. Each album has its own invite link.
-      </p>
+      <p class="text-sm text-muted" data-motion-key="section:hint">${albumsHint(view.folders)}</p>
       <div data-motion-key="section:albums">${albumList(view)}</div>
       ${archivedSection(view)} ${newAlbumSection(view)}
     </div>`;
   });
+}
+
+/** Sharing's hint: only an Admin can invite, so others are told what a tap does for them. */
+export function albumsHint(folders: readonly FolderSummary[]): string {
+  return folders.length === 0 || folders.some((f) => f.role === "creator")
+    ? "Tap an album to invite people or see who's in it. Each album has its own invite link."
+    : "Tap an album to see who's in it.";
 }
 
 /** Requests still waiting for an answer, shown on the start screen and on Photos. */
