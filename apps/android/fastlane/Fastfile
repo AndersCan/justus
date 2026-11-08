@@ -104,6 +104,8 @@ platform :android do
 
   desc "Upload the store listing (text, icon, screenshots) from fastlane/metadata (no build)"
   lane :listing do
+    # Draft listing text and unapproved screenshots never reach Play.
+    sh("node", File.expand_path("../../../scripts/check-copy-release.mjs", __dir__), "store")
     problem = screenshot_problem(SHOTS_DIR)
     UI.important("Skipping screenshots: #{problem}. Play keeps its current screenshots.") if problem
     # supply looks up a release even when changelogs are skipped, and a blank
