@@ -316,6 +316,10 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await expect(
     b.getByRole("button", { name: /^Waiting for .+ to accept: Off trip$/ }),
   ).toBeVisible();
+
+  await b.getByRole("button", { name: /^Waiting for .+ to accept: Off trip$/ }).click();
+  await b.getByRole("button", { name: "Cancel request", exact: true }).click();
+  await expect(b.getByRole("button", { name: /Off trip/ })).toHaveCount(0);
 });
 
 test("B asks from the first-run screen, closes the waiting sheet, A accepts, B opens the album by itself", async ({
