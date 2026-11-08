@@ -61,16 +61,13 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
   let liveIndex: { from: number; range: { destroy(): void } } | undefined;
   let growthWatched = false;
 
-  /** True when `path` is the only file and the last write put it; then every block between the header and that write is cleared. */
+  /** True when `path` is the only file and the last write put it; then every block between the header and that write is cleared. The header is already local: `getBlobs` read it. */
   async function clearOlderVersions(path: string): Promise<boolean> {
     const len: number = raw.core.length;
     const node = await raw.entry(path, { wait: false });
     if (!node || node.seq !== len - 1) return false;
     for await (const e of raw.list("/")) if (e.key !== path) return false;
-    if (len > 2) {
-      if (!(await raw.core.has(0))) await raw.core.get(0, { timeout: 10_000 });
-      await raw.core.clear(1, len - 1);
-    }
+    if (len > 2) await raw.core.clear(1, len - 1);
     return true;
   }
 
