@@ -4,8 +4,8 @@ import {
   closePicker,
   createAddFriendActor,
   openPicker,
-  pickFriend,
   pickRole,
+  toggleFriend,
   type FriendRole,
 } from "./add-friend-machine";
 
@@ -17,7 +17,7 @@ export const addFriendActor = createAddFriendActor({
 export const addFriend = {
   openPicker: (input: Parameters<typeof openPicker.create>[0]) =>
     addFriendActor.send(openPicker.create(input)),
-  pickFriend: (identity: string) => addFriendActor.send(pickFriend.create({ identity })),
+  toggleFriend: (identity: string) => addFriendActor.send(toggleFriend.create({ identity })),
   pickRole: (role: FriendRole) => addFriendActor.send(pickRole.create({ role })),
   closePicker: () => addFriendActor.send(closePicker.create()),
 };

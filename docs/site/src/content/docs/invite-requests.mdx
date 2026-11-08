@@ -7,23 +7,23 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 Two people, two phones. Nils is the Admin; Kari is a saved friend. Both phones must have Justus open.
 
-| Moment                           | Nils (Admin) sees                                                                         | Kari sees                                                                                              |
-| -------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Nils taps "Add a friend"         | His saved friends who are not in the album, by name `addFriend.choosingFriend`            | Nothing                                                                                                |
-| Nils taps Kari                   | "Add Kari as a Viewer" or "Add Kari as a Collaborator" `addFriend.choosingFriendRole`     | Nothing                                                                                                |
-| Nils taps "Add Kari as a Viewer" | "Asking Kari…" and "Kari needs Justus open too." `addFriend.lookingForFriend`             | Nothing yet                                                                                            |
-| Kari's phone takes the invite    | "Asked Kari to join as a Viewer"; the sheet closes `addFriend.showingPeopleWithAddFriend` | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
-| Kari taps Join                   | Nothing to do: no Accept step                                                             | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
-| Nils's phone answers             | Kari under Members, as a Viewer                                                           | The album opens, and says she is a Viewer `friendOffer.showingFriendOffers`                            |
+| Moment                                  | Nils (Admin) sees                                                                                               | Kari sees                                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Nils taps "Add a friend"                | His saved friends who are not in the album, each with a tick box `addFriend.choosingFriends`                    | Nothing                                                                                                |
+| Nils ticks Kari and Ole                 | "Add Kari and Ole as Viewers" or "Add Kari and Ole as Collaborators" `addFriend.choosingFriends`                | Nothing                                                                                                |
+| Nils taps "Add Kari and Ole as Viewers" | "Asking Kari and Ole…" and "If someone doesn't have Justus open, their invite waits." `addFriend.askingFriends` | Nothing yet                                                                                            |
+| Both phones take the invite             | "Asked Kari and Ole to join as Viewers"; the sheet closes `addFriend.showingPeopleWithAddFriend`                | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
+| Kari taps Join                          | Nothing to do: no Accept step                                                                                   | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
+| Nils's phone answers                    | Kari under Members, as a Viewer                                                                                 | The album opens, and says she is a Viewer `friendOffer.showingFriendOffers`                            |
 
 **When it goes wrong.**
 
-| What went wrong                                | What the person sees                                                                                      | State                                         |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Kari's phone does not know Nils                | Nils: "Couldn't add Kari from here. Send Kari a link instead."                                            | `addFriend.couldNotReachFriend` (refused)     |
-| Kari's phone is off or does not answer         | Nils: "Couldn't reach Kari. Ask Kari to open Justus, then try again."                                     | `addFriend.couldNotReachFriend` (unreachable) |
-| Nils's phone does not answer within 30 seconds | Kari: the row returns to Join, with "Couldn't join “&lt;album&gt;”. &lt;Admin&gt; needs Justus open too." | `friendOffer.showingFriendOffers`             |
-| Nils took the invite back                      | Kari: the invite row goes away, with no message                                                           | `friendOffer.showingFriendOffers`             |
+| What went wrong                                | What the person sees                                                                                      | State                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Kari's phone does not know Nils                | Nils: "Couldn't add Kari from here. Send Kari a link instead."                                            | `addFriend.showingWhoWasAsked` (refused)     |
+| Kari's phone is off or does not answer         | Nils: "Couldn't reach Kari. Ask Kari to open Justus, then try again."                                     | `addFriend.showingWhoWasAsked` (unreachable) |
+| Nils's phone does not answer within 30 seconds | Kari: the row returns to Join, with "Couldn't join “&lt;album&gt;”. &lt;Admin&gt; needs Justus open too." | `friendOffer.showingFriendOffers`            |
+| Nils took the invite back                      | Kari: the invite row goes away, with no message                                                           | `friendOffer.showingFriendOffers`            |
 
 <Machine src="apps/web/src/machines/sharing/add-friend-machine.ts" />
 

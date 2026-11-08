@@ -3391,7 +3391,7 @@
     },
     {
       "name": "choices (property) > are exactly the non-members, sorted by name #80",
-      "end": "choosingFriend",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4121,7 +4121,7 @@
     },
     {
       "name": "choices (property) > are exactly the non-members, sorted by name #96",
-      "end": "choosingFriend",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4291,7 +4291,7 @@
       ]
     },
     {
-      "name": "closePicker > closes from choosingFriend",
+      "name": "closePicker > closes from choosingFriends",
       "end": "showingPeopleWithAddFriend",
       "steps": [
         {
@@ -4325,7 +4325,7 @@
       ]
     },
     {
-      "name": "closePicker > closes from choosingFriendRole",
+      "name": "closePicker > closes from showingWhoWasAsked",
       "end": "showingPeopleWithAddFriend",
       "steps": [
         {
@@ -4353,48 +4353,7 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "closePicker",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "closePicker > closes from couldNotReachFriend",
-      "end": "showingPeopleWithAddFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
@@ -4408,63 +4367,16 @@
         },
         {
           "kind": "event",
-          "event": "friendNotReached",
+          "event": "friendsAnswered",
           "payload": {
-            "reason": "unreachable"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "closePicker",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "closePicker > closes from inviteWaitingForFriend",
-      "end": "showingPeopleWithAddFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
+            "answers": [
               {
                 "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
+                "name": "Kari",
+                "outcome": "unreachable"
               }
-            ],
-            "memberIdentities": []
+            ]
           }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendAway",
-          "payload": {}
         },
         {
           "kind": "event",
@@ -4479,8 +4391,8 @@
       "steps": []
     },
     {
-      "name": "closePicker > is ignored while the friend is being asked",
-      "end": "lookingForFriend",
+      "name": "closePicker > is ignored while the friends are being asked",
+      "end": "askingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4507,7 +4419,7 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
@@ -4555,8 +4467,8 @@
       ]
     },
     {
-      "name": "openPicker > lists friends who are not members, sorted by name",
-      "end": "choosingFriend",
+      "name": "openPicker > lists friends who are not members, sorted by name, none ticked",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4600,8 +4512,8 @@
       ]
     },
     {
-      "name": "openPicker > opens again from couldNotReachFriend",
-      "end": "choosingFriend",
+      "name": "openPicker > one choice is not ticked either",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4623,58 +4535,17 @@
                 "name": "Ånna"
               }
             ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendNotReached",
-          "payload": {
-            "reason": "unreachable"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
+            "memberIdentities": [
+              "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
           }
         }
       ]
     },
     {
-      "name": "openPicker > opens again from inviteWaitingForFriend",
-      "end": "choosingFriend",
+      "name": "openPicker > opens a fresh list from showingWhoWasAsked",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4701,7 +4572,7 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
@@ -4715,8 +4586,16 @@
         },
         {
           "kind": "event",
-          "event": "friendAway",
-          "payload": {}
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "waiting"
+              }
+            ]
+          }
         },
         {
           "kind": "event",
@@ -4745,7 +4624,7 @@
     },
     {
       "name": "openPicker > sorts ignoring case",
-      "end": "choosingFriend",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -4773,8 +4652,8 @@
       ]
     },
     {
-      "name": "pickFriend > a kept invite lands in inviteWaitingForFriend with no toast",
-      "end": "inviteWaitingForFriend",
+      "name": "pickRole > a refusal says refused for that friend only",
+      "end": "showingWhoWasAsked",
       "steps": [
         {
           "kind": "event",
@@ -4801,9 +4680,16 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
           }
         },
         {
@@ -4815,14 +4701,27 @@
         },
         {
           "kind": "event",
-          "event": "friendAway",
-          "payload": {}
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "refused"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole",
+                "outcome": "asked"
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "name": "pickFriend > a refusal says refused",
-      "end": "couldNotReachFriend",
+      "name": "pickRole > a thrown invoke says unreachable for that friend",
+      "end": "showingWhoWasAsked",
       "steps": [
         {
           "kind": "event",
@@ -4849,9 +4748,16 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
           }
         },
         {
@@ -4863,65 +4769,26 @@
         },
         {
           "kind": "event",
-          "event": "friendNotReached",
+          "event": "friendsAnswered",
           "payload": {
-            "reason": "refused"
-          }
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > a thrown invoke says unreachable",
-      "end": "couldNotReachFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
+            "answers": [
               {
                 "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
+                "name": "Kari",
+                "outcome": "unreachable"
               },
               {
                 "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
+                "name": "ole",
+                "outcome": "asked"
               }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendNotReached",
-          "payload": {
-            "reason": "unreachable"
+            ]
           }
         }
       ]
     },
     {
-      "name": "pickFriend > a Viewer is asked with reader and the output names the role",
+      "name": "pickRole > a Viewer is asked with reader and the output names the role",
       "end": "showingPeopleWithAddFriend",
       "steps": [
         {
@@ -4949,7 +4816,7 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
@@ -4963,14 +4830,22 @@
         },
         {
           "kind": "event",
-          "event": "friendReached",
-          "payload": {}
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "asked"
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "name": "pickFriend > an error wins over waiting",
-      "end": "couldNotReachFriend",
+      "name": "pickRole > an error wins over waiting",
+      "end": "showingWhoWasAsked",
       "steps": [
         {
           "kind": "event",
@@ -4997,7 +4872,7 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
@@ -5011,16 +4886,22 @@
         },
         {
           "kind": "event",
-          "event": "friendNotReached",
+          "event": "friendsAnswered",
           "payload": {
-            "reason": "unreachable"
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "unreachable"
+              }
+            ]
           }
         }
       ]
     },
     {
-      "name": "pickFriend > an unknown identity is ignored",
-      "end": "choosingFriend",
+      "name": "pickRole > error justus.photos/friend-unreachable says unreachable",
+      "end": "showingWhoWasAsked",
       "steps": [
         {
           "kind": "event",
@@ -5047,7 +4928,460 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "unreachable"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > error something-else says unreachable",
+      "end": "showingWhoWasAsked",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "unreachable"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > error undefined says unreachable",
+      "end": "showingWhoWasAsked",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "unreachable"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > one asked and one waiting shows both, with no output",
+      "end": "showingWhoWasAsked",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "asked"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole",
+                "outcome": "waiting"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > two ticked friends are both asked before either answers, then one output",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "asked"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole",
+                "outcome": "asked"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > untick back to nobody asks no one",
+      "end": "choosingFriends",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > waiting: false still counts as asked",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari",
+                "outcome": "asked"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickRole > with nobody ticked stays on the list and asks no one",
+      "end": "choosingFriends",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        }
+      ]
+    },
+    {
+      "name": "toggleFriend > an unknown identity changes nothing",
+      "end": "choosingFriends",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
           "payload": {
             "identity": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
           }
@@ -5055,8 +5389,8 @@
       ]
     },
     {
-      "name": "pickFriend > asks the friend's phone and closes with a toast output on success",
-      "end": "showingPeopleWithAddFriend",
+      "name": "toggleFriend > ticks, then unticks",
+      "end": "choosingFriends",
       "steps": [
         {
           "kind": "event",
@@ -5083,304 +5417,24 @@
         },
         {
           "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
         },
         {
           "kind": "event",
-          "event": "pickRole",
+          "event": "toggleFriend",
           "payload": {
-            "role": "member"
+            "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
           }
         },
         {
           "kind": "event",
-          "event": "friendReached",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > error justus.photos/friend-unreachable says unreachable",
-      "end": "couldNotReachFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
+          "event": "toggleFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendNotReached",
-          "payload": {
-            "reason": "unreachable"
-          }
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > error something-else says unreachable",
-      "end": "couldNotReachFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendNotReached",
-          "payload": {
-            "reason": "unreachable"
-          }
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > error undefined says unreachable",
-      "end": "couldNotReachFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendNotReached",
-          "payload": {
-            "reason": "unreachable"
-          }
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > picking a friend asks for the role before anyone is asked",
-      "end": "choosingFriendRole",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > shows lookingForFriend while the phone is asked",
-      "end": "showingPeopleWithAddFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendReached",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "pickFriend > waiting: false still counts as asked",
-      "end": "showingPeopleWithAddFriend",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openPicker",
-          "payload": {
-            "folderId": "f1",
-            "albumName": "Lisbon trip",
-            "friends": [
-              {
-                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-                "name": "Kari"
-              },
-              {
-                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
-                "name": "ole"
-              },
-              {
-                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "name": "Ånna"
-              }
-            ],
-            "memberIdentities": []
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickFriend",
-          "payload": {
-            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "pickRole",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "friendReached",
-          "payload": {}
         }
       ]
     }

@@ -546,9 +546,9 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     .first()
     .click();
   await a.getByRole("button", { name: "Add a friend" }).click();
-  await a.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
-  await a.getByRole("button", { name: "Add Sam as a Viewer", exact: true }).click();
-  await expect(a.getByText("Asked Sam to join as a Viewer")).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("dialog").getByRole("checkbox", { name: "Sam" }).check();
+  await a.getByRole("button", { name: "Add Sam as Viewers", exact: true }).click();
+  await expect(a.getByText("Asked Sam to join as Viewers")).toBeVisible({ timeout: 60_000 });
 
   // Hub state persists across tests, so other things may already be waiting for B.
   await b.goto("/");
@@ -722,9 +722,9 @@ test("A takes back the invite sent to friend B: the row goes on A and the invite
     .first()
     .click();
   await a.getByRole("button", { name: "Add a friend" }).click();
-  await a.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
-  await a.getByRole("button", { name: "Add Sam as a Viewer", exact: true }).click();
-  await expect(a.getByText("Asked Sam to join as a Viewer")).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("dialog").getByRole("checkbox", { name: "Sam" }).check();
+  await a.getByRole("button", { name: "Add Sam as Viewers", exact: true }).click();
+  await expect(a.getByText("Asked Sam to join as Viewers")).toBeVisible({ timeout: 60_000 });
 
   const row = a.locator("li", { hasText: "Viewer" }).filter({
     has: a.getByRole("button", { name: "Take back Sam's invite" }),
