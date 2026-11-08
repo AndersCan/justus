@@ -7,6 +7,7 @@ Design a machine by editing its real file while the live viz page shows the resu
 Someone asks you to design, plan or rethink a feature or a rule ("design this with me", "who can delete photos?"). Your first reply is the drawn design, never a written design and never only questions.
 
 - Write the machine (section 1, or section 2 for a change) and one recorded walk per story the ask names (section 6). Do it before you ask anything.
+- The ask changes something the app already does (section 2 found its machines): start the reply with `Today:` and one link per story the ask names to its recorded walk on the machines the app runs (section 3), then the drawn change. A story with no walk of today: record one on the real machine first (section 6). This is the default, not a gate: do not wait for an answer before drawing the change.
 - Reply with one preview link per walk (section 3). If the repo's flow docs say a design ask gets a preview, push and open the draft pull request without asking.
 - Open questions go after the links, as questions about the drawn machine. This is the default, not a gate: when the ask names no feature at all, one question first is fine.
 
@@ -44,7 +45,7 @@ Edit the real machine file and fix every caller the typechecker flags. Never mak
 
 ## 2. Find the machine from plain words
 
-List machine files: `rg -l "Actor\(" -g '*.ts' -g '!*.test.ts'`, plus any flows manifest. Read each candidate's top JSDoc and its state and event names. Match them to the user's words and the repo glossary (`CONTEXT.md` if present). One match: name it. Several: list them, one line each, and ask one question. None: design a new one, starting with states.
+List machine files: `rg -l "Actor\(" -g '*.ts' -g '!*.test.ts'`, plus any flows manifest. Read each candidate's top JSDoc and its state and event names. Match them to the user's words and the repo glossary (`CONTEXT.md` if present). One match: name it. Several: list them, one line each, and ask one question. None: design a new one, starting with states. A machine whose factory no app code calls (`rg -l "<factory name>\(" -g '!*.test.ts'` lists only its own file) is a design, not how the app works today: never link its walks as today, and say so when it is the only machine for a story.
 
 ## 3. Open the live page
 
@@ -76,7 +77,7 @@ States, then edges, then runs. Follow the user's order. Write each step into the
 
 ## 6. Runs
 
-Each test builds the actor through `recordRuns(factory)` (`@mantaq/inspect/record`). Name tests as user-visible journeys: the name is the run's label. Run the whole test file after each change so the Runs list updates. A journey linked from docs is a top-level test (no `describe`), so the run name is its title. Build it with only `{ clock }`, as the page does. If the journey needs a port to answer differently, give the factory's default that behaviour (the page runs the defaults); a recorded test that passes other options is replayed on the defaults and fails with `recordRuns: run "..." dropped:` when it ends elsewhere. A test that is not a journey builds its actor with the factory itself, not through `recordRuns`. The user can also save a journey from the live page; see section 11.
+Each test builds the actor through `recordRuns(factory)` (`@mantaq/inspect/record`). Name tests as user-visible journeys: the name is the run's label. Run the whole test file after each change so the Runs list updates. A journey linked from docs is a top-level test (no `describe`), so the run name is its title. Build it with only `{ clock }`, as the page does. A journey through an effect's answer (photos loaded, the delete failed) sends the event that starts the effect, then injects the answer at once: `actor.inject({ type: "<answer event>", payload })`, no `await` between, then `await actor.settled()`. This works when the factory's default port is the real backend, which never answers in a test or on the page: keep that default, never change a production default to record a walk, and never skip the walk. A recorded test that passes other options is replayed on the defaults and fails with `recordRuns: run "..." dropped:` when it ends elsewhere. Needs `@mantaq/core` 0.7.1 or later; with older core, `settled()` waits forever for the left state's call. A test that is not a journey builds its actor with the factory itself, not through `recordRuns`. The user can also save a journey from the live page; see section 11.
 
 The page fuzzes each machine on a budget and warns on states it never reached. A deep state at 0 hits is a budget miss, not proof it is unreachable: raise `fuzz: { timeLimitMs }` or `fuzz: { iterations }` in `mantaqViz` (or `expectNoDesignErrors`), or add a test journey that reaches it (a named run in `tests`).
 

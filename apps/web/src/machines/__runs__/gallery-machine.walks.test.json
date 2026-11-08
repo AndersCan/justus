@@ -1,0 +1,122 @@
+{
+  "gallery": [
+    {
+      "name": "Anna opens Trip and sees its photos",
+      "end": "showingPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOAD",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "PHOTOS_LOADED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p1",
+                "name": "beach.jpg",
+                "folderId": "trip"
+              },
+              {
+                "id": "p2",
+                "name": "picnic.jpg",
+                "folderId": "trip"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anna removes a photo and it is gone",
+      "end": "showingPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOAD",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "PHOTOS_LOADED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p1",
+                "name": "beach.jpg",
+                "folderId": "trip"
+              },
+              {
+                "id": "p2",
+                "name": "picnic.jpg",
+                "folderId": "trip"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE",
+          "payload": {
+            "id": "p1",
+            "folderId": "trip"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVED",
+          "payload": {
+            "id": "p1",
+            "folderId": "trip"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anna removes a photo, it fails, and the photo stays",
+      "end": "couldNotRemovePhoto",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOAD",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "PHOTOS_LOADED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p1",
+                "name": "beach.jpg",
+                "folderId": "trip"
+              },
+              {
+                "id": "p2",
+                "name": "picnic.jpg",
+                "folderId": "trip"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE",
+          "payload": {
+            "id": "p1",
+            "folderId": "trip"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE_FAILED",
+          "payload": {
+            "message": "The album could not be reached"
+          }
+        }
+      ]
+    }
+  ]
+}
