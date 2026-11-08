@@ -601,13 +601,6 @@
     "who": "Admins inviting a friend",
     "screen": ""
   },
-  "add_friend_sheet.needs_justus_open_too": {
-    "text": "{name} needs Justus open too.",
-    "status": "draft",
-    "where": "Friends › Add a friend › text",
-    "who": "Admins inviting a friend",
-    "screen": ""
-  },
   "album.it_disappears_from_this_phone": {
     "text": "It disappears from this phone, along with the photos you added to it, and you drop off the people list. To come back you need a new invite from {adminName}.",
     "status": "draft",
