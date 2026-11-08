@@ -157,6 +157,7 @@ Each link opens the machine at the end of the walk; click on from there or press
 - [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
 - [Maya: opens a link from before the new key](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
 - [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
+- [Nils turns off the links, it fails, and his link stays shown](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20turns%20off%20the%20links%2C%20it%20fails%2C%20and%20his%20link%20stays%20shown)
 - [Nils: accepts Maya as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20Maya%20as%20Collaborator)
 - [Nils: declines the request](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20declines%20the%20request)
 

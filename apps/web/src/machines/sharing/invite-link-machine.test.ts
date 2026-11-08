@@ -285,6 +285,15 @@ test("Nils turns off the links he sent", async () => {
   expect(actor.state.name).toBe("noLinkYet");
 });
 
+test("Nils turns off the links, it fails, and his link stays shown", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  actor.send({ type: "turnOffLink", payload: { folderId: FOLDER, code: CODE } });
+  actor.inject({ type: "linkOffFailed", payload: { folderId: FOLDER } });
+  await actor.settled();
+  expect(actor.state.name).toBe("linkMade");
+});
+
 describe("invite link design", () => {
   test("has no design errors", () => {
     expectNoDesignErrors({ id: "inviteLink", create: walkTarget });
