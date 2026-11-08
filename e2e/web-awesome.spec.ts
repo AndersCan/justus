@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const createButton = (page: import("@playwright/test").Page) =>
   page.getByRole("button", { name: "Create album" });
 
-async function expectCoral(page: import("@playwright/test").Page) {
+async function expectCreateButton(page: import("@playwright/test").Page) {
   const button = createButton(page);
   await expect(button).toBeVisible({ timeout: 20_000 });
   // The role query resolves to the real <button> inside the component's shadow DOM.
@@ -15,22 +15,27 @@ async function expectCoral(page: import("@playwright/test").Page) {
       height: inner.getBoundingClientRect().height,
     };
   });
-  expect(style.background).toBe("rgb(255, 138, 91)");
-  expect(style.color).toBe("rgb(20, 18, 31)");
+  expect(style.background).toBe("rgb(189, 74, 34)");
+  expect(style.color).toBe("rgb(255, 255, 255)");
   const input = await page.getByLabel("Album name").boundingBox();
   expect(Math.abs(style.height - (input?.height ?? 0))).toBeLessThanOrEqual(1);
 }
 
-test("create button is coral with dark text", async ({ page }) => {
+test("create button is deep coral with white text", async ({ page }) => {
   await page.goto("/sharing");
-  await expectCoral(page);
+  await expectCreateButton(page);
+  const dot = await page
+    .locator("svg circle.fill-brand")
+    .first()
+    .evaluate((c) => getComputedStyle(c).fill);
+  expect(dot).toBe("rgb(255, 138, 91)");
 });
 
 test.describe("dark", () => {
   test.use({ colorScheme: "dark" });
-  test("create button keeps coral with dark text", async ({ page }) => {
+  test("create button keeps deep coral with white text", async ({ page }) => {
     await page.goto("/sharing");
-    await expectCoral(page);
+    await expectCreateButton(page);
     const canvas = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(canvas).toBe("rgb(15, 13, 26)");
   });
