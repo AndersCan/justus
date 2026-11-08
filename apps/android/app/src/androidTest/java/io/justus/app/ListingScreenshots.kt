@@ -155,7 +155,25 @@ class ListingScreenshots {
     if (thumbs == null || thumbs.size < 3) {
       fail("picker thumbnails: " + thumbs?.size, "icon_thumbnail")
     }
-    thumbs.take(3).forEach { it.click(); Thread.sleep(500) }
+    // The picker re-renders while it loads, so a held thumbnail can go stale: look each one up again.
+    for (index in 0 until 3) {
+      var clicked = false
+      for (attempt in 1..5) {
+        val fresh = device.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))).ifEmpty {
+          device.findObjects(By.desc(Pattern.compile("Photo taken on .*")))
+        }
+        try {
+          fresh.getOrNull(index)?.click()
+          clicked = fresh.size > index
+        } catch (e: androidx.test.uiautomator.StaleObjectException) {
+          clicked = false
+        }
+        if (clicked) break
+        Thread.sleep(500)
+      }
+      if (!clicked) fail("picker thumbnail " + index, "icon_thumbnail")
+      Thread.sleep(500)
+    }
     val add = device.wait(Until.findObject(By.res(Pattern.compile(".*:id/button_add"))), 5000)
       ?: device.wait(Until.findObject(By.text(Pattern.compile("Add( .*)?"))), 5000)
       ?: fail("picker add button", "button_add")
