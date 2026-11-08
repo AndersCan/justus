@@ -103,6 +103,7 @@ export const photoHoldersSchema = s.object({
   unsure: s.array(photoMemberSchema),
   waiting: s.array(photoMemberSchema),
   former: s.array(s.string),
+  left: s.array(s.string),
 });
 
 export const photoSchema = s.object({

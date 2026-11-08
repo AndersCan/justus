@@ -244,7 +244,7 @@ describe("holdersFor", () => {
     photo?: typeof photo;
     people?: ReturnType<typeof person>[];
     held?: [string, HeldReport][];
-    former?: { name: string; ids: ReadonlySet<string> }[];
+    former?: { name: string; ids: ReadonlySet<string>; left?: true }[];
   }) {
     return holdersFor({
       photo: over.photo ?? photo,
@@ -262,6 +262,7 @@ describe("holdersFor", () => {
       unsure: [],
       waiting: [],
       former: [],
+      left: [],
     });
   });
 
@@ -277,6 +278,7 @@ describe("holdersFor", () => {
       unsure: [],
       waiting: [ben],
       former: [],
+      left: [],
     });
   });
 
@@ -381,6 +383,31 @@ describe("holdersFor", () => {
       ],
     });
     expect(result.former).toEqual(["Abe", "Zed"]);
+    expect(result.left).toEqual([]);
+  });
+
+  it("lists a leaver apart from a removed person", () => {
+    const result = run({
+      former: [
+        { name: "Zed", ids: new Set(["p1"]) },
+        { name: "Abe", ids: new Set(["p1"]), left: true },
+        { name: "Abe", ids: new Set(["p2"]) },
+        { name: "Cleo", ids: new Set(["p2"]), left: true },
+      ],
+    });
+    expect(result.former).toEqual(["Zed"]);
+    expect(result.left).toEqual(["Abe"]);
+  });
+
+  it("lists the same name in both when two people share it", () => {
+    const result = run({
+      former: [
+        { name: "Abe", ids: new Set(["p1"]) },
+        { name: "Abe", ids: new Set(["p1"]), left: true },
+      ],
+    });
+    expect(result.former).toEqual(["Abe"]);
+    expect(result.left).toEqual(["Abe"]);
   });
 });
 
@@ -396,6 +423,30 @@ describe("former people", () => {
     expect(await readFormer(drive, log)).toEqual([
       { name: "Cleo", identity: "aa", ids: ids("p1", "p2") },
     ]);
+  });
+
+  it("addFormer writes left only when set, and readFormer keeps only left: true", async () => {
+    const [drive] = await twoDrives();
+    const { log } = logger();
+    await addFormer(drive, { name: "Cleo", identity: "aa", ids: ids("p1"), left: true }, log);
+    await addFormer(drive, { name: "Maya", identity: "bb", ids: ids("p1") }, log);
+    const text = (await drive.readSmall(FORMER_PATH, 10_000))!;
+    expect(text).toContain('"left":true');
+    expect(text.match(/"left"/g)).toHaveLength(1);
+    expect(await readFormer(drive, log)).toEqual([
+      { name: "Cleo", identity: "aa", ids: ids("p1"), left: true },
+      { name: "Maya", identity: "bb", ids: ids("p1") },
+    ]);
+    const junk = {
+      version: 1,
+      former: [
+        { name: "A", ids: ["x"], left: "yes" },
+        { name: "B", ids: ["x"], left: false },
+        { name: "C", ids: ["x"], left: true },
+      ],
+    };
+    await drive.put(FORMER_PATH, Buffer.from(JSON.stringify(junk)));
+    expect((await readFormer(drive, log)).map((p) => p.left)).toEqual([undefined, undefined, true]);
   });
 
   it("addFormer notes nobody who had nothing", async () => {

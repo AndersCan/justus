@@ -162,6 +162,7 @@ describe("Delete", () => {
       unsure: [],
       waiting: [],
       former: [],
+      left: [],
     };
     await deleteFromLightbox({ ...a, holders });
     expect(confirmAction).toHaveBeenCalledWith(

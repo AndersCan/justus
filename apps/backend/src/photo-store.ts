@@ -1540,7 +1540,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       await noteFormer(
         rt,
-        await formerSnapshot(rt, memberKey),
+        markLeft(await formerSnapshot(rt, memberKey)),
         device.status === "verified" ? device.identityKey : undefined,
       );
       const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
@@ -1584,7 +1584,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log("error", { where: "dropViewerWhoLeft", err: removeErr.message });
         return;
       }
-      await noteFormer(rt, snapshot, identity);
+      await noteFormer(rt, markLeft(snapshot), identity);
       rt.viewers = next.viewers;
       if (identity !== undefined) setAnswer(rt, identity, undefined);
       await refreshMembersFor(rt);
@@ -2706,6 +2706,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return (
         p.name === q.name &&
         p.identity === q.identity &&
+        p.left === q.left &&
         p.ids.size === q.ids.size &&
         [...p.ids].every((id) => q.ids.has(id))
       );
@@ -2731,9 +2732,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return name === undefined ? undefined : { name, ids: report.ids };
   }
 
+  function markLeft<T extends object>(snapshot: T | undefined): (T & { left: true }) | undefined {
+    return snapshot && { ...snapshot, left: true };
+  }
+
   async function noteFormer(
     rt: FolderRuntime,
-    snapshot: { name: string; ids: ReadonlySet<string> } | undefined,
+    snapshot: { name: string; ids: ReadonlySet<string>; left?: true } | undefined,
     identity: string | undefined,
   ) {
     if (snapshot === undefined) return;

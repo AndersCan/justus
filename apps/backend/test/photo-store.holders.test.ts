@@ -455,6 +455,7 @@ describe("who has each photo", () => {
     await until(async () => (await s.anna.store.list(s.folderId))[0]?.holders?.former.length === 1);
     const holders = (await s.anna.store.list(s.folderId))[0].holders!;
     expect(holders.former).toEqual(["New member"]);
+    expect(holders.left).toEqual([]);
     expect(holders.others.map((m: { name: string }) => m.name)).toEqual([]);
     expect(holders.here).toBe(true);
     const moved = (await s.anna.store.folders()).folders[0].driveKey;
@@ -467,14 +468,16 @@ describe("who has each photo", () => {
   it("names a Collaborator who left", async () => {
     const s = await threePhones();
     expect((await s.cleo.store.leaveAlbum(s.cleoFolderId))[0]).toBeNull();
-    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 1);
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.left.length === 1);
     const holders = (await s.anna.store.list(s.folderId))[0].holders!;
-    expect(holders.former).toEqual(["New member"]);
+    expect(holders.former).toEqual([]);
+    expect(holders.left).toEqual(["New member"]);
     expect(holders.others.map((m: { name: string }) => m.name)).toEqual([]);
     const nilsFolder = (await s.nils.store.folders()).folders[0].id;
-    await until(async () => (await s.nils.store.list(nilsFolder))[0]?.holders?.former.length === 1);
+    await until(async () => (await s.nils.store.list(nilsFolder))[0]?.holders?.left.length === 1);
     const seen = (await s.nils.store.list(nilsFolder))[0].holders!;
-    expect(seen.former).toEqual(["New member"]);
+    expect(seen.former).toEqual([]);
+    expect(seen.left).toEqual(["New member"]);
     expect(seen.others.map((m: { name: string }) => m.name)).toEqual(["Anna"]);
     await s.close();
   }, 20_000);
@@ -486,10 +489,11 @@ describe("who has each photo", () => {
     await until(async () => (await s.annaPhoto()).holders!.others.length === 1);
     const drive = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
     await drive.put("/left.json", Buffer.from(JSON.stringify({ version: 1, leftAt: Date.now() })));
-    await until(async () => (await s.annaPhoto()).holders!.former.length === 1);
+    await until(async () => (await s.annaPhoto()).holders!.left.length === 1);
     const holders = (await s.annaPhoto()).holders!;
     expect(holders.others).toEqual([]);
-    expect(holders.former).toEqual(["New member"]);
+    expect(holders.former).toEqual([]);
+    expect(holders.left).toEqual(["New member"]);
     const members = (await s.anna.store.status()).members as { key: string }[];
     expect(members.map((m) => m.key)).not.toContain(s.nilsKey);
     await s.close();
@@ -520,10 +524,11 @@ describe("who has each photo", () => {
       expect(g.kind).toBe("waitingForAdminToSeeYouLeft");
       expect(g.listedIn).toBe("viewers");
     }
-    await until(async () => (await s.annaPhoto()).holders!.former.length === 1);
+    await until(async () => (await s.annaPhoto()).holders!.left.length === 1);
     const holders = (await s.annaPhoto()).holders!;
     expect(holders.others).toEqual([]);
-    expect(holders.former).toEqual(["New member"]);
+    expect(holders.former).toEqual([]);
+    expect(holders.left).toEqual(["New member"]);
     const members = (await s.anna.store.status()).members as { key: string }[];
     expect(members.map((m) => m.key)).not.toContain(s.nilsKey);
     await until(async () => gone().length === 0);
@@ -584,11 +589,11 @@ describe("who has each photo", () => {
     const s = await threePhones();
     const shareKey = (await s.cleo.store.folders()).folders[0].shareKey;
     expect((await s.cleo.store.leaveAlbum(s.cleoFolderId))[0]).toBeNull();
-    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 1);
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.left.length === 1);
     const key = await joinAsMember(s.anna.store, s.folderId, s.cleo.store, shareKey);
     expect(key).toBeTruthy();
-    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.former.length === 0);
-    expect((await s.anna.store.list(s.folderId))[0].holders!.former).toEqual([]);
+    await until(async () => (await s.anna.store.list(s.folderId))[0].holders!.left.length === 0);
+    expect((await s.anna.store.list(s.folderId))[0].holders!.left).toEqual([]);
     await s.close();
   }, 20_000);
 
