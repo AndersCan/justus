@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "ready": "vp check && vp run -r --concurrency-limit 1 test && vp run -r build",
+    "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "pnpm --parallel --filter './apps/*' run dev",
     "start:mac": "node apps/desktop/scripts/build.mjs && open apps/desktop/dist/Justus.app",
     "check:issue-refs": "node scripts/check-issue-refs.mjs",

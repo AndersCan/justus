@@ -40,7 +40,7 @@ test("every manifest file is shown on its feature page", () => {
 test("every state a page names exists, and journey pages name some", async () => {
   const statesOf = new Map<string, Set<string>>();
   for (const file of listed) {
-    const loaded = await inspectFile(join(root, file), {});
+    const loaded = await inspectFile(join(root, file), { fuzz: false });
     for (const machine of loaded.machines) {
       statesOf.set(machine.id, new Set(machine.states.map((state) => state.id)));
     }
