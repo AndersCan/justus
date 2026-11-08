@@ -147,7 +147,7 @@ Auto-accept, Collaborators approving or inviting, handing over the Admin role, u
 
 ## Walks
 
-Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's request list (`requests`, how the app works today). `membership` is a design the app does not run yet. The page has no member list, so every save works there. In the `membership` walks the requester's name is a sample ("Ann"), not the name used in the story.
+Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's request list (`requests`, how the app works today). `membership` draws the Admin's phone for a person already in the album (Let them add photos, and their phone saying they left); the page has no lists, so every save works there. These walks are a design until the store runs them.
 
 ### Story 1: two friends
 
@@ -158,19 +158,16 @@ Each link opens the machine at the end of the walk; click on from there or press
 - [Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20picks%201%20hour%2C%20sends%20the%20link%2C%20and%20the%20panel%20offers%20the%20picker%20again%20once%20it%20ends)
 - [Nils turns off the links, it fails, and his link stays shown](https://anderscan.github.io/justus/invite-someone/?machine=inviteLink&run=Nils%20turns%20off%20the%20links%2C%20it%20fails%2C%20and%20his%20link%20stays%20shown)
 - [Maya: asks and is declined](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&machine=requests&run=Maya%3A%20asks%20and%20is%20declined)
-- Design, not in the app yet: [Nils: declines the request](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20declines%20the%20request)
 
 ### Story 2: a big group where everyone adds photos
 
 A guest's side is the Story 1 Maya walks.
 
 - [Three wedding guests ask, and Nils accepts each as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Three%20wedding%20guests%20ask%2C%20and%20Nils%20accepts%20each%20as%20a%20Collaborator)
-- Design, not in the app yet: [Nils: accepts a guest as Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20guest%20as%20Collaborator)
 
 ### Story 3: a big group joining your personal album
 
 - [Nils's family asks to look, and he accepts all three as Viewers](https://anderscan.github.io/justus/join-an-album/?machine=requests&run=Nils's%20family%20asks%20to%20look%2C%20and%20he%20accepts%20all%20three%20as%20Viewers)
-- Design, not in the app yet: [Nils: accepts a relative as Viewer, later makes her a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Nils%3A%20accepts%20a%20relative%20as%20Viewer%2C%20later%20makes%20her%20a%20Collaborator)
 
 ### Story 4: archive, leave or delete an album
 
@@ -181,3 +178,8 @@ A guest's side is the Story 1 Maya walks.
 - [Maya's phone hears that Nils deleted Hytta, after being away](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya's%20phone%20hears%20that%20Nils%20deleted%20Hytta%2C%20after%20being%20away)
 - [Maya had archived Hytta when Nils deleted it](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20had%20archived%20Hytta%20when%20Nils%20deleted%20it)
 - [Maya leaves Hytta, and Nils deletes it before his phone sees her leave](https://anderscan.github.io/justus/archive-or-delete/?machine=albumLifecycle&run=Maya%20leaves%20Hytta%2C%20and%20Nils%20deletes%20it%20before%20his%20phone%20sees%20her%20leave)
+
+### Story 5: who stays in an album
+
+- [Ben, a Viewer, leaves while Nils makes him a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Ben%2C%20a%20Viewer%2C%20leaves%20while%20Nils%20makes%20him%20a%20Collaborator)
+- [Ben, a Viewer, leaves, and is gone from Nils's list](https://anderscan.github.io/justus/join-an-album/?machine=membership&run=Ben%2C%20a%20Viewer%2C%20leaves%2C%20and%20is%20gone%20from%20Nils's%20list)
