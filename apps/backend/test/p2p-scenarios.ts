@@ -984,6 +984,55 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "delete: a Member who was away hears it from another Member when the Admin's phone is gone",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey } = await sharedAlbum(net);
+      const tablet = await net.peer("Tablet");
+      t.noErr(await tablet.store.join(shareKey, "Shared"), "tablet join");
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the Tablet's join request on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, requests[0].requesterKey, true), "accept");
+      for (const [who, peer] of [
+        ["Desktop", joiner],
+        ["Tablet", tablet],
+      ] as const) {
+        await eventually(
+          () => peer.store.list({ all: true }),
+          (photos) => photos.length === 1,
+          `the photo on ${who}`,
+        );
+      }
+      await tablet.stop();
+      t.noErr(await admin.store.deleteAlbum(folderId), "deleteAlbum");
+      await eventually(
+        () => joiner.store.folders(),
+        (f) => f.deleted.length === 1,
+        "the delete notice on Desktop",
+      );
+      await admin.stop();
+      // Restarting drops every live topic: only the kept delete note can serve the Tablet.
+      await joiner.stop();
+      await net.peer("Desktop", joiner.storageDir);
+      const back = await net.peer("Tablet", tablet.storageDir);
+      const after = await eventually(
+        () => back.store.folders(),
+        (f) => f.deleted.length === 1,
+        "the delete notice on the Tablet from Desktop",
+        30_000,
+      );
+      t.eq(
+        after.deleted.map((d) => ({ name: d.name, adminName: d.adminName })),
+        [{ name: "Shared", adminName: "Phone" }],
+        "the notice",
+      );
+      t.ok(!after.folders.some((f) => f.shareKey === shareKey), "album gone from the Tablet");
+      t.eq(await back.store.list({ all: true }), [], "the Tablet has no photos");
+    },
+  },
+  {
     name: "delete: only the Admin can delete, and an archived album is restored first",
     async run(net, t) {
       const { admin, joiner, folderId, joinerFolderId } = await sharedAlbum(net);
