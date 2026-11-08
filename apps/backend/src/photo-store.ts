@@ -44,6 +44,7 @@ import {
   adminListsYou,
   clearLeftNote,
   DRIVE_PATH_DELETED,
+  clearDeletedAlbum,
   deleteOwnPhotos,
   readDeleteNote,
   listedWithin,
@@ -2132,6 +2133,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         leaveTopic(hex(topicOf(drive)));
       }
       selfDrives.delete(rt.record.selfNs ?? `member/${rt.record.shareKey}`);
+    } else if (
+      rt.record.role === "creator" &&
+      keep === "deleteNote" &&
+      rt.folderDrive.key !== ownDrive.key
+    ) {
+      await clearDeletedAlbum(rt.folderDrive, { log });
     } else {
       // The Admin's album drive is read-only here; only this phone's own drive holds its photos.
       const mine = rt.record.role === "creator" ? rt.folderDrive : rt.selfDrive;
@@ -3666,6 +3673,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           if (openErr) throw openErr;
           fd = opened;
         }
+        if (gone.shareKey !== ownDrive.key) await clearDeletedAlbum(fd, { log });
         joinTopic(topicOf(fd), { server: true });
         rediscover(topicOf(fd), fd);
       } catch (e) {

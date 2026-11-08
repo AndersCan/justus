@@ -6,8 +6,8 @@
  * A member's phone that hears the delete keeps the note and serves it for
  * `PASS_ON_DELETE_MS`, so a member who was away hears it from any member who
  * heard it. One who meets nobody in that time keeps the album.
- * LIMITATION(#377): a drive's history keeps old file names and dates after
- * `del`; only the bytes are gone. There is no fix short of a new drive.
+ * The Admin's delete leaves only the note and drops older versions
+ * (`clearDeletedAlbum`); albums from before #195 keep their history.
  */
 import { DEFAULT_ASK_OWNER, isTextJSON, peerName } from "../membership/records";
 import type { Drive } from "../ports/drive-store";
@@ -181,6 +181,49 @@ export async function deleteOwnPhotos(drive: Drive, options: { log: LifecycleLog
         options.log("error", { where: "deleteOwnPhotos", path, err: reasonOf(thrown) });
       }
     }
+  }
+}
+
+/**
+ * Admin, after the delete note is written: deletes every other file of the album's drive,
+ * bytes first, and leaves the note as the drive's last write, so the drive drops every
+ * older version of itself. Safe to run again, as at every start. Never rejects.
+ */
+export async function clearDeletedAlbum(
+  drive: Drive,
+  options: { log: LifecycleLog },
+): Promise<void> {
+  try {
+    const paths: string[] = [];
+    for await (const entry of drive.list("/")) {
+      if (entry.path !== DRIVE_PATH_DELETED) paths.push(entry.path);
+    }
+    for (const path of paths) {
+      try {
+        await drive.clear(path);
+        await drive.del(path);
+      } catch (thrown: unknown) {
+        options.log("error", { where: "clearDeletedAlbum", path, err: reasonOf(thrown) });
+      }
+    }
+    const [error, kept] = await drive.keepOnly(DRIVE_PATH_DELETED);
+    if (error) {
+      options.log("error", { where: "clearDeletedAlbum", err: reasonOf(error) });
+      return;
+    }
+    if (kept.olderVersionsCleared) return;
+    const note = await drive.readSmall(DRIVE_PATH_DELETED, MAX_NOTE_BYTES);
+    if (note === undefined) {
+      options.log("error", { where: "clearDeletedAlbum", err: "delete note unreadable" });
+      return;
+    }
+    await drive.put(DRIVE_PATH_DELETED, Buffer.from(note));
+    const [again, second] = await drive.keepOnly(DRIVE_PATH_DELETED);
+    if (again || !second.olderVersionsCleared) {
+      options.log("error", { where: "clearDeletedAlbum", err: "older versions kept" });
+    }
+  } catch (thrown: unknown) {
+    options.log("error", { where: "clearDeletedAlbum", err: reasonOf(thrown) });
   }
 }
 
