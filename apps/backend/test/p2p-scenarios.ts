@@ -1028,7 +1028,7 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    name: "leave: after the Admin drops a Member, the old invite link starts a fresh ask",
+    name: "leave: after the Admin drops a Member, the old invite link starts a fresh ask the Admin can accept",
     async run(net, t) {
       const { admin, joiner, folderId, shareKey, invite, adminIdentity } = await askedAlbum(net);
       const first = await eventually(
@@ -1066,6 +1066,20 @@ export const scenarios: Scenario[] = [
         "a fresh ask on the Admin",
       );
       t.eq(again.requests[0].viaInvite, true, "the fresh ask came through the old link");
+      t.noErr(
+        await admin.store.respond(folderId, again.requests[0].requesterKey, true),
+        "accept again",
+      );
+      await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "member" && !f.pending,
+        "the joiner is a Member again",
+      );
+      await eventually(
+        () => joiner.store.list({ all: true }),
+        (p) => p.length === 1,
+        "the album's photo on the joiner",
+      );
     },
   },
   {

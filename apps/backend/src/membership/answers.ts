@@ -146,8 +146,16 @@ export type DeliveryPorts = {
   sendAnswer: PeerNetwork["sendAnswer"];
 };
 
+/** Forgets that answers for `codes` were sent on this connection, so the next
+ * deliverOwed sends whatever is owed now. Call when an identity's answer changes. */
+export function forgetSent(sent: Set<string>, codes: readonly string[]): void {
+  for (const key of [...sent]) {
+    if (codes.some((code) => key.startsWith(`${code}:`))) sent.delete(key);
+  }
+}
+
 /** Sends what `owed()` returns on every connection proven to be `identity`,
- * once per answer per connection. `owed` is read after each proof, so an answer
+ * once per answer per connection, until forgetSent clears it. `owed` is read after each proof, so an answer
  * taken back meanwhile is not sent. `retry` is true when the channel refused a send. */
 export async function deliverOwed(
   ports: DeliveryPorts,

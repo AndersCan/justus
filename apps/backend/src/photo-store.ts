@@ -112,6 +112,7 @@ import {
   arrivingAnswer,
   type AskedCode,
   deliverOwed,
+  forgetSent,
   proveIdentity,
 } from "./membership/answers";
 import {
@@ -3574,6 +3575,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const { [identity]: _dropped, ...rest } = record.declinedAsks;
         record.declinedAsks = rest;
       }
+    }
+    const codes = [rt.record.invite?.code, ...(rt.record.retiredInvites ?? [])].filter(
+      (code): code is string => typeof code === "string",
+    );
+    for (const c of conns.values()) {
+      if (c.identityKey === identity) forgetSent(c.sent, codes);
     }
     saveState();
   }
