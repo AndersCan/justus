@@ -19,6 +19,9 @@ export type Person = {
   admin: boolean;
   /** Accepted as a Viewer: sees every photo, adds none. */
   viewer: boolean;
+  /** What the row's line says this person can do. The own row follows the
+   * album; "waiting" is the own row before the Admin accepts, and shows no line. */
+  role: "admin" | "collaborator" | "viewer" | "waiting";
   you: boolean;
   connected: boolean;
   /** "connected", "last seen 2h ago" or "not seen yet". */
@@ -95,6 +98,18 @@ function chipText(others: number, connected: number): string {
   return others > 0 ? copy("people.of_connected", { connected, others }) : copy("people.just_you");
 }
 
+function ownRole(folder: SyncStatus["folder"] | undefined): Person["role"] {
+  if (folder?.pending) return "waiting";
+  if (folder?.role === "creator") return "admin";
+  if (folder?.role === "reader") return "viewer";
+  return "collaborator";
+}
+
+function otherRole(m: { admin: boolean; viewer?: boolean }): Person["role"] {
+  if (m.admin) return "admin";
+  return m.viewer === true ? "viewer" : "collaborator";
+}
+
 /** View-model for the People sheet and the header chip. The first member the
  * backend reports is this device, which always counts as connected. */
 export function buildPeople(
@@ -121,6 +136,7 @@ export function buildPeople(
         tappable: !you && m.identity !== undefined,
         admin: m.admin,
         viewer: m.viewer === true,
+        role: you ? ownRole(status?.folder) : otherRole(m),
         you,
         connected: m.connected,
         presence: you ? "you" : presenceLabel(m, now),

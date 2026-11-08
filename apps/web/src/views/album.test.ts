@@ -600,12 +600,11 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("Viewer");
+    expect(row.textContent).toContain("Viewer · sees every photo, adds none");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     const labels = [...row.querySelectorAll("button")].map((b) => b.textContent?.trim());
     expect(labels.at(-1)).toBe("Remove");
-    expect(host.textContent).toContain("Viewers see every photo but can't add any.");
   });
 
   test("Remove on a Viewer asks with the Viewer text", async () => {
@@ -955,24 +954,72 @@ describe("album menu items", () => {
 });
 
 describe("album member roles", () => {
-  test("a Collaborator row says Collaborator; Admin and Viewer rows do not", () => {
-    const mixed = {
-      ...status,
-      members: [
-        { key: "k0", name: "Me", admin: true, connected: true },
-        { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
-        { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2", viewer: true },
-      ],
-    } as unknown as SyncStatus;
+  const mixed = {
+    ...status,
+    members: [
+      { key: "k0", name: "Me", admin: true, connected: true },
+      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+      { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2", viewer: true },
+    ],
+  } as unknown as SyncStatus;
+
+  test("each row says what that person can do", () => {
     syncActor.send(statusSeen.create({ status: mixed }));
     people.open();
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const rows = [...host.querySelectorAll("li")];
-    const row = (name: string) => rows.find((r) => r.textContent?.includes(name))?.textContent;
-    expect(row("Nils")).toContain("Collaborator");
-    expect(row("Zed")).not.toContain("Collaborator");
-    expect(row("Me")).not.toContain("Collaborator");
+    const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
+    expect(row("Me")?.textContent).toContain("Admin · adds people and photos");
+    expect(row("Nils")?.textContent).toContain("Collaborator · adds photos");
+    expect(row("Zed")?.textContent).toContain("Viewer · sees every photo, adds none");
+    for (const r of rows) {
+      const nameLine = r.querySelector("p")?.textContent ?? "";
+      expect(nameLine).not.toMatch(/Admin|Collaborator|Viewer/);
+    }
+  });
+
+  test("the role line wraps instead of being cut off", () => {
+    syncActor.send(statusSeen.create({ status: mixed }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const line = host.querySelector('[data-copy-id="album.collaborator_adds_photos"]');
+    expect(line?.closest("p")?.classList.contains("truncate")).toBe(false);
+  });
+
+  test("the caption says what you can do", () => {
+    const captionFor = (role: string) => {
+      syncActor.send(
+        statusSeen.create({
+          status: { ...status, folder: { ...status.folder, role } } as unknown as SyncStatus,
+        }),
+      );
+      const host = document.createElement("div");
+      render(albumView("f1"), host);
+      return host.querySelector('[data-copy-id^="album.you_"]')?.textContent;
+    };
+    expect(captionFor("creator")).toBe("You're the Admin: you add people and photos.");
+    expect(captionFor("member")).toBe("You can add photos.");
+    expect(captionFor("reader")).toBe("You can see every photo but not add any.");
+  });
+
+  test("a waiting joiner sees no role line and no caption", () => {
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...mixed,
+          folder: { ...status.folder, role: "reader", pending: true },
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
+    expect(own?.textContent).not.toMatch(/Admin ·|Collaborator|Viewer ·/);
+    expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
+    expect(host.textContent).toContain("Waiting for approval");
   });
 });
 
@@ -1009,6 +1056,7 @@ describe("removed from the album", () => {
       "You're no longer in Trip.",
     );
     expect(host.textContent).not.toContain("Viewer");
+    expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(memberRows(host)).toHaveLength(0);
   });
 

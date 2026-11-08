@@ -301,3 +301,40 @@ describe("nameList", () => {
     expect(nameList(names)).toBe(text);
   });
 });
+
+describe("person role", () => {
+  const roleOf = (folder: Record<string, unknown>, members?: unknown[]) =>
+    buildPeople(
+      {
+        ...status("member"),
+        folder: { id: "f1", ...folder },
+        ...(members && { members }),
+      } as SyncStatus,
+      [],
+      {},
+      NOW,
+    ).people;
+
+  it("own row role follows the album", () => {
+    expect(roleOf({ role: "creator" })[0].role).toBe("admin");
+    expect(roleOf({ role: "member" })[0].role).toBe("collaborator");
+    expect(roleOf({ role: "reader" })[0].role).toBe("viewer");
+    expect(roleOf({ role: "reader", pending: true })[0].role).toBe("waiting");
+    expect(roleOf({ role: "member", pending: true })[0].role).toBe("waiting");
+  });
+
+  it("other rows' role comes from admin and viewer", () => {
+    const people = roleOf({ role: "creator" }, [
+      { key: "me", name: "Me", admin: true, connected: true },
+      { key: "a", name: "Ann", admin: true, connected: true },
+      { key: "v", name: "Vic", admin: false, viewer: true, connected: true },
+      { key: "c", name: "Cy", admin: false, connected: true },
+    ]);
+    expect(people.map((p) => [p.name, p.role])).toEqual([
+      ["Me", "admin"],
+      ["Ann", "admin"],
+      ["Vic", "viewer"],
+      ["Cy", "collaborator"],
+    ]);
+  });
+});
