@@ -521,7 +521,12 @@ export function viewerLine(page: { status: SyncStatus | null }, album: { id: str
 
 /** The album's add row: the picker, the camera, and who gets the photos. Or,
  * when this device can't add here, why not. */
-function albumAddRow(page: PhotosPage, album: FolderSummary) {
+export function albumAddRow(page: PhotosPage, album: FolderSummary) {
+  if (album.notice?.kind === "removed") {
+    return html`<p class="text-sm text-muted">
+      You're no longer in ${album.name}. You can still see the photos you have.
+    </p>`;
+  }
   const plan = planAdd(album.id, page.folders);
   if (plan.kind === "viewer") {
     return html`<p class="text-sm text-muted">${viewerLine(page, album)}</p>`;

@@ -13,6 +13,7 @@ import {
   archivedSummary,
   joinPanel,
   pendingAsks,
+  roleAndCount,
 } from "./albums";
 
 const mock = vi.hoisted(() => ({
@@ -763,5 +764,14 @@ describe("Sharing hint", () => {
     await vi.waitFor(() => expect(host.textContent).toContain(see));
     expect(host.textContent).not.toContain("invite people");
     render(html``, host);
+  });
+});
+
+describe("roleAndCount", () => {
+  test("a removed album reads 'No longer in this album'", () => {
+    expect(roleAndCount({ ...album("a", "reader"), notice: { kind: "removed" } } as never)).toBe(
+      "No longer in this album",
+    );
+    expect(roleAndCount(album("a", "reader") as never)).toBe("Viewer · 1 member");
   });
 });

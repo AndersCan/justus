@@ -2,9 +2,9 @@ import { html } from "lit-html";
 import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 
 /** The line under an album's title when it moved to a new key; none otherwise. */
-export function albumNoticeText(notice: FolderSummary["notice"]): string | null {
+export function albumNoticeText(notice: FolderSummary["notice"], albumName: string): string | null {
   if (!notice) return null;
-  if (notice.kind === "removed") return null;
+  if (notice.kind === "removed") return `You're no longer in ${albumName}.`;
   if (notice.kind === "newKey") return "This album has a new key. Invite your members again.";
   return `This album has a new key. Ask ${notice.ownerName || "the Admin"} for a new invite link.`;
 }
@@ -24,8 +24,8 @@ export function updateLines(
   return lines;
 }
 
-export function albumNotice(notice: FolderSummary["notice"]) {
-  const text = albumNoticeText(notice);
+export function albumNotice(notice: FolderSummary["notice"], albumName: string) {
+  const text = albumNoticeText(notice, albumName);
   if (!text) return null;
   return html`<p
     class="rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"

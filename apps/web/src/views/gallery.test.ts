@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { missingAlbumText, scopePhotos, viewerLine } from "./gallery";
+import { albumAddRow, missingAlbumText, scopePhotos, viewerLine } from "./gallery";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -264,5 +264,23 @@ describe("viewerLine", () => {
     const line = "You're a Viewer: you see every photo here. The Admin decides who adds photos.";
     expect(viewerLine({ status }, { id: "f2" })).toBe(line);
     expect(viewerLine({ status: null }, { id: "f1" })).toBe(line);
+  });
+});
+
+describe("albumAddRow for a removed album", () => {
+  test("says the person is no longer in it and offers no add button", () => {
+    const host = document.createElement("div");
+    const album = {
+      id: "f1",
+      name: "Trip",
+      role: "reader",
+      members: 3,
+      notice: { kind: "removed" },
+    };
+    render(albumAddRow({ status: null, folders: [album] } as never, album as never), host);
+    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "You're no longer in Trip. You can still see the photos you have.",
+    );
+    expect(host.querySelector("button")).toBeNull();
   });
 });

@@ -161,7 +161,8 @@ onPageChange((page, old) => {
 type FoldersViewModel = ReturnType<typeof foldersViewModel>;
 
 /** "Admin · 3 members", one text node so it reads (and matches) as one line. */
-function roleAndCount(folder: FolderSummary): string {
+export function roleAndCount(folder: FolderSummary): string {
+  if (folder.notice?.kind === "removed") return "No longer in this album";
   const count = `${folder.members} member${folder.members === 1 ? "" : "s"}`;
   return `${roleLabel(folder.role, folder.pending)} · ${count}`;
 }

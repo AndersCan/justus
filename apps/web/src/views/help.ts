@@ -42,7 +42,7 @@ export const HELP_QA: { q: string; a: string[] }[] = [
     q: "Who can see an album?",
     a: [
       "Only the people in the album. An invite link on its own shows no photos: the person asks to join, and they see the album's photos, older ones included, only after the Admin accepts them. Links can be set to end, and the Admin can turn off the links they sent.",
-      "Removing someone stops them adding photos. Their phone still has the album, so it can keep getting new photos for now. To be sure someone is out, start a new album and invite everyone else again.",
+      "Removing someone moves the album to new keys, so they get nothing added after it. They keep the photos they already have and see they're no longer in the album.",
     ],
   },
   {
