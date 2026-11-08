@@ -185,13 +185,13 @@ export function verifiedDeviceIdentity(
     const { identityKey, identityPublicKey, identitySig } = parsed;
     if (typeof identityKey !== "string" || !isHexKey(identityKey)) return undefined;
     if (typeof identityPublicKey !== "string" || typeof identitySig !== "string") return undefined;
-    const ok = options.verify({
+    const verified = options.verify({
       identityKey,
       publicKey: identityPublicKey,
       signature: identitySig,
       message: identityMessage(options.driveKey),
     });
-    return ok ? identityKey.toLowerCase() : undefined;
+    return verified ? identityKey.toLowerCase() : undefined;
   } catch {
     return undefined;
   }
