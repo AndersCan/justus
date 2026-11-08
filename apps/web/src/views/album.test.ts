@@ -98,6 +98,7 @@ describe("Make Viewer", () => {
         detail:
           "Nils keeps seeing every photo but can't add more. The photos Nils already added stay in the album.",
         confirmLabel: "Make Viewer",
+        cancelLabel: "Keep as Collaborator",
       }),
     );
   });

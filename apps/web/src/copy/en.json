@@ -902,6 +902,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.keep_as_collaborator": {
+    "text": "Keep as Collaborator",
+    "status": "draft",
+    "where": "Make Viewer confirm dialog › button that backs out",
+    "who": "The Admin making a Collaborator a Viewer",
+    "screen": ""
+  },
   "album.make_viewer": {
     "text": "Make Viewer",
     "status": "draft",

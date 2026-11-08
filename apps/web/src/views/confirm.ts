@@ -9,6 +9,8 @@ type ConfirmOptions = {
   title: string;
   detail?: string;
   confirmLabel: string;
+  /** The button that backs out; defaults to Keep. */
+  cancelLabel?: string;
   tone?: "danger" | "accent";
 };
 
@@ -47,7 +49,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
           <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
           ${options.detail ? html`<p class="text-sm text-muted">${options.detail}</p>` : null}
           <wa-button slot="footer" appearance="filled" autofocus @click=${() => finish(false)}>
-            ${t("confirm.keep")}
+            ${options.cancelLabel ?? t("confirm.keep")}
           </wa-button>
           <wa-button
             slot="footer"
