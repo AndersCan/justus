@@ -299,6 +299,35 @@ describe("join card", () => {
     expect(host.querySelectorAll("section")).toHaveLength(1);
   });
 
+  test("Paste with a link copied fills the box and shows no line", async () => {
+    const readText = vi.fn().mockResolvedValue(" https://x.test/join?i=abc \n");
+    vi.stubGlobal("navigator", { clipboard: { readText } });
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const input = host.querySelector<HTMLInputElement>("input[aria-label='Invite link']")!;
+    host.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
+    await vi.waitFor(() => expect(input.value).toBe("https://x.test/join?i=abc"));
+    expect(host.textContent).not.toContain("Nothing copied yet");
+    vi.unstubAllGlobals();
+  });
+
+  test("Paste with nothing copied says so under the box", async () => {
+    const readText = vi.fn().mockResolvedValue("  ");
+    vi.stubGlobal("navigator", { clipboard: { readText } });
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const input = host.querySelector<HTMLInputElement>("input[aria-label='Invite link']")!;
+    input.value = "typed";
+    host.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
+    await vi.waitFor(() =>
+      expect(host.textContent).toContain(
+        "Nothing copied yet. Copy the link from your chat, then tap Paste.",
+      ),
+    );
+    expect(input.value).toBe("typed");
+    vi.unstubAllGlobals();
+  });
+
   test("Continue is enabled once sync has settled", async () => {
     const { sync, syncActor } = await import("../machines/sync-machine");
     const host = document.createElement("div");
