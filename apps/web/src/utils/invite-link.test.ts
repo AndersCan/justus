@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { MAX_HINT, buildInviteLink, parseInviteLink } from "./invite-link";
+import { MAX_HINT, buildInviteLink, inviteLinkFromAddress, parseInviteLink } from "./invite-link";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -102,5 +102,29 @@ describe("buildInviteLink", () => {
   test("round-trips, including awkward names", () => {
     const invite = { code: A, owner: B, album: "Spain & 2026 = fun?", ownerName: "Zoë #1" };
     expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
+  });
+});
+
+describe("inviteLinkFromAddress", () => {
+  const code = "a".repeat(64);
+  const owner = "b".repeat(64);
+  const search = `?i=${code}&o=${owner}&n=Garden&a=Tom`;
+  const link = buildInviteLink({ code, owner, album: "Garden", ownerName: "Tom" });
+
+  test("reads /join?... as the link a phone app hands over", () => {
+    expect(inviteLinkFromAddress("/join", search)).toBe(link);
+  });
+  test("ignores case and a trailing slash in the path", () => {
+    expect(inviteLinkFromAddress("/JOIN/", search)).toBe(link);
+  });
+  test("lowercases the keys and keeps the expiry", () => {
+    const e = `?i=${code.toUpperCase()}&o=${owner}&e=1800000000`;
+    expect(inviteLinkFromAddress("/join", e)).toContain(`i=${code}`);
+    expect(inviteLinkFromAddress("/join", e)).toContain("e=1800000000");
+  });
+  test("is undefined for another path, no query, or a missing key", () => {
+    expect(inviteLinkFromAddress("/welcome", search)).toBeUndefined();
+    expect(inviteLinkFromAddress("/join", "")).toBeUndefined();
+    expect(inviteLinkFromAddress("/join", `?i=${code}`)).toBeUndefined();
   });
 });

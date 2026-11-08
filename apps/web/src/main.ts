@@ -24,6 +24,8 @@ import { welcomeView, hasSeenWelcome, readLockForOnboarding } from "./views/welc
 import { joinSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
+import { inviteLinkFromAddress } from "./utils/invite-link";
+import { join } from "./machines/sharing/join-request";
 
 import { copy, t } from "./copy/copy";
 // The Android/iOS shells serve the app from a path ending in index.html —
@@ -33,9 +35,13 @@ if (window.location.pathname.endsWith("/index.html")) {
 }
 
 // First run: show the "no servers" welcome screen once per install.
+const addressInvite = inviteLinkFromAddress(location.pathname, location.search);
 if (!hasSeenWelcome()) {
+  join.welcomeStarted();
   open("/welcome", { replace: true });
   void readLockForOnboarding();
+} else if (addressInvite !== undefined) {
+  open("/join", { replace: true }); // the invite leaves the address bar; a reload does not re-ask
 }
 
 // Capture web-layer diagnostics (console + page errors) into the shared log
@@ -50,7 +56,7 @@ transport.subscribe((message) => {
   handleMessage(message);
 });
 
-listenForHostInvites();
+listenForHostInvites(addressInvite);
 gallery.load();
 sync.refresh();
 folders.refresh();

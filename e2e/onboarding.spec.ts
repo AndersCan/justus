@@ -80,3 +80,16 @@ test("the tabs stay hidden until the name is saved", async ({ page }) => {
   });
   await expect(tabs.getByRole("link", { name: "Photos" })).toBeVisible();
 });
+
+test("an invite link opened before the welcome asks once the name is saved", async ({ page }) => {
+  const code = "a".repeat(64);
+  const owner = "b".repeat(64);
+  await page.goto(`/join?i=${code}&o=${owner}&n=Garden&a=Tom`);
+  await expect(page).toHaveURL(/\/welcome$/);
+  await page.getByRole("button", { name: "Skip" }).click();
+  await page.getByLabel("Your name").fill("Joe");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("dialog", { name: "Ask to join “Garden”?" })).toBeVisible({
+    timeout: 20_000,
+  });
+});

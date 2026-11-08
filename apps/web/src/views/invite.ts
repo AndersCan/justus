@@ -544,9 +544,11 @@ export function waitingForAdmin() {
 }
 
 /** Invites that reach the app from outside: a link opened by the host at cold
- * start (`window.__justusInvite`) or later (a `justus:invite` event). */
-export function listenForHostInvites() {
+ * start (`window.__justusInvite`) or later (a `justus:invite` event). A link from the web
+ * address opens first; the host's cold-start link, if any, replaces it while held. */
+export function listenForHostInvites(addressLink?: string) {
   const w = window as unknown as { __justusInvite?: string };
+  if (addressLink !== undefined) join.openLink(addressLink);
   if (w.__justusInvite) {
     join.openLink(w.__justusInvite);
     delete w.__justusInvite;

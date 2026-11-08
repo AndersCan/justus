@@ -71,3 +71,11 @@ export function parseInviteLink(text: string): ParsedInvite {
     },
   };
 }
+
+/** The invite link a web address carries: `/join?i=…&o=…` reads as the same link text a phone app hands over. Anything else: undefined. */
+export function inviteLinkFromAddress(pathname: string, search: string): string | undefined {
+  if (pathname.toLowerCase().replace(/\/$/, "") !== "/join") return undefined;
+  if (!search.startsWith("?")) return undefined;
+  const parsed = parseInviteLink(`justus://join${search}`);
+  return parsed.kind === "invite" ? buildInviteLink(parsed.invite) : undefined;
+}

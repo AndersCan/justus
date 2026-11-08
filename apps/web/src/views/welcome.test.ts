@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vite-plus/test";
 
 vi.mock("./toast", () => ({ toast: vi.fn() }));
-vi.mock("../gateway", () => ({ gateway: { lock: { status: vi.fn(), setEnabled: vi.fn() } } }));
+vi.mock("../gateway", () => ({
+  gateway: {
+    lock: { status: vi.fn(), setEnabled: vi.fn() },
+    setName: vi.fn(async () => [null, { name: "Joe" }]),
+  },
+}));
 
-import { onboardingActor } from "../machines/onboarding-machine";
+import { onboarding, onboardingActor } from "../machines/onboarding-machine";
+import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
+import { buildInviteLink } from "../utils/invite-link";
 import { hasSeenWelcome, markWelcomeSeen, readLockForOnboarding } from "./welcome";
 
 function fakeStorage(): Storage {
@@ -64,5 +71,29 @@ describe("readLockForOnboarding", () => {
     await readLockForOnboarding(() => Promise.resolve([new Error("x"), null]) as never);
     await readLockForOnboarding(() => ok({ available: "yes" }) as never);
     expect(lock()).toEqual({ available: true, enabled: false });
+  });
+});
+
+describe("finishing the welcome", () => {
+  it("asks to join the link held during the welcome once the name is saved", async () => {
+    const link = buildInviteLink({
+      code: "a".repeat(64),
+      owner: "b".repeat(64),
+      album: "Garden",
+      ownerName: "Tom",
+    });
+    join.welcomeStarted();
+    join.openLink(link);
+    expect(joinViewOf(joinActor.snapshot()).state).toBe("holdingInviteUntilWelcomeEnds");
+    onboarding.skip();
+    onboarding.editName("Joe");
+    onboarding.saveProfile();
+    // The earlier tests left App lock on offer: the question waits for that answer too.
+    await vi.waitFor(() => expect(onboarding.state()).toBe("offeringAppLock"));
+    expect(joinViewOf(joinActor.snapshot()).state).toBe("holdingInviteUntilWelcomeEnds");
+    onboarding.skipAppLock();
+    await vi.waitFor(() => expect(joinViewOf(joinActor.snapshot()).state).toBe("decidingToAsk"));
+    expect(joinViewOf(joinActor.snapshot()).invite?.album).toBe("Garden");
+    join.notNow();
   });
 });
