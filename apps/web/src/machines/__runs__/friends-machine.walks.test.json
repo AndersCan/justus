@@ -31,6 +31,61 @@
       ]
     },
     {
+      "name": "Anna renames Ben B to Ben",
+      "end": "friendSheetClosed",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "FRIENDS_LOADED",
+          "payload": {
+            "friends": [
+              {
+                "identity": "ben",
+                "name": "Ben B"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {
+            "target": {
+              "identity": "ben",
+              "ownName": "Ben"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "RENAME",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "TYPE",
+          "payload": {
+            "text": "Ben"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "friend": {
+              "identity": "ben",
+              "name": "Ben"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Anna taps Nils in Trip and saves him as a friend",
       "end": "friendSheetClosed",
       "steps": [

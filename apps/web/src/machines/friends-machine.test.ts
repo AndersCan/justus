@@ -15,6 +15,10 @@ vi.mock("../gateway", () => ({
     friends: {
       list: vi.fn(async () => [null, { friends: [] }]),
       add: vi.fn(async (identity: string, name: string) => [null, { friend: { identity, name } }]),
+      rename: vi.fn(async (identity: string, name: string) => [
+        null,
+        { friend: { identity, name } },
+      ]),
       remove: vi.fn(async () => [null, { removed: true }]),
     },
   },
@@ -29,12 +33,17 @@ const type = (text: string) => ({ type: "TYPE", payload: { text } }) as never;
 const save = () => ({ type: "SAVE" }) as never;
 const close = () => ({ type: "CLOSE" }) as never;
 
-async function setup(options: { list?: Reply; add?: Reply; remove?: Reply } = {}) {
+async function setup(options: { list?: Reply; add?: Reply; rename?: Reply; remove?: Reply } = {}) {
   const port = {
     list: vi.fn(options.list ?? (async () => [null, { friends: [] }])),
     add: vi.fn(
       options.add ??
         (async (identity: string, name: string) => [null, { identity, name }] as [null, unknown]),
+    ),
+    rename: vi.fn(
+      options.rename ??
+        (async (identity: string, name: string) =>
+          [null, { friend: { identity, name } }] as [null, unknown]),
     ),
     remove: vi.fn(options.remove ?? (async () => [null, { removed: true }] as [null, unknown])),
   };
@@ -173,6 +182,101 @@ describe("friends machine", () => {
     await Promise.resolve();
     expect(actor.state.name).toBe("savingFriend");
     expect((actor.snapshot().payload as { identity: string }).identity).toBe("k1");
+  });
+});
+
+const rename = () => ({ type: "RENAME" }) as never;
+const kimmy = async () =>
+  [null, { friends: [{ identity: "k1", name: "Kimmy" }] }] as [null, unknown];
+
+describe("renaming a friend", () => {
+  test("RENAME on a saved friend opens naming with the saved name", async () => {
+    const { actor } = await setup({ list: kimmy });
+    actor.send(open());
+    actor.send(rename());
+    expect(actor.state.name).toBe("namingFriend");
+    expect(actor.snapshot().payload).toEqual({
+      identity: "k1",
+      ownName: "Kim",
+      draft: "Kimmy",
+      renaming: true,
+    });
+  });
+
+  test("RENAME on someone who is not a friend stays on the member view", async () => {
+    const { actor } = await setup();
+    actor.send(open());
+    actor.send(rename());
+    expect(actor.state.name).toBe("showingMember");
+  });
+
+  test("Save renames, updates the name and announces nothing", async () => {
+    const { actor, port, outputs } = await setup({ list: kimmy });
+    actor.send(open());
+    actor.send(rename());
+    actor.send(type("  Kim B  "));
+    actor.send(save());
+    await actor.settled();
+    expect(port.rename).toHaveBeenCalledWith("k1", "Kim B");
+    expect(port.add).not.toHaveBeenCalled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(actor.snapshot().context.friends).toEqual({ k1: "Kim B" });
+    expect(outputs).toEqual([]);
+  });
+
+  test("Save with the saved name closes the sheet and calls nothing", async () => {
+    const { actor, port } = await setup({ list: kimmy });
+    actor.send(open());
+    actor.send(rename());
+    actor.send(type(" Kimmy "));
+    actor.send(save());
+    await actor.settled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(port.rename).not.toHaveBeenCalled();
+    expect(port.add).not.toHaveBeenCalled();
+  });
+
+  test("a failed rename keeps the draft and error, and Try again renames", async () => {
+    let fail = true;
+    const { actor, port } = await setup({
+      list: kimmy,
+      rename: async (identity: unknown, name: unknown) =>
+        fail ? [new Error("full"), null] : [null, { friend: { identity, name } }],
+    } as never);
+    actor.send(open());
+    actor.send(rename());
+    actor.send(type("Kim B"));
+    actor.send(save());
+    await actor.settled();
+    expect(actor.state.name).toBe("namingFriend");
+    expect(actor.snapshot().payload).toMatchObject({ draft: "Kim B", renaming: true });
+    expect(actor.snapshot().context.error).toBe(SAVE_FAILED_COPY);
+    expect(actor.snapshot().context.friends).toEqual({ k1: "Kimmy" });
+    fail = false;
+    actor.send(save());
+    await actor.settled();
+    expect(port.rename).toHaveBeenCalledTimes(2);
+    expect(port.add).not.toHaveBeenCalled();
+    expect(actor.snapshot().context.friends).toEqual({ k1: "Kim B" });
+  });
+
+  test("a friend removed meanwhile closes the sheet quietly", async () => {
+    const { actor, outputs } = await setup({
+      list: kimmy,
+      rename: async () => [
+        Object.assign(new Error("gone"), { code: "justus.friends/not-found" }),
+        null,
+      ],
+    });
+    actor.send(open());
+    actor.send(rename());
+    actor.send(type("Kim B"));
+    actor.send(save());
+    await actor.settled();
+    expect(actor.state.name).toBe("friendSheetClosed");
+    expect(actor.snapshot().context.error).toBeNull();
+    expect(actor.snapshot().context.friends).toEqual({});
+    expect(outputs).toEqual([]);
   });
 });
 

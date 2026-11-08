@@ -1784,6 +1784,13 @@
     "who": "People saving someone as a friend",
     "screen": ""
   },
+  "friend_sheet.rename": {
+    "text": "Rename",
+    "status": "draft",
+    "where": "Friends › button",
+    "who": "People fixing the name of a saved friend",
+    "screen": ""
+  },
   "friend_sheet.add_to_friends": {
     "text": "Add to friends",
     "status": "draft",
