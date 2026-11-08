@@ -4,10 +4,18 @@ import WebKit
 
 struct ContentView: View {
   let runtime: BareRuntime
+  @ObservedObject var lock: AppLockController
 
   var body: some View {
-    BareWebView(runtime: runtime)
-      .ignoresSafeArea()
+    ZStack {
+      BareWebView(runtime: runtime)
+        .opacity(lock.state.hidden ? 0 : 1)
+        .accessibilityHidden(lock.state.hidden)
+      if lock.state.hidden {
+        LockCover(onTap: lock.requestOpen)
+      }
+    }
+    .ignoresSafeArea()
   }
 }
 
