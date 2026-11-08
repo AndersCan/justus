@@ -203,7 +203,49 @@ describe("delete clears what it should", () => {
     expect(await drive.readSmall("/deleted.json", 1 << 20)).toBeDefined();
   });
 
+<<<<<<< HEAD
   it("purges the other drives and keeps the invite topic of the album", async () => {
+=======
+  async function listed(drive: Drive): Promise<string[]> {
+    const paths: string[] = [];
+    for await (const entry of drive.list("/")) paths.push(entry.path);
+    return paths;
+  }
+
+  it("leaves only the delete note in the album, with no older version to read", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const before = (await driveOf(admin.deps, album.shareKey)).version();
+    expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    const kim = device("Kim", admin.deps.hub);
+    const drive = await driveOf(kim.deps, album.shareKey);
+    expect(await listed(drive)).toEqual(["/deleted.json"]);
+    expect(parseDeleteNote((await drive.readSmall("/deleted.json", 1 << 20)) ?? null)).toEqual({
+      adminName: "Nils",
+    });
+    const [error, old] = await kim.deps.drives.openAt(album.shareKey, before, { timeoutMs: 1_000 });
+    expect(error ? [] : await listed(old)).toEqual([]);
+  });
+
+  it("clears an album deleted before this update at the next start", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const before = (await driveOf(admin.deps, album.shareKey)).version();
+    expect((await admin.store.deleteAlbum(album.id))[0]).toBeNull();
+    const adminDrive = await driveOf(admin.deps, album.shareKey);
+    await adminDrive.put("/folder.json", Buffer.from("{}"));
+    const again = createPhotoStore(restarted(admin.deps));
+    await again.ready();
+    const kim = device("Kim", admin.deps.hub);
+    const drive = await driveOf(kim.deps, album.shareKey);
+    expect(await listed(drive)).toEqual(["/deleted.json"]);
+    const [error, old] = await kim.deps.drives.openAt(album.shareKey, before, { timeoutMs: 1_000 });
+    expect(error ? [] : await listed(old)).toEqual([]);
+    const version = (await driveOf(admin.deps, album.shareKey)).version();
+    const third = createPhotoStore(restarted(admin.deps));
+    await third.ready();
+    expect((await driveOf(admin.deps, album.shareKey)).version()).toBe(version);
+  });
+  it("purges the other drives and leaves the invite topic of the album", async () => {
+>>>>>>> d76eb62 (Deleting an album for everyone leaves only the delete note and drops older versions)
     const { admin, album } = await albumWithPhoto("Hytta");
     const member = device("Maya", admin.deps.hub);
     await member.store.ready();

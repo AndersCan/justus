@@ -70,4 +70,40 @@ describe("a pre-#195 album that is the identity drive", () => {
     expect(folders.map((f) => [f.shareKey, f.role])).toEqual([[identityKey, "creator"]]);
     await store.close();
   });
+
+  it("deleting a pre-#195 album keeps the identity drive's device file", async () => {
+    const storageDir = makeTmpDir("justus-legacy-");
+    const cs = new Corestore(join(storageDir, "corestore"));
+    const identity = new Hyperdrive(cs);
+    await identity.ready();
+    const identityKey = identity.key.toString("hex");
+    await identity.close();
+    await cs.close();
+    const legacy = {
+      version: 2,
+      name: "Upgraded",
+      activeFolderId: "legacy-1",
+      folders: [
+        {
+          id: "legacy-1",
+          name: "My Photos",
+          role: "creator",
+          shareKey: identityKey,
+          driveKey: identityKey,
+          createdAt: 0,
+        },
+      ],
+    };
+    writeFileSync(join(storageDir, "justus.json"), JSON.stringify(legacy), "utf8");
+    const deps = realDeps(storageDir);
+    const store = createPhotoStore(deps);
+    await withTimeout(store.ready(), 5_000);
+    expect((await store.deleteAlbum("legacy-1"))[0]).toBeNull();
+    const [error, drive] = await deps.drives.open(identityKey, { timeoutMs: 2_000 });
+    expect(error).toBeNull();
+    const paths: string[] = [];
+    for await (const entry of drive!.list("/")) paths.push(entry.path);
+    expect(paths).toContain("/device.json");
+    await store.close();
+  });
 });
