@@ -223,6 +223,8 @@ type FolderRecord = {
   invite?: { code: string; owner?: string };
   /** Creator only: the answer given to each identity that asked. */
   answers?: Answers;
+  /** Creator only: when the ask behind each "declined" answer was made. */
+  declinedAsks?: Record<string, number>;
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
@@ -710,6 +712,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (isHexKey(id) && (a === "accepted" || a === "declined")) answers[id] = a;
       }
       out.answers = answers;
+    }
+    if (isTextJSON(f.declinedAsks)) {
+      const declinedAsks: Record<string, number> = {};
+      for (const [id, t] of Object.entries(f.declinedAsks)) {
+        if (isHexKey(id) && typeof t === "number" && Number.isFinite(t)) declinedAsks[id] = t;
+      }
+      out.declinedAsks = declinedAsks;
     }
     if (Array.isArray(f.retiredInvites)) {
       out.retiredInvites = (f.retiredInvites as unknown[]).filter(
@@ -2326,6 +2335,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           if (rotateErr) throw new Error(rotateErr.message);
           Object.assign(record, rotated);
           delete record.answers;
+          delete record.declinedAsks;
           delete record.retiredInvites;
           saveState();
         } catch (e) {
@@ -2679,7 +2689,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         log,
       });
       if (askErr) return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${askErr.message}`);
-      state.asks.push(ask);
+      state.asks = [...state.asks.filter((a) => a.code !== code), ask];
       saveState();
       await watchInvite(ask);
       deps.onChanged({ cause: "ask", code });
@@ -2701,6 +2711,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     rt.record.answers = next;
     const persisted = state.folders.find((f) => f.id === rt.record.id);
     if (persisted) persisted.answers = next;
+    for (const record of persisted ? [rt.record, persisted] : [rt.record]) {
+      if (record.declinedAsks) {
+        const { [identity]: _dropped, ...rest } = record.declinedAsks;
+        record.declinedAsks = rest;
+      }
+    }
+    saveState();
+  }
+
+  /** Remembers which ask a "declined" answer closed, so a newer ask is a new request. */
+  function rememberDeclinedAsk(rt: FolderRuntime, identity: string, askedAt: number) {
+    const persisted = state.folders.find((f) => f.id === rt.record.id);
+    for (const record of persisted ? [rt.record, persisted] : [rt.record]) {
+      record.declinedAsks = { ...record.declinedAsks, [identity]: askedAt };
+    }
     saveState();
   }
 
@@ -3367,6 +3392,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             registry,
             denied: deniedRequesters,
             answers: rt.record.answers,
+            declinedAsks: rt.record.declinedAsks,
             invited: new Set(rt.record.invited ?? []),
             viewers: new Set(Object.keys(rt.viewers)),
           }),
@@ -3396,9 +3422,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         { approve },
       );
       if (reply.kind === "decline-ask") {
-        // Final: the joiner is told, and asking again changes nothing.
+        // The joiner is told; a newer ask from them is a new request.
+        const asked = (await readRequestsFromPeers(rt)).find(
+          (f) => f.request.requesterKey === requesterKey && f.viaInvite,
+        );
         setAnswer(rt, reply.identity, "declined");
-        deniedRequesters.add(requesterKey);
+        if (asked) rememberDeclinedAsk(rt, reply.identity, asked.request.requestedAt);
         deps.onChanged({ cause: "request", folderId });
         void deliverAnswers(reply.identity).catch(answerErr("deliver"));
         return ok({ ok: true });
@@ -3537,20 +3566,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       const take = offerToTake(state, { code, owner });
       if (take.kind === "gone") return err(PhotoError.OFFER_GONE, "This invite was taken back");
-      let ask: AskRecord | undefined;
+      let summary: AskSummary;
       if (take.kind === "file-ask") {
         const filed = await fileAsk(code, owner, take.offer.albumName, take.offer.ownerName);
         if (filed[0]) return filed;
-        ask = state.asks.find((a) => a.code === code);
+        summary = filed[1].ask;
       } else {
-        ask = take.ask;
+        summary = askSummary(take.ask);
       }
       await tellIdentity(invitePorts, {
         identity: owner,
         message: { kind: "offerTaken", code },
         timeoutMs: 2_000,
       });
-      return ok({ ask: askSummary(ask as AskRecord) });
+      return ok({ ask: summary });
     },
 
     async makeMember(folderId, memberKey) {

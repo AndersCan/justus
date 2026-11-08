@@ -4,7 +4,7 @@
  * registry react. Real-swarm delivery is covered in `p2p-scenarios.ts`.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
@@ -17,6 +17,7 @@ import {
   type FakeStoreDeps,
 } from "./fakes/fake-store-deps.ts";
 import type { FakeHub } from "./fakes/fake-world.ts";
+import { makeTmpDir } from "./tmp-dirs.ts";
 
 function buildStore(name: string, hub: FakeHub, deps: Partial<FakeStoreDeps> = {}) {
   const full = fakeStoreDeps({ hub, deviceName: name, ...deps });
@@ -93,6 +94,65 @@ async function outboxText(drive: Drive): Promise<string> {
 
 const readText = async (drive: Drive, path: string) => drive.readSmall(path, 1 << 20);
 
+describe("ask after a No", () => {
+  const CODE = "c".repeat(64);
+  const OWNER = "d".repeat(64);
+
+  /** A joiner whose saved state already holds a declined ask (and optionally the invite). */
+  async function declinedJoiner(withOffer: boolean) {
+    const storageDir = makeTmpDir("justus-declined-");
+    const declined = {
+      code: CODE,
+      owner: OWNER,
+      albumName: "Trip",
+      ownerName: "Admin",
+      askedAt: 1,
+      status: "declined",
+    };
+    const offers = withOffer
+      ? [{ code: CODE, owner: OWNER, albumName: "Trip", ownerName: "Admin" }]
+      : [];
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({
+        version: 2,
+        name: "Joiner",
+        folders: [],
+        activeFolderId: null,
+        asks: [declined],
+        offers,
+        gone: [],
+      }),
+    );
+    const s = await scenario(undefined, { storageDir });
+    const saved = () => JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
+    return { s, saved };
+  }
+
+  it("asking again after a No files a new ask", async () => {
+    const { s, saved } = await declinedJoiner(false);
+    const asked = await s.joiner.store.ask({ code: CODE, owner: OWNER });
+    expect(asked[0]).toBeNull();
+    expect(asked[1]!.ask.status).toBe("waiting");
+    expect(asked[1]!.ask.askedAt).toBeGreaterThan(1);
+    const kept = saved().asks.filter((a: { code: string }) => a.code === CODE);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].status).toBe("waiting");
+    expect(JSON.parse(await outboxText(s.outbox)).requests[`invite:${CODE}`]).toBeDefined();
+    await s.close();
+  });
+
+  it("#349 joining an invite after a No returns the new ask", async () => {
+    const { s, saved } = await declinedJoiner(true);
+    const taken = await s.joiner.store.joinOffer(CODE, OWNER);
+    expect(taken[0]).toBeNull();
+    expect(taken[1]!.ask.status).toBe("waiting");
+    expect(saved().asks).toHaveLength(1);
+    expect(saved().asks[0].status).toBe("waiting");
+    await s.close();
+  });
+});
+
 describe("ask", () => {
   it("every album the Admin creates carries an invite code", async () => {
     const s = await scenario();
@@ -164,7 +224,7 @@ describe("ask", () => {
     await s.close();
   });
 
-  it("the Admin sees the ask, and a decline is final", async () => {
+  it("a decline saves the time of the ask it answered", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
     await connect(s);
@@ -178,6 +238,28 @@ describe("ask", () => {
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
     const identity = s.outboxKey;
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });
+    const outbox = JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`];
+    expect(saved.folders[0].declinedAsks).toEqual({ [identity]: outbox.requestedAt });
+    await s.close();
+  });
+
+  it("after a No, a newer ask from the same phone is listed again and can be accepted", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s);
+    const first = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    const file = JSON.parse(await outboxText(s.outbox));
+    file.requests[`invite:${s.invite.code}`].requestedAt += 1;
+    await s.outbox.put("/requests.json", Buffer.from(JSON.stringify(file)));
+    const again = (await s.admin.store.requests()).requests;
+    expect(again).toHaveLength(1);
+    const accepted = await s.admin.store.respond(s.folderId, again[0].requesterKey, true);
+    expect(accepted[0]).toBeNull();
+    const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    expect(saved.folders[0].answers).toEqual({ [s.outboxKey]: "accepted" });
+    expect(saved.folders[0].declinedAsks ?? {}).toEqual({});
     await s.close();
   });
 
@@ -575,7 +657,7 @@ describe("turning off invite links", () => {
     const first = await asked(s, s.invite.code);
     await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
-    expect(await asked(s, code)).toEqual([]);
+    expect(await asked(s, code)).toHaveLength(1);
     const identity = s.outboxKey;
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
     expect(saved.folders[0].answers).toEqual({ [identity]: "declined" });

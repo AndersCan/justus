@@ -227,18 +227,23 @@ export function parseJoinRequests(
 /** What an Admin tells a joiner who asked through an invite code (`justus/answer/v1`). */
 export type Answer =
   | { code: string; answer: "accepted"; shareKey: string }
-  | { code: string; answer: "declined" };
+  | { code: string; answer: "declined"; askedAt?: number };
 
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey } = value as {
+  const { code, answer, shareKey, askedAt } = value as {
     code?: unknown;
     answer?: unknown;
     shareKey?: unknown;
+    askedAt?: unknown;
   };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
-  if (answer === "declined") return { code, answer };
+  if (answer === "declined") {
+    return typeof askedAt === "number" && Number.isFinite(askedAt)
+      ? { code, answer, askedAt }
+      : { code, answer };
+  }
   if (answer === "accepted" && typeof shareKey === "string" && isHexKey(shareKey)) {
     return { code, answer, shareKey };
   }

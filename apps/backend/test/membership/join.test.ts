@@ -398,6 +398,38 @@ describe("pendingJoinRequests", () => {
   });
 });
 
+describe("pendingJoinRequests after a decline", () => {
+  const key = "1".repeat(64);
+  const list = (
+    requestedAt: number,
+    answers: Record<string, "accepted" | "declined">,
+    declinedAsks?: Record<string, number>,
+  ) =>
+    pendingJoinRequests(
+      [
+        {
+          request: {
+            folderId: "f1",
+            folderName: "Trip",
+            requesterKey: key,
+            requesterName: "Bo",
+            requestedAt,
+          },
+          identity: "i",
+          viaInvite: true,
+        },
+      ],
+      { registry: { version: 1, members: {} }, denied: new Set(), answers, declinedAsks },
+    ).length;
+
+  it("lists a newer ask, hides the answered one, an unknown time and an accepted one", () => {
+    expect(list(200, { i: "declined" }, { i: 100 })).toBe(1);
+    expect(list(100, { i: "declined" }, { i: 100 })).toBe(0);
+    expect(list(200, { i: "declined" })).toBe(0);
+    expect(list(200, { i: "accepted" }, { i: 100 })).toBe(0);
+  });
+});
+
 describe("acceptJoinRequest", () => {
   const registry = { version: 1, members: { k: { key: "k", name: "Ann", addedAt: 1 } } };
   const asked = (key: string, name: string) => ({

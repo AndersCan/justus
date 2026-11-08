@@ -522,7 +522,7 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    name: "ask: a declined ask stays declined, across a restart and a second ask",
+    name: "ask: after a No the joiner asks again, across a restart, and a yes lets them in",
     async run(net, t) {
       const { admin, joiner, folderId, invite } = await askedAlbum(net);
       const { requests } = await eventually(
@@ -548,10 +548,60 @@ export const scenarios: Scenario[] = [
       );
       const second = await again.store.ask({ code: invite.code, owner: invite.owner });
       t.noErr(second, "ask again");
-      t.eq(second[1]?.ask.status, "declined", "asking again returns declined");
+      t.eq(second[1]?.ask.status, "waiting", "asking again files a new ask");
+      const [fresh] = (
+        await eventually(
+          () => admin.store.requests(),
+          (r) => r.requests.length === 1,
+          "the new ask on the Admin",
+        )
+      ).requests;
       await new Promise((r) => setTimeout(r, 1500));
-      t.eq((await admin.store.requests()).requests, [], "the Admin is not asked again");
-      t.eq((await again.store.folders()).folders, [], "never got the album");
+      t.eq(
+        (await again.store.folders()).asks.map((a) => a.status),
+        ["waiting"],
+        "the stale No did not land",
+      );
+      t.noErr(await admin.store.respond(folderId, fresh.requesterKey, true), "accept");
+      const joined = await eventually(
+        () => again.store.folders(),
+        (f) => f.folders.length === 1,
+        "the joiner is in",
+      );
+      t.ok(!joined.folders[0].pending, "not pending");
+    },
+  },
+  {
+    name: "friend: an invite after a No is a new ask and lets the friend in (#349)",
+    async run(net, t) {
+      const { admin, joiner, folderId } = await askedAlbum(net);
+      const joinerIdentity = (joiner.store.debugState() as { identityDrive: string }).identityDrive;
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      t.noErr(await admin.store.respond(folderId, requests[0].requesterKey, false), "decline");
+      await eventually(
+        () => joiner.store.folders(),
+        (f) => f.asks[0]?.status === "declined",
+        "the joiner hears no",
+      );
+      t.noErr(await admin.store.offerAlbum(folderId, joinerIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => joiner.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the joiner",
+      );
+      const taken = await joiner.store.joinOffer(offers[0].code, offers[0].owner);
+      t.noErr(taken, "joinOffer");
+      t.eq(taken[1]?.ask.status, "waiting", "the invite files a new ask");
+      const joined = await eventually(
+        () => joiner.store.folders(),
+        (f) => f.folders.length === 1,
+        "the joiner is in the album",
+      );
+      t.eq(joined.asks, [], "no ask left");
     },
   },
   {
