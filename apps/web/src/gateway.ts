@@ -100,6 +100,8 @@ export const gateway = {
   saveInviteLink: (folderId: string, expiresAt: number) =>
     invoke(photoEvents.photos.saveInviteLink(folderId, expiresAt)),
   /** Asks a saved friend's phone, by key alone, to offer them the album; they join as a Viewer (`reader`) or Collaborator (`member`). Fails with FRIEND_REFUSED or FRIEND_UNREACHABLE. */
+  takeBackOffer: (folderId: string, identity: string) =>
+    invoke(photoEvents.photos.takeBackOffer(folderId, identity)),
   offerAlbum: (folderId: string, identity: string, role: "reader" | "member") =>
     invoke(photoEvents.photos.offerAlbum(folderId, identity, role)),
   /** Joins the album a friend's invite offers; the Admin's phone lets this phone in without an Accept step. */

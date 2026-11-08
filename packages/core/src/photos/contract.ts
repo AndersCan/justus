@@ -146,6 +146,9 @@ export const folderSummarySchema = s.object({
     s.object({ kind: s.oneOf("newKey", "moved", "removed"), ownerName: s.optional(s.string) }),
   ),
   waitingFor: s.optional(s.array(s.string)),
+  invitedFriends: s.optional(
+    s.array(s.object({ identity: s.string, role: s.oneOf("reader", "member") })),
+  ),
 });
 
 export const askSummarySchema = s.object({
@@ -248,6 +251,7 @@ export const photoResultSchemas = {
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
   "photos.offerAlbum": s.object({ ok: s.boolean, waiting: s.optional(s.boolean) }),
+  "photos.takeBackOffer": s.object({ ok: s.boolean }),
   "photos.joinOffer": s.object({ ask: askSummarySchema }),
   "photos.archiveAlbum": s.object({ ok: s.boolean }),
   "photos.restoreAlbum": s.object({ ok: s.boolean }),
