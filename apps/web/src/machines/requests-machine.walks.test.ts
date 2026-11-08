@@ -121,3 +121,21 @@ test("Ana asks while Nils looks at his photos, and Nils hears she wants to join"
   expect(arrived).toEqual(["Ana"]);
   expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
 });
+
+test("Maya cancels before Nils accepts, and Nils is told", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [maya] } });
+  actor.send({
+    type: "RESPOND",
+    payload: { folderId: "f1", requesterKey: "k1", approve: true, role: "member" },
+  });
+  actor.inject({
+    type: "REQUEST_WAS_CANCELLED",
+    payload: { folderId: "f1", requesterKey: "k1" },
+  });
+  await actor.settled();
+  const view = requestsViewModel(actor.snapshot());
+  expect(view.state).toBe("showingRequests");
+  expect(view.requests).toEqual([]);
+});
