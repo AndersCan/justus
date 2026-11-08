@@ -3785,5 +3785,61 @@
     "where": "Play Store listing › Full description",
     "who": "Everyone who finds Justus on Google Play",
     "screen": ""
+  },
+  "friend_sheet.removed_from_friends": {
+    "text": "Removed {name} from friends",
+    "status": "draft",
+    "where": "Settings › Friends › toast",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "friend_sheet.couldn_t_remove_try_again": {
+    "text": "Couldn't remove {name}. Try again.",
+    "status": "draft",
+    "where": "Settings › Friends › toast",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.friends": {
+    "text": "Friends",
+    "status": "draft",
+    "where": "Settings › Friends › heading",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.empty": {
+    "text": "No friends yet. In an album, tap someone in its people to save them as a friend.",
+    "status": "draft",
+    "where": "Settings › Friends › text",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.remove": {
+    "text": "Remove",
+    "status": "draft",
+    "where": "Settings › Friends › button",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.remove_label": {
+    "text": "Remove {name} from friends",
+    "status": "draft",
+    "where": "Settings › Friends › button label",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.confirm_title": {
+    "text": "Remove {name} from friends?",
+    "status": "draft",
+    "where": "Settings › Friends › dialog",
+    "who": "People with saved friends",
+    "screen": ""
+  },
+  "settings_friends.confirm_detail": {
+    "text": "{name} can't send you album invites anymore, unless you're in an album together. Albums you share stay as they are.",
+    "status": "draft",
+    "where": "Settings › Friends › dialog",
+    "who": "People with saved friends",
+    "screen": ""
   }
 }

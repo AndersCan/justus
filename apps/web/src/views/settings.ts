@@ -10,6 +10,8 @@ import { errorBanner } from "./error-banner";
 import { logsPanel } from "./logs";
 import { appLockSection, refreshAppLock } from "./app-lock";
 import { densitySetting, themeSetting } from "./theme-toggle";
+import { friends, friendsActor, savedFriends } from "../machines/friends-machine";
+import { confirmAction } from "./confirm";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
@@ -106,6 +108,48 @@ function helpSection() {
   </a>`;
 }
 
+async function removeFriend(identity: string, name: string, remove: (identity: string) => void) {
+  const ok = await confirmAction({
+    title: copy("settings_friends.confirm_title", { name }),
+    detail: copy("settings_friends.confirm_detail", { name }),
+    confirmLabel: copy("settings_friends.remove"),
+    tone: "danger",
+  });
+  if (ok) remove(identity);
+}
+
+export function friendsSection(
+  actor: typeof friendsActor = friendsActor,
+  remove: (identity: string) => void = friends.remove,
+) {
+  return watch(actor, (snapshot) => {
+    if (snapshot.path[0] === "loadingFriends") return null;
+    const rows = savedFriends(snapshot.context.friends);
+    return html`<section class="ui-card p-5">
+      <h2 class="ui-label mb-1">${t("settings_friends.friends")}</h2>
+      ${
+        rows.length === 0
+          ? html`<p class="text-sm text-muted">${t("settings_friends.empty")}</p>`
+          : html`<ul class="divide-y divide-line">
+              ${rows.map(
+                (f) => html`<li class="flex items-center justify-between gap-3 py-2">
+                  <span class="min-w-0 break-words text-sm text-fg">${f.name}</span>
+                  <button
+                    class="ui-btn-ghost"
+                    type="button"
+                    aria-label=${copy("settings_friends.remove_label", { name: f.name })}
+                    @click=${() => removeFriend(f.identity, f.name, remove)}
+                  >
+                    ${t("settings_friends.remove")}
+                  </button>
+                </li>`,
+              )}
+            </ul>`
+      }
+    </section>`;
+  });
+}
+
 function advancedSection() {
   return html`<details class="text-xs text-muted">
     <summary class="ui-label cursor-pointer select-none">${t("settings.advanced")}</summary>
@@ -131,8 +175,8 @@ function bindingsBody(foldersVm: FoldersViewModel, syncVm: SyncViewModel) {
           : undefined,
         fatal || foldersVm.fatal ? () => window.location.reload() : undefined,
       )}
-      ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${helpSection()}
-      ${advancedSection()}
+      ${profileSection(foldersVm)} ${appearanceSection()} ${appLockSection()} ${friendsSection()}
+      ${helpSection()} ${advancedSection()}
     </div>
   `;
 }

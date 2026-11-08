@@ -12,9 +12,14 @@ export function rememberFocus(el: HTMLElement) {
   opener = el;
 }
 
-onOutput(friendsActor, (e) =>
-  toast(copy("friend_sheet.saved_as_a_friend", { name: (e.payload as { name: string }).name })),
-);
+onOutput(friendsActor, (e) => {
+  const name = (e.payload as { name: string }).name;
+  if (e.type === "FRIEND_SAVED") toast(copy("friend_sheet.saved_as_a_friend", { name }));
+  if (e.type === "FRIEND_REMOVED") toast(copy("friend_sheet.removed_from_friends", { name }));
+  if (e.type === "FRIEND_NOT_REMOVED") {
+    toast(copy("friend_sheet.couldn_t_remove_try_again", { name }));
+  }
+});
 
 function closeSheet() {
   friends.close();
