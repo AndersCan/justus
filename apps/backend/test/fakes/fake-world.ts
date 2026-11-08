@@ -67,6 +67,8 @@ export type FakeHub = {
   options: FakeWorldOptions;
   /** publicKey to the identity key it signs for and its secret. */
   signers: Map<string, { identityKey: string; secret: string }>;
+  /** sealed id to the box key it was sealed for and its message. */
+  sealed: Map<string, { pub: string; message: Uint8Array }>;
 };
 
 function sha256Hex(input: string): string {
@@ -80,7 +82,7 @@ function fakeSignature(secret: string, message: Uint8Array): string {
 }
 
 export function createFakeHub(options: FakeWorldOptions = {}): FakeHub {
-  return { nodes: new Set(), networks: new Set(), options, signers: new Map() };
+  return { nodes: new Set(), networks: new Set(), options, signers: new Map(), sealed: new Map() };
 }
 
 export function addFakeNode(hub: FakeHub): FakeNode {
@@ -431,6 +433,24 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
         hub.signers.set(publicKey, entry);
       }
       return [null, { publicKey, signature: fakeSignature(entry.secret, message) }];
+    },
+    async boxPublicKey(): Promise<OpenResult<string>> {
+      if (closed) return [new Error("store is closed"), null];
+      return [null, sha256Hex(`box:${node.id}`)];
+    },
+    sealFor(boxPublicKey, message): OpenResult<string> {
+      if (!/^[0-9a-f]{64}$/i.test(boxPublicKey)) return [new Error("box key is not 64 hex"), null];
+      const id = randomBytes(32).toString("hex");
+      hub.sealed.set(id, { pub: boxPublicKey.toLowerCase(), message: new Uint8Array(message) });
+      return [null, id];
+    },
+    async openSealed(sealed): Promise<OpenResult<Uint8Array>> {
+      if (closed) return [new Error("store is closed"), null];
+      const entry = hub.sealed.get(sealed.toLowerCase());
+      if (!entry || entry.pub !== sha256Hex(`box:${node.id}`)) {
+        return [new Error("not sealed to this phone"), null];
+      }
+      return [null, new Uint8Array(entry.message)];
     },
     verifyIdentity(proof: IdentityProof): boolean {
       if (!/^[0-9a-f]{64}$/i.test(proof.identityKey)) return false;
