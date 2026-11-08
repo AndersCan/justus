@@ -152,7 +152,6 @@ Each link opens the machine at the end of the walk; click on from there or press
 ### Story 1: two friends
 
 - [Maya asks to join, and Nils accepts her as a Collaborator](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&machine=requests&run=Maya%20asks%20to%20join%2C%20and%20Nils%20accepts%20her%20as%20a%20Collaborator)
-- [Maya: asks and is declined](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20asks%20and%20is%20declined)
 - [Maya: reopens her ask while waiting](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20while%20waiting)
 - [Maya: reopens her ask after a decline](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20reopens%20her%20ask%20after%20a%20decline)
 - [Maya: opens a link from before the new key](https://anderscan.github.io/justus/join-an-album/?machine=joinRequest&run=Maya%3A%20opens%20a%20link%20from%20before%20the%20new%20key)
