@@ -10,6 +10,7 @@ import {
   friendEvents,
   grantEvents,
   justusLockEvents,
+  justusShareEvents,
   justusMediaEvents,
   type AddExtras,
   type LogLevel,
@@ -128,6 +129,9 @@ export const gateway = {
   media: {
     pickMany: () => invoke(justusMediaEvents.media.pickMany()),
     capture: () => invoke(justusMediaEvents.media.capture()),
+  },
+  share: {
+    send: (text: string) => invoke(justusShareEvents.share.send(text)),
   },
   lock: {
     status: () => invoke(justusLockEvents.lock.status()),
