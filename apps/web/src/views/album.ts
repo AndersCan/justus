@@ -1,3 +1,4 @@
+import type { FolderSummary } from "@justus/core";
 import { html } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
@@ -244,6 +245,31 @@ export function removeDetail(name: string, viewer: boolean): string {
   return copy("album.won_t_see_photos_added", { name, added });
 }
 
+function roleLine(role: PeopleVm["people"][number]["role"]) {
+  switch (role) {
+    case "admin":
+      return html`<p class="text-xs text-muted">${t("album.admin_adds_people_and_photos")}</p>`;
+    case "collaborator":
+      return html`<p class="text-xs text-muted">${t("album.collaborator_adds_photos")}</p>`;
+    case "viewer":
+      return html`<p class="text-xs text-muted">${t("album.viewer_sees_every_photo_adds")}</p>`;
+    case "waiting":
+      return null;
+  }
+}
+
+export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "notice">) {
+  if (folder.pending || folder.notice?.kind === "removed") return null;
+  switch (folder.role) {
+    case "creator":
+      return html`<p class="text-sm text-muted">${t("album.you_re_the_admin_you_add")}</p>`;
+    case "member":
+      return html`<p class="text-sm text-muted">${t("album.you_can_add_photos")}</p>`;
+    case "reader":
+      return html`<p class="text-sm text-muted">${t("album.you_can_see_every_photo")}</p>`;
+  }
+}
+
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHolding) {
   const line = holdingLine(
     p.you ? { kind: "count", held: holding.you } : holding.byKey.get(p.key),
@@ -255,17 +281,9 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
         ${p.name}${p.you ? copy("album.you") : ""}
-        ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.admin")}</span>` : null}
-        ${p.viewer ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.viewer")}</span>` : null}
-        ${
-          !p.admin && !p.viewer
-            ? html`<span class="ml-1 text-xs font-normal text-muted"
-                >${t("album.collaborator")}</span
-              >`
-            : null
-        }
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
+      ${roleLine(p.role)}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -710,7 +728,7 @@ function albumBody(
         ${watch(foldersActor, (fs) => albumMenu(status, vm.people, !foldersViewModel(fs).settled))}
       </div>
     </div>
-    ${albumNotice(status.folder.notice, status.folder.name)}
+    ${roleCaption(status.folder)} ${albumNotice(status.folder.notice, status.folder.name)}
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
       >${t("album.see_photos_in_this_album")}</a
     >

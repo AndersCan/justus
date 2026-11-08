@@ -888,26 +888,47 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.admin": {
-    "text": "· Admin",
+  "album.admin_adds_people_and_photos": {
+    "text": "Admin · adds people and photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
-  "album.viewer": {
-    "text": "· Viewer",
+  "album.collaborator_adds_photos": {
+    "text": "Collaborator · adds photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
   },
-  "album.collaborator": {
-    "text": "· Collaborator",
+  "album.viewer_sees_every_photo_adds": {
+    "text": "Viewer · sees every photo, adds none",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": ""
+    "screen": "album"
+  },
+  "album.you_re_the_admin_you_add": {
+    "text": "You're the Admin: you add people and photos.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
+  "album.you_can_add_photos": {
+    "text": "You can add photos.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
+  },
+  "album.you_can_see_every_photo": {
+    "text": "You can see every photo but not add any.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": "album"
   },
   "album.friend": {
     "text": "· Friend",
