@@ -4,7 +4,7 @@
  * saved records, swarm topics, invites and notifications.
  */
 import type { Drive, DriveStore } from "../ports/drive-store";
-import type { FolderNotice, FolderSummary, Role } from "@justus/core";
+import type { FolderNotice, FolderSummary, InvitedFriend, Role } from "@justus/core";
 import {
   parseFolderName,
   parseRegistry,
@@ -95,6 +95,8 @@ export type AlbumSummarySource = {
     createdAt: number;
     invite?: { code: string; owner?: string };
     offerOwed?: OwedOffers;
+    invited?: string[];
+    invitedRoles?: Record<string, "reader" | "member">;
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
   };
@@ -126,6 +128,13 @@ export function albumSummary(
           .sort((a, b) => a[1] - b[1])
           .map(([identity]) => identity)
       : [];
+  const owed = new Set(waitingFor);
+  const invitedFriends: InvitedFriend[] =
+    role === "creator"
+      ? [...waitingFor, ...(record.invited ?? []).filter((identity) => !owed.has(identity))].map(
+          (identity) => ({ identity, role: record.invitedRoles?.[identity] ?? "member" }),
+        )
+      : [];
   return {
     id: record.id,
     name: record.name,
@@ -137,6 +146,7 @@ export function albumSummary(
     addedAt: record.createdAt,
     ...(record.notice ? { notice: record.notice } : {}),
     ...(waitingFor.length > 0 ? { waitingFor } : {}),
+    ...(invitedFriends.length > 0 ? { invitedFriends } : {}),
     ...(record.invite
       ? {
           invite: {

@@ -102,6 +102,16 @@ export type FolderSummary = {
   notice?: FolderNotice;
   /** Admin only: identity keys of friends whose invite is waiting for them to open Justus, oldest first. */
   waitingFor?: string[];
+  /** Admin only: friends invited to this album who have not joined; the ones whose phone has not taken the invite yet come first. */
+  invitedFriends?: InvitedFriend[];
+};
+
+/** A friend the Admin invited who has not joined yet. */
+export type InvitedFriend = {
+  /** The friend's identity key (the key they are saved under in friends). */
+  identity: string;
+  /** What they become when they join. */
+  role: "reader" | "member";
 };
 
 /** An album its Admin deleted for everyone. The phone removed the album and its

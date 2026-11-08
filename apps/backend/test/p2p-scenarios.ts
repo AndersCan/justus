@@ -724,6 +724,35 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "friend: the Admin takes back an invite and it leaves the friend's phone",
+    async run(net, t) {
+      const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
+      t.noErr(await admin.store.offerAlbum(folderId, friendIdentity), "offerAlbum");
+      const { offers } = await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the friend",
+      );
+      const before = await admin.store.folders();
+      t.eq(
+        before.folders[0].invitedFriends,
+        [{ identity: friendIdentity, role: "member" }],
+        "the Admin lists the invited friend",
+      );
+      t.noErr(await admin.store.takeBackOffer(folderId, friendIdentity), "takeBackOffer");
+      const after = await admin.store.folders();
+      t.eq(after.folders[0].invitedFriends, undefined, "the list is empty");
+      await eventually(
+        () => friend.store.folders(),
+        (f) => f.offers.length === 0,
+        "the invite leaves the friend",
+      );
+      const [error] = await friend.store.joinOffer(offers[0].code, offers[0].owner);
+      t.ok(error?.code === "justus.photos/offer-gone", "Join is OFFER_GONE");
+      t.eq(after.folders[0].members, before.folders[0].members, "nobody joined");
+    },
+  },
+  {
     name: "friend: a second invite for the same friend and album is turned away while one waits",
     async run(net, t) {
       const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);

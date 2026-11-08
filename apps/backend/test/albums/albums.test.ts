@@ -223,6 +223,45 @@ describe("list", () => {
   });
 });
 
+describe("list: invited friends", () => {
+  const admin = (extra: object): AlbumSummarySource => ({
+    ...readerSource({ role: "creator" }),
+    record: { ...readerSource({ role: "creator" }).record, ...extra },
+  });
+
+  it("lists waiting friends first, then the rest, each with its role", () => {
+    const summary = albumSummary(
+      admin({
+        invited: ["B"],
+        offerOwed: { A: Date.now() },
+        invitedRoles: { B: "reader" },
+      }),
+      { ownIdentity: "me" },
+    );
+    expect(summary.invitedFriends).toEqual([
+      { identity: "A", role: "member" },
+      { identity: "B", role: "reader" },
+    ]);
+  });
+
+  it("lists a friend once when it is both invited and owed", () => {
+    const summary = albumSummary(admin({ invited: ["A"], offerOwed: { A: Date.now() } }), {
+      ownIdentity: "me",
+    });
+    expect(summary.invitedFriends).toEqual([{ identity: "A", role: "member" }]);
+  });
+
+  it("gives no field when nobody is invited or the album is not the Admin's", () => {
+    expect("invitedFriends" in albumSummary(admin({}), { ownIdentity: "me" })).toBe(false);
+    const reader = readerSource();
+    const summary = albumSummary(
+      { ...reader, record: { ...reader.record, invited: ["B"] } },
+      { ownIdentity: "me" },
+    );
+    expect("invitedFriends" in summary).toBe(false);
+  });
+});
+
 describe("list: Viewers are counted", () => {
   const adminAlbum = (memberKeys: string[], viewers: string[]): AlbumSummarySource => ({
     ...readerSource({ role: "creator" }),

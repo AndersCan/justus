@@ -167,6 +167,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; identity: string; role?: ChangedRole },
     result: {} as { ok: boolean; waiting?: boolean },
   },
+  takeBackOffer: {
+    pluginId: "justus.photos",
+    name: "photos.takeBackOffer",
+    args: {} as { folderId: string; identity: string },
+    result: {} as { ok: boolean },
+  },
   joinOffer: {
     pluginId: "justus.photos",
     name: "photos.joinOffer",
@@ -439,6 +445,21 @@ export const photoEvents = {
         role === undefined ? { folderId, identity } : { folderId, identity, role },
         null,
         PHOTOS_OFFER_TIMEOUT_MS,
+      );
+    },
+    takeBackOffer(
+      folderId: string,
+      identity: string,
+    ): InvokeEnvelope<
+      "photos.takeBackOffer",
+      { folderId: string; identity: string },
+      { ok: boolean }
+    > {
+      return invokeEvent(
+        photoSpecs.takeBackOffer,
+        { folderId, identity },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
       );
     },
     joinOffer(

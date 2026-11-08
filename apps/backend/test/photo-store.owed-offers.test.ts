@@ -122,3 +122,73 @@ describe("the role of a waiting friend invite", () => {
     await store.close();
   });
 });
+
+describe("taking back one friend's invite", () => {
+  it("drops a waiting invite and the drop survives a restart", async () => {
+    const { deps, store, folderId } = await waiting("reader");
+    expect((await store.folders()).folders[0].invitedFriends).toEqual([
+      { identity: FRIEND, role: "reader" },
+    ]);
+    expect(await store.takeBackOffer(folderId, FRIEND)).toEqual([null, { ok: true }]);
+    const check = async (s: typeof store) => {
+      const folder = (await s.folders()).folders[0];
+      expect(folder.invitedFriends).toBeUndefined();
+      expect(folder.waitingFor).toBeUndefined();
+      const saved = (s.debugState() as Owed).folders[0];
+      expect(saved.offerOwed ?? {}).toEqual({});
+      expect(saved.invitedRoles ?? {}).toEqual({});
+    };
+    await check(store);
+    await store.close();
+    const reopened = createPhotoStore(restarted(deps));
+    await reopened.ready();
+    await check(reopened);
+    await reopened.close();
+  });
+
+  it("keeps the other friends invited", async () => {
+    const { store, folderId } = await waiting();
+    await store.offerAlbum(folderId, OLD_FRIEND, "reader");
+    await store.takeBackOffer(folderId, FRIEND);
+    expect((await store.folders()).folders[0].invitedFriends).toEqual([
+      { identity: OLD_FRIEND, role: "reader" },
+    ]);
+    await store.close();
+  });
+
+  it("a second take back is OFFER_GONE", async () => {
+    const { store, folderId } = await waiting();
+    await store.takeBackOffer(folderId, FRIEND);
+    const [error] = await store.takeBackOffer(folderId, FRIEND);
+    expect(error?.code).toBe("justus.photos/offer-gone");
+    await store.close();
+  });
+
+  it("a bad key is INVALID_KEY", async () => {
+    const { store, folderId } = await waiting();
+    const [error] = await store.takeBackOffer(folderId, "nope");
+    expect(error?.code).toBe("justus.photos/invalid-key");
+    await store.close();
+  });
+
+  it("an unknown album is FOLDER_NOT_FOUND", async () => {
+    const { store } = await waiting();
+    const [error] = await store.takeBackOffer("missing", FRIEND);
+    expect(error?.code).toBe("justus.photos/folder-not-found");
+    await store.close();
+  });
+
+  it("a non-Admin album is NOT_CREATOR", async () => {
+    const hub = createFakeHub();
+    const admin = createPhotoStore(fakeStoreDeps({ hub, deviceName: "Admin" }));
+    await admin.ready();
+    const shareKey = (await admin.createFolder("Trip"))[1]!.folder.shareKey;
+    const reader = createPhotoStore(fakeStoreDeps({ hub, deviceName: "Reader" }));
+    await reader.ready();
+    const joined = await reader.join(shareKey);
+    const [error] = await reader.takeBackOffer(joined[1]!.folder.id, FRIEND);
+    expect(error?.code).toBe("justus.photos/not-creator");
+    await admin.close();
+    await reader.close();
+  });
+});

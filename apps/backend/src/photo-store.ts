@@ -453,6 +453,8 @@ export interface PhotoStore {
     identity: string,
     role?: "reader" | "member",
   ): Promise<EitherResult<{ ok: boolean; waiting?: boolean }>>;
+  /** Admin only: takes back the invite sent to one friend. Their phone is told once; if it is off, a Join later is an ordinary ask the Admin answers. */
+  takeBackOffer(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
   joinOffer(code: string, owner: string): Promise<EitherResult<{ ask: AskSummary }>>;
   /** Hides the album on this phone only; it keeps syncing. */
@@ -5108,6 +5110,40 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
     },
 
+    async takeBackOffer(folderId, identity) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the creator can take back an invite");
+      if (!isHexKey(identity))
+        return err(PhotoError.INVALID_KEY, "Friend key must be a 64-char hex key");
+      const invite = rt.record.invite;
+      if (!invite) return err(PhotoError.FOLDER_NOT_FOUND, `No invite for album ${folderId}`);
+      if (!rt.record.invited?.includes(identity) && !rt.record.offerOwed?.[identity])
+        return err(PhotoError.OFFER_GONE, "No invite to take back for that friend");
+      for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+        if (!target) continue;
+        const left = (target.invited ?? []).filter((i) => i !== identity);
+        target.invited = left.length > 0 ? left : undefined;
+        target.offerOwed = dropOwed(target.offerOwed, identity);
+        target.invitedRoles = keepInvitedRoles(
+          target.invitedRoles,
+          target.invited,
+          target.offerOwed,
+        );
+      }
+      saveState();
+      log("offer.takenBack", { friend: short(identity), folder: short(folderId) });
+      deps.onChanged({ cause: "offer", folderId });
+      void tellIdentity(invitePorts, {
+        identity,
+        message: { kind: "offerWithdrawn", code: invite.code },
+        timeoutMs: 2_000,
+      }).catch(answerErr("takeBack"));
+      return ok({ ok: true });
+    },
+
     async joinOffer(code, owner) {
       await readyPromise;
       const take = offerToTake(state, { code, owner });
@@ -5486,6 +5522,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     turnOffInvite: refuse,
     saveInviteLink: refuse,
     offerAlbum: refuse,
+    takeBackOffer: refuse,
     joinOffer: refuse,
     archiveAlbum: refuse,
     restoreAlbum: refuse,
