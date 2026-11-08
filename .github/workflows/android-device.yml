@@ -61,11 +61,16 @@ jobs:
           MAESTRO_VERSION: "2.8.0"
           MAESTRO_SHA256: b3e561161904fb391875ca5834d5b22cf0b01c052dd1b408ad83e30d8f8951b3
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+          curl -fsSL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/maestro.zip" \
             "https://github.com/mobile-dev-inc/maestro/releases/download/cli-$MAESTRO_VERSION/maestro.zip"
           echo "$MAESTRO_SHA256  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
           echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+      - name: Fetch the Gradle distribution
+        working-directory: apps/android
+        run: |
+          for i in 1 2 3 4 5; do ./gradlew --version && exit 0; sleep 10; done
+          exit 1
       - name: Maestro device flows
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
