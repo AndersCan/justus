@@ -532,3 +532,46 @@ test("A accepts B and C in one tap as Viewers: both land, A's waiting list is em
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await expect(members.locator("li", { hasText: "Viewer" })).toHaveCount(2, { timeout: 60_000 });
 });
+
+test("A saved friend asks by link: A sees the friend name and Friend", async ({
+  instancePages,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  const first = "Friend first album";
+  await createAlbum(a, first, PHOTO, 21);
+  await askToJoin(b, await copyInviteLink(a), first);
+  await expect(a.getByText(`wants to join “${first}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const tap = members
+    .locator("li", { hasText: "connected" })
+    .filter({ hasNot: a.getByText("(you)") })
+    .getByRole("button")
+    .first();
+  await expect(tap).toBeVisible({ timeout: 60_000 });
+  await tap.click();
+  // The instances outlive a test, so an earlier test may already have saved B as Sam.
+  const add = a.getByRole("button", { name: "Add to friends" });
+  const known = a.getByText("Saved as a friend");
+  await expect(add.or(known)).toBeVisible();
+  if (await add.isVisible()) {
+    await add.click();
+    await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
+    await a.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+  } else {
+    await a.getByRole("button", { name: "Close" }).click();
+  }
+
+  const second = "Friend second album";
+  await createAlbum(a, second, "friend-second.png", 44);
+  await askToJoin(b, await copyInviteLink(a), second);
+  const row = a.locator("li", { hasText: `wants to join “${second}”` });
+  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(row).toContainText("Sam");
+  await expect(row).toContainText("Friend");
+});

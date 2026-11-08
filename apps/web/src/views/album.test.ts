@@ -238,6 +238,7 @@ describe("album people motion", () => {
 
 describe("album join requests", () => {
   const ask = (requesterKey: string, viaInvite: boolean, checkCode?: string) => ({
+    requesterIdentity: undefined as string | undefined,
     folderId: "f1",
     folderName: "Trip",
     requesterKey,
@@ -276,6 +277,21 @@ describe("album join requests", () => {
     expect(rows[0]!.textContent).toContain("Check code maple river stone");
     expect(rows[1]!.textContent).toContain("Check code lamp ocean tiger");
     expect(host.textContent).toContain("Not sure who it is?");
+  });
+
+  test("a request from a saved friend shows your name for them and Friend", async () => {
+    friends.open({ identity: "id-ben", ownName: "Ben" });
+    friends.add();
+    friends.type("Dad");
+    friends.save();
+    await friendsActor.settled();
+    const host = await show([
+      { ...ask("a", true), requesterName: "Ben", requesterIdentity: "id-ben" },
+    ]);
+    await vi.waitFor(() => expect(host.textContent).toContain("Dad wants to join"));
+    const row = host.querySelector<HTMLElement>('li[data-motion-key^="request:"]')!;
+    expect(row.textContent).toContain("Friend");
+    expect(row.textContent).toContain("Ben");
   });
 
   test("without codes there is no check code text", async () => {
