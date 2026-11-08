@@ -40,6 +40,7 @@ import {
 } from "./albums/album-lifecycle-machine";
 import {
   adminDroppedYou,
+  adminListsYou,
   clearLeftNote,
   deleteOwnPhotos,
   readDeleteNote,
@@ -2203,12 +2204,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return;
         }
         // Text that is missing reads as "no file": an unreplicated drive is not a drop.
-        const text = await readText(
-          album,
-          list === "viewers" ? DRIVE_PATH_VIEWERS : DRIVE_PATH_MEMBERS,
-          { timeout: 2_000 },
-        );
-        if (adminDroppedYou(text, self.key, list)) actor.send({ type: "adminSawYouLeave" });
+        const pathOf = (which: "members" | "viewers") =>
+          which === "viewers" ? DRIVE_PATH_VIEWERS : DRIVE_PATH_MEMBERS;
+        const text = await readText(album, pathOf(list), { timeout: 2_000 });
+        if (!adminDroppedYou(text, self.key, list)) return;
+        // Moved to the other list (a role change), not gone: keep waiting for the left note to be read.
+        const other = list === "viewers" ? "members" : "viewers";
+        const otherText = await readText(album, pathOf(other), { timeout: 2_000 });
+        if (adminListsYou(otherText, self.key, other)) return;
+        actor.send({ type: "adminSawYouLeave" });
       } finally {
         checking = false;
       }
