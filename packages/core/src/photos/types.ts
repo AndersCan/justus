@@ -15,6 +15,8 @@ export type PhotoHolders = {
   others: PhotoMember[];
   /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */
   unsure: PhotoMember[];
+  /** Current album people (not this phone, not the adder) whose phone said what it holds, without this photo. Sorted like `others`. */
+  waiting: PhotoMember[];
   /** Names of people no longer in the album who had a copy when they went. Sorted, unique. */
   former: string[];
 };

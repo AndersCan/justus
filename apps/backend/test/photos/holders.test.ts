@@ -260,6 +260,7 @@ describe("holdersFor", () => {
       here: false,
       others: [adder],
       unsure: [],
+      waiting: [],
       former: [],
     });
   });
@@ -274,6 +275,7 @@ describe("holdersFor", () => {
       here: true,
       others: [],
       unsure: [],
+      waiting: [ben],
       former: [],
     });
   });
@@ -290,10 +292,49 @@ describe("holdersFor", () => {
     expect(result.unsure).toEqual([]);
   });
 
-  it("a reporting person without the photo is neither", () => {
+  it("a person who reports without the photo is waiting", () => {
     const result = run({ people: [self, adder, ben], held: [[B, has("p2")]] });
     expect(result.others).toEqual([adder]);
     expect(result.unsure).toEqual([]);
+    expect(result.waiting).toEqual([ben]);
+  });
+
+  it("a silent person is unsure, not waiting", () => {
+    const result = run({ people: [self, adder, ben], held: [[B, silent]] });
+    expect(result.unsure).toEqual([ben]);
+    expect(result.waiting).toEqual([]);
+  });
+
+  it("the adder and self are never waiting", () => {
+    const own = { id: "p1", driveKey: SELF, memberName: "Me" };
+    const result = run({
+      photo: own,
+      people: [self, ben],
+      held: [
+        [SELF, has()],
+        [B, has()],
+      ],
+    });
+    expect(result.waiting).toEqual([ben]);
+    const byAdder = run({
+      people: [self, adder],
+      held: [
+        [SELF, has()],
+        [ADDER, has()],
+      ],
+    });
+    expect(byAdder.waiting).toEqual([]);
+  });
+
+  it("waiting is sorted by name then key", () => {
+    const result = run({
+      people: [self, adder, cy, ben],
+      held: [
+        [C, has()],
+        [B, has()],
+      ],
+    });
+    expect(result.waiting).toEqual([ben, cy]);
   });
 
   it("a silent person is unsure", () => {
