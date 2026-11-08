@@ -259,6 +259,8 @@ export async function withdrawInvite(
     album: {
       invite?: { code: string };
       invited?: readonly string[];
+      /** identity -> the older code on that friend's card, when a Remove retired it. */
+      heldAsks?: Readonly<Record<string, string>>;
       retiredInvites?: readonly string[];
     };
     newCode: string;
@@ -275,7 +277,7 @@ export async function withdrawInvite(
   for (const identity of album.invited ?? []) {
     await tellIdentity(ports, {
       identity,
-      message: { kind: "offerWithdrawn", code: old },
+      message: { kind: "offerWithdrawn", code: album.heldAsks?.[identity] ?? old },
       timeoutMs: 2_000,
     });
   }
