@@ -608,6 +608,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   const completing = new Set<string>();
   /** Resolved peer-outbox drives (the map above holds promises). */
   const peerOutboxDrives = new Map<string, Drive>();
+  /** Viewers' drives, opened only to read `/device.json` (who is connected),
+   * keyed by drive key. Never part of a folder's member drives. */
+  const viewerDevices = new Map<string, Promise<unknown>>();
+  const viewerDeviceDrives = new Map<string, { drive: Drive; off: () => void }>();
   let closed = false;
   let readyPromise: Promise<void> | null = null;
 
@@ -879,6 +883,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }));
       if (rt.record.role !== "creator")
         sources.push({ memberKey: rt.record.shareKey, drive: rt.folderDrive });
+      for (const key of Object.keys(rt.viewers)) {
+        if (key === selfKeyOf(rt) || key === rt.record.shareKey) continue;
+        if (rt.memberDrives.has(key) && !rt.keptAt.has(key)) continue;
+        const open = viewerDeviceDrives.get(key);
+        if (open) sources.push({ memberKey: key, drive: open.drive });
+        else openViewerDevice(key);
+      }
       learned =
         (await learnDevices(presence, {
           sources,
@@ -887,7 +898,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           verify: (p) => deps.drives.verifyIdentity(p),
         })) || learned;
     }
+    await releaseViewerDevices();
     return learned;
+  }
+
+  /** Drops Viewer drives of people who are no longer a Viewer anywhere. */
+  async function releaseViewerDevices() {
+    const wanted = new Set<string>();
+    for (const rt of runtimes.values()) for (const key of Object.keys(rt.viewers)) wanted.add(key);
+    for (const [key, { drive, off }] of [...viewerDeviceDrives]) {
+      if (wanted.has(key)) continue;
+      viewerDeviceDrives.delete(key);
+      viewerDevices.delete(key);
+      off();
+      await deps.drives.release(drive).catch(() => {});
+    }
   }
 
   /** Re-learn members' swarm keys and announce if any changed. Runs on every
@@ -2240,6 +2265,30 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return opening;
   }
 
+  /** Opens a Viewer's drive to read its `/device.json` only. Not awaited by
+   * presence; a failed open is forgotten so the next refresh retries. */
+  function openViewerDevice(keyHex: string) {
+    if (viewerDevices.has(keyHex) || closed) return;
+    const opening = openDriveWithTopic(keyHex, { server: false }).then((drive) => {
+      if (closed) return;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const off = drive.onChange(() => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(refreshPresence, 400);
+      });
+      viewerDeviceDrives.set(keyHex, {
+        drive,
+        off: () => {
+          if (timer) clearTimeout(timer);
+          off();
+        },
+      });
+      refreshPresence();
+    });
+    opening.catch(() => viewerDevices.delete(keyHex));
+    viewerDevices.set(keyHex, opening);
+  }
+
   /** The peer on `connId` announced peer protocol `remote`. */
   function onPeerVersion(connId: number, remote: number) {
     const c = conns.get(connId);
@@ -3465,7 +3514,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           );
         }
         // Same order as a Collaborator: the answer is recorded first and taken
-        // back if the seat cannot be written. A Viewer's drive is never loaded.
+        // back if the seat cannot be written. A Viewer's drive is read only for its
+        // /device.json (who is connected); their photos never are.
         const asker = reply.identity;
         setAnswer(rt, asker, "accepted");
         const [seatErr, seated] = await seatViewer(rt.folderDrive, {
@@ -3807,6 +3857,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const rt of runtimes.values()) {
         await unmountRuntime(rt);
       }
+      for (const { drive, off } of viewerDeviceDrives.values()) {
+        off();
+        await deps.drives.release(drive).catch(() => {});
+      }
+      viewerDeviceDrives.clear();
       try {
         await network.close();
       } catch {

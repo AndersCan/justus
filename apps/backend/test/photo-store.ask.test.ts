@@ -389,6 +389,21 @@ describe("accepting as a Viewer", () => {
     await s.close();
   });
 
+  it("shows the Viewer connected on the Admin's list while their phone is connected", async () => {
+    const s = await asked();
+    expect((await s.admin.store.respond(s.folderId, s.key, true, "reader"))[0]).toBeNull();
+    let connected = false;
+    for (let i = 0; i < 200 && !connected; i++) {
+      const status = await s.admin.store.status();
+      connected = status.members.some(
+        (m: { viewer?: boolean; connected?: boolean }) => m.viewer && m.connected,
+      );
+      if (!connected) await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(connected).toBe(true);
+    await s.close();
+  });
+
   it("a Collaborator is still the default", async () => {
     const s = await asked();
     expect((await s.admin.store.respond(s.folderId, s.key, true))[0]).toBeNull();
