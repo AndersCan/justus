@@ -265,6 +265,77 @@ describe("who has each photo", () => {
     for (const p of [anna, nils, ben]) await p.store.close();
   });
 
+  async function viewerOpensAfter(readAgain: boolean) {
+    const s = await album();
+    const sunset = await s.nilsPhoto();
+    await s.nils.server.getForTest(new URL(sunset!.url).pathname);
+    const others = async (p: typeof s.anna, name: string) =>
+      (await p.store.list())
+        .find((x) => x.name === name)
+        ?.holders?.others.map((o: { key: string }) => o.key);
+    await until(async () => (await others(s.anna, "sunset.jpg"))?.includes(s.nilsKey) === true);
+    const kim = phone(s.hub, "Kim");
+    await kim.store.ready();
+    const shareKey = (await s.anna.store.folders()).folders.find(
+      (f) => f.id === s.folderId,
+    )!.shareKey;
+    await joinAsMember(s.anna.store, s.folderId, kim.store, shareKey);
+    const kimFolder = (await kim.store.folders()).folders.find((f) => f.shareKey === shareKey)!;
+    await kim.store.setActive(kimFolder.id);
+    await until(async () => (await kim.store.list(kimFolder.id)).length === 1);
+    expect((await s.anna.store.makeViewer(s.folderId, s.nilsKey))[0]).toBeNull();
+
+    await s.anna.store.addBytes("late.jpg", new Uint8Array([9, 9, 9, 9]));
+    const nilsLate = async () =>
+      (await s.nils.store.list(s.nilsFolderId)).find((x) => x.name === "late.jpg");
+    await until(async () => (await nilsLate()) !== undefined);
+    await s.nils.server.getForTest(new URL((await nilsLate())!.url).pathname);
+
+    await until(async () => (await others(kim, "late.jpg")) !== undefined, 15_000);
+    await until(
+      async () =>
+        (await others(kim, "late.jpg"))?.includes(s.nilsKey) === true &&
+        (await others(s.anna, "late.jpg"))?.includes(s.nilsKey) === true,
+      8_000,
+    );
+    const ben = readAgain ? phone(s.hub, "Ben") : undefined;
+    if (ben) {
+      // Another person becoming a Viewer makes every phone read its records again.
+      await ben.store.ready();
+      const benKey = await joinAsMember(s.anna.store, s.folderId, ben.store, shareKey);
+      await until(async () =>
+        ((await s.anna.store.status()).members as { key: string }[]).some((m) => m.key === benKey),
+      );
+      expect((await s.anna.store.makeViewer(s.folderId, benKey))[0]).toBeNull();
+      await sleep(1_500);
+    }
+    const waiting = async (p: typeof s.anna, name: string) =>
+      (await p.store.list())
+        .find((x) => x.name === name)
+        ?.holders?.waiting.map((o: { key: string }) => o.key);
+
+    expect(await others(kim, "late.jpg")).toContain(s.nilsKey);
+    expect(await waiting(kim, "late.jpg")).not.toContain(s.nilsKey);
+    expect(await others(kim, "sunset.jpg")).toContain(s.nilsKey);
+    expect(await others(s.anna, "late.jpg")).toEqual([s.nilsKey]);
+    expect(await waiting(s.anna, "late.jpg")).not.toContain(s.nilsKey);
+    await ben?.store.close();
+    await kim.store.close();
+    await s.close();
+  }
+
+  it(
+    "a Collaborator made a Viewer counts for the photos they open after, on every phone",
+    () => viewerOpensAfter(false),
+    30_000,
+  );
+
+  it(
+    "a Viewer's count stays when another person becomes a Viewer",
+    () => viewerOpensAfter(true),
+    30_000,
+  );
+
   it("backfill skips a photo that was never opened", async () => {
     const s = await album();
     await s.nils.store.close();
