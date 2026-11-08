@@ -77,3 +77,17 @@ test("pages link inside the site, not to anderscan.github.io/justus", () => {
   }
   expect(found).toEqual([]);
 });
+
+test("every walk link in sharing-flows.md is named after its run", () => {
+  const flows = readFileSync(join(root, "docs/design/sharing-flows.md"), "utf8");
+  const walks = flows.slice(flows.indexOf("\n## Walks")).split(/\n## /)[1] ?? "";
+  const links = [
+    ...walks.matchAll(/\[([^\]]+)\]\((https:\/\/anderscan\.github\.io\/justus\/[^)]*)\)/g),
+  ];
+  expect(links.length).toBeGreaterThan(0);
+  expect(
+    links
+      .filter(([, text, href]) => new URL(href).searchParams.get("run") !== text)
+      .map(([, text]) => text),
+  ).toEqual([]);
+});

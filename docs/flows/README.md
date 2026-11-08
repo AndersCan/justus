@@ -55,12 +55,13 @@ key, a page in `docs/site/src/content/docs/` and the sidebar and index pick it u
 
 The build fails on any design finding (including a handler or a state's effects with no `/** */` comment), an unfuzzed machine or a broken expectation, and
 prints the events that lead there (`failOnFindings` in `docs/site/astro.config.mjs`).
-`node scripts/check-flows-site.mjs site-dist` checks the rest from the built files
-(walk links, the overview arrow).
-`pnpm exec mantaq-check-site site-dist --base /justus` serves the site and checks
-it in a browser: every machine draws, every live machine handles an event, every
-overview box opens a built page that shows its machine (needs Chromium; set
-`CHROMIUM_PATH` if Playwright's is not installed).
+`node scripts/check-flows-site.mjs site-dist` checks only the overview arrow.
+`pnpm exec mantaq-check-site site-dist --base /justus --links docs/design/sharing-flows.md --site https://anderscan.github.io/justus/`
+serves the site and checks it in a browser: every machine draws, every live machine
+handles an event, every overview box opens a built page that shows its machine, and
+every walk link on the pages and in `docs/design/sharing-flows.md` opens a run that
+exists (it fails on a missing run or a `step=` trace). Needs Chromium; set
+`CHROMIUM_PATH` if Playwright's is not installed.
 
 ## `pnpm flows:dev`
 
