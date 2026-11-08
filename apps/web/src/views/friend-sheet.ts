@@ -72,7 +72,13 @@ export function friendSheetView() {
                 >
                   ${t("friend_sheet.add_to_friends")}
                 </button>`
-              : null
+              : html`<button
+                  class="ui-btn-primary"
+                  data-friend-primary
+                  @click=${() => friends.rename()}
+                >
+                  ${t("friend_sheet.rename")}
+                </button>`
           }
         </div>`;
     } else {

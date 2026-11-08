@@ -32,3 +32,22 @@ test("Anna removes Nils from her friends", async () => {
   await actor.settled();
   expect(actor.state.name).toBe("friendSheetClosed");
 });
+
+test("Anna renames Ben B to Ben", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.inject({
+    type: "FRIENDS_LOADED",
+    payload: { friends: [{ identity: "ben", name: "Ben B" }] },
+  });
+  await actor.settled();
+  actor.send({ type: "OPEN", payload: { target: { identity: "ben", ownName: "Ben" } } });
+  actor.send({ type: "RENAME" });
+  actor.send({ type: "TYPE", payload: { text: "Ben" } });
+  actor.send({ type: "SAVE" });
+  actor.inject({
+    type: "SAVED",
+    payload: { friend: { identity: "ben", name: "Ben" } },
+  });
+  await actor.settled();
+  expect(actor.state.name).toBe("friendSheetClosed");
+});
