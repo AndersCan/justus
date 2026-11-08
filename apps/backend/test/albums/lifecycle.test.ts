@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createPhotoStore, type PhotoStore } from "../../src/photo-store.ts";
 import {
   adminDroppedYou,
+  adminListsYou,
   clearLeftNote,
   deleteOwnPhotos,
   parseDeleteNote,
@@ -459,6 +460,21 @@ describe("adminDroppedYou for the Viewers list", () => {
   it("a members list naming the key does not hide a viewers drop, and the default stays members", () => {
     expect(adminDroppedYou('{"members":{"a":{}},"viewers":{}}', "a", "viewers")).toBe(true);
     expect(adminDroppedYou('{"members":{"a":{}},"viewers":{}}', "a")).toBe(false);
+  });
+});
+
+describe("adminListsYou", () => {
+  it("is true only when the named list parses and holds the key", () => {
+    expect(adminListsYou('{"members":{"a":{}}}', "a", "members")).toBe(true);
+    expect(adminListsYou('{"viewers":{"a":{}}}', "a", "viewers")).toBe(true);
+    expect(adminListsYou('{"viewers":{"a":{}}}', "a", "members")).toBe(false);
+    expect(adminListsYou('{"members":{"b":{}}}', "a", "members")).toBe(false);
+  });
+
+  it("a missing, junk or array list does not list anyone", () => {
+    for (const text of [null, "", "nope", "{}", '{"viewers":["a"]}']) {
+      expect(adminListsYou(text, "a", "viewers")).toBe(false);
+    }
   });
 });
 

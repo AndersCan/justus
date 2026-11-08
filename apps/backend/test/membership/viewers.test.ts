@@ -26,6 +26,29 @@ const keptViewers = (): ViewersFile => ({
   viewers: { [KEY]: { key: KEY, name: "Nils", addedAt: 1, keptVersion: 3 } },
 });
 
+describe("a role change keeps addedAt", () => {
+  it("Collaborator to Viewer", async () => {
+    const { drive } = fakeDrive();
+    const [, out] = await makeMemberViewer(drive, {
+      viewers: empty,
+      registry: registry(),
+      memberKey: KEY,
+      keptVersion: 7,
+    });
+    expect(out?.viewers.viewers[KEY]?.addedAt).toBe(1);
+  });
+
+  it("Viewer to Collaborator", async () => {
+    const { drive } = fakeDrive();
+    const [, out] = await makeViewerMember(drive, {
+      viewers: keptViewers(),
+      registry: { version: 1, members: {} },
+      memberKey: KEY,
+    });
+    expect(out?.registry.members[KEY]?.addedAt).toBe(1);
+  });
+});
+
 describe("makeMemberViewer", () => {
   it("writes /viewers.json with keptVersion, then /members.json without the key", async () => {
     const { drive, writes } = fakeDrive();

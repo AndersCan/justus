@@ -69,6 +69,8 @@ export async function removeViewer(
 }
 
 /** Admin only: moves a Viewer into the registry, then out of `/viewers.json`.
+ * The person keeps the `addedAt` they were listed with, so a left note written
+ * before the change still reads as later than their join.
  * If the second write fails the person is in both files, and the registry
  * wins, so they already show as a Collaborator. The inputs are not changed. */
 export async function makeViewerMember(
@@ -85,7 +87,7 @@ export async function makeViewerMember(
     ...registry,
     members: {
       ...registry.members,
-      [memberKey]: { key: viewer.key, name: viewer.name, addedAt: Date.now() },
+      [memberKey]: { key: viewer.key, name: viewer.name, addedAt: viewer.addedAt },
     },
   };
   try {
@@ -103,7 +105,7 @@ export async function makeViewerMember(
   return [null, { viewers: nextViewers, registry: nextRegistry }];
 }
 
-/** Admin only: lists a Collaborator as a Viewer whose drive is read at
+/** Admin only: lists a Collaborator as a Viewer (keeping their `addedAt`) whose drive is read at
  * `keptVersion`, then takes them out of `/members.json`. If the second write
  * fails they are in both files and the registry wins, so they are still a
  * Collaborator and a retry finishes the job. The inputs are not changed. */
@@ -128,7 +130,7 @@ export async function makeMemberViewer(
       ...viewers,
       viewers: {
         ...viewers.viewers,
-        [memberKey]: { key: memberKey, name: member.name, addedAt: Date.now(), keptVersion },
+        [memberKey]: { key: memberKey, name: member.name, addedAt: member.addedAt, keptVersion },
       },
     };
     try {

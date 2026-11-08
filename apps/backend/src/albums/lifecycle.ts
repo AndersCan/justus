@@ -130,23 +130,39 @@ export async function clearLeftNote(drive: Drive, options: { log: LifecycleLog }
   }
 }
 
+/** The people named in `list` of the Admin's list text, or null when the text is missing, not JSON, or has no such object. */
+function namesIn(listText: string | null, list: "members" | "viewers"): object | null {
+  if (listText === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(listText);
+  } catch {
+    return null;
+  }
+  if (!isTextJSON(parsed)) return null;
+  const names = parsed[list];
+  if (!isTextJSON(names) || Array.isArray(names)) return null;
+  return names;
+}
+
 /** Whether the Admin's list (as text) shows this phone gone: the file must exist, `list` must be an object and not name `memberKey`. */
 export function adminDroppedYou(
   listText: string | null,
   memberKey: string,
   list: "members" | "viewers" = "members",
 ): boolean {
-  if (listText === null) return false;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(listText);
-  } catch {
-    return false;
-  }
-  if (!isTextJSON(parsed)) return false;
-  const names = parsed[list];
-  if (!isTextJSON(names) || Array.isArray(names)) return false;
-  return !(memberKey in names);
+  const names = namesIn(listText, list);
+  return names !== null && !(memberKey in names);
+}
+
+/** Whether the Admin's list (as text) names this phone: the file must parse to a `list` object that holds `memberKey`. */
+export function adminListsYou(
+  listText: string | null,
+  memberKey: string,
+  list: "members" | "viewers",
+): boolean {
+  const names = namesIn(listText, list);
+  return names !== null && memberKey in names;
 }
 
 /** Clears the bytes of every photo and thumbnail in `drive`, then deletes their entries. Safe to run twice. */
