@@ -33,6 +33,42 @@
       ]
     },
     {
+      "name": "Maya cancels a request whose link was turned off",
+      "end": "noInviteOpen",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "linkOff"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "cancelRequest",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "Maya cancels her request",
       "end": "noInviteOpen",
       "steps": [
@@ -96,6 +132,92 @@
       ]
     },
     {
+      "name": "Maya closes the no-longer-works screen and taps her row again",
+      "end": "linkTurnedOff",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "linkOff"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "closeLinkTurnedOff",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "reopenRequest",
+          "payload": {
+            "ask": {
+              "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "owner": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "albumName": "Spain 2026",
+              "ownerName": "Nils",
+              "askedAt": 1,
+              "status": "linkOff"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya closes the waiting screen, and Nils turns off his links",
+      "end": "linkTurnedOff",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "closeWaiting",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "linkOff"
+          }
+        }
+      ]
+    },
+    {
       "name": "Maya leaves the question open past the end, then taps Ask",
       "end": "linkExpired",
       "steps": [
@@ -130,6 +252,37 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya waits, and Nils turns off his links",
+      "end": "linkTurnedOff",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "linkOff"
           }
         }
       ]

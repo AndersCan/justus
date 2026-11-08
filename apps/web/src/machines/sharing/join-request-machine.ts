@@ -23,7 +23,7 @@ export type AskSummary = {
   albumName: string;
   ownerName: string;
   askedAt: number;
-  status: "waiting" | "declined";
+  status: "waiting" | "declined" | "linkOff";
 };
 
 /** Sends the request; resolves `[error, result]` like the gateway. */
@@ -34,6 +34,7 @@ export const oldLinkMessage = (ownerName: string) =>
   `This link no longer works. Ask ${ownerName} for a new invite link.`;
 export const EXPIRED_LINK = "This invite link has expired.";
 export const expiredBody = (owner: string) => `Ask ${owner} for a new one.`;
+export const LINK_TURNED_OFF = "This invite link no longer works.";
 export const SEND_FAILED = "Couldn't send your request. Try again.";
 
 /** No invite is open. */
@@ -50,6 +51,8 @@ const waitingForAdminToAccept = state("waitingForAdminToAccept")<JoinInvite>();
 const declinedByAdmin = state("declinedByAdmin")<JoinInvite>();
 /** The link's end time has passed; nothing is sent. */
 const linkExpired = state("linkExpired")<JoinInvite>();
+/** The Admin's phone said this link no longer works, so the request will not be answered. "Ask <owner> for a new one." */
+const linkTurnedOff = state("linkTurnedOff")<JoinInvite>();
 /** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
 const joinedAlbum = state("joinedAlbum")();
 
@@ -69,10 +72,12 @@ export const dismissDecline = event("dismissDecline")();
 export const dismissExpired = event("dismissExpired")();
 /** The joiner taps "Cancel request" on the waiting screen. */
 export const cancelRequest = event("cancelRequest")();
+/** The joiner closes the "no longer works" screen; the row stays until Cancel request or a new link. */
+export const closeLinkTurnedOff = event("closeLinkTurnedOff")();
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<{
   code: string;
-  answer: "accepted" | "declined";
+  answer: "accepted" | "declined" | "linkOff";
   folderId?: string;
 }>();
 
@@ -123,6 +128,7 @@ export function createJoinRequestActor(options: {
       cancelRequest,
       dismissDecline,
       dismissExpired,
+      closeLinkTurnedOff,
       requestAnswered,
     ],
     internal: [requestSent, requestFailed],
@@ -136,6 +142,7 @@ export function createJoinRequestActor(options: {
       waitingForAdminToAccept,
       declinedByAdmin,
       linkExpired,
+      linkTurnedOff,
     ],
     initial: noInviteOpen,
     clock,
@@ -149,6 +156,7 @@ export function createJoinRequestActor(options: {
         waitingForAdminToAccept,
         declinedByAdmin,
         linkExpired,
+        linkTurnedOff,
       ]) {
         /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
@@ -160,6 +168,7 @@ export function createJoinRequestActor(options: {
             waitingForAdminToAccept,
             declinedByAdmin,
             linkExpired,
+            linkTurnedOff,
           ],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
@@ -185,10 +194,11 @@ export function createJoinRequestActor(options: {
         /** A tapped request row shows its current answer. */
         m.on(from, {
           event: reopenRequest,
-          to: [waitingForAdminToAccept, declinedByAdmin],
+          to: [waitingForAdminToAccept, declinedByAdmin, linkTurnedOff],
           handler: (e) => {
             const { ask: row } = e.payload;
             const invite = inviteOf(row);
+            if (row.status === "linkOff") return { state: linkTurnedOff.create(invite) };
             return row.status === "declined"
               ? { state: declinedByAdmin.create(invite) }
               : { state: waitingForAdminToAccept.create(invite) };
@@ -200,8 +210,14 @@ export function createJoinRequestActor(options: {
         /** An answer that arrives with no sheet open still counts: accepted opens the album, declined says so. */
         m.on(from, {
           event: requestAnswered,
-          to: [joinedAlbum, declinedByAdmin, from],
+          to: [joinedAlbum, declinedByAdmin, linkTurnedOff, from],
           handler: (e) => {
+            if (e.payload.answer === "linkOff") {
+              const row = asked(e.payload.code);
+              return row === undefined
+                ? { state: from }
+                : { state: linkTurnedOff.create(inviteOf(row)) };
+            }
             if (e.payload.answer === "declined") {
               const row = asked(e.payload.code);
               return row === undefined
@@ -216,7 +232,7 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      for (const from of [decidingToAsk, sendingRequest, linkExpired]) {
+      for (const from of [decidingToAsk, sendingRequest, linkExpired, linkTurnedOff]) {
         /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. The open declined sheet takes no answer. */
         m.on(from, {
           event: requestAnswered,
@@ -298,17 +314,35 @@ export function createJoinRequestActor(options: {
       /** The Admin answered. Only an answer for this request counts. */
       m.on(waitingForAdminToAccept, {
         event: requestAnswered,
-        to: [joinedAlbum, declinedByAdmin, waitingForAdminToAccept],
+        to: [joinedAlbum, declinedByAdmin, linkTurnedOff, waitingForAdminToAccept],
         handler: (e, { actor }) => {
           const invite = actor.snapshot().payload as JoinInvite;
           if (e.payload.code !== invite.code)
             return { state: waitingForAdminToAccept.create(invite) };
           if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
+          if (e.payload.answer === "linkOff") return { state: linkTurnedOff.create(invite) };
           const folderId = e.payload.folderId;
           return folderId === undefined
             ? { state: waitingForAdminToAccept.create(invite) }
             : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
         },
+      });
+
+      /** The joiner takes the request back from the "no longer works" screen. */
+      m.on(linkTurnedOff, {
+        event: cancelRequest,
+        to: [noInviteOpen],
+        handler: (_e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          sent.delete(invite.code);
+          return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
+        },
+      });
+      /** The joiner closes the screen; the request row stays. */
+      m.on(linkTurnedOff, {
+        event: closeLinkTurnedOff,
+        to: [noInviteOpen],
+        handler: () => ({ state: noInviteOpen }),
       });
 
       /** The joiner closes the expired screen. */
@@ -361,6 +395,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
       return declinedByAdmin.create(invite);
     case "linkExpired":
       return linkExpired.create(invite);
+    case "linkTurnedOff":
+      return linkTurnedOff.create(invite);
     default:
       return showingLinkProblem;
   }
