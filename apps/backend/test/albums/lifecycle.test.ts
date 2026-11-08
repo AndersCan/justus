@@ -277,7 +277,7 @@ describe("leave", () => {
     return { member, mine };
   }
 
-  it("a Viewer's leave tells nobody and keeps nothing", async () => {
+  it("a reader nobody lists tells nobody and keeps nothing", async () => {
     const { admin, album } = await albumWithPhoto("Hytta");
     const viewer = device("Vera", admin.deps.hub);
     await viewer.store.ready();
@@ -297,6 +297,24 @@ describe("leave", () => {
     expect([...view.folders, ...view.archived, ...view.deleted]).toEqual([]);
     expect((viewer.store.debugState() as { gone: unknown[] }).gone).toEqual([]);
     expect((await admin.store.folders()).folders.map((f) => f.id)).toEqual([album.id]);
+  });
+
+  it("a listed Viewer writes the left note and waits", async () => {
+    const { admin, album } = await albumWithPhoto("Hytta");
+    const { member, mine } = await memberOf(album, admin);
+    expect((await admin.store.makeViewer(album.id, mine.driveKey))[0]).toBeNull();
+    const selfDrive = vi.spyOn(await member.deps.drives.openOwn(), "put");
+    const albumDrive = vi.spyOn(await driveOf(member.deps, mine.driveKey), "put");
+    expect((await member.store.leaveAlbum(mine.id))[0]).toBeNull();
+    const gone = (member.store.debugState() as { gone: { kind: string; listedIn?: string }[] })
+      .gone;
+    expect(gone.map((g) => [g.kind, g.listedIn])).toEqual([
+      ["waitingForAdminToSeeYouLeft", "viewers"],
+    ]);
+    const wrote = [...selfDrive.mock.calls, ...albumDrive.mock.calls].some(
+      (c: unknown[]) => c[0] === "/left.json",
+    );
+    expect(wrote).toBe(true);
   });
 
   it("a Member who leaves is kept as waiting, and the Admin is the only one who cannot leave", async () => {
@@ -420,6 +438,27 @@ describe("clearLeftNote", () => {
     await clearLeftNote(stub(files), { log });
     expect([...files.keys()]).toEqual(["/other.json"]);
     await expect(clearLeftNote(stub(files, true), { log })).resolves.toBeUndefined();
+  });
+});
+
+describe("adminDroppedYou for the Viewers list", () => {
+  const viewers = (keys: string[]) =>
+    JSON.stringify({ version: 1, viewers: Object.fromEntries(keys.map((k) => [k, { key: k }])) });
+
+  it("is true only when the viewers list exists and lacks this drive", () => {
+    expect(adminDroppedYou(viewers(["b"]), "a", "viewers")).toBe(true);
+    expect(adminDroppedYou(viewers(["a", "b"]), "a", "viewers")).toBe(false);
+  });
+
+  it("a missing, junk or members-only file is not a drop", () => {
+    for (const text of [null, "", "nope", "{}", '{"viewers":[]}', '{"members":{}}']) {
+      expect(adminDroppedYou(text, "a", "viewers")).toBe(false);
+    }
+  });
+
+  it("a members list naming the key does not hide a viewers drop, and the default stays members", () => {
+    expect(adminDroppedYou('{"members":{"a":{}},"viewers":{}}', "a", "viewers")).toBe(true);
+    expect(adminDroppedYou('{"members":{"a":{}},"viewers":{}}', "a")).toBe(false);
   });
 });
 

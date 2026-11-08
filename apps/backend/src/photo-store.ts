@@ -222,14 +222,16 @@ type PersistedState = {
 /** An album removed from this phone. `deletedForEveryone`: this phone is the
  * Admin's and keeps only the delete note, to offer it to members who were away.
  * `deletedByAdmin`: the Admin deleted it; the notice shows until dismissed.
- * `waitingForAdminToSeeYouLeft`: a Member left; this phone's own drive in the
- * album (`selfNs`) keeps saying so until the Admin's member list drops it. */
+ * `waitingForAdminToSeeYouLeft`: a Member or Viewer left; this phone's own drive in the
+ * album (`selfNs`) keeps saying so until the Admin's list (`listedIn`) drops it. */
 type GoneRecord = {
   id: string;
   name: string;
   shareKey: string;
   kind: "deletedForEveryone" | "deletedByAdmin" | "waitingForAdminToSeeYouLeft";
   selfNs?: string;
+  /** Which Admin list the leaver was on; absent means `/members.json`. */
+  listedIn?: "viewers";
   adminName?: string;
   at: number;
 };
@@ -940,6 +942,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         shareKey: g.shareKey,
         kind: g.kind,
         ...(typeof g.selfNs === "string" ? { selfNs: g.selfNs } : {}),
+        ...(g.listedIn === "viewers" ? { listedIn: "viewers" as const } : {}),
         ...(typeof g.adminName === "string"
           ? { adminName: peerName(g.adminName, DEFAULT_ASK_OWNER) }
           : {}),
@@ -1851,6 +1854,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   function lifecyclePort(rt: FolderRuntime): AlbumLifecyclePort {
     return {
+      adminListsYou: async () => {
+        if (rt.record.role === "member") {
+          // A Collaborator the Admin made a Viewer leaves as a Viewer: watch the Viewers list.
+          await refreshViewers(rt);
+          becomeViewerIfListed(rt);
+          return true;
+        }
+        if (rt.record.role !== "reader" || rt.record.notice?.kind === "removed") return false;
+        await refreshViewers(rt);
+        return rt.viewers[selfKeyOf(rt)] !== undefined;
+      },
       writeLeftNote: async () => {
         const [error] = await writeLeftNote(rt.selfDrive, { at: Date.now() });
         return error ? Either.left(error) : Either.right();
@@ -1968,6 +1982,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     kind: GoneRecord["kind"],
     adminName?: string,
     selfNs?: string,
+    listedIn?: "viewers",
   ) {
     const id = rt.record.id;
     state.folders = state.folders.filter((f) => f.id !== id);
@@ -1980,6 +1995,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         kind,
         ...(adminName === undefined ? {} : { adminName }),
         ...(selfNs === undefined ? {} : { selfNs }),
+        ...(listedIn === undefined ? {} : { listedIn }),
         at: Date.now(),
       },
     ];
@@ -2018,10 +2034,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       case "waitingForAdminToSeeYouLeft": {
         const actor = lifecycles.get(id);
         const selfNs = rt.record.selfNs ?? `member/${rt.record.shareKey}`;
-        moveToGone(rt, "waitingForAdminToSeeYouLeft", undefined, selfNs);
+        const list = rt.record.role === "reader" ? "viewers" : "members";
+        moveToGone(
+          rt,
+          "waitingForAdminToSeeYouLeft",
+          undefined,
+          selfNs,
+          list === "viewers" ? list : undefined,
+        );
         if (actor) {
           lifecycles.set(id, actor);
-          watchForAdmin(id, actor, rt.folderDrive, rt.selfDrive);
+          watchForAdmin(id, actor, rt.folderDrive, rt.selfDrive, list);
         }
         return;
       }
@@ -2057,8 +2080,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Albums a Member left, waiting for the Admin's member list to drop this phone: the stop function of each watcher. */
   const waitingWatchers = new Map<string, () => void>();
 
-  /** Watches the Admin's drive for the member list that drops this phone (or a delete note), and tells the actor. */
-  function watchForAdmin(id: string, actor: LifecycleActor, album: Drive, self: Drive) {
+  /** Watches the Admin's drive for the list (members or viewers) that drops this phone (or a delete note), and tells the actor. */
+  function watchForAdmin(
+    id: string,
+    actor: LifecycleActor,
+    album: Drive,
+    self: Drive,
+    list: "members" | "viewers",
+  ) {
     waitingWatchers.get(id)?.();
     let timer: ReturnType<typeof setTimeout> | null = null;
     let checking = false;
@@ -2072,8 +2101,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return;
         }
         // Text that is missing reads as "no file": an unreplicated drive is not a drop.
-        const text = await readText(album, DRIVE_PATH_MEMBERS, { timeout: 2_000 });
-        if (adminDroppedYou(text, self.key)) actor.send({ type: "adminSawYouLeave" });
+        const text = await readText(
+          album,
+          list === "viewers" ? DRIVE_PATH_VIEWERS : DRIVE_PATH_MEMBERS,
+          { timeout: 2_000 },
+        );
+        if (adminDroppedYou(text, self.key, list)) actor.send({ type: "adminSawYouLeave" });
       } finally {
         checking = false;
       }
@@ -3271,6 +3304,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           const actor = createAlbumLifecycleActor({
             clock: RealClock(),
             port: {
+              adminListsYou: async () => true,
               writeLeftNote: async () => Either.left({ reason: "Already left" }),
               writeDeleteNote: async () => Either.left({ reason: "Already left" }),
               removeCopy: async () => {},
@@ -3284,7 +3318,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               if (snapshot.path[0] === "leftAlbum") finishLeave(gone.id);
             },
           });
-          watchForAdmin(gone.id, actor, album, self);
+          watchForAdmin(gone.id, actor, album, self, gone.listedIn ?? "members");
         } catch (e) {
           log("error", { where: "gone.waiting", album: short(gone.id), err: errText(e) });
         }
@@ -5105,7 +5139,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           openedAt: c.openedAt,
         })),
         peerIdentities: [...peerIdentities],
-        gone: state.gone.map((g) => ({ id: g.id, kind: g.kind, shareKey: g.shareKey })),
+        gone: state.gone.map((g) => ({
+          id: g.id,
+          kind: g.kind,
+          shareKey: g.shareKey,
+          ...(g.listedIn ? { listedIn: g.listedIn } : {}),
+        })),
         indexedPhotos: [...contentIndex.values()].reduce((n, arr) => n + arr.length, 0),
         asks: state.asks.map((a) => ({ code: a.code, owner: a.owner, status: a.status })),
         remoteDrives: [

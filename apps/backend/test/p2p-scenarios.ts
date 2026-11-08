@@ -945,6 +945,40 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "leave: a Viewer leaves and drops off the Admin's people list",
+    async run(net, t) {
+      const { admin, joiner, folderId, shareKey } = await askedAlbum(net);
+      const { requests } = await eventually(
+        () => admin.store.requests(),
+        (r) => r.requests.length === 1,
+        "the ask on the Admin",
+      );
+      const key = requests[0].requesterKey;
+      t.noErr(await admin.store.respond(folderId, key, true, "reader"), "accept as a Viewer");
+      const album = await eventually(
+        () => albumIn(joiner.store, shareKey),
+        (f) => f?.role === "reader" && !f.pending,
+        "the joiner is a Viewer",
+      );
+      await eventually(
+        () => admin.store.status(),
+        (s) => s.members.some((m: Member) => m.viewer),
+        "the Viewer on the Admin's list",
+      );
+      t.noErr(await joiner.store.leaveAlbum(album!.id), "leaveAlbum");
+      await eventually(
+        () => admin.store.status(),
+        (s) => !s.members.some((m: Member) => m.viewer),
+        "the Viewer off the Admin's list",
+      );
+      await eventually(
+        async () => (joiner.store.debugState() as { gone: unknown[] }).gone,
+        (gone) => gone.length === 0,
+        "the Viewer's phone has nothing left to wait for",
+      );
+    },
+  },
+  {
     name: "leave: a Member leaves, drops off the Admin's people list, and needs a new ask to come back",
     async run(net, t) {
       const { admin, joiner, folderId, shareKey, joinerFolderId } = await sharedAlbum(net);
