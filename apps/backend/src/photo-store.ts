@@ -308,7 +308,7 @@ type FolderRecord = {
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
-  /** Creator: requests listed when a Remove retired their code, identity -> that code. Answering one clears it. */
+  /** Creator: identity -> the old code for each request listed and each friend invite open when a Remove retired that code. Answering, Take back or Turn off links clears it. */
   heldAsks?: Record<string, string>;
   /** Creator only: identities with an open friend invite to this album. */
   invited?: string[];
@@ -602,6 +602,16 @@ export function adminToTellDeleted(record: {
   invite?: { owner?: string };
 }): string | undefined {
   return record.notice?.kind === "removed" ? record.invite?.owner : undefined;
+}
+
+/** `held` without these identities; undefined once empty. */
+function withoutHeld(
+  held: Record<string, string> | undefined,
+  identities: string[],
+): Record<string, string> | undefined {
+  if (!held) return undefined;
+  const left = Object.fromEntries(Object.entries(held).filter(([id]) => !identities.includes(id)));
+  return Object.keys(left).length > 0 ? left : undefined;
 }
 
 export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
@@ -4131,6 +4141,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!w.viaInvite || !identity || identity === removedIdentity) continue;
         held[identity] = record.heldAsks?.[identity] ?? oldInvite;
       }
+      for (const identity of record.invited ?? []) {
+        if (identity === removedIdentity) continue;
+        held[identity] = record.heldAsks?.[identity] ?? oldInvite;
+      }
     }
     const answers: Answers = {};
     for (const [identity, answer] of Object.entries(record.answers ?? {})) {
@@ -5082,9 +5096,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         album: rt.record,
         newCode: newInviteCode(),
       });
+      const dropHeldFor = [...(rt.record.invited ?? [])];
       rt.record.invited = undefined;
       rt.record.offerOwed = undefined;
       rt.record.invitedRoles = undefined;
+      rt.record.heldAsks = withoutHeld(rt.record.heldAsks, dropHeldFor);
       rt.record.invite = next.invite;
       if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
@@ -5093,6 +5109,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.invited = undefined;
         persisted.offerOwed = undefined;
         persisted.invitedRoles = undefined;
+        persisted.heldAsks = withoutHeld(persisted.heldAsks, dropHeldFor);
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
@@ -5204,6 +5221,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const left = (target.invited ?? []).filter((i) => i !== identity);
         target.invited = left.length > 0 ? left : undefined;
         target.offerOwed = dropOwed(target.offerOwed, identity);
+        target.heldAsks = withoutHeld(target.heldAsks, [identity]);
         target.invitedRoles = keepInvitedRoles(
           target.invitedRoles,
           target.invited,
