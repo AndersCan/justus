@@ -19,8 +19,10 @@ const newestFirst = (a, b) => b.created_at.localeCompare(a.created_at);
  */
 export function pickSources({ repo, prs, runs }) {
   const own = runs.filter((run) => run.head_repository?.full_name === repo).sort(newestFirst);
-  const mainRun = own.find((run) => run.head_branch === "main" && run.event !== "pull_request");
-  const main = mainRun ? { runId: mainRun.id, sha: mainRun.head_sha } : undefined;
+  const mains = own
+    .filter((run) => run.head_branch === "main" && run.event !== "pull_request")
+    .map((run) => ({ runId: run.id, sha: run.head_sha }));
+  const main = mains[0];
 
   const previews = [];
   const skipped = [];
@@ -39,17 +41,23 @@ export function pickSources({ repo, prs, runs }) {
       skipped.push({ number: pr.number, reason: "more than 20 open pull requests" });
       continue;
     }
-    previews.push({ number: pr.number, runId: run.id, sha: run.head_sha });
+    previews.push({
+      number: pr.number,
+      runId: run.id,
+      sha: run.head_sha,
+      latest: run.head_sha === pr.headRefOid,
+    });
   }
   previews.sort((a, b) => a.number - b.number);
   skipped.sort((a, b) => a.number - b.number);
-  return { main, previews, skipped };
+  return { main, mains, previews, skipped };
 }
 
 /** The comment text for a live preview. `siteUrl` is the Pages root, with or without a trailing slash. */
 export function commentBody(preview, siteUrl) {
   const root = siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`;
-  return `${MARKER}\nSite preview of ${short(preview.sha)}: ${root}pr/${preview.number}/`;
+  const note = preview.latest === false ? " (the newest commit is still building or failed)" : "";
+  return `${MARKER}\nSite preview of ${short(preview.sha)}${note}: ${root}pr/${preview.number}/`;
 }
 
 export function expiredBody(sha) {
@@ -94,26 +102,44 @@ function assemble(dir) {
     "--json",
     "number,headRefName,headRefOid,isCrossRepository",
   ]);
-  const { workflow_runs: runs } = ghJson([
-    "api",
-    `repos/${repo}/actions/workflows/site-pages.yml/runs?status=success&per_page=100`,
-  ]);
+  const runsUrl = (query) => `repos/${repo}/actions/workflows/site-pages.yml/runs?${query}`;
+  const runs = [
+    ...ghJson(["api", runsUrl("branch=main&status=success&per_page=10")]).workflow_runs,
+  ];
+  for (const pr of prs) {
+    if (pr.isCrossRepository) continue;
+    const branch = encodeURIComponent(pr.headRefName);
+    runs.push(
+      ...ghJson(["api", runsUrl(`branch=${branch}&event=pull_request&status=success&per_page=5`)])
+        .workflow_runs,
+    );
+  }
   const picked = pickSources({ repo, prs, runs });
   if (!picked.main) throw new Error("no successful site-pages build of main to publish");
 
-  gh([
-    "run",
-    "download",
-    String(picked.main.runId),
-    "--repo",
-    repo,
-    "--name",
-    "site-dist",
-    "--dir",
-    dir,
-  ]);
+  let mainSha;
+  for (const candidate of picked.mains) {
+    try {
+      gh([
+        "run",
+        "download",
+        String(candidate.runId),
+        "--repo",
+        repo,
+        "--name",
+        "site-dist",
+        "--dir",
+        dir,
+      ]);
+      mainSha = candidate.sha;
+      break;
+    } catch {
+      summary(`main: build of ${short(candidate.sha)} expired, trying an older one`);
+    }
+  }
+  if (mainSha === undefined) throw new Error("every recent site-pages build of main has expired");
   if (!existsSync(`${dir}/index.html`)) throw new Error(`${dir}/index.html is missing`);
-  summary(`main: ${short(picked.main.sha)}`);
+  summary(`main: ${short(mainSha)}`);
 
   const live = [];
   const expired = [];
@@ -130,7 +156,7 @@ function assemble(dir) {
         "--dir",
         `${dir}/pr/${preview.number}`,
       ]);
-      live.push({ number: preview.number, sha: preview.sha });
+      live.push({ number: preview.number, sha: preview.sha, latest: preview.latest });
       summary(`#${preview.number}: preview of ${short(preview.sha)}`);
     } catch {
       expired.push({ number: preview.number, sha: preview.sha });
