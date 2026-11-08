@@ -7,6 +7,7 @@ import {
   LINK_TURNED_OFF,
   expiredBody,
 } from "../machines/sharing/join-request-machine";
+import { foldersActor } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
 import { buildInviteLink } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
@@ -112,6 +113,15 @@ function qrCode(link: string) {
   >
     <path d="${d}" fill="#000" />
   </svg>`;
+}
+
+/** The joiner's check code, shown while waiting; null until the stored ask has one. */
+export function checkCodeLine(code: string | undefined, owner: string) {
+  if (!code) return null;
+  return html`<p class="mt-3 text-sm text-fg">
+    Your check code is <span class="font-semibold">${code}</span>. ${owner} sees the same code next
+    to your request.
+  </p>`;
 }
 
 /** "From your friends: A, B or C. They get the invite in Justus, no link needed." Up to three names, then "or N more". */
@@ -397,6 +407,9 @@ export function joinSheet() {
             Request to join sent to ${owner}. You'll see “${invite.album}” when accepted. ${owner}
             must be online too: keep Justus open on both phones.
           </p>
+          ${watch(foldersActor, (f) =>
+            checkCodeLine(f.context.asks.find((a) => a.code === invite.code)?.checkCode, owner),
+          )}
           <div class="mt-4 flex justify-end gap-2">
             <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
               Cancel request
