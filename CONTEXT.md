@@ -37,7 +37,7 @@ A random per-album code in the invite link, in place of the share key. It names 
 _Avoid_: share key, link
 
 **Ask**:
-A device's request to join an album through an invite code. It waits until the Admin answers: accepted, the share key travels to the asker over a verified connection and the asker joins; declined, the answer is final for that device. Both devices must be online at once to deliver the answer.
+A device's request to join an album through an invite code. It waits until the Admin answers: accepted, the share key travels to the asker over a verified connection and the asker joins; declined, that ask is closed; the device may ask again and the Admin answers the new ask. Both devices must be online at once to deliver the answer.
 _Avoid_: join request (the older request made with a share key)
 
 **Delete note**:

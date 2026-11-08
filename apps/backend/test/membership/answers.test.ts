@@ -265,7 +265,34 @@ describe("answers: delivering what is owed", () => {
     const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
     expect((await deliverOwed(ports, options)).sent).toBe(1);
     expect((await deliverOwed(ports, options)).sent).toBe(0);
-    expect(w.sent.get(w.toJoiner.conn)).toEqual(new Set([CODE]));
+    expect(w.sent.get(w.toJoiner.conn)).toEqual(new Set([`${CODE}:declined:`]));
+  });
+
+  it("delivery: an accept is sent after a decline for the same code on one connection", async () => {
+    const w = await adminAndJoiners();
+    const id = w.joiner.identity.key;
+    let answers: Record<string, "accepted" | "declined"> = { [id]: "declined" };
+    const options = {
+      identity: id,
+      owed: () => answersOwed([album({ answers })], id),
+      log: noLog,
+    };
+    const ports = w.ports([{ conn: w.toJoiner.conn, identity: id }]);
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    answers = { [id]: "accepted" };
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+  });
+
+  it("owed: a decline carries the time of the ask it answered", () => {
+    const id = hex("b");
+    const owed = answersOwed(
+      [album({ answers: { [id]: "declined" }, declinedAsks: { [id]: 7 } })],
+      id,
+    );
+    expect(owed.map((m) => (m.answer === "declined" ? m.askedAt : "n/a"))).toEqual([7]);
+    expect(answersOwed([album({ answers: { [id]: "declined" } })], id)[0]).not.toHaveProperty(
+      "askedAt",
+    );
   });
 
   it("delivery: a refused send is retried", async () => {
@@ -336,14 +363,14 @@ describe("answers: delivering what is owed", () => {
 });
 
 describe("answers: an answer arriving", () => {
-  type Ask = { code: string; owner: string; status: string };
+  type Ask = { code: string; owner: string; status: string; askedAt: number };
   const OWNER = hex("a");
   const asks =
     (...list: Ask[]) =>
     () =>
       list;
   const proven = (identity: string | undefined) => ({ provenIdentity: async () => identity });
-  const waiting: Ask = { code: CODE, owner: OWNER, status: "waiting" };
+  const waiting: Ask = { code: CODE, owner: OWNER, status: "waiting", askedAt: 2 };
   const accepted = { code: CODE, answer: "accepted", shareKey: SHARE };
 
   it("arriving answer: a refused connection is ignored before parsing", async () => {
@@ -384,6 +411,19 @@ describe("answers: an answer arriving", () => {
     expect(await arrive(hex("f"))).toEqual({ kind: "ignored", reason: "unverified" });
     expect(await arrive(undefined)).toEqual({ kind: "ignored", reason: "unverified" });
     expect(await arrive(OWNER)).toEqual({ kind: "accepted", code: CODE, shareKey: SHARE });
+  });
+
+  it("arriving answer: a decline for an older ask is stale", async () => {
+    const arrive = (askedAt: number | undefined) =>
+      arrivingAnswer(proven(OWNER), {
+        conn: 1,
+        value: { code: CODE, answer: "declined", ...(askedAt === undefined ? {} : { askedAt }) },
+        refused: false,
+        asks: asks(waiting),
+      });
+    expect(await arrive(1)).toEqual({ kind: "ignored", reason: "stale" });
+    expect(await arrive(2)).toEqual({ kind: "declined", code: CODE });
+    expect(await arrive(undefined)).toEqual({ kind: "declined", code: CODE });
   });
 
   it("arriving answer: an ask settled during the proof is left alone", async () => {
@@ -430,7 +470,7 @@ describe("answers: an answer arriving", () => {
         conn: toAdmin.conn,
         value: event.value,
         refused: false,
-        asks: asks({ code: CODE, owner: admin.identity.key, status: "waiting" }),
+        asks: asks({ code: CODE, owner: admin.identity.key, status: "waiting", askedAt: 1 }),
       });
       expect(result).toEqual(
         answer === "accepted"

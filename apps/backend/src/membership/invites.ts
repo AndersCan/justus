@@ -61,8 +61,8 @@ export type AskCheck<A> =
   | { kind: "new"; code: string; owner: string };
 
 /** Whether a link can be asked through: both keys hex, not an album this phone
- * already holds (its own included), and not asked before. Keys are lowercased. */
-export function checkAsk<A extends { code: string }>(
+ * already holds (its own included), and not asked before or asked and declined. Keys are lowercased. */
+export function checkAsk<A extends { code: string; status: string }>(
   input: { code: unknown; owner: unknown },
   held: { folders: ReadonlyArray<{ invite?: { code: string } }>; asks: readonly A[] },
 ): AskCheck<A> {
@@ -71,7 +71,7 @@ export function checkAsk<A extends { code: string }>(
   if (!isHexKey(code) || !isHexKey(owner)) return { kind: "invalid" };
   if (held.folders.some((f) => f.invite?.code === code)) return { kind: "have-album" };
   const known = held.asks.find((a) => a.code === code);
-  if (known) return { kind: "known", ask: known };
+  if (known && known.status !== "declined") return { kind: "known", ask: known };
   return { kind: "new", code, owner };
 }
 
@@ -128,7 +128,7 @@ export async function fileInviteAsk(
 }
 
 export type Reply =
-  /** Final: the joiner is told no, and asking again changes nothing. */
+  /** The joiner is told no; a newer ask from them is a new request. */
   | { kind: "decline-ask"; identity: string }
   /** Hidden for this session only; a plain request has no answer to record. */
   | { kind: "decline" }

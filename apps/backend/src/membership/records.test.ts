@@ -271,6 +271,18 @@ describe("parseAnswer", () => {
     });
   });
 
+  test("keeps the time of the declined ask, only when it is a number", () => {
+    expect(parseAnswer({ code: k1, answer: "declined", askedAt: 5 })).toEqual({
+      code: k1,
+      answer: "declined",
+      askedAt: 5,
+    });
+    expect(parseAnswer({ code: k1, answer: "declined", askedAt: "5" })).toEqual({
+      code: k1,
+      answer: "declined",
+    });
+  });
+
   test.each([
     ["null", null],
     ["a string", "accepted"],

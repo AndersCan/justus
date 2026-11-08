@@ -88,6 +88,8 @@ export type OwingAlbum = {
   invite?: { code: string };
   retiredInvites?: readonly string[];
   answers?: Readonly<Record<string, "accepted" | "declined">>;
+  /** When the ask a decline answered was made, per identity. */
+  declinedAsks?: Readonly<Record<string, number>>;
 };
 
 /** Every answer owed to `identity`: per creator album with an invite and an
@@ -98,24 +100,24 @@ export function answersOwed(albums: Iterable<OwingAlbum>, identity: string): Ans
   for (const album of albums) {
     const answer = album.answers?.[identity];
     if (album.role !== "creator" || !album.invite || !answer) continue;
+    const askedAt = album.declinedAsks?.[identity];
     for (const code of [album.invite.code, ...(album.retiredInvites ?? [])]) {
-      owed.push(
-        answer === "accepted" ? { code, answer, shareKey: album.shareKey } : { code, answer },
-      );
+      if (answer === "accepted") owed.push({ code, answer, shareKey: album.shareKey });
+      else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
     }
   }
   return owed;
 }
 
 export type DeliveryPorts = {
-  /** Open connections: the identity each claims and the codes already sent on it (mutated by deliverOwed). */
+  /** Open connections: the identity each claims and the answers already sent on it (mutated by deliverOwed). */
   connections(): Array<{ conn: number; identity: string | undefined; sent: Set<string> }>;
   provenIdentity(conn: number): Promise<string | undefined>;
   sendAnswer: PeerNetwork["sendAnswer"];
 };
 
 /** Sends what `owed()` returns on every connection proven to be `identity`,
- * once per code per connection. `owed` is read after each proof, so an answer
+ * once per answer per connection. `owed` is read after each proof, so an answer
  * taken back meanwhile is not sent. `retry` is true when the channel refused a send. */
 export async function deliverOwed(
   ports: DeliveryPorts,
@@ -132,13 +134,14 @@ export async function deliverOwed(
       continue;
     }
     for (const message of owed()) {
-      if (codes.has(message.code)) continue;
-      codes.add(message.code);
+      const key = `${message.code}:${message.answer}:${message.answer === "declined" ? (message.askedAt ?? "") : ""}`;
+      if (codes.has(key)) continue;
+      codes.add(key);
       if (ports.sendAnswer(conn, message) === true) {
         log("answer.sent", { conn, code: short(message.code), answer: message.answer });
         sent++;
       } else {
-        codes.delete(message.code);
+        codes.delete(key);
         retry = true;
       }
     }
@@ -151,7 +154,7 @@ export type ArrivalPorts = { provenIdentity(conn: number): Promise<string | unde
 export type AnswerArrival =
   | {
       kind: "ignored";
-      reason: "version" | "malformed" | "no-waiting-ask" | "unverified" | "settled";
+      reason: "version" | "malformed" | "no-waiting-ask" | "unverified" | "settled" | "stale";
     }
   | { kind: "declined"; code: string }
   | { kind: "accepted"; code: string; shareKey: string };
@@ -163,7 +166,7 @@ export async function arrivingAnswer(
     conn: number;
     value: unknown;
     refused: boolean;
-    asks: () => ReadonlyArray<{ code: string; owner: string; status: string }>;
+    asks: () => ReadonlyArray<{ code: string; owner: string; status: string; askedAt: number }>;
   },
 ): Promise<AnswerArrival> {
   const { conn, value, refused, asks } = options;
@@ -173,6 +176,9 @@ export async function arrivingAnswer(
   const waiting = (code: string) => asks().find((a) => a.code === code && a.status === "waiting");
   const ask = waiting(answer.code);
   if (!ask) return { kind: "ignored", reason: "no-waiting-ask" };
+  const stale =
+    answer.answer === "declined" && answer.askedAt !== undefined && answer.askedAt < ask.askedAt;
+  if (stale) return { kind: "ignored", reason: "stale" };
   if ((await ports.provenIdentity(conn)) !== ask.owner) {
     return { kind: "ignored", reason: "unverified" };
   }

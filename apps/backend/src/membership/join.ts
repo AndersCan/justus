@@ -274,6 +274,20 @@ export async function readJoinRequests(
   return { requests, ambiguous };
 }
 
+function answerClosesRequest(
+  f: FoundJoinRequest,
+  options: {
+    answers: Record<string, "accepted" | "declined"> | undefined;
+    declinedAsks?: Readonly<Record<string, number>>;
+  },
+): boolean {
+  const answer = options.answers?.[f.identity];
+  if (!answer) return false;
+  if (answer === "accepted") return true;
+  const answeredAsk = options.declinedAsks?.[f.identity];
+  return answeredAsk === undefined || f.request.requestedAt <= answeredAsk;
+}
+
 /** The requests still waiting on the Admin: not enrolled, not denied, and not
  * an invite request that already has an answer. */
 export function pendingJoinRequests(
@@ -282,6 +296,8 @@ export function pendingJoinRequests(
     registry: RegistryFile;
     denied: ReadonlySet<string>;
     answers: Record<string, "accepted" | "declined"> | undefined;
+    /** When the ask each declined identity was answered on; a newer request is listed again. */
+    declinedAsks?: Readonly<Record<string, number>>;
     /** Identities with an open friend invite to this album: the Admin's phone lets
      * them in itself (`acceptOfferedFriend`), so they are not listed. */
     invited?: ReadonlySet<string>;
@@ -297,7 +313,7 @@ export function pendingJoinRequests(
       if (enrolled.has(key)) return false;
       if (options.viewers?.has(key)) return false;
       if (options.denied.has(key)) return false;
-      if (f.viaInvite && options.answers?.[f.identity]) return false;
+      if (f.viaInvite && answerClosesRequest(f, options)) return false;
       return true;
     })
     .map((f) => (f.viaInvite ? { ...f.request, viaInvite: true } : f.request));

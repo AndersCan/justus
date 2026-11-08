@@ -191,9 +191,18 @@ describe("invites: asking through a link", () => {
     expect(checkAsk({ code: hex("f"), owner: hex("a") }, held).kind, "check: own album").toBe(
       "have-album",
     );
-    const known = checkAsk({ code: hex("e"), owner: hex("a") }, held);
+    expect(checkAsk({ code: hex("e"), owner: hex("a") }, held), "check: declined is new").toEqual({
+      kind: "new",
+      code: hex("e"),
+      owner: hex("a"),
+    });
+    const waiting = { code: hex("d"), status: "waiting" };
+    const known = checkAsk(
+      { code: hex("d"), owner: hex("a") },
+      { folders: [], asks: [declined, waiting] },
+    );
     expect(known.kind, "check: asked before").toBe("known");
-    expect(known.kind === "known" && known.ask, "check: the same object").toBe(declined);
+    expect(known.kind === "known" && known.ask, "check: the same object").toBe(waiting);
   });
 });
 
