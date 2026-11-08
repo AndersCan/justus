@@ -11,6 +11,8 @@ export type Person = {
   identity?: string;
   /** Saved on this device as a friend. */
   friend: boolean;
+  /** Saved friend name this non-friend's own name equals. */
+  clash?: string;
   /** The row can be tapped to open the friend sheet. */
   tappable: boolean;
   admin: boolean;
@@ -24,7 +26,7 @@ export type Person = {
 
 /** A pending join request with the name to show: your friend name for the
  * asker when their identity key is a saved friend. */
-export type RequestRow = JoinRequest & { name: string; friend: boolean };
+export type RequestRow = JoinRequest & { name: string; friend: boolean; clash?: string };
 
 export type People = {
   people: Person[];
@@ -35,6 +37,33 @@ export type People = {
   /** Pending join requests for the active album (Admin only). */
   requests: RequestRow[];
 };
+
+function nameKey(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** The saved friend name a non-friend's typed name equals, ignoring case and
+ * spacing. undefined when none matches. */
+export function clashFriend(name: string, friends: Record<string, string>): string | undefined {
+  const key = nameKey(name);
+  if (key === "") return undefined;
+  let found: string | undefined;
+  for (const saved of Object.values(friends)) {
+    if (nameKey(saved) === key && (found === undefined || saved < found)) found = saved;
+  }
+  return found;
+}
+
+/** The line above the requests: ask for the check code first. */
+export function requestsHint(rows: RequestRow[]): string {
+  if (rows.some((r) => r.clash !== undefined)) {
+    return "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.";
+  }
+  if (rows.some((r) => r.checkCode)) {
+    return "Not sure who it is? Ask them which check code their phone shows.";
+  }
+  return "";
+}
 
 /** Presence line for one member. Wording is "connected", never "online". */
 export function presenceLabel(
@@ -64,12 +93,15 @@ export function buildPeople(
       const you = i === 0;
       const ownName = m.name || "Unknown device";
       const friendName = !you && m.identity !== undefined ? friends[m.identity] : undefined;
+      const friend = friendName !== undefined;
+      const clash = !you && !friend ? clashFriend(ownName, friends) : undefined;
       return {
         key: m.key,
         name: friendName ?? ownName,
         ownName,
         identity: m.identity,
-        friend: friendName !== undefined,
+        friend,
+        ...(clash !== undefined && { clash }),
         tappable: !you && m.identity !== undefined,
         admin: m.admin,
         viewer: m.viewer === true,
@@ -93,7 +125,14 @@ export function buildPeople(
           .map((r): RequestRow => {
             const friendName =
               r.requesterIdentity !== undefined ? friends[r.requesterIdentity] : undefined;
-            return { ...r, name: friendName ?? r.requesterName, friend: friendName !== undefined };
+            const friend = friendName !== undefined;
+            const clash = friend ? undefined : clashFriend(r.requesterName, friends);
+            return {
+              ...r,
+              name: friendName ?? r.requesterName,
+              friend,
+              ...(clash !== undefined && { clash }),
+            };
           })
       : [],
   };
