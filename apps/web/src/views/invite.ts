@@ -137,6 +137,12 @@ export function friendNamesLine(choices: FriendChoice[]): string {
   return `From your friends: ${list}. They get the invite in Justus, no link needed.`;
 }
 
+/** Shown to the Admin while friend invites wait for a friend to open Justus; null when none wait. */
+export function waitingLine(waitingFor: string[] | undefined): string | null {
+  if (!waitingFor || waitingFor.length === 0) return null;
+  return "Invites waiting for friends. They go out when both of you have Justus open.";
+}
+
 /** Invite surface: pick how long the link works, then one tap sends it (share
  * sheet, or copy where there is none). The link itself is never drawn; the QR,
  * for someone standing next to you, only after a tap and only once a link is made.
@@ -192,6 +198,7 @@ function invitePanelBody(
   );
   // One coloured button: Add a friend when a friend can be added, else the link.
   const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
+  const waiting = waitingLine(folder.waitingFor);
   const canShare = typeof navigator.share === "function";
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
@@ -225,6 +232,7 @@ function invitePanelBody(
               <p class="mb-4 text-sm text-muted">${friendNamesLine(choices)}</p>
               <h3 class="ui-label mb-1">Or send a link</h3>`
       }
+      ${waiting ? html`<p class="mb-4 text-sm text-muted" role="status">${waiting}</p>` : null}
       <p class="mb-4 text-sm text-fg">
         Send the link to people you want in “${folder.name}”. They ask to join and you choose who
         gets in. They see no photos until you accept.
