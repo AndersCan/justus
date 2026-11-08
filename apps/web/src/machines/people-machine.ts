@@ -21,6 +21,8 @@ const PEOPLE_STATES = [
   "couldNotLetViewerAddPhotos",
   "makingViewer",
   "couldNotMakeViewer",
+  "takingBackInvite",
+  "couldNotTakeBackInvite",
 ] as const;
 export type PeopleStateName = (typeof PEOPLE_STATES)[number];
 
@@ -40,6 +42,10 @@ const couldNotLetViewerAddPhotos = state("couldNotLetViewerAddPhotos")();
 const makingViewer = state("makingViewer")();
 /** It could not be saved; the person stays a Collaborator and the sheet says why. */
 const couldNotMakeViewer = state("couldNotMakeViewer")();
+/** Taking back a friend's invite; the Take back buttons wait. */
+const takingBackInvite = state("takingBackInvite")();
+/** The invite could not be taken back; the Invite card says why and the friend stays invited. */
+const couldNotTakeBackInvite = state("couldNotTakeBackInvite")();
 
 /** The person taps the people chip to see who is in the album. */
 const openSheet = event("OPEN")();
@@ -68,6 +74,17 @@ const madeViewer = event("MADE_VIEWER")();
 /** The Collaborator could not be made a Viewer. */
 const makeViewerFailed = event("MAKE_VIEWER_FAILED")<{ message: string }>();
 
+/** The Admin takes back the invite sent to one friend. */
+const takeBackInvite = event("TAKE_BACK_INVITE")<{
+  folderId: string;
+  identity: string;
+  name: string;
+}>();
+/** The invite is gone from the friend's side, or was already. */
+const inviteTakenBack = event("INVITE_TAKEN_BACK")<{ gone: boolean }>();
+/** The invite could not be taken back. */
+const takeBackFailed = event("TAKE_BACK_FAILED")<{ message: string }>();
+
 /** The person asks to see the invite QR code. */
 const showQr = event("SHOW_QR")();
 
@@ -83,8 +100,11 @@ const memberMadeViewer = event("MEMBER_MADE_VIEWER")<{ memberKey: string }>();
 /** The member is out of the album; the view tells the Admin. */
 const memberRemoved = event("MEMBER_REMOVED")<{ memberKey: string }>();
 
+/** The invite is taken back; the view tells the Admin. `name` is empty when the friend has no saved name. */
+const inviteWithdrawn = event("INVITE_WITHDRAWN")<{ name: string }>();
+
 type PeopleContext = {
-  pending: { folderId: string; memberKey: string } | null;
+  pending: { folderId: string; memberKey: string; name?: string } | null;
   error: string | null;
   qrShown: boolean;
 };
@@ -94,6 +114,11 @@ const nameOf = stateNameOf(PEOPLE_STATES);
 function isAlreadyEnrolled(err: unknown) {
   const e = err as { code?: string; message?: string } | null;
   return e?.code === "justus.photos/already-enrolled" || /already enrolled/i.test(e?.message ?? "");
+}
+
+/** The friend's invite is already gone, so there is nothing left to take back. */
+function isOfferGone(err: unknown) {
+  return (err as { code?: string } | null)?.code === "justus.photos/offer-gone";
 }
 
 /** The People sheet view model as a pure function of the actor snapshot and
@@ -108,22 +133,38 @@ export function peopleViewModel(
     ...buildPeople(deps.status, deps.requests, deps.friends),
     open: state !== "peopleSheetClosed",
     busy:
-      state === "removingMember" || state === "lettingViewerAddPhotos" || state === "makingViewer",
+      state === "removingMember" ||
+      state === "lettingViewerAddPhotos" ||
+      state === "makingViewer" ||
+      state === "takingBackInvite",
     qrShown: s.context.qrShown,
-    error: fatalErrorOf(s)?.message ?? s.context.error,
+    error:
+      fatalErrorOf(s)?.message ?? (state === "couldNotTakeBackInvite" ? null : s.context.error),
+    takeBackError: state === "couldNotTakeBackInvite" ? s.context.error : null,
     isAdmin: deps.status?.folder.role === "creator",
     folder: deps.status?.folder ?? null,
     myName: deps.status?.name ?? "",
   };
 }
 
-type PeoplePort = Pick<typeof gateway, "removeMember" | "makeMember" | "makeViewer">;
+type PeoplePort = Pick<
+  typeof gateway,
+  "removeMember" | "makeMember" | "makeViewer" | "takeBackOffer"
+>;
 
 /** The Admin's removal runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
 export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort }) {
   const port = options.gateway ?? gateway;
   return Actor({
-    inputs: [openSheet, closeSheet, removeMember, letViewerAddPhotos, makeViewer, showQr],
+    inputs: [
+      openSheet,
+      closeSheet,
+      removeMember,
+      letViewerAddPhotos,
+      makeViewer,
+      takeBackInvite,
+      showQr,
+    ],
     internal: [
       removed,
       removeFailed,
@@ -131,8 +172,10 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       letViewerAddFailed,
       madeViewer,
       makeViewerFailed,
+      inviteTakenBack,
+      takeBackFailed,
     ],
-    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer, memberRemoved],
+    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer, memberRemoved, inviteWithdrawn],
     states: [
       peopleSheetClosed,
       showingPeople,
@@ -142,6 +185,8 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
       couldNotLetViewerAddPhotos,
       makingViewer,
       couldNotMakeViewer,
+      takingBackInvite,
+      couldNotTakeBackInvite,
     ],
     initial: peopleSheetClosed,
     clock: options.clock,
@@ -161,6 +206,7 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
         couldNotRemoveMember,
         couldNotLetViewerAddPhotos,
         couldNotMakeViewer,
+        couldNotTakeBackInvite,
       ]) {
         /** Closing the sheet hides it again. */
         m.on(at, {
@@ -207,6 +253,74 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
           },
         });
       }
+      for (const at of [peopleSheetClosed, showingPeople, couldNotTakeBackInvite]) {
+        /** The Invite card is on the album page whether or not the sheet is open, so Take back works from a closed sheet too; the machine shows that the invite is being taken back. */
+        m.on(at, {
+          event: takeBackInvite,
+          to: [takingBackInvite],
+          handler: (e, opts) => {
+            const { folderId, identity, name } = e.payload;
+            opts.context.set({
+              ...opts.context.get(),
+              pending: { folderId, memberKey: identity, name },
+              error: null,
+            });
+            return { state: takingBackInvite };
+          },
+        });
+      }
+      /** The person asks for the invite QR code while an invite is being taken back; it stays up until the sheet closes. */
+      m.on(takingBackInvite, {
+        event: showQr,
+        handler: (_e, opts) => {
+          opts.context.set({ ...opts.context.get(), qrShown: true });
+          return {};
+        },
+      });
+      /** The friend's invite is taken back. An invite that is already gone counts as done. */
+      m.effect(takingBackInvite, {
+        name: "takingBackInvite",
+        sends: [inviteTakenBack, takeBackFailed],
+        fn: ({ signal, emit, context }) => {
+          const pending = context.get().pending;
+          if (!pending) {
+            emit(takeBackFailed.create({ message: "no invite to take back" }));
+            return;
+          }
+          return (async () => {
+            try {
+              const [err] = await port.takeBackOffer(pending.folderId, pending.memberKey);
+              if (signal.aborted) return;
+              if (!err) emit(inviteTakenBack.create({ gone: false }));
+              else if (isOfferGone(err)) emit(inviteTakenBack.create({ gone: true }));
+              else emit(takeBackFailed.create({ message: err.message || "unknown error" }));
+            } catch (e) {
+              if (signal.aborted) return;
+              emit(takeBackFailed.create({ message: e instanceof Error ? e.message : String(e) }));
+            }
+          })();
+        },
+      });
+      /** The invite is gone and the Invite card drops the friend's row; an invite that was already gone says nothing. */
+      m.on(takingBackInvite, {
+        event: inviteTakenBack,
+        to: [showingPeople],
+        handler: (e, opts) => {
+          const name = opts.context.get().pending?.name ?? "";
+          opts.context.set({ ...opts.context.get(), pending: null, error: null });
+          if (e.payload.gone) return { state: showingPeople };
+          return { state: showingPeople, emit: [inviteWithdrawn.create({ name })] };
+        },
+      });
+      /** Taking back failed: the Invite card says why and the friend stays invited. */
+      m.on(takingBackInvite, {
+        event: takeBackFailed,
+        to: [couldNotTakeBackInvite],
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+          return { state: couldNotTakeBackInvite };
+        },
+      });
       /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
       m.on(removingMember, {
         event: showQr,
@@ -369,6 +483,8 @@ export const people = {
   open: () => peopleActor.send(openSheet.create()),
   close: () => peopleActor.send(closeSheet.create()),
   showQr: () => peopleActor.send(showQr.create()),
+  takeBackInvite: (folderId: string, identity: string, name: string) =>
+    peopleActor.send(takeBackInvite.create({ folderId, identity, name })),
   remove: (folderId: string, memberKey: string) =>
     peopleActor.send(removeMember.create({ folderId, memberKey })),
   letViewerAddPhotos: (folderId: string, memberKey: string) =>

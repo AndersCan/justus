@@ -11,6 +11,7 @@ vi.mock("../gateway", () => ({
     removeMember: vi.fn(),
     makeMember: vi.fn(),
     makeViewer: vi.fn(),
+    takeBackOffer: vi.fn(),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     respond: vi.fn(),
     logs: { view: vi.fn(), clear: vi.fn() },
@@ -286,5 +287,76 @@ describe("making a Collaborator a Viewer", () => {
     const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
     expect(actor.snapshot().path[0]).toBe("makingViewer");
     expect(vm.busy).toBe(true);
+  });
+});
+
+describe("taking back a friend's invite", () => {
+  const outputs: string[] = [];
+  const watchOutputs = (actor: Parameters<typeof onOutput>[0]) =>
+    onOutput(actor, (e) => outputs.push(`${e.type}:${JSON.stringify(e.payload)}`));
+
+  beforeEach(() => {
+    outputs.length = 0;
+    mock.takeBackOffer = vi.fn().mockResolvedValue([null, { ok: true }]);
+  });
+
+  test("calls takeBackOffer, returns to the sheet and says whose invite went", async () => {
+    watchOutputs(peopleActor);
+    people.open();
+    people.takeBackInvite("f1", "k1", "Sam");
+    expect(peopleActor.snapshot().path[0]).toBe("takingBackInvite");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
+    expect(mock.takeBackOffer).toHaveBeenCalledWith("f1", "k1");
+    expect(outputs.filter((o) => o.startsWith("INVITE_WITHDRAWN"))).toEqual([
+      'INVITE_WITHDRAWN:{"name":"Sam"}',
+    ]);
+  });
+
+  test("works while the sheet is closed", async () => {
+    people.takeBackInvite("f1", "k1", "Sam");
+    await vi.waitFor(() => expect(mock.takeBackOffer).toHaveBeenCalled());
+  });
+
+  test("an invite that is already gone finishes quietly", async () => {
+    mock.takeBackOffer.mockResolvedValue([
+      Object.assign(new Error("This invite was taken back"), { code: "justus.photos/offer-gone" }),
+      null,
+    ]);
+    const before = outputs.length;
+    people.open();
+    people.takeBackInvite("f1", "k1", "Sam");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("showingPeople"));
+    expect(peopleActor.snapshot().context.error).toBeNull();
+    expect(outputs.slice(before).some((o) => o.startsWith("INVITE_WITHDRAWN"))).toBe(false);
+  });
+
+  test("another error lands in couldNotTakeBackInvite, away from the Members error", async () => {
+    mock.takeBackOffer.mockResolvedValue([new Error("boom"), null]);
+    people.open();
+    people.takeBackInvite("f1", "k1", "Sam");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("couldNotTakeBackInvite"));
+    const vm = peopleViewModel(peopleActor.snapshot(), { status: null, requests: [], friends: {} });
+    expect(vm.takeBackError).toBe("boom");
+    expect(vm.error).toBeNull();
+    people.takeBackInvite("f1", "k1", "Sam");
+    expect(peopleActor.snapshot().path[0]).toBe("takingBackInvite");
+  });
+
+  test("CLOSE works after a failure, and busy while taking back", async () => {
+    const actor = createPeopleActor({
+      clock: VirtualClock(),
+      gateway: { takeBackOffer: () => new Promise(() => {}) } as any,
+    });
+    actor.send({
+      type: "TAKE_BACK_INVITE",
+      payload: { folderId: "f", identity: "k", name: "" },
+    } as never);
+    const vm = peopleViewModel(actor.snapshot(), { status: null, requests: [], friends: {} });
+    expect(vm.busy).toBe(true);
+    mock.takeBackOffer.mockResolvedValue([new Error("boom"), null]);
+    people.takeBackInvite("f1", "k1", "Sam");
+    await vi.waitFor(() => expect(peopleActor.snapshot().path[0]).toBe("couldNotTakeBackInvite"));
+    people.close();
+    expect(peopleActor.snapshot().path[0]).toBe("peopleSheetClosed");
   });
 });

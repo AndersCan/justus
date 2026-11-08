@@ -181,6 +181,14 @@ onOutput(peopleActor, (e) => {
 });
 
 onOutput(peopleActor, (e) => {
+  if (e.type !== "inviteWithdrawn" && e.type !== "INVITE_WITHDRAWN") return;
+  const name = (e.payload as { name: string }).name;
+  toast(
+    name ? copy("invite.took_back_name_s_invite", { name }) : copy("invite.took_back_the_invite"),
+  );
+});
+
+onOutput(peopleActor, (e) => {
   if (e.type !== "memberRemoved" && e.type !== "MEMBER_REMOVED") return;
   const key = (e.payload as { memberKey: string }).memberKey;
   const removed = removedPeople.get(key);
@@ -703,6 +711,8 @@ function albumBody(
         () => people.showQr(),
         status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
         friends,
+        vm.busy,
+        vm.takeBackError,
       )}
     </div>
     ${status.folder.notice?.kind === "removed" ? null : membersSection(vm, id)}

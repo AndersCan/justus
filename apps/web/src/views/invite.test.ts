@@ -186,3 +186,105 @@ describe("waiting invites line", () => {
     expect(mountWith("member", ["k"]).textContent).not.toContain(WAIT);
   });
 });
+
+describe("invited friends list", () => {
+  const takeBack = vi.hoisted(() => vi.fn());
+  vi.mock("../machines/people-machine", async (orig) => ({
+    ...(await orig<object>()),
+    people: { takeBackInvite: takeBack },
+  }));
+
+  const mountInvited = (
+    role: string,
+    invitedFriends: { identity: string; role: "reader" | "member" }[] | undefined,
+    opts: {
+      friends?: Record<string, string>;
+      members?: string[];
+      busy?: boolean;
+      error?: string;
+    } = {},
+  ) => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const f = { ...folder(role), invitedFriends } as FolderSummary;
+    render(
+      invitePanel(
+        f,
+        "Nils",
+        "Nils",
+        false,
+        () => {},
+        opts.members ?? [],
+        opts.friends ?? {},
+        opts.busy ?? false,
+        opts.error ?? null,
+      ),
+      host,
+    );
+    return host;
+  };
+  const button = (host: HTMLElement) => host.querySelector<HTMLButtonElement>("li button");
+
+  test("lists a friend with the role and a Take back button", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], {
+      friends: { k: "Kari" },
+    });
+    expect(host.textContent).toContain("Invited, not in yet");
+    expect(host.querySelector("li")?.textContent).toContain("Kari");
+    expect(host.querySelector("li")?.textContent).toContain("Viewer");
+    expect(button(host)?.getAttribute("aria-label")).toBe("Take back Kari's invite");
+  });
+
+  test("a Collaborator row says Collaborator", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "member" }], {
+      friends: { k: "Kari" },
+    });
+    expect(host.querySelector("li")?.textContent).toContain("Collaborator");
+  });
+
+  test("a friend without a saved name is Someone you invited", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }]);
+    expect(host.textContent).toContain("Someone you invited");
+    expect(button(host)?.getAttribute("aria-label")).toBe("Take back this invite");
+  });
+
+  test("someone already in the album is not listed", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], { members: ["k"] });
+    expect(host.textContent).not.toContain("Invited, not in yet");
+    expect(host.querySelector("li")).toBeNull();
+  });
+
+  test("an invited friend is not offered again, but the list shows", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], {
+      friends: { k: "Kari" },
+    });
+    expect(host.textContent).not.toContain("From your friends");
+    expect(host.textContent).not.toContain("Add a friend");
+    expect(host.textContent).toContain("Kari");
+  });
+
+  test("busy disables Take back", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], { busy: true });
+    expect(button(host)?.disabled).toBe(true);
+  });
+
+  test("a member never sees the list", () => {
+    const host = mountInvited("member", [{ identity: "k", role: "reader" }]);
+    expect(host.textContent).not.toContain("Invited, not in yet");
+  });
+
+  test("clicking Take back asks the machine", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], {
+      friends: { k: "Kari" },
+    });
+    button(host)?.click();
+    expect(takeBack).toHaveBeenCalledWith("f1", "k", "Kari");
+  });
+
+  test("a failed Take back shows an alert in the card", () => {
+    const host = mountInvited("creator", [{ identity: "k", role: "reader" }], { error: "boom" });
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't take back the invite.",
+    );
+  });
+});

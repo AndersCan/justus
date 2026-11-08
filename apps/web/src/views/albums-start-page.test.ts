@@ -6,6 +6,7 @@ const mock = vi.hoisted(() => ({
   requests: vi.fn(),
   status: vi.fn(),
   makeViewer: vi.fn(),
+  takeBackOffer: vi.fn(),
 }));
 vi.mock("../gateway", () => ({
   gateway: {
@@ -18,6 +19,7 @@ vi.mock("../gateway", () => ({
     removeMember: vi.fn(async () => [null, { ok: true }]),
     makeMember: vi.fn(async () => [null, { ok: true }]),
     makeViewer: mock.makeViewer,
+    takeBackOffer: mock.takeBackOffer,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
