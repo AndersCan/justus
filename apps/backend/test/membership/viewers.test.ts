@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Drive } from "../../src/ports/drive-store.ts";
 import type { RegistryFile, ViewersFile } from "../../src/membership/records.ts";
-import { makeMemberViewer, makeViewerMember } from "../../src/membership/viewers.ts";
+import { makeMemberViewer, makeViewerMember, removeViewer } from "../../src/membership/viewers.ts";
 
 const KEY = "a".repeat(64);
 
@@ -129,5 +129,37 @@ describe("makeViewerMember", () => {
       "key",
       "name",
     ]);
+  });
+});
+
+describe("removeViewer", () => {
+  it("removes only the key and leaves the input unchanged", async () => {
+    const other = "b".repeat(64);
+    const input: ViewersFile = {
+      version: 1,
+      viewers: {
+        [KEY]: { key: KEY, name: "Nils", addedAt: 1 },
+        [other]: { key: other, name: "Ida", addedAt: 2 },
+      },
+    };
+    const { drive, writes } = fakeDrive();
+    const [err, next] = await removeViewer(drive, { viewers: input, viewerKey: KEY });
+    expect(err).toBeNull();
+    expect(Object.keys(next!.viewers)).toEqual([other]);
+    expect(Object.keys(input.viewers)).toEqual([KEY, other]);
+    expect(writes).toHaveLength(1);
+  });
+
+  it("says no-such-viewer for an unknown key and writes nothing", async () => {
+    const { drive, writes } = fakeDrive();
+    const [err] = await removeViewer(drive, { viewers: empty, viewerKey: KEY });
+    expect(err?.kind).toBe("no-such-viewer");
+    expect(writes).toEqual([]);
+  });
+
+  it("says write-failed when the put throws", async () => {
+    const { drive } = fakeDrive("/viewers.json");
+    const [err] = await removeViewer(drive, { viewers: keptViewers(), viewerKey: KEY });
+    expect(err?.kind).toBe("write-failed");
   });
 });

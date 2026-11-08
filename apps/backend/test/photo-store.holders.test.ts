@@ -479,6 +479,34 @@ describe("who has each photo", () => {
     await s.close();
   }, 20_000);
 
+  it("names a Viewer whose phone says they left", async () => {
+    const s = await album({ viewer: true });
+    const photo = (await s.nilsPhoto())!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await until(async () => (await s.annaPhoto()).holders!.others.length === 1);
+    const drive = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    await drive.put("/left.json", Buffer.from(JSON.stringify({ version: 1, leftAt: Date.now() })));
+    await until(async () => (await s.annaPhoto()).holders!.former.length === 1);
+    const holders = (await s.annaPhoto()).holders!;
+    expect(holders.others).toEqual([]);
+    expect(holders.former).toEqual(["New member"]);
+    const members = (await s.anna.store.status()).members as { key: string }[];
+    expect(members.map((m) => m.key)).not.toContain(s.nilsKey);
+    await s.close();
+  }, 20_000);
+
+  it("an old left note does not drop a Viewer", async () => {
+    const s = await album({ viewer: true });
+    const photo = (await s.nilsPhoto())!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await until(async () => (await s.annaPhoto()).holders!.others.length === 1);
+    const drive = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    await drive.put("/left.json", Buffer.from(JSON.stringify({ version: 1, leftAt: 1 })));
+    await sleep(1_000);
+    expect((await s.annaPhoto()).holders!.others).toHaveLength(1);
+    await s.close();
+  }, 20_000);
+
   it("drops the name when the person is accepted again", async () => {
     const s = await threePhones();
     const shareKey = (await s.cleo.store.folders()).folders[0].shareKey;

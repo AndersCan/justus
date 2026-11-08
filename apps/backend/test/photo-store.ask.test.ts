@@ -11,7 +11,7 @@ import { inviteTopic } from "../src/membership/invite.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
-import { createFakeHub, createFakePeerNetwork } from "./fakes/fake-world.ts";
+import { createFakeHub, createFakePeerNetwork, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import {
   fakeStoreDeps,
   peerPhone,
@@ -415,6 +415,56 @@ describe("accepting as a Viewer", () => {
     expect(status.folder.members, "Admin and one Viewer").toBe(2);
     const again = await s.admin.store.respond(s.folderId, s.key, true, "reader");
     expect(again[0]).toMatchObject({ code: PhotoError.ALREADY_ENROLLED });
+    await s.close();
+  });
+
+  /** The asker's drive already says they left (after any listing); `whileReading` runs as the Admin reads that note. */
+  async function leaver(whileReading?: () => Promise<void>) {
+    const s = await asked();
+    for (const node of s.hub.nodes) setFakeNodeConnected({ hub: s.hub, node, connected: true });
+    expect((await s.admin.store.respond(s.folderId, s.key, true, "reader"))[0]).toBeNull();
+    // Let the asker's phone settle: joining clears any left note on its drive.
+    await new Promise((r) => setTimeout(r, 600));
+    const held = await openDrive(s.admin, s.key);
+    const read = held.readSmall.bind(held);
+    held.readSmall = (async (path: string, max: number) => {
+      if (path === "/left.json") await whileReading?.();
+      return read(path, max);
+    }) as typeof held.readSmall;
+    const theirs = await openDrive(s.joiner, s.key);
+    await theirs.put(
+      "/left.json",
+      Buffer.from(JSON.stringify({ version: 1, leftAt: Date.now() + 60_000 })),
+    );
+    const albumDrive = await albumDriveOf(s);
+    const keys = async () =>
+      Object.keys(JSON.parse((await readText(albumDrive, "/viewers.json"))!).viewers);
+    return { ...s, albumDrive, keys };
+  }
+
+  it("a Viewer who left has their answer cleared, so the old link asks afresh", async () => {
+    const s = await leaver();
+    const saved = () =>
+      JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    await until(async () => !(await s.keys()).includes(s.key));
+    await until(() => (saved().folders[0].answers ?? {})[s.outboxKey] === undefined);
+    expect(await s.keys()).toEqual([]);
+    expect(saved().folders[0].answers ?? {}).toEqual({});
+    await s.close();
+  });
+
+  it("a Viewer seated while the drop reads the left note stays on the list", async () => {
+    const other = "e".repeat(64);
+    let albumDrive: Drive | undefined;
+    const s = await leaver(async () => {
+      if (!albumDrive) return;
+      const file = JSON.parse((await readText(albumDrive, "/viewers.json"))!);
+      file.viewers[other] = { key: other, name: "Late", addedAt: Date.now() };
+      await albumDrive.put("/viewers.json", Buffer.from(JSON.stringify(file)));
+    });
+    albumDrive = s.albumDrive;
+    await until(async () => !(await s.keys()).includes(s.key));
+    expect(await s.keys()).toEqual([other]);
     await s.close();
   });
 
