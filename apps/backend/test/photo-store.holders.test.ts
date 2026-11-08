@@ -553,6 +553,33 @@ describe("who has each photo", () => {
     await s.nils.store.close();
   }, 20_000);
 
+  it("a Collaborator made a Viewer just before leaving is dropped from the Viewers list", async () => {
+    const s = await album();
+    expect((await s.anna.store.makeViewer(s.folderId, s.nilsKey))[0]).toBeNull();
+    expect((await s.nils.store.leaveAlbum(s.nilsFolderId))[0]).toBeNull();
+    const gone = () =>
+      (s.nils.store.debugState() as { gone: { kind?: string; listedIn?: string }[] }).gone;
+    expect(gone().map((g) => [g.kind, g.listedIn])).toEqual([
+      ["waitingForAdminToSeeYouLeft", "viewers"],
+    ]);
+    await until(async () => gone().length === 0);
+    await s.close();
+  }, 20_000);
+
+  it("a Viewer who leaves and restarts keeps waiting on the Viewers list", async () => {
+    const s = await album({ viewer: true });
+    await s.anna.store.close();
+    expect((await s.nils.store.leaveAlbum(s.nilsFolderId))[0]).toBeNull();
+    await s.nils.store.close();
+    const reopened = createPhotoStore(restarted(s.nils.deps));
+    await reopened.ready();
+    const gone = (reopened.debugState() as { gone: { kind?: string; listedIn?: string }[] }).gone;
+    expect(gone.map((g) => [g.kind, g.listedIn])).toEqual([
+      ["waitingForAdminToSeeYouLeft", "viewers"],
+    ]);
+    await reopened.close();
+  }, 20_000);
+
   it("drops the name when the person is accepted again", async () => {
     const s = await threePhones();
     const shareKey = (await s.cleo.store.folders()).folders[0].shareKey;
