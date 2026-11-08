@@ -46,6 +46,7 @@ import {
   DRIVE_PATH_DELETED,
   deleteOwnPhotos,
   readDeleteNote,
+  listedWithin,
   readLeftNote,
   writeDeleteNote,
   writeLeftNote,
@@ -2035,8 +2036,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return true;
         }
         if (rt.record.role !== "reader" || rt.record.notice?.kind === "removed") return false;
-        await refreshViewers(rt);
-        return rt.viewers[selfKeyOf(rt)] !== undefined;
+        // This phone's copy of the Admin's list can trail the Admin's accept: look again before concluding the Admin does not list us.
+        return listedWithin({
+          isListed: async () => {
+            await refreshViewers(rt);
+            return rt.viewers[selfKeyOf(rt)] !== undefined;
+          },
+          tries: 12,
+          waitMs: 250,
+        });
       },
       writeLeftNote: async () => {
         const [error] = await writeLeftNote(rt.selfDrive, { at: Date.now() });
