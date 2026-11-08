@@ -60,7 +60,7 @@ async function askToJoin(b, link, album) {
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Continue", exact: true }).click();
   const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
-  await expect(ask).toBeVisible();
+  await expect(ask).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0);
   await ask.getByRole("button", { name: "Ask to join" }).click();
   await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });

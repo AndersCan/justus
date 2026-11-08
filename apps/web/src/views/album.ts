@@ -395,7 +395,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
         ? html`<div class="mb-3">
             <button
               class="ui-btn-primary w-full"
-              ?disabled=${reqVm.responding}
+              ?disabled=${reqVm.responding || reqVm.loading}
               @click=${() => requests.acceptAllAsViewers(id, keys)}
             >
               Accept all ${keys.length} as Viewers
@@ -410,7 +410,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
       ${repeat(vm.requests, requestKey, (r) =>
         requestRow(
           r,
-          reqVm.responding,
+          reqVm.responding || reqVm.loading,
           reqVm.failedAnswer?.folderId === r.folderId &&
             reqVm.failedAnswer.requesterKey === r.requesterKey
             ? reqVm.error
