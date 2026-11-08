@@ -150,7 +150,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   });
 });
 
-test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones", async ({
+test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A removes B: B is no longer in the album and keeps the photo", async ({
   instancePages,
 }) => {
   test.setTimeout(150_000);
@@ -202,6 +202,22 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones", a
   await b.getByRole("link", { name: "See photos in this album" }).click();
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible({ timeout: 60_000 });
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  const people = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  await people.getByRole("button", { name: "Remove", exact: true }).click();
+  await a.getByRole("button", { name: "Remove", exact: true }).last().click();
+
+  await expect(
+    b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
+  await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible();
+  await b.goto("/sharing");
+  await expect(b.getByText("No longer in this album")).toBeVisible({ timeout: 60_000 });
 });
 
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
