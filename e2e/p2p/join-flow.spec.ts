@@ -660,3 +660,68 @@ test("A saved friend and a stranger with the friend's name ask by link: only the
     timeout: 60_000,
   });
 });
+
+test("A takes back the invite sent to friend B: the row goes on A and the invite goes from B's Sharing page", async ({
+  instancePages,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, FRIEND_ALBUM, PHOTO, 11);
+  const firstLink = await copyInviteLink(a);
+  await askToJoin(b, firstLink, FRIEND_ALBUM);
+  await expect(a.getByText(`wants to join “${FRIEND_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  const tap = members
+    .locator("li", { hasText: "connected" })
+    .filter({ hasNot: a.getByText("(you)") })
+    .getByRole("button")
+    .first();
+  await expect(tap).toBeVisible({ timeout: 60_000 });
+  await tap.click();
+  // The instances outlive a test, so an earlier test may already have saved B as Sam.
+  const add = a.getByRole("button", { name: "Add to friends" });
+  const known = a.getByText("Saved as a friend");
+  await expect(add.or(known)).toBeVisible();
+  if (await add.isVisible()) {
+    await add.click();
+    await a.getByRole("textbox", { name: "Name", exact: true }).fill("Sam");
+    await a.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.getByText("Saved Sam as a friend")).toBeVisible();
+  } else {
+    await a.getByRole("button", { name: "Close" }).click();
+  }
+
+  const porto = "Porto trip";
+  await createAlbum(a, porto, "hub-lisbon.png", 84);
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  await a.getByRole("button", { name: "Add a friend" }).click();
+  await a.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
+  await a.getByRole("button", { name: "Add Sam as a Viewer", exact: true }).click();
+  await expect(a.getByText("Asked Sam to join as a Viewer")).toBeVisible({ timeout: 60_000 });
+
+  const row = a.locator("li", { hasText: "Viewer" }).filter({
+    has: a.getByRole("button", { name: "Take back Sam's invite" }),
+  });
+  await expect(a.getByText("Invited, not in yet")).toBeVisible({ timeout: 60_000 });
+  await expect(row).toContainText("Sam");
+  await a.getByRole("button", { name: "Take back Sam's invite" }).click();
+  await expect(a.getByText("Took back Sam's invite.")).toBeVisible({ timeout: 60_000 });
+  await expect(row).toHaveCount(0);
+
+  await b.goto("/sharing");
+  await expect
+    .poll(
+      async () => b.locator("li", { hasText: "invited you" }).filter({ hasText: porto }).count(),
+      {
+        timeout: 60_000,
+      },
+    )
+    .toBe(0);
+});

@@ -2659,6 +2659,62 @@
     "who": "Admins sending invites",
     "screen": ""
   },
+  "invite.invited_not_in_yet": {
+    "text": "Invited, not in yet",
+    "status": "draft",
+    "where": "Invite & join › heading",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.someone_you_invited": {
+    "text": "Someone you invited",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.take_back": {
+    "text": "Take back",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.take_back_name_s_invite": {
+    "text": "Take back {name}'s invite",
+    "status": "draft",
+    "where": "Invite & join › aria-label",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.take_back_this_invite": {
+    "text": "Take back this invite",
+    "status": "draft",
+    "where": "Invite & join › aria-label",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.couldn_t_take_back_the_invite": {
+    "text": "Couldn't take back the invite.",
+    "status": "draft",
+    "where": "Invite & join › error",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.took_back_name_s_invite": {
+    "text": "Took back {name}'s invite.",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
+  "invite.took_back_the_invite": {
+    "text": "Took back the invite.",
+    "status": "draft",
+    "where": "Invite & join › toast",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
   "holding.silent": {
     "text": "Hasn't said yet which photos they have",
     "status": "draft",

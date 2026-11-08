@@ -36,6 +36,7 @@ vi.mock("../gateway", () => ({
     removeMember: vi.fn(),
     makeMember: vi.fn().mockResolvedValue([null, { ok: true }]),
     makeViewer: vi.fn().mockResolvedValue([null, { ok: true }]),
+    takeBackOffer: vi.fn().mockResolvedValue([null, { ok: true }]),
     respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
     list: vi.fn().mockResolvedValue([null, { photos: [] }]),

@@ -1,5 +1,5 @@
 import { html } from "lit-html";
-import type { FolderSummary } from "@justus/core";
+import type { FolderSummary, InvitedFriend } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import {
@@ -7,6 +7,8 @@ import {
   LINK_TURNED_OFF,
   expiredBody,
 } from "../machines/sharing/join-request-machine";
+import { people } from "../machines/people-machine";
+import { friendlyError } from "../utils/friendly-error";
 import { foldersActor } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
 import { buildInviteLink } from "../utils/invite-link";
@@ -150,6 +152,60 @@ export function waitingLine(waitingFor: string[] | undefined): string | null {
   return copy("invite.waiting_for_friends");
 }
 
+/** The friends the Admin invited who are not in the album yet, each with a Take back button. An identity that already joined is left out. */
+function invitedList(
+  folder: FolderSummary,
+  memberIdentities: string[],
+  friends: Record<string, string>,
+  busy: boolean,
+  takeBackError: string | null,
+) {
+  const invited = (folder.invitedFriends ?? []).filter(
+    (f: InvitedFriend) => !memberIdentities.includes(f.identity),
+  );
+  if (invited.length === 0 && !takeBackError) return null;
+  return html`<div class="mt-4">
+    ${
+      invited.length === 0
+        ? null
+        : html`<h3 class="ui-label mb-1">${t("invite.invited_not_in_yet")}</h3>
+            <ul class="divide-y divide-line">
+              ${invited.map((f) => {
+                const name = friends[f.identity];
+                return html`<li class="flex items-center justify-between gap-2 py-2">
+                  <span class="min-w-0 text-sm text-fg">
+                    <span class="font-semibold">${name ?? t("invite.someone_you_invited")}</span>
+                    <span class="text-muted"
+                      >·
+                      ${f.role === "member" ? t("albums.collaborator") : t("albums.viewer")}</span
+                    >
+                  </span>
+                  <button
+                    class="ui-btn-ghost shrink-0"
+                    ?disabled=${busy}
+                    aria-label=${
+                      name
+                        ? copy("invite.take_back_name_s_invite", { name })
+                        : copy("invite.take_back_this_invite")
+                    }
+                    @click=${() => people.takeBackInvite(folder.id, f.identity, name ?? "")}
+                  >
+                    ${t("invite.take_back")}
+                  </button>
+                </li>`;
+              })}
+            </ul>`
+    }
+    ${
+      takeBackError
+        ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">
+            ${copy("invite.couldn_t_take_back_the_invite")} ${friendlyError(takeBackError)}
+          </p>`
+        : null
+    }
+  </div>`;
+}
+
 /** Invite surface: pick how long the link works, then one tap sends it (share
  * sheet, or copy where there is none). The link itself is never drawn; the QR,
  * for someone standing next to you, only after a tap and only once a link is made.
@@ -162,6 +218,8 @@ export function invitePanel(
   onShowQr: () => void,
   memberIdentities: string[] = [],
   friends: Record<string, string> = {},
+  busy = false,
+  takeBackError: string | null = null,
 ) {
   if (folder.role !== "creator" || !folder.invite) {
     return html`
@@ -185,6 +243,8 @@ export function invitePanel(
       onShowQr,
       memberIdentities,
       friends,
+      busy,
+      takeBackError,
     );
   });
 }
@@ -198,10 +258,14 @@ function invitePanelBody(
   onShowQr: () => void,
   memberIdentities: string[],
   friends: Record<string, string>,
+  busy: boolean,
+  takeBackError: string | null,
 ) {
+  // A friend who already holds an invite is listed under Invited, not offered again.
+  const taken = [...memberIdentities, ...(folder.invitedFriends ?? []).map((f) => f.identity)];
   const choices = friendChoices(
     Object.entries(friends).map(([identity, name]) => ({ identity, name })),
-    memberIdentities,
+    taken,
   );
   // One coloured button: Add a friend when a friend can be added, else the link.
   const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
@@ -231,7 +295,7 @@ function invitePanelBody(
                     e.currentTarget as HTMLElement,
                     { folderId: folder.id, albumName: folder.name },
                     friends,
-                    memberIdentities,
+                    taken,
                   )}
               >
                 ${t("invite.add_a_friend")}
@@ -312,6 +376,7 @@ function invitePanelBody(
                 ${t("invite.with_them_now_show_a")}
               </button>`
       }
+      ${invitedList(folder, memberIdentities, friends, busy, takeBackError)}
       ${
         linksOff
           ? null
