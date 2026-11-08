@@ -690,6 +690,89 @@ test("Maya: asks in time, the link ends, Nils accepts", async () => {
   expect(actor.state.name).toBe("joinedAlbum");
 });
 
+describe("linkTurnedOff", () => {
+  const linkOff = { code: INVITE.code, answer: "linkOff" };
+  const found = (code: string) => (code === INVITE.code ? ask("waiting") : undefined);
+
+  async function screen() {
+    const s = await waitingSetup();
+    await s.send("requestAnswered", linkOff);
+    return s;
+  }
+
+  test("a linkOff answer while waiting shows the no-longer-works screen", async () => {
+    const s = await screen();
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+    expect((payload(s) as JoinInvite).code).toBe(INVITE.code);
+  });
+
+  test("a linkOff for another code is ignored while waiting", async () => {
+    const s = await waitingSetup();
+    await s.send("requestAnswered", { code: "c".repeat(64), answer: "linkOff" });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+  });
+
+  test("linkOff with the sheet closed opens the screen for the stored ask", async () => {
+    const s = await waitingSetup({ asked: found });
+    await s.send("closeWaiting");
+    await s.send("requestAnswered", linkOff);
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("linkOff with no stored ask stays quiet", async () => {
+    const s = await waitingSetup({ asked: () => undefined });
+    await s.send("closeWaiting");
+    await s.send("requestAnswered", linkOff);
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("linkOff over Ask to join leaves the sheet alone", async () => {
+    const s = setup({ asked: found });
+    await s.send("openLink", { text: LINK });
+    await s.send("requestAnswered", linkOff);
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("a turned-off row opens the screen", async () => {
+    const s = setup();
+    await s.send("reopenRequest", { ask: ask("linkOff") });
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("Cancel request on the screen takes the request off", async () => {
+    const s = await screen();
+    await s.send("cancelRequest");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs.at(-1)).toEqual({ type: "cancelAsk", payload: { code: INVITE.code } });
+  });
+
+  test("Close keeps the request", async () => {
+    const s = await screen();
+    await s.send("closeLinkTurnedOff");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("a garbled paste keeps the screen", async () => {
+    const s = await screen();
+    await s.send("openLink", { text: "justus://join/not-a-link" });
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test("an accept for another request opens the album over it", async () => {
+    const s = await screen();
+    await s.send("requestAnswered", { code: "c".repeat(64), answer: "accepted", folderId: "f9" });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs.at(-1)).toEqual({ type: "openAlbum", payload: { folderId: "f9" } });
+  });
+});
+
 describe("joiner design", () => {
   const target = {
     id: "joinRequest",
@@ -713,10 +796,15 @@ describe("joiner design", () => {
         { text: "nope" },
         { text: buildInviteLink({ ...INVITE, expiresAt: 1 }) },
       ],
-      reopenRequest: [{ ask: { ...ask("waiting") } }, { ask: { ...ask("declined") } }],
+      reopenRequest: [
+        { ask: { ...ask("waiting") } },
+        { ask: { ...ask("declined") } },
+        { ask: { ...ask("linkOff") } },
+      ],
       requestAnswered: [
         { code: INVITE.code, answer: "accepted", folderId: "f1" },
         { code: INVITE.code, answer: "declined", folderId: "f1" },
+        { code: INVITE.code, answer: "linkOff", folderId: "f1" },
       ],
     },
   };
@@ -746,4 +834,44 @@ test("Maya: closes the waiting screen and Nils declines", async () => {
     await send("requestAnswered", { code: INVITE.code, answer: "declined" });
   });
   expect(actor.state.name).toBe("declinedByAdmin");
+});
+
+test("Maya waits, and Nils turns off his links", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+  });
+  expect(actor.state.name).toBe("linkTurnedOff");
+});
+
+test("Maya closes the waiting screen, and Nils turns off his links", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("closeWaiting");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+  });
+  expect(actor.state.name).toBe("linkTurnedOff");
+});
+
+test("Maya cancels a request whose link was turned off", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+    await send("cancelRequest");
+  });
+  expect(actor.state.name).toBe("noInviteOpen");
+});
+
+test("Maya closes the no-longer-works screen and taps her row again", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+    await send("closeLinkTurnedOff");
+    await send("reopenRequest", { ask: ROW("linkOff") });
+  });
+  expect(actor.state.name).toBe("linkTurnedOff");
 });
