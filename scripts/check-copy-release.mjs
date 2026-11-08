@@ -13,12 +13,12 @@ export function draftIds(catalogue, prefix = "") {
     .sort();
 }
 
-/** Names of store screenshots whose manifest entry is not approved. */
+/** The screenshots the listing uploads; must match SCREENSHOTS in apps/android/fastlane/Fastfile. */
+export const STORE_SHOTS = ["1_album", "2_invite", "3_photo", "4_help"];
+
+/** Expected store screenshots whose manifest entry is missing or not approved: true. */
 export function draftShots(manifest) {
-  return Object.entries(manifest)
-    .filter(([, entry]) => entry.approved !== true)
-    .map(([name]) => name)
-    .sort();
+  return STORE_SHOTS.filter((name) => manifest[name]?.approved !== true).sort();
 }
 
 /**
