@@ -268,6 +268,17 @@ describe("copyOwnEntries and countShownPhotos", () => {
     expect(await copyOwnEntries(from, to, new Set())).toBe(0);
   });
 
+  it("keeps each copied photo's metadata", async () => {
+    const drives = phone();
+    const from = await drives.openOwn("old");
+    const to = await drives.openOwn("new");
+    await from.put("/photos/p1.jpg", Buffer.from("photo-p1"), { metadata: { takenAt: 42 } });
+    await copyOwnEntries(from, to, new Set());
+    const metadata: unknown[] = [];
+    for await (const e of to.list("/photos")) metadata.push(e.metadata);
+    expect(metadata).toEqual([{ takenAt: 42 }]);
+  });
+
   it("counts the photos not removed", async () => {
     const { from } = await twoDrives();
     expect(await countShownPhotos(from, new Set())).toBe(3);

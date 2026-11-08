@@ -391,6 +391,112 @@ describe("the other phones follow the move by themselves", () => {
     expect(mine).toHaveLength(1);
     await s.close();
   }, 40_000);
+  const savedOf = (p: ReturnType<typeof phone>) =>
+    JSON.parse(readFileSync(join(p.deps.storageDir, "justus.json"), "utf8")) as {
+      folders: { id: string; shareKey: string }[];
+      asks: unknown[];
+    };
+
+  /** The phone's new drive (the ask drive) only gets the photos `keep` lets through. */
+  function limitCopies(p: ReturnType<typeof phone>, keep: (path: string) => boolean) {
+    const drives = p.deps.drives;
+    const real = drives.openOwn.bind(drives);
+    drives.openOwn = (async (ns: string) => {
+      const drive = await real(ns);
+      if (!ns.startsWith("ask/")) return drive;
+      return new Proxy(drive, {
+        get(target, prop, receiver) {
+          if (prop !== "put") return Reflect.get(target, prop, receiver);
+          return (path: string, ...rest: unknown[]) =>
+            path.startsWith("/photos/") && !keep(path)
+              ? Promise.resolve()
+              : (target.put as (...a: unknown[]) => unknown)(path, ...rest);
+        },
+      });
+    }) as typeof drives.openOwn;
+  }
+
+  const earlierKeys = (s: Awaited<ReturnType<typeof invited>>) =>
+    ((s.record().earlier ?? []) as { key: string }[]).map((e) => e.key);
+
+  it("the Admin drops a Collaborator's old drive once the new one has all their photos", async () => {
+    const s = await invited();
+    await s.nils.store.addBytes("mine.jpg", new Uint8Array([5, 5, 5]), s.ids.nils);
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect(earlierKeys(s)).toContain(s.keys.nils);
+    await until(() => !earlierKeys(s).includes(s.keys.nils), 15_000);
+    expect(earlierKeys(s)).not.toContain(s.keys.nils);
+    await s.close();
+  }, 40_000);
+
+  it("the Admin keeps the old drive while the new one lists fewer photos", async () => {
+    const s = await invited();
+    limitCopies(s.nils, () => false);
+    await s.nils.store.addBytes("mine.jpg", new Uint8Array([5, 5, 5]), s.ids.nils);
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await sleep(2_000);
+    expect(earlierKeys(s)).toContain(s.keys.nils);
+    await s.close();
+  }, 40_000);
+
+  it("a Viewer follows without copying anything", async () => {
+    const s = await invited();
+    const old = await s.vera.deps.drives.openOwn(`ask/${s.record().invite.code}`);
+    await old.put("/photos/stray.jpg", Buffer.from("stray"));
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    const code = s.record().invite.code as string;
+    await until(async () => (await albumOf(s.vera, s.ids.vera))?.shareKey === next, 15_000);
+    const fresh = await s.vera.deps.drives.openOwn(`ask/${code}`);
+    const copied: string[] = [];
+    for await (const e of fresh.list("/photos")) copied.push(e.path);
+    expect(copied).toEqual([]);
+    await s.close();
+  }, 40_000);
+
+  it("after the follow the old album is gone and the id is kept", async () => {
+    const s = await invited();
+    const before = (await albumOf(s.nils, s.ids.nils))!;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    expect((await s.nils.store.folders()).asks).toHaveLength(0);
+    await until(() => savedOf(s.nils).folders.every((f) => f.shareKey === next), 5_000);
+    const folders = savedOf(s.nils).folders;
+    expect(folders.map((f) => f.id)).toEqual([s.ids.nils]);
+    expect(folders.some((f) => f.shareKey === before.shareKey)).toBe(false);
+    await s.close();
+  }, 40_000);
+
+  it("a repeated offer for the same code does not start a second follow", async () => {
+    const s = await invited();
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    const code = s.record().invite.code as string;
+    const asksBefore = JSON.stringify(savedOf(s.nils).asks);
+    const links = (
+      s.admin.store.debugState() as { connections: { conn: number; identityKey: string | null }[] }
+    ).connections.filter((c) => c.identityKey === identityOf(s.nils));
+    for (const link of links) {
+      for (let i = 0; i < 2; i++) {
+        s.admin.deps.network.sendAnswer(link.conn, {
+          kind: "offer",
+          code,
+          albumName: "Trip",
+          ownerName: "Anna",
+          move: { from: [s.ids.nils], role: "member" },
+        });
+      }
+    }
+    await sleep(1_000);
+    expect(JSON.stringify(savedOf(s.nils).asks)).toBe(asksBefore);
+    expect(savedOf(s.nils).folders).toHaveLength(1);
+    await s.close();
+  }, 40_000);
+
   it("a move offer from someone who is not the Admin is ignored", async () => {
     const s = await invited();
     const nilsId = s.ids.nils;
