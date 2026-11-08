@@ -5,6 +5,12 @@ app's backend API adds an entry here in the same PR, and raises the version it
 breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 `PEER_PROTOCOL`.
 
+## Unreleased · peer protocol 4
+
+- **Removing someone moves the album to new keys** (new drive file `/earlier.json`, new
+  `move` field on invite offers). Who: testers on v0.2.5 or older. Their phones show
+  "<name> needs to update Justus" and stop syncing with updated phones. Do: update Justus.
+
 ## Unreleased · next release after v0.2.1 · peer protocol 3, saved state 2
 
 - **Signed device records** (`/device.json` gains `identityPublicKey` and `identitySig`).
