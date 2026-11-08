@@ -62,3 +62,18 @@ test("every state a page names exists, and journey pages name some", async () =>
   }
   expect(problems).toEqual([]);
 }, 120_000);
+
+test("pages link inside the site, not to anderscan.github.io/justus", () => {
+  const dir = join(root, "docs/site/src/content/docs");
+  const found: string[] = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
+    readFileSync(join(dir, file), "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        if (line.includes("https://anderscan.github.io/justus/") || line.includes('"/justus/')) {
+          found.push(`${file}:${i + 1}`);
+        }
+      });
+  }
+  expect(found).toEqual([]);
+});

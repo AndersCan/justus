@@ -42,6 +42,8 @@ jobs:
 
       - name: Build site
         run: pnpm site:build
+        env:
+          SITE_BASE: ${{ github.event_name == 'pull_request' && format('/justus/pr/{0}', github.event.pull_request.number) || '/justus' }}
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
@@ -50,7 +52,9 @@ jobs:
         run: node scripts/check-flows-site.mjs site-dist
 
       - name: Check the built site
-        run: pnpm exec mantaq-check-site site-dist --base /justus
+        run: pnpm exec mantaq-check-site site-dist --base "$SITE_BASE"
+        env:
+          SITE_BASE: ${{ github.event_name == 'pull_request' && format('/justus/pr/{0}', github.event.pull_request.number) || '/justus' }}
 
       - name: Upload site for review
         if: github.event_name == 'pull_request'
@@ -58,7 +62,7 @@ jobs:
         with:
           name: site-dist
           path: site-dist
-          retention-days: 7
+          retention-days: 14
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
