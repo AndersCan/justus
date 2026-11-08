@@ -75,9 +75,13 @@ async function newAlbum() {
 }
 
 /** The album, if photos can go into it; otherwise tells the user why not. */
-function addableAlbum(folderId: string): string | null {
+export function addableAlbum(folderId: string): string | null {
   const plan = planAdd(folderId, foldersNow(), syncActor.snapshot().context.status);
-  if (plan.kind === "viewer" || plan.kind === "unknown") {
+  if (plan.kind === "unknown") {
+    toast(copy("gallery.getting_your_access"));
+    return null;
+  }
+  if (plan.kind === "viewer") {
     toast(copy("gallery.you_can_view_but_not", { name: plan.album.name }));
     return null;
   }
@@ -627,7 +631,7 @@ function batchStrip(batch: AddBatch | null) {
 }
 
 /** Shown over the page while photos are dragged onto it. */
-function dropOverlay(page: PhotosPage, scope: PhotoScope) {
+export function dropOverlay(page: PhotosPage, scope: PhotoScope) {
   const plan = scope.kind === "album" ? planAdd(scope.id, page.folders, page.status) : null;
   const [title, detail] = !plan
     ? [copy("gallery.open_an_album_to_add_2"), copy("gallery.photos_always_go_into_one")]
@@ -636,10 +640,12 @@ function dropOverlay(page: PhotosPage, scope: PhotoScope) {
           copy("gallery.drop_to_add_to", { albumName: albumName(plan.folderId) }),
           copy("gallery.only_the_people_in_this_2"),
         ]
-      : [
-          copy("gallery.you_can_t_add_to", { name: plan.album.name }),
-          copy("gallery.ask_the_admin_or_start"),
-        ];
+      : plan.kind === "unknown"
+        ? [copy("gallery.getting_your_access"), ""]
+        : [
+            copy("gallery.you_can_t_add_to", { name: plan.album.name }),
+            copy("gallery.ask_the_admin_or_start"),
+          ];
   return html`<div
     data-drop-overlay
     class="hidden pointer-events-none fixed inset-0 z-30 items-center justify-center bg-accent/10 p-6"
