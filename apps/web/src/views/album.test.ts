@@ -15,6 +15,7 @@ import {
   answerToast,
   deleteSheet,
   leaveDetail,
+  removeDetail,
 } from "./album";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
@@ -482,7 +483,7 @@ describe("album viewer rows", () => {
       expect(confirmAction).toHaveBeenLastCalledWith({
         title: "Remove Kimmy?",
         detail:
-          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone. Everyone else moves with the album the next time their phone and yours are connected.",
+          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.",
         confirmLabel: "Remove",
         tone: "danger",
       }),
@@ -799,5 +800,29 @@ describe("album ••• menu while the albums load", () => {
     resolve([null, { folders: [], activeFolderId: null }]);
     await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     expect(items(host).some((i) => i.hasAttribute("disabled"))).toBe(false);
+  });
+});
+
+describe("removed from the album", () => {
+  const removed = {
+    ...status,
+    folder: { ...status.folder, role: "reader", notice: { kind: "removed" } },
+  } as unknown as SyncStatus;
+
+  test("Invite & members shows the notice, no role chip and no member list", () => {
+    syncActor.send(statusSeen.create({ status: removed }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    expect(host.querySelector("[role=status]")?.textContent?.trim()).toBe(
+      "You're no longer in Trip.",
+    );
+    expect(host.textContent).not.toContain("Viewer");
+    expect(memberRows(host)).toHaveLength(0);
+  });
+
+  test("the Remove confirm says the person sees they are out", () => {
+    expect(removeDetail("Nils", false)).toContain("sees they're no longer in the album");
+    expect(removeDetail("Nils", true)).toContain("sees they're no longer in the album");
   });
 });

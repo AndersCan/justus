@@ -169,7 +169,7 @@ onOutput(requestsActor, (e) => {
 /** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
 export function removeDetail(name: string, viewer: boolean): string {
   const added = viewer ? "" : `, and the photos ${name} added leave the album`;
-  return `${name} won't see photos added from now on${added}. ${name} keeps the photos already on their phone. Everyone else moves with the album the next time their phone and yours are connected.`;
+  return `${name} won't see photos added from now on${added}. ${name} keeps the photos already on their phone and sees they're no longer in the album. Everyone else moves with the album the next time their phone and yours are connected.`;
 }
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
@@ -574,13 +574,17 @@ function albumBody(
         ${status.folder.name}
       </h1>
       <div class="flex shrink-0 items-center gap-1">
-        <span class="rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
-          ${roleLabel(status.folder.role, status.folder.pending)}
-        </span>
+        ${
+          status.folder.notice?.kind === "removed"
+            ? null
+            : html`<span class="rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
+                ${roleLabel(status.folder.role, status.folder.pending)}
+              </span>`
+        }
         ${watch(foldersActor, (fs) => albumMenu(status, !foldersViewModel(fs).settled))}
       </div>
     </div>
-    ${albumNotice(status.folder.notice)}
+    ${albumNotice(status.folder.notice, status.folder.name)}
     <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
       >See photos in this album</a
     >
@@ -601,8 +605,8 @@ function albumBody(
         friends,
       )}
     </div>
-    ${membersSection(vm, id)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
-    ${addFriendSheetView()}
+    ${status.folder.notice?.kind === "removed" ? null : membersSection(vm, id)}
+    ${advancedSection(status, settled, busy)} ${friendSheetView()} ${addFriendSheetView()}
   </div>`;
 }
 

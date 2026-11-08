@@ -17,22 +17,22 @@ describe("deletedNoticeText", () => {
 
 describe("albumNoticeText", () => {
   it("tells the Admin to invite again", () => {
-    expect(albumNoticeText({ kind: "newKey" })).toBe(
+    expect(albumNoticeText({ kind: "newKey" }, "Trip")).toBe(
       "This album has a new key. Invite your members again.",
     );
   });
 
   it("tells a member who to ask", () => {
-    expect(albumNoticeText({ kind: "moved", ownerName: "Nils" })).toBe(
+    expect(albumNoticeText({ kind: "moved", ownerName: "Nils" }, "Trip")).toBe(
       "This album has a new key. Ask Nils for a new invite link.",
     );
-    expect(albumNoticeText({ kind: "moved" })).toBe(
+    expect(albumNoticeText({ kind: "moved" }, "Trip")).toBe(
       "This album has a new key. Ask the Admin for a new invite link.",
     );
   });
 
   it("is empty without a notice", () => {
-    expect(albumNoticeText(undefined)).toBeNull();
+    expect(albumNoticeText(undefined, "Trip")).toBeNull();
   });
 });
 
@@ -48,5 +48,11 @@ describe("updateLines", () => {
       "Nils needs to update Justus",
       "Ida needs to update Justus",
     ]);
+  });
+});
+
+describe("albumNoticeText removed", () => {
+  it("names the album", () => {
+    expect(albumNoticeText({ kind: "removed" }, "Trip")).toBe("You're no longer in Trip.");
   });
 });
