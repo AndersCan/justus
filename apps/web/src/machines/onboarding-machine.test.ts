@@ -38,7 +38,7 @@ describe("onboarding machine", () => {
     expect(onboarding.state()).toBe("askingForName");
   });
 
-  test("there are three intro cards", () => expect(INTRO_CARD_COUNT).toBe(3));
+  test("there are two intro cards", () => expect(INTRO_CARD_COUNT).toBe(2));
 
   test("back from the profile returns to the card the person left from", () => {
     onboarding.back();

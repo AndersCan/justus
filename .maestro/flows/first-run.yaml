@@ -9,7 +9,7 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "Skip"
     timeout: 60000
-- assertVisible: "Welcome"
+- assertVisible: "No server in the middle"
 - tapOn:
     text: "Skip"
     retryTapIfNoChange: false
@@ -19,7 +19,7 @@ appId: no.cankode.justus
     text: "Back"
     waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
-    visible: "Welcome"
+    visible: "No server in the middle"
     timeout: 10000
 - tapOn:
     text: "Skip"

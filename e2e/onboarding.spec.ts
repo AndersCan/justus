@@ -13,6 +13,7 @@ test("the intro saves the name and moves on to the choice", async ({ page }) => 
   await page.goto("/");
   await expect(page).toHaveURL(/\/welcome$/);
 
+  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
   await page.getByRole("button", { name: "Skip" }).click();
   const name = page.getByLabel("Your name");
   const preview = page.locator("[data-avatar] span");
@@ -27,10 +28,10 @@ test("the intro saves the name and moves on to the choice", async ({ page }) => 
   expect(await page.evaluate(() => localStorage.getItem("justus:welcome-seen"))).toBe("1");
 });
 
-test("three cards, no Skip on the last, Back returns to the card left", async ({ page }) => {
+test("two cards, no Skip on the last, Back returns to the card left", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
-  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Skip" })).toBeVisible();
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Skip" })).toHaveCount(0);
@@ -41,11 +42,10 @@ test("three cards, no Skip on the last, Back returns to the card left", async ({
   await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
 
   await page.getByRole("button", { name: "Back" }).click();
-  await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
   await page.getByRole("button", { name: "Skip" }).click();
   await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.getByRole("heading", { name: "Welcome" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
 });
 
 /** Creating the first album lands inside it, where its add button names it,
