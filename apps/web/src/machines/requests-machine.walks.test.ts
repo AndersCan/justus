@@ -102,3 +102,22 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
   expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
   expect(counts).toEqual([3]);
 });
+
+test("Ana asks while Nils looks at his photos, and Nils hears she wants to join", async () => {
+  const ana = ask("Summer", "k7", "Ana");
+  const actor = make({ clock: VirtualClock() });
+  const arrived: string[] = [];
+  onOutput(actor, (e) => {
+    if (e.type === "REQUESTS_ARRIVED")
+      arrived.push(
+        ...(e.payload as { requests: JoinRequest[] }).requests.map((r) => r.requesterName),
+      );
+  });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [] } });
+  actor.send({ type: "REFRESH" });
+  actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [ana] } });
+  await actor.settled();
+  expect(arrived).toEqual(["Ana"]);
+  expect(requestsViewModel(actor.snapshot()).state).toBe("showingRequests");
+});

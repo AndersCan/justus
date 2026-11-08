@@ -53,6 +53,8 @@ const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
 }>();
 /** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
 export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
+/** Asks this phone had not listed before came in with a reload; never sent for asks already waiting at the first load. */
+export const requestsArrived = event("REQUESTS_ARRIVED")<{ requests: JoinRequest[] }>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
@@ -82,6 +84,8 @@ type RequestsContext = {
     role: "reader" | "member";
   } | null;
   requests: JoinRequest[];
+  /** A list has been loaded at least once, so a later new ask is news. */
+  loadedOnce: boolean;
   error: string | null;
   /** The Accept all answer that failed, kept so Retry carries on with the rest. */
   stoppedBatch: Batch | null;
@@ -90,9 +94,19 @@ type RequestsContext = {
 const initialContext: RequestsContext = {
   pendingRespond: null,
   requests: [],
+  loadedOnce: false,
   error: null,
   stoppedBatch: null,
 };
+
+/** The same ask: one person, one album, one time of asking (a re-ask after a No differs). */
+function sameAsk(a: JoinRequest, b: JoinRequest): boolean {
+  return (
+    a.folderId === b.folderId &&
+    a.requesterKey === b.requesterKey &&
+    a.requestedAt === b.requestedAt
+  );
+}
 
 const nameOf = stateNameOf(REQUESTS_STATES);
 
@@ -121,7 +135,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
   return Actor({
     inputs: [refresh, respond, retry, acceptAllAsViewers],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent, allAcceptedAsViewers],
+    outputs: [answerSent, allAcceptedAsViewers, requestsArrived],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -255,12 +269,17 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           );
         },
       });
-      /** The requests are shown. */
+      /** The requests are shown; asks not listed before are announced, except at the first load. */
       m.on(loadingRequests, {
         event: loaded,
         to: [showingRequests],
         handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), requests: e.payload.requests, error: null });
+          const ctx = opts.context.get();
+          const fresh = e.payload.requests.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
+          opts.context.set({ ...ctx, requests: e.payload.requests, error: null, loadedOnce: true });
+          if (ctx.loadedOnce && fresh.length > 0) {
+            return { state: showingRequests, emit: [requestsArrived.create({ requests: fresh })] };
+          }
           return { state: showingRequests };
         },
       });

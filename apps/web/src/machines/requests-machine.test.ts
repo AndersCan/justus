@@ -222,7 +222,10 @@ describe("accept all as Viewers", () => {
   const load = async (list: JoinRequest[]) => {
     const s = setup({ requests: async () => [null, { requests: list }] });
     const outputs: { type: string; payload?: unknown }[] = [];
-    s.actor.on("output", { fn: (e) => void outputs.push(e as never) });
+    // The stubbed reload hands back the answered people again; these tests are about the batch total.
+    s.actor.on("output", {
+      fn: (e) => void (e.type !== "REQUESTS_ARRIVED" && outputs.push(e as never)),
+    });
     s.actor.send(refresh());
     await s.actor.settled();
     return { ...s, outputs };
@@ -443,5 +446,71 @@ describe("requestsViewModel loading", () => {
     actor.send(refresh());
     await actor.settled();
     expect(requestsViewModel(actor.snapshot()).loading).toBe(false);
+  });
+});
+
+describe("asks that arrive", () => {
+  const at = (folderId: string, key: string, requestedAt: number) =>
+    ({ ...request(folderId, key), requestedAt }) as JoinRequest;
+  const maya = at("f1", "maya", 1);
+  const ben = at("f1", "ben", 2);
+
+  /** Loads each list in turn (one refresh each) and returns the keys announced per load. */
+  const run = async (lists: (JoinRequest[] | Error)[]) => {
+    let i = 0;
+    const { actor } = setup({
+      requests: async () => {
+        const next = lists[i++];
+        return next instanceof Error ? [next, null] : [null, { requests: next }];
+      },
+    });
+    const arrived: string[][] = [];
+    onOutput(actor, (e) => {
+      if (e.type === "REQUESTS_ARRIVED")
+        arrived.push(
+          (e.payload as { requests: JoinRequest[] }).requests.map((r) => r.requesterKey),
+        );
+    });
+    for (const list of lists) {
+      actor.send(refresh());
+      await actor.settled();
+      if (list instanceof Error) actor.send(retry());
+      await actor.settled();
+    }
+    return arrived;
+  };
+
+  test("asks already waiting at the first load are not announced", async () => {
+    expect(await run([[maya]])).toEqual([]);
+  });
+  test("an ask on an empty list is announced", async () => {
+    expect(await run([[], [maya]])).toEqual([["maya"]]);
+  });
+  test("only the new ask is announced", async () => {
+    expect(await run([[maya], [maya, ben]])).toEqual([["ben"]]);
+  });
+  test("the same list again announces nothing", async () => {
+    expect(await run([[maya], [maya]])).toEqual([]);
+  });
+  test("a re-ask with a later time is announced", async () => {
+    expect(await run([[maya], [at("f1", "maya", 9)]])).toEqual([["maya"]]);
+  });
+  test("a failed first load, then a good one, is silent", async () => {
+    expect(await run([new Error("offline"), [maya]])).toEqual([]);
+  });
+  test("a new ask that came during Accept all is announced, and the total still is", async () => {
+    const lists = [[maya], [ben]];
+    let i = 0;
+    const { actor } = setup({
+      requests: async () => [null, { requests: lists[Math.min(i++, 1)] }] as never,
+    });
+    const types: string[] = [];
+    onOutput(actor, (e) => void types.push(e.type));
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(acceptAll("f1", ["maya"]));
+    await actor.settled();
+    expect(types).toContain("REQUESTS_ARRIVED");
+    expect(types).toContain("ALL_ACCEPTED_AS_VIEWERS");
   });
 });
