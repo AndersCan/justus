@@ -342,22 +342,6 @@ describe("someone not known at the Remove", () => {
     await s.close();
   }, 30_000);
 
-  it("a person known by the next Remove moves instead of staying unknown", async () => {
-    const s = await albumWithUnknown("nils");
-    await s.admin.store.removeMember(s.folderId, s.keys.ben);
-    expect(Object.keys(s.record().movingUnknown ?? {})).toEqual([s.keys.nils]);
-    s.unblock();
-    const reconnected = s.reconnect(s.nils);
-    const [error] = await s.admin.store.removeMember(s.folderId, s.keys.vera);
-    await reconnected;
-    expect(error).toBeNull();
-    const id = identityOf(s.nils);
-    await until(() => s.record().moving?.[id] !== undefined, 6_000);
-    expect(s.record().moving[id].key).toBe(s.keys.nils);
-    expect(s.record().movingUnknown).toBeUndefined();
-    await s.close();
-  }, 20_000);
-
   it("removing them while unknown takes them off the list", async () => {
     const s = await albumWithUnknown("nils");
     await s.admin.store.removeMember(s.folderId, s.keys.ben);

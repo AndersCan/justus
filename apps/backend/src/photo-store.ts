@@ -3698,7 +3698,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const [identity, m] of people) moving[identity] = m;
     const unknown: Record<string, MovingEntry> = {};
     for (const m of [...Object.values(record.movingUnknown ?? {}), ...unknownNow]) {
-      if (m.key === removedKey || presence.identities.has(m.key)) continue;
+      if (m.key === removedKey) continue;
       unknown[m.key] = m;
     }
     for (const m of Object.values(record.movingUnknown ?? {})) {
