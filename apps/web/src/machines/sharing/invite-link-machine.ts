@@ -33,6 +33,8 @@ type InviteLinkContext = {
   validFor: ValidFor;
   /** The album's code that was just turned off; no link is made with it again. */
   offCode: string;
+  /** The album whose links were just turned off; its panel says so until a link is made for it. Empty when none. */
+  offFolderId: string;
 };
 
 /** Turning links off, as the gateway answers it. */
@@ -99,7 +101,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
     states: [noLinkYet, linkMade, turningOff],
     initial: noLinkYet,
     clock,
-    context: { folderId: "", validFor: "1d", offCode: "" } as InviteLinkContext,
+    context: { folderId: "", validFor: "1d", offCode: "", offFolderId: "" } as InviteLinkContext,
     setup: (m) => {
       /** The owner picks a time; a value that is not one of the choices is ignored. */
       m.on(noLinkYet, {
@@ -118,7 +120,11 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           const current = context.get();
           // The code was just turned off; wait for the album's new one.
           if (e.payload.folderId === "" || e.payload.code === current.offCode) return {};
-          context.set({ ...current, folderId: e.payload.folderId });
+          context.set({
+            ...current,
+            folderId: e.payload.folderId,
+            offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+          });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
           return { state: linkMade.create({ expiresAt }) };
@@ -140,7 +146,11 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
         handler: (e, { context }) => {
           const current = context.get();
           if (e.payload.folderId === "" || e.payload.folderId === current.folderId) return {};
-          context.set({ ...current, folderId: e.payload.folderId });
+          context.set({
+            ...current,
+            folderId: e.payload.folderId,
+            offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+          });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
           return { state: linkMade.create({ expiresAt }) };
@@ -200,6 +210,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           context.set({
             ...current,
             offCode: e.payload.code,
+            offFolderId: e.payload.folderId,
             validFor: keep ? current.validFor : "1d",
           });
           return {

@@ -20,7 +20,12 @@ function setup(port?: InviteLinkPort) {
 }
 
 const context = (actor: ReturnType<typeof setup>["actor"]) =>
-  actor.snapshot().context as { folderId: string; validFor: ValidFor; offCode: string };
+  actor.snapshot().context as {
+    folderId: string;
+    validFor: ValidFor;
+    offCode: string;
+    offFolderId: string;
+  };
 const expiresAt = (actor: ReturnType<typeof setup>["actor"]) =>
   (actor.snapshot().payload as { expiresAt: number }).expiresAt;
 
@@ -28,7 +33,7 @@ describe("invite link machine", () => {
   test("starts with no link and a 1 day choice", () => {
     const { actor } = setup();
     expect(actor.state.name).toBe("noLinkYet");
-    expect(context(actor)).toEqual({ folderId: "", validFor: "1d", offCode: "" });
+    expect(context(actor)).toEqual({ folderId: "", validFor: "1d", offCode: "", offFolderId: "" });
   });
 
   test.each([
@@ -158,7 +163,12 @@ describe("turning off links", () => {
     turnOff(actor);
     await actor.settled();
     expect(actor.state.name).toBe("noLinkYet");
-    expect(context(actor)).toEqual({ folderId: FOLDER, validFor: "1d", offCode: CODE });
+    expect(context(actor)).toEqual({
+      folderId: FOLDER,
+      validFor: "1d",
+      offCode: CODE,
+      offFolderId: FOLDER,
+    });
     expect(seen).toContain("linkTurnedOff");
   });
 
@@ -215,6 +225,39 @@ describe("turning off links", () => {
     expect(actor.state.name).toBe("linkMade");
     expect(context(actor).folderId).toBe(FOLDER);
     expect(expiresAt(actor)).toBe(first);
+  });
+
+  test("turning off remembers the album until a link is made for it", async () => {
+    const { actor } = setup(ok);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    turnOff(actor);
+    await actor.settled();
+    expect(context(actor).offFolderId).toBe(FOLDER);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(context(actor).offFolderId).toBe(FOLDER);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).offFolderId).toBe("");
+  });
+
+  test("turning off album B while A's link is shown remembers B", async () => {
+    const { actor } = setup(ok);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    turnOff(actor, OTHER, NEW_CODE);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).folderId).toBe(FOLDER);
+    expect(context(actor).offFolderId).toBe(OTHER);
+    actor.send({ type: "createLink", payload: { folderId: OTHER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).folderId).toBe(OTHER);
+    expect(context(actor).offFolderId).toBe("");
   });
 
   test("createLink with the turned-off code stays put", async () => {
