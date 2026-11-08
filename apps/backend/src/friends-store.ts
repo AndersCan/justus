@@ -8,6 +8,7 @@ type FriendsStoreOpts = { dir: string; files: Files; paths: Paths };
 export type FriendsStore = {
   list(): [null, Friend[]] | [CoreError, null];
   add(identity: string, name: string): Promise<[null, Friend] | [CoreError, null]>;
+  remove(identity: string): Promise<[null, { removed: boolean }] | [CoreError, null]>;
 };
 
 function readFriends(files: Files, file: string): Map<string, string> {
@@ -88,6 +89,23 @@ export function createFriendsStore(opts: FriendsStoreOpts): FriendsStore {
       }
       cache = next;
       return ok({ identity: key, name: trimmed });
+    },
+    async remove(identity) {
+      if (!isHexKey(identity)) {
+        return err(FriendError.INVALID_KEY, "identity must be 64 hex characters");
+      }
+      const key = identity.toLowerCase();
+      const friends = load();
+      if (!friends.has(key)) return ok({ removed: false });
+      const next = new Map(friends);
+      next.delete(key);
+      try {
+        write(next);
+      } catch (e) {
+        return err(FriendError.WRITE_FAILED, `could not save friends: ${String(e)}`);
+      }
+      cache = next;
+      return ok({ removed: true });
     },
   };
 }

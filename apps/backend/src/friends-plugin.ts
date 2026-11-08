@@ -15,6 +15,10 @@ export function createFriendsPlugin(deps: { store: FriendsStore }) {
         const [e, friend] = await deps.store.add(args.identity, args.name);
         return e ? [e, null] : [null, { friend }];
       },
+      remove: async (args) => {
+        const [e, result] = await deps.store.remove(args.identity);
+        return e ? [e, null] : [null, result];
+      },
     },
   });
 }

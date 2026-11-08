@@ -26,6 +26,52 @@ describe("friends store", () => {
     expect(store.list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
   });
 
+  test("remove takes a friend off and survives a restart", async () => {
+    const store = open();
+    await store.add(A, "Sam");
+    await store.add(B, "Ben");
+    expect(await store.remove(A)).toEqual([null, { removed: true }]);
+    expect(store.list()).toEqual([null, [{ identity: B, name: "Ben" }]]);
+    expect(open().list()).toEqual([null, [{ identity: B, name: "Ben" }]]);
+  });
+
+  test("removing someone not saved is a no-op", async () => {
+    const store = open();
+    expect(await store.remove(A)).toEqual([null, { removed: false }]);
+    expect(fs.existsSync(path.join(dir, "friends.json"))).toBe(false);
+  });
+
+  test("remove accepts an uppercase identity", async () => {
+    const store = open();
+    await store.add(A, "Sam");
+    expect(await store.remove("A".repeat(64))).toEqual([null, { removed: true }]);
+    expect(store.list()).toEqual([null, []]);
+  });
+
+  test("remove with a bad key is INVALID_KEY", async () => {
+    const [e] = await open().remove("nope");
+    expect(e?.code).toBe(FriendError.INVALID_KEY);
+  });
+
+  test("a failed remove write keeps the friend", async () => {
+    const store = createFriendsStore({
+      dir,
+      files: {
+        ...fs,
+        renameSync: (from: string, to: string) => {
+          if (fs.existsSync(to)) throw new Error("disk full");
+          fs.renameSync(from, to);
+        },
+      } as never,
+      paths: path as never,
+    });
+    await store.add(A, "Sam");
+    const [e] = await store.remove(A);
+    expect(e?.code).toBe(FriendError.WRITE_FAILED);
+    expect(store.list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
+    expect(open().list()).toEqual([null, [{ identity: A, name: "Sam" }]]);
+  });
+
   test("survives a restart", async () => {
     await open().add(A, "Sam");
     expect(open().list()).toEqual([null, [{ identity: A, name: "Sam" }]]);

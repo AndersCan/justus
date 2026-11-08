@@ -23,6 +23,11 @@ describe("justus.friends plugin", () => {
         stored.push({ identity, name });
         return [null, { identity, name }];
       },
+      remove: async (identity) => {
+        const at = stored.findIndex((f) => f.identity === identity);
+        if (at >= 0) stored.splice(at, 1);
+        return [null, { removed: at >= 0 }];
+      },
     };
     const plugin = createFriendsPlugin({ store });
     expect(await invoke(plugin, "friends.add", { identity: A, name: "Sam" })).toEqual([
@@ -33,5 +38,10 @@ describe("justus.friends plugin", () => {
       null,
       { friends: [{ identity: A, name: "Sam" }] },
     ]);
+    expect(await invoke(plugin, "friends.remove", { identity: A })).toEqual([
+      null,
+      { removed: true },
+    ]);
+    expect(await invoke(plugin, "friends.list", {})).toEqual([null, { friends: [] }]);
   });
 });
