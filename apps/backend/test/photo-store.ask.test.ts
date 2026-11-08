@@ -243,6 +243,18 @@ describe("ask", () => {
     await s.close();
   });
 
+  it("the Admin's request and the asker's ask show the same check code", async () => {
+    const s = await scenario();
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s);
+    const { requests } = await s.admin.store.requests();
+    const { asks } = await s.joiner.store.folders();
+    expect(requests[0]!.checkCode).toMatch(/^\d{4} \d{4}$/);
+    expect(asks[0]!.checkCode).toBe(requests[0]!.checkCode);
+    expect(asked[1]!.ask.checkCode).toBe(requests[0]!.checkCode);
+    await s.close();
+  });
+
   it("a decline saves the time of the ask it answered", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
