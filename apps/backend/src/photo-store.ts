@@ -33,6 +33,7 @@ import {
   writeDeleteNote,
   writeLeftNote,
 } from "./albums/lifecycle";
+import { addRemovedPerson, readRemovedPeople } from "./albums/removed-people";
 import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { inviteTopic } from "./membership/invite";
@@ -821,6 +822,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (isTextJSON(f.notice)) {
       if (f.notice.kind === "newKey") out.notice = { kind: "newKey" };
+      else if (f.notice.kind === "removed") out.notice = { kind: "removed" };
       else if (f.notice.kind === "moved") {
         out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
       }
@@ -1120,6 +1122,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (rt && drive === rt.folderDrive && rt.record.role !== "creator") {
           void checkDeleteNote(rt, 2_000).catch((e) =>
             log("error", { where: "checkDeleteNote", folder: short(folderId), err: errText(e) }),
+          );
+        }
+        // The Admin's drive may now say this phone was removed.
+        if (rt && drive === rt.folderDrive && rt.record.role !== "creator") {
+          void checkRemovedNote(rt, 2_000).catch((e) =>
+            log("error", { where: "checkRemovedNote", folder: short(folderId), err: errText(e) }),
           );
         }
         // A member's drive may now carry the note that they left.
@@ -1596,7 +1604,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * Returns true when an upgrade happened. No-op for non-reader folders or
    * folders still awaiting approval. Cheap — reads a single registry file. */
   async function upgradePendingRole(rt: FolderRuntime): Promise<boolean> {
-    if (rt.record.role !== "reader" || rt.record.moved) return false;
+    if (rt.record.role !== "reader" || rt.record.moved || rt.record.notice?.kind === "removed")
+      return false;
     const registry = await readRegistryIn(rt.folderDrive);
     const selfKey = selfKeyOf(rt);
     if (!isEnrolled(registry, selfKey)) return false;
@@ -1898,6 +1907,38 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     actor.send({ type: "deleteHeard", payload: note });
   }
 
+  const checkingRemoved = new Set<string>();
+
+  /** Reads the Admin's removed note; if it lists this phone, the album turns read-only. */
+  async function checkRemovedNote(rt: FolderRuntime, timeoutMs: number): Promise<void> {
+    if (rt.record.role === "creator" || rt.record.notice?.kind === "removed") return;
+    const id = rt.record.id;
+    if (checkingRemoved.has(id)) return;
+    checkingRemoved.add(id);
+    try {
+      const keys = await readRemovedPeople(rt.folderDrive, { log, timeoutMs });
+      if (keys.includes(selfKeyOf(rt))) await markRemoved(rt);
+    } finally {
+      checkingRemoved.delete(id);
+    }
+  }
+
+  /** This phone was removed: the album stays on it, read-only, with the photos it has. */
+  async function markRemoved(rt: FolderRuntime) {
+    const persisted = state.folders.find((f) => f.id === rt.record.id);
+    for (const target of persisted ? [rt.record, persisted] : [rt.record]) {
+      target.role = "reader";
+      target.driveKey = "";
+      target.pending = false;
+      target.notice = { kind: "removed" };
+    }
+    saveState();
+    await refreshMembersFor(rt);
+    armFolderWatchers(rt);
+    log("removed.heard", { folder: short(rt.record.id) });
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+  }
+
   /** Sends one input to the album's actor and answers when it is at rest. */
   async function changeLifecycle(
     rt: FolderRuntime,
@@ -1960,6 +2001,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       folderDrive: rt.folderDrive,
       selfDrive: rt.selfDrive,
       memberDrives: rt.memberDrives,
+      removed: rt.record.notice?.kind === "removed",
     });
     const derived = await listGallery(sources, {
       removedFrom: rt.folderDrive,
@@ -2696,7 +2738,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = selfDrive.key;
-      const enrolled = !isCreator && !record.moved && isEnrolled(await readRegistryIn(fd), selfKey);
+      const enrolled =
+        !isCreator &&
+        !record.moved &&
+        record.notice?.kind !== "removed" &&
+        isEnrolled(await readRegistryIn(fd), selfKey);
       const role: Role = isCreator ? "creator" : enrolled ? "member" : "reader";
       // A folder whose request was approved since we last ran is now a member —
       // clear the pending badge. Pending only applies to requested, un-enrolled
@@ -2723,7 +2769,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         await lifecycleOf(rt, deleteNote).settled();
         continue;
       }
-      if (!isCreator) void refreshAlbumName(rt).catch(nameErr(rt));
+      if (!isCreator) {
+        void checkRemovedNote(rt, 2_000).catch((e) =>
+          log("error", { where: "checkRemovedNote", folder: short(record.id), err: errText(e) }),
+        );
+        void refreshAlbumName(rt).catch(nameErr(rt));
+      }
       if (isCreator) {
         // The swarm key changes every boot; keep this folder drive's copy current.
         try {
@@ -4238,6 +4289,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           return err(ErrorCode.HOST_ERROR, `Cannot remove: ${errText(e)}`);
         }
         rt.viewers = left;
+      }
+      if (isMember || isViewer || owed) {
+        const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
+        if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
       }
       // Stop loading their drive; a re-filed request must not resurface at once.
       deniedRequesters.add(memberKey);
