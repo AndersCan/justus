@@ -123,6 +123,7 @@ final class BareRuntime {
     registerDefaultHostPlugins(hostPlugins)
     registerMediaHostPlugins(hostPlugins)
     registerLockHostPlugins(hostPlugins, lock: lock)
+    registerShareHostPlugins(hostPlugins)
 
     coordinator = HostIpcCoordinator(ipc: ipc, hostPlugins: hostPlugins)
     coordinator?.start()

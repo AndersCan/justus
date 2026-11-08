@@ -107,7 +107,7 @@ enum MediaHostPlugins {
     }
   }
 
-  private static func topViewController() -> UIViewController? {
+  static func topViewController() -> UIViewController? {
     for case let scene as UIWindowScene in UIApplication.shared.connectedScenes
       where scene.activationState == .foregroundActive {
       var top = scene.windows.first { $0.isKeyWindow }?.rootViewController
