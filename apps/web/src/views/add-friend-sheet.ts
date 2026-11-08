@@ -2,15 +2,24 @@ import { html, nothing } from "lit-html";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { addFriend, addFriendActor } from "../machines/sharing/add-friend";
-import type { FriendChoice, NotReachedReason } from "../machines/sharing/add-friend-machine";
+import type {
+  FriendChoice,
+  FriendRole,
+  NotReachedReason,
+} from "../machines/sharing/add-friend-machine";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
 
-onOutput(addFriendActor, (e) =>
-  toast(copy("add_friend_sheet.asked_to_join", { name: (e.payload as { name: string }).name })),
-);
+onOutput(addFriendActor, (e) => {
+  const { name, role } = e.payload as { name: string; role: FriendRole };
+  toast(
+    role === "reader"
+      ? copy("add_friend_sheet.asked_to_join_as_viewer", { name })
+      : copy("add_friend_sheet.asked_to_join_as_collaborator", { name }),
+  );
+});
 
 /** Opens the sheet for this album. Focus goes back to the button when it closes. */
 export function openAddFriend(
@@ -47,6 +56,26 @@ function focusInSheet() {
   }, 0);
 }
 
+function roleButton(
+  primary: boolean,
+  label: string,
+  meaning: string,
+  id: string,
+  role: FriendRole,
+) {
+  return html`<button
+    class="ui-btn-primary w-full"
+    data-add-friend-primary=${primary ? "" : nothing}
+    aria-describedby=${id}
+    @click=${() => addFriend.pickRole(role)}
+  >
+    <span class="flex w-full flex-col items-start text-left">
+      <span>${label}</span>
+      <span class="text-xs font-normal" id=${id} aria-hidden="true">${meaning}</span>
+    </span>
+  </button>`;
+}
+
 function notReached(name: string, reason: NotReachedReason) {
   return reason === "refused"
     ? copy("add_friend_sheet.couldn_t_add_from_here", { name })
@@ -78,6 +107,27 @@ export function addFriendSheetView() {
             </li>`,
           )}
         </ul>
+        <div class="mt-4 flex justify-end">
+          <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
+        </div>`;
+    } else if (state === "choosingFriendRole") {
+      title = copy("add_friend_sheet.add_to", { name: p.name, albumName: p.albumName });
+      body = html`<div class="mt-3 flex flex-col gap-2">
+          ${roleButton(
+            true,
+            copy("add_friend_sheet.add_as_viewer", { name: p.name }),
+            copy("add_friend_sheet.viewer_meaning"),
+            "add-friend-viewer-meaning",
+            "reader",
+          )}
+          ${roleButton(
+            false,
+            copy("add_friend_sheet.add_as_collaborator", { name: p.name }),
+            copy("add_friend_sheet.collaborator_meaning"),
+            "add-friend-collaborator-meaning",
+            "member",
+          )}
+        </div>
         <div class="mt-4 flex justify-end">
           <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
         </div>`;

@@ -4325,6 +4325,47 @@
       ]
     },
     {
+      "name": "closePicker > closes from choosingFriendRole",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "closePicker",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "closePicker > closes from couldNotReachFriend",
       "end": "showingPeopleWithAddFriend",
       "steps": [
@@ -4356,6 +4397,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -4408,6 +4456,13 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendAway",
           "payload": {}
         },
@@ -4455,6 +4510,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         }
       ]
@@ -4573,6 +4635,13 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendNotReached",
           "payload": {
             "reason": "unreachable"
@@ -4635,6 +4704,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -4732,6 +4808,13 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendAway",
           "payload": {}
         }
@@ -4769,6 +4852,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -4816,10 +4906,65 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendNotReached",
           "payload": {
             "reason": "unreachable"
           }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > a Viewer is asked with reader and the output names the role",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "reader"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendReached",
+          "payload": {}
         }
       ]
     },
@@ -4855,6 +5000,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -4938,6 +5090,13 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendReached",
           "payload": {}
         }
@@ -4975,6 +5134,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -5022,6 +5188,13 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendNotReached",
           "payload": {
             "reason": "unreachable"
@@ -5065,9 +5238,52 @@
         },
         {
           "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
           "event": "friendNotReached",
           "payload": {
             "reason": "unreachable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pickFriend > picking a friend asks for the role before anyone is asked",
+      "end": "choosingFriendRole",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+                "name": "Kari"
+              },
+              {
+                "identity": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+                "name": "ole"
+              },
+              {
+                "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "name": "Ånna"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickFriend",
+          "payload": {
+            "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
           }
         }
       ]
@@ -5104,6 +5320,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {
@@ -5145,6 +5368,13 @@
           "event": "pickFriend",
           "payload": {
             "identity": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "member"
           }
         },
         {

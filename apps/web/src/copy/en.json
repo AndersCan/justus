@@ -566,11 +566,53 @@
     "who": "Everyone",
     "screen": ""
   },
-  "add_friend_sheet.asked_to_join": {
-    "text": "Asked {name} to join",
+  "add_friend_sheet.add_to": {
+    "text": "Add {name} to “{albumName}”",
     "status": "draft",
-    "where": "Friends › Add a friend › toast",
-    "who": "Admins inviting a friend",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.add_as_viewer": {
+    "text": "Add {name} as a Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.viewer_meaning": {
+    "text": "Sees every photo, can't add any",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.add_as_collaborator": {
+    "text": "Add {name} as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.collaborator_meaning": {
+    "text": "Sees every photo and can add their own",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.asked_to_join_as_viewer": {
+    "text": "Asked {name} to join as a Viewer",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
+    "screen": ""
+  },
+  "add_friend_sheet.asked_to_join_as_collaborator": {
+    "text": "Asked {name} to join as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › Add a friend",
+    "who": "The album's Admin",
     "screen": ""
   },
   "add_friend_sheet.couldn_t_add_from_here": {
