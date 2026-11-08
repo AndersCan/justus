@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
-import { createRequestsActor, requestsViewModel } from "./requests-machine";
+import { createRequestsActor, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -13,6 +13,8 @@ const request = (folderId: string, requesterKey: string, viaInvite = false) =>
 
 const refresh = () => ({ type: "REFRESH" }) as never;
 const retry = () => ({ type: "RETRY" }) as never;
+const acceptAll = (folderId: string, keys: string[]) =>
+  ({ type: "ACCEPT_ALL_AS_VIEWERS", payload: { folderId, requesterKeys: keys } }) as never;
 const respond = (
   folderId: string,
   requesterKey: string,
@@ -212,6 +214,182 @@ describe("requests machine factory", () => {
     await actor.settled();
     expect(requestsViewModel(actor.snapshot()).failedAnswer).toBeNull();
     expect(actor.snapshot().context.pendingRespond).toBeNull();
+  });
+});
+
+describe("accept all as Viewers", () => {
+  const three = [request("f1", "k1", true), request("f1", "k2", true), request("f1", "k3", true)];
+  const load = async (list: JoinRequest[]) => {
+    const s = setup({ requests: async () => [null, { requests: list }] });
+    const outputs: { type: string; payload?: unknown }[] = [];
+    s.actor.on("output", { fn: (e) => void outputs.push(e as never) });
+    s.actor.send(refresh());
+    await s.actor.settled();
+    return { ...s, outputs };
+  };
+
+  test("sends a Viewer answer to each person in turn, then one total and a reload", async () => {
+    const { actor, port, outputs } = await load([
+      request("f1", "k1", true),
+      request("f1", "k2", true),
+      request("f2", "k9", true),
+    ]);
+    const gates: ((v: [unknown, unknown]) => void)[] = [];
+    port.respond.mockImplementation(() => new Promise((res) => gates.push(res as never)));
+    actor.send(acceptAll("f1", ["k1", "k2"]));
+    await Promise.resolve();
+    expect(actor.state.name).toBe("sendingAnswersToAll");
+    expect(requestsViewModel(actor.snapshot()).responding).toBe(true);
+    expect(port.respond).toHaveBeenCalledTimes(1);
+    expect(port.respond).toHaveBeenLastCalledWith("f1", "k1", true, "reader");
+    gates[0]!([null, { ok: true }]);
+    await vi.waitFor(() => expect(port.respond).toHaveBeenCalledTimes(2));
+    expect(port.respond).toHaveBeenLastCalledWith("f1", "k2", true, "reader");
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2", "k9"]);
+    gates[1]!([null, { ok: true }]);
+    await actor.settled();
+    expect(outputs.map((o) => o.type)).toEqual(["ALL_ACCEPTED_AS_VIEWERS"]);
+    expect(outputs[0]!.payload).toEqual({ count: 2 });
+    expect(port.requests).toHaveBeenCalledTimes(2);
+    expect(actor.state.name).toBe("showingRequests");
+  });
+
+  test("only people still waiting in that album are answered, once each", async () => {
+    const { actor, port, outputs } = await load([
+      request("f1", "k1", true),
+      request("f2", "k9", true),
+    ]);
+    actor.send(acceptAll("f1", ["k1", "kGone", "k9", "k1"]));
+    await actor.settled();
+    expect(port.respond).toHaveBeenCalledTimes(1);
+    expect(port.respond).toHaveBeenCalledWith("f1", "k1", true, "reader");
+    expect(outputs[0]!.payload).toEqual({ count: 1 });
+  });
+
+  test("with nobody still waiting nothing happens", async () => {
+    const { actor, port } = await load(three);
+    actor.send(acceptAll("f1", ["kGone"]));
+    await actor.settled();
+    expect(actor.state.name).toBe("showingRequests");
+    expect(port.respond).not.toHaveBeenCalled();
+  });
+
+  test("a connection error stops the batch with the rest still waiting and no toast", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond
+      .mockResolvedValueOnce([null, { ok: true }] as never)
+      .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    const vm = requestsViewModel(actor.snapshot());
+    expect(vm.error).toBe("invoke timeout for x");
+    expect(vm.failedAnswer?.requesterKey).toBe("k2");
+    expect(port.respond).toHaveBeenCalledTimes(2);
+    expect(vm.requests.map((r) => r.requesterKey)).toEqual(["k2", "k3"]);
+    expect(outputs).toEqual([]);
+  });
+
+  test("Retry resends the failed answer, goes on with those still waiting and counts the whole batch", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond
+      .mockResolvedValueOnce([null, { ok: true }] as never)
+      .mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    actor.send(retry());
+    expect(actor.state.name).toBe("sendingAnswersToAll");
+    expect(actor.snapshot().context.error).toBeNull();
+    await actor.settled();
+    expect((port.respond.mock.calls as unknown as string[][]).map((c) => c[1])).toEqual([
+      "k1",
+      "k2",
+      "k2",
+      "k3",
+    ]);
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+    expect(actor.state.name).toBe("showingRequests");
+  });
+
+  test("a failure on the first answer stops with none sent, and Retry sends everyone", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    actor.send(retry());
+    await actor.settled();
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 3 }]);
+  });
+
+  test("a refresh after a stop forgets the batch", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    actor.send(refresh());
+    await actor.settled();
+    expect(actor.snapshot().context.stoppedBatch).toBeNull();
+    expect(requestsViewModel(actor.snapshot()).failedAnswer).toBeNull();
+    expect(port.respond).toHaveBeenCalledTimes(1);
+    expect(outputs).toEqual([]);
+  });
+
+  test("answering one card after a stop forgets the batch", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    actor.send(respond("f1", "k2", false));
+    await actor.settled();
+    expect(actor.state.name).toBe("showingRequests");
+    expect(port.respond).toHaveBeenCalledTimes(2);
+    expect(outputs.map((o) => o.type)).toEqual(["ANSWER_SENT"]);
+    expect(actor.snapshot().context.stoppedBatch).toBeNull();
+  });
+
+  test("accept all again after a stop starts a new batch", async () => {
+    const { actor, port, outputs } = await load(three);
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    await actor.settled();
+    actor.send(acceptAll("f1", ["k1", "k2"]));
+    await actor.settled();
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 2 }]);
+  });
+
+  test("a refresh during the batch is ignored and a newcomer is not answered", async () => {
+    const { actor, port } = await load([request("f1", "k1", true), request("f1", "k2", true)]);
+    port.requests.mockResolvedValue([null, { requests: [request("f1", "k3", true)] }] as never);
+    actor.send(acceptAll("f1", ["k1", "k2"]));
+    actor.send(refresh());
+    expect(actor.state.name).toBe("sendingAnswersToAll");
+    await actor.settled();
+    expect((port.respond.mock.calls as unknown as string[][]).map((c) => c[1])).toEqual([
+      "k1",
+      "k2",
+    ]);
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k3"]);
+  });
+
+  test("if the reload after the batch fails the total is still announced", async () => {
+    const { actor, port, outputs } = await load([request("f1", "k1", true)]);
+    port.requests.mockResolvedValue([new Error("offline"), null] as never);
+    actor.send(acceptAll("f1", ["k1"]));
+    await actor.settled();
+    expect(outputs.map((o) => o.payload)).toEqual([{ count: 1 }]);
+    expect(actor.state.name).toBe("couldNotLoadRequests");
+  });
+
+  test("viewerAcceptKeys picks invite asks in one album, in order", () => {
+    const list = [
+      request("f1", "a", true),
+      request("f1", "b", false),
+      request("f2", "c", true),
+      request("f1", "d", true),
+      { folderId: "f1", requesterKey: "e", requesterName: "e" } as unknown as JoinRequest,
+    ];
+    expect(viewerAcceptKeys(list, "f1")).toEqual(["a", "d"]);
   });
 });
 

@@ -10,11 +10,15 @@ import { removeRequestFromList } from "./requests-list";
  * the other machines.
  */
 
+/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
+type Batch = { folderId: string; next: string; after: string[]; sent: number };
+
 const REQUESTS_STATES = [
   "requestsNotLoaded",
   "loadingRequests",
   "showingRequests",
   "sendingAnswer",
+  "sendingAnswersToAll",
   "couldNotLoadRequests",
   "couldNotSendAnswer",
 ] as const;
@@ -28,6 +32,8 @@ const loadingRequests = state("loadingRequests")();
 const showingRequests = state("showingRequests")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const sendingAnswer = state("sendingAnswer")();
+/** Accept all as Viewers is sending the answers one by one; every button is off and each card leaves as its answer is sent. */
+const sendingAnswersToAll = state("sendingAnswersToAll")<Batch>();
 /** The Yes or No did not go through; the request stays and its card shows why, with Retry. */
 const couldNotSendAnswer = state("couldNotSendAnswer")();
 /** The requests could not be loaded; the person sees the problem and can try again. */
@@ -39,6 +45,13 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
+/** The Admin taps Accept all as Viewers; only the people on screen at the tap are answered. */
+const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
+  folderId: string;
+  requesterKeys: string[];
+}>();
+/** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
+export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
@@ -69,9 +82,16 @@ type RequestsContext = {
   } | null;
   requests: JoinRequest[];
   error: string | null;
+  /** The Accept all answer that failed, kept so Retry carries on with the rest. */
+  stoppedBatch: Batch | null;
 };
 
-const initialContext: RequestsContext = { pendingRespond: null, requests: [], error: null };
+const initialContext: RequestsContext = {
+  pendingRespond: null,
+  requests: [],
+  error: null,
+  stoppedBatch: null,
+};
 
 const nameOf = stateNameOf(REQUESTS_STATES);
 
@@ -82,7 +102,7 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
   return {
     requests: s.context.requests,
     state,
-    responding: state === "sendingAnswer",
+    responding: state === "sendingAnswer" || state === "sendingAnswersToAll",
     failedAnswer: state === "couldNotSendAnswer" ? s.context.pendingRespond : null,
     settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
@@ -96,14 +116,15 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry],
+    inputs: [refresh, respond, retry, acceptAllAsViewers],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent],
+    outputs: [answerSent, allAcceptedAsViewers],
     states: [
       requestsNotLoaded,
       loadingRequests,
       showingRequests,
       sendingAnswer,
+      sendingAnswersToAll,
       couldNotLoadRequests,
       couldNotSendAnswer,
     ],
@@ -116,7 +137,12 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: refresh,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingRespond: null,
+            stoppedBatch: null,
+          });
           return { state: loadingRequests };
         },
       });
@@ -126,7 +152,12 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           event: refresh,
           to: [loadingRequests],
           handler: (_e, opts) => {
-            opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingRespond: null,
+              stoppedBatch: null,
+            });
             return { state: loadingRequests };
           },
         });
@@ -138,6 +169,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             opts.context.set({
               ...opts.context.get(),
               error: null,
+              stoppedBatch: null,
               pendingRespond: {
                 folderId: e.payload.folderId,
                 requesterKey: e.payload.requesterKey,
@@ -148,13 +180,40 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswer };
           },
         });
+        /** Accept all as Viewers starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+        m.on(at, {
+          event: acceptAllAsViewers,
+          to: [sendingAnswersToAll],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
+              ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
+            );
+            const [next, ...after] = keys;
+            if (next === undefined) return {};
+            opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
+            return {
+              state: sendingAnswersToAll.create({
+                folderId: e.payload.folderId,
+                next,
+                after,
+                sent: 0,
+              }),
+            };
+          },
+        });
       }
       /** A reload after an error starts and the error message goes away. */
       m.on(couldNotLoadRequests, {
         event: refresh,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingRespond: null,
+            stoppedBatch: null,
+          });
           return { state: loadingRequests };
         },
       });
@@ -163,7 +222,12 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         event: retry,
         to: [loadingRequests],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null, pendingRespond: null });
+          opts.context.set({
+            ...opts.context.get(),
+            error: null,
+            pendingRespond: null,
+            stoppedBatch: null,
+          });
           return { state: loadingRequests };
         },
       });
@@ -232,6 +296,63 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           );
         },
       });
+      /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
+      m.effect(sendingAnswersToAll, {
+        name: "sendingAnswersToAll",
+        sends: [responded, respondFailed],
+        fn: ({ signal, emit, state }) => {
+          const { folderId, next } = state.payload;
+          return runInvoke(
+            signal,
+            () => port.respond(folderId, next, true, "reader"),
+            () => emit(responded.create({ folderId, requesterKey: next })),
+            (message) => emit(respondFailed.create({ message })),
+          );
+        },
+      });
+      /** One answer of Accept all went through: that person leaves the list and the next is sent; after the last, the list reloads and the Admin hears how many are in. */
+      m.on(sendingAnswersToAll, {
+        event: responded,
+        to: [sendingAnswersToAll, loadingRequests],
+        handler: (e, opts) => {
+          const ctx = opts.context.get();
+          const p = opts.state.payload;
+          opts.context.set({
+            ...ctx,
+            requests: removeRequestFromList(
+              ctx.requests,
+              e.payload.folderId,
+              e.payload.requesterKey,
+            ),
+          });
+          const sent = p.sent + 1;
+          const [next, ...after] = p.after;
+          if (next !== undefined) {
+            return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
+          }
+          return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+        },
+      });
+      /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
+      m.on(sendingAnswersToAll, {
+        event: respondFailed,
+        to: [couldNotSendAnswer],
+        handler: (e, opts) => {
+          const p = opts.state.payload;
+          opts.context.set({
+            ...opts.context.get(),
+            error: e.payload.message,
+            stoppedBatch: p,
+            pendingRespond: {
+              folderId: p.folderId,
+              requesterKey: p.next,
+              approve: true,
+              role: "reader",
+            },
+          });
+          return { state: couldNotSendAnswer };
+        },
+      });
       /** The answer went through and that request disappears from the list. */
       m.on(sendingAnswer, {
         event: responded,
@@ -278,12 +399,14 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           return { state: couldNotSendAnswer };
         },
       });
-      /** Retry after a failed answer: the same answer is sent again. */
+      /** Retry after a failed answer: the same answer is sent again, and a stopped Accept all carries on with the people still waiting. */
       m.on(couldNotSendAnswer, {
         event: retry,
-        to: [sendingAnswer],
+        to: [sendingAnswer, sendingAnswersToAll],
         handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
+          const ctx = opts.context.get();
+          opts.context.set({ ...ctx, error: null, stoppedBatch: null });
+          if (ctx.stoppedBatch) return { state: sendingAnswersToAll.create(ctx.stoppedBatch) };
           return { state: sendingAnswer };
         },
       });
@@ -303,4 +426,13 @@ export const requests = {
     role: "reader" | "member" = "member",
   ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
+  acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
+    requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
 };
+
+/** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), in list order. */
+export function viewerAcceptKeys(requests: JoinRequest[], folderId: string): string[] {
+  return requests
+    .filter((r) => r.folderId === folderId && r.viaInvite === true)
+    .map((r) => r.requesterKey);
+}
