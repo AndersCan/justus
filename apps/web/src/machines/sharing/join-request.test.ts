@@ -5,12 +5,15 @@ import type { JoinInvite } from "../../utils/invite-link";
 
 const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
+  dismissDeclinedAsk: vi.fn(),
   open: vi.fn(),
   refresh: vi.fn(),
   currentPage: vi.fn(() => undefined as { route: string } | undefined),
 }));
 
-vi.mock("../../gateway", () => ({ gateway: { ask: mocks.ask } }));
+vi.mock("../../gateway", () => ({
+  gateway: { ask: mocks.ask, dismissDeclinedAsk: mocks.dismissDeclinedAsk },
+}));
 vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: mocks.currentPage }));
 vi.mock("../folders-machine", () => {
   const context = { folders: [] as unknown[], asks: [] as unknown[] };
@@ -115,11 +118,29 @@ describe("join singleton", () => {
     expect(mocks.open).toHaveBeenLastCalledWith("/albums/f9", { replace: false });
   });
 
-  test("a link whose ask is declined shows the not-accepted screen", async () => {
+  test("a link whose ask was declined asks again", async () => {
     foldersContext.asks = [{ code: INVITE.code, status: "declined" }];
     join.openLink(LINK);
     await settle();
-    expect(view().state).toBe("declinedByAdmin");
+    expect(view().state).toBe("decidingToAsk");
+  });
+
+  test("OK on a decline takes the request off and refreshes the list", async () => {
+    mocks.dismissDeclinedAsk.mockResolvedValue([null, { ok: true }]);
+    join.reopenRequest({
+      code: INVITE.code,
+      owner: INVITE.owner,
+      albumName: "Spain 2026",
+      ownerName: "Nils",
+      askedAt: 1,
+      status: "declined",
+    });
+    await settle();
+    join.dismissDecline();
+    await settle();
+    expect(mocks.dismissDeclinedAsk).toHaveBeenCalledWith(INVITE.code);
+    await vi.waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+    expect(view().state).toBe("noInviteOpen");
   });
 
   test("a link whose ask is waiting shows the waiting screen", async () => {

@@ -99,7 +99,7 @@ describe("ask after a No", () => {
   const OWNER = "d".repeat(64);
 
   /** A joiner whose saved state already holds a declined ask (and optionally the invite). */
-  async function declinedJoiner(withOffer: boolean) {
+  async function declinedJoiner(withOffer: boolean, status = "declined") {
     const storageDir = makeTmpDir("justus-declined-");
     const declined = {
       code: CODE,
@@ -107,7 +107,7 @@ describe("ask after a No", () => {
       albumName: "Trip",
       ownerName: "Admin",
       askedAt: 1,
-      status: "declined",
+      status,
     };
     const offers = withOffer
       ? [{ code: CODE, owner: OWNER, albumName: "Trip", ownerName: "Admin" }]
@@ -139,6 +139,23 @@ describe("ask after a No", () => {
     expect(kept).toHaveLength(1);
     expect(kept[0].status).toBe("waiting");
     expect(JSON.parse(await outboxText(s.outbox)).requests[`invite:${CODE}`]).toBeDefined();
+    await s.close();
+  });
+
+  it("OK on a No takes the ask off the phone and the saved file", async () => {
+    const { s, saved } = await declinedJoiner(false);
+    const dismissed = await s.joiner.store.dismissDeclinedAsk(CODE);
+    expect(dismissed[0]).toBeNull();
+    expect((await s.joiner.store.folders()).asks).toEqual([]);
+    expect(saved().asks).toEqual([]);
+    await s.close();
+  });
+
+  it("OK is refused for an ask that is still waiting, which stays", async () => {
+    const { s, saved } = await declinedJoiner(false, "waiting");
+    const dismissed = await s.joiner.store.dismissDeclinedAsk(CODE);
+    expect(dismissed[0]!.code).toBe(PhotoError.NOT_FOUND);
+    expect(saved().asks).toHaveLength(1);
     await s.close();
   });
 

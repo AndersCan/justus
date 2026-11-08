@@ -196,6 +196,12 @@ export const photoSpecs = {
     args: {} as { folderId: string },
     result: {} as { ok: boolean },
   },
+  dismissDeclinedAsk: {
+    pluginId: "justus.photos",
+    name: "photos.dismissDeclinedAsk",
+    args: {} as { code: string },
+    result: {} as { ok: boolean },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -441,6 +447,11 @@ export const photoEvents = {
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );
+    },
+    dismissDeclinedAsk(
+      code: string,
+    ): InvokeEnvelope<"photos.dismissDeclinedAsk", { code: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.dismissDeclinedAsk, { code }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
   },
 } as const;

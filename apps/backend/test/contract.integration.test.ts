@@ -161,6 +161,31 @@ describe("backend -> web contract, from real backend output", () => {
       memberKey: viewerAsk.requests[0].requesterKey,
     });
 
+    // A stranger asks, is declined, taps OK, and the same link asks again.
+    const ask = {
+      code: invite.code,
+      owner: invite.owner,
+      albumName: "Contract",
+      ownerName: "Phone",
+    };
+    await c("photos.ask", ask);
+    const first = await eventually(
+      () => a("photos.requests"),
+      (r: any) => r.requests.length === 1,
+      "the stranger's first ask on the Admin",
+    );
+    await a("photos.respond", {
+      folderId: folder.id,
+      requesterKey: first.requests[0].requesterKey,
+      approve: false,
+    });
+    await eventually(
+      () => c("photos.folders"),
+      (r: any) => r.asks[0]?.status === "declined",
+      "the decline on the asker",
+    );
+    await c("photos.dismissDeclinedAsk", { code: invite.code });
+    expect((await c("photos.folders")).asks).toEqual([]);
     // A stranger asks through the album's invite code.
     await c("photos.ask", {
       code: invite.code,

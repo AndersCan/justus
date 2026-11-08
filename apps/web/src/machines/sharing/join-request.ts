@@ -70,6 +70,11 @@ onOutput(joinActor, (e) => {
       replace: currentPage()?.route === "welcome",
     });
   }
+  if (e.type === "dismissDeclinedAsk") {
+    void gateway
+      .dismissDeclinedAsk((e.payload as { code: string }).code)
+      .then(() => folders.refresh());
+  }
 });
 
 export const join = {

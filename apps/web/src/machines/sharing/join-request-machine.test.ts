@@ -125,14 +125,6 @@ describe("openLink", () => {
     expect(calls).toBe(0);
   });
 
-  test("a link with a declined ask shows declined, with no way to ask", async () => {
-    const s = setup({ known: { kind: "declined" } });
-    await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("declinedByAdmin");
-    await s.send("askToJoin");
-    expect(s.actor.state.name).toBe("declinedByAdmin");
-  });
-
   test("a good link clears an earlier error", async () => {
     const s = setup();
     await s.send("openLink", { text: "nope" });
@@ -301,7 +293,6 @@ describe("linkExpired", () => {
     [{ kind: "own", folderId: "f1" }, "joinedAlbum"],
     [{ kind: "member", folderId: "f1" }, "joinedAlbum"],
     [{ kind: "waiting" }, "waitingForAdminToAccept"],
-    [{ kind: "declined" }, "declinedByAdmin"],
   ] as const)("a late link for a known %j shows %s", async (known, name) => {
     const s = setup({ known });
     s.clock.advance(END + 1);
@@ -345,11 +336,21 @@ describe("linkExpired", () => {
 });
 
 describe("declined", () => {
-  test("dismissDecline goes to noInvite", async () => {
+  test("OK on a decline asks the app to take the request off this phone", async () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask("declined") });
     await s.send("dismissDecline");
     expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([{ type: "dismissDeclinedAsk", payload: { code: INVITE.code } }]);
+  });
+
+  test("OK on a decline that just arrived does the same", async () => {
+    const s = await waitingSetup();
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    s.outputs.length = 0;
+    await s.send("dismissDecline");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(s.outputs).toEqual([{ type: "dismissDeclinedAsk", payload: { code: INVITE.code } }]);
   });
 
   test("the decline is final: a later answer does not change it", async () => {
