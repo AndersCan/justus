@@ -902,4 +902,72 @@ export const cases: DriveCase[] = [
       );
     },
   },
+  {
+    name: "D34 keepOnly keeps a file in the middle and drops the bytes written after it",
+    async run(world, t) {
+      const { a, remote } = await keeperSetup(world, t);
+      t.noErr(await remote.keepOnly("/y"), "keepOnly");
+      await a.disconnect();
+      t.eq(await remote.readSmall("/y", 10), "other", "kept file stays");
+      t.eq(await remote.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "earlier file gone");
+      t.eq(
+        await remote.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+        undefined,
+        "later file gone",
+      );
+    },
+  },
+  {
+    name: "D35 keepOnly returns an error for a missing path and for one already cleared",
+    async run(world, t) {
+      const { a, remote, own } = await keeperSetup(world, t);
+      const [missingErr] = await remote.keepOnly("/nope");
+      t.eq(missingErr instanceof Error, true, "missing path is an error value");
+      await own.put("/z", bytes("zed"));
+      await eventually(
+        () => remote.readSmall("/z", 10, { timeoutMs: 500 }),
+        (v) => v === "zed",
+        "b reads /z",
+      );
+      await a.disconnect();
+      await remote.clear("/z");
+      const [clearedErr] = await remote.keepOnly("/z");
+      t.eq(clearedErr instanceof Error, true, "cleared path is an error value");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "nothing was dropped");
+    },
+  },
+  {
+    name: "D36 keepOnly keeps a file spanning several blocks and a third node can read it",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      const big = Buffer.alloc(300 * 1024, "q");
+      await own.put("/before", bytes("b"));
+      await own.put("/big", big);
+      await own.put("/after", bytes("c"));
+      await eventually(
+        async () => (await remote.readBytes("/big"))?.length,
+        (v) => v === big.length,
+        "b has big",
+        15_000,
+      );
+      await eventually(
+        () => remote.readSmall("/after", 10, { timeoutMs: 500 }),
+        (v) => v === "c",
+        "b has after",
+      );
+      t.noErr(await remote.keepOnly("/big"), "keepOnly");
+      await a.disconnect();
+      t.eq(await remote.readSmall("/after", 10, { timeoutMs: 500 }), undefined, "after gone");
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      const got = await eventually(
+        async () => (await viaB.readBytes("/big"))?.length,
+        (v) => v === big.length,
+        "big from b",
+        20_000,
+      );
+      t.eq(got, big.length, "whole multi-block file served");
+    },
+  },
 ];
