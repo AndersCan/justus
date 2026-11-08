@@ -8,7 +8,7 @@ import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
 import { onboardingActor, onboardingViewModel, showsAppNav } from "./machines/onboarding-machine";
-import { requests, requestsActor } from "./machines/requests-machine";
+import { requests } from "./machines/requests-machine";
 import { syncActor, sync } from "./machines/sync-machine";
 import { updateBanner, updateLines } from "./views/notices";
 import { open, pathFor, routerActor, type AppPage } from "./machines/router-machine";
@@ -16,7 +16,7 @@ import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
 import "./views/ask-toast";
-import { sharingView } from "./views/sharing";
+import { sharingView, waitingForYou } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";
 import { reachActor, reachHintOf } from "./machines/reach-hint-machine";
@@ -153,7 +153,7 @@ function navLink(
         badge
           ? html`<span
               class="absolute -right-2 -top-1 rounded-full bg-accent px-1 text-[10px] font-semibold leading-4 text-on-fill"
-              aria-label=${copy("app.waiting_for_approval", { badge })}
+              aria-label=${copy("app.waiting_for_you", { badge })}
               >${badge}</span
             >`
           : null
@@ -163,9 +163,7 @@ function navLink(
 }
 
 function navLinks(page: AppPage | undefined, layout: "rail" | "tab") {
-  return watch(requestsActor, (q) =>
-    NAV.map((item) => navLink(page, item, layout, q.context.requests.length)),
-  );
+  return waitingForYou((waiting) => NAV.map((item) => navLink(page, item, layout, waiting)));
 }
 
 function withAppNav<T>(pick: (shows: boolean, page: AppPage | undefined) => T) {
