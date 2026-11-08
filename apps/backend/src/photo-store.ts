@@ -308,7 +308,7 @@ type FolderRecord = {
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
-  /** Creator: requests listed when a Remove retired their code, identity -> that code. Answering one clears it. */
+  /** Creator: identity -> the old code for each request listed and each friend invite open when a Remove retired that code. Answering, Take back or Turn off links clears it. */
   heldAsks?: Record<string, string>;
   /** Creator only: identities with an open friend invite to this album. */
   invited?: string[];
@@ -4129,6 +4129,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const w of waiting) {
         const identity = w.requesterIdentity;
         if (!w.viaInvite || !identity || identity === removedIdentity) continue;
+        held[identity] = record.heldAsks?.[identity] ?? oldInvite;
+      }
+      for (const identity of record.invited ?? []) {
+        if (identity === removedIdentity) continue;
         held[identity] = record.heldAsks?.[identity] ?? oldInvite;
       }
     }
