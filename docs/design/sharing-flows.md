@@ -147,7 +147,7 @@ Auto-accept, Collaborators approving or inviting, handing over the Admin role, u
 
 ## Walks
 
-Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's request list (`requests`, how the app works today). `membership` draws the Admin's phone for a person already in the album (Let them add photos, and their phone saying they left); the page has no lists, so every save works there. These walks are a design until the store runs them.
+Each link opens the machine at the end of the walk; click on from there or press Back. Every walk is a test of the same name, so the link and the machine stay in step. Each story has one link per side: the joiner (`joinRequest`), the invite link on the Admin's phone (`inviteLink`) and the Admin's request list (`requests`, how the app works today). `membership` draws the Admin's phone for a person already in the album (Let them add photos, and their phone saying they left). The Admin's phone runs it for both; this page has no lists, so every save works here. Remove and Make Viewer stay plain code in the store.
 
 ### Story 1: two friends
 

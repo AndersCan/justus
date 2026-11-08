@@ -32,6 +32,7 @@ import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
 import { RealClock } from "@mantaq/core";
 import { Either } from "@mantaq/utils";
+import { createMembershipActor, type MembershipPort } from "./membership/membership-machine";
 import {
   createAlbumLifecycleActor,
   lifecycleStart,
@@ -1589,77 +1590,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return !same;
   }
 
-  const droppingMembers = new Set<string>();
-
-  /** Admin: a member whose drive says they left (after they were added) is taken off the people list, and their old link starts a fresh ask. */
+  /** Admin: a member whose drive says they left (after they joined) goes through the members machine, which takes them off the people list. */
   async function dropMemberWhoLeft(rt: FolderRuntime, memberKey: string): Promise<void> {
     const drive = rt.memberDrives.get(memberKey);
-    const busyKey = `${rt.record.id}/${memberKey}`;
-    if (!drive || droppingMembers.has(busyKey)) return;
-    droppingMembers.add(busyKey);
-    try {
-      const addedAt = (await readRegistryIn(rt.folderDrive)).members[memberKey]?.addedAt;
-      if (addedAt === undefined) return;
-      const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
-      if (!note || note.leftAt <= addedAt) return;
-      const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
-        driveKey: drive.key,
-        verify: (p) => deps.drives.verifyIdentity(p),
-      });
-      await noteFormer(
-        rt,
-        markLeft(await formerSnapshot(rt, memberKey)),
-        device.status === "verified" ? device.identityKey : undefined,
-      );
-      const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey, log });
-      if (removeErr) {
-        log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
-        return;
-      }
-      if (device.status === "verified") setAnswer(rt, device.identityKey, undefined);
-      await refreshMembersFor(rt);
-      deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey });
-    } finally {
-      droppingMembers.delete(busyKey);
-    }
+    if (!drive) return;
+    const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
+    if (!note) return;
+    const actor = await sendToMember(rt, memberKey, drive, (a) =>
+      a.send({ type: "leftNoteRead", payload: { leftAt: note.leftAt } }),
+    );
+    await actor?.settled();
   }
 
-  /** Admin: a Viewer whose own drive says they left (after they were listed) is taken off the Viewers list. */
+  /** Admin: a Viewer whose own drive says they left (after they were listed) goes through the members machine, which takes them off the Viewers list. */
   async function dropViewerWhoLeft(
     rt: FolderRuntime,
     viewerKey: string,
     drive: Drive,
   ): Promise<void> {
-    const busyKey = `${rt.record.id}/${viewerKey}`;
-    if (rt.record.role !== "creator" || droppingMembers.has(busyKey)) return;
-    droppingMembers.add(busyKey);
-    try {
-      const file = await readViewers(rt.folderDrive, { log });
-      const entry = file.viewers[viewerKey];
-      if (!entry) return;
-      const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
-      if (!note || note.leftAt <= entry.addedAt) return;
-      const identity = await identityOfDrive(drive);
-      const snapshot = await formerSnapshot(rt, viewerKey);
-      // Re-read right before the write: a Viewer seated during the awaits above
-      // must not be overwritten by the stale copy.
-      const fresh = await readViewers(rt.folderDrive, { log });
-      const [removeErr, next] = await removeViewer(rt.folderDrive, {
-        viewers: fresh,
-        viewerKey,
-      });
-      if (removeErr) {
-        log("error", { where: "dropViewerWhoLeft", err: removeErr.message });
-        return;
-      }
-      await noteFormer(rt, markLeft(snapshot), identity);
-      rt.viewers = next.viewers;
-      if (identity !== undefined) setAnswer(rt, identity, undefined);
-      await refreshMembersFor(rt);
-      deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: viewerKey });
-    } finally {
-      droppingMembers.delete(busyKey);
-    }
+    if (rt.record.role !== "creator") return;
+    const note = await readLeftNote(drive, { log, timeoutMs: 2_000 });
+    if (!note) return;
+    const actor = await sendToMember(rt, viewerKey, drive, (a) =>
+      a.send({ type: "leftNoteRead", payload: { leftAt: note.leftAt } }),
+    );
+    await actor?.settled();
   }
 
   function dropViewersWhoLeft(keyHex: string, drive: Drive) {
@@ -1903,6 +1858,152 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (wasViewer) roleChangePush(rt, "reader", "member", adminName);
     else deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: selfKey });
     return true;
+  }
+
+  // --- Members machine: one person already in an album, on the Admin's phone. ---
+
+  type MembershipActor = ReturnType<typeof createMembershipActor>;
+  /** One actor per album and person, kept only while a change for them is being saved. */
+  const memberships = new Map<string, MembershipActor>();
+  /** Why the last Make Collaborator for a person failed, so the caller gets the same refusal as before. */
+  const lastRefusal = new Map<string, EitherResult<{ ok: boolean }>>();
+
+  /** Admin: a Viewer becomes a Collaborator. */
+  async function makeCollaboratorNow(rt: FolderRuntime, key: string) {
+    await refreshViewers(rt);
+    const registry = await readRegistryIn(rt.folderDrive);
+    const [upErr] = await makeViewerMember(rt.folderDrive, {
+      viewers: { version: 1, viewers: rt.viewers },
+      registry,
+      memberKey: key,
+    });
+    const id = `${rt.record.id}/${key}`;
+    if (upErr) {
+      lastRefusal.set(
+        id,
+        upErr.kind === "no-such-viewer"
+          ? err(PhotoError.NOT_FOUND, "No such Viewer")
+          : upErr.kind === "already-enrolled"
+            ? err(PhotoError.ALREADY_ENROLLED, upErr.message)
+            : err(ErrorCode.HOST_ERROR, `Cannot let the Viewer add photos: ${upErr.message}`),
+      );
+      return Either.left({ reason: upErr.message });
+    }
+    lastRefusal.delete(id);
+    await refreshMembersFor(rt);
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: key });
+    return Either.right();
+  }
+
+  /** Admin: a person whose drive says they left is taken off whichever list holds them and noted as left. */
+  async function markLeftNow(rt: FolderRuntime, key: string, drive: Drive) {
+    const registry = await readRegistryIn(rt.folderDrive);
+    if (registry.members[key]) {
+      const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
+        driveKey: drive.key,
+        verify: (p) => deps.drives.verifyIdentity(p),
+      });
+      await noteFormer(
+        rt,
+        markLeft(await formerSnapshot(rt, key)),
+        device.status === "verified" ? device.identityKey : undefined,
+      );
+      const [removeErr] = await removeAlbumMember(rt.folderDrive, { memberKey: key, log });
+      if (removeErr) {
+        log("error", { where: "dropMemberWhoLeft", err: removeErr.message });
+        return Either.left({ reason: removeErr.message });
+      }
+      if (device.status === "verified") setAnswer(rt, device.identityKey, undefined);
+    } else {
+      const identity = await identityOfDrive(drive);
+      const snapshot = await formerSnapshot(rt, key);
+      // Re-read right before the write: a Viewer seated during the awaits above
+      // must not be overwritten by the stale copy.
+      const fresh = await readViewers(rt.folderDrive, { log });
+      const [removeErr, next] = await removeViewer(rt.folderDrive, {
+        viewers: fresh,
+        viewerKey: key,
+      });
+      if (removeErr) {
+        log("error", { where: "dropViewerWhoLeft", err: removeErr.message });
+        return Either.left({ reason: removeErr.message });
+      }
+      await noteFormer(rt, markLeft(snapshot), identity);
+      rt.viewers = next.viewers;
+      if (identity !== undefined) setAnswer(rt, identity, undefined);
+    }
+    await refreshMembersFor(rt);
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: key });
+    return Either.right();
+  }
+
+  const onePerPerson = oneAtATime();
+
+  /** Finds the person's actor and sends it one event, one caller at a time per person, so a second caller finds the change the first started. */
+  function sendToMember(
+    rt: FolderRuntime,
+    key: string,
+    drive: Drive | undefined,
+    send: (actor: MembershipActor) => void,
+  ) {
+    return onePerPerson(`${rt.record.id}/${key}`, async () => {
+      const actor = await membershipOf(rt, key, drive);
+      if (actor) send(actor);
+      return actor;
+    });
+  }
+
+  /** What a caller hears when the machine did not take Make Collaborator. */
+  function membershipRefusal(actor: MembershipActor): EitherResult<{ ok: boolean }> {
+    const name = actor.state.name;
+    if (name === "markingAsLeft" || name === "leftAlbum")
+      return err(PhotoError.NOT_FOUND, "They left the album");
+    return err(ErrorCode.HOST_ERROR, "Another change for them is still being saved");
+  }
+
+  function membershipPort(
+    rt: FolderRuntime,
+    key: string,
+    drive: Drive | undefined,
+  ): MembershipPort {
+    return {
+      makeCollaborator: () => oneChangePerAlbum(rt.record.id, () => makeCollaboratorNow(rt, key)),
+      markLeft: () =>
+        oneChangePerAlbum(rt.record.id, async () =>
+          drive ? markLeftNow(rt, key, drive) : Either.left({ reason: "No drive to read" }),
+        ),
+    };
+  }
+
+  /** The person's actor, started from the Admin's lists (the registry wins); undefined when neither lists them. A change in flight keeps its actor; otherwise the lists are read again, since Make Viewer and Remove change them outside the machine. */
+  async function membershipOf(
+    rt: FolderRuntime,
+    key: string,
+    drive?: Drive,
+  ): Promise<MembershipActor | undefined> {
+    const id = `${rt.record.id}/${key}`;
+    const inFlight = () => {
+      const existing = memberships.get(id);
+      const name = String(existing?.state.name);
+      return name === "makingCollaborator" || name === "markingAsLeft" ? existing : undefined;
+    };
+    const first = inFlight();
+    if (first) return first;
+    await refreshViewers(rt);
+    const registry = await readRegistryIn(rt.folderDrive);
+    // Another caller may have started a change for them while the lists were read.
+    const second = inFlight();
+    if (second) return second;
+    memberships.delete(id);
+    const listed = registry.members[key] ?? rt.viewers[key];
+    if (!listed) return undefined;
+    const actor = createMembershipActor({
+      clock: RealClock(),
+      port: membershipPort(rt, key, drive ?? rt.memberDrives.get(key)),
+      start: { role: registry.members[key] ? "member" : "reader", joinedAt: listed.addedAt },
+    });
+    memberships.set(id, actor);
+    return actor;
   }
 
   // --- Archive, delete for everyone (#186). ---------------------------------
@@ -5250,22 +5351,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!isHexKey(memberKey) || memberKey.toLowerCase() === rt.record.shareKey.toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
-      await refreshViewers(rt);
-      const registry = await readRegistryIn(rt.folderDrive);
-      const [upErr, upgraded] = await makeViewerMember(rt.folderDrive, {
-        viewers: { version: 1, viewers: rt.viewers },
-        registry,
-        memberKey: key,
+      let alreadyCollaborator = false;
+      const actor = await sendToMember(rt, key, undefined, (a) => {
+        if (String(a.state.name) === "collaboratorInAlbum") alreadyCollaborator = true;
+        else a.send({ type: "makeCollaborator" });
       });
-      if (upErr) {
-        if (upErr.kind === "no-such-viewer") return err(PhotoError.NOT_FOUND, "No such Viewer");
-        if (upErr.kind === "already-enrolled")
-          return err(PhotoError.ALREADY_ENROLLED, upErr.message);
-        return err(ErrorCode.HOST_ERROR, `Cannot let the Viewer add photos: ${upErr.message}`);
+      if (!actor) return err(PhotoError.NOT_FOUND, "No such Viewer");
+      if (alreadyCollaborator) {
+        // Listed in both files after a half-finished change: already enrolled; only in the registry: no longer a Viewer.
+        return rt.viewers[key]
+          ? err(PhotoError.ALREADY_ENROLLED, "Member already enrolled")
+          : err(PhotoError.NOT_FOUND, "No such Viewer");
       }
-      await refreshMembersFor(rt);
-      deps.onChanged({ cause: "enroll", folderId, memberKey: key });
-      return ok({ ok: true });
+      if (String(actor.state.name) !== "makingCollaborator") return membershipRefusal(actor);
+      await actor.settled();
+      if (String(actor.state.name) === "collaboratorInAlbum") return ok({ ok: true });
+      return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
     },
 
     async makeViewer(folderId, memberKey) {
