@@ -12,7 +12,8 @@
  * own drive and can read its `/requests.json` outbox.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, type FakeHub } from "./fakes/fake-world.ts";
 import { fakeStoreDeps, peerPhone } from "./fakes/fake-store-deps.ts";
@@ -31,8 +32,8 @@ function buildStore(name: string, hub: FakeHub) {
   return { store, changes, deps, identity };
 }
 
-async function until(done: () => boolean, ms = 2_000): Promise<void> {
-  for (let waited = 0; waited < ms && !done(); waited += 10) {
+async function until(done: () => boolean | Promise<boolean>, ms = 2_000): Promise<void> {
+  for (let waited = 0; waited < ms && !(await done()); waited += 10) {
     await new Promise((r) => setTimeout(r, 10));
   }
 }
@@ -107,5 +108,62 @@ describe("#84/#85 a resolved join request must not resurface as pending", () => 
     await creator.store.close();
     await requester.store.close();
     await requester2.store.close();
+  });
+});
+
+describe("#351 a request the joiner cancelled cannot be answered", () => {
+  async function cancelledAsk() {
+    const hub = createFakeHub();
+    const admin = buildStore("Nils", hub);
+    const joiner = buildStore("Sam", hub);
+    await admin.store.ready();
+    await joiner.store.ready();
+    const created = await admin.store.createFolder("Trip");
+    const { id: folderId, invite } = created[1]!.folder;
+    const owner = admin.identity();
+    const asked = await joiner.store.ask({ code: invite!.code, owner });
+    expect(asked[0]).toBeNull();
+    const phone = peerPhone(hub, { identityKey: joiner.identity() });
+    phone.meet(admin.deps.drives.discoveryKeyOf(owner));
+    await until(() => phone.events.some((e) => e.type === "identified"));
+    const rows = (await admin.store.requests()).requests;
+    expect(rows[0]?.requesterName).toBe("Sam");
+    const requesterKey = rows[0]!.requesterKey;
+    expect((await joiner.store.cancelAsk(invite!.code))[0]).toBeNull();
+    await until(async () => (await admin.store.requests()).requests.length === 0);
+    expect((await admin.store.requests()).requests).toEqual([]);
+    return { admin, joiner, folderId, requesterKey };
+  }
+
+  async function expectNothingSaved(s: Awaited<ReturnType<typeof cancelledAsk>>) {
+    await s.admin.store.setActive(s.folderId);
+    const members = (await s.admin.store.status()).members as Array<{ key: string }>;
+    expect(members.map((m) => m.key)).not.toContain(s.requesterKey);
+    const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+    expect(saved.folders[0].answers ?? {}).toEqual({});
+    expect((await s.joiner.store.folders()).folders).toEqual([]);
+    await s.admin.store.close();
+    await s.joiner.store.close();
+  }
+
+  it("Accept as member on a cancelled request is refused and adds no one", async () => {
+    const s = await cancelledAsk();
+    const [error] = await s.admin.store.respond(s.folderId, s.requesterKey, true);
+    expect(error?.code).toBe("justus.photos/request-cancelled");
+    await expectNothingSaved(s);
+  });
+
+  it("Accept as reader on a cancelled request is refused and adds no one", async () => {
+    const s = await cancelledAsk();
+    const [error] = await s.admin.store.respond(s.folderId, s.requesterKey, true, "reader");
+    expect(error?.code).toBe("justus.photos/request-cancelled");
+    await expectNothingSaved(s);
+  });
+
+  it("Decline on a cancelled request is refused and records no answer", async () => {
+    const s = await cancelledAsk();
+    const [error] = await s.admin.store.respond(s.folderId, s.requesterKey, false);
+    expect(error?.code).toBe("justus.photos/request-cancelled");
+    await expectNothingSaved(s);
   });
 });

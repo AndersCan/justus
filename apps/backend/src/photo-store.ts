@@ -197,6 +197,7 @@ export const PhotoError = {
   ALBUM_NOT_CHANGED: "justus.photos/album-not-changed",
   ADMIN_CANNOT_LEAVE: "justus.photos/admin-cannot-leave",
   INVALID_LINK_TIME: "justus.photos/invalid-link-time",
+  REQUEST_CANCELLED: "justus.photos/request-cancelled",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -4902,20 +4903,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!isHexKey(requesterKey))
           return err(PhotoError.INVALID_KEY, "Requester key must be a 64-char hex key");
         requesterKey = requesterKey.toLowerCase();
-        if (!requesterIdentity.has(requesterKey)) await readRequestsFromPeers(rt);
+        // A request this phone saw that is no longer filed was cancelled by the joiner.
+        const seen = requesterIdentity.has(requesterKey);
+        const found = await readRequestsFromPeers(rt);
+        const registry = await readRegistryIn(rt.folderDrive);
+        const filed = found.some((f) => f.request.requesterKey === requesterKey);
+        if (seen && !filed && !registry.members[requesterKey] && !rt.viewers[requesterKey])
+          return err(PhotoError.REQUEST_CANCELLED, "The request was cancelled");
         const identity = requesterIdentity.get(requesterKey);
         const askedBy =
           identity && rt.record.invite && inviteRequesters.has(requesterKey) ? identity : undefined;
-        const registry = await readRegistryIn(rt.folderDrive);
         const reply = replyTo(
           { askedBy, enrolled: Boolean(registry.members[requesterKey]) },
           { approve },
         );
         if (reply.kind === "decline-ask") {
           // The joiner is told; a newer ask from them is a new request.
-          const asked = (await readRequestsFromPeers(rt)).find(
-            (f) => f.request.requesterKey === requesterKey && f.viaInvite,
-          );
+          const asked = found.find((f) => f.request.requesterKey === requesterKey && f.viaInvite);
           setAnswer(rt, reply.identity, "declined");
           if (asked) rememberDeclinedAsk(rt, reply.identity, asked.request.requestedAt);
           deps.onChanged({ cause: "request", folderId });
@@ -4935,7 +4939,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         // The requester's own reported name comes from its `/requests.json`;
         // acceptJoinRequest falls back to a neutral label.
-        const found = await readRequestsFromPeers(rt);
         if (role === "reader") {
           if (reply.kind !== "accept" || !reply.identity) {
             return err(
