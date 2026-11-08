@@ -60,7 +60,8 @@ prints the events that lead there (`failOnFindings` in `docs/site/astro.config.m
 serves the site and checks it in a browser: every machine draws, every live machine
 handles an event, every overview box opens a built page that shows its machine, and
 every walk link on the pages and in `docs/design/sharing-flows.md` opens a run that
-exists (it fails on a missing run or a `step=` trace). Needs Chromium; set
+exists (it fails on a missing run). `scripts/flows.test.ts` checks that each walk
+link carries `machine=` and `run=`, has no `step=` trace, and is named after its run. Needs Chromium; set
 `CHROMIUM_PATH` if Playwright's is not installed.
 
 ## `pnpm flows:dev`
