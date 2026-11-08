@@ -139,6 +139,11 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ${p.name}${p.you ? " (you)" : ""}
         ${p.admin ? html`<span class="ml-1 text-xs font-normal text-muted">· Admin</span>` : null}
         ${p.viewer ? html`<span class="ml-1 text-xs font-normal text-muted">· Viewer</span>` : null}
+        ${
+          !p.admin && !p.viewer
+            ? html`<span class="ml-1 text-xs font-normal text-muted">· Collaborator</span>`
+            : null
+        }
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">· Friend</span>` : null}
       </p>
       ${
@@ -185,7 +190,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
               people.letViewerAddPhotos(vm.folder.id, p.key);
             }}
           >
-            Let add photos
+            Let ${p.name} add photos
           </button>`
         : null
     }
