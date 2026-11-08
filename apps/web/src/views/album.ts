@@ -577,7 +577,7 @@ function albumBody(
         <span class="rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
           ${roleLabel(status.folder.role, status.folder.pending)}
         </span>
-        ${watch(foldersActor, (fs) => albumMenu(status, foldersViewModel(fs).busy))}
+        ${watch(foldersActor, (fs) => albumMenu(status, !foldersViewModel(fs).settled))}
       </div>
     </div>
     ${albumNotice(status.folder.notice)}
