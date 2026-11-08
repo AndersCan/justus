@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { inviteLink } from "../machines/sharing/invite-link";
-import { invitePanel } from "./invite";
+import { friendNamesLine, invitePanel } from "./invite";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -76,5 +76,17 @@ describe("invite card send hint", () => {
     const host = mount("creator");
     expect(host.textContent).not.toContain(LINE);
     expect(copyButton(host)!.disabled).toBe(true);
+  });
+});
+
+describe("friendNamesLine", () => {
+  const names = (...n: string[]) => friendNamesLine(n.map((name) => ({ identity: name, name })));
+  test.each([
+    [["Ben"], "From your friends: Ben. No link needed."],
+    [["Ben", "Kari"], "From your friends: Ben or Kari. No link needed."],
+    [["Ånna", "Kari", "ole"], "From your friends: Ånna, Kari or ole. No link needed."],
+    [["A", "B", "C", "D", "E"], "From your friends: A, B, C or 2 more. No link needed."],
+  ])("%j", (list, text) => {
+    expect(names(...list)).toBe(text);
   });
 });

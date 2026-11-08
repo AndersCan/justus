@@ -2,7 +2,6 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { friends, friendsActor } from "../machines/friends-machine";
 import { addFriend } from "../machines/sharing/add-friend";
 import { addFriendSheetView } from "./add-friend-sheet";
 import { invitePanel } from "./invite";
@@ -26,10 +25,20 @@ const folder = (role: string) =>
     invite: { code: "c", owner: "o" },
   }) as unknown as FolderSummary;
 
-const mount = (role: string) => {
+const mount = (
+  role: string,
+  saved: Record<string, string> = {},
+  memberIdentities: string[] = [],
+) => {
   const host = document.createElement("div");
   document.body.append(host);
-  render([invitePanel(folder(role), "Nils", "Nils", false, () => {}), addFriendSheetView()], host);
+  render(
+    [
+      invitePanel(folder(role), "Nils", "Nils", false, () => {}, memberIdentities, saved),
+      addFriendSheetView(),
+    ],
+    host,
+  );
   return host;
 };
 
@@ -42,9 +51,21 @@ beforeEach(() => {
 });
 
 describe("add a friend", () => {
-  test("the Admin sees Add a friend above Or send a link", () => {
+  test("no saved friends: no Add a friend button and no 'Or send a link'", () => {
     const host = mount("creator");
+    expect(button(host, "Add a friend")).toBeUndefined();
+    expect(host.textContent).not.toContain("Or send a link");
+  });
+
+  test("every friend already a member: no Add a friend button", () => {
+    const host = mount("creator", { i1: "Kari" }, ["i1"]);
+    expect(button(host, "Add a friend")).toBeUndefined();
+  });
+
+  test("one friend: Add a friend and the friend's name", () => {
+    const host = mount("creator", { i1: "Kari" });
     expect(button(host, "Add a friend")).toBeTruthy();
+    expect(host.textContent).toContain("From your friends: Kari. No link needed.");
     expect(host.textContent).toContain("Or send a link");
   });
 
@@ -54,14 +75,15 @@ describe("add a friend", () => {
     expect(host.textContent).not.toContain("Or send a link");
   });
 
-  test("no friends shows No friends yet; focus moves in, Escape on it closes and focus returns", async () => {
-    const host = mount("creator");
+  test("focus moves into the sheet, Escape closes and focus returns", async () => {
+    const host = mount("creator", { i1: "Kari" });
     const add = button(host, "Add a friend")!;
     add.focus();
     add.click();
-    await vi.waitFor(() => expect(host.textContent).toContain("No friends yet"));
-    expect(host.textContent).toContain("Tap someone in People");
-    await vi.waitFor(() => expect(document.activeElement).toBe(button(host, "Close")));
+    await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(host.querySelector("[role=dialog]")!.contains(document.activeElement)).toBe(true),
+    );
     document.activeElement!.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
@@ -70,27 +92,10 @@ describe("add a friend", () => {
     expect(document.activeElement).toBe(add);
   });
 
-  test("every friend already a member shows No friends yet", async () => {
-    const host = mount("creator");
-    addFriend.openPicker({
-      folderId: "f1",
-      albumName: "Lisbon trip",
-      friends: [{ identity: "i1", name: "Kari" }],
-      memberIdentities: ["i1"],
-    });
-    await vi.waitFor(() => expect(host.textContent).toContain("No friends yet"));
-  });
-
   test("a saved friend is listed and picking asks them", async () => {
     const { gateway } = await import("../gateway");
     vi.mocked(gateway.offerAlbum).mockResolvedValue([null, { ok: true }]);
-    const host = mount("creator");
-    await vi.waitFor(() => expect(friendsActor.snapshot().path[0]).toBe("friendSheetClosed"));
-    friends.open({ identity: "i1", ownName: "Kari" });
-    friends.add();
-    friends.type("Kari");
-    friends.save();
-    await vi.waitFor(() => expect(friendsActor.snapshot().context.friends).toEqual({ i1: "Kari" }));
+    const host = mount("creator", { i1: "Kari" });
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
@@ -100,13 +105,8 @@ describe("add a friend", () => {
   test("backdrop click is ignored while asking", async () => {
     const { gateway } = await import("../gateway");
     vi.mocked(gateway.offerAlbum).mockReturnValue(new Promise(() => {}));
-    const host = mount("creator");
-    addFriend.openPicker({
-      folderId: "f1",
-      albumName: "Lisbon trip",
-      friends: [{ identity: "i1", name: "Kari" }],
-      memberIdentities: [],
-    });
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
     await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari"));

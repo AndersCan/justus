@@ -469,7 +469,12 @@ function advancedSection(status: Status, settled: boolean, busy: boolean) {
   </details>`;
 }
 
-function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewModel>) {
+function albumBody(
+  id: string,
+  vm: PeopleVm,
+  syncVm: ReturnType<typeof syncViewModel>,
+  friends: Record<string, string>,
+) {
   const { status, state, busy, settled, error, fatal } = syncVm;
   const back = html`<a class="text-sm text-muted hover:text-fg" href="/sharing">← Sharing</a>`;
   if (!status || status.folder.id !== id) {
@@ -519,6 +524,7 @@ function albumBody(id: string, vm: PeopleVm, syncVm: ReturnType<typeof syncViewM
         vm.qrShown,
         () => people.showQr(),
         status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
+        friends,
       )}
     </div>
     ${membersSection(vm, id)} ${advancedSection(status, settled, busy)} ${friendSheetView()}
@@ -537,7 +543,7 @@ export function albumView(id: string) {
             requests: rs.context.requests,
             friends: fs.context.friends,
           });
-          return albumBody(id, vm, syncVm);
+          return albumBody(id, vm, syncVm, fs.context.friends);
         }),
       ),
     ),

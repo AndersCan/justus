@@ -18,6 +18,14 @@ export type FriendChoice = { identity: string; name: string };
 /** A saved friend, as the friends list holds it. */
 type SavedFriend = { identity: string; name: string };
 
+/** Saved friends who are not members of the album, sorted by name (case- and accent-insensitive). */
+export function friendChoices(friends: SavedFriend[], memberIdentities: string[]): FriendChoice[] {
+  return friends
+    .filter((f) => !memberIdentities.includes(f.identity))
+    .map((f) => ({ identity: f.identity, name: f.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
 /** The reason the friend could not be asked. */
 export type NotReachedReason = "unreachable" | "refused";
 
@@ -31,8 +39,6 @@ type Picked = Album & { identity: string; name: string };
 const showingPeopleWithAddFriend = state("showingPeopleWithAddFriend")();
 /** The sheet lists the saved friends who are not in the album yet, by name. */
 const choosingFriend = state("choosingFriend")<Album & { choices: FriendChoice[] }>();
-/** The sheet says "No friends yet": the friends list is empty, or every friend is already a member. */
-const noFriendsYet = state("noFriendsYet")();
 /** "Asking <friend>..." The friend's phone must be open too; the sheet cannot be closed until it answers. */
 const lookingForFriend = state("lookingForFriend")<Picked>();
 /** The friend's phone did not take the invite. The sheet says why in one line and offers Close. */
@@ -75,29 +81,20 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
     inputs: [openPicker, pickFriend, closePicker],
     internal: [friendReached, friendNotReached],
     outputs: [friendAsked],
-    states: [
-      showingPeopleWithAddFriend,
-      choosingFriend,
-      noFriendsYet,
-      lookingForFriend,
-      couldNotReachFriend,
-    ],
+    states: [showingPeopleWithAddFriend, choosingFriend, lookingForFriend, couldNotReachFriend],
     initial: showingPeopleWithAddFriend,
     clock,
     setup: (m) => {
-      for (const from of [showingPeopleWithAddFriend, noFriendsYet, couldNotReachFriend]) {
-        /** "Add a friend": friends who are not members are listed by name; with none, the sheet says "No friends yet". */
+      for (const from of [showingPeopleWithAddFriend, couldNotReachFriend]) {
+        /** "Add a friend": the saved friends who are not members are listed by name; with none, nothing opens. */
         m.on(from, {
           event: openPicker,
-          to: [choosingFriend, noFriendsYet],
+          to: [choosingFriend, showingPeopleWithAddFriend],
           handler: (e) => {
             const { folderId, albumName, friends, memberIdentities } = e.payload;
-            const choices = friends
-              .filter((f) => !memberIdentities.includes(f.identity))
-              .map((f) => ({ identity: f.identity, name: f.name }))
-              .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+            const choices = friendChoices(friends, memberIdentities);
             return choices.length === 0
-              ? { state: noFriendsYet }
+              ? { state: showingPeopleWithAddFriend }
               : { state: choosingFriend.create({ folderId, albumName, choices }) };
           },
         });
@@ -116,7 +113,7 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
         },
       });
 
-      for (const from of [choosingFriend, noFriendsYet, couldNotReachFriend]) {
+      for (const from of [choosingFriend, couldNotReachFriend]) {
         /** Close: back to the People list. */
         m.on(from, {
           event: closePicker,

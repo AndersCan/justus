@@ -6,6 +6,7 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   FRIEND_REFUSED_CODE,
   createAddFriendActor,
+  friendChoices,
   type AddFriendPort,
 } from "./add-friend-machine";
 
@@ -55,21 +56,25 @@ describe("openPicker", () => {
     expect(choices(s).map((c) => c.name)).toEqual(["Ånna", "Kari", "ole"]);
   });
 
-  test("no friends goes to noFriendsYet", async () => {
-    const s = setup();
-    await s.send("openPicker", { ...OPEN, friends: [] });
-    expect(s.actor.state.name).toBe("noFriendsYet");
+  test("friendChoices drops members and sorts", () => {
+    expect(friendChoices(FRIENDS, [OLE]).map((c) => c.name)).toEqual(["Ånna", "Kari"]);
+    expect(friendChoices([], [OLE])).toEqual([]);
   });
 
-  test("every friend already a member goes to noFriendsYet", async () => {
+  test("no friends leaves the actor in showingPeopleWithAddFriend", async () => {
+    const s = setup();
+    await s.send("openPicker", { ...OPEN, friends: [] });
+    expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
+  });
+
+  test("every friend already a member leaves the actor in showingPeopleWithAddFriend", async () => {
     const s = setup();
     await s.send("openPicker", { ...OPEN, memberIdentities: [KARI, OLE, ANNA] });
-    expect(s.actor.state.name).toBe("noFriendsYet");
+    expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
   });
 
-  test("opens again from noFriendsYet and couldNotReachFriend", async () => {
+  test("opens again from couldNotReachFriend", async () => {
     const s = setup(failing());
-    await s.send("openPicker", { ...OPEN, friends: [] });
     await s.send("openPicker", OPEN);
     expect(s.actor.state.name).toBe("choosingFriend");
     await s.send("pickFriend", { identity: KARI });
@@ -148,17 +153,14 @@ describe("pickFriend", () => {
 });
 
 describe("closePicker", () => {
-  test.each(["choosingFriend", "noFriendsYet", "couldNotReachFriend"] as const)(
-    "closes from %s",
-    async (name) => {
-      const s = setup(failing());
-      await s.send("openPicker", name === "noFriendsYet" ? { ...OPEN, friends: [] } : OPEN);
-      if (name === "couldNotReachFriend") await s.send("pickFriend", { identity: KARI });
-      expect(s.actor.state.name).toBe(name);
-      await s.send("closePicker");
-      expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
-    },
-  );
+  test.each(["choosingFriend", "couldNotReachFriend"] as const)("closes from %s", async (name) => {
+    const s = setup(failing());
+    await s.send("openPicker", OPEN);
+    if (name === "couldNotReachFriend") await s.send("pickFriend", { identity: KARI });
+    expect(s.actor.state.name).toBe(name);
+    await s.send("closePicker");
+    expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
+  });
 
   test("is ignored while the friend is being asked", async () => {
     const s = setup({ offerAlbum: () => new Promise(() => {}) });
@@ -195,7 +197,7 @@ describe("choices (property)", () => {
       await s.send("openPicker", { ...OPEN, friends, memberIdentities });
       const expected = friends.filter((f) => !memberIdentities.includes(f.identity));
       if (expected.length === 0) {
-        expect(s.actor.state.name).toBe("noFriendsYet");
+        expect(s.actor.state.name).toBe("showingPeopleWithAddFriend");
         continue;
       }
       const got = choices(s);
