@@ -212,6 +212,49 @@ export function parseDeviceSwarmKey(text: string): string | undefined {
   return undefined;
 }
 
+/** The field of an identity drive's `/device.json` that names its sealing key. */
+export const DRIVE_FIELD_BOX = "boxKey";
+
+/** The sealing key a `/device.json` publishes (64 hex, lowercased), or undefined. */
+export function boxKeyOf(deviceText: string | null): string | undefined {
+  if (deviceText === null) return undefined;
+  try {
+    const parsed = JSON.parse(deviceText) as { [DRIVE_FIELD_BOX]?: unknown };
+    const key = parsed[DRIVE_FIELD_BOX];
+    if (typeof key === "string" && isHexKey(key)) return key.toLowerCase();
+  } catch {
+    // not JSON
+  }
+  return undefined;
+}
+
+/** What an ask seals for the Admin: the ask drive's key, bound to who asks and through which code. */
+export type SealedAsk = { v: 1; key: string; identity: string; invite: string };
+
+export function sealedAskBytes(ask: Omit<SealedAsk, "v">): Uint8Array {
+  return Buffer.from(JSON.stringify({ v: 1, ...ask }));
+}
+
+/** The ask in opened bytes, or undefined unless version 1 with three 64-hex fields. */
+export function parseSealedAsk(bytes: Uint8Array): SealedAsk | undefined {
+  try {
+    const raw: unknown = JSON.parse(Buffer.from(bytes).toString("utf8"));
+    if (!isTextJSON(raw) || raw.v !== 1) return undefined;
+    const { key, identity, invite } = raw;
+    if (typeof key !== "string" || !isHexKey(key)) return undefined;
+    if (typeof identity !== "string" || !isHexKey(identity)) return undefined;
+    if (typeof invite !== "string" || !isHexKey(invite)) return undefined;
+    return {
+      v: 1,
+      key: key.toLowerCase(),
+      identity: identity.toLowerCase(),
+      invite: invite.toLowerCase(),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 /** What a phone signs into the `/device.json` of a drive: the key of that drive. */
 export function identityMessage(driveKey: string): Uint8Array {
   return Buffer.from(`justus-device/v1:${driveKey.toLowerCase()}`, "utf8");

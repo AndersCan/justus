@@ -13,6 +13,7 @@ import {
   parseJoinRequests,
   parseRegistry,
   parseRequestsFile,
+  parseSealedAsk,
   parseViewers,
   type LinkTime,
   type RegistryFile,
@@ -215,6 +216,48 @@ function inviteRequesters(text: string, code: string | undefined): Set<string> {
   return out;
 }
 
+/** The outbox text with each invite entry for `code` that carries a `sealedKey`
+ * given the `requesterKey` it opens to. A seal that cannot be opened, or that
+ * names another identity or code than the entry's, is dropped and logged. */
+async function openSealedEntries(
+  text: string,
+  options: {
+    code: string | undefined;
+    identity: string;
+    openSealed: (sealed: string) => Promise<OpenResult<Uint8Array>>;
+    log: JoinLog;
+  },
+): Promise<string> {
+  const { code, identity, openSealed, log } = options;
+  const file = code ? parseRequestsFile(text) : undefined;
+  if (!file) return text;
+  const requests: Record<string, unknown> = {};
+  for (const [id, raw] of Object.entries(file.requests) as Array<[string, unknown]>) {
+    if (!isTextJSON(raw) || raw.invite !== code || raw.sealedKey === undefined) {
+      requests[id] = raw;
+      continue;
+    }
+    const drop = (reason: string) =>
+      log("requests.sealed.dropped", { identity: short(identity), reason });
+    if (typeof raw.sealedKey !== "string" || !/^[0-9a-f]+$/i.test(raw.sealedKey)) {
+      drop("not-ours");
+      continue;
+    }
+    const [openErr, bytes] = await openSealed(raw.sealedKey);
+    const sealed = openErr ? undefined : parseSealedAsk(bytes);
+    if (!sealed) {
+      drop("not-ours");
+    } else if (sealed.identity !== identity.toLowerCase()) {
+      drop("identity");
+    } else if (sealed.invite !== code) {
+      drop("invite");
+    } else {
+      requests[id] = { ...raw, requesterKey: sealed.key };
+    }
+  }
+  return JSON.stringify({ version: 1, requests });
+}
+
 /** Reads the album's join requests off every identity's outbox, concurrently
  * so unreachable peers cost one timeout in total. A requester key listed by
  * more than one outbox is returned in `ambiguous` and in no request. */
@@ -223,6 +266,7 @@ export async function readJoinRequests(
   options: {
     identities: Iterable<string>;
     folder: { id: string; name: string; shareKey: string; inviteCode?: string };
+    openSealed: (sealed: string) => Promise<OpenResult<Uint8Array>>;
     log: JoinLog;
   },
 ): Promise<FoundJoinRequests> {
@@ -236,12 +280,18 @@ export async function readJoinRequests(
       );
       return empty;
     }
-    const text = await readRecord(drive, {
+    let text = await readRecord(drive, {
       path: DRIVE_PATH_REQUESTS,
       log,
       timeoutMs: PEER_READ_TIMEOUT_MS,
     });
     if (text === null) return empty;
+    text = await openSealedEntries(text, {
+      code: folder.inviteCode,
+      identity,
+      openSealed: options.openSealed,
+      log,
+    });
     const found = parseJoinRequests(text, {
       shareKey: folder.shareKey,
       folderId: folder.id,

@@ -10,6 +10,9 @@ import {
   parseDeviceSwarmKey,
   parseFolderName,
   parseJoinRequests,
+  boxKeyOf,
+  parseSealedAsk,
+  sealedAskBytes,
   parseRegistry,
   parseRemoved,
   parseRequestsFile,
@@ -497,5 +500,38 @@ describe("linkOff answers", () => {
     });
     expect(invitesAsked(text)).toEqual([{ code, requestedAt: 5 }]);
     expect(invitesAsked("nope")).toEqual([]);
+  });
+});
+
+describe("sealing records", () => {
+  const hex = (c: string) => c.repeat(64);
+
+  test("boxKeyOf reads a valid key, lowercased, and nothing else", () => {
+    const of = (boxKey: unknown) => boxKeyOf(JSON.stringify({ boxKey }));
+    expect(of(hex("a"))).toBe(hex("a"));
+    expect(of(hex("A"))).toBe(hex("a"));
+    expect(boxKeyOf(JSON.stringify({ name: "x" }))).toBeUndefined();
+    expect(of("a".repeat(63))).toBeUndefined();
+    expect(of(5)).toBeUndefined();
+    expect(boxKeyOf("nope")).toBeUndefined();
+    expect(boxKeyOf(null)).toBeUndefined();
+  });
+
+  test("parseSealedAsk round-trips sealedAskBytes", () => {
+    const ask = { key: hex("1"), identity: hex("2"), invite: hex("3") };
+    expect(parseSealedAsk(sealedAskBytes(ask))).toEqual({ v: 1, ...ask });
+  });
+
+  test("parseSealedAsk rejects other versions, missing fields and non-hex", () => {
+    const good = { v: 1, key: hex("1"), identity: hex("2"), invite: hex("3") };
+    const parse = (value: unknown) => parseSealedAsk(Buffer.from(JSON.stringify(value)));
+    expect(parse({ ...good, v: 2 })).toBeUndefined();
+    expect(parse({ ...good, key: undefined })).toBeUndefined();
+    expect(parse({ ...good, identity: undefined })).toBeUndefined();
+    expect(parse({ ...good, invite: undefined })).toBeUndefined();
+    expect(parse({ ...good, key: "zz" })).toBeUndefined();
+    expect(parse({ ...good, invite: "z".repeat(64) })).toBeUndefined();
+    expect(parseSealedAsk(Buffer.from("nope"))).toBeUndefined();
+    expect(parse(null)).toBeUndefined();
   });
 });

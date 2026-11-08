@@ -9,7 +9,7 @@ import {
   type FakeHub,
   type FakeWorldOptions,
 } from "../fakes/fake-world.ts";
-import { isEnrolled } from "../../src/membership/records.ts";
+import { isEnrolled, sealedAskBytes } from "../../src/membership/records.ts";
 import {
   MAX_PEER_JSON_BYTES,
   acceptJoinRequest,
@@ -313,6 +313,7 @@ describe("readJoinRequests", () => {
     const found = await readJoinRequests(opener({ i1: drive }), {
       identities: ["i1"],
       folder: FOLDER,
+      openSealed: (s) => admin.ports.drives.openSealed(s),
       log: admin.ports.log,
     });
     expect(found).toEqual({
@@ -343,6 +344,7 @@ describe("readJoinRequests", () => {
     const found = await readJoinRequests(opener({ i1: drive }), {
       identities: ["i1"],
       folder: { ...FOLDER, inviteCode: code },
+      openSealed: (s) => admin.ports.drives.openSealed(s),
       log: admin.ports.log,
     });
     expect(found.requests.map((f) => f.viaInvite)).toEqual([true]);
@@ -355,6 +357,7 @@ describe("readJoinRequests", () => {
     const found = await readJoinRequests(opener({ i1: d1, i2: d2 }), {
       identities: ["i1", "i2"],
       folder: FOLDER,
+      openSealed: (s) => admin.ports.drives.openSealed(s),
       log: admin.ports.log,
     });
     expect(found).toEqual({ requests: [], ambiguous: [KEY_A] });
@@ -366,12 +369,102 @@ describe("readJoinRequests", () => {
     const found = await readJoinRequests(opener({ i2: drive }), {
       identities: ["i1", "i2"],
       folder: FOLDER,
+      openSealed: (s) => admin.ports.drives.openSealed(s),
       log: admin.ports.log,
     });
     expect({
       keys: found.requests.map((f) => [f.request.requesterKey, f.identity]),
       ambiguous: found.ambiguous,
     }).toEqual({ keys: [[KEY_B, "i2"]], ambiguous: [] });
+  });
+
+  describe("sealed asks", () => {
+    const CODE = "c".repeat(64);
+    const KEY_C = "d".repeat(64);
+    const sealedFolder = { ...FOLDER, inviteCode: CODE };
+    /** Opens only ids it knows; any other id is sealed to another phone. */
+    const stub = (known: Record<string, Uint8Array>) => async (id: string) =>
+      known[id] ? ([null, known[id]] as const) : ([new Error("not for us"), null] as const);
+    const entry = (sealedKey: string, extra?: Record<string, unknown>) => ({
+      sealedKey,
+      requesterName: "Bo",
+      invite: CODE,
+      requestedAt: 5,
+      ...extra,
+    });
+    const read = async (outboxes: Record<string, object>, known: Record<string, Uint8Array>) => {
+      const [admin, joiner] = devices(2);
+      const drives: Record<string, Drive> = {};
+      for (const [identity, requests] of Object.entries(outboxes)) {
+        drives[identity] = await outbox(joiner, identity, requests);
+      }
+      const events: string[] = [];
+      const found = await readJoinRequests(opener(drives), {
+        identities: Object.keys(outboxes),
+        folder: sealedFolder,
+        openSealed: stub(known) as never,
+        log: (event, fields) => {
+          admin.ports.log(event, fields);
+          events.push(`${event}:${fields?.reason}`);
+        },
+      });
+      return { found, events };
+    };
+    const IA = "1".repeat(64);
+    const IB = "2".repeat(64);
+
+    it("lists a sealed entry with the opened key and viaInvite", async () => {
+      const bytes = sealedAskBytes({ key: KEY_A, identity: IA, invite: CODE });
+      const { found } = await read({ [IA]: { [`invite:${CODE}`]: entry("aa") } }, { aa: bytes });
+      expect(found.requests.map((f) => [f.request.requesterKey, f.viaInvite])).toEqual([
+        [KEY_A, true],
+      ]);
+    });
+
+    it("does not list an entry sealed to another phone", async () => {
+      const { found, events } = await read({ [IA]: { [`invite:${CODE}`]: entry("bb") } }, {});
+      expect(found.requests).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:not-ours");
+    });
+
+    it("does not list a seal naming another identity, and lists its owner's copy once", async () => {
+      const bytes = sealedAskBytes({ key: KEY_A, identity: IB, invite: CODE });
+      const copy = { [`invite:${CODE}`]: entry("aa") };
+      const { found, events } = await read({ [IA]: copy, [IB]: copy }, { aa: bytes });
+      expect(found.requests.map((f) => f.identity)).toEqual([IB]);
+      expect(found.ambiguous).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:identity");
+    });
+
+    it("does not list a seal naming another invite code", async () => {
+      const bytes = sealedAskBytes({ key: KEY_C, identity: IA, invite: "e".repeat(64) });
+      const { found, events } = await read(
+        { [IA]: { [`invite:${CODE}`]: entry("aa") } },
+        { aa: bytes },
+      );
+      expect(found.requests).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:invite");
+    });
+
+    it("does not list a sealedKey that is not hex", async () => {
+      const bytes = sealedAskBytes({ key: KEY_A, identity: IA, invite: CODE });
+      const { found } = await read({ [IA]: { [`invite:${CODE}`]: entry("zz") } }, { zz: bytes });
+      expect(found.requests).toEqual([]);
+    });
+
+    it("drops a sealedKey that is not a string", async () => {
+      const { found, events } = await read({ [IA]: { [`invite:${CODE}`]: entry(5 as never) } }, {});
+      expect(found.requests).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:not-ours");
+    });
+
+    it("still lists a plain-key invite entry", async () => {
+      const plain = { requesterKey: KEY_A, requesterName: "Bo", invite: CODE, requestedAt: 5 };
+      const { found } = await read({ [IA]: { [`invite:${CODE}`]: plain } }, {});
+      expect(found.requests.map((f) => [f.request.requesterKey, f.viaInvite])).toEqual([
+        [KEY_A, true],
+      ]);
+    });
   });
 });
 
@@ -601,6 +694,7 @@ describe("join, request, accept", () => {
       {
         identities: [identity.key],
         folder: { id: "f1", name: "Trip", shareKey: album.key },
+        openSealed: (s) => admin.ports.drives.openSealed(s),
         log: admin.ports.log,
       },
     );

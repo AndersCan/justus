@@ -8,6 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeCrypto from "node:crypto";
 import { inviteTopic } from "../src/membership/invite.ts";
+import { boxKeyOf } from "../src/membership/records.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
@@ -1384,5 +1385,43 @@ describe("a request through a turned-off link", () => {
       PhotoError.FOLDER_NOT_FOUND,
     );
     await s.close();
+  });
+});
+
+describe("the Admin's sealing key", () => {
+  it("the Admin's identity /device.json names its sealing key, also after a restart", async () => {
+    const s = await scenario();
+    const [boxErr, box] = await s.admin.deps.drives.boxPublicKey();
+    expect(boxErr).toBeNull();
+    const named = async (on: { deps: FakeStoreDeps }) =>
+      boxKeyOf((await readText(await openDrive(on, s.owner), "/device.json")) ?? null);
+    expect(await named(s.joiner)).toBe(box);
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    expect(await named(s.joiner)).toBe(box);
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("publishes /device.json without a sealing key, and logs it, when the key cannot be read", async () => {
+    const s = await scenario();
+    await s.admin.store.close();
+    const base = restarted(s.admin.deps);
+    const events: Array<{ event: string; fields: Record<string, unknown> }> = [];
+    const failing = createPhotoStore({
+      ...base,
+      drives: Object.assign(Object.create(base.drives), {
+        boxPublicKey: async () => [new Error("no box"), null],
+      }),
+      log: (e: { event: string; fields: Record<string, unknown> }) => events.push(e),
+    } as never);
+    await failing.ready();
+    const text = await readText(await openDrive(s.joiner, s.owner), "/device.json");
+    expect(boxKeyOf(text ?? null)).toBeUndefined();
+    expect(JSON.parse(text!).identityKey).toBeDefined();
+    expect(events.some((e) => e.event === "error" && e.fields.where === "box.key")).toBe(true);
+    await failing.close();
+    await s.joiner.store.close();
   });
 });

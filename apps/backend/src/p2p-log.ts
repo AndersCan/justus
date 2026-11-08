@@ -26,6 +26,7 @@
  *   swarmkey.learned member swarmkey      member's noise key read from /device.json
  *   swarmkey.changed member from to       the member's noise key differs from the cached one
  *   requests.found folder count peers     request inbox read N requests off peers' outboxes
+ *   requests.sealed.dropped identity reason   a sealed ask was not opened for this album
  *   presence.change swarmkey member state conns   a member's reachability flipped (up/down)
  *   error where err ...                   a network/drive operation failed (formerly swallowed)
  *

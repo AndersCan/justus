@@ -97,6 +97,7 @@ import {
   identityMessage,
   peerName,
   CLOCK_SLACK_MS,
+  DRIVE_FIELD_BOX,
   inLinkTime,
   type EarlierEntry,
   type LinkTime,
@@ -1279,7 +1280,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
    * phone's identity signature for that drive. Without, it is unsigned. */
   async function deviceJson(name: string, driveKey?: string): Promise<Buffer> {
     const base = { name, swarmKey: ownSwarmKey(), identityKey: ownDrive.key };
-    if (driveKey === undefined) return Buffer.from(JSON.stringify(base));
+    if (driveKey === undefined) {
+      const [boxErr, boxKey] = await deps.drives.boxPublicKey();
+      if (boxErr) {
+        log("error", { where: "box.key", err: boxErr.message });
+        return Buffer.from(JSON.stringify(base));
+      }
+      return Buffer.from(JSON.stringify({ ...base, [DRIVE_FIELD_BOX]: boxKey }));
+    }
     const [signErr, signed] = await deps.drives.signAsIdentity(identityMessage(driveKey));
     if (signErr) return Buffer.from(JSON.stringify(base));
     return Buffer.from(
@@ -3242,6 +3250,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const { requests: current, ambiguous } = await readJoinRequests(openOutbox, {
       identities: peerIdentities,
       folder: folderOf(rt.record.invite?.code),
+      openSealed: (sealed) => deps.drives.openSealed(sealed),
       log,
     });
     const found = [...current];
@@ -3254,6 +3263,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const held = await readJoinRequests(openOutbox, {
         identities,
         folder: folderOf(code),
+        openSealed: (sealed) => deps.drives.openSealed(sealed),
         log,
       });
       for (const f of held.requests) {
