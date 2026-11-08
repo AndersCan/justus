@@ -122,6 +122,24 @@ describe("buildPeople", () => {
     expect(buildPeople(status("member"), reqs, {}, NOW).requests).toHaveLength(0);
   });
 
+  it("names a request by your friend name when its identity is saved", () => {
+    const reqs = [{ ...request("f1"), requesterName: "Ben", requesterIdentity: "id-ben" }];
+    const [r] = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, NOW).requests;
+    expect(r).toMatchObject({ name: "Dad", friend: true, requesterName: "Ben" });
+  });
+
+  it("keeps the asker's own name for a stranger or a request without identity", () => {
+    const reqs = [
+      { ...request("f1"), requesterName: "Ben", requesterIdentity: "id-x" },
+      { ...request("f1"), requesterName: "Zoe" },
+    ];
+    const rows = buildPeople(status("creator"), reqs, { "id-ben": "Dad" }, NOW).requests;
+    expect(rows.map((r) => [r.name, r.friend])).toEqual([
+      ["Ben", false],
+      ["Zoe", false],
+    ]);
+  });
+
   it("handles no status", () => {
     expect(buildPeople(null, [], {}, NOW).chip).toBe("Just you");
   });

@@ -311,8 +311,16 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
     requests.respond(r.folderId, r.requesterKey, true, role);
   return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
     <p class="text-sm text-fg">
-      <span class="font-semibold">${r.requesterName}</span> wants to join “${r.folderName}”
+      <span class="font-semibold">${r.name}</span> wants to join
+      “${r.folderName}”${
+        r.friend ? html`<span class="ml-1 text-xs text-muted">· Friend</span>` : null
+      }
     </p>
+    ${
+      r.friend && r.requesterName !== r.name
+        ? html`<p class="text-xs text-muted">${r.requesterName}</p>`
+        : null
+    }
     <p class="mt-1 text-xs text-muted">
       Asked
       ${formatRelative(r.requestedAt)}${

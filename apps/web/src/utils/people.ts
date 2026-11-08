@@ -22,6 +22,10 @@ export type Person = {
   presence: string;
 };
 
+/** A pending join request with the name to show: your friend name for the
+ * asker when their identity key is a saved friend. */
+export type RequestRow = JoinRequest & { name: string; friend: boolean };
+
 export type People = {
   people: Person[];
   connectedCount: number;
@@ -29,7 +33,7 @@ export type People = {
   /** Header chip text, e.g. "3 of 5 connected". */
   chip: string;
   /** Pending join requests for the active album (Admin only). */
-  requests: JoinRequest[];
+  requests: RequestRow[];
 };
 
 /** Presence line for one member. Wording is "connected", never "online". */
@@ -83,6 +87,14 @@ export function buildPeople(
     connectedCount,
     total: members.length,
     chip: chipText(members.length - 1, connectedCount - 1),
-    requests: isAdmin ? requests.filter((r) => r.folderId === folderId) : [],
+    requests: isAdmin
+      ? requests
+          .filter((r) => r.folderId === folderId)
+          .map((r): RequestRow => {
+            const friendName =
+              r.requesterIdentity !== undefined ? friends[r.requesterIdentity] : undefined;
+            return { ...r, name: friendName ?? r.requesterName, friend: friendName !== undefined };
+          })
+      : [],
   };
 }
