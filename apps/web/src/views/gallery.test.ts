@@ -284,3 +284,37 @@ describe("albumAddRow for a removed album", () => {
     expect(host.querySelector("button")).toBeNull();
   });
 });
+
+describe("albumAddRow for a reader whose role is not known yet", () => {
+  const album = {
+    id: "f1",
+    name: "Trip",
+    role: "reader",
+    members: 2,
+    invite: { code: "c", owner: "o" },
+  };
+  const row = (status: unknown) => {
+    const host = document.createElement("div");
+    render(albumAddRow({ status, folders: [album] } as never, album as never), host);
+    return { host, text: host.textContent?.replace(/\s+/g, " ").trim() };
+  };
+
+  test("says Getting your access…, with no Viewer text and no add button", () => {
+    const { host, text } = row(null);
+    expect(text).toBe("Getting your access…");
+    expect(host.querySelector("button")).toBeNull();
+  });
+
+  test("shows the Viewer sentence once this phone is listed as a Viewer", () => {
+    const status = {
+      folder: { id: "f1" },
+      members: [
+        { name: "Me", admin: false, viewer: true },
+        { name: "Maya", admin: true },
+      ],
+    };
+    expect(row(status).text).toBe(
+      "You're a Viewer: you see every photo here. Maya decides who adds photos.",
+    );
+  });
+});
