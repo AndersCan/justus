@@ -8,7 +8,14 @@
  * A `FakePeerNetwork` attaches to the same hub: networks that joined one topic,
  * at least one of them serving it, get a connection.
  */
-import type { Drive, DriveEntry, DriveStore, OpenResult } from "../../src/ports/drive-store.ts";
+import type {
+  Drive,
+  DriveEntry,
+  DriveStore,
+  IdentityProof,
+  IdentitySignature,
+  OpenResult,
+} from "../../src/ports/drive-store.ts";
 import type { PeerEvent, PeerNetwork } from "../../src/ports/peer-network.ts";
 import type { DriveNode, DriveWorld } from "../contracts/drive-store.contract.ts";
 import type { PeerNode, PeerWorld } from "../contracts/peer-network.contract.ts";
@@ -54,14 +61,22 @@ export type FakeHub = {
   nodes: Set<FakeNode>;
   networks: Set<NetworkState>;
   options: FakeWorldOptions;
+  /** publicKey to the identity key it signs for and its secret. */
+  signers: Map<string, { identityKey: string; secret: string }>;
 };
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
+function fakeSignature(secret: string, message: Uint8Array): string {
+  return createHash("sha512")
+    .update(`sig:${secret}:${Buffer.from(message).toString("hex")}`)
+    .digest("hex");
+}
+
 export function createFakeHub(options: FakeWorldOptions = {}): FakeHub {
-  return { nodes: new Set(), networks: new Set(), options };
+  return { nodes: new Set(), networks: new Set(), options, signers: new Map() };
 }
 
 export function addFakeNode(hub: FakeHub): FakeNode {
@@ -349,6 +364,27 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       const replica = node.replicas.get(key);
       if (!replica) throw new Error("own drive missing");
       return acquire(replica);
+    },
+    async signAsIdentity(message): Promise<OpenResult<IdentitySignature>> {
+      if (closed) return [new Error("store is closed"), null];
+      const own = await this.openOwn("");
+      const identityKey = own.key;
+      await this.release(own);
+      const publicKey = sha256Hex(`pub:${node.id}`);
+      let entry = hub.signers.get(publicKey);
+      if (!entry) {
+        entry = { identityKey, secret: randomBytes(32).toString("hex") };
+        hub.signers.set(publicKey, entry);
+      }
+      return [null, { publicKey, signature: fakeSignature(entry.secret, message) }];
+    },
+    verifyIdentity(proof: IdentityProof): boolean {
+      if (!/^[0-9a-f]{64}$/i.test(proof.identityKey)) return false;
+      if (!/^[0-9a-f]{64}$/i.test(proof.publicKey)) return false;
+      if (!/^[0-9a-f]{128}$/i.test(proof.signature)) return false;
+      const entry = hub.signers.get(proof.publicKey.toLowerCase());
+      if (!entry || entry.identityKey !== proof.identityKey.toLowerCase()) return false;
+      return fakeSignature(entry.secret, proof.message) === proof.signature.toLowerCase();
     },
     async open(key, opts): Promise<OpenResult<Drive>> {
       assertOpen();

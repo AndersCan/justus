@@ -8,6 +8,7 @@ export const workletExternal = [
   "@ekrooh/bare",
   "corestore",
   "hypercore",
+  "hypercore-crypto",
   "hyperdrive",
   "hyperswarm",
   "bare-crypto",

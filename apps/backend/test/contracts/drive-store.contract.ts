@@ -734,4 +734,57 @@ export const cases: DriveCase[] = [
       t.ok(closed, "live drive closed once the copy is released too");
     },
   },
+  {
+    name: "D28 signAsIdentity signs as the identity drive: verifyIdentity accepts it on another node and after a restart",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const id = (await a.store.openOwn()).key;
+      const msg = bytes("justus-device/v1:abc");
+      const [err, sig] = await a.store.signAsIdentity(msg);
+      t.noErr([err], "sign");
+      if (!sig) throw new Error("no signature");
+      t.ok(sig.publicKey !== id, "the public key is not the drive key");
+      t.ok(b.store.verifyIdentity({ identityKey: id, ...sig, message: msg }), "verifies on b");
+      const store = await a.restart();
+      const [err2, again] = await store.signAsIdentity(msg);
+      t.noErr([err2], "sign after restart");
+      if (!again) throw new Error("no signature");
+      t.eq(again.publicKey, sig.publicKey, "same public key after restart");
+      t.eq((await store.openOwn()).key, id, "same identity drive");
+      t.ok(store.verifyIdentity({ identityKey: id, ...again, message: msg }), "verifies again");
+    },
+  },
+  {
+    name: "D29 verifyIdentity refuses a signature that does not bind this message to this identity drive",
+    async run(world, t) {
+      const a = await world.node();
+      const b = await world.node();
+      const aId = (await a.store.openOwn()).key;
+      const bId = (await b.store.openOwn()).key;
+      const msg = bytes("justus-device/v1:abc");
+      const [, aSig] = await a.store.signAsIdentity(msg);
+      const [, bSig] = await b.store.signAsIdentity(msg);
+      if (!aSig || !bSig) throw new Error("no signature");
+      const base = { identityKey: aId, ...aSig, message: msg };
+      const last = aSig.signature.endsWith("0") ? "1" : "0";
+      const refused: Record<string, Parameters<DriveStore["verifyIdentity"]>[0]> = {
+        "another message": { ...base, message: bytes("other") },
+        "another identity key": { ...base, identityKey: bId },
+        "another signer's own proof under this identity": {
+          ...bSig,
+          identityKey: aId,
+          message: msg,
+        },
+        "a changed signature": { ...base, signature: aSig.signature.slice(0, -1) + last },
+        "a bad public key": { ...base, publicKey: "zz" },
+        "an empty signature": { ...base, signature: "" },
+        "a short identity key": { ...base, identityKey: aId.slice(0, 63) },
+      };
+      for (const [label, proof] of Object.entries(refused)) {
+        t.ok(a.store.verifyIdentity(proof) === false, `refused: ${label}`);
+      }
+      t.ok(a.store.verifyIdentity(base), "the genuine proof still verifies");
+    },
+  },
 ];

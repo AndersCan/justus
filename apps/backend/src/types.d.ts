@@ -11,6 +11,11 @@ declare module "hypercore" {
   export default Hypercore;
 }
 
+declare module "hypercore-crypto" {
+  const crypto: any;
+  export default crypto;
+}
+
 declare module "hyperdrive" {
   const Hyperdrive: any;
   export default Hyperdrive;
