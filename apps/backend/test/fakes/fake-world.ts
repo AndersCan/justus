@@ -46,6 +46,8 @@ type Replica = {
   history: Map<string, StoredFile>[];
   length: number;
   listeners: Set<() => void>;
+  /** Set by `keepOnly`: the one path whose bytes this replica holds, now and in later versions. */
+  keptOnly?: string;
 };
 
 export type FakeNode = {
@@ -107,6 +109,27 @@ function notifyLater(replica: Replica): void {
   });
 }
 
+function clearedCopy(file: StoredFile): StoredFile {
+  return {
+    bytes: new Uint8Array(),
+    metadata: file.metadata,
+    clearedSize: file.clearedSize ?? file.bytes.length,
+  };
+}
+
+/** Replaces the replica's maps with new ones that hold only `path`'s bytes; the shared maps are never mutated. */
+function clearAllBut(replica: Replica, path: string): void {
+  const only = (files: Map<string, StoredFile>) =>
+    new Map(
+      [...files].map(([p, file]): [string, StoredFile] => [
+        p,
+        p === path || file.clearedSize !== undefined ? file : clearedCopy(file),
+      ]),
+    );
+  replica.files = only(replica.files);
+  replica.history = replica.history.map(only);
+}
+
 /** Brings every connected holder of `key` up to the longest copy among them. */
 function replicateKey(options: { hub: FakeHub; key: string }): void {
   const holders = connectedNodes(options.hub).flatMap((node) => {
@@ -120,7 +143,7 @@ function replicateKey(options: { hub: FakeHub; key: string }): void {
   if (!source) return;
   for (const target of holders) {
     for (const [path, file] of target.files) {
-      if (file.clearedSize === undefined) continue;
+      if (file.clearedSize === undefined || target.keptOnly !== undefined) continue;
       const held = holders
         .map((h) => h.files.get(path))
         .find((f) => f && f.clearedSize === undefined);
@@ -132,6 +155,7 @@ function replicateKey(options: { hub: FakeHub; key: string }): void {
     target.files = new Map(source.files);
     target.history = [...source.history];
     target.length = source.length;
+    if (target.keptOnly !== undefined) clearAllBut(target, target.keptOnly);
     notifyLater(target);
   }
 }
@@ -213,6 +237,16 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
         clearedSize: file.clearedSize ?? file.bytes.length,
       });
       replicateKey({ hub, key });
+    },
+    async keepOnly(path): Promise<OpenResult<void>> {
+      assertOpen();
+      const file = replica.files.get(path);
+      if (!file || file.clearedSize !== undefined) {
+        return [new Error(`${path} is not on this device`), null];
+      }
+      replica.keptOnly = path;
+      clearAllBut(replica, path);
+      return [null, undefined];
     },
     async *list(dir) {
       assertOpen();
@@ -302,6 +336,7 @@ function makeCopy(options: {
     put: async () => readOnly(),
     del: async () => readOnly(),
     clear: async () => readOnly(),
+    keepOnly: async () => readOnly(),
     async *list(dir) {
       const prefix = dir.endsWith("/") ? dir : `${dir}/`;
       const paths = [...files.keys()].sort((x, y) =>

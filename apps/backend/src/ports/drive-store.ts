@@ -33,6 +33,14 @@ export type Drive = {
   del(path: string): Promise<void>;
   /** Deletes this device's copy of the file's bytes; the entry stays, and a later read fetches the bytes from a peer again. */
   clear(path: string): Promise<void>;
+  /**
+   * Keeps this device's copy of `path` and of the drive's file index, now and as the drive
+   * grows, so this device can serve `path` while the owner is away; deletes this device's
+   * copy of every other file's bytes, also of files a later version deleted. Entries stay.
+   * Safe to run again, as after a restart. An error value when `path` or its bytes are not
+   * on this device. `openAt` copies throw.
+   */
+  keepOnly(path: string): Promise<OpenResult<void>>;
   list(dir: string): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */

@@ -51,6 +51,32 @@ async function pair(world: DriveWorld, t: Check) {
   return { a, b, own, remote };
 }
 
+async function paths(drive: Drive): Promise<string[]> {
+  const found: string[] = [];
+  for await (const entry of drive.list("/")) found.push(entry.path);
+  return found;
+}
+
+/** `a` owns a drive with /x, /y and /deleted.json; `b` has read all three. */
+async function keeperSetup(world: DriveWorld, t: Check) {
+  const { a, b, own, remote } = await pair(world, t);
+  await own.put("/x", bytes("photo"));
+  await own.put("/y", bytes("other"));
+  await own.put("/deleted.json", bytes("note"));
+  for (const [path, text] of [
+    ["/x", "photo"],
+    ["/y", "other"],
+    ["/deleted.json", "note"],
+  ] as const) {
+    await eventually(
+      () => remote.readSmall(path, 10, { timeoutMs: 500 }),
+      (v) => v === text,
+      `b reads ${path}`,
+    );
+  }
+  return { a, b, own, remote };
+}
+
 export const cases: DriveCase[] = [
   {
     name: "D1 put round-trips through readBytes and readSmall; a missing path is undefined",
@@ -785,6 +811,163 @@ export const cases: DriveCase[] = [
         t.ok(a.store.verifyIdentity(proof) === false, `refused: ${label}`);
       }
       t.ok(a.store.verifyIdentity(base), "the genuine proof still verifies");
+    },
+  },
+  {
+    name: "D30 a keeper serves the kept file to a third node after the owner made later changes and went offline",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      t.noErr(await remote.keepOnly("/deleted.json"), "keepOnly");
+      await own.del("/x");
+      await eventually(
+        async () => [remote.version(), await paths(remote)],
+        (v) =>
+          v[0] === own.version() &&
+          JSON.stringify(v[1]) === JSON.stringify(["/deleted.json", "/y"]),
+        "b caught up with a",
+      );
+      await a.disconnect();
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => viaB.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+          (v) => v === "note",
+          "note from b",
+          15_000,
+        ),
+        "note",
+        "the kept file",
+      );
+      t.eq(await paths(viaB), ["/deleted.json", "/y"], "no /x");
+    },
+  },
+  {
+    name: "D31 keepOnly drops this node's bytes of every other file, and they do not come back",
+    async run(world, t) {
+      const { a, remote } = await keeperSetup(world, t);
+      t.noErr(await remote.keepOnly("/deleted.json"), "keepOnly");
+      await a.disconnect();
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), undefined, "y bytes gone");
+      t.eq(await remote.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "x bytes gone");
+      t.eq(await remote.readSmall("/deleted.json", 10), "note", "kept file stays");
+      t.eq((await paths(remote)).includes("/y"), true, "entry stays");
+      await a.connect();
+      await sleep(2_000);
+      await a.disconnect();
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), undefined, "y still gone");
+    },
+  },
+  {
+    name: "D32 keepOnly also drops the bytes of a file a later version deleted",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await eventually(
+        async () => ({ version: remote.version(), found: await paths(remote) }),
+        (v) => v.version === own.version() && !v.found.includes("/x"),
+        "b has the delete",
+      );
+      t.noErr(await remote.keepOnly("/deleted.json"), "keepOnly");
+      await a.disconnect();
+      const [err, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([err], "openAt");
+      t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "old x bytes gone");
+    },
+  },
+  {
+    name: "D33 a keeper still serves after a restart",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      t.noErr(await remote.keepOnly("/deleted.json"), "keepOnly");
+      await a.disconnect();
+      const store = await b.restart();
+      await b.connect();
+      const again = await openOk(store, own.key, 10_000, t);
+      t.noErr(await again.keepOnly("/deleted.json"), "keepOnly again");
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      t.eq(
+        await eventually(
+          () => viaB.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+          (v) => v === "note",
+          "note from b",
+          15_000,
+        ),
+        "note",
+        "the kept file",
+      );
+    },
+  },
+  {
+    name: "D34 keepOnly keeps a file in the middle and drops the bytes written after it",
+    async run(world, t) {
+      const { a, remote } = await keeperSetup(world, t);
+      t.noErr(await remote.keepOnly("/y"), "keepOnly");
+      await a.disconnect();
+      t.eq(await remote.readSmall("/y", 10), "other", "kept file stays");
+      t.eq(await remote.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "earlier file gone");
+      t.eq(
+        await remote.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+        undefined,
+        "later file gone",
+      );
+    },
+  },
+  {
+    name: "D35 keepOnly returns an error for a missing path and for one already cleared",
+    async run(world, t) {
+      const { a, remote, own } = await keeperSetup(world, t);
+      const [missingErr] = await remote.keepOnly("/nope");
+      t.eq(missingErr instanceof Error, true, "missing path is an error value");
+      await own.put("/z", bytes("zed"));
+      await eventually(
+        () => remote.readSmall("/z", 10, { timeoutMs: 500 }),
+        (v) => v === "zed",
+        "b reads /z",
+      );
+      await a.disconnect();
+      await remote.clear("/z");
+      const [clearedErr] = await remote.keepOnly("/z");
+      t.eq(clearedErr instanceof Error, true, "cleared path is an error value");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "nothing was dropped");
+    },
+  },
+  {
+    name: "D36 keepOnly keeps a file spanning several blocks and a third node can read it",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      const big = Buffer.alloc(300 * 1024, "q");
+      await own.put("/before", bytes("b"));
+      await own.put("/big", big);
+      await own.put("/after", bytes("c"));
+      await eventually(
+        async () => (await remote.readBytes("/big"))?.length,
+        (v) => v === big.length,
+        "b has big",
+        15_000,
+      );
+      await eventually(
+        () => remote.readSmall("/after", 10, { timeoutMs: 500 }),
+        (v) => v === "c",
+        "b has after",
+      );
+      t.noErr(await remote.keepOnly("/big"), "keepOnly");
+      await a.disconnect();
+      t.eq(await remote.readSmall("/after", 10, { timeoutMs: 500 }), undefined, "after gone");
+      const c = await world.node();
+      await c.connect();
+      const viaB = await openOk(c.store, own.key, 10_000, t);
+      const got = await eventually(
+        async () => (await viaB.readBytes("/big"))?.length,
+        (v) => v === big.length,
+        "big from b",
+        20_000,
+      );
+      t.eq(got, big.length, "whole multi-block file served");
     },
   },
 ];
