@@ -1,8 +1,6 @@
 # Flow confirmation workflow
 
-Large features are confirmed as flows before any UI or implementation work is
-queued. The flows are mantaq machines, drawn by the `@mantaq/inspect` Vite plugin and published
-as pages that can be read and ticked off.
+Large features and rule changes are designed as flows before any UI or implementation work is queued. The flows are mantaq machines, drawn by the `@mantaq/inspect` Vite plugin and published as pages that can be read and ticked off. The first answer to a design ask is a preview link to the drawn flow (see Previews), not a written design.
 
 Pages: https://anderscan.github.io/justus/flows/ (the site root is the Justus home page)
 

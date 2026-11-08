@@ -115,7 +115,8 @@ layer, Host, Actor). Use those terms exactly.
 
 ## Designing with the AI
 
-- Use the mantaq skill (`.claude/skills/mantaq`, start with `designing.md`) for any feature or change to a machine.
+- Any ask to design, plan or rethink a feature or a rule (who can do what included) is answered with a drawn design first: follow the mantaq skill (`.claude/skills/mantaq`, start with "First reply to a design ask" in `designing.md`). Never answer it with a prose design or only questions.
+- A design ask is a request for a preview link: push a branch and open a draft pull request without asking, then reply with one preview link per walk.
 - Open the live page with `pnpm flows:dev <feature|file>`.
 - A new `*-machine.ts` goes into `docs/flows/manifest.json` (`scripts/flows.test.ts` enforces it) and as a `<Machine src>` on its page in `docs/site/src/content/docs/<feature>.mdx`.
 - A new backend machine also gets a `pnpm test:bare` scenario.
