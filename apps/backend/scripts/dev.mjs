@@ -17,7 +17,7 @@ const cacheDir = join(devDir, "cache");
 const inboxDir = join(devDir, "inbox");
 
 const BASE_PORT = 8080;
-const DHT_PORT = 49737;
+const DHT_PORT = Number(process.env.JUSTUS_DHT_PORT) || 49737;
 // `JUSTUS_PEERS=2 pnpm run dev` boots N independent worklets (ports 8080+i,
 // storage .dev/peer-i) joined to one local DHT, so two browser tabs
 // (`?peer=0`, `?peer=1`) behave as two separate users. Peer 0 keeps the

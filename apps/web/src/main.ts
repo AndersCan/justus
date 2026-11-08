@@ -3,7 +3,7 @@ import { cache } from "lit-html/directives/cache.js";
 import { unsafeSVG } from "lit-html/directives/unsafe-svg.js";
 import { watch } from "@mantaq/lit";
 import "uno.css";
-import { messenger, transport } from "./gateway";
+import { transport } from "./gateway";
 import { handleMessage } from "./handle-message";
 import { folders } from "./machines/folders-machine";
 import { gallery } from "./machines/gallery-machine";
@@ -43,7 +43,6 @@ if (webLogCapture) {
 }
 
 transport.subscribe((message) => {
-  messenger.handleIncoming(message.header);
   handleMessage(message);
 });
 

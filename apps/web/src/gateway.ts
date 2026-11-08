@@ -25,6 +25,11 @@ export const messenger = createProtocolMessenger((request, payload) => {
   transport.send(MessageType.ENVELOPE, request, payload);
 });
 
+// Subscribed here, not in main.ts: the dev server evaluates main.ts after the
+// first requests (friends, join requests) went out, and a reply that lands
+// before a listener exists is lost, so those calls time out.
+transport.subscribe((message) => messenger.handleIncoming(message.header));
+
 export const bus = createPluginBus(messenger);
 
 /** `bus.invoke` with every `justus.photos` result checked against the shared
