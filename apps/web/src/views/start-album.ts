@@ -7,6 +7,7 @@ import {
 } from "../machines/folders-machine";
 import { onStateChange } from "../machines/actor-utils";
 
+import { copy, t } from "../copy/copy";
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
  * Resolves the new album's name, or
  * null on Cancel / Escape / backdrop tap. Same overlay pattern as
@@ -38,7 +39,7 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
             class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Start an album"
+            aria-label=${copy("start_album.start_an_album")}
             @click=${(e: Event) => e.stopPropagation()}
             @submit=${(e: SubmitEvent) => {
               e.preventDefault();
@@ -47,17 +48,19 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
               if (name) close(name);
             }}
           >
-            <h3 class="text-base font-semibold text-fg">Start an album</h3>
+            <h3 class="text-base font-semibold text-fg">${t("start_album.start_an_album")}</h3>
             <p class="mt-1 text-sm text-muted">${detail}</p>
             <input
               class="ui-input mt-4 w-full"
-              placeholder="Album name, e.g. Summer 2026"
-              aria-label="Album name"
+              placeholder=${copy("start_album.album_name_e_g_summer")}
+              aria-label=${copy("start_album.album_name")}
               maxlength="60"
               required
             />
             <div class="mt-4 flex justify-end gap-2">
-              <button class="ui-btn-ghost" type="button" @click=${() => close(null)}>Cancel</button>
+              <button class="ui-btn-ghost" type="button" @click=${() => close(null)}>
+                ${t("start_album.cancel")}
+              </button>
               <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>
             </div>
           </form>
@@ -98,7 +101,7 @@ function createAlbum(name: string): Promise<string | null> {
 /** Asks for a name and creates the album. Resolves its id, or null. */
 export async function startAlbum(
   detail: string,
-  confirmLabel = "Create album",
+  confirmLabel = copy("start_album.create_album"),
 ): Promise<string | null> {
   const name = await askAlbumName(detail, confirmLabel);
   if (!name) return null;

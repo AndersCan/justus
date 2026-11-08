@@ -1,6 +1,7 @@
 import type { JoinRequest, SyncStatus } from "@justus/core";
 import { formatRelative } from "./time";
 
+import { copy } from "../copy/copy";
 export type Person = {
   key: string;
   /** The name shown: your friend name for them when saved, else their own. */
@@ -57,10 +58,10 @@ export function clashFriend(name: string, friends: Record<string, string>): stri
 /** The line above the requests: ask for the check code first. */
 export function requestsHint(rows: RequestRow[]): string {
   if (rows.some((r) => r.clash !== undefined)) {
-    return "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.";
+    return copy("people.someone_not_in_your_friends");
   }
   if (rows.some((r) => r.checkCode)) {
-    return "Not sure who it is? Ask them which check code their phone shows.";
+    return copy("people.not_sure_who_it_is");
   }
   return "";
 }
@@ -71,12 +72,14 @@ export function presenceLabel(
   now = Date.now(),
 ): string {
   if (m.connected) return "connected";
-  return m.lastSeenAt ? `last seen ${formatRelative(m.lastSeenAt, now)}` : "not seen yet";
+  return m.lastSeenAt
+    ? copy("people.last_seen", { when: formatRelative(m.lastSeenAt, now) })
+    : copy("people.not_seen_yet");
 }
 
 /** Chip text counts the others only: you are always connected to yourself. */
 function chipText(others: number, connected: number): string {
-  return others > 0 ? `${connected} of ${others} connected` : "Just you";
+  return others > 0 ? copy("people.of_connected", { connected, others }) : copy("people.just_you");
 }
 
 /** View-model for the People sheet and the header chip. The first member the
@@ -91,7 +94,7 @@ export function buildPeople(
   const people = members
     .map((m, i): Person => {
       const you = i === 0;
-      const ownName = m.name || "Unknown device";
+      const ownName = m.name || copy("people.unknown_device");
       const friendName = !you && m.identity !== undefined ? friends[m.identity] : undefined;
       const friend = friendName !== undefined;
       const clash = !you && !friend ? clashFriend(ownName, friends) : undefined;

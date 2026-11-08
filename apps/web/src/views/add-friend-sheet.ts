@@ -5,9 +5,12 @@ import { addFriend, addFriendActor } from "../machines/sharing/add-friend";
 import type { FriendChoice, NotReachedReason } from "../machines/sharing/add-friend-machine";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
 
-onOutput(addFriendActor, (e) => toast(`Asked ${(e.payload as { name: string }).name} to join`));
+onOutput(addFriendActor, (e) =>
+  toast(copy("add_friend_sheet.asked_to_join", { name: (e.payload as { name: string }).name })),
+);
 
 /** Opens the sheet for this album. Focus goes back to the button when it closes. */
 export function openAddFriend(
@@ -46,8 +49,8 @@ function focusInSheet() {
 
 function notReached(name: string, reason: NotReachedReason) {
   return reason === "refused"
-    ? `Couldn't add ${name} from here. Send ${name} a link instead.`
-    : `Couldn't reach ${name}. Ask ${name} to open Justus, then try again.`;
+    ? copy("add_friend_sheet.couldn_t_add_from_here", { name })
+    : copy("add_friend_sheet.couldn_t_reach_ask_to", { name });
 }
 
 export function addFriendSheetView() {
@@ -59,7 +62,7 @@ export function addFriendSheetView() {
       name: string;
       reason: NotReachedReason;
     };
-    let title = `Add a friend to “${p.albumName}”`;
+    let title = copy("add_friend_sheet.add_a_friend_to", { albumName: p.albumName });
     let body;
     if (state === "choosingFriend") {
       body = html`<ul class="mt-3 divide-y divide-line">
@@ -76,7 +79,7 @@ export function addFriendSheetView() {
           )}
         </ul>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-ghost" @click=${closeSheet}>Close</button>
+          <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
         </div>`;
     } else if (state === "lookingForFriend") {
       body = html`<div class="mt-3 flex items-center gap-3" role="status">
@@ -84,22 +87,29 @@ export function addFriendSheetView() {
           class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-fg motion-reduce:animate-none"
         ></span>
         <div>
-          <p class="text-sm font-medium text-fg">Asking ${p.name}...</p>
-          <p class="text-sm text-muted">If ${p.name} doesn't have Justus open, the invite waits.</p>
+          <p class="text-sm font-medium text-fg">
+            ${t("add_friend_sheet.asking", { name: p.name })}
+          </p>
+          <p class="text-sm text-muted">
+            ${t("add_friend_sheet.if_doesn_t_have_justus", { name: p.name })}
+          </p>
         </div>
       </div>`;
     } else if (state === "inviteWaitingForFriend") {
       body = html`<p class="mt-3 text-sm text-fg" role="status">
-          ${p.name} doesn't have Justus open right now. The invite goes out the next time you both
-          have Justus open, for up to 7 days.
+          ${t("add_friend_sheet.doesn_t_have_justus_open", { name: p.name })}
         </p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
+          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
+            ${t("add_friend_sheet.close")}
+          </button>
         </div>`;
     } else if (state === "couldNotReachFriend") {
       body = html`<p class="mt-3 text-sm text-fg" role="alert">${notReached(p.name, p.reason)}</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>Close</button>
+          <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
+            ${t("add_friend_sheet.close")}
+          </button>
         </div>`;
     } else {
       return null;

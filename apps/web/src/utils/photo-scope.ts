@@ -1,6 +1,7 @@
 import type { FolderSummary, Photo } from "@justus/core";
 import { formatMonthGroup, sameMonth } from "./time";
 
+import { copy } from "../copy/copy";
 /** Which slice of the cross-album photo list the Photos page is showing. */
 export type PhotoScope = { kind: "all" } | { kind: "mine" } | { kind: "album"; id: string };
 
@@ -42,7 +43,9 @@ export function groupPhotos(photos: Photo[], sort: PhotoSort, now = Date.now()):
   for (const photo of sortPhotos(photos, sort)) {
     const at = time(photo);
     const label =
-      sort === "added" && now - at < RECENT_MS ? "Recently added" : formatMonthGroup(at);
+      sort === "added" && now - at < RECENT_MS
+        ? copy("photo_scope.recently_added")
+        : formatMonthGroup(at);
     const last = groups[groups.length - 1];
     const lastAt = last && time(last.photos[last.photos.length - 1]);
     if (last && last.label === label && (label === "Recently added" || sameMonth(at, lastAt))) {

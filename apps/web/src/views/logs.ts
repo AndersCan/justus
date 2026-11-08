@@ -15,6 +15,7 @@ import {
 } from "../machines/logs-machine";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 /** Tailwind color classes per severity (vision: trust-colored, legible). */
 export function severityClasses(level: LogLevel): string {
   switch (level) {
@@ -172,9 +173,9 @@ async function copyAll(entries: LogEntry[]) {
   const text = entries.map(formatLogLine).join("\n");
   try {
     await navigator.clipboard.writeText(text);
-    toast("Logs copied");
+    toast(copy("logs.logs_copied"));
   } catch {
-    toast("Couldn't copy — select and copy manually");
+    toast(copy("logs.couldn_t_copy_select_and"));
   }
 }
 
@@ -182,7 +183,7 @@ async function downloadLogs(level: LogLevel | "all", sources: ReadonlySet<string
   try {
     const res = await fetch(buildLogDownloadUrl({ level, sources }));
     if (!res.ok) {
-      toast("Couldn't download logs");
+      toast(copy("logs.couldn_t_download_logs"));
       return;
     }
     const text = await res.text();
@@ -194,7 +195,7 @@ async function downloadLogs(level: LogLevel | "all", sources: ReadonlySet<string
     a.click();
     URL.revokeObjectURL(url);
   } catch {
-    toast("Couldn't download logs");
+    toast(copy("logs.couldn_t_download_logs"));
   }
 }
 
@@ -227,26 +228,23 @@ function logsBody(ctx: {
   return html`
     <section class="ui-card p-5">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 class="ui-label">Live logs</h2>
+        <h2 class="ui-label">${t("logs.live_logs")}</h2>
         <div class="flex items-center gap-2 text-xs text-muted">
-          ${updatedAt ? html`<span>Updated ${new Date(updatedAt).toLocaleTimeString()}</span>` : null}
+          ${updatedAt ? html`<span>${t("logs.updated", { time: new Date(updatedAt).toLocaleTimeString() })}</span>` : null}
           ${loading ? html`<span class="h-2 w-2 animate-pulse rounded-full bg-warn"></span>` : null}
           ${
             paused
               ? html`<button class="ui-btn-ghost" @click=${() => c.setPaused(false)}>
-                  Resume live
+                  ${t("logs.resume_live")}
                 </button>`
               : null
           }
         </div>
       </div>
-      <p class="mb-3 text-sm text-fg">
-        Backend and web diagnostics, streamed from this device. Filter by severity or source; pause
-        to read, then copy or download the visible lines.
-      </p>
+      <p class="mb-3 text-sm text-fg">${t("logs.backend_and_web_diagnostics_streamed")}</p>
 
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <label class="text-xs text-muted" for="log-level">Severity</label>
+        <label class="text-xs text-muted" for="log-level">${t("logs.severity")}</label>
         <select
           id="log-level"
           class="ui-input w-auto py-1"
@@ -255,14 +253,14 @@ function logsBody(ctx: {
             c.setLevel(v as LogLevel | "all");
           }}
         >
-          <option value="all" ?selected=${level === "all"}>All</option>
-          <option value="debug" ?selected=${level === "debug"}>debug+</option>
-          <option value="info" ?selected=${level === "info"}>info+</option>
-          <option value="warn" ?selected=${level === "warn"}>warn+</option>
-          <option value="error" ?selected=${level === "error"}>error</option>
+          <option value="all" ?selected=${level === "all"}>${copy("logs.all")}</option>
+          <option value="debug" ?selected=${level === "debug"}>${copy("logs.debug")}</option>
+          <option value="info" ?selected=${level === "info"}>${copy("logs.info")}</option>
+          <option value="warn" ?selected=${level === "warn"}>${copy("logs.warn")}</option>
+          <option value="error" ?selected=${level === "error"}>${copy("logs.error")}</option>
         </select>
 
-        <span class="text-xs text-muted">Source</span>
+        <span class="text-xs text-muted">${t("logs.source")}</span>
         ${
           available.length === 0
             ? html`<span class="text-xs text-muted">—</span>`
@@ -287,26 +285,30 @@ function logsBody(ctx: {
             @click=${() => void copyAll(visible)}
             ?disabled=${visible.length === 0}
           >
-            Copy
+            ${t("logs.copy")}
           </button>
           <button
             class="ui-btn-ghost"
             @click=${() => void downloadLogs(level, new Set(sources))}
             ?disabled=${visible.length === 0}
           >
-            Download
+            ${t("logs.download")}
           </button>
           <button
             class="ui-btn-ghost"
             @click=${() =>
-              void c.clear().then((ok) => toast(ok ? "Logs cleared" : "Couldn't clear logs"))}
+              void c
+                .clear()
+                .then((ok) =>
+                  toast(ok ? copy("logs.logs_cleared") : copy("logs.couldn_t_clear_logs")),
+                )}
           >
-            Clear
+            ${t("logs.clear")}
           </button>
         </span>
       </div>
 
-      ${error ? html`<p class="mb-3 text-xs text-danger-fg">Couldn't load logs — ${error}</p>` : null}
+      ${error ? html`<p class="mb-3 text-xs text-danger-fg">${t("logs.couldn_t_load_logs", { error })}</p>` : null}
 
       <div
         class="max-h-80 overflow-auto rounded-2xl border border-line p-3 font-mono text-[11px] leading-relaxed"
@@ -316,7 +318,7 @@ function logsBody(ctx: {
       >
         ${
           visible.length === 0
-            ? html`<p class="text-muted">No log entries yet.</p>`
+            ? html`<p class="text-muted">${t("logs.no_log_entries_yet")}</p>`
             : logLines(visible)
         }
       </div>

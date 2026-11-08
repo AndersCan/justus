@@ -4,6 +4,7 @@ import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { removeRequestFromList } from "./requests-list";
 
+import { copy } from "../copy/copy";
 /**
  * Join-request inbox: pending "<name> wants to join <album>" requests shown
  * to this device's Admins, each with Yes/No. Same actor pattern as
@@ -378,7 +379,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             state: showingRequests,
             emit: [
               answerSent.create({
-                requesterName: request?.requesterName ?? "They",
+                requesterName: request?.requesterName ?? copy("requests.they"),
                 approve: pending.approve,
                 role: pending.role,
                 viaInvite: request?.viaInvite === true,

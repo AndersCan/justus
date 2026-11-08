@@ -39,6 +39,9 @@ vi.mock("../gateway", () => ({
   },
 }));
 
+/** Text of an element with whitespace runs collapsed, as a browser lays it out. */
+const flat = (el: Element) => (el.textContent ?? "").replace(/\s+/g, " ");
+
 const status = {
   name: "Me",
   peers: 1,
@@ -299,8 +302,8 @@ describe("album join requests", () => {
       { ...ask("b", true, "lamp ocean tiger"), requesterName: "Ben" },
     ]);
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
-    expect(rows[0]!.textContent).toContain("Check code maple river stone");
-    expect(rows[1]!.textContent).toContain("Check code lamp ocean tiger");
+    expect(flat(rows[0]!)).toContain("Check code maple river stone");
+    expect(flat(rows[1]!)).toContain("Check code lamp ocean tiger");
     expect(host.textContent).toContain("Not sure who it is?");
   });
 
@@ -313,7 +316,7 @@ describe("album join requests", () => {
     const host = await show([
       { ...ask("a", true), requesterName: "Ben", requesterIdentity: "id-ben" },
     ]);
-    await vi.waitFor(() => expect(host.textContent).toContain("Dad wants to join"));
+    await vi.waitFor(() => expect(flat(host)).toContain("Dad wants to join"));
     const row = host.querySelector<HTMLElement>('li[data-motion-key^="request:"]')!;
     expect(row.textContent).toContain("Friend");
     expect(row.textContent).toContain("Ben");
@@ -335,8 +338,8 @@ describe("album join requests", () => {
     ]);
     await vi.waitFor(() => expect(host.textContent).toContain("Not your friend Dad"));
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
-    const rowB = rows.find((r) => r.textContent?.includes("Check code lamp ocean tiger"))!;
-    const rowA = rows.find((r) => r.textContent?.includes("Check code maple river stone"))!;
+    const rowB = rows.find((r) => flat(r).includes("Check code lamp ocean tiger"))!;
+    const rowA = rows.find((r) => flat(r).includes("Check code maple river stone"))!;
     expect(rowB.textContent).toContain("Not your friend Dad");
     expect(rowA.textContent).not.toContain("Not your friend");
     expect(host.textContent).toContain("typed a friend's name.");
@@ -403,7 +406,7 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
     const card = (k: string) =>
-      [...host.querySelectorAll("li")].find((li) => li.textContent?.includes(`${k} wants`))!;
+      [...host.querySelectorAll("li")].find((li) => flat(li).includes(`${k} wants`))!;
     [...card("nils").querySelectorAll("button")]
       .find((b) => name(b) === "Accept as Viewer")!
       .click();
@@ -493,7 +496,7 @@ describe("album join requests", () => {
     vi.mocked(gateway.respond).mockResolvedValue([null, { ok: true }] as never);
     const decline = (k: string) =>
       [...host.querySelectorAll("li")]
-        .find((li) => li.textContent?.includes(`${k} wants`))!
+        .find((li) => flat(li).includes(`${k} wants`))!
         .querySelectorAll("button");
     [...decline("nils")].find((b) => name(b) === "Decline")!.click();
     await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeDefined());
@@ -782,7 +785,7 @@ describe("album requests motion", () => {
     const ola = byKey(host, "request:f1/ola");
     vi.mocked(gateway.requests).mockResolvedValue([null, { requests: [ask("ola")] }] as never);
     [...nils.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Decline")!.click();
-    await vi.waitFor(() => expect(host.textContent).not.toContain("nils wants"));
+    await vi.waitFor(() => expect(flat(host)).not.toContain("nils wants"));
     await requestsActor.settled();
     expect(byKey(host, "section:requests")).toBe(card);
     expect(byKey(host, "request:f1/ola")).toBe(ola);

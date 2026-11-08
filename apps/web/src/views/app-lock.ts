@@ -5,6 +5,7 @@ import { gateway } from "../gateway";
 import { appLockActor, appLockEvents } from "../machines/app-lock-machine";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 type Result<T> = Promise<[Error, null] | [null, T]>;
 type Load = () => Result<LockStatus>;
 type SetEnabled = (enabled: boolean) => Result<{ enabled: boolean }>;
@@ -38,7 +39,7 @@ export async function toggleAppLock(
   const [err, result] = await set(want);
   appLockActor.send(appLockEvents.saveEnded.create({ status }));
   if (err || typeof result?.enabled !== "boolean") {
-    toast(`Couldn't turn ${want ? "on" : "off"} App lock. Try again.`);
+    toast(copy("app_lock.couldn_t_turn_app_lock", { state: want ? "on" : "off" }));
     await refreshAppLock(load);
     return;
   }
@@ -46,12 +47,11 @@ export async function toggleAppLock(
   appLockActor.send(
     appLockEvents.statusRead.create({ status: { ...status, enabled: result.enabled } }),
   );
-  toast(result.enabled ? "App lock is on" : "App lock is off");
+  toast(result.enabled ? copy("app_lock.app_lock_is_on") : copy("app_lock.app_lock_is_off"));
 }
 
-const HINT_AVAILABLE =
-  "Uses your phone's fingerprint, face or PIN. Applies after you've been away for 30 seconds.";
-const HINT_UNAVAILABLE = "Set a screen lock in your phone's Settings to use App lock.";
+const HINT_AVAILABLE = copy("app_lock.uses_your_phone_s_fingerprint");
+const HINT_UNAVAILABLE = copy("app_lock.set_a_screen_lock_in");
 
 /** What the card shows for a state; `undefined` means no card. */
 export function appLockView({ status, busy }: { status: LockStatus | undefined; busy: boolean }) {
@@ -69,7 +69,7 @@ export function appLockSection() {
     if (!view) return nothing;
     const { on, disabled, hint } = view;
     return html`<section class="ui-card p-5">
-      <h2 class="ui-label mb-3">App lock</h2>
+      <h2 class="ui-label mb-3">${t("app_lock.app_lock")}</h2>
       <button
         type="button"
         role="switch"
@@ -80,8 +80,8 @@ export function appLockSection() {
         }"
         @click=${() => void toggleAppLock()}
       >
-        <span>Require unlock to open Justus</span>
-        <span aria-hidden="true">${on ? "On" : "Off"}</span>
+        <span>${t("app_lock.require_unlock_to_open_justus")}</span>
+        <span aria-hidden="true">${on ? copy("app_lock.on") : copy("app_lock.off")}</span>
       </button>
       <p class="mt-3 text-sm text-muted">${hint}</p>
     </section>`;

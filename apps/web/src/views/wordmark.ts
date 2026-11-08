@@ -1,5 +1,6 @@
 import { html, svg } from "lit-html";
 
+import { copy } from "../copy/copy";
 /**
  * The "just·us" wordmark (Inter SemiBold outlines; source in assets/brand/).
  * Letters take `currentColor`, so `text-fg` follows the light/dark theme,
@@ -12,7 +13,7 @@ export function wordmark(cls: string, animated = false) {
     class="${cls}"
     viewBox="14 40 398 124"
     role="img"
-    aria-label="Justus"
+    aria-label=${copy("wordmark.justus")}
     fill="currentColor"
   >
     <g>

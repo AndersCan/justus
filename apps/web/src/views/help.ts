@@ -1,75 +1,55 @@
 import { html } from "lit-html";
 import { pathFor } from "../machines/router-machine";
 
+import { copy, t } from "../copy/copy";
 export const HELP_QA: { q: string; a: string[] }[] = [
   {
-    q: "What is Justus?",
+    q: copy("help.what_is_justus"),
     a: [
-      "Justus is a photo sharing app that shares files peer to peer.",
-      "What is peer to peer? Most photo apps upload your pictures to a company's servers, and everyone else downloads them from there. With peer to peer, there is no server in the middle. Your photos go straight from your phone to the phones of the people you share the album with.",
-      "That means no company, including us, ever gets a copy of your photos. It also means photos only travel while both phones have Justus open and can reach each other. If a friend's phone is off, their new photos show up the next time you both have Justus open.",
+      copy("help.justus_is_a_photo_sharing"),
+      copy("help.what_is_peer_to_peer"),
+      copy("help.that_means_no_company_including"),
     ],
   },
   {
-    q: "Why don't I see my friend's new photos?",
+    q: copy("help.why_don_t_i_see"),
+    a: [copy("help.photos_only_travel_while_both"), copy("help.to_check_open_the_album")],
+  },
+  {
+    q: copy("help.do_i_need_wifi"),
+    a: [copy("help.no_but_it_helps_two"), copy("help.justus_suggests_this_after_about")],
+  },
+  {
+    q: copy("help.what_if_i_lose_my"),
     a: [
-      "Photos only travel while both phones have Justus open and can reach each other. If your friend's phone is off or Justus is closed, their new photos will show up the next time you both have Justus open.",
-      "To check, open the album and tap Invite & members. It shows who is connected right now and when everyone else was last seen.",
+      copy("help.your_photos_are_stored_on"),
+      copy("help.on_a_new_phone_join"),
+      copy("help.if_the_lost_phone_belonged"),
     ],
   },
   {
-    q: "Do I need WiFi?",
-    a: [
-      "No, but it helps. Two phones that are both on mobile networks often can't find each other, because of how mobile networks work. If you can't connect, try switching one of the phones to WiFi.",
-      "Justus suggests this after about 30 seconds without a connection.",
-    ],
+    q: copy("help.is_justus_a_backup"),
+    a: [copy("help.no_justus_shares_photos_between")],
   },
   {
-    q: "What if I lose my phone?",
-    a: [
-      "Your photos are stored on the phones in the album, not in the cloud. A phone only has the photos it has received, so a photo is safe once at least one other phone has received it. Photos that only existed on the lost phone are gone.",
-      "On a new phone, join the album again with its invite link.",
-      "If the lost phone belonged to the Admin, nobody new can be approved. Everyone already in the album keeps their photos and keeps getting new ones. Passing the Admin role to someone else isn't possible yet.",
-    ],
+    q: copy("help.who_can_see_an_album"),
+    a: [copy("help.only_the_people_in_the"), copy("help.removing_someone_moves_the_album")],
   },
   {
-    q: "Is Justus a backup?",
-    a: [
-      "No. Justus shares photos between phones. A photo is safe once at least one other phone has it, but Justus is not made to keep a copy of your whole library. Keep your own backup too.",
-    ],
+    q: copy("help.what_can_the_admin_see"),
+    a: [copy("help.the_admin_is_the_person"), copy("help.they_can_t_see_anything")],
   },
   {
-    q: "Who can see an album?",
-    a: [
-      "Only the people in the album. An invite link on its own shows no photos: the person asks to join, and they see the album's photos, older ones included, only after the Admin accepts them. Links can be set to end, and the Admin can turn off the links they sent.",
-      "Removing someone moves the album to new keys, so they get nothing added after it. They keep the photos they already have and see they're no longer in the album.",
-    ],
+    q: copy("help.who_can_add_photos"),
+    a: [copy("help.the_admin_chooses_when_they")],
   },
   {
-    q: "What can the Admin see and do?",
-    a: [
-      "The Admin is the person who started the album. They decide who joins, and they can remove people, and let Viewers add photos.",
-      "They can't see anything the other members can't. Everyone in an album sees all of its photos, including older ones, and can see who is connected.",
-    ],
+    q: copy("help.how_do_i_get_rid"),
+    a: [copy("help.archive_hides_it_on_this")],
   },
   {
-    q: "Who can add photos?",
-    a: [
-      "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too.",
-    ],
-  },
-  {
-    q: "How do I get rid of an album?",
-    a: [
-      "Archive hides it on this phone and you can bring it back from Archived. Leave takes it off your phone and off the people list. The Admin can delete it for everyone, with every photo in it.",
-    ],
-  },
-  {
-    q: "Who can delete a photo?",
-    a: [
-      "Whoever added a photo can delete it, and so can the Admin. Collaborators can't delete other people's photos, and Viewers can't delete anything.",
-      "Deleting a photo takes it out of the album for everyone. Phones that already have it may keep a copy, and when the Admin deletes someone else's photo, it stays on that person's phone.",
-    ],
+    q: copy("help.who_can_delete_a_photo"),
+    a: [copy("help.whoever_added_a_photo_can"), copy("help.deleting_a_photo_takes_it")],
   },
 ];
 
@@ -77,10 +57,12 @@ export const HELP_QA: { q: string; a: string[] }[] = [
 export function helpView() {
   return html`
     <div class="mx-auto max-w-2xl space-y-6">
-      <a class="text-sm text-muted hover:text-fg" href=${pathFor("settings")}>← Settings</a>
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Help</h1>
+      <a class="text-sm text-muted hover:text-fg" href=${pathFor("settings")}
+        >${t("help.settings")}</a
+      >
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">${t("help.help")}</h1>
 
-      <section class="space-y-2" aria-label="Frequently asked questions">
+      <section class="space-y-2" aria-label=${copy("help.frequently_asked_questions")}>
         ${HELP_QA.map(
           (item) => html`<details class="ui-card p-4">
             <summary class="ui-focus cursor-pointer select-none text-sm font-medium text-fg">

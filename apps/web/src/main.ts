@@ -23,6 +23,7 @@ import { joinSheet, listenForHostInvites } from "./views/invite";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
 
+import { copy, t } from "./copy/copy";
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
 if (window.location.pathname.endsWith("/index.html")) {
@@ -103,19 +104,19 @@ const icon = (paths: string) =>
 const NAV: { route: NavRoute; label: string; paths: string }[] = [
   {
     route: "gallery",
-    label: "Photos",
+    label: copy("app.photos"),
     paths:
       '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>',
   },
   {
     route: "sharing",
-    label: "Sharing",
+    label: copy("app.sharing"),
     paths:
       '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.7 3 5.6"/>',
   },
   {
     route: "settings",
-    label: "Settings",
+    label: copy("app.settings"),
     paths:
       '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
   },
@@ -150,7 +151,7 @@ function navLink(
         badge
           ? html`<span
               class="absolute -right-2 -top-1 rounded-full bg-accent px-1 text-[10px] font-semibold leading-4 text-on-fill"
-              aria-label="${badge} waiting for approval"
+              aria-label=${copy("app.waiting_for_approval", { badge })}
               >${badge}</span
             >`
           : null
@@ -174,7 +175,7 @@ render(
         class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-line bg-surface px-3 py-5 md:flex"
       >
         <span class="px-3 pb-5">${wordmark("h-8 w-auto")}</span>
-        <nav class="flex flex-col gap-1" aria-label="Main">${navLinks("rail")}</nav>
+        <nav class="flex flex-col gap-1" aria-label=${copy("app.main")}>${navLinks("rail")}</nav>
       </aside>
       <!-- No mobile app bar: the bottom tabs carry navigation. This strip only
            keeps scrolled content out from under the status bar. -->
@@ -193,7 +194,7 @@ render(
                 class="mb-4 rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
                 role="status"
               >
-                ${hint} <a class="underline" href="${pathFor("help")}">More help</a>
+                ${hint} <a class="underline" href="${pathFor("help")}">${t("app.more_help")}</a>
               </p>`
             : null;
         })}
@@ -201,7 +202,7 @@ render(
       </main>
       <nav
         class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-        aria-label="Main"
+        aria-label=${copy("app.main")}
       >
         ${navLinks("tab")}
       </nav>
@@ -213,7 +214,7 @@ render(
 
 function routeView(page: AppPage | undefined) {
   if (!page) {
-    return html`<p class="text-muted">We couldn't find that page.</p>`;
+    return html`<p class="text-muted">${t("app.we_couldn_t_find_that")}</p>`;
   }
   if (page.route === "gallery") return galleryView({ kind: "all" });
   if (page.route === "mine") return galleryView({ kind: "mine" });

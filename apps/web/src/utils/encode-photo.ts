@@ -1,5 +1,6 @@
 import { DISPLAY_EDGE, RENDITION_EXT, THUMB_EDGE, fitWithin, readTakenAt } from "@justus/core";
 
+import { copy } from "../copy/copy";
 /**
  * Makes the copies an album shares from a photo picked in the browser (drag
  * and drop, paste, the desktop app). The native hosts do the same natively;
@@ -38,7 +39,7 @@ async function decode(file: File): Promise<Decoded> {
       await img.decode();
     } catch {
       URL.revokeObjectURL(url);
-      throw new Error("This photo's format can't be opened on this device");
+      throw new Error(copy("encode_photo.this_photo_s_format_can"));
     }
     return {
       image: img,
@@ -55,7 +56,7 @@ async function scaled(photo: Decoded, edge: number, quality: number): Promise<Bl
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("This device can't resize photos");
+  if (!ctx) throw new Error(copy("encode_photo.this_device_can_t_resize"));
   // JPEG has no transparency: put see-through pixels on white, not black.
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
@@ -64,7 +65,7 @@ async function scaled(photo: Decoded, edge: number, quality: number): Promise<Bl
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", quality),
   );
-  if (!blob) throw new Error("This device can't save photos as JPEG");
+  if (!blob) throw new Error(copy("encode_photo.this_device_can_t_save"));
   return blob;
 }
 

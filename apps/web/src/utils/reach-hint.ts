@@ -1,5 +1,6 @@
 import type { SyncStatus } from "@justus/core";
 
+import { copy } from "../copy/copy";
 /** How long every other member must stay unreachable before the hint shows. */
 export const REACH_HINT_AFTER_MS = 30_000;
 
@@ -17,6 +18,6 @@ export function unreachableMember(status: SyncStatus | null): string | null {
 }
 
 export function reachHintText(name: string): string {
-  if (!name) return "Can't reach anyone in this album yet. If you're on mobile data, try WiFi.";
-  return `Can't reach ${name}. If you're both on mobile data, ask one of you to switch to WiFi.`;
+  if (!name) return copy("reach_hint.can_t_reach_anyone_in");
+  return copy("reach_hint.can_t_reach_if_you", { name });
 }

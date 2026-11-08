@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from "lit-html";
 
+import { copy } from "../copy/copy";
 function phoneToPhone(): TemplateResult {
   return html`<svg
     class="h-28 w-auto text-fg"
@@ -30,13 +31,13 @@ export const INTRO_CARDS: {
 }[] = [
   {
     icon: phoneToPhone(),
-    title: "No server in the middle",
-    body: "Your photos go straight from your phone to the phones of the people you share with. Nobody else gets a copy, not even us. No account needed.",
+    title: copy("intro_cards.no_server_in_the_middle"),
+    body: copy("intro_cards.your_photos_go_straight_from"),
   },
   {
     icon: "✉️",
-    title: "You decide who joins",
-    body: "Share an album with a link or QR code. The link alone shows no photos: you accept each person who asks to join, and only the photos you pick are added.",
+    title: copy("intro_cards.you_decide_who_joins"),
+    body: copy("intro_cards.share_an_album_with_a"),
   },
 ];
 

@@ -5,6 +5,7 @@ import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { INTRO_CARD_COUNT } from "../views/intro-cards";
 import { foldersActor, nameSeen } from "./folders-machine";
 
+import { copy } from "../copy/copy";
 /**
  * First-run onboarding: swipeable intro cards, a required profile step, then
  * the create-or-join choice. The card index, name
@@ -86,7 +87,7 @@ const appLockFailed = event("APP_LOCK_FAILED")<{ message: string }>();
 /** The name was saved; the app records it as the person's name. */
 const nameSaved = event("NAME_SAVED")<{ name: string }>();
 
-const APP_LOCK_FAILED_MESSAGE = "Couldn't turn on App lock. Try again.";
+const APP_LOCK_FAILED_MESSAGE = copy("onboarding.couldn_t_turn_on_app");
 
 type OnboardingContext = {
   card: number;
@@ -197,7 +198,7 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
         fn: ({ signal, emit, context }) => {
           const name = context.get().pendingName;
           if (!name) {
-            emit(saveFailed.create({ message: "Enter a name to continue" }));
+            emit(saveFailed.create({ message: copy("onboarding.enter_a_name_to_continue") }));
             return;
           }
           return runInvoke(

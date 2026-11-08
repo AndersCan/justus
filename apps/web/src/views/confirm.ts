@@ -1,5 +1,6 @@
 import { html, render } from "lit-html";
 
+import { t } from "../copy/copy";
 /** Warm confirmation dialog. Resolves true when the confirm button is
  * pressed, false on Keep / Escape / backdrop tap / close. Renders into its own
  * host so the calling view keeps its DOM untouched. */
@@ -46,7 +47,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
           <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
           ${options.detail ? html`<p class="text-sm text-muted">${options.detail}</p>` : null}
           <wa-button slot="footer" appearance="filled" autofocus @click=${() => finish(false)}>
-            Keep
+            ${t("confirm.keep")}
           </wa-button>
           <wa-button
             slot="footer"

@@ -4,10 +4,15 @@ import { prefs, prefsActor } from "../machines/prefs-machine";
 import type { Density } from "../utils/gallery-density";
 import type { Theme } from "../utils/theme";
 
+import { copy } from "../copy/copy";
 const OPTIONS: { value: Theme; label: string; hint: string }[] = [
-  { value: "system", label: "Auto", hint: "Follows your device" },
-  { value: "light", label: "Light", hint: "Always light" },
-  { value: "dark", label: "Dark", hint: "Always dark" },
+  {
+    value: "system",
+    label: copy("theme_toggle.auto"),
+    hint: copy("theme_toggle.follows_your_device"),
+  },
+  { value: "light", label: copy("theme_toggle.light"), hint: copy("theme_toggle.always_light") },
+  { value: "dark", label: copy("theme_toggle.dark"), hint: copy("theme_toggle.always_dark") },
 ];
 
 /** Auto / Light / Dark choice. Persists via `prefs.setTheme`. */
@@ -17,7 +22,7 @@ export function themeSetting() {
     ({ context: { theme } }) => html`<div
       class="grid grid-cols-3 gap-2"
       role="radiogroup"
-      aria-label="Theme"
+      aria-label=${copy("theme_toggle.theme")}
     >
       ${OPTIONS.map(
         (o) => html`<button
@@ -42,8 +47,8 @@ export function themeSetting() {
 }
 
 const DENSITIES: { value: Density; label: string }[] = [
-  { value: "comfortable", label: "Comfortable" },
-  { value: "compact", label: "Compact" },
+  { value: "comfortable", label: copy("theme_toggle.comfortable") },
+  { value: "compact", label: copy("theme_toggle.compact") },
 ];
 
 /** Gallery grid density: Comfortable / Compact. Persists via `prefs.setDensity`. */
@@ -53,7 +58,7 @@ export function densitySetting() {
     ({ context: { density } }) => html`<div
       class="grid grid-cols-2 gap-2"
       role="radiogroup"
-      aria-label="Photo grid"
+      aria-label=${copy("theme_toggle.photo_grid")}
     >
       ${DENSITIES.map(
         (o) => html`<button

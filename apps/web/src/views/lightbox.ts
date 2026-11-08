@@ -18,6 +18,7 @@ import { canRemove, roleFor } from "../utils/can-remove";
 import { toast } from "./toast";
 import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
 
+import { copy, t } from "../copy/copy";
 /** Full-screen photo detail. The open photo lives in the lightbox machine. */
 
 export function openLightbox(photo: Photo, within?: Photo[]): void {
@@ -71,9 +72,9 @@ if (typeof document !== "undefined") {
 export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
-    title: `Delete “${photo.name}”?`,
-    detail: "It will be gone from the album for everyone.",
-    confirmLabel: "Delete",
+    title: copy("lightbox.delete", { name: photo.name }),
+    detail: copy("lightbox.it_will_be_gone_from"),
+    confirmLabel: copy("lightbox.delete_2"),
     tone: "danger",
   });
   if (!ok) return;
@@ -82,7 +83,8 @@ export async function deleteFromLightbox(photo: Photo) {
   const stop = onStateChange(galleryActor, GALLERY_STATES, (next) => {
     if (next === "removingPhoto") return;
     stop();
-    if (next === "couldNotRemovePhoto") toast(`Couldn't delete “${photo.name}”. Try again.`);
+    if (next === "couldNotRemovePhoto")
+      toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));
   });
 }
 
@@ -116,7 +118,7 @@ function lightboxBody(photo: Photo) {
       <button
         class="flex h-11 w-11 items-center justify-center rounded-full text-lg text-white hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         style="top: max(0.75rem, env(safe-area-inset-top)); right: 0.75rem"
-        aria-label="Close"
+        aria-label=${copy("lightbox.close")}
         @click=${() => closeLightbox()}
       >
         ✕
@@ -124,7 +126,7 @@ function lightboxBody(photo: Photo) {
 
       <button
         class="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
-        aria-label="Previous photo"
+        aria-label=${copy("lightbox.previous_photo")}
         @click=${(e: Event) => {
           e.stopPropagation();
           step(-1);
@@ -134,7 +136,7 @@ function lightboxBody(photo: Photo) {
       </button>
       <button
         class="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
-        aria-label="Next photo"
+        aria-label=${copy("lightbox.next_photo")}
         @click=${(e: Event) => {
           e.stopPropagation();
           step(1);
@@ -168,13 +170,13 @@ function lightboxBody(photo: Photo) {
                 <span class="truncate">${photo.member.name}</span>
                 <span>·</span>
                 <span title="${formatFullDate(photo.addedAt)}"
-                  >added ${formatRelative(photo.addedAt)}</span
+                  >${t("lightbox.added", { when: formatRelative(photo.addedAt) })}</span
                 >
               </div>
               ${
                 photo.takenAt
                   ? html`<div class="mt-0.5 text-xs text-muted">
-                      Taken ${formatFullDate(takenTime(photo))}
+                      ${t("lightbox.taken", { date: formatFullDate(takenTime(photo)) })}
                     </div>`
                   : null
               }
@@ -192,7 +194,7 @@ function lightboxBody(photo: Photo) {
                       <button
                         slot="trigger"
                         class="ui-focus flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-subtle"
-                        aria-label="More options"
+                        aria-label=${copy("lightbox.more_options")}
                       >
                         <svg
                           width="20"
@@ -225,7 +227,7 @@ function lightboxBody(photo: Photo) {
                           <path d="M10 11v6" />
                           <path d="M14 11v6" />
                         </svg>
-                        ${removing ? "Deleting…" : "Delete"}
+                        ${removing ? copy("lightbox.deleting") : copy("lightbox.delete_2")}
                       </wa-dropdown-item>
                     </wa-dropdown>`;
                   })

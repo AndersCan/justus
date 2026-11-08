@@ -8,6 +8,7 @@ import { errorBanner } from "./error-banner";
 import { tabs } from "./tabs";
 import { toast } from "./toast";
 
+import { copy, t } from "../copy/copy";
 /** Short, copy-stable label for a device key — never the full peer id. */
 function shortPeer(peerId: string): string {
   if (peerId.length <= 10) return peerId;
@@ -18,17 +19,19 @@ function shortPeer(peerId: string): string {
  * (GrantRecord.receipt is set) is cryptographically known — not just a key we
  * typed. Returns the badge copy, or null when the record carries no receipt. */
 export function inviteProvenance(record: GrantRecord): string | null {
-  return record.receipt ? "verified invite" : null;
+  return record.receipt ? copy("sharing.verified_invite") : null;
 }
 
 /** Honest one-line state for a ledger record (share-grant-spec §2.1 / §4). */
 function stateBadge(record: GrantRecord): { copy: string; cls: string } {
-  if (record.serveTo === "granted") return { copy: "Sharing ✓", cls: "text-ok-fg" };
-  if (record.serveTo === "revoked") return { copy: "Sharing stopped", cls: "text-danger-fg" };
-  if (record.serveTo === "declined") return { copy: "Said no", cls: "text-muted" };
-  if (record.invitedBy) return { copy: "Invited you", cls: "text-fg" };
-  if (record.unknownHolderSince != null) return { copy: "Asked to share", cls: "text-muted" };
-  return { copy: "Not sharing", cls: "text-muted" };
+  if (record.serveTo === "granted") return { copy: copy("sharing.sharing"), cls: "text-ok-fg" };
+  if (record.serveTo === "revoked")
+    return { copy: copy("sharing.sharing_stopped"), cls: "text-danger-fg" };
+  if (record.serveTo === "declined") return { copy: copy("sharing.said_no"), cls: "text-muted" };
+  if (record.invitedBy) return { copy: copy("sharing.invited_you"), cls: "text-fg" };
+  if (record.unknownHolderSince != null)
+    return { copy: copy("sharing.asked_to_share"), cls: "text-muted" };
+  return { copy: copy("sharing.not_sharing"), cls: "text-muted" };
 }
 
 type SharingViewModel = ReturnType<typeof grantsViewModel>;
@@ -36,40 +39,38 @@ type SharingViewModel = ReturnType<typeof grantsViewModel>;
 function promptCard(view: SharingViewModel, record: GrantRecord) {
   return html`
     <li class="ui-card flex flex-col gap-3 border-l-4 border-l-warn p-5">
-      <p class=" text-lg text-fg">
-        Someone with one of your album links joined. Share your photos with them?
-      </p>
-      <p class="text-sm text-muted">Device ${shortPeer(record.peerId)}</p>
+      <p class=" text-lg text-fg">${t("sharing.someone_with_one_of_your")}</p>
+      <p class="text-sm text-muted">${t("sharing.device", { device: shortPeer(record.peerId) })}</p>
       <div class="flex flex-wrap items-center gap-2">
         <button
           class="ui-btn-ghost font-semibold"
           ?disabled=${view.acting}
           @click=${() => {
             grants.snooze();
-            toast("We'll ask another day");
+            toast(copy("sharing.we_ll_ask_another_day"));
           }}
         >
-          Not now
+          ${t("sharing.not_now")}
         </button>
         <button
           class="ui-btn-primary"
           ?disabled=${view.acting}
           @click=${() => {
             grants.grant(record.peerId);
-            toast(`Sharing with ${shortPeer(record.peerId)}`);
+            toast(copy("sharing.sharing_with", { device: shortPeer(record.peerId) }));
           }}
         >
-          Share
+          ${t("sharing.share")}
         </button>
         <button
           class="ml-auto text-xs text-muted underline-offset-2 hover:text-danger-fg hover:underline"
           ?disabled=${view.acting}
           @click=${() => {
             grants.decline(record.peerId);
-            toast(`You won't be asked about ${shortPeer(record.peerId)} again`);
+            toast(copy("sharing.you_won_t_be_asked", { device: shortPeer(record.peerId) }));
           }}
         >
-          never for this person
+          ${t("sharing.never_for_this_person")}
         </button>
       </div>
     </li>
@@ -84,9 +85,7 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
         <p class="truncate font-mono text-sm text-fg">${shortPeer(record.peerId)}</p>
         ${
           record.serveTo === "revoked"
-            ? html`<p class="text-xs text-muted">
-                They keep the photos they already have; they won't get new ones.
-              </p>`
+            ? html`<p class="text-xs text-muted">${t("sharing.they_keep_the_photos_they")}</p>`
             : null
         }
       </div>
@@ -98,10 +97,10 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
                 ?disabled=${view.acting}
                 @click=${() => {
                   grants.revoke(record.peerId);
-                  toast(`Stopped sharing with ${shortPeer(record.peerId)}`);
+                  toast(copy("sharing.stopped_sharing_with", { device: shortPeer(record.peerId) }));
                 }}
               >
-                stop sharing
+                ${t("sharing.stop_sharing")}
               </button>`
             : null
         }
@@ -110,8 +109,8 @@ function recordRow(view: SharingViewModel, record: GrantRecord) {
           inviteProvenance(record)
             ? html`<span
                 class="text-xs font-semibold text-ok-fg"
-                title="This device presented a verified signed invite receipt."
-                aria-label="Verified invite"
+                title=${copy("sharing.this_device_presented_a_verified")}
+                aria-label=${copy("sharing.verified_invite_2")}
                 >✓ ${inviteProvenance(record)}</span
               >`
             : null
@@ -125,16 +124,13 @@ function devicesBody(view: SharingViewModel) {
   const { state, error, fatal } = view;
   return html`
     <div class="flex items-start justify-between gap-3">
-      <p class="text-sm text-muted">
-        Devices that hold one of your albums. Choosing who gets your photos isn't active yet: today
-        every device with an album's invite receives its photos.
-      </p>
+      <p class="text-sm text-muted">${t("sharing.devices_that_hold_one_of")}</p>
       <button
         class="ui-btn-ghost shrink-0"
         ?disabled=${state === "loadingShareList" || state === "savingShareChoice"}
         @click=${() => grants.refresh()}
       >
-        ${state === "loadingShareList" ? "Refreshing…" : "Refresh"}
+        ${state === "loadingShareList" ? copy("sharing.refreshing") : copy("sharing.refresh")}
       </button>
     </div>
 
@@ -145,19 +141,16 @@ function devicesBody(view: SharingViewModel) {
     )}
 
     <section class="space-y-3">
-      <h2 class="ui-label">Unknown holder</h2>
+      <h2 class="ui-label">${t("sharing.unknown_holder")}</h2>
       ${
         state === "shareListNotLoaded" ||
         (state === "loadingShareList" && view.dueRecords.length === 0)
-          ? html`<p class="text-muted">Loading…</p>`
+          ? html`<p class="text-muted">${t("sharing.loading")}</p>`
           : view.dueRecords.length === 0
             ? html`
                 <div class="ui-card p-5 text-center">
-                  <p class=" text-lg text-fg">No prompts right now.</p>
-                  <p class="mt-1 text-sm text-fg">
-                    We'll ask once a day if someone shows up holding one of your albums without an
-                    invite.
-                  </p>
+                  <p class=" text-lg text-fg">${t("sharing.no_prompts_right_now")}</p>
+                  <p class="mt-1 text-sm text-fg">${t("sharing.we_ll_ask_once_a")}</p>
                 </div>
               `
             : html`<ul class="space-y-3">
@@ -167,10 +160,10 @@ function devicesBody(view: SharingViewModel) {
     </section>
 
     <section class="space-y-3">
-      <h2 class="ui-label">Who you share with</h2>
+      <h2 class="ui-label">${t("sharing.who_you_share_with")}</h2>
       ${
         view.records.length === 0
-          ? html`<p class="text-sm text-fg">Just you — invite someone to share.</p>`
+          ? html`<p class="text-sm text-fg">${t("sharing.just_you_invite_someone_to")}</p>`
           : html`<ul class="ui-card divide-y divide-line px-5 py-1">
               ${view.records.map((r) => recordRow(view, r))}
             </ul>`
@@ -198,19 +191,21 @@ export type SharingTab = "albums" | "join" | "devices";
 export function sharingView(tab: SharingTab) {
   return html`
     <div class="max-w-2xl space-y-5">
-      <h1 class="text-2xl font-semibold tracking-tight text-fg">Sharing</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-fg">${t("sharing.sharing_2")}</h1>
       ${watch(requestsActor, (q) =>
         tabs(
-          "Sharing",
+          copy("sharing.sharing_2"),
           [
             {
               id: "albums",
-              label: "Your albums",
+              label: copy("sharing.your_albums"),
               href: "/sharing",
               badge: q.context.requests.length,
             },
-            { id: "join", label: "Join an album", href: "/join" },
-            ...(tab === "devices" ? [{ id: "devices", label: "Devices", href: "/devices" }] : []),
+            { id: "join", label: copy("sharing.join_an_album"), href: "/join" },
+            ...(tab === "devices"
+              ? [{ id: "devices", label: copy("sharing.devices"), href: "/devices" }]
+              : []),
           ],
           tab,
         ),
