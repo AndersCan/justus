@@ -44,6 +44,20 @@ async function back(p: Phone, restart = true) {
   await p.store.ready();
 }
 
+/** A restart after which this phone's drives all fail `keepOnly`. */
+async function restartWithFailingKeep(p: Phone) {
+  await p.store.close();
+  const fresh = restarted(p.deps);
+  const open = async (...args: Parameters<typeof fresh.drives.open>) => {
+    const [error, drive] = await fresh.drives.open(...args);
+    if (error) return [error, null];
+    return [null, { ...drive, keepOnly: async () => [new Error("keepOnly failed"), null] }];
+  };
+  p.deps = { ...fresh, drives: { ...fresh.drives, open } };
+  p.store = createPhotoStore(p.deps);
+  await p.store.ready();
+}
+
 async function restart(p: Phone) {
   await p.store.close();
   await back(p);
@@ -105,8 +119,10 @@ describe("a member passes a delete on", () => {
     await away(s.anna);
     const [, drive] = await s.nils.deps.drives.open(s.shareKey, { timeoutMs: 1_000 });
     expect(await drive!.readSmall("/deleted.json", 10_000)).toBeDefined();
-    for await (const entry of drive!.list("/photos")) {
-      expect(await drive!.readBytes(entry.path)).toBeUndefined();
+    for (const dir of ["/photos", "/thumbs"]) {
+      for await (const entry of drive!.list(dir)) {
+        expect(await drive!.readBytes(entry.path)).toBeUndefined();
+      }
     }
     expect(goneOf(s.nils)).toMatchObject([{ kind: "deletedByAdmin", passOn: true }]);
   }, 40_000);
@@ -151,5 +167,41 @@ describe("a member passes a delete on", () => {
     expect(goneOf(s.nils)).toMatchObject([{ kind: "deletedByAdmin" }]);
     expect(goneOf(s.nils)[0].passOn).toBeUndefined();
     expect(await noticeOf(s.nils)).toEqual(HYTTA);
+  }, 40_000);
+
+  it("drops a dismissed record and purges the drive after 90 days", async () => {
+    const s = await nilsHeard();
+    const nilsNotice = (await s.nils.store.folders()).deleted[0];
+    expect((await s.nils.store.dismissAlbumNotice(nilsNotice.id))[0]).toBeNull();
+    await away(s.anna);
+    await s.nils.store.close();
+    const file = join(s.nils.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.gone[0].at = Date.now() - PASS_ON_DELETE_MS - 1;
+    writeFileSync(file, JSON.stringify(saved));
+    await back(s.nils);
+    expect(goneOf(s.nils)).toEqual([]);
+    expect(s.nils.deps.node.replicas.has(s.shareKey)).toBe(false);
+  }, 40_000);
+
+  it("removes the album as before when the note cannot be kept at boot", async () => {
+    const s = await nilsHeard();
+    await away(s.anna);
+    await restartWithFailingKeep(s.nils);
+    expect(goneOf(s.nils)).toMatchObject([{ kind: "deletedByAdmin" }]);
+    expect(goneOf(s.nils)[0].passOn).toBeUndefined();
+    expect(s.nils.deps.node.replicas.has(s.shareKey)).toBe(false);
+    expect(await noticeOf(s.nils)).toEqual(HYTTA);
+  }, 40_000);
+
+  it("removes the album as before when the note cannot be kept on hearing", async () => {
+    const s = await album();
+    await away(s.maya);
+    await restartWithFailingKeep(s.nils);
+    expect((await s.anna.store.deleteAlbum(s.id))[0]).toBeNull();
+    await until(async () => (await s.nils.store.folders()).deleted.length === 1);
+    expect(await noticeOf(s.nils)).toEqual(HYTTA);
+    expect(goneOf(s.nils)[0].passOn).toBeUndefined();
+    expect(s.nils.deps.node.replicas.has(s.shareKey)).toBe(false);
   }, 40_000);
 });
