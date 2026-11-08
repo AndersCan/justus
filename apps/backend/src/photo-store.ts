@@ -1982,18 +1982,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     drive?: Drive,
   ): Promise<MembershipActor | undefined> {
     const id = `${rt.record.id}/${key}`;
-    const inFlight = () => {
-      const existing = memberships.get(id);
-      const name = String(existing?.state.name);
-      return name === "makingCollaborator" || name === "markingAsLeft" ? existing : undefined;
-    };
-    const first = inFlight();
-    if (first) return first;
+    const existing = memberships.get(id);
+    const name = String(existing?.state.name);
+    if (name === "makingCollaborator" || name === "markingAsLeft") return existing;
     await refreshViewers(rt);
     const registry = await readRegistryIn(rt.folderDrive);
-    // Another caller may have started a change for them while the lists were read.
-    const second = inFlight();
-    if (second) return second;
     memberships.delete(id);
     const listed = registry.members[key] ?? rt.viewers[key];
     if (!listed) return undefined;

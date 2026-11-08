@@ -48,10 +48,44 @@ function holdLeftNotes(deps: ReturnType<typeof phoneDeps>, hold: { on: boolean }
   };
 }
 
+/** Records each write on the Admin's own drives; while `gate.on` is set the next `/members.json` write waits until `gate.open()`, so Make Collaborator stays in flight. */
+function gateRegistryWrites(deps: ReturnType<typeof phoneDeps>) {
+  const writes: string[] = [];
+  let enter = () => {};
+  let open = () => {};
+  const gate = {
+    on: false,
+    failNext: false,
+    entered: new Promise<void>((r) => (enter = r)),
+    open: () => open(),
+  };
+  const openOwn = deps.drives.openOwn.bind(deps.drives);
+  deps.drives.openOwn = async (namespace?: string) => {
+    const drive = await openOwn(namespace);
+    const put = drive.put.bind(drive);
+    drive.put = async (path: string, data: Buffer) => {
+      writes.push(path);
+      if (gate.failNext && path === "/members.json") {
+        gate.failNext = false;
+        throw new Error("disk full");
+      }
+      if (gate.on && path === "/members.json") {
+        gate.on = false;
+        enter();
+        await new Promise<void>((r) => (open = r));
+      }
+      return put(path, data);
+    };
+    return drive;
+  };
+  return { gate, writes };
+}
+
 async function album() {
   const hub = createFakeHub();
   const hold = { on: false };
   const adminDeps = phoneDeps(hub, "Anna");
+  const { gate, writes } = gateRegistryWrites(adminDeps);
   const release = holdLeftNotes(adminDeps, hold);
   const admin = createPhotoStore(adminDeps);
   const ben = createPhotoStore(phoneDeps(hub, "Ben"));
@@ -72,7 +106,7 @@ async function album() {
     await admin.close();
     await ben.close();
   };
-  return { admin, ben, hold, release, folderId, benFolderId, key, names, close };
+  return { admin, ben, hold, release, gate, writes, folderId, benFolderId, key, names, close };
 }
 
 async function lists(s: Awaited<ReturnType<typeof album>>) {
@@ -81,29 +115,56 @@ async function lists(s: Awaited<ReturnType<typeof album>>) {
 }
 
 describe("members machine", () => {
-  it("two Make Collaborator calls at once leave the person a Collaborator once", async () => {
+  it("two Make Collaborator calls at once save the role once", async () => {
     const s = await album();
+    const before = s.writes.filter((p) => p === "/members.json").length;
     const [a, b] = await Promise.all([
       s.admin.makeMember(s.folderId, s.key),
       s.admin.makeMember(s.folderId, s.key),
     ]);
-    const oks = [a, b].filter((r) => r[0] === null);
-    expect(oks.length).toBeGreaterThanOrEqual(1);
-    for (const r of [a, b])
-      if (r[0] !== null) expect(String(r[0])).toMatch(/still being saved|no such viewer/i);
+    // The second caller finds the change the first started and waits for it.
+    expect([a[0], b[0]]).toEqual([null, null]);
+    expect(s.writes.filter((p) => p === "/members.json").length - before).toBe(1);
     expect(await lists(s)).toHaveLength(1);
     await s.close();
   }, 30_000);
 
-  it("Make Collaborator racing a left note ends with the person off both lists", async () => {
+  it("a left note read while Make Collaborator is saving wins", async () => {
     const s = await album();
     s.hold.on = true;
     expect((await s.ben.leaveAlbum(s.benFolderId))[0]).toBeNull();
+    s.gate.on = true;
     const call = s.admin.makeMember(s.folderId, s.key);
+    await s.gate.entered;
     s.release();
+    await sleep(300);
+    s.gate.open();
     const [error] = await call;
-    if (error) expect(error.message).toBe("They left the album");
+    expect(error?.message).toBe("They left the album");
     await until(async () => (await lists(s)).length === 0);
+    await s.close();
+  }, 30_000);
+
+  it("a Collaborator's left note takes them off the people list", async () => {
+    const s = await album();
+    s.hold.on = true;
+    expect((await s.admin.makeMember(s.folderId, s.key))[0]).toBeNull();
+    expect((await s.ben.leaveAlbum(s.benFolderId))[0]).toBeNull();
+    s.release();
+    await until(async () => (await lists(s)).length === 0);
+    await s.close();
+  }, 30_000);
+
+  it("a failed removal keeps the Collaborator on the list", async () => {
+    const s = await album();
+    s.hold.on = true;
+    expect((await s.admin.makeMember(s.folderId, s.key))[0]).toBeNull();
+    expect((await s.ben.leaveAlbum(s.benFolderId))[0]).toBeNull();
+    s.gate.failNext = true;
+    s.release();
+    await until(() => !s.gate.failNext);
+    await sleep(300);
+    expect((await lists(s)).length).toBe(1);
     await s.close();
   }, 30_000);
 
