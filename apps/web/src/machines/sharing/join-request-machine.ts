@@ -14,8 +14,7 @@ export type Known =
   | { kind: "new" }
   | { kind: "own"; folderId: string }
   | { kind: "member"; folderId: string }
-  | { kind: "waiting" }
-  | { kind: "declined" };
+  | { kind: "waiting" };
 
 /** A request this phone already made, as the albums list shows it. */
 export type AskSummary = {
@@ -47,7 +46,7 @@ const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 const sendingRequest = state("sendingRequest")<JoinInvite>();
 /** "Waiting for <owner>". Shown with no timer until an answer comes. */
 const waitingForAdminToAccept = state("waitingForAdminToAccept")<JoinInvite>();
-/** "<owner> didn't accept your request." The answer is final. */
+/** "<owner> didn't accept your request." OK takes the request off this phone; the link can be asked through again. */
 const declinedByAdmin = state("declinedByAdmin")<JoinInvite>();
 /** The link's end time has passed; nothing is sent. */
 const linkExpired = state("linkExpired")<JoinInvite>();
@@ -82,6 +81,8 @@ const requestFailed = event("requestFailed")<{ message: string }>();
 
 /** Asks the app to show the album: the joiner is already in, or was just accepted. */
 const openAlbum = event("openAlbum")<{ folderId: string }>();
+/** Asks the app to take the declined request off this phone. */
+export const dismissDeclinedAsk = event("dismissDeclinedAsk")<{ code: string }>();
 
 type JoinContext = { error: string };
 
@@ -109,7 +110,7 @@ export function createJoinRequestActor(options: {
       requestAnswered,
     ],
     internal: [requestSent, requestFailed],
-    outputs: [openAlbum],
+    outputs: [openAlbum, dismissDeclinedAsk],
     states: [
       noInviteOpen,
       showingLinkProblem,
@@ -159,7 +160,6 @@ export function createJoinRequestActor(options: {
               return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
             }
             if (found.kind === "waiting") return { state: waitingForAdminToAccept.create(invite) };
-            if (found.kind === "declined") return { state: declinedByAdmin.create(invite) };
             if (invite.expiresAt !== undefined && clock.now() >= invite.expiresAt) {
               return { state: linkExpired.create(invite) };
             }
@@ -201,7 +201,7 @@ export function createJoinRequestActor(options: {
       }
 
       for (const from of [decidingToAsk, sendingRequest, linkExpired]) {
-        /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. A decline already on screen is final, so declinedByAdmin takes no answer. */
+        /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. The open declined sheet takes no answer. */
         m.on(from, {
           event: requestAnswered,
           to: [joinedAlbum, from],
@@ -293,7 +293,12 @@ export function createJoinRequestActor(options: {
       m.on(declinedByAdmin, {
         event: dismissDecline,
         to: [noInviteOpen],
-        handler: () => ({ state: noInviteOpen }),
+        handler: (_e, { actor }) => ({
+          state: noInviteOpen,
+          emit: [
+            dismissDeclinedAsk.create({ code: (actor.snapshot().payload as JoinInvite).code }),
+          ],
+        }),
       });
     },
   });

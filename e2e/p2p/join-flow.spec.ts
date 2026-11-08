@@ -235,7 +235,7 @@ test("B asks to join A's album by link, A declines, B sees no photo", async ({ i
   await expect(b.locator("img")).toHaveCount(0);
   await b.getByRole("button", { name: "OK" }).click();
   await b.goto("/sharing");
-  await expect(b.getByText("Not accepted")).toBeVisible();
+  await expect(b.getByText("Not accepted")).toHaveCount(0);
   await expect(b.locator("img")).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${PHOTO}` })).toHaveCount(0);
 });

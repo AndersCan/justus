@@ -26,9 +26,9 @@ describe("classifyInvite", () => {
       });
     }
   });
-  test("a waiting or declined ask keeps its status", () => {
+  test("a waiting ask is waiting; a declined ask can be asked again", () => {
     expect(classifyInvite("c1", [], [ask("c1", "waiting")])).toEqual({ kind: "waiting" });
-    expect(classifyInvite("c1", [], [ask("c1", "declined")])).toEqual({ kind: "declined" });
+    expect(classifyInvite("c1", [], [ask("c1", "declined")])).toEqual({ kind: "new" });
   });
   test("an album wins over a stale ask", () => {
     expect(classifyInvite("c1", [folder("f2", "member", "c1")], [ask("c1", "waiting")])).toEqual({

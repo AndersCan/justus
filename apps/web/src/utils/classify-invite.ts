@@ -2,7 +2,7 @@ import type { AskSummary, FolderSummary } from "@justus/core";
 import type { Known } from "../machines/sharing/join-request-machine";
 
 /** What this phone already knows about an invite code: its own album, one it
- * joined through that code, a request still waiting, a request declined, or nothing. */
+ * joined through that code, a request still waiting, or nothing. A declined ask counts as nothing: it can be asked again. */
 export function classifyInvite(
   code: string,
   folders: readonly FolderSummary[],
@@ -15,6 +15,6 @@ export function classifyInvite(
       : { kind: "member", folderId: folder.id };
   }
   const ask = asks.find((a) => a.code === code);
-  if (ask) return { kind: ask.status };
+  if (ask?.status === "waiting") return { kind: "waiting" };
   return { kind: "new" };
 }

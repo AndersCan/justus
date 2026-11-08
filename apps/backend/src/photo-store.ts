@@ -368,6 +368,8 @@ export interface PhotoStore {
   leaveAlbum(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Clears the "deleted by the Admin" notice of an album. */
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Joiner: takes a declined ask off this phone; the link can be asked through again. */
+  dismissDeclinedAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -3727,6 +3729,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async dismissDeclinedAsk(code) {
+      await readyPromise;
+      const found = state.asks.find((a) => a.code === code && a.status === "declined");
+      if (!found) return err(PhotoError.NOT_FOUND, `No declined request for ${code}`);
+      state.asks = state.asks.filter((a) => a !== found);
+      saveState();
+      deps.onChanged({ cause: "ask", code });
+      return ok({ ok: true });
+    },
+
     debugState() {
       const driveInfo = (drive: Drive) => ({
         key: drive.key,
@@ -3846,6 +3858,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     deleteAlbum: refuse,
     leaveAlbum: refuse,
     dismissAlbumNotice: refuse,
+    dismissDeclinedAsk: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };

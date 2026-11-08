@@ -126,6 +126,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
       deleteAlbum: async (args) => deps.store.deleteAlbum(args.folderId),
       leaveAlbum: async (args) => deps.store.leaveAlbum(args.folderId),
       dismissAlbumNotice: async (args) => deps.store.dismissAlbumNotice(args.folderId),
+      dismissDeclinedAsk: async (args) => deps.store.dismissDeclinedAsk(args.code),
     }),
   });
 }
