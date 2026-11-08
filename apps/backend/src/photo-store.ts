@@ -132,7 +132,16 @@ import {
   type DeviceSource,
 } from "./presence/presence";
 import { createP2pLog, errText, short, type P2pLogSink } from "./p2p-log";
-import { holdOffer, mayShowOfferFrom, OFFER_REACH_MS, OFFER_RESEND_MS } from "./membership/offers";
+import {
+  dropOwed,
+  holdOffer,
+  holdOwed,
+  liveOwed,
+  mayShowOfferFrom,
+  OFFER_REACH_MS,
+  OFFER_RESEND_MS,
+  type OwedOffers,
+} from "./membership/offers";
 
 /**
  * Dependency-injection seam. `photo-store.ts` used to import the full p2p
@@ -275,6 +284,8 @@ type FolderRecord = {
   retiredInvites?: string[];
   /** Creator only: identities with an open friend invite to this album. */
   invited?: string[];
+  /** Creator only: friend invites nobody answered yet, by identity, with when they started waiting. */
+  offerOwed?: OwedOffers;
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
@@ -412,7 +423,10 @@ export interface PhotoStore {
   /** Admin only: remembers when a link just made stops working; asks sent outside every link's time are turned away. */
   saveInviteLink(folderId: string, expiresAt: number): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: sends the album's invite straight to a friend's phone, by their key, and waits for the phone to confirm. */
-  offerAlbum(folderId: string, identity: string): Promise<EitherResult<{ ok: boolean }>>;
+  offerAlbum(
+    folderId: string,
+    identity: string,
+  ): Promise<EitherResult<{ ok: boolean; waiting?: boolean }>>;
   /** Friend only: taps Join on a held invite. Files the ask and tells the Admin's phone, which accepts with no Accept step. */
   joinOffer(code: string, owner: string): Promise<EitherResult<{ ask: AskSummary }>>;
   /** Hides the album on this phone only; it keeps syncing. */
@@ -815,6 +829,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       out.invited = (f.invited as unknown[]).filter(
         (c): c is string => typeof c === "string" && isHexKey(c),
       );
+    }
+    if (isTextJSON(f.offerOwed)) {
+      const owed: OwedOffers = {};
+      for (const [id, t] of Object.entries(f.offerOwed)) {
+        if (isHexKey(id) && typeof t === "number" && Number.isFinite(t)) owed[id] = t;
+      }
+      if (Object.keys(owed).length > 0) out.offerOwed = owed;
     }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
@@ -2903,6 +2924,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       for (const seen of [...moveSeen]) if (seen.startsWith(`${keyHex}:`)) moveSeen.delete(seen);
       void deliverMoveOffers(keyHex).catch(answerErr("moveOffer"));
+      void deliverOwedOffers(keyHex).catch(answerErr("owedOffer"));
       // An accepted ask whose join failed earlier: the Admin is here again.
       for (const ask of state.asks) {
         if (ask.status === "accepted" && ask.owner === keyHex) {
@@ -3562,6 +3584,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (message.kind === "offerSeen" || message.kind === "offerRefused") {
       const key = `${sender}:${message.code}`;
       if (message.kind === "offerSeen") moveSeen.add(key);
+      settleOwed(sender, message.code, message.kind === "offerSeen");
       offerWaiters.get(key)?.(message.kind === "offerSeen" ? "seen" : "refused");
       return;
     }
@@ -3694,6 +3717,92 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }, OFFER_RESEND_MS);
       retryTimers.add(timer);
     }
+  }
+
+  /** The friend answered an invite that was waiting: it becomes open (seen) or is dropped (refused). */
+  function settleOwed(sender: string, code: string, seen: boolean) {
+    let changed: string | undefined;
+    for (const rt of runtimes.values()) {
+      const record = rt.record;
+      if (record.role !== "creator" || record.invite?.code !== code || !record.offerOwed?.[sender])
+        continue;
+      for (const target of [record, state.folders.find((f) => f.id === record.id)]) {
+        if (!target) continue;
+        target.offerOwed = dropOwed(target.offerOwed, sender);
+        if (seen && !target.invited?.includes(sender)) {
+          target.invited = [...(target.invited ?? []), sender];
+        }
+      }
+      changed = record.id;
+      log(seen ? "offer.owed.seen" : "offer.owed.refused", { friend: short(sender) });
+    }
+    if (changed === undefined) return;
+    saveState();
+    deps.onChanged({ cause: "offer", folderId: changed });
+  }
+
+  /** Sends the waiting friend invites to `identity` on every connection proven to be them. */
+  async function deliverOwedOffers(identity: string, attempt = 0): Promise<void> {
+    if (closed || !setupDone) return;
+    let waiting = false;
+    const now = Date.now();
+    for (const rt of Array.from(runtimes.values())) {
+      const { record } = rt;
+      const invite = record.invite;
+      if (record.role !== "creator" || record.lifecycle || !invite) continue;
+      if (!liveOwed(record.offerOwed, now)[identity]) continue;
+      waiting = true;
+      await tellIdentity(invitePorts, {
+        identity,
+        message: {
+          kind: "offer",
+          code: invite.code,
+          albumName: record.name,
+          ownerName: state.name,
+        },
+        timeoutMs: 2_000,
+      });
+      log("offer.owed.sent", { friend: short(identity), n: attempt + 1 });
+    }
+    if (waiting && attempt < 5) {
+      const timer = setTimeout(() => {
+        retryTimers.delete(timer);
+        void deliverOwedOffers(identity, attempt + 1).catch(answerErr("owedOffer"));
+      }, OFFER_RESEND_MS);
+      retryTimers.add(timer);
+    }
+  }
+
+  /** Looks for `identity`'s phone on its identity topic, so a waiting invite finds it. */
+  function lookFor(identity: string) {
+    openPeerOutbox(identity).catch(() => undefined);
+    network.findPeers(
+      deps.drives.discoveryKeyOf(identity),
+      () => [...conns.values()].some((c) => c.identityKey === identity && !c.refused),
+      { drive: identity },
+    );
+  }
+
+  /** Drops expired waiting invites and starts looking for the friends of the rest. */
+  function resumeOwed() {
+    const now = Date.now();
+    let expired = 0;
+    const friends = new Set<string>();
+    for (const target of state.folders) {
+      if (!target.offerOwed) continue;
+      const live = liveOwed(target.offerOwed, now);
+      expired += Object.keys(target.offerOwed).length - Object.keys(live).length;
+      target.offerOwed = Object.keys(live).length > 0 ? live : undefined;
+      for (const id of Object.keys(live)) friends.add(id);
+    }
+    for (const rt of runtimes.values()) {
+      rt.record.offerOwed = state.folders.find((f) => f.id === rt.record.id)?.offerOwed;
+    }
+    if (expired > 0) {
+      saveState();
+      log("offer.owed.expired", { n: expired });
+    }
+    for (const id of friends) lookFor(id);
   }
 
   /** Identities whose auto-accept is running, so a repeated Join tap doesn't start a second one. */
@@ -3856,6 +3965,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const ask of state.asks) {
       if (ask.status === "accepted") void completeAccepted(ask).catch(answerErr("complete"));
     }
+    resumeOwed();
   }
 
   /** Joins the album with `key`. `via` is set when the Admin accepted an ask: the
@@ -4429,12 +4539,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         newCode: newInviteCode(),
       });
       rt.record.invited = undefined;
+      rt.record.offerOwed = undefined;
       rt.record.invite = next.invite;
       if (next.retired) rt.record.retiredInvites = next.retiredInvites;
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted) {
         persisted.invite = next.invite;
         persisted.invited = undefined;
+        persisted.offerOwed = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
       }
       saveState();
@@ -4497,9 +4609,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           isClosed: () => closed,
         });
         if (offerErr?.kind === "refused") return err(PhotoError.FRIEND_REFUSED, offerErr.message);
+        if (offerErr?.kind === "unreachable") {
+          const now = Date.now();
+          for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
+            if (target) target.offerOwed = holdOwed(target.offerOwed, identity, now);
+          }
+          saveState();
+          log("offer.owed", { friend: short(identity), folder: short(folderId) });
+          lookFor(identity);
+          deps.onChanged({ cause: "offer", folderId });
+          return ok({ ok: true, waiting: true });
+        }
         if (offerErr) return err(PhotoError.FRIEND_UNREACHABLE, offerErr.message);
         for (const target of [rt.record, state.folders.find((f) => f.id === folderId)]) {
-          if (target && !target.invited?.includes(identity)) {
+          if (!target) continue;
+          target.offerOwed = dropOwed(target.offerOwed, identity);
+          if (!target.invited?.includes(identity)) {
             target.invited = [...(target.invited ?? []), identity];
           }
         }
@@ -4792,6 +4917,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           lifecycle: rt.record.lifecycle ?? "shown",
           pending: Boolean(rt.record.pending),
           invited: rt.record.invited ?? [],
+          offerOwed: rt.record.offerOwed ?? {},
           answers: rt.record.answers ?? {},
           shareKey: rt.record.shareKey,
           folderDrive: driveInfo(rt.folderDrive),
