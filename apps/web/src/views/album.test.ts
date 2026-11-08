@@ -7,7 +7,7 @@ import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { gateway } from "../gateway";
-import { albumMenuItems, albumView, deleteSheet, leaveDetail } from "./album";
+import { albumMenuItems, albumView, answerToast, deleteSheet, leaveDetail } from "./album";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
@@ -280,6 +280,55 @@ describe("album join requests", () => {
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "member"),
     );
+  });
+
+  test("the accept toast waits for the answer", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true)]);
+    let resolve!: (v: unknown) => void;
+    vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (resolve = r)) as never);
+    button(host, "Accept as Viewer")!.click();
+    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
+    expect(toast).not.toHaveBeenCalled();
+    resolve([null, { ok: true }]);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in as a Viewer"));
+    expect(toast).toHaveBeenCalledTimes(1);
+    await requestsActor.settled();
+  });
+
+  test("a failed answer shows why on that card, with no toast; Retry sends it again", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    vi.mocked(gateway.respond)
+      .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
+      .mockResolvedValueOnce([null, { ok: true }] as never);
+    const card = (k: string) =>
+      [...host.querySelectorAll("li")].find((li) => li.textContent?.includes(`${k} wants`))!;
+    [...card("nils").querySelectorAll("button")]
+      .find((b) => name(b) === "Accept as Viewer")!
+      .click();
+    await vi.waitFor(() =>
+      expect(card("nils").textContent).toContain(
+        "Couldn't connect. Check your internet and try again.",
+      ),
+    );
+    expect(card("nils").querySelector("[role=alert]")).not.toBeNull();
+    expect(card("ola").querySelector("[role=alert]")).toBeNull();
+    expect(toast).not.toHaveBeenCalled();
+    [...card("nils").querySelectorAll("button")].find((b) => name(b) === "Retry")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in as a Viewer"));
+    expect(gateway.respond).toHaveBeenCalledTimes(2);
+    expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
+    await requestsActor.settled();
+    await vi.waitFor(() => expect(card("nils")).toBeUndefined());
+  });
+
+  test("answerToast: no toast for a No; Viewer, Collaborator and plain Accept wording", () => {
+    const a = { requesterName: "Nils", approve: true, role: "member" as const, viaInvite: false };
+    expect(answerToast({ ...a, approve: false })).toBe("");
+    expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe("Nils is in as a Viewer");
+    expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in as a Collaborator");
+    expect(answerToast(a)).toBe("Nils is in");
   });
 
   test("a plain request keeps a single Accept that sends the member role", async () => {
