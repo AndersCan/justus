@@ -2674,7 +2674,7 @@
     "screen": ""
   },
   "invite.sees_the_same_code_next": {
-    "text": ". {owner} sees the same code next to your request.",
+    "text": ". If {owner} asks, tell them these three words so {owner} knows it's you.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",

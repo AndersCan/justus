@@ -125,11 +125,11 @@ describe("checkCodeLine", () => {
   test("is null without a code", () => {
     expect(checkCodeLine(undefined, "Anna")).toBeNull();
   });
-  test("names the code and who sees it", () => {
+  test("names the code and what to do with it", () => {
     const host = document.createElement("div");
     render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Your check code is maple river stone. Anna sees the same code next to your request.",
+      "Your check code is maple river stone. If Anna asks, tell them these three words so Anna knows it's you.",
     );
   });
 });
