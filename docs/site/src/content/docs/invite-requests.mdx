@@ -7,13 +7,14 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 Two people, two phones. Nils is the Admin; Kari is a saved friend. Both phones must have Justus open.
 
-| Moment                        | Nils (Admin) sees                                                              | Kari sees                                                                                              |
-| ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Nils taps "Add a friend"      | His saved friends who are not in the album, by name `addFriend.choosingFriend` | Nothing                                                                                                |
-| Nils taps Kari                | "Asking Kari…" and "Kari needs Justus open too." `addFriend.lookingForFriend`  | Nothing yet                                                                                            |
-| Kari's phone takes the invite | "Asked Kari to join"; the sheet closes `addFriend.showingPeopleWithAddFriend`  | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
-| Kari taps Join                | Nothing to do: no Accept step                                                  | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
-| Nils's phone answers          | Kari under Members                                                             | The album opens `friendOffer.showingFriendOffers`                                                      |
+| Moment                           | Nils (Admin) sees                                                                         | Kari sees                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Nils taps "Add a friend"         | His saved friends who are not in the album, by name `addFriend.choosingFriend`            | Nothing                                                                                                |
+| Nils taps Kari                   | "Add Kari as a Viewer" or "Add Kari as a Collaborator" `addFriend.choosingFriendRole`     | Nothing                                                                                                |
+| Nils taps "Add Kari as a Viewer" | "Asking Kari…" and "Kari needs Justus open too." `addFriend.lookingForFriend`             | Nothing yet                                                                                            |
+| Kari's phone takes the invite    | "Asked Kari to join as a Viewer"; the sheet closes `addFriend.showingPeopleWithAddFriend` | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
+| Kari taps Join                   | Nothing to do: no Accept step                                                             | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
+| Nils's phone answers             | Kari under Members, as a Viewer                                                           | The album opens, and says she is a Viewer `friendOffer.showingFriendOffers`                            |
 
 **When it goes wrong.**
 

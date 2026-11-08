@@ -537,7 +537,8 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     .click();
   await a.getByRole("button", { name: "Add a friend" }).click();
   await a.getByRole("dialog").getByRole("button", { name: "Sam" }).click();
-  await expect(a.getByText("Asked Sam to join")).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Add Sam as a Viewer", exact: true }).click();
+  await expect(a.getByText("Asked Sam to join as a Viewer")).toBeVisible({ timeout: 60_000 });
 
   await b.goto("/sharing");
   const invite = b.locator("li", { hasText: "invited you" });
@@ -550,6 +551,10 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
   await expect
     .poll(() => bImg.evaluate((i: HTMLImageElement) => i.naturalWidth), { timeout: 60_000 })
     .toBeGreaterThan(0);
+  await expect(b.getByText("You're a Viewer: you see every photo here.")).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(b.getByRole("button", { name: `Add photos to ${lisbon}` })).toHaveCount(0);
 
   await expect(a.getByText("wants to join")).toHaveCount(0);
   const lisbonMembers = a.locator("section", {
@@ -558,6 +563,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
   await expect(lisbonMembers.locator("li", { hasText: "Sam" }).first()).toBeVisible({
     timeout: 60_000,
   });
+  await expect(lisbonMembers.locator("li", { hasText: "Sam" }).first()).toContainText("Viewer");
 });
 
 test("A accepts B and C in one tap as Viewers: both land, A's waiting list is empty", async ({

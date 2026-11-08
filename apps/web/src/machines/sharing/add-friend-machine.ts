@@ -3,15 +3,19 @@ import type { Clock } from "@mantaq/core";
 
 /**
  * The Admin adds a saved friend to an album without a link. The Admin picks a
- * friend; Justus asks that friend's phone. If it is not open, the Admin's phone
+ * friend and whether they join as a Viewer or a Collaborator; Justus asks that
+ * friend's phone. If it is not open, the Admin's phone
  * keeps the invite and sends it the next time both have Justus open. There is
  * no Accept step on the Admin's side.
  */
 
 /** Asks a friend's phone to offer them the album; resolves `[error, result]` like the gateway. */
 export type AddFriendPort = {
-  offerAlbum(folderId: string, identity: string): Promise<[unknown, unknown]>;
+  offerAlbum(folderId: string, identity: string, role: FriendRole): Promise<[unknown, unknown]>;
 };
+
+/** What the friend becomes when they join: a Viewer (`reader`) or a Collaborator (`member`). */
+export type FriendRole = "reader" | "member";
 
 /** A saved friend the Admin can pick. */
 export type FriendChoice = { identity: string; name: string };
@@ -35,18 +39,21 @@ export const FRIEND_REFUSED_CODE = "justus.photos/friend-refused";
 
 type Album = { folderId: string; albumName: string };
 type Picked = Album & { identity: string; name: string };
+type Asked = Picked & { role: FriendRole };
 
 /** The People list shows "Add a friend". Nothing is open. */
 const showingPeopleWithAddFriend = state("showingPeopleWithAddFriend")();
 /** The sheet lists the saved friends who are not in the album yet, by name. */
 const choosingFriend = state("choosingFriend")<Album & { choices: FriendChoice[] }>();
+/** The Admin picked a friend; the sheet asks whether they join as a Viewer or a Collaborator. */
+const choosingFriendRole = state("choosingFriendRole")<Picked>();
 /** "Asking <friend>..." The sheet cannot be closed until the friend answers or the wait ends. */
-const lookingForFriend = state("lookingForFriend")<Picked>();
+const lookingForFriend = state("lookingForFriend")<Asked>();
 /** The friend's phone did not take the invite. The sheet says why in one line and offers Close. */
-const couldNotReachFriend = state("couldNotReachFriend")<Picked & { reason: NotReachedReason }>();
+const couldNotReachFriend = state("couldNotReachFriend")<Asked & { reason: NotReachedReason }>();
 
 /** The friend did not answer in time. The Admin's phone keeps the invite and sends it the next time both have Justus open. */
-const inviteWaitingForFriend = state("inviteWaitingForFriend")<Picked>();
+const inviteWaitingForFriend = state("inviteWaitingForFriend")<Asked>();
 
 /** The Admin taps "Add a friend". */
 export const openPicker = event("openPicker")<{
@@ -57,6 +64,8 @@ export const openPicker = event("openPicker")<{
 }>();
 /** The Admin taps a friend's name. */
 export const pickFriend = event("pickFriend")<{ identity: string }>();
+/** The Admin taps "Add <friend> as a Viewer" or "as a Collaborator". */
+export const pickRole = event("pickRole")<{ role: FriendRole }>();
 /** The Admin closes the sheet. */
 export const closePicker = event("closePicker")();
 
@@ -67,8 +76,8 @@ const friendAway = event("friendAway")();
 /** The friend's phone did not take the invite. */
 const friendNotReached = event("friendNotReached")<{ reason: NotReachedReason }>();
 
-/** Tells the app the friend was asked: "Asked <friend> to join". */
-export const friendAsked = event("friendAsked")<{ name: string }>();
+/** Tells the app the friend was asked: "Asked <friend> to join as a <role>". */
+export const friendAsked = event("friendAsked")<{ name: string; role: FriendRole }>();
 
 /** The backend's error code, or "" when the error carries none. */
 function codeOf(error: unknown): string {
@@ -91,12 +100,13 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
   const { clock, port = allowAll } = options;
 
   return Actor({
-    inputs: [openPicker, pickFriend, closePicker],
+    inputs: [openPicker, pickFriend, pickRole, closePicker],
     internal: [friendReached, friendAway, friendNotReached],
     outputs: [friendAsked],
     states: [
       showingPeopleWithAddFriend,
       choosingFriend,
+      choosingFriendRole,
       lookingForFriend,
       inviteWaitingForFriend,
       couldNotReachFriend,
@@ -123,20 +133,34 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
         });
       }
 
-      /** A friend is picked and their phone is asked. A name that is not on the list is ignored. */
+      /** A friend is picked and the sheet asks for their role. A name that is not on the list is ignored. */
       m.on(choosingFriend, {
         event: pickFriend,
-        to: [lookingForFriend, choosingFriend],
+        to: [choosingFriendRole, choosingFriend],
         handler: (e, { state: current }) => {
           const { choices, ...album } = current.payload;
           const picked = choices.find((c) => c.identity === e.payload.identity);
           return picked === undefined
             ? { state: choosingFriend.create(current.payload) }
-            : { state: lookingForFriend.create({ ...album, ...picked }) };
+            : { state: choosingFriendRole.create({ ...album, ...picked }) };
         },
       });
 
-      for (const from of [choosingFriend, inviteWaitingForFriend, couldNotReachFriend]) {
+      /** A role is picked and the friend's phone is asked. */
+      m.on(choosingFriendRole, {
+        event: pickRole,
+        to: [lookingForFriend],
+        handler: (e, { state: current }) => ({
+          state: lookingForFriend.create({ ...current.payload, role: e.payload.role }),
+        }),
+      });
+
+      for (const from of [
+        choosingFriend,
+        choosingFriendRole,
+        inviteWaitingForFriend,
+        couldNotReachFriend,
+      ]) {
         /** Close: back to the People list. */
         m.on(from, {
           event: closePicker,
@@ -150,10 +174,10 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
         name: "offerAlbum",
         sends: [friendReached, friendAway, friendNotReached],
         fn: async ({ signal, emit, state: current }) => {
-          const { folderId, identity } = current.payload;
+          const { folderId, identity, role } = current.payload;
           let outcome: [unknown, unknown];
           try {
-            outcome = await port.offerAlbum(folderId, identity);
+            outcome = await port.offerAlbum(folderId, identity, role);
           } catch {
             if (!signal.aborted) emit(friendNotReached.create({ reason: "unreachable" }));
             return;
@@ -177,7 +201,7 @@ export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPo
         to: [showingPeopleWithAddFriend],
         handler: (_e, { state: current }) => ({
           state: showingPeopleWithAddFriend,
-          emit: [friendAsked.create({ name: current.payload.name })],
+          emit: [friendAsked.create({ name: current.payload.name, role: current.payload.role })],
         }),
       });
       /** The friend did not answer: the invite waits and the sheet says so. */

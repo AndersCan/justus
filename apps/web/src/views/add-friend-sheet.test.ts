@@ -5,7 +5,9 @@ import type { FolderSummary } from "@justus/core";
 import { addFriend } from "../machines/sharing/add-friend";
 import { addFriendSheetView } from "./add-friend-sheet";
 import { invitePanel } from "./invite";
+import { toast } from "./toast";
 
+vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("../gateway", () => ({
   gateway: {
     friends: {
@@ -44,7 +46,9 @@ const mount = (
 };
 
 const button = (host: HTMLElement, text: string) =>
-  [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
+  [...host.querySelectorAll("button")].find(
+    (b) => b.textContent?.trim() === text || b.querySelector("span > span")?.textContent === text,
+  );
 
 const primaries = (h: HTMLElement) =>
   [...h.querySelectorAll(".ui-btn-primary")].map((b) => b.textContent!.trim());
@@ -117,7 +121,30 @@ describe("add a friend", () => {
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
-    await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1"));
+    await vi.waitFor(() => expect(button(host, "Add Kari as a Viewer")).toBeTruthy());
+    expect(host.querySelector("[role=dialog]")!.getAttribute("aria-label")).toBe(
+      "Add Kari to “Lisbon trip”",
+    );
+    expect(button(host, "Add Kari as a Collaborator")).toBeTruthy();
+    expect(gateway.offerAlbum).not.toHaveBeenCalled();
+    button(host, "Add Kari as a Viewer")!.click();
+    await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1", "reader"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Asked Kari to join as a Viewer"));
+  });
+
+  test("a Collaborator is asked with member", async () => {
+    const { gateway } = await import("../gateway");
+    vi.mocked(gateway.offerAlbum).mockResolvedValue([null, { ok: true }]);
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
+    button(host, "Kari")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari as a Collaborator")).toBeTruthy());
+    button(host, "Add Kari as a Collaborator")!.click();
+    await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1", "member"));
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("Asked Kari to join as a Collaborator"),
+    );
   });
 
   test("a kept invite says it waits and offers one Close", async () => {
@@ -127,6 +154,8 @@ describe("add a friend", () => {
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari as a Viewer")).toBeTruthy());
+    button(host, "Add Kari as a Viewer")!.click();
     await vi.waitFor(() =>
       expect(host.querySelector("[role=dialog]")!.textContent!.replace(/\s+/g, " ")).toContain(
         "Kari doesn't have Justus open right now. The invite goes out the next time you both have Justus open, for up to 7 days.",
@@ -147,6 +176,8 @@ describe("add a friend", () => {
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(button(host, "Kari")).toBeTruthy());
     button(host, "Kari")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari as a Viewer")).toBeTruthy());
+    button(host, "Add Kari as a Viewer")!.click();
     await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari"));
     (host.querySelector("[role=dialog]")!.parentElement as HTMLElement).click();
     expect(host.querySelector("[role=dialog]")).not.toBeNull();
