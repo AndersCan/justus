@@ -2719,10 +2719,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         }
         serveInvite(record.invite.code);
         serveRetiredInvites(record);
-        // People who have not followed a move still read the album's old drives.
-        for (const past of Object.keys(record.moving ?? {}).length > 0
-          ? (record.pastKeys ?? [])
-          : []) {
+        // People who have not followed a move, and people removed while away, still read the album's old drives.
+        for (const past of record.pastKeys ?? []) {
           const [pastErr, pastDrive] = await deps.drives.open(past, {
             timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
           });
