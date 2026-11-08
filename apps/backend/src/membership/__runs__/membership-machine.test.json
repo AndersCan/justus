@@ -1,6 +1,35 @@
 {
   "membership": [
     {
+      "name": "Maya asks to join, and Nils accepts her as a Collaborator",
+      "end": "memberOfAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "requestQueued",
+          "payload": {
+            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "requesterName": "Ann",
+            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "folderName": "Trip",
+            "requestedAt": 1
+          }
+        },
+        {
+          "kind": "event",
+          "event": "accept",
+          "payload": {
+            "role": "member"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "memberListSaved",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "Nils: accepts a guest as Collaborator",
       "end": "memberOfAlbum",
       "steps": [
@@ -66,35 +95,6 @@
         {
           "kind": "event",
           "event": "roleSaved",
-          "payload": {}
-        }
-      ]
-    },
-    {
-      "name": "Nils: accepts Maya as Collaborator",
-      "end": "memberOfAlbum",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "requestQueued",
-          "payload": {
-            "requesterKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "requesterName": "Ann",
-            "shareKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "folderName": "Trip",
-            "requestedAt": 1
-          }
-        },
-        {
-          "kind": "event",
-          "event": "accept",
-          "payload": {
-            "role": "member"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "memberListSaved",
           "payload": {}
         }
       ]

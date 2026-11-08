@@ -403,7 +403,7 @@ async function acceptAs(actor: ReturnType<typeof make>, role: Role) {
   await actor.settled();
 }
 
-test("Nils: accepts Maya as Collaborator", async () => {
+test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
   const actor = await walkTo(async (a) => {
     await receive(a);
     await acceptAs(a, "member");

@@ -571,7 +571,7 @@ async function drive(
   return actor;
 }
 
-test("Maya: asks and is accepted", async () => {
+test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");

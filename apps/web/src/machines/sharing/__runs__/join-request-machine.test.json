@@ -1,6 +1,38 @@
 {
   "joinRequest": [
     {
+      "name": "Maya asks to join, and Nils accepts her as a Collaborator",
+      "end": "joinedAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "requestAnswered",
+          "payload": {
+            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "answer": "accepted",
+            "folderId": "f1"
+          }
+        }
+      ]
+    },
+    {
       "name": "Maya cancels her request",
       "end": "noInviteOpen",
       "steps": [
@@ -98,38 +130,6 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Maya: asks and is accepted",
-      "end": "joinedAlbum",
-      "steps": [
-        {
-          "kind": "event",
-          "event": "openLink",
-          "payload": {
-            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
-          }
-        },
-        {
-          "kind": "event",
-          "event": "askToJoin",
-          "payload": {}
-        },
-        {
-          "kind": "event",
-          "event": "requestSent",
-          "payload": {}
-        },
-        {
-          "kind": "event",
-          "event": "requestAnswered",
-          "payload": {
-            "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "answer": "accepted",
-            "folderId": "f1"
           }
         }
       ]
