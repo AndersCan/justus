@@ -14,7 +14,7 @@ import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
 import { onStateChange } from "../machines/actor-utils";
 import { foldersActor } from "../machines/folders-machine";
-import { canRemove, roleFor } from "../utils/can-remove";
+import { canRemove, roleFor, whyNoDelete } from "../utils/can-remove";
 import { toast } from "./toast";
 import { deleteDetail } from "../utils/holders";
 import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
@@ -181,6 +181,16 @@ function lightboxBody(photo: Photo) {
                     </div>`
                   : null
               }
+              ${watch(foldersActor, (f) => {
+                const why = whyNoDelete(
+                  photo,
+                  f.context.folders.find((x) => x.id === photo.folderId),
+                );
+                if (why === undefined) return null;
+                return html`<div class="mt-0.5 text-xs text-muted">
+                  ${why === "viewer" ? t("lightbox.who_deletes_viewer") : t("lightbox.who_deletes_adder_admin")}
+                </div>`;
+              })}
             </div>
             ${watch(foldersActor, (f) =>
               canRemove(photo, roleFor(photo, f.context.folders))

@@ -114,6 +114,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     /On .+'s and your phone/,
     { timeout: 60_000 },
   );
+  await expect(b.locator('[data-copy-id="lightbox.who_deletes_adder_admin"]')).toBeVisible();
   await expect(anaLine).toContainText(/On .+'s and your phone/, { timeout: 60_000 });
   expect(await lightboxImage.boundingBox()).toEqual(before);
   await a.getByRole("button", { name: "Close" }).click();
