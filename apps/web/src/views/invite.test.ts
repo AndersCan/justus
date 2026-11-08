@@ -3,13 +3,33 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
 import { inviteLink } from "../machines/sharing/invite-link";
-import { checkCodeLine, friendNamesLine, invitePanel } from "./invite";
+import { checkCodeLine, friendNamesLine, invitePanel, joinSheet } from "./invite";
 
 vi.mock("../gateway", () => ({
   gateway: {
     friends: { list: async () => [null, { friends: [] }] },
     turnOffInvite: vi.fn(() => new Promise(() => {})),
   },
+}));
+
+const asksHolder = vi.hoisted(() => ({ asks: [] as { code: string; checkCode?: string }[] }));
+
+vi.mock("@mantaq/lit", async (orig) => ({
+  ...(await orig<object>()),
+  watch: (actor: { snapshot(): unknown }, fn: (s: unknown) => unknown) => fn(actor.snapshot()),
+}));
+vi.mock("../machines/folders-machine", async (orig) => ({
+  ...(await orig<object>()),
+  foldersActor: { snapshot: () => ({ context: { asks: asksHolder.asks } }) },
+}));
+vi.mock("../machines/sharing/join-request", async (orig) => ({
+  ...(await orig<object>()),
+  joinActor: { snapshot: () => ({}) },
+  joinViewOf: () => ({
+    state: "waitingForAdminToAccept",
+    invite: { code: "c1", album: "Lisbon", ownerName: "Anna" },
+    error: "",
+  }),
 }));
 
 const LINE = "Send it in any chat. They need Justus installed.";
@@ -110,5 +130,25 @@ describe("checkCodeLine", () => {
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "Your check code is 1234 5678. Anna sees the same code next to your request.",
     );
+  });
+});
+
+describe("joinSheet waiting screen", () => {
+  const text = (asks: { code: string; checkCode?: string }[]) => {
+    asksHolder.asks = asks;
+    const host = document.createElement("div");
+    render(joinSheet(), host);
+    return host.textContent?.replace(/\s+/g, " ") ?? "";
+  };
+  test("shows the code stored on this invite's ask", () => {
+    expect(text([{ code: "c1", checkCode: "1234 5678" }])).toContain(
+      "Your check code is 1234 5678",
+    );
+  });
+  test("shows no code for another invite's ask", () => {
+    expect(text([{ code: "c2", checkCode: "9999 0000" }])).not.toContain("check code");
+  });
+  test("shows no code when the ask has none", () => {
+    expect(text([{ code: "c1" }])).not.toContain("check code");
   });
 });
