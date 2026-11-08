@@ -67,6 +67,8 @@ export const closeWaiting = event("closeWaiting")();
 export const dismissDecline = event("dismissDecline")();
 /** The joiner taps OK on the expired screen. */
 export const dismissExpired = event("dismissExpired")();
+/** The joiner taps "Cancel request" on the waiting screen. */
+export const cancelRequest = event("cancelRequest")();
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<{
   code: string;
@@ -83,6 +85,12 @@ const requestFailed = event("requestFailed")<{ message: string }>();
 const openAlbum = event("openAlbum")<{ folderId: string }>();
 /** Asks the app to take the declined request off this phone. */
 export const dismissDeclinedAsk = event("dismissDeclinedAsk")<{ code: string }>();
+/** Asks the app to take the waiting request off this phone; the Admin stops seeing it. */
+export const cancelAsk = event("cancelAsk")<{ code: string }>();
+
+function hasEnded(invite: JoinInvite, now: number): boolean {
+  return invite.expiresAt !== undefined && now >= invite.expiresAt;
+}
 
 type JoinContext = { error: string };
 
@@ -112,12 +120,13 @@ export function createJoinRequestActor(options: {
       askToJoin,
       notNow,
       closeWaiting,
+      cancelRequest,
       dismissDecline,
       dismissExpired,
       requestAnswered,
     ],
     internal: [requestSent, requestFailed],
-    outputs: [openAlbum, dismissDeclinedAsk],
+    outputs: [openAlbum, dismissDeclinedAsk, cancelAsk],
     states: [
       noInviteOpen,
       showingLinkProblem,
@@ -167,7 +176,7 @@ export function createJoinRequestActor(options: {
               return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
             }
             if (found.kind === "waiting") return { state: waitingForAdminToAccept.create(invite) };
-            if (invite.expiresAt !== undefined && clock.now() >= invite.expiresAt) {
+            if (hasEnded(invite, clock.now())) {
               return { state: linkExpired.create(invite) };
             }
             return { state: decidingToAsk.create(invite) };
@@ -224,10 +233,13 @@ export function createJoinRequestActor(options: {
       /** "Ask to join": the request goes out and the buttons lock. */
       m.on(decidingToAsk, {
         event: askToJoin,
-        to: [sendingRequest],
+        to: [sendingRequest, linkExpired],
         handler: (_e, { actor, context }) => {
           context.set({ error: "" });
-          return { state: sendingRequest.create(actor.snapshot().payload as JoinInvite) };
+          const invite = actor.snapshot().payload as JoinInvite;
+          // The link may have ended while the question was open.
+          if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
+          return { state: sendingRequest.create(invite) };
         },
       });
       /** "Not now": nothing was sent. */
@@ -272,6 +284,16 @@ export function createJoinRequestActor(options: {
         event: closeWaiting,
         to: [noInviteOpen],
         handler: () => ({ state: noInviteOpen }),
+      });
+      /** The joiner takes the request back; the app removes it from this phone. */
+      m.on(waitingForAdminToAccept, {
+        event: cancelRequest,
+        to: [noInviteOpen],
+        handler: (_e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          sent.delete(invite.code);
+          return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
+        },
       });
       /** The Admin answered. Only an answer for this request counts. */
       m.on(waitingForAdminToAccept, {

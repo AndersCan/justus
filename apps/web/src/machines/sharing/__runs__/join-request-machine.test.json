@@ -1,14 +1,14 @@
 {
   "joinRequest": [
     {
-      "name": "Maya opens Nils's link after it ended",
-      "end": "linkExpired",
+      "name": "Maya cancels her request",
+      "end": "noInviteOpen",
       "steps": [
         {
           "kind": "event",
           "event": "openLink",
           "payload": {
-            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
           }
         },
         {
@@ -23,9 +23,72 @@
         },
         {
           "kind": "event",
-          "event": "closeWaiting",
+          "event": "cancelRequest",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya cancels, then asks again with the same link",
+      "end": "decidingToAsk",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
           "payload": {}
         },
+        {
+          "kind": "event",
+          "event": "requestSent",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "cancelRequest",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maya leaves the question open past the end, then taps Ask",
+      "end": "linkExpired",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "advance",
+          "ms": 600000
+        },
+        {
+          "kind": "event",
+          "event": "askToJoin",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Maya opens Nils's link after it ended",
+      "end": "linkExpired",
+      "steps": [
         {
           "kind": "advance",
           "ms": 600000
