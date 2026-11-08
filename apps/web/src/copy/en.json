@@ -944,18 +944,74 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.accept_all_as_viewers": {
-    "text": "Accept all {count} as Viewers",
-    "status": "draft",
-    "where": "Album › Invite & members › button",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
   "album.they_can_see_the_photos": {
     "text": "They can see the photos but not add or remove any.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.accept_all": {
+    "text": "Accept all {count}",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.let_these_people_in": {
+    "text": "Let these {count} people in?",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.as_viewers": {
+    "text": "As Viewers",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.as_collaborators": {
+    "text": "As Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.they_can_see_and_add_photos": {
+    "text": "They can see the photos and add their own.",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.cancel_accept_all": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.let_them_in": {
+    "text": "Let them in",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.1_person_is_in_as_collaborator": {
+    "text": "1 person is in as a Collaborator",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
+    "screen": ""
+  },
+  "album.people_are_in_as_collaborators": {
+    "text": "{count} people are in as Collaborators",
+    "status": "draft",
+    "where": "Album › Invite & members › Accept all",
+    "who": "Album Admins, when two or more people ask to join",
     "screen": ""
   },
   "album.members": {

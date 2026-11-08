@@ -11,14 +11,17 @@ import { copy } from "../copy/copy";
  * the other machines.
  */
 
-/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in. */
-type Batch = { folderId: string; next: string; after: string[]; sent: number };
+type Role = "reader" | "member";
+
+/** Accept all in progress: `next` is being sent now, `after` waits its turn, `sent` are already in, all with `role`. */
+type Batch = { folderId: string; role: Role; next: string; after: string[]; sent: number };
 
 const REQUESTS_STATES = [
   "requestsNotLoaded",
   "loadingRequests",
   "showingRequests",
   "sendingAnswer",
+  "confirmingAcceptAll",
   "sendingAnswersToAll",
   "couldNotLoadRequests",
   "couldNotSendAnswer",
@@ -33,7 +36,13 @@ const loadingRequests = state("loadingRequests")();
 const showingRequests = state("showingRequests")();
 /** Sending the person's Yes or No; buttons are disabled meanwhile. */
 const sendingAnswer = state("sendingAnswer")();
-/** Accept all as Viewers is sending the answers one by one; every button is off and each card leaves as its answer is sent. */
+/** The Admin tapped Accept all: a sheet lists everyone it will let in, with Viewers picked, until they confirm or cancel. */
+const confirmingAcceptAll = state("confirmingAcceptAll")<{
+  folderId: string;
+  requesterKeys: string[];
+  role: Role;
+}>();
+/** Accept all is sending the answers one by one; every button is off and each card leaves as its answer is sent. */
 const sendingAnswersToAll = state("sendingAnswersToAll")<Batch>();
 /** The Yes or No did not go through; the request stays and its card shows why, with Retry. */
 const couldNotSendAnswer = state("couldNotSendAnswer")();
@@ -46,13 +55,19 @@ const refresh = event("REFRESH")();
 const loaded = event("REQUESTS_LOADED")<{ requests: JoinRequest[] }>();
 /** The requests could not be loaded (no answer, or the app could not reach them). */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
-/** The Admin taps Accept all as Viewers; only the people on screen at the tap are answered. */
-const acceptAllAsViewers = event("ACCEPT_ALL_AS_VIEWERS")<{
+/** The Admin taps Accept all; only the people on screen at the tap are listed. */
+const reviewAcceptAll = event("REVIEW_ACCEPT_ALL")<{
   folderId: string;
   requesterKeys: string[];
 }>();
-/** Everyone in the batch is in as a Viewer; the view says how many in one toast. */
-export const allAcceptedAsViewers = event("ALL_ACCEPTED_AS_VIEWERS")<{ count: number }>();
+/** On the Accept all sheet the Admin picks Viewers ("reader") or Collaborators ("member"). */
+const pickAcceptAllRole = event("PICK_ACCEPT_ALL_ROLE")<{ role: Role }>();
+/** The Admin taps Let them in on the Accept all sheet. */
+const confirmAcceptAll = event("CONFIRM_ACCEPT_ALL")();
+/** The Admin taps Cancel on the Accept all sheet; nobody is answered. */
+const cancelAcceptAll = event("CANCEL_ACCEPT_ALL")();
+/** Everyone in the batch is in with the picked role; the view says how many in one toast. */
+export const allAccepted = event("ALL_ACCEPTED")<{ count: number; role: Role }>();
 /** The person taps Decline, Accept as Viewer ("reader") or Accept as Collaborator / Accept ("member") on a request. */
 const respond = event("RESPOND")<{
   folderId: string;
@@ -106,6 +121,11 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     /** A reload is under way; a tap now would be dropped, so the buttons wait. */
     loading: state === "loadingRequests",
     responding: state === "sendingAnswer" || state === "sendingAnswersToAll",
+    /** The Accept all sheet: who it lets in and as what, while it is open. */
+    acceptAll:
+      state === "confirmingAcceptAll"
+        ? (s.payload as { folderId: string; requesterKeys: string[]; role: Role })
+        : null,
     failedAnswer: state === "couldNotSendAnswer" ? s.context.pendingRespond : null,
     settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
@@ -119,14 +139,23 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry, acceptAllAsViewers],
+    inputs: [
+      refresh,
+      respond,
+      retry,
+      reviewAcceptAll,
+      pickAcceptAllRole,
+      confirmAcceptAll,
+      cancelAcceptAll,
+    ],
     internal: [loaded, loadFailed, responded, respondFailed],
-    outputs: [answerSent, allAcceptedAsViewers],
+    outputs: [answerSent, allAccepted],
     states: [
       requestsNotLoaded,
       loadingRequests,
       showingRequests,
       sendingAnswer,
+      confirmingAcceptAll,
       sendingAnswersToAll,
       couldNotLoadRequests,
       couldNotSendAnswer,
@@ -183,29 +212,63 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: sendingAnswer };
           },
         });
-        /** Accept all as Viewers starts with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+        /** Accept all opens its sheet with the people on screen at the tap who are still waiting in that album, as Viewers; with none, nothing happens. */
         m.on(at, {
-          event: acceptAllAsViewers,
-          to: [sendingAnswersToAll],
+          event: reviewAcceptAll,
+          to: [confirmingAcceptAll],
           handler: (e, opts) => {
             const ctx = opts.context.get();
             const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
               ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
             );
-            const [next, ...after] = keys;
-            if (next === undefined) return {};
+            if (keys.length === 0) return {};
             opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
             return {
-              state: sendingAnswersToAll.create({
+              state: confirmingAcceptAll.create({
                 folderId: e.payload.folderId,
-                next,
-                after,
-                sent: 0,
+                requesterKeys: keys,
+                role: "reader",
               }),
             };
           },
         });
       }
+      /** The Admin switches the sheet between Viewers and Collaborators; the list stays the same. */
+      m.on(confirmingAcceptAll, {
+        event: pickAcceptAllRole,
+        to: [confirmingAcceptAll],
+        handler: (e, opts) => ({
+          state: confirmingAcceptAll.create({ ...opts.state.payload, role: e.payload.role }),
+        }),
+      });
+      /** Let them in: the answers go one by one with the picked role. Viewers are only those who came through a link, so friend asks stay waiting; with nobody left, the sheet closes and the list reloads. */
+      m.on(confirmingAcceptAll, {
+        event: confirmAcceptAll,
+        to: [sendingAnswersToAll, loadingRequests],
+        handler: (_e, opts) => {
+          const { folderId, requesterKeys, role } = opts.state.payload;
+          const requests = opts.context.get().requests;
+          const keys =
+            role === "member"
+              ? requesterKeys
+              : requesterKeys.filter((k) =>
+                  requests.some(
+                    (r) => r.folderId === folderId && r.requesterKey === k && r.viaInvite === true,
+                  ),
+                );
+          const [next, ...after] = keys;
+          if (next === undefined) return { state: loadingRequests };
+          return {
+            state: sendingAnswersToAll.create({ folderId, role, next, after, sent: 0 }),
+          };
+        },
+      });
+      /** Cancel: nobody is answered, the sheet closes and the list reloads, catching any ask that came in while it was open. */
+      m.on(confirmingAcceptAll, {
+        event: cancelAcceptAll,
+        to: [loadingRequests],
+        handler: () => ({ state: loadingRequests }),
+      });
       /** A reload after an error starts and the error message goes away. */
       m.on(couldNotLoadRequests, {
         event: refresh,
@@ -299,15 +362,15 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           );
         },
       });
-      /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
+      /** One answer of Accept all is sent with the picked role; if it cannot be sent, the batch hears why. */
       m.effect(sendingAnswersToAll, {
         name: "sendingAnswersToAll",
         sends: [responded, respondFailed],
         fn: ({ signal, emit, state }) => {
-          const { folderId, next } = state.payload;
+          const { folderId, next, role } = state.payload;
           return runInvoke(
             signal,
-            () => port.respond(folderId, next, true, "reader"),
+            () => port.respond(folderId, next, true, role),
             () => emit(responded.create({ folderId, requesterKey: next })),
             (message) => emit(respondFailed.create({ message })),
           );
@@ -333,7 +396,10 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
           if (next !== undefined) {
             return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
           }
-          return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+          return {
+            state: loadingRequests,
+            emit: [allAccepted.create({ count: sent, role: p.role })],
+          };
         },
       });
       /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
@@ -350,7 +416,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
               folderId: p.folderId,
               requesterKey: p.next,
               approve: true,
-              role: "reader",
+              role: p.role,
             },
           });
           return { state: couldNotSendAnswer };
@@ -429,16 +495,19 @@ export const requests = {
     role: "reader" | "member" = "member",
   ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
-  acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
-    requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
+  reviewAcceptAll: (folderId: string, requesterKeys: string[]) =>
+    requestsActor.send(reviewAcceptAll.create({ folderId, requesterKeys })),
+  pickAcceptAllRole: (role: Role) => requestsActor.send(pickAcceptAllRole.create({ role })),
+  confirmAcceptAll: () => requestsActor.send(confirmAcceptAll.create()),
+  cancelAcceptAll: () => requestsActor.send(cancelAcceptAll.create()),
 };
 
-/** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, in list order. */
-export function viewerAcceptKeys(
+/** The requests Accept all lists in one album: not those whose name equals a saved friend's, in list order. */
+export function acceptAllKeys(
   requests: (JoinRequest & { clash?: string })[],
   folderId: string,
 ): string[] {
   return requests
-    .filter((r) => r.folderId === folderId && r.viaInvite === true && r.clash === undefined)
+    .filter((r) => r.folderId === folderId && r.clash === undefined)
     .map((r) => r.requesterKey);
 }
