@@ -451,6 +451,7 @@ describe("who has each photo", () => {
 
   it("names a removed person who still has a copy, and counts them in the line", async () => {
     const s = await threePhones();
+    const before = (await s.anna.store.folders()).folders[0].driveKey;
     expect((await s.anna.store.removeMember(s.folderId, s.cleoKey))[0]).toBeNull();
     await until(async () => (await s.anna.store.list(s.folderId))[0]?.holders?.former.length === 1);
     const holders = (await s.anna.store.list(s.folderId))[0].holders!;
@@ -461,7 +462,9 @@ describe("who has each photo", () => {
     const moved = (await s.anna.store.folders()).folders[0].driveKey;
     const drive = await s.anna.deps.drives.openOwn(`folder/${s.folderId}/m1`);
     expect(moved).toBe(drive.key);
-    expect(await drive.readSmall("/former.json", 1_000_000)).toContain("New member");
+    const text = (await drive.readSmall("/former.json", 1_000_000))!;
+    expect(text).toContain("New member");
+    expect(JSON.parse(text).former[0].album).toBe(s.anna.deps.drives.discoveryKeyOf(before));
     await s.close();
   }, 20_000);
 

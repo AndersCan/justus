@@ -11,6 +11,7 @@ import {
   addFormer,
   copyHeld,
   dropFormer,
+  markFormerLeft,
   ensureHoldingMarker,
   holdersFor,
   markHeld,
@@ -2727,6 +2728,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         p.name === q.name &&
         p.identity === q.identity &&
         p.left === q.left &&
+        p.album === q.album &&
         p.ids.size === q.ids.size &&
         [...p.ids].every((id) => q.ids.has(id))
       );
@@ -2758,7 +2760,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   async function noteFormer(
     rt: FolderRuntime,
-    snapshot: { name: string; ids: ReadonlySet<string>; left?: true } | undefined,
+    snapshot: { name: string; ids: ReadonlySet<string>; left?: true; album?: string } | undefined,
     identity: string | undefined,
   ) {
     if (snapshot === undefined) return;
@@ -3835,12 +3837,44 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       return;
     }
+    if (message.kind === "copyDeleted") {
+      await onCopyDeleted(connId, sender, message.album);
+      return;
+    }
     if (message.kind === "offerTaken") {
       void acceptOfferedFriend(sender).catch(answerErr("acceptOffered"));
       return;
     }
     if (message.kind !== "offer") return;
     receiveOffer(connId, sender, message);
+  }
+
+  /** Admin: a removed phone says it deleted its copy. Marks the person as left and answers once it has a final view. */
+  async function onCopyDeleted(connId: number, sender: string, album: string): Promise<void> {
+    if (!setupDone || closed) return;
+    const results: string[] = [];
+    for (const rt of runtimes.values()) {
+      if (rt.record.role !== "creator") continue;
+      const current = new Set<string>();
+      for (const p of await albumPeople(rt)) {
+        const identity = presence.identities.get(p.key);
+        if (identity) current.add(identity);
+      }
+      for (const identity of Object.keys(rt.record.moving ?? {})) current.add(identity);
+      const [markErr, result] = await markFormerLeft(
+        rt.folderDrive,
+        { identity: sender, album, current },
+        log,
+      );
+      if (markErr) return log("copyDeleted.failed", { from: sender, err: markErr.message });
+      results.push(result);
+      if (result === "marked") {
+        await refreshFormer(rt);
+        log("copyDeleted.marked", { folder: rt.record.id, from: sender });
+      }
+    }
+    log("copyDeleted.handled", { from: sender, result: results.join(",") || "no-album" });
+    network.sendAnswer(connId, { kind: "copyDeletedSeen", album });
   }
 
   /** Move offers a phone has said it saw, by `identity:code`. */
@@ -5125,7 +5159,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const [noteErr] = await addRemovedPerson(rt.folderDrive, { key: memberKey, log });
         if (noteErr) return err(ErrorCode.HOST_ERROR, `Cannot remove: ${noteErr.reason}`);
         const gone = rt.memberDrives.get(memberKey) ?? viewerDeviceDrives.get(memberKey)?.drive;
-        await noteFormer(rt, leaving, gone ? await identityOfDrive(gone) : undefined);
+        await noteFormer(
+          rt,
+          leaving && { ...leaving, album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
+          gone ? await identityOfDrive(gone) : undefined,
+        );
       }
       // Stop loading their drive; a re-filed request must not resurface at once.
       deniedRequesters.add(memberKey);
