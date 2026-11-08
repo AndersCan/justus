@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, test } from "vite-plus/test";
+import { afterAll, describe, expect, test } from "vite-plus/test";
 // @ts-expect-error plain .mjs script
 import { MARKER, commentAction, commentBody, expiredBody, pickSources } from "./site-previews.mjs";
 
@@ -140,8 +140,13 @@ else if (args[0] === "run") {
   console.log(JSON.stringify({ workflow_runs: cfg.runs.filter((r) => q.includes("branch=" + r.head_branch + "&")) }));
 } else if (line.includes("/comments")) console.log(JSON.stringify([cfg.comments ?? []]));
 `;
+  const dirs: string[] = [];
+  afterAll(() => {
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  });
   function setup(cfg: object) {
     const dir = mkdtempSync(join(tmpdir(), "sp-"));
+    dirs.push(dir);
     writeFileSync(join(dir, "gh"), stub, { mode: 0o755 });
     const env = {
       ...process.env,
