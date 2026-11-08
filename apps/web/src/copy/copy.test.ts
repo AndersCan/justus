@@ -36,19 +36,27 @@ describe("copy and t", () => {
   });
 
   it("marks the element with its id, and draft text in dev", () => {
-    const [markId, draft, text] = t(id).values;
-    expect(markId).toBe(id);
-    expect(draft).toBe("");
-    expect(text).toBe(en[id].text);
+    const entry = en[id] as { status: string };
+    const before = entry.status;
+    entry.status = "draft";
+    try {
+      const [markId, draft, text] = t(id).values;
+      expect(markId).toBe(id);
+      expect(draft).toBe("");
+      expect(text).toBe(en[id].text);
+    } finally {
+      entry.status = before;
+    }
   });
 
   it("does not mark approved text as a draft", () => {
     const entry = en[id] as { status: string };
+    const before = entry.status;
     entry.status = "approved";
     try {
       expect(t(id).values[1]).not.toBe("");
     } finally {
-      entry.status = "draft";
+      entry.status = before;
     }
   });
 });
