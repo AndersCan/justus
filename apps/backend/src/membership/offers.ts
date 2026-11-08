@@ -25,3 +25,34 @@ export function mayShowOfferFrom(
 ): boolean {
   return known.isFriend || known.coMembers.has(sender) || known.albumAdmins.has(sender);
 }
+
+/** A friend invite nobody answered waits this long on the Admin's phone. */
+export const OFFER_HOLD_MS = 7 * 24 * 60 * 60 * 1000;
+/** An album keeps at most this many waiting friend invites; the oldest go first. */
+export const MAX_OWED_PER_ALBUM = 20;
+
+/** Waiting friend invites of one album: identity → when it started waiting (ms). */
+export type OwedOffers = Record<string, number>;
+
+/** `owed` with `identity` waiting since `now`; past the cap the oldest entries go. */
+export function holdOwed(owed: OwedOffers | undefined, identity: string, now: number): OwedOffers {
+  const next: OwedOffers = { ...owed, [identity]: now };
+  const byAge = Object.entries(next).sort((a, b) => a[1] - b[1]);
+  return Object.fromEntries(byAge.slice(Math.max(0, byAge.length - MAX_OWED_PER_ALBUM)));
+}
+
+/** The entries of `owed` that have not expired. A time too far ahead of `now` (a clock jump) is dropped. */
+export function liveOwed(owed: OwedOffers | undefined, now: number): OwedOffers {
+  const live: OwedOffers = {};
+  for (const [identity, heldAt] of Object.entries(owed ?? {})) {
+    if (now - heldAt < OFFER_HOLD_MS && heldAt <= now + OFFER_HOLD_MS) live[identity] = heldAt;
+  }
+  return live;
+}
+
+/** `owed` without `identity`; `undefined` when nothing is left. */
+export function dropOwed(owed: OwedOffers | undefined, identity: string): OwedOffers | undefined {
+  if (!owed) return undefined;
+  const { [identity]: _gone, ...rest } = owed;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}

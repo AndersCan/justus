@@ -12,6 +12,7 @@ import {
   type RegistryFile,
 } from "../membership/records";
 import { copyAlbumEntries } from "../rotate-album";
+import { liveOwed, type OwedOffers } from "../membership/offers";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 const DRIVE_PATH_FOLDER = "/folder.json";
@@ -93,6 +94,7 @@ export type AlbumSummarySource = {
     shareKey: string;
     createdAt: number;
     invite?: { code: string; owner?: string };
+    offerOwed?: OwedOffers;
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
   };
@@ -118,6 +120,12 @@ export function albumSummary(
   const people = new Set([record.shareKey, selfDrive.key, ...Object.keys(viewers)]);
   for (const key of memberDrives.keys()) if (!earlier.has(key)) people.add(key);
   const memberCount = people.size;
+  const waitingFor =
+    role === "creator"
+      ? Object.entries(liveOwed(record.offerOwed, Date.now()))
+          .sort((a, b) => a[1] - b[1])
+          .map(([identity]) => identity)
+      : [];
   return {
     id: record.id,
     name: record.name,
@@ -128,6 +136,7 @@ export function albumSummary(
     members: memberCount,
     addedAt: record.createdAt,
     ...(record.notice ? { notice: record.notice } : {}),
+    ...(waitingFor.length > 0 ? { waitingFor } : {}),
     ...(record.invite
       ? {
           invite: {

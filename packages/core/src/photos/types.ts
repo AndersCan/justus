@@ -96,6 +96,8 @@ export type FolderSummary = {
   invite?: { code: string; owner: string };
   /** Set on an album that moved to a new key. */
   notice?: FolderNotice;
+  /** Admin only: identity keys of friends whose invite is waiting for them to open Justus, oldest first. */
+  waitingFor?: string[];
 };
 
 /** An album its Admin deleted for everyone. The phone removed the album and its

@@ -164,7 +164,7 @@ export const photoSpecs = {
     pluginId: "justus.photos",
     name: "photos.offerAlbum",
     args: {} as { folderId: string; identity: string },
-    result: {} as { ok: boolean },
+    result: {} as { ok: boolean; waiting?: boolean },
   },
   joinOffer: {
     pluginId: "justus.photos",

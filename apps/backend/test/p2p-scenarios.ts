@@ -748,19 +748,51 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    name: "friend: an invite to a phone that is off fails and leaves nothing",
+    name: "friend: an invite to a phone that is off waits and arrives when it is back",
     async run(net, t) {
+      const friends: string[] = [];
       const admin = await net.peer("Phone", undefined, { offerReachMs: 3000 });
-      const away = await net.peer("Kari");
-      const friendIdentity = (away.store.debugState() as { identityDrive: string }).identityDrive;
+      const away = await net.peer("Kari", undefined, { friends });
+      const idOf = (p: Peer) => (p.store.debugState() as { identityDrive: string }).identityDrive;
+      const friendIdentity = idOf(away);
+      friends.push(idOf(admin));
       await away.stop();
       const created = await admin.store.createFolder("Lisbon");
       if (created[0]) throw created[0];
       const folderId = created[1].folder.id;
-      const [error] = await admin.store.offerAlbum(folderId, friendIdentity);
-      t.ok(error?.code === "justus.photos/friend-unreachable", "FRIEND_UNREACHABLE");
-      const folder = admin.store.debugState() as { folders: { invited: string[] }[] };
-      t.eq(folder.folders[0].invited, [], "nothing was written");
+      const [error, result] = await admin.store.offerAlbum(folderId, friendIdentity);
+      if (error) throw error;
+      t.eq(result, { ok: true, waiting: true }, "the invite waits");
+      t.eq((await admin.store.folders()).folders[0].waitingFor, [friendIdentity], "waitingFor");
+      const waiting = admin.store.debugState() as {
+        folders: { invited: string[]; offerOwed: Record<string, number> }[];
+      };
+      t.eq(waiting.folders[0].invited, [], "not invited yet");
+      t.eq(Object.keys(waiting.folders[0].offerOwed), [friendIdentity], "owed");
+      const back = await net.peer("Kari", away.storageDir, { friends });
+      const { offers } = await eventually(
+        () => back.store.folders(),
+        (f) => f.offers.length === 1,
+        "the invite on the returned friend",
+        60_000,
+      );
+      t.eq(offers[0].albumName, "Lisbon", "the invite names the album");
+      await eventually(
+        async () => (await admin.store.folders()).folders[0].waitingFor,
+        (w) => w === undefined,
+        "the waiting line to go away",
+      );
+      const done = admin.store.debugState() as {
+        folders: { invited: string[]; offerOwed: Record<string, number> }[];
+      };
+      t.eq(done.folders[0].invited, [friendIdentity], "invited once it arrived");
+      t.eq(done.folders[0].offerOwed, {}, "nothing owed");
+      t.noErr(await back.store.joinOffer(offers[0].code, offers[0].owner), "joinOffer");
+      await eventually(
+        () => back.store.folders(),
+        (f) => f.folders.length === 1 && !f.folders[0].pending,
+        "the friend is in the album",
+      );
     },
   },
   {
