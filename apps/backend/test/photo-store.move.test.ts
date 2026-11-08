@@ -326,6 +326,38 @@ describe("someone not known at the Remove", () => {
     for (const p of [s.nils, s.ben, s.vera]) await p.store.close();
   }, 20_000);
 
+  it("keeps a Viewer's device drive open while their identity is unknown", async () => {
+    const s = await albumWithUnknown("vera");
+    const drives = s.admin.deps.drives;
+    const released: string[] = [];
+    const realRelease = drives.release.bind(drives);
+    drives.release = async (drive: Parameters<typeof realRelease>[0]) => {
+      released.push(String((drive as { key: unknown }).key));
+      return realRelease(drive);
+    };
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    await s.reconnect(s.nils);
+    await sleep(1_000);
+    expect(released).not.toContain(s.keys.vera);
+    await s.close();
+  }, 30_000);
+
+  it("a person known by the next Remove moves instead of staying unknown", async () => {
+    const s = await albumWithUnknown("nils");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    expect(Object.keys(s.record().movingUnknown ?? {})).toEqual([s.keys.nils]);
+    s.unblock();
+    const reconnected = s.reconnect(s.nils);
+    const [error] = await s.admin.store.removeMember(s.folderId, s.keys.vera);
+    await reconnected;
+    expect(error).toBeNull();
+    const id = identityOf(s.nils);
+    await until(() => s.record().moving?.[id] !== undefined, 6_000);
+    expect(s.record().moving[id].key).toBe(s.keys.nils);
+    expect(s.record().movingUnknown).toBeUndefined();
+    await s.close();
+  }, 20_000);
+
   it("removing them while unknown takes them off the list", async () => {
     const s = await albumWithUnknown("nils");
     await s.admin.store.removeMember(s.folderId, s.keys.ben);
