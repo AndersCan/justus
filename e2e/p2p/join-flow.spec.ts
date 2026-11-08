@@ -93,10 +93,9 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await expect(codeSpan).toBeVisible({ timeout: 20_000 });
   const code = (await codeSpan.textContent())!;
 
-  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await expect(a.locator("li", { hasText: `wants to join “${ALBUM}”` })).toContainText(
-    `Check code ${code}`,
-  );
+  const askRow = a.locator("li", { hasText: `wants to join “${ALBUM}”` });
+  await expect(askRow).toBeVisible({ timeout: 60_000 });
+  await expect(askRow).toContainText(`Check code ${code}`);
   await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
