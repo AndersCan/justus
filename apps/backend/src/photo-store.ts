@@ -389,6 +389,8 @@ export interface PhotoStore {
   dismissAlbumNotice(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes a declined ask off this phone; the link can be asked through again. */
   dismissDeclinedAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Joiner: takes back a request still waiting; the Admin stops seeing it. The link can be asked through again. */
+  cancelAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -4066,6 +4068,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return ok({ ok: true });
     },
 
+    async cancelAsk(code) {
+      await readyPromise;
+      const found = state.asks.find((a) => a.code === code && a.status === "waiting");
+      if (!found) return err(PhotoError.NOT_FOUND, `No waiting request for ${code}`);
+      state.asks = state.asks.filter((a) => a !== found);
+      saveState();
+      leaveTopic(hex(inviteTopic(code, crypto)));
+      await pruneJoinRequests();
+      deps.onChanged({ cause: "ask", code });
+      return ok({ ok: true });
+    },
+
     debugState() {
       const driveInfo = (drive: Drive) => ({
         key: drive.key,
@@ -4191,6 +4205,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     leaveAlbum: refuse,
     dismissAlbumNotice: refuse,
     dismissDeclinedAsk: refuse,
+    cancelAsk: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };
