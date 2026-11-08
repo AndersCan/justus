@@ -3890,5 +3890,33 @@
     "where": "Settings › Friends › dialog",
     "who": "People with saved friends",
     "screen": ""
+  },
+  "ask_toast.wants_to_join": {
+    "text": "{name} wants to join “{folderName}”",
+    "status": "draft",
+    "where": "Toast › someone asks to join",
+    "who": "Admins, when someone asks to join one of their albums",
+    "screen": ""
+  },
+  "ask_toast.someone_wants_to_join": {
+    "text": "Someone not in your friends wants to join “{folderName}”",
+    "status": "draft",
+    "where": "Toast › someone asks to join",
+    "who": "Admins, when someone asks to join one of their albums",
+    "screen": ""
+  },
+  "ask_toast.people_want_to_join": {
+    "text": "{count} people want to join",
+    "status": "draft",
+    "where": "Toast › someone asks to join",
+    "who": "Admins, when someone asks to join one of their albums",
+    "screen": ""
+  },
+  "ask_toast.review": {
+    "text": "Review",
+    "status": "draft",
+    "where": "Toast › someone asks to join",
+    "who": "Admins, when someone asks to join one of their albums",
+    "screen": ""
   }
 }

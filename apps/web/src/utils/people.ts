@@ -55,6 +55,19 @@ export function clashFriend(name: string, friends: Record<string, string>): stri
   return found;
 }
 
+/** One request as its row shows it: the saved friend name when known, a lookalike warning otherwise. */
+export function requestRowOf(r: JoinRequest, friends: Record<string, string>): RequestRow {
+  const friendName = r.requesterIdentity !== undefined ? friends[r.requesterIdentity] : undefined;
+  const friend = friendName !== undefined;
+  const clash = friend ? undefined : clashFriend(r.requesterName, friends);
+  return {
+    ...r,
+    name: friendName ?? r.requesterName,
+    friend,
+    ...(clash !== undefined && { clash }),
+  };
+}
+
 /** The line above the requests: ask for the check code first. */
 export function requestsHint(rows: RequestRow[]): string {
   if (rows.some((r) => r.clash !== undefined)) {
@@ -123,20 +136,7 @@ export function buildPeople(
     total: members.length,
     chip: chipText(members.length - 1, connectedCount - 1),
     requests: isAdmin
-      ? requests
-          .filter((r) => r.folderId === folderId)
-          .map((r): RequestRow => {
-            const friendName =
-              r.requesterIdentity !== undefined ? friends[r.requesterIdentity] : undefined;
-            const friend = friendName !== undefined;
-            const clash = friend ? undefined : clashFriend(r.requesterName, friends);
-            return {
-              ...r,
-              name: friendName ?? r.requesterName,
-              friend,
-              ...(clash !== undefined && { clash }),
-            };
-          })
+      ? requests.filter((r) => r.folderId === folderId).map((r) => requestRowOf(r, friends))
       : [],
   };
 }

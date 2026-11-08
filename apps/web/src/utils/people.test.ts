@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { JoinRequest, SyncStatus } from "@justus/core";
 import type { RequestRow } from "./people";
-import { buildPeople, clashFriend, presenceLabel, requestsHint } from "./people";
+import { buildPeople, clashFriend, presenceLabel, requestRowOf, requestsHint } from "./people";
 
 const NOW = 1_000_000_000;
 
@@ -255,5 +255,30 @@ describe("requestsHint", () => {
   it("is empty otherwise", () => {
     expect(requestsHint([row({})])).toBe("");
     expect(requestsHint([])).toBe("");
+  });
+});
+
+describe("requestRowOf", () => {
+  const r = (requesterName: string, requesterIdentity?: string) =>
+    ({ folderId: "f1", requesterKey: "k", requesterName, requesterIdentity }) as JoinRequest;
+
+  it("names a saved friend by the saved name", () => {
+    const row = requestRowOf(r("Maya", "i-maya"), { "i-maya": "Mum" });
+    expect(row).toMatchObject({ name: "Mum", friend: true });
+    expect(row.clash).toBeUndefined();
+  });
+
+  it("flags a stranger who typed a friend's name", () => {
+    expect(requestRowOf(r("mum", "i-x"), { "i-maya": "Mum" })).toMatchObject({
+      name: "mum",
+      friend: false,
+      clash: "Mum",
+    });
+  });
+
+  it("keeps the typed name for anyone else", () => {
+    const row = requestRowOf(r("Ben"), { "i-maya": "Mum" });
+    expect(row).toMatchObject({ name: "Ben", friend: false });
+    expect("clash" in row).toBe(false);
   });
 });

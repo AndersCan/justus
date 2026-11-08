@@ -15,6 +15,7 @@ import { open, pathFor, routerActor, type AppPage } from "./machines/router-mach
 import { albumGridView, galleryView } from "./views/gallery";
 import { lightboxView } from "./views/lightbox";
 import { albumView } from "./views/album";
+import "./views/ask-toast";
 import { sharingView } from "./views/sharing";
 import { settingsView } from "./views/settings";
 import { helpView } from "./views/help";

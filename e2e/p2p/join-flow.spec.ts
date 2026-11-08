@@ -80,17 +80,22 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await skipIntro([a, b]);
   await createAlbum(a, ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
+  await a.getByRole("link", { name: "Photos", exact: true }).click();
   await askToJoin(b, link, ALBUM);
+  const asked = a.getByRole("status").filter({ hasText: `wants to join “${ALBUM}”` });
+  await expect(asked).toBeVisible({ timeout: 60_000 });
+  await asked.getByRole("button", { name: "Review" }).click();
+  await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
+  await expect(asked).toHaveCount(0);
   const codeSpan = b
     .getByRole("dialog", { name: /^Waiting for / })
     .getByText(/^[a-z]+ [a-z]+ [a-z]+$/);
   await expect(codeSpan).toBeVisible({ timeout: 20_000 });
   const code = (await codeSpan.textContent())!;
 
-  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await expect(a.locator("li", { hasText: `wants to join “${ALBUM}”` })).toContainText(
-    `Check code ${code}`,
-  );
+  const askRow = a.locator("li", { hasText: `wants to join “${ALBUM}”` });
+  await expect(askRow).toBeVisible({ timeout: 60_000 });
+  await expect(askRow).toContainText(`Check code ${code}`);
   await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
