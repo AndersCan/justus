@@ -145,7 +145,9 @@ class ListingScreenshots {
     var thumbs: List<UiObject2>? = null
     for (attempt in 1..3) {
       find("Add photos to Summer 2026", 20).click()
-      thumbs = device.wait(Until.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))), 20000)
+      // The older picker ids its thumbnails; the newer Compose picker only describes them "Photo taken on ...".
+      thumbs = device.wait(Until.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))), 10000)
+        ?: device.wait(Until.findObjects(By.desc(Pattern.compile("Photo taken on .*"))), 10000)
       if (thumbs != null && thumbs.size >= 3) break
       device.pressBack()
       Thread.sleep(2000)
@@ -155,6 +157,7 @@ class ListingScreenshots {
     }
     thumbs.take(3).forEach { it.click(); Thread.sleep(500) }
     val add = device.wait(Until.findObject(By.res(Pattern.compile(".*:id/button_add"))), 5000)
+      ?: device.wait(Until.findObject(By.text(Pattern.compile("Add( .*)?"))), 5000)
       ?: fail("picker add button", "button_add")
     add.click()
 
