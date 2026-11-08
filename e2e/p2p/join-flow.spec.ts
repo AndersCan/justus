@@ -225,6 +225,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   const people = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await people.getByRole("button", { name: "Remove", exact: true }).click();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
+  await expect(a.getByText(`is no longer in ${album}`)).toBeVisible({ timeout: 60_000 });
 
   await expect(
     b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),

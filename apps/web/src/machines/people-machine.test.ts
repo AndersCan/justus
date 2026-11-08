@@ -136,6 +136,28 @@ describe("people factory", () => {
     expect(outputs.at(-1)).toBe("MEMBER_MADE_VIEWER");
   });
 
+  test("removing tells the view who", async () => {
+    const removeMember = vi.fn().mockResolvedValue([null, {}]);
+    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { removeMember } as any });
+    const outputs: string[] = [];
+    onOutput(actor, (e) => outputs.push(e.type));
+    send(actor, "OPEN");
+    send(actor, "REMOVE_MEMBER", { folderId: "f", memberKey: "k" });
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("showingPeople"));
+    expect(outputs.at(-1)).toBe("MEMBER_REMOVED");
+  });
+
+  test("a failed removal tells nobody", async () => {
+    const removeMember = vi.fn().mockResolvedValue([{ message: "x" }, null]);
+    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { removeMember } as any });
+    const outputs: string[] = [];
+    onOutput(actor, (e) => outputs.push(e.type));
+    send(actor, "OPEN");
+    send(actor, "REMOVE_MEMBER", { folderId: "f", memberKey: "k" });
+    await vi.waitFor(() => expect(actor.snapshot().path[0]).toBe("couldNotRemoveMember"));
+    expect(outputs).not.toContain("MEMBER_REMOVED");
+  });
+
   test("a failed Viewer change tells nobody", async () => {
     const makeViewer = vi.fn().mockResolvedValue([{ message: "x" }, null]);
     const actor = createPeopleActor({ clock: VirtualClock(), gateway: { makeViewer } as any });

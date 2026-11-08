@@ -1168,6 +1168,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.is_no_longer_in": {
+    "text": "{name} is no longer in {album}",
+    "status": "draft",
+    "where": "Album › Invite & members › toast",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
   "albums.couldn_t_join_needs_justus": {
     "text": "Couldn't join “{albumName}”. {ownerName} needs Justus open too.",
     "status": "draft",
