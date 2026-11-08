@@ -45,6 +45,9 @@ const mount = (
 const button = (host: HTMLElement, text: string) =>
   [...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
 
+const primaries = (h: HTMLElement) =>
+  [...h.querySelectorAll(".ui-btn-primary")].map((b) => b.textContent!.trim());
+
 beforeEach(() => {
   document.body.replaceChildren();
   addFriend.closePicker();
@@ -65,8 +68,22 @@ describe("add a friend", () => {
   test("one friend: Add a friend and the friend's name", () => {
     const host = mount("creator", { i1: "Kari" });
     expect(button(host, "Add a friend")).toBeTruthy();
-    expect(host.textContent).toContain("From your friends: Kari. No link needed.");
+    expect(host.textContent).toContain(
+      "From your friends: Kari. They get the invite in Justus, no link needed.",
+    );
     expect(host.textContent).toContain("Or send a link");
+  });
+
+  test("a friend to add: Add a friend is the only coloured button", () => {
+    const host = mount("creator", { i1: "Kari" });
+    expect(primaries(host)).toEqual(["Add a friend"]);
+    expect(button(host, "Copy invite link")!.className).toContain("ui-btn-ghost");
+  });
+
+  test("no friend to add: the link is the coloured button", () => {
+    expect(primaries(mount("creator"))).toEqual(["Copy invite link"]);
+    document.body.replaceChildren();
+    expect(primaries(mount("creator", { i1: "Kari" }, ["i1"]))).toEqual(["Copy invite link"]);
   });
 
   test("a member sees neither", () => {

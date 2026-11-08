@@ -82,10 +82,19 @@ describe("invite card send hint", () => {
 describe("friendNamesLine", () => {
   const names = (...n: string[]) => friendNamesLine(n.map((name) => ({ identity: name, name })));
   test.each([
-    [["Ben"], "From your friends: Ben. No link needed."],
-    [["Ben", "Kari"], "From your friends: Ben or Kari. No link needed."],
-    [["Ånna", "Kari", "ole"], "From your friends: Ånna, Kari or ole. No link needed."],
-    [["A", "B", "C", "D", "E"], "From your friends: A, B, C or 2 more. No link needed."],
+    [["Ben"], "From your friends: Ben. They get the invite in Justus, no link needed."],
+    [
+      ["Ben", "Kari"],
+      "From your friends: Ben or Kari. They get the invite in Justus, no link needed.",
+    ],
+    [
+      ["Ånna", "Kari", "ole"],
+      "From your friends: Ånna, Kari or ole. They get the invite in Justus, no link needed.",
+    ],
+    [
+      ["A", "B", "C", "D", "E"],
+      "From your friends: A, B, C or 2 more. They get the invite in Justus, no link needed.",
+    ],
   ])("%j", (list, text) => {
     expect(names(...list)).toBe(text);
   });
