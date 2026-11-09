@@ -63,6 +63,40 @@ describe("photo contract", () => {
     ).not.toContain("status");
   });
 
+  it("checks the reason a link stopped on pushes and asks", () => {
+    expect(
+      checkPhotoChanged({ cause: "ask", code: "c", answer: "linkOff", why: "replaced" }),
+    ).toBeNull();
+    expect(
+      checkPhotoChanged({ cause: "ask", code: "c", answer: "linkOff", why: "nope" }),
+    ).toContain("args.why");
+    const ask = {
+      code: "c",
+      owner: "o",
+      albumName: "a",
+      ownerName: "n",
+      askedAt: 1,
+      status: "linkOff",
+      why: "turnedOff",
+      closed: true,
+    };
+    const folders = {
+      folders: [],
+      archived: [],
+      deleted: [],
+      activeFolderId: "",
+      asks: [ask],
+      offers: [],
+    };
+    expect(checkPhotoResult("photos.folders", folders)).toBeNull();
+    expect(
+      checkPhotoResult("photos.folders", { ...folders, asks: [{ ...ask, why: "nope" }] }),
+    ).toContain("why");
+    expect(
+      checkPhotoResult("photos.folders", { ...folders, asks: [{ ...ask, closed: "yes" }] }),
+    ).toContain("closed");
+  });
+
   it("checks the optional check code on requests and asks", () => {
     const request = {
       requesterKey: "k",

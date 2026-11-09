@@ -127,6 +127,9 @@ export type DeletedAlbum = {
   adminName: string;
 };
 
+/** Why an invite link stopped working for an ask, as the Admin's phone said. Missing: an older Admin's phone, or a code retired before reasons were kept. */
+export type LinkOffWhy = "expired" | "turnedOff" | "replaced" | "albumDeleted";
+
 /** A request to join an album, made through an invite code and not yet
  * answered with the key (waiting) or answered no (declined). */
 export type AskSummary = {
@@ -139,6 +142,10 @@ export type AskSummary = {
   askedAt: number;
   /** "linkOff": the Admin's phone said this link no longer works. */
   status: "waiting" | "declined" | "linkOff";
+  /** Set only with status "linkOff": which way the link stopped. */
+  why?: LinkOffWhy;
+  /** True once the person closed a dead request: the row is hidden and the record stays so the link is known to be off. */
+  closed?: boolean;
   /** This phone's check code, shown while it waits. */
   checkCode?: string;
   /** Set while this phone has met the Admin's phone on a newer Justus this session: this phone must update. */
@@ -253,6 +260,8 @@ export type PhotoChanged = {
   code?: string;
   /** "linkOff": the Admin turned this link off before answering. */
   answer?: "accepted" | "declined" | "linkOff";
+  /** For answer "linkOff": which way the link stopped, when known. */
+  why?: LinkOffWhy;
   /** For cause "role": what changed. */
   role?: RoleChange;
   /** For cause "deleted": what was deleted. */

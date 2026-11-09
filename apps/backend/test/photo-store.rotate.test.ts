@@ -142,6 +142,8 @@ async function seedV1(storageDir: string, opts: { extraCreator?: boolean } = {})
         driveKey: albumKey,
         createdAt: 7,
         invite: { code: "ab".repeat(32) },
+        retiredInvites: ["ef".repeat(32)],
+        retiredWhy: { ["ef".repeat(32)]: "turnedOff" },
       },
       {
         id: "f2",
@@ -176,6 +178,8 @@ describe("saved state 1 → 2", () => {
     expect(rec.driveKey).toBe(rec.shareKey);
     expect(rec.invite.code).not.toBe("ab".repeat(32));
     expect(rec.notice).toEqual({ kind: "newKey" });
+    expect(rec.retiredInvites).toBeUndefined();
+    expect(rec.retiredWhy).toBeUndefined();
     expect(rec.earlier).toEqual([{ key: memberKey, name: "Nils" }]);
 
     const photos = await store.list();
