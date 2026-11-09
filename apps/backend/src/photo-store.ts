@@ -3932,10 +3932,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     try {
       const waiting = () => state.asks.find((a) => a.code === code && a.status === "waiting");
       const drive = await openSelfDriveIn(`ask/${code}`);
+      const deadline = Date.now() + 5_000;
       const text = await withTimeout(
         openPeerOutbox(owner).then(async (outbox) => {
-          // The file may not have replicated yet: wait for it.
-          while (!closed) {
+          // The file may not have replicated yet: wait for it, but only until the timeout.
+          while (!closed && Date.now() < deadline) {
             await outbox.update();
             const device = await readText(outbox, DRIVE_PATH_DEVICE);
             if (device !== null) return device;

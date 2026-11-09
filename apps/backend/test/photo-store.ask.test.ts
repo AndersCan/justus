@@ -1632,4 +1632,78 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
     expect(await outboxText(s.outbox)).not.toContain("invite:");
     await s.close();
   });
+
+  /** Holds the joiner's first read of the Admin's /device.json until `release`. */
+  async function holdDeviceRead(s: Awaited<ReturnType<typeof scenario>>) {
+    const peer = await openDrive(s.joiner, s.owner);
+    const held = { hit: false, release: () => {} };
+    const gate = new Promise<void>((resolve) => (held.release = resolve));
+    const readSmall = peer.readSmall.bind(peer);
+    peer.readSmall = (async (path: string, max: number) => {
+      if (path === "/device.json" && !held.hit) {
+        held.hit = true;
+        await gate;
+      }
+      return readSmall(path, max);
+    }) as typeof peer.readSmall;
+    return held;
+  }
+
+  it("an ask that turns linkOff while the Admin's key is being read is not filed", async () => {
+    const hub = createFakeHub();
+    const net = createFakePeerNetwork({ hub });
+    const s = await scenario(undefined, { network: net }, hub);
+    const held = await holdDeviceRead(s);
+    await s.admin.store.turnOffInvite(s.folderId);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(() => held.hit);
+    net.join(s.adminTopic, { server: false });
+    await until(async () => (await s.joiner.store.folders()).asks[0]?.status === "linkOff", 4_000);
+    expect((await s.joiner.store.folders()).asks[0]?.status).toBe("linkOff");
+    held.release();
+    await until(async () => false, 500);
+    expect(await outboxText(s.outbox)).not.toContain(`invite:${s.invite.code}`);
+    await s.close();
+  });
+
+  it("asking again files the new ask when an older entry for the code is still in the outbox", async () => {
+    const s = await scenario();
+    const old = {
+      version: 1,
+      requests: {
+        [`invite:${s.invite.code}`]: {
+          sealedKey: "old",
+          requesterName: "Joiner",
+          requestedAt: 1,
+        },
+      },
+    };
+    await s.outbox.put("/requests.json", Buffer.from(JSON.stringify(old)));
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => !(await outboxText(s.outbox)).includes('"old"'));
+    const entry = JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`];
+    expect(entry.sealedKey).not.toBe("old");
+    expect(entry.requestedAt).toBeGreaterThan(1);
+    await s.close();
+  });
+
+  it("stops reading the Admin's drive once the wait for its key has timed out", async () => {
+    const { s, events } = await loggedScenario();
+    setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: false });
+    await s.admin.store.close();
+    const peer = await openDrive(s.joiner, s.owner);
+    const update = peer.update.bind(peer);
+    let updates = 0;
+    peer.update = (async (...a: Parameters<typeof peer.update>) => {
+      updates += 1;
+      return update(...a);
+    }) as typeof peer.update;
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () => events.some((e) => e.event === "ask.unsealed"), 8_000);
+    await until(async () => false, 300);
+    const after = updates;
+    await until(async () => false, 1_000);
+    expect(updates).toBe(after);
+    await s.joiner.store.close();
+  }, 15_000);
 });
