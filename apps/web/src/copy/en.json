@@ -3072,8 +3072,15 @@
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": "lightbox"
   },
-  "lightbox.sees_it_s_gone": {
-    "text": "{list} {n?sees:see} it's gone.",
+  "lightbox.keeps_a_copy": {
+    "text": "{list} {n?keeps:keep} a copy.",
+    "status": "draft",
+    "where": "Photo viewer › Deleted toast",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": "lightbox"
+  },
+  "lightbox.never_got_it": {
+    "text": "{list} never got it.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
@@ -3081,13 +3088,6 @@
   },
   "lightbox.will_see_it_when_connected": {
     "text": "{list} will see it's gone when connected.",
-    "status": "draft",
-    "where": "Photo viewer › Deleted toast",
-    "who": "People who delete a photo: who added it, or the Admin",
-    "screen": "lightbox"
-  },
-  "lightbox.sees_it_s_gone_later": {
-    "text": "{now} {n?sees:see} it's gone, {later} when connected.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",

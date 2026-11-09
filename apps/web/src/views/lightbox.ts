@@ -95,7 +95,7 @@ export async function deleteFromLightbox(photo: Photo) {
   const others = albumOthers(photo.folderId);
   const offDeleted = galleryActor.on("output", {
     fn: (e) => {
-      if (photoDeleted.is(e)) toast(deletedMessage(photo.name, others));
+      if (photoDeleted.is(e)) toast(deletedMessage(photo.name, photo.holders, others));
     },
   });
   gallery.remove(photo.id, photo.folderId);

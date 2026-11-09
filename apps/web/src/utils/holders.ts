@@ -79,18 +79,24 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
   return [gone, cannot, back].filter((x) => x !== "").join(" ");
 }
 
-/** The toast after a delete: which photo, who sees it's gone now and who when that phone connects. */
+/** The toast after a delete: which photo, whose phone keeps a copy, who never got it, and who finds out when connected. */
 export function deletedMessage(
   name: string,
-  others: readonly { name: string; connected: boolean }[],
+  holders: PhotoHolders | undefined,
+  people: readonly { key: string; name: string; connected: boolean }[],
 ): string {
-  const first = copy("lightbox.deleted", { name });
-  const now = others.filter((o) => o.connected).map((o) => o.name);
-  const later = others.filter((o) => !o.connected).map((o) => o.name);
-  if (now.length === 0 && later.length === 0) return first;
-  if (later.length === 0)
-    return `${first} ${copy("lightbox.sees_it_s_gone", { list: nameList(now), n: now.length })}`;
-  if (now.length === 0)
-    return `${first} ${copy("lightbox.will_see_it_when_connected", { list: nameList(later) })}`;
-  return `${first} ${copy("lightbox.sees_it_s_gone_later", { now: nameList(now), n: now.length, later: nameList(later) })}`;
+  const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
+  const kept = (holders?.others ?? []).map(named);
+  const never = (holders?.waiting ?? []).map(named);
+  const later = (holders?.others ?? [])
+    .filter((m) => people.some((p) => p.key === m.key && !p.connected))
+    .map(named);
+  return [
+    copy("lightbox.deleted", { name }),
+    kept.length > 0 ? copy("lightbox.keeps_a_copy", { list: nameList(kept), n: kept.length }) : "",
+    never.length > 0 ? copy("lightbox.never_got_it", { list: nameList(never) }) : "",
+    later.length > 0 ? copy("lightbox.will_see_it_when_connected", { list: nameList(later) }) : "",
+  ]
+    .filter((x) => x !== "")
+    .join(" ");
 }
