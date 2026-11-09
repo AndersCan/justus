@@ -5,16 +5,17 @@ import type { SyncMember } from "@justus/core";
 import { memberColor } from "../utils/palette";
 import { presenceDots } from "./presence-dots";
 
-const member = (key: string, name: string, connected = true): SyncMember => ({
+const member = (key: string, name: string, color?: number): SyncMember => ({
   key,
   name,
   admin: false,
-  connected,
+  connected: true,
+  ...(color !== undefined && { color }),
 });
-const k0 = member("k0", "Me");
-const k1 = member("k1", "Ben");
-const k2 = member("k2", "Cara");
-const k3 = member("k3", "Dan");
+const k0 = member("k0", "Me", 0);
+const k1 = member("k1", "Ben", 1);
+const k2 = member("k2", "Cara", 2);
+const k3 = member("k3", "Dan", 3);
 
 describe("presence dots motion", () => {
   type Call = { el: Element; keyframes: any; options: any };
@@ -76,7 +77,9 @@ describe("presence dots motion", () => {
     expect([...after.keys()]).toEqual(["k0", "k1", "k2", "k3"]);
     for (const key of ["k0", "k1", "k2"]) {
       expect(after.get(key)).toBe(before.get(key));
-      expect(inner(after.get(key)!).getAttribute("style")).toBe(`background: ${memberColor(key)}`);
+      expect(inner(after.get(key)!).getAttribute("style")?.replace(/\s/g, "")).toBe(
+        `background:${memberColor({ k0: 0, k1: 1, k2: 2 }[key])};`,
+      );
     }
     expect(calls).toHaveLength(1);
     expect(calls[0].el).toBe(after.get("k3"));
@@ -94,7 +97,7 @@ describe("presence dots motion", () => {
     const ghost = before.get("k1") as HTMLElement;
     expect(ghost.parentElement).toBe(document.body);
     expect(ghost.inert).toBe(true);
-    expect(inner(ghost).getAttribute("style")).toContain(memberColor("k1"));
+    expect(inner(ghost).getAttribute("style")).toContain(memberColor(1));
     expect(calls.find((c) => c.el === ghost)?.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
     const slide = calls.find((c) => c.el === after.get("k2"));
     expect(slide?.keyframes).toEqual([
@@ -110,10 +113,32 @@ describe("presence dots motion", () => {
 
   test("a member going offline changes no dot", async () => {
     const { host, before } = mount([k0, k1, k2]);
-    render(presenceDots([k0, member("k1", "Ben", false), k2], "f1"), host);
+    render(presenceDots([k0, { ...k1, connected: false }, k2], "f1"), host);
     await Promise.resolve();
     const after = dots(host);
     for (const key of ["k0", "k1", "k2"]) expect(after.get(key)).toBe(before.get(key));
     expect(calls).toEqual([]);
+  });
+});
+
+describe("presence dots colour", () => {
+  const styles = (members: SyncMember[]) => {
+    const host = document.createElement("div");
+    render(presenceDots(members, "f1"), host);
+    return [...host.querySelectorAll("[data-motion-key] > span")].map((s) =>
+      s.getAttribute("style"),
+    );
+  };
+  test("two members with colours 1 and 2 get different fills", () => {
+    const [a, b] = styles([k1, k2]);
+    expect(a).toBe(`background:${memberColor(1)};`);
+    expect(b).toBe(`background:${memberColor(2)};`);
+  });
+  test("a member without a colour gets a hollow dot with no style", () => {
+    const host = document.createElement("div");
+    render(presenceDots([member("k9", "Zed")], "f1"), host);
+    const dot = host.querySelector("[data-motion-key] > span")!;
+    expect(dot.getAttribute("style") ?? "").toBe("");
+    expect(dot.className).toContain("border-muted");
   });
 });

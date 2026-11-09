@@ -50,7 +50,7 @@ describe("holders sheet in the lightbox", () => {
       context: {
         status: {
           folder: { id: "f1" },
-          members: [{ key: "k1", name: "Ada", admin: true, connected: true }],
+          members: [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }],
         },
       },
     } as never);
@@ -63,7 +63,7 @@ describe("holders sheet in the lightbox", () => {
     const el = document.createElement("div");
     render(lightboxView(), el);
     const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
-    expect(fill).toBe(`background:${memberColor("k1")}`);
+    expect(fill).toBe(`background:${memberColor(0)}`);
   });
 
   it("gives no Members colours when the open status is another album", () => {
@@ -84,6 +84,36 @@ describe("holders sheet in the lightbox", () => {
     const el = document.createElement("div");
     render(lightboxView(), el);
     const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
-    expect(fill).not.toBe(`background:${memberColor("k1")}`);
+    expect(fill).not.toBe(`background:${memberColor(0)}`);
+  });
+});
+
+describe("lightbox adder dot", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+  const dot = (members: unknown[]) => {
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: { status: { folder: { id: "f1" }, members } },
+    } as never);
+    openLightbox({ ...photo, folderId: "f1", member: { key: "k2", name: "Ben" } });
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    return el.querySelector("span.h-2\\.5");
+  };
+
+  it("takes the adder's colour from Members", () => {
+    const d = dot([
+      { key: "k1", name: "Ada", admin: true, connected: true, color: 0 },
+      { key: "k2", name: "Ben", admin: false, connected: true, color: 1 },
+    ]);
+    expect(d?.getAttribute("style")).toBe(`background:${memberColor(1)};`);
+  });
+
+  it("is hollow when the adder is not in the album", () => {
+    const d = dot([{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
+    expect(d?.getAttribute("style") ?? "").toBe("");
+    expect(d?.className).toContain("border-muted");
   });
 });

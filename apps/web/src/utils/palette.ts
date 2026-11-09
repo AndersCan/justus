@@ -1,17 +1,9 @@
-/** Stable per-device colors, derived from a device's drive key. */
+/** Per-person colours: a seat number the Admin's phone wrote next to the person's name. */
 
 // Kept clear of the brand indigo and coral.
 const MEMBER_COLORS = ["#C2457A", "#3A8A4C", "#2F7DB8", "#A8700F", "#5E6B80"] as const;
 
-function hashOf(key: string): number {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-/** Same device always maps to the same color. */
-export function memberColor(key: string): string {
-  return MEMBER_COLORS[hashOf(key) % MEMBER_COLORS.length];
+/** The seat's colour; none for a person without a seat. */
+export function memberColor(color: number | undefined): string | undefined {
+  return color === undefined ? undefined : MEMBER_COLORS[color % MEMBER_COLORS.length];
 }

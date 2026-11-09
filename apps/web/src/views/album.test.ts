@@ -62,9 +62,9 @@ const status = {
   driveKey: "d",
   discoveryKey: "dk",
   members: [
-    { key: "k0", name: "Me", admin: true, connected: true },
-    { key: "k1", name: "Kim", admin: false, connected: true, identity: "i1" },
-    { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2" },
+    { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
+    { key: "k1", name: "Kim", admin: false, connected: true, identity: "i1", color: 1 },
+    { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2", color: 2 },
   ],
   folder: { id: "f1", name: "Trip", role: "creator", shareKey: "s", driveKey: "d", members: 3 },
 } as unknown as SyncStatus;
@@ -81,8 +81,8 @@ describe("Make Viewer", () => {
   const viewerStatus = {
     ...status,
     members: [
-      { key: "k0", name: "Me", admin: true, connected: true },
-      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+      { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
+      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", color: 1 },
       { key: "k2", name: "Vi", admin: false, connected: false, identity: "i2", viewer: true },
     ],
   } as unknown as SyncStatus;
@@ -138,9 +138,9 @@ describe("Make Viewer", () => {
         status: {
           ...viewerStatus,
           members: [
-            { key: "k0", name: "Me", admin: true, connected: true },
+            { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
             { key: "k3", name: "Ada", admin: true, connected: true, identity: "i3" },
-            { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+            { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", color: 1 },
           ],
         } as unknown as SyncStatus,
       }),
@@ -204,7 +204,18 @@ describe("album people", () => {
     const fills = memberRows(host).map((r) =>
       r.querySelector("span[style]")?.getAttribute("style"),
     );
-    expect(fills).toEqual(["k0", "k1", "k2"].map((k) => `background:${memberColor(k)}`));
+    expect(fills).toEqual([0, 1, 2].map((c) => `background:${memberColor(c)}`));
+  });
+
+  test("a member without a colour has an outlined avatar and no style", () => {
+    const members = status.members.map((m, i) => (i === 1 ? { ...m, color: undefined } : m));
+    syncActor.send(statusSeen.create({ status: { ...status, members } }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const badge = memberRows(host)[1].querySelector("span[aria-hidden]")!;
+    expect(badge.getAttribute("style")).toBeNull();
+    expect(badge.className).toContain("ring-line");
   });
 
   test("naming a friend changes that row's label and keeps every row element", async () => {
@@ -283,7 +294,7 @@ describe("album people", () => {
         status: {
           ...status,
           members: [
-            { key: "k0", name: "Me", admin: true, connected: true },
+            { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
             { key: "k1", name: "dad", admin: false, connected: true, identity: "id-x" },
           ],
         },
@@ -875,7 +886,7 @@ describe("album viewer rows", () => {
     const viewerStatus = {
       ...status,
       members: [
-        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
         { key: "k1", name: "Nils", admin: false, connected: true, identity: "i1", viewer: true },
       ],
     } as unknown as SyncStatus;
@@ -894,7 +905,7 @@ describe("album viewer rows", () => {
     const viewerStatus = {
       ...status,
       members: [
-        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
         { key: "k1", name: "Nils", admin: false, connected: true, identity: "i1", viewer: true },
       ],
     } as unknown as SyncStatus;
@@ -937,7 +948,7 @@ describe("album viewer rows", () => {
     const viewerStatus = {
       ...status,
       members: [
-        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
         { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
       ],
     } as unknown as SyncStatus;
@@ -1057,9 +1068,9 @@ describe("album viewer rows", () => {
     const busyStatus = {
       ...status,
       members: [
-        { key: "k0", name: "Me", admin: true, connected: true },
+        { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
         { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", viewer: true },
-        { key: "k2", name: "Ada", admin: false, connected: false, identity: "i2" },
+        { key: "k2", name: "Ada", admin: false, connected: false, identity: "i2", color: 2 },
       ],
     } as unknown as SyncStatus;
     syncActor.send(statusSeen.create({ status: busyStatus }));
@@ -1312,8 +1323,8 @@ describe("album member roles", () => {
   const mixed = {
     ...status,
     members: [
-      { key: "k0", name: "Me", admin: true, connected: true },
-      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1" },
+      { key: "k0", name: "Me", admin: true, connected: true, color: 0 },
+      { key: "k1", name: "Nils", admin: false, connected: false, identity: "i1", color: 1 },
       { key: "k2", name: "Zed", admin: false, connected: false, identity: "i2", viewer: true },
     ],
   } as unknown as SyncStatus;

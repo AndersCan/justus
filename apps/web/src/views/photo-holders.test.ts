@@ -4,7 +4,6 @@ import { render } from "lit-html";
 import type { Photo, PhotoHolders } from "@justus/core";
 import { holdersRow, holdersSheet } from "./photo-holders";
 import { memberColor } from "../utils/palette";
-import { avatarColor } from "../utils/avatar";
 import type { Person } from "../utils/people";
 
 const m = (name: string) => ({ key: name, name });
@@ -139,8 +138,9 @@ describe("holdersRow live region", () => {
   });
 });
 
-const person = (key: string, name: string, you = false) => ({ key, name, you }) as Person;
-const people = [person("k0", "Ben", true), person("k1", "Mum"), person("k2", "Cy")];
+const person = (key: string, name: string, color: number, you = false) =>
+  ({ key, name, color, you }) as Person;
+const people = [person("k0", "Ben", 0, true), person("k1", "Mum", 1), person("k2", "Cy", 2)];
 const fillOf = (li: Element) => li.querySelector("span[style]")?.getAttribute("style");
 const initialsOfRow = (li: Element) => li.querySelector("span[aria-hidden]")?.textContent;
 
@@ -150,21 +150,21 @@ describe("holdersSheet colours", () => {
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Mum");
     expect(initialsOfRow(row)).toBe("MU");
-    expect(fillOf(row)).toBe(`background:${memberColor("k1")}`);
+    expect(fillOf(row)).toBe(`background:${memberColor(1)}`);
   });
   it("shows your own row as You with your initials and colour, here or arriving", () => {
     const here = draw(holdersSheet(photo(h({})), people)).querySelector("li")!;
     expect(here.querySelector(".text-fg")?.textContent).toBe("You");
     expect(initialsOfRow(here)).toBe("BE");
-    expect(fillOf(here)).toBe(`background:${memberColor("k0")}`);
+    expect(fillOf(here)).toBe(`background:${memberColor(0)}`);
     const arriving = draw(
       holdersSheet(photo(h({ here: false, waiting: [{ key: "k2", name: "Cy" }] })), people),
     ).querySelectorAll("li");
     expect(initialsOfRow(arriving[0])).toBe("BE");
-    expect(fillOf(arriving[0])).toBe(`background:${memberColor("k0")}`);
-    expect(fillOf(arriving[1])).toBe(`background:${memberColor("k2")}`);
+    expect(fillOf(arriving[0])).toBe(`background:${memberColor(0)}`);
+    expect(fillOf(arriving[1])).toBe(`background:${memberColor(2)}`);
   });
-  it("keeps the name colour for a key that is not on Members", () => {
+  it("shows a key that is not on Members, and former people, outlined", () => {
     const el = draw(
       holdersSheet(
         photo(h({ unsure: [{ key: "k9", name: "Old phone" }], former: ["Ola"] })),
@@ -172,20 +172,21 @@ describe("holdersSheet colours", () => {
       ),
     );
     const rows = [...el.querySelectorAll("li")];
-    expect(fillOf(rows[1])).toBe(`background:${avatarColor("Old phone")}`);
-    expect(fillOf(rows[2])).toBe(`background:${avatarColor("Ola")}`);
+    expect(fillOf(rows[1])).toBeUndefined();
+    expect(fillOf(rows[2])).toBeUndefined();
+    expect(rows[2].querySelector("span[aria-hidden]")?.className).toContain("ring-line");
   });
   it("shows a hasn't-said-yet keyed row with its Members name and colour", () => {
     const el = draw(holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old" }] })), people));
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Cy");
-    expect(fillOf(row)).toBe(`background:${memberColor("k2")}`);
+    expect(fillOf(row)).toBe(`background:${memberColor(2)}`);
   });
-  it("keeps the name colour for a left name", () => {
+  it("shows a left name outlined", () => {
     const el = draw(holdersSheet(photo(h({ left: ["Cleo"] })), people));
     const row = el.querySelectorAll("li")[1];
     expect(row.querySelector(".text-fg")?.textContent).toBe("Cleo");
-    expect(fillOf(row)).toBe(`background:${avatarColor("Cleo")}`);
+    expect(fillOf(row)).toBeUndefined();
   });
   it("names Members' name in the Can still get it from heading", () => {
     const el = draw(
@@ -205,9 +206,9 @@ describe("holdersSheet colours", () => {
 });
 
 describe("holdersSheet without Members", () => {
-  it("shows your own row as You with the You colour when you are not in people", () => {
+  it("shows your own row as You outlined when you are not in people", () => {
     const row = draw(holdersSheet(photo(h({})), [])).querySelector("li")!;
     expect(row.querySelector(".text-fg")?.textContent).toBe("You");
-    expect(fillOf(row)).toBe(`background:${avatarColor("You")}`);
+    expect(fillOf(row)).toBeUndefined();
   });
 });

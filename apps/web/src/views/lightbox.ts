@@ -11,6 +11,7 @@ import {
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
+import { styleMap } from "lit-html/directives/style-map.js";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
 import { onStateChange } from "../machines/actor-utils";
@@ -112,6 +113,9 @@ export async function deleteFromLightbox(photo: Photo) {
 }
 
 function lightboxBody(photo: Photo) {
+  const adderFill = memberColor(
+    albumPeople(photo.folderId).find((p) => p.key === photo.member.key)?.color,
+  );
   let touchStart: { x: number; y: number } | null = null;
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
@@ -187,8 +191,12 @@ function lightboxBody(photo: Photo) {
               <div class="truncate  text-lg text-fg">${photo.name}</div>
               <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                 <span
-                  class="inline-block h-2.5 w-2.5 rounded-full"
-                  style="background: ${memberColor(photo.member.key)}"
+                  class=${
+                    adderFill === undefined
+                      ? "inline-block h-2.5 w-2.5 rounded-full border border-muted bg-surface"
+                      : "inline-block h-2.5 w-2.5 rounded-full"
+                  }
+                  style=${styleMap(adderFill === undefined ? {} : { background: adderFill })}
                 ></span>
                 <span class="truncate">${photo.member.name}</span>
                 <span>·</span>

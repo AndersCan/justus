@@ -300,7 +300,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
   );
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
-  const body = html`${memberBadge(p.name, p.key)}
+  const body = html`${memberBadge(p.name, p.color)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
         ${p.name}${p.you ? copy("album.you") : ""}

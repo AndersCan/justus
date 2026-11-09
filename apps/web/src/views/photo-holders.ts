@@ -5,7 +5,7 @@ import type { Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
 import { nameList, type Person } from "../utils/people";
-import { avatarBadge, memberBadge } from "./avatar";
+import { memberBadge } from "./avatar";
 
 import { copy, t } from "../copy/copy";
 /** The "who has this photo" row on photo detail, and the sheet it opens. */
@@ -51,7 +51,10 @@ export function holdersRow(photo: Photo) {
 /** A keyed row takes the name and colour it has on Members; a key not there keeps what the backend sent. */
 function resolve(m: { key: string; name: string }, people: readonly Person[]) {
   const p = people.find((q) => q.key === m.key);
-  return { name: p?.name ?? m.name, badge: p ? memberBadge(p.name, p.key) : avatarBadge(m.name) };
+  return {
+    name: p?.name ?? m.name,
+    badge: p ? memberBadge(p.name, p.color) : memberBadge(m.name, undefined),
+  };
 }
 
 function personRow(name: string, badge: TemplateResult, detail?: string) {
@@ -71,7 +74,7 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
   const unsure = rows.unsure.map((m) => resolve(m, people));
   const self = people.find((p) => p.you);
   const youName = copy("photo_holders.you");
-  const youBadge = self ? memberBadge(self.name, self.key) : avatarBadge(youName);
+  const youBadge = self ? memberBadge(self.name, self.color) : memberBadge(youName, undefined);
   const sources = [
     ...others.map((r) => r.name),
     ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),
@@ -129,14 +132,14 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
                   ${rows.former.map((name) =>
                     personRow(
                       name,
-                      avatarBadge(name),
+                      memberBadge(name, undefined),
                       copy("photo_holders.has_a_copy_from_before"),
                     ),
                   )}
                   ${rows.left.map((name) =>
                     personRow(
                       name,
-                      avatarBadge(name),
+                      memberBadge(name, undefined),
                       copy("photo_holders.left_their_phone_deleted_its"),
                     ),
                   )}
