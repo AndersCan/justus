@@ -338,13 +338,15 @@ describe("readJoinRequests", () => {
   it("marks a request made through the album's invite code", async () => {
     const [admin, joiner] = devices(2);
     const code = "c".repeat(64);
+    const identity = "1".repeat(64);
+    const bytes = sealedAskBytes({ key: KEY_A, identity, invite: code });
     const drive = await outbox(joiner, "id", {
-      [FOLDER.shareKey]: request(KEY_A, { invite: code }),
+      [`invite:${code}`]: { sealedKey: "aa", requesterName: "Bo", invite: code, requestedAt: 5 },
     });
-    const found = await readJoinRequests(opener({ i1: drive }), {
-      identities: ["i1"],
+    const found = await readJoinRequests(opener({ [identity]: drive }), {
+      identities: [identity],
       folder: { ...FOLDER, inviteCode: code },
-      openSealed: (s) => admin.ports.drives.openSealed(s),
+      openSealed: async () => [null, bytes],
       log: admin.ports.log,
     });
     expect(found.requests.map((f) => f.viaInvite)).toEqual([true]);
@@ -458,11 +460,17 @@ describe("readJoinRequests", () => {
       expect(events).toContain("requests.sealed.dropped:not-ours");
     });
 
-    it("still lists a plain-key invite entry", async () => {
+    it("does not list a plain-key invite entry", async () => {
       const plain = { requesterKey: KEY_A, requesterName: "Bo", invite: CODE, requestedAt: 5 };
-      const { found } = await read({ [IA]: { [`invite:${CODE}`]: plain } }, {});
+      const { found, events } = await read({ [IA]: { [`invite:${CODE}`]: plain } }, {});
+      expect(found.requests).toEqual([]);
+      expect(events).toContain("requests.sealed.dropped:plain");
+    });
+
+    it("still lists an album-key entry with a plain key", async () => {
+      const { found } = await read({ [IA]: { [FOLDER.shareKey]: request(KEY_A) } }, {});
       expect(found.requests.map((f) => [f.request.requesterKey, f.viaInvite])).toEqual([
-        [KEY_A, true],
+        [KEY_A, false],
       ]);
     });
   });

@@ -45,7 +45,10 @@ export type RequestsFile = {
   requests: Record<
     string,
     {
-      requesterKey: string;
+      /** Album-key requests only; an invite ask carries `sealedKey` instead. */
+      requesterKey?: string;
+      /** An invite ask's drive key, sealed to the Admin's phone. */
+      sealedKey?: string;
       requesterName: string;
       /** Set by old-style requests, which name the album by its share key. */
       shareKey?: string;

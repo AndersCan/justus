@@ -216,9 +216,10 @@ function inviteRequesters(text: string, code: string | undefined): Set<string> {
   return out;
 }
 
-/** The outbox text with each invite entry for `code` that carries a `sealedKey`
- * given the `requesterKey` it opens to. A seal that cannot be opened, or that
- * names another identity or code than the entry's, is dropped and logged. */
+/** The outbox text with each invite entry for `code` given the `requesterKey`
+ * its `sealedKey` opens to. An entry with no seal, a seal that cannot be opened,
+ * or one that names another identity or code than the entry's, is dropped and
+ * logged. */
 async function openSealedEntries(
   text: string,
   options: {
@@ -233,12 +234,16 @@ async function openSealedEntries(
   if (!file) return text;
   const requests: Record<string, unknown> = {};
   for (const [id, raw] of Object.entries(file.requests) as Array<[string, unknown]>) {
-    if (!isTextJSON(raw) || raw.invite !== code || raw.sealedKey === undefined) {
+    if (!isTextJSON(raw) || raw.invite !== code) {
       requests[id] = raw;
       continue;
     }
     const drop = (reason: string) =>
       log("requests.sealed.dropped", { identity: short(identity), reason });
+    if (raw.sealedKey === undefined) {
+      drop("plain");
+      continue;
+    }
     if (typeof raw.sealedKey !== "string" || !/^[0-9a-f]+$/i.test(raw.sealedKey)) {
       drop("not-ours");
       continue;

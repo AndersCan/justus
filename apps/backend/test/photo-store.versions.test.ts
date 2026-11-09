@@ -170,8 +170,10 @@ describe("peer versions", () => {
     await me.store.ask({ code, owner: peer.identity() });
     const phone = peerPhone(hub, { identityKey: peer.identity(), protocol });
     phone.meet(me.topic());
-    await until(() => seen.some((e) => e.type === "version"));
-    const conn = seen.find((e) => e.type === "version")!.conn;
+    // The ask also connects to Nils's own phone, at the right version: pick the odd one out.
+    const odd = (e: PeerEvent) => e.type === "version" && e.protocol === protocol;
+    await until(() => seen.some(odd));
+    const conn = seen.find(odd)!.conn;
     emit({ type: "answer", conn, value: { code, answer: "declined" } });
     await until(() => events.some((e) => e.event === "answer.ignored"));
     expect(events.some((e) => e.event === "answer.ignored" && e.fields.reason === "version")).toBe(
