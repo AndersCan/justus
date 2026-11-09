@@ -170,13 +170,13 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+'s phone stops showing it, but Justus can't erase the copy already stored there\. Deleting can't take it back\./,
+    /.+ has the full photo\. It stops showing there, but Justus can't erase the copy already stored there\. Deleting can't take it back\./,
   );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("status").filter({ hasText: `Deleted “${ANA}”.` })).toHaveText(
-    /^\s*Deleted “del-ana\.png”\. .+ keeps? a copy\.\s*$/,
+    /^\s*Deleted “del-ana\.png”\. .+ (has|have) the full photo\.\s*$/,
   );
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
@@ -199,7 +199,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .locator("wa-button", { hasText: "Delete" })
     .click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^\s*Deleted “del-ben\.png”\. .+ never got it\.\s*$/,
+    /^\s*Deleted “del-ben\.png”\. .+ (doesn't|don't) have the full photo\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {

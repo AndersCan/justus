@@ -91,21 +91,26 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
       @click=${(e: Event) => e.stopPropagation()}
     >
       <h3 class="text-base font-semibold text-fg">${t("photo_holders.who_has_this_photo")}</h3>
-      <p class="text-xs text-muted">${t("photo_holders.phones_with_a_full_copy")}</p>
       <div class="max-h-[60vh] overflow-y-auto">
-        <ul>
-          ${rows.youArriving ? null : personRow(youName, youBadge)}
-          ${others.map((r) => personRow(r.name, r.badge))}
-        </ul>
+        ${
+          !rows.youArriving || others.length > 0
+            ? html`<h4 class="ui-label">${t("full_photo.has")}</h4>
+                <ul>
+                  ${rows.youArriving ? null : personRow(youName, youBadge)}
+                  ${others.map((r) => personRow(r.name, r.badge))}
+                </ul>`
+            : null
+        }
         ${
           rows.youArriving || rows.waiting.length > 0
-            ? html`<h4 class="mt-4 text-xs font-semibold text-muted">
-                  ${
-                    sources.length > 0
-                      ? t("photo_holders.can_still_get_it_from", { names: nameList(sources) })
-                      : t("photo_holders.not_on_their_phone_yet")
-                  }
-                </h4>
+            ? html`<h4 class="ui-label mt-4">${t("full_photo.lacks")}</h4>
+                ${
+                  sources.length > 0
+                    ? html`<p class="text-xs text-muted">
+                        ${t("photo_holders.can_still_get_it_from", { names: nameList(sources) })}
+                      </p>`
+                    : null
+                }
                 <ul>
                   ${
                     rows.youArriving
@@ -133,7 +138,7 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
                     personRow(
                       name,
                       memberBadge(name, undefined),
-                      copy("photo_holders.has_a_copy_from_before"),
+                      copy("photo_holders.has_the_full_photo_from"),
                     ),
                   )}
                   ${rows.left.map((name) =>
