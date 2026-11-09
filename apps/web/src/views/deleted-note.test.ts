@@ -47,6 +47,33 @@ describe("deletedNoteText", () => {
     expect(deletedNoteText([album(photos)])).toBe(text);
   });
 
+  test.each([
+    [
+      [photo({ deletedBy: "Ada", held: true })],
+      "Ada deleted “Sunset” from Trip. No longer shown on your phone; its stored copy stays here.",
+    ],
+    [
+      [photo({ deletedBy: "Ada", mine: true, held: true })],
+      "Ada deleted your photo “Sunset” from Trip. No longer shown on your phone; its stored copy stays here.",
+    ],
+    [
+      [photo({ deletedBy: "Ada", held: false })],
+      "Ada deleted “Sunset” from Trip. It had not reached your phone.",
+    ],
+    [
+      [photo({ held: true }), photo({ held: true })],
+      "2 photos were deleted from Trip. No longer shown on your phone.",
+    ],
+  ])("held %#", (photos, text) => {
+    expect(deletedNoteText([album(photos)])).toBe(text);
+  });
+
+  test("one photo in each of two albums stays plain", () => {
+    expect(
+      deletedNoteText([album([photo({ held: true })]), album([photo({ held: false })], "Home")]),
+    ).toBe("2 photos were deleted. No longer shown on your phone.");
+  });
+
   test("no albums make no note", () => {
     expect(deletedNoteText([])).toBe("");
   });

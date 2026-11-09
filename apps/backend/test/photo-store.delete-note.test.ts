@@ -116,7 +116,9 @@ describe("noticing photos someone else deleted", () => {
           folderId: s.nilsFolderId,
           deleted: {
             albumName: "Trip",
-            photos: [{ name: "sun.jpg", adderName: "Anna", mine: false, deletedBy: "Anna" }],
+            photos: [
+              { name: "sun.jpg", adderName: "Anna", mine: false, held: false, deletedBy: "Anna" },
+            ],
           },
         },
       ],
@@ -137,7 +139,7 @@ describe("noticing photos someone else deleted", () => {
       nils: deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos),
       anna: deletedPushes(s.annaPushes),
     }).toEqual({
-      nils: [[{ name: "mine.jpg", adderName: "Nils", mine: true, deletedBy: "Anna" }]],
+      nils: [[{ name: "mine.jpg", adderName: "Nils", mine: true, held: true, deletedBy: "Anna" }]],
       anna: [],
     });
     await s.close();
@@ -154,7 +156,7 @@ describe("noticing photos someone else deleted", () => {
       anna: deletedPushes(s.annaPushes).map((p) => p.deleted?.photos),
       nils: deletedPushes(s.nilsPushes),
     }).toEqual({
-      anna: [[{ name: "mine.jpg", adderName: "New member", mine: false }]],
+      anna: [[{ name: "mine.jpg", adderName: "New member", mine: false, held: false }]],
       nils: [],
     });
     await s.close();

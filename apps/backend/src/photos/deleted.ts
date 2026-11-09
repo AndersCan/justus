@@ -11,7 +11,7 @@ export type Listing = {
   /** Drive key -> the drive object listed. */
   sources: ReadonlyMap<string, object>;
   /** "<driveKey>:<id>" */
-  photos: ReadonlyMap<string, { driveKey: string; name: string; adderName: string }>;
+  photos: ReadonlyMap<string, { id: string; driveKey: string; name: string; adderName: string }>;
 };
 
 /** Names shown while a phone's real name is not known yet. */
@@ -38,6 +38,8 @@ export function deletedSince(
     selfKey: string;
     adminName: string | undefined;
     deletedHere: ReadonlySet<string>;
+    /** Photo ids this phone's own holding record lists; undefined while that record is not read. */
+    heldHere: ReadonlySet<string> | undefined;
     /** Drive keys whose owner left the album: their photos went with them. */
     left: ReadonlySet<string>;
   },
@@ -63,6 +65,7 @@ export function deletedSince(
       name: photo.name,
       adderName: photo.adderName,
       mine,
+      ...(mine || ctx.heldHere !== undefined ? { held: mine || ctx.heldHere?.has(photo.id) } : {}),
       ...(deleter !== undefined && !PLACEHOLDER_NAMES.has(deleter) ? { deletedBy: deleter } : {}),
     });
   }

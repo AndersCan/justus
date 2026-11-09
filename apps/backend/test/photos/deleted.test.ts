@@ -19,6 +19,7 @@ function listing(over: Partial<Listing> & { keys?: string[] } = {}): Listing {
       keys.map((k) => [
         k,
         {
+          id: k.split(":")[1],
           driveKey: k.split(":")[0],
           name: `${k}.jpg`,
           adderName: k.startsWith("ME") ? "Me" : "Ann",
@@ -35,6 +36,7 @@ const ctx = {
   selfKey: "ME",
   adminName: "Ann" as string | undefined,
   deletedHere: new Set<string>(),
+  heldHere: undefined as ReadonlySet<string> | undefined,
   left: new Set<string>(),
 };
 
@@ -52,7 +54,7 @@ describe("deletedSince", () => {
         removed: { "ME:p2": {} },
         adminName: "Boss",
       }),
-    ).toEqual([{ name: "ME:p2.jpg", adderName: "Me", mine: true, deletedBy: "Boss" }]);
+    ).toEqual([{ name: "ME:p2.jpg", adderName: "Me", mine: true, held: true, deletedBy: "Boss" }]);
   });
 
   it("leaves deletedBy unset when the Admin's name is unknown", () => {
@@ -132,6 +134,36 @@ describe("deletedSince", () => {
 
   it("says nothing for this phone's own photo with no tombstone", () => {
     expect(deletedSince(listing({ keys: ["ME:p2"] }), empty, ctx)).toEqual([]);
+  });
+
+  it("marks a photo held when this phone's record lists it", () => {
+    expect(deletedSince(listing(), empty, { ...ctx, heldHere: new Set(["p1"]) })).toEqual([
+      { name: "A:p1.jpg", adderName: "Ann", mine: false, held: true, deletedBy: "Ann" },
+    ]);
+  });
+
+  it("marks a photo not held when this phone's record lacks it", () => {
+    expect(deletedSince(listing(), empty, { ...ctx, heldHere: new Set(["p9"]) })).toEqual([
+      { name: "A:p1.jpg", adderName: "Ann", mine: false, held: false, deletedBy: "Ann" },
+    ]);
+  });
+
+  it("leaves held unset while this phone's record is not read", () => {
+    expect(deletedSince(listing(), empty, ctx)[0]).not.toHaveProperty("held");
+  });
+
+  it("marks this phone's own photo held without a record", () => {
+    const [one] = deletedSince(listing({ keys: ["ME:p2"] }), empty, {
+      ...ctx,
+      removed: { "ME:p2": {} },
+    });
+    expect(one?.held).toBe(true);
+    const [two] = deletedSince(listing({ keys: ["ME:p2"] }), empty, {
+      ...ctx,
+      removed: { "ME:p2": {} },
+      heldHere: new Set(),
+    });
+    expect(two?.held).toBe(true);
   });
 
   it("reports only the photos that left", () => {

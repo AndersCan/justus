@@ -11,7 +11,16 @@ const HOLD_MS = 8000;
 export function deletedNoteText(albums: readonly DeletedPhotos[]): string {
   const what = whatHappened(albums);
   if (what === "") return "";
-  return `${what} ${copy("deleted_note.no_longer_shows")}`;
+  return `${what} ${afterText(albums)}`;
+}
+
+/** Whether the one deleted photo was on this phone; the plain line when that is not known or there are several. */
+function afterText(albums: readonly DeletedPhotos[]): string {
+  const only = albums.length === 1 ? albums[0]?.photos : undefined;
+  const held = only?.length === 1 ? only[0]?.held : undefined;
+  if (held === true) return copy("deleted_note.no_longer_shows_kept");
+  if (held === false) return copy("deleted_note.never_arrived");
+  return copy("deleted_note.no_longer_shows");
 }
 
 function whatHappened(albums: readonly DeletedPhotos[]): string {

@@ -183,7 +183,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await bToasts()).filter((t) =>
-        /^.+ deleted “del-ana\.png” from Delete trip\. No longer shown on your phone\.$/.test(t),
+        /^.+ deleted “del-ana\.png” from Delete trip\. No longer shown on your phone; its stored copy stays here\.$/.test(
+          t,
+        ),
       ),
     )
     .toHaveLength(1);
@@ -206,7 +208,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await aToasts()).filter((t) =>
-        /^.+ deleted “del-ben\.png” from Delete trip\. No longer shown on your phone\.$/.test(t),
+        /^.+ deleted “del-ben\.png” from Delete trip\. It had not reached your phone\.$/.test(t),
       ),
     )
     .toHaveLength(1);
@@ -226,7 +228,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await bToasts()).filter((t) =>
-        /^.+ deleted your photo “del-ben2\.png” from Delete trip\. No longer shown on your phone\.$/.test(
+        /^.+ deleted your photo “del-ben2\.png” from Delete trip\. No longer shown on your phone; its stored copy stays here\.$/.test(
           t,
         ),
       ),

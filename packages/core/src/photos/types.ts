@@ -230,6 +230,8 @@ export type DeletedPhoto = {
   mine: boolean;
   /** Who deleted it, when the album's drives prove it: the Admin for a photo in the Admin's /removed.json, the adder for one gone from their own drive. Unset when the name is not known. */
   deletedBy?: string;
+  /** This phone had the full copy: it added it, or its own holding record listed it. Unset when this phone's record was not read yet. */
+  held?: boolean;
 };
 
 /** For cause "deleted": one album's photos deleted by someone else since this phone last listed it. */

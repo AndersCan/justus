@@ -2587,17 +2587,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       photos: new Map(
         gallery.photos.map((d) => [
           `${d.driveKey}:${d.id}`,
-          { driveKey: d.driveKey, name: d.name, adderName: d.memberName },
+          { id: d.id, driveKey: d.driveKey, name: d.name, adderName: d.memberName },
         ]),
       ),
     };
     const now = rt.listing;
     void (async () => {
+      const own = rt.held.get(selfKey);
       const ctx = {
         removed: gallery.removed,
         selfKey,
         adminName,
         deletedHere: rt.deletedHere,
+        heldHere: own?.kind === "reports" ? own.ids : undefined,
         left: new Set<string>(),
       };
       // Nothing went: skip the note reads.
