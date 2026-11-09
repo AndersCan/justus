@@ -15,7 +15,9 @@ export type Known =
   | { kind: "new" }
   | { kind: "own"; folderId: string }
   | { kind: "member"; folderId: string }
-  | { kind: "waiting" };
+  | { kind: "waiting" }
+  /** An earlier request through this code was told the link no longer works. */
+  | { kind: "turnedOff" };
 
 /** A request this phone already made, as the albums list shows it. */
 export type AskSummary = {
@@ -152,6 +154,7 @@ export function createJoinRequestActor(options: {
     if (found.kind === "waiting") {
       return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
     }
+    if (found.kind === "turnedOff") return { state: linkTurnedOff.create(invite) };
     if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
     return { state: decidingToAsk.create(invite) };
   }
@@ -291,6 +294,7 @@ export function createJoinRequestActor(options: {
           waitingForAdminToAccept,
           waitingForYouToUpdate,
           linkExpired,
+          linkTurnedOff,
           decidingToAsk,
         ],
         handler: (_e, { actor }) => screenFor(actor.snapshot().payload as JoinInvite),

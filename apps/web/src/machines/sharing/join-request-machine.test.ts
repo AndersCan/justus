@@ -829,6 +829,14 @@ describe("linkTurnedOff", () => {
     return s;
   }
 
+  test("Continue on a link the phone knows is off shows no-longer-works and sends nothing", async () => {
+    const s = setup({ known: { kind: "turnedOff" } });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+    expect(s.outputs).toEqual([]);
+  });
+
   test("a linkOff answer while waiting shows the no-longer-works screen", async () => {
     const s = await screen();
     expect(s.actor.state.name).toBe("linkTurnedOff");

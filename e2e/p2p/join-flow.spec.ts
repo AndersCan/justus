@@ -426,6 +426,16 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await b.reload();
   await expect(row).toBeVisible();
 
+  await b.getByLabel("Invite link").fill(link);
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(b.getByRole("dialog", { name: "This invite link no longer works." })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(b.getByRole("dialog", { name: "Ask to join “Off trip”?" })).toHaveCount(0);
+  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toHaveCount(0);
+  await b.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
+
   await a.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click({
     timeout: 20_000,
   });
