@@ -13,6 +13,8 @@ const STATUS = [
   "#C62F35",
   "#FF6B72",
 ];
+// Light --accent and --accent-strong (brand indigo).
+const ACCENT = ["#4B3FD6", "#3328A8"];
 const DARK_SURFACE = "#1A1730";
 
 function rgb(hex: string): number[] {
@@ -62,7 +64,7 @@ describe("memberColor", () => {
     expect(memberColor(1)).toBe("#2672C0");
   });
   it("gives seat 2 violet", () => {
-    expect(memberColor(2)).toBe("#A83AE0");
+    expect(memberColor(2)).toBe("#9A3AF0");
   });
   it("repeats from the sixth seat", () => {
     expect(memberColor(5)).toBe(memberColor(0));
@@ -83,6 +85,10 @@ describe("memberColor", () => {
         const gap = Math.abs(hue(seat) - hue(status));
         expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(30);
       }
+  });
+  it("keeps every seat clear of the brand indigo", () => {
+    for (const seat of SEATS)
+      for (const accent of ACCENT) expect(distance(seat, accent)).toBeGreaterThan(20);
   });
   it("tells every pair of seats apart", () => {
     for (const [i, a] of SEATS.entries())
