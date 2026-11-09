@@ -4,7 +4,9 @@
  * neither is asked or answered. Real-swarm delivery is `p2p-scenarios.ts` V1.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { makeTmpDir } from "./tmp-dirs.ts";
 import { createPhotoStore } from "../src/photo-store.ts";
 import type { PeerEvent, PeerNetwork } from "../src/ports/peer-network.ts";
 import { PEER_PROTOCOL } from "../src/versions.ts";
@@ -76,6 +78,126 @@ describe("peer versions", () => {
     expect(phone.network.connectionCount()).toBe(0);
     expect(s.me.changes.filter((x) => x.cause === "version")).toHaveLength(1);
     expect(connections(s).every((x) => x.identityKey === null)).toBe(true);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  const askTo = async (
+    s: Awaited<ReturnType<typeof setup>>,
+    owner: string,
+    code = "c".repeat(64),
+  ) => {
+    const asked = await s.me.store.ask({ code, owner, albumName: "Summer", ownerName: "Nils" });
+    expect(asked[0]).toBeNull();
+  };
+  const marks = async (s: Awaited<ReturnType<typeof setup>>) =>
+    (await s.me.store.folders()).asks.map((a) => a.whoMustUpdate);
+
+  it("a newer phone that is the ask's Admin marks the ask you", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === "you");
+    expect(await marks(s)).toEqual(["you"]);
+    expect(s.me.changes.filter((x) => x.cause === "version").length).toBeGreaterThan(0);
+    await until(() => phone.network.connectionCount() === 0);
+    expect(phone.network.connectionCount()).toBe(0);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("a newer phone that is someone else leaves the ask unmarked", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    const stranger = build("Eve", s.hub).identity();
+    const phone = peerPhone(s.hub, { identityKey: stranger, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(async () => (await s.me.store.status()).updateNeeded);
+    await until(() => phone.network.connectionCount() === 0);
+    expect(await marks(s)).toEqual([undefined]);
+    expect((await s.me.store.status()).updateNeeded).toBe(true);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  /** A phone whose saved file already holds asks to the Admin, then a newer phone of that Admin meets it. */
+  async function savedAsks(statuses: string[]) {
+    const hub = createFakeHub();
+    const peer = build("Nils", hub);
+    await peer.store.ready();
+    const storageDir = makeTmpDir("justus-versions-");
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({
+        version: 2,
+        name: "Me",
+        folders: [],
+        activeFolderId: null,
+        asks: statuses.map((status, i) => ({
+          code: String(i).repeat(64),
+          owner: peer.identity(),
+          albumName: "Trip",
+          ownerName: "Nils",
+          askedAt: 1,
+          status,
+        })),
+        offers: [],
+        gone: [],
+      }),
+    );
+    const me = build("Me", hub, { storageDir });
+    await me.store.ready();
+    const phone = peerPhone(hub, { identityKey: peer.identity(), protocol: PEER_PROTOCOL + 1 });
+    phone.meet(me.topic());
+    await until(async () => (await me.store.status()).updateNeeded);
+    await until(() => phone.network.connectionCount() === 0);
+    return { me, peer };
+  }
+
+  it("only a waiting ask is marked, a declined one is not", async () => {
+    const { me, peer } = await savedAsks(["waiting", "declined"]);
+    await until(async () => (await me.store.folders()).asks.some((a) => a.whoMustUpdate));
+    const asks = (await me.store.folders()).asks;
+    expect(asks.map((a) => [a.status, a.whoMustUpdate])).toEqual([
+      ["waiting", "you"],
+      ["declined", undefined],
+    ]);
+    await me.store.close();
+    await peer.store.close();
+  });
+
+  it("an Admin with only a declined ask is not marked and causes no extra push", async () => {
+    const { me, peer } = await savedAsks(["declined"]);
+    const asks = (await me.store.folders()).asks;
+    expect(asks.map((a) => a.whoMustUpdate)).toEqual([undefined]);
+    // one push comes from updateNeeded; a mark would add a second
+    expect(me.changes.filter((x) => x.cause === "version")).toHaveLength(1);
+    await me.store.close();
+    await peer.store.close();
+  });
+
+  it("the Admin's phone on the same version clears the mark", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 }).meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === "you");
+    const before = s.me.changes.filter((x) => x.cause === "version").length;
+    peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL }).meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === undefined);
+    expect(await marks(s)).toEqual([undefined]);
+    expect(s.me.changes.filter((x) => x.cause === "version").length).toBe(before + 1);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("an ask made after the meeting is not marked", async () => {
+    const s = await setup();
+    const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(() => phone.network.connectionCount() === 0);
+    await askTo(s, s.peerKey);
+    expect(await marks(s)).toEqual([undefined]);
     await s.me.store.close();
     await s.peer.store.close();
   });

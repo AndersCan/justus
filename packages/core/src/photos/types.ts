@@ -138,6 +138,8 @@ export type AskSummary = {
   status: "waiting" | "declined" | "linkOff";
   /** This phone's check code, shown while it waits. */
   checkCode?: string;
+  /** Set while this phone has met the Admin's phone on a newer Justus this session: this phone must update. */
+  whoMustUpdate?: "you";
 };
 
 /** An album invite a friend sent straight to this phone, not answered yet.
