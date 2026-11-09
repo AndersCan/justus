@@ -1,6 +1,6 @@
-import { html } from "lit-html";
+import { html, nothing } from "lit-html";
 import { watch } from "@mantaq/lit";
-import type { Photo } from "@justus/core";
+import type { Photo, SyncStatus } from "@justus/core";
 import {
   GALLERY_STATES,
   gallery,
@@ -56,6 +56,8 @@ galleryActor.on("change", {
 // A swipe must not also fire the backdrop's click (browsers synthesize a
 // click after touchend on the touched element).
 let suppressClickUntil = 0;
+// Module scope: a status update re-renders the body mid-swipe and must not drop the gesture.
+let touchStart: { x: number; y: number } | null = null;
 
 // The web unit suite runs in node (no DOM) and must stay import-safe, so only
 // wire the global key handler where a document exists. The handler no-ops when
@@ -75,10 +77,13 @@ if (typeof document !== "undefined") {
 }
 
 /** Everyone in the album the photo is in, when it is the open one; none otherwise. */
-function albumPeople(folderId: string | undefined) {
-  const status = syncActor.snapshot().context.status;
+function peopleIn(status: SyncStatus | null | undefined, folderId: string | undefined) {
   if (!status || status.folder.id !== folderId) return [];
   return buildPeople(status, [], friendsActor.snapshot().context.friends).people;
+}
+
+function albumPeople(folderId: string | undefined) {
+  return peopleIn(syncActor.snapshot().context.status, folderId);
 }
 
 function albumOthers(folderId: string | undefined) {
@@ -111,8 +116,8 @@ export async function deleteFromLightbox(photo: Photo) {
   });
 }
 
-function lightboxBody(photo: Photo) {
-  let touchStart: { x: number; y: number } | null = null;
+function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
+  const adderFill = memberColor(people.find((p) => p.key === photo.member.key)?.color);
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
     touchStart = { x: t.clientX, y: t.clientY };
@@ -187,8 +192,12 @@ function lightboxBody(photo: Photo) {
               <div class="truncate  text-lg text-fg">${photo.name}</div>
               <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                 <span
-                  class="inline-block h-2.5 w-2.5 rounded-full"
-                  style="background: ${memberColor(photo.member.key)}"
+                  class=${
+                    adderFill === undefined
+                      ? "inline-block h-2.5 w-2.5 rounded-full border border-muted bg-surface"
+                      : "inline-block h-2.5 w-2.5 rounded-full"
+                  }
+                  style=${adderFill === undefined ? nothing : `background:${adderFill};`}
                 ></span>
                 <span class="truncate">${photo.member.name}</span>
                 <span>·</span>
@@ -275,9 +284,12 @@ function lightboxBody(photo: Photo) {
 }
 
 export function lightboxView() {
-  return watch(lightboxActor, (s) =>
-    s.context.photo
-      ? html`${lightboxBody(s.context.photo)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(s.context.photo, albumPeople(s.context.photo.folderId)) : null}`
-      : null,
-  );
+  return watch(lightboxActor, (s) => {
+    const photo = s.context.photo;
+    if (!photo) return null;
+    return watch(syncActor, (sync) => {
+      const people = peopleIn(sync.context.status, photo.folderId);
+      return html`${lightboxBody(photo, people)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+    });
+  });
 }

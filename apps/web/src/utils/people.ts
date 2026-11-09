@@ -16,6 +16,8 @@ export type Person = {
   clash?: string;
   /** The row can be tapped to open the friend sheet. */
   tappable: boolean;
+  /** Their seat in the album's palette, written by the Admin. Unset until they have one. */
+  color?: number;
   admin: boolean;
   /** Accepted as a Viewer: sees every photo, adds none. */
   viewer: boolean;
@@ -136,6 +138,7 @@ export function buildPeople(
         friend,
         ...(clash !== undefined && { clash }),
         tappable: !you && m.identity !== undefined,
+        ...(m.color !== undefined && { color: m.color }),
         admin: m.admin,
         viewer: m.viewer === true,
         role: you ? ownRole(status?.folder) : otherRole(m),
