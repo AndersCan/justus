@@ -14,7 +14,7 @@ import {
   pasteFoundNothing,
   askToJoin,
   cancelRequest,
-  closeLinkTurnedOff,
+  closeStoppedLink,
   closeWaiting,
   createJoinRequestActor,
   dismissDecline,
@@ -22,6 +22,7 @@ import {
   notNow,
   openLink,
   reopenRequest,
+  type RequestAnswer,
 } from "./join-request-machine";
 
 /** What the join screens draw: which screen, whose album, and any error. */
@@ -38,7 +39,10 @@ export type JoinView = {
     | "waitingForYouToUpdate"
     | "declinedByAdmin"
     | "linkExpired"
-    | "linkTurnedOff";
+    | "linkTurnedOffByAdmin"
+    | "linkReplacedByAdmin"
+    | "albumDeletedByAdmin"
+    | "linkStoppedForUnknownReason";
   invite: JoinInvite | null;
   error: string;
 };
@@ -140,8 +144,7 @@ export const join = {
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
   dismissExpired: () => joinActor.send(dismissExpired.create()),
-  closeLinkTurnedOff: () => joinActor.send(closeLinkTurnedOff.create()),
+  closeStoppedLink: () => joinActor.send(closeStoppedLink.create()),
   /** The Admin's answer reached this phone. */
-  requestAnswered: (code: string, answer: "accepted" | "declined" | "linkOff", folderId?: string) =>
-    joinActor.send(requestAnswered.create({ code, answer, folderId })),
+  requestAnswered: (answer: RequestAnswer) => joinActor.send(requestAnswered.create(answer)),
 };

@@ -210,7 +210,9 @@ describe("pending asks", () => {
     render(pendingAsks(), host);
     await load(["a"], [ask("linkOff")]);
     host.querySelector("button")?.click();
-    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("linkTurnedOff"));
+    await vi.waitFor(() =>
+      expect(joinActor.snapshot().path[0]).toBe("linkStoppedForUnknownReason"),
+    );
   });
 
   test("the albums panel still lists waiting and declined rows", async () => {

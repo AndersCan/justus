@@ -118,6 +118,55 @@
     "who": "People joining by a link",
     "screen": ""
   },
+  "join_request.owner_turned_off_this_link": {
+    "text": "{owner} turned off this link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.owner_replaced_this_link": {
+    "text": "{owner} replaced this link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.owner_deleted_this_album": {
+    "text": "{owner} deleted this album.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.your_request_wasn_t_answered": {
+    "text": "Your request wasn't answered.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.ask_owner_for_a_new_link": {
+    "text": "Ask {owner} for a new link if you still want to join.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.ask_owner_for_the_new_link": {
+    "text": "Ask {owner} for the new link.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "join_request.nothing_to_join_any_more": {
+    "text": "There is nothing to join any more.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "join_request.couldn_t_send_your_request": {
     "text": "Couldn't send your request. Try again.",
     "status": "draft",

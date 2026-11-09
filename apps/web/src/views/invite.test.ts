@@ -314,30 +314,90 @@ describe("joinSheet update screen", () => {
     expect(text).toContain("Close");
   });
 
-  test("a turned-off link nobody asked through has no Cancel request", async () => {
-    const mod = await import("../machines/sharing/join-request");
-    const spy = vi.spyOn(mod, "joinViewOf").mockReturnValue({
-      state: "linkTurnedOff",
-      invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
-      error: "",
-    } as ReturnType<typeof mod.joinViewOf>);
-    const draw = () => {
+  describe("a stopped link", () => {
+    const STATES = [
+      [
+        "linkTurnedOffByAdmin",
+        "Anna turned off this link.",
+        "Ask Anna for a new link if you still want to join.",
+        true,
+      ],
+      ["linkReplacedByAdmin", "Anna replaced this link.", "Ask Anna for the new link.", true],
+      [
+        "albumDeletedByAdmin",
+        "Anna deleted this album.",
+        "There is nothing to join any more.",
+        false,
+      ],
+      [
+        "linkStoppedForUnknownReason",
+        "This invite link no longer works.",
+        "Ask Anna for a new one.",
+        false,
+      ],
+    ] as const;
+
+    async function draws(state: string) {
+      const mod = await import("../machines/sharing/join-request");
+      const spy = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+        state,
+        invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
+        error: "",
+      } as ReturnType<typeof mod.joinViewOf>);
+      const draw = () => {
+        const host = document.createElement("div");
+        render(joinSheet(), host);
+        return host.textContent?.replace(/\s+/g, " ") ?? "";
+      };
+      asksHolder.asks = [];
+      const none = draw();
+      asksHolder.asks = [{ code: "other" }];
+      const askedElsewhere = draw();
+      asksHolder.asks = [{ code: "c9" }];
+      const asked = draw();
+      asksHolder.asks = [];
+      spy.mockRestore();
+      return { none, askedElsewhere, asked };
+    }
+
+    test("the Close button and the backdrop both close the stopped link", async () => {
+      const mod = await import("../machines/sharing/join-request");
+      const view = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+        state: "linkTurnedOffByAdmin",
+        invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
+        error: "",
+      } as ReturnType<typeof mod.joinViewOf>);
+      const close = vi.spyOn(mod.join, "closeStoppedLink").mockImplementation(() => {});
+      asksHolder.asks = [{ code: "c9" }];
       const host = document.createElement("div");
       render(joinSheet(), host);
-      return host.textContent?.replace(/\s+/g, " ") ?? "";
-    };
-    asksHolder.asks = [];
-    const none = draw();
-    asksHolder.asks = [{ code: "other" }];
-    const askedElsewhere = draw();
-    asksHolder.asks = [{ code: "c9" }];
-    const asked = draw();
-    asksHolder.asks = [];
-    spy.mockRestore();
-    expect(none).toContain("This invite link no longer works.");
-    expect(none).not.toContain("Cancel request");
-    expect(askedElsewhere).not.toContain("Cancel request");
-    expect(asked).toContain("Cancel request");
+      asksHolder.asks = [];
+      view.mockRestore();
+      const button = [...host.querySelectorAll("button")].find((b) =>
+        b.textContent?.includes("Close"),
+      );
+      button?.click();
+      expect(close).toHaveBeenCalledTimes(1);
+      host.querySelector<HTMLElement>(".justus-backdrop")?.click();
+      expect(close).toHaveBeenCalledTimes(2);
+      close.mockRestore();
+    });
+
+    test.each(STATES)("%s names the reason", async (state, title, body, askedLine) => {
+      const { none, askedElsewhere, asked } = await draws(state);
+      const line = "Your request wasn't answered.";
+      for (const text of [none, askedElsewhere, asked]) {
+        expect(text).toContain(title);
+        expect(text).toContain(body);
+        expect(text).toContain("Close");
+        expect(text).not.toContain("Cancel request");
+        expect(text).not.toMatch(/remove/i);
+      }
+      expect(none).not.toContain(line);
+      expect(askedElsewhere).not.toContain(line);
+      if (askedLine) expect(asked).toContain(line);
+      else expect(asked).not.toContain(line);
+    });
   });
 
   test("the plain waiting sheet keeps its own text", () => {

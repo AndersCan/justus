@@ -2,11 +2,7 @@ import { html } from "lit-html";
 import type { FolderSummary, InvitedFriend } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
-import {
-  EXPIRED_LINK,
-  LINK_TURNED_OFF,
-  expiredBody,
-} from "../machines/sharing/join-request-machine";
+import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
 import { people } from "../machines/people-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { foldersActor } from "../machines/folders-machine";
@@ -436,6 +432,41 @@ function invitePanelBody(
   `;
 }
 
+/** What a stopped-link sheet says, or null for a state that is not one. `askedLine`: add "Your request wasn't answered." when this phone has an ask for the code. */
+function stoppedSheet(
+  state: string,
+  owner: string,
+): { title: string; body: string; askedLine: boolean } | null {
+  switch (state) {
+    case "linkTurnedOffByAdmin":
+      return {
+        title: copy("join_request.owner_turned_off_this_link", { owner }),
+        body: copy("join_request.ask_owner_for_a_new_link", { owner }),
+        askedLine: true,
+      };
+    case "linkReplacedByAdmin":
+      return {
+        title: copy("join_request.owner_replaced_this_link", { owner }),
+        body: copy("join_request.ask_owner_for_the_new_link", { owner }),
+        askedLine: true,
+      };
+    case "albumDeletedByAdmin":
+      return {
+        title: copy("join_request.owner_deleted_this_album", { owner }),
+        body: copy("join_request.nothing_to_join_any_more"),
+        askedLine: false,
+      };
+    case "linkStoppedForUnknownReason":
+      return {
+        title: copy("join_request.this_invite_link_no_longer"),
+        body: expiredBody(owner),
+        askedLine: false,
+      };
+    default:
+      return null;
+  }
+}
+
 function sheet(label: string, body: unknown, onDismiss: () => void) {
   return html`
     <div
@@ -483,24 +514,25 @@ export function joinSheet() {
         () => join.dismissExpired(),
       );
     }
-    if (state === "linkTurnedOff") {
+    const stopped = stoppedSheet(state, owner);
+    if (stopped) {
       return sheet(
-        LINK_TURNED_OFF,
-        html`<h3 class="break-words text-base font-semibold text-fg">${LINK_TURNED_OFF}</h3>
-          <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
-          <div class="mt-4 flex justify-end gap-2">
-            ${watch(foldersActor, (f) =>
-              f.context.asks.some((a) => a.code === invite.code)
-                ? html`<button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
-                    ${t("invite.cancel_request")}
-                  </button>`
-                : null,
-            )}
-            <button class="ui-btn-primary" @click=${() => join.closeLinkTurnedOff()}>
+        stopped.title,
+        html`<h3 class="break-words text-base font-semibold text-fg">${stopped.title}</h3>
+          ${watch(foldersActor, (f) =>
+            stopped.askedLine && f.context.asks.some((a) => a.code === invite.code)
+              ? html`<p class="mt-3 text-sm text-fg">
+                  ${t("join_request.your_request_wasn_t_answered")}
+                </p>`
+              : null,
+          )}
+          <p class="mt-3 text-sm text-fg">${stopped.body}</p>
+          <div class="mt-4 flex justify-end">
+            <button class="ui-btn-primary" @click=${() => join.closeStoppedLink()}>
               ${t("invite.close")}
             </button>
           </div>`,
-        () => join.closeLinkTurnedOff(),
+        () => join.closeStoppedLink(),
       );
     }
     if (state === "decidingToAsk" || state === "sendingRequest") {

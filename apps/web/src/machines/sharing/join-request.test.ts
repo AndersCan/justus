@@ -59,7 +59,7 @@ beforeEach(async () => {
   foldersContext.asks = [];
   join.closeWaiting();
   join.dismissDecline();
-  join.closeLinkTurnedOff();
+  join.closeStoppedLink();
   await settle();
 });
 
@@ -138,8 +138,9 @@ describe("join singleton", () => {
     expect(view().state).toBe("decidingToAsk");
   });
 
-  test("Cancel request on a turned-off request asks the backend to take it back", async () => {
+  test("Close on a dead request asks the backend to take it off the list", async () => {
     mocks.cancelAsk.mockResolvedValue([null, { ok: true }]);
+    foldersContext.asks = [{ code: INVITE.code, status: "linkOff" }];
     join.reopenRequest({
       code: INVITE.code,
       owner: INVITE.owner,
@@ -147,30 +148,15 @@ describe("join singleton", () => {
       ownerName: "Nils",
       askedAt: 1,
       status: "linkOff",
+      why: "turnedOff",
     });
     await settle();
-    expect(view().state).toBe("linkTurnedOff");
-    join.cancelRequest();
+    expect(view().state).toBe("linkTurnedOffByAdmin");
+    join.closeStoppedLink();
     await settle();
     expect(mocks.cancelAsk).toHaveBeenCalledWith(INVITE.code);
     await vi.waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
     expect(view().state).toBe("noInviteOpen");
-  });
-
-  test("Close on a turned-off request keeps the row and closes the sheet", async () => {
-    join.reopenRequest({
-      code: INVITE.code,
-      owner: INVITE.owner,
-      albumName: "Spain 2026",
-      ownerName: "Nils",
-      askedAt: 1,
-      status: "linkOff",
-    });
-    await settle();
-    join.closeLinkTurnedOff();
-    await settle();
-    expect(view().state).toBe("noInviteOpen");
-    expect(mocks.cancelAsk).not.toHaveBeenCalled();
   });
 
   test("OK on a decline takes the request off and refreshes the list", async () => {
@@ -220,7 +206,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    join.requestAnswered(INVITE.code, "accepted", "f7");
+    join.requestAnswered({ code: INVITE.code, answer: "accepted", folderId: "f7" });
     await settle();
     expect(mocks.open).toHaveBeenCalledWith("/albums/f7", { replace: false });
   });
@@ -231,7 +217,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    join.requestAnswered(INVITE.code, "declined");
+    join.requestAnswered({ code: INVITE.code, answer: "declined" });
     await settle();
     expect(view().state).toBe("declinedByAdmin");
     expect(mocks.open).not.toHaveBeenCalled();

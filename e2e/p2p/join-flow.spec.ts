@@ -362,7 +362,7 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Continue", exact: true }).click();
-  const off = b.getByRole("dialog", { name: "This invite link no longer works." });
+  const off = b.getByRole("dialog", { name: /replaced this link\.$/ });
   await expect(off).toBeVisible({ timeout: 20_000 });
   await expect(b.getByRole("dialog", { name: /^Ask to join/ })).toHaveCount(0);
   await off.getByRole("button", { name: "Close", exact: true }).click();
@@ -475,10 +475,13 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await a.getByRole("button", { name: "Turn off", exact: true }).click();
   await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
 
-  const sheet = b.getByRole("dialog", { name: "This invite link no longer works." });
+  const sheet = b.getByRole("dialog", { name: /turned off this link\.$/ });
   await expect(sheet).toBeVisible({ timeout: 60_000 });
-  await expect(sheet.getByText(/^Ask .+ for a new one\.$/)).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Cancel request", exact: true })).toBeVisible();
+  await expect(sheet.getByText("Your request wasn't answered.")).toBeVisible();
+  await expect(
+    sheet.getByText(/^Ask .+ for a new link if you still want to join\.$/),
+  ).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Cancel request", exact: true })).toHaveCount(0);
   await expect(sheet.getByRole("button", { name: "Close", exact: true })).toBeVisible();
   await expect(b.locator("img")).toHaveCount(0);
   await expect(b.getByText(PHOTO)).toHaveCount(0);
@@ -486,14 +489,14 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
 
   await sheet.getByRole("button", { name: "Close", exact: true }).click();
   await b.goto("/join");
-  const row = b.getByRole("button", { name: "Link no longer works: Off trip" });
-  await expect(row).toBeVisible();
+  const row = b.getByRole("button", { name: /Off trip$/ });
+  await expect(row).toHaveCount(0);
   await b.reload();
-  await expect(row).toBeVisible();
+  await expect(row).toHaveCount(0);
 
   await b.getByLabel("Invite link").fill(link);
   await b.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(b.getByRole("dialog", { name: "This invite link no longer works." })).toBeVisible({
+  await expect(b.getByRole("dialog", { name: /turned off this link\.$/ })).toBeVisible({
     timeout: 20_000,
   });
   await expect(b.getByRole("dialog", { name: "Ask to join “Off trip”?" })).toHaveCount(0);

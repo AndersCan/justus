@@ -819,50 +819,69 @@ test("Maya: asks in time, the link ends, Nils accepts", async () => {
   expect(actor.state.name).toBe("joinedAlbum");
 });
 
-describe("linkTurnedOff", () => {
+describe("stopped links", () => {
   const linkOff = { code: INVITE.code, answer: "linkOff" };
   const found = (code: string) => (code === INVITE.code ? ask("waiting") : undefined);
+  const SCREENS = [
+    ["expired", "linkExpired"],
+    ["turnedOff", "linkTurnedOffByAdmin"],
+    ["replaced", "linkReplacedByAdmin"],
+    ["albumDeleted", "albumDeletedByAdmin"],
+    [undefined, "linkStoppedForUnknownReason"],
+  ] as const;
 
-  async function screen() {
+  async function screen(why?: string) {
     const s = await waitingSetup();
-    await s.send("requestAnswered", linkOff);
+    await s.send("requestAnswered", { ...linkOff, why });
     return s;
   }
 
-  test("Continue on a link the phone knows is off shows no-longer-works and sends nothing", async () => {
-    const s = setup({ known: { kind: "turnedOff" } });
-    await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("linkTurnedOff");
+  test.each(SCREENS)("a linkOff answer with why %s while waiting shows %s", async (why, name) => {
+    const s = await screen(why);
+    expect(s.actor.state.name).toBe(name);
     expect(payload(s)).toEqual(INVITE);
-    expect(s.outputs).toEqual([]);
   });
 
-  test("a link both turned off and past its end time shows no-longer-works, not ended", async () => {
-    const s = setup({ known: { kind: "turnedOff" } });
+  test.each(SCREENS)(
+    "a linkOff answer with why %s and the sheet closed shows %s",
+    async (why, name) => {
+      const s = await waitingSetup({ asked: found });
+      await s.send("closeWaiting");
+      await s.send("requestAnswered", { ...linkOff, why });
+      expect(s.actor.state.name).toBe(name);
+      expect(payload(s)).toEqual(INVITE);
+    },
+  );
+
+  test.each(SCREENS)("a row with why %s reopens into %s", async (why, name) => {
+    const s = setup();
+    await s.send("reopenRequest", { ask: { ...ask("linkOff"), why } });
+    expect(s.actor.state.name).toBe(name);
+    expect(payload(s)).toEqual(INVITE);
+  });
+
+  test.each(SCREENS)(
+    "a link known to be stopped with why %s opens %s and sends nothing",
+    async (why, name) => {
+      const s = setup({ known: { kind: "stopped", why } });
+      await s.send("openLink", { text: LINK });
+      expect(s.actor.state.name).toBe(name);
+      expect(payload(s)).toEqual(INVITE);
+      expect(s.outputs).toEqual([]);
+    },
+  );
+
+  test("a link both stopped and past its end time shows the stopped reason, not ended", async () => {
+    const s = setup({ known: { kind: "stopped", why: "replaced" } });
     s.clock.advance(600_000);
     await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
-    expect(s.actor.state.name).toBe("linkTurnedOff");
-  });
-
-  test("a linkOff answer while waiting shows the no-longer-works screen", async () => {
-    const s = await screen();
-    expect(s.actor.state.name).toBe("linkTurnedOff");
-    expect(payload(s)).toEqual(INVITE);
-    expect((payload(s) as JoinInvite).code).toBe(INVITE.code);
+    expect(s.actor.state.name).toBe("linkReplacedByAdmin");
   });
 
   test("a linkOff for another code is ignored while waiting", async () => {
     const s = await waitingSetup();
     await s.send("requestAnswered", { code: "c".repeat(64), answer: "linkOff" });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
-  });
-
-  test("linkOff with the sheet closed opens the screen for the stored ask", async () => {
-    const s = await waitingSetup({ asked: found });
-    await s.send("closeWaiting");
-    await s.send("requestAnswered", linkOff);
-    expect(s.actor.state.name).toBe("linkTurnedOff");
-    expect(payload(s)).toEqual(INVITE);
   });
 
   test("linkOff with no stored ask stays quiet", async () => {
@@ -881,36 +900,68 @@ describe("linkTurnedOff", () => {
     expect(payload(s)).toEqual(INVITE);
   });
 
-  test("a turned-off row opens the screen", async () => {
-    const s = setup();
-    await s.send("reopenRequest", { ask: ask("linkOff") });
-    expect(s.actor.state.name).toBe("linkTurnedOff");
-    expect(payload(s)).toEqual(INVITE);
+  test.each(SCREENS.map(([why]) => why))(
+    "Close with why %s takes the dead request off",
+    async (why) => {
+      const s = await screen(why);
+      if (why === "expired") await s.send("dismissExpired");
+      else await s.send("closeStoppedLink");
+      expect(s.actor.state.name).toBe("noInviteOpen");
+      expect(s.outputs.at(-1)).toEqual({ type: "cancelAsk", payload: { code: INVITE.code } });
+    },
+  );
+
+  test("Close twice takes the request off once", async () => {
+    const s = await screen("turnedOff");
+    await s.send("closeStoppedLink");
+    await s.send("reopenRequest", { ask: { ...ask("linkOff"), why: "turnedOff" } });
+    await s.send("closeStoppedLink");
+    expect(s.outputs.filter((o) => o.type === "cancelAsk")).toHaveLength(1);
   });
 
-  test("Cancel request on the screen takes the request off", async () => {
-    const s = await screen();
-    await s.send("cancelRequest");
-    expect(s.actor.state.name).toBe("noInviteOpen");
-    expect(s.outputs.at(-1)).toEqual({ type: "cancelAsk", payload: { code: INVITE.code } });
-  });
-
-  test("Close keeps the request", async () => {
-    const s = await screen();
-    await s.send("closeLinkTurnedOff");
+  test("Close with no stored ask emits nothing", async () => {
+    const s = setup({ known: { kind: "stopped", why: "turnedOff" }, asked: () => undefined });
+    await s.send("openLink", { text: LINK });
+    await s.send("closeStoppedLink");
     expect(s.actor.state.name).toBe("noInviteOpen");
     expect(s.outputs).toEqual([]);
   });
 
-  test("a garbled paste keeps the screen", async () => {
-    const s = await screen();
+  test("OK on the expired screen emits nothing with no row or a declined row", async () => {
+    for (const asked of [() => undefined, () => ask("declined")]) {
+      const s = setup({ asked });
+      s.clock.advance(600_000);
+      await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+      await s.send("dismissExpired");
+      expect(s.actor.state.name).toBe("noInviteOpen");
+      expect(s.outputs).toEqual([]);
+    }
+  });
+
+  test("OK on the expired screen takes a dead row off the phone", async () => {
+    const s = setup({ asked: () => ask("linkOff") });
+    s.clock.advance(600_000);
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    await s.send("dismissExpired");
+    expect(s.outputs).toEqual([{ type: "cancelAsk", payload: { code: INVITE.code } }]);
+  });
+
+  test("Cancel request does nothing on a stopped screen", async () => {
+    const s = await screen("turnedOff");
+    await s.send("cancelRequest");
+    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test.each(SCREENS)("a garbled paste keeps the screen for why %s", async (why, name) => {
+    const s = await screen(why);
     await s.send("openLink", { text: "justus://join/not-a-link" });
-    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(s.actor.state.name).toBe(name);
     expect(payload(s)).toEqual(INVITE);
   });
 
-  test("an accept for another request opens the album over it", async () => {
-    const s = await screen();
+  test.each(SCREENS)("an accept for another request opens the album over %s", async (why) => {
+    const s = await screen(why);
     await s.send("requestAnswered", { code: "c".repeat(64), answer: "accepted", folderId: "f9" });
     expect(s.actor.state.name).toBe("joinedAlbum");
     expect(s.outputs.at(-1)).toEqual({ type: "openAlbum", payload: { folderId: "f9" } });
@@ -918,6 +969,15 @@ describe("linkTurnedOff", () => {
 });
 
 describe("joiner design", () => {
+  const answers: Record<string, string>[] = [
+    { code: INVITE.code, answer: "accepted", folderId: "f1" },
+    { code: INVITE.code, answer: "declined" },
+    { code: INVITE.code, answer: "linkOff" },
+    { code: INVITE.code, answer: "linkOff", why: "expired" },
+    { code: INVITE.code, answer: "linkOff", why: "turnedOff" },
+    { code: INVITE.code, answer: "linkOff", why: "replaced" },
+    { code: INVITE.code, answer: "linkOff", why: "albumDeleted" },
+  ];
   const target = {
     id: "joinRequest",
     create: () => createJoinRequestActor({ clock: VirtualClock() }),
@@ -944,6 +1004,7 @@ describe("joiner design", () => {
         { ask: { ...ask("waiting") } },
         { ask: { ...ask("declined") } },
         { ask: { ...ask("linkOff") } },
+        { ask: { ...ask("linkOff"), why: "turnedOff" } },
         { ask: { ...ask("waiting"), whoMustUpdate: "you" } },
       ],
       whoMustUpdateChanged: [
@@ -951,11 +1012,7 @@ describe("joiner design", () => {
         { code: INVITE.code, who: "nobody" },
         { code: "c".repeat(64), who: "you" },
       ],
-      requestAnswered: [
-        { code: INVITE.code, answer: "accepted", folderId: "f1" },
-        { code: INVITE.code, answer: "declined", folderId: "f1" },
-        { code: INVITE.code, answer: "linkOff", folderId: "f1" },
-      ],
+      requestAnswered: answers,
     },
   };
   test("has no design errors", () => {
@@ -990,9 +1047,9 @@ test("Maya waits, and Nils turns off his links", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
-    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "turnedOff" });
   });
-  expect(actor.state.name).toBe("linkTurnedOff");
+  expect(actor.state.name).toBe("linkTurnedOffByAdmin");
 });
 
 test("Maya closes the waiting screen, and Nils turns off his links", async () => {
@@ -1000,30 +1057,57 @@ test("Maya closes the waiting screen, and Nils turns off his links", async () =>
     await send("openLink", { text: LINK });
     await send("askToJoin");
     await send("closeWaiting");
-    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "turnedOff" });
   });
-  expect(actor.state.name).toBe("linkTurnedOff");
+  expect(actor.state.name).toBe("linkTurnedOffByAdmin");
 });
 
-test("Maya cancels a request whose link was turned off", async () => {
+test("Maya waits, and Nils's phone says an older link was replaced", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "replaced" });
+  });
+  expect(actor.state.name).toBe("linkReplacedByAdmin");
+});
+
+test("Maya waits, and Nils deletes the album", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "albumDeleted" });
+  });
+  expect(actor.state.name).toBe("albumDeletedByAdmin");
+});
+
+test("Maya waits, and Nils's older Justus gives no reason", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
     await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
-    await send("cancelRequest");
+  });
+  expect(actor.state.name).toBe("linkStoppedForUnknownReason");
+});
+
+test("Cy asks, Ada turns off the links, and Cy closes the dead request", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "turnedOff" });
+    await send("closeStoppedLink");
   });
   expect(actor.state.name).toBe("noInviteOpen");
 });
 
-test("Maya closes the no-longer-works screen and taps her row again", async () => {
+test("Maya closes a stopped-link screen and taps her row again", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
     await send("askToJoin");
-    await send("requestAnswered", { code: INVITE.code, answer: "linkOff" });
-    await send("closeLinkTurnedOff");
-    await send("reopenRequest", { ask: ROW("linkOff") });
+    await send("requestAnswered", { code: INVITE.code, answer: "linkOff", why: "turnedOff" });
+    await send("closeStoppedLink");
+    await send("reopenRequest", { ask: { ...ROW("linkOff"), why: "turnedOff" } });
   });
-  expect(actor.state.name).toBe("linkTurnedOff");
+  expect(actor.state.name).toBe("linkTurnedOffByAdmin");
 });
 
 const OTHER_CODE = "c".repeat(64);
