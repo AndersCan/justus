@@ -56,6 +56,8 @@ galleryActor.on("change", {
 // A swipe must not also fire the backdrop's click (browsers synthesize a
 // click after touchend on the touched element).
 let suppressClickUntil = 0;
+// Module scope: a status update re-renders the body mid-swipe and must not drop the gesture.
+let touchStart: { x: number; y: number } | null = null;
 
 // The web unit suite runs in node (no DOM) and must stay import-safe, so only
 // wire the global key handler where a document exists. The handler no-ops when
@@ -116,7 +118,6 @@ export async function deleteFromLightbox(photo: Photo) {
 
 function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
   const adderFill = memberColor(people.find((p) => p.key === photo.member.key)?.color);
-  let touchStart: { x: number; y: number } | null = null;
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
     touchStart = { x: t.clientX, y: t.clientY };

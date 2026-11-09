@@ -8,6 +8,7 @@ import { lightboxActor } from "../machines/lightbox-machine";
 import { syncActor, statusSeen } from "../machines/sync-machine";
 import { lightboxView } from "./lightbox";
 import { memberColor } from "../utils/palette";
+import { galleryActor } from "../machines/gallery-machine";
 
 vi.mock("../gateway", () => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
@@ -62,7 +63,7 @@ describe("holders sheet in the lightbox", () => {
   });
 
   it("gives no Members colours when the open status is another album", () => {
-    see("f2", [{ key: "k1", name: "Ada", admin: true, connected: true }]);
+    see("f2", [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
     openLightbox({
       ...photo,
       folderId: "f1",
@@ -72,7 +73,7 @@ describe("holders sheet in the lightbox", () => {
     const el = document.createElement("div");
     render(lightboxView(), el);
     const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
-    expect(fill).not.toBe(`background:${memberColor(0)}`);
+    expect(fill).toBeUndefined();
   });
 });
 
@@ -113,11 +114,46 @@ describe("lightbox adder dot", () => {
     expect(adder(el)?.getAttribute("style")).toBe(`background:${memberColor(1)};`);
   });
 
+  it("gives no colour to the adder dot when the open status is another album", () => {
+    see("f2", [{ key: "k2", name: "Ben", admin: false, connected: true, color: 1 }]);
+    openLightbox({ ...photo, folderId: "f1", member: { key: "k2", name: "Ben" } });
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    expect(adder(el)?.hasAttribute("style")).toBe(false);
+  });
+
   it("matches the adder by key when two people share a name", () => {
     const d = dot([
       { key: "k1", name: "Ben", admin: true, connected: true, color: 0 },
       { key: "k2", name: "Ben", admin: false, connected: true, color: 1 },
     ]);
     expect(d?.getAttribute("style")).toBe(`background:${memberColor(1)};`);
+  });
+});
+
+describe("swipe in the lightbox", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+
+  it("still steps when a status arrives between touchstart and touchend", () => {
+    const mk = (id: string): Photo => ({ ...photo, id, name: id });
+    const photos = [mk("a"), mk("b"), mk("c")];
+    vi.spyOn(galleryActor, "snapshot").mockReturnValue({ context: { photos } } as never);
+    openLightbox(photos[1]);
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    const root = el.firstElementChild as Element;
+    const touch = (type: string, x: number) => {
+      const e = new Event(type, { bubbles: true });
+      const list = [{ clientX: x, clientY: 0 }];
+      Object.assign(e, { touches: list, changedTouches: list });
+      root.dispatchEvent(e);
+    };
+    touch("touchstart", 300);
+    see("f1", [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
+    touch("touchend", 100);
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
   });
 });
