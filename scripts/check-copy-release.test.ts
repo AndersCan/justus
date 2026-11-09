@@ -1,5 +1,11 @@
-// @ts-expect-error check-copy-release.mjs is a plain script without type declarations
-import { STORE_SHOTS, draftIds, draftShots, releaseProblems } from "./check-copy-release.mjs";
+import {
+  STORE_SHOTS,
+  draftIds,
+  draftShots,
+  noteInput,
+  releaseProblems,
+  // @ts-expect-error check-copy-release.mjs is a plain script without type declarations
+} from "./check-copy-release.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { expect, test } from "vite-plus/test";
@@ -81,4 +87,36 @@ test("note scope keeps a [user] line that makes exactly 500 characters", () => {
   expect(
     releaseProblems({ catalogue: {}, manifest: {}, scope: "note", noteLines: [exact] }),
   ).toEqual([]);
+});
+
+test("noteInput fails when the version has no changelog section, passes when it has one", () => {
+  expect(noteInput("", "0.3.0").problem).toContain('No "## 0.3.0" section');
+  expect(noteInput("## 0.2.0\n- [user]: Old.\n", "v0.3.0").problem).toContain('"## 0.3.0"');
+  expect(noteInput("## 0.3.0\n- *(patch)* Tidy.\n", "0.3.0")).toEqual({
+    noteLines: [],
+    problem: undefined,
+  });
+  expect(
+    noteInput("## 0.3.0\n- [user]: New.\n## 0.2.0\n- [user]: Old.\n", "0.3.0").noteLines,
+  ).toEqual(["New."]);
+});
+
+test("the note gate reads the changelog file, fails on a missing section or a bad version", () => {
+  const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/changelog-`);
+  const file = `${dir}/CHANGELOG.md`;
+  fs.writeFileSync(file, `## 0.3.0\n- [user]: ${"x".repeat(600)}\n`);
+  const run = (...args: string[]) =>
+    spawnSync("node", ["scripts/check-copy-release.mjs", ...args], { encoding: "utf8" });
+  const long = run("note", "0.3.0", file);
+  expect(long.status).toBe(1);
+  expect(long.stderr).toContain("Release note line over 500");
+  const missing = run("note", "0.4.0", file);
+  expect(missing.status).toBe(1);
+  expect(missing.stderr).toContain('No "## 0.4.0" section');
+  expect(run("note", "0.4.0", `${dir}/none.md`).status).toBe(1);
+  expect(run("note").status).toBe(2);
+  expect(run("note", "oops").status).toBe(2);
+  fs.writeFileSync(file, "## 0.3.0\n- [user]: Fine.\n");
+  expect(run("note", "0.3.0", file).status).toBe(0);
+  fs.rmSync(dir, { recursive: true });
 });

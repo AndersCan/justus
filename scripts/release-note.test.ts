@@ -18,6 +18,7 @@ const changelog = `# Changelog
 ## 0.2.6
 <sub>2026-11-01</sub>
 
+- *(patch)* [user]: Old line that must not leak.
 - *(patch)* Tidy CI.
 `;
 
@@ -29,15 +30,21 @@ test("reads only the [user] lines of the asked version, prefix stripped", () => 
   ]);
 });
 
-test("a version with no [user] lines gets the fallback note", () => {
-  expect(releaseNote(userLines(changelogSection(changelog, "0.2.6")))).toBe(
-    "Bug fixes and improvements.",
-  );
+test("a section with no [user] lines gets the fallback note", () => {
+  const section = changelogSection("## 1.0.0\n- *(patch)* Tidy CI.\n", "1.0.0");
+  expect(releaseNote(userLines(section))).toBe("Bug fixes and improvements.");
 });
 
-test("an unknown version or an empty changelog gets the fallback note", () => {
-  expect(changelogSection(changelog, "9.9.9")).toBe("");
-  expect(releaseNote(userLines(changelogSection("", "0.3.0")))).toBe("Bug fixes and improvements.");
+test("an unknown version or an empty changelog has no section", () => {
+  expect(changelogSection(changelog, "9.9.9")).toBeUndefined();
+  expect(changelogSection("", "0.3.0")).toBeUndefined();
+});
+
+test("an older section's [user] line does not leak into the asked version", () => {
+  expect(userLines(changelogSection(changelog, "0.3.0"))).not.toContain(
+    "Old line that must not leak.",
+  );
+  expect(userLines(changelogSection(changelog, "0.2.6"))).toEqual(["Old line that must not leak."]);
 });
 
 test("a tag name with a leading v finds the same section", () => {
@@ -46,7 +53,7 @@ test("a tag name with a leading v finds the same section", () => {
 });
 
 test("a version is not matched by prefix", () => {
-  expect(changelogSection("## 0.3.10\n- [user]: x", "0.3.1")).toBe("");
+  expect(changelogSection("## 0.3.10\n- [user]: x", "0.3.1")).toBeUndefined();
 });
 
 test("lines are bullets, one per line", () => {
@@ -70,9 +77,10 @@ test("a first line over 500 characters leaves the fallback note", () => {
   expect(releaseNote(["x".repeat(600)])).toBe("Bug fixes and improvements.");
 });
 
-test("the script prints the fallback for a version without notes and rejects a bad version", () => {
+test("the script fails for a version with no changelog section and rejects a bad version", () => {
   const ok = spawnSync("node", ["scripts/release-note.mjs", "0.0.1"], { encoding: "utf8" });
-  expect(ok.stdout.trim()).toBe("Bug fixes and improvements.");
+  expect(ok.status).toBe(1);
+  expect(ok.stderr).toContain('No "## 0.0.1" section');
   const bad = spawnSync("node", ["scripts/release-note.mjs", "oops"], { encoding: "utf8" });
   expect(bad.status).toBe(2);
 });

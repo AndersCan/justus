@@ -22,6 +22,19 @@ export function draftShots(manifest) {
   return STORE_SHOTS.filter((name) => manifest[name]?.approved !== true).sort();
 }
 
+/** The [user] lines of a version's changelog section, or a problem when the version has no section. */
+export function noteInput(changelog, version) {
+  const section = changelogSection(changelog, version);
+  if (section === undefined) {
+    const heading = version.replace(/^v/, "");
+    return {
+      noteLines: [],
+      problem: `No "## ${heading}" section in ${CHANGELOG}; run bumpy version first.`,
+    };
+  }
+  return { noteLines: userLines(section), problem: undefined };
+}
+
 /**
  * What a release refuses. scope "app" is the text inside the app (everything but
  * `store.*`); "store" is the Play listing text and screenshots.
@@ -57,17 +70,25 @@ function main() {
   }
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const read = (file) => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
-  const changelog = path.join(root, CHANGELOG);
-  const noteLines =
-    scope === "note" && fs.existsSync(changelog)
-      ? userLines(changelogSection(fs.readFileSync(changelog, "utf8"), process.argv[3]))
-      : [];
+  const version = process.argv[3] ?? "";
+  if (scope === "note" && !/^v?\d+\.\d+\.\d+/.test(version)) {
+    console.error("usage: check-copy-release.mjs note <version>");
+    process.exit(2);
+  }
+  // Optional 4th argument: a changelog path, for tests.
+  const changelog = process.argv[4] ?? path.join(root, CHANGELOG);
+  const note =
+    scope === "note"
+      ? noteInput(fs.existsSync(changelog) ? fs.readFileSync(changelog, "utf8") : "", version)
+      : { noteLines: [], problem: undefined };
+  const noteLines = note.noteLines;
   const problems = releaseProblems({
     catalogue: scope === "note" ? {} : read(CATALOGUE),
     manifest: scope === "note" ? {} : read(SHOTS_MANIFEST),
     scope,
     noteLines,
   });
+  if (note.problem) problems.unshift(note.problem);
   if (problems.length > 0) {
     for (const line of problems) console.error(line);
     console.error(
