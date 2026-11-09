@@ -632,6 +632,8 @@ test("A accepts B and C in one tap as Viewers: both land, A's waiting list is em
 
   await expect(a.getByText(`wants to join “${album}”`)).toHaveCount(2, { timeout: 60_000 });
   await a.getByRole("button", { name: "Accept all 2 as Viewers", exact: true }).click();
+  await expect(a.getByRole("dialog", { name: "Accept these 2 people as Viewers?" })).toBeVisible();
+  await a.getByRole("button", { name: "Accept 2 as Viewers", exact: true }).click();
   await expect(a.getByText("2 people are in as Viewers")).toBeVisible({ timeout: 30_000 });
   await expect(a.getByText(/wants to join/)).toHaveCount(0);
 

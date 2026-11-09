@@ -602,6 +602,8 @@ describe("album join requests", () => {
       () => new Promise((r) => resolvers.push(r)) as never,
     );
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
+    button(host, "Accept 2 as Viewers")!.click();
     await vi.waitFor(() => expect(resolvers).toHaveLength(1));
     await vi.waitFor(() => {
       expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
@@ -632,6 +634,8 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
+    button(host, "Accept 2 as Viewers")!.click();
     await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
     expect(host.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn't connect. Check your internet and try again.",
@@ -641,6 +645,60 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
     expect(toast).toHaveBeenCalledTimes(1);
     await requestsActor.settled();
+  });
+
+  test("Accept all opens a sheet naming everyone and answers nobody until Accept", async () => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    const dialog = host.querySelector('[role=dialog][aria-label^="Accept these"]')!;
+    expect(dialog.getAttribute("aria-label")).toBe("Accept these 2 people as Viewers?");
+    expect(flat(dialog)).toContain("nils");
+    expect(flat(dialog)).toContain("ola");
+    expect(flat(dialog)).toContain("Asked");
+    expect(flat(dialog)).toContain("every photo in “Trip”");
+    expect(gateway.respond).not.toHaveBeenCalled();
+    await requestsActor.settled();
+  });
+
+  test.each([
+    [
+      "Cancel",
+      (host: HTMLElement) =>
+        (host.querySelector("[data-accept-all-cancel]") as HTMLElement).click(),
+    ],
+    [
+      "Escape",
+      (host: HTMLElement) =>
+        host
+          .querySelector('[role=dialog][aria-label^="Accept these"]')!
+          .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+    ],
+    [
+      "a tap outside",
+      (host: HTMLElement) =>
+        (
+          host.querySelector('[role=dialog][aria-label^="Accept these"]')!
+            .parentElement as HTMLElement
+        ).click(),
+    ],
+  ])("%s closes the Accept all sheet, lets nobody in and keeps both cards", async (_n, close) => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    close(host);
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).toBeNull(),
+    );
+    await requestsActor.settled();
+    expect(gateway.respond).not.toHaveBeenCalled();
+    expect(host.querySelectorAll('li[data-motion-key^="request:"]')).toHaveLength(2);
   });
 
   test("Decline lowers the count and the button goes at one", async () => {
