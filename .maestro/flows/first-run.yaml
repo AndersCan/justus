@@ -69,6 +69,24 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "No photos in this album yet."
     timeout: 15000
+# Send invite link opens the system share sheet; Back closes it and leaves the page as it was.
+- tapOn:
+    text: "Invite & members"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Invite people"
+    timeout: 15000
+- tapOn:
+    text: "Send invite link"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    notVisible: "Invite people"
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible: "Send invite link"
+    timeout: 15000
 # App lock was turned on from the first-run card; Settings shows it on.
 - tapOn:
     text: "Settings"

@@ -25,6 +25,7 @@ import { friendChoices, type FriendChoice } from "../machines/sharing/add-friend
 import { confirmAction } from "./confirm";
 import { openAddFriend } from "./add-friend-sheet";
 import { toast } from "./toast";
+import { gateway } from "../gateway";
 
 import { copy, t } from "../copy/copy";
 export async function copyText(value: string): Promise<boolean> {
@@ -63,11 +64,25 @@ async function madeLink(folder: FolderSummary, myName: string): Promise<string |
   return inviteLinkFor(folder, myName, view.expiresAt);
 }
 
-/** Native share sheet when available, otherwise copy. */
+function isStoreApp(): boolean {
+  return (window as { BareShell?: boolean }).BareShell === true;
+}
+
+/** The store apps' WebViews have no Web Share, so they open the phone's own sheet. */
+export function canShareInvite(): boolean {
+  return isStoreApp() || typeof navigator.share === "function";
+}
+
+/** Phone's share sheet in the store apps, the browser's when it has one, otherwise copy. */
 export async function shareInvite(folder: FolderSummary, myName: string) {
   const link = await madeLink(folder, myName);
   if (!link) return;
   const text = copy("invite.ask_to_join_my_justus", { name: folder.name, link });
+  if (isStoreApp()) {
+    // Closing the sheet looks like sending from it; the Copy button is the fallback.
+    await gateway.share.send(text);
+    return;
+  }
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: copy("invite.justus_album", { name: folder.name }), text });
@@ -270,7 +285,7 @@ function invitePanelBody(
   // One coloured button: Add a friend when a friend can be added, else the link.
   const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
   const waiting = waitingLine(folder.waitingFor);
-  const canShare = typeof navigator.share === "function";
+  const canShare = canShareInvite();
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
   const linksOff = view.offFolderId === folder.id;
