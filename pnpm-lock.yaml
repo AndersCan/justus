@@ -238,6 +238,9 @@ catalogs:
     '@types/node':
       specifier: ^24
       version: 24.13.3
+    '@varlock/bumpy':
+      specifier: ^1.18.1
+      version: 1.19.0
     astro:
       specifier: ^7.4.4
       version: 7.4.6
@@ -285,6 +288,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.62.1
+      '@varlock/bumpy':
+        specifier: 'catalog:'
+        version: 1.19.0
       astro:
         specifier: 'catalog:'
         version: 7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
@@ -300,6 +306,8 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.8(@types/node@26.2.0)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
+
+  apps/android: {}
 
   apps/backend:
     dependencies:
@@ -2036,6 +2044,10 @@ packages:
     resolution: {integrity: sha512-1z1TBCNJCR2WzjPtjzmCHr8rtzXHosMjLdsCNe6Mzsfwiw044gzzLVuiEZO9vIjkI50lvQ+gIOxOiVQG0hGAeA==}
     peerDependencies:
       vite: ^5.0.0-0 || ^6.0.0-0 || ^7.0.0-0 || ^8.0.0-0
+
+  '@varlock/bumpy@1.19.0':
+    resolution: {integrity: sha512-/hkveH/A2pR4EpKPYmHhXjCAKgZad6DlMJR32DWWwazJv17QI+Nzx0iarqmdpWuGnEotTIrmeoHFR7zffCwpTw==}
+    hasBin: true
 
   '@vitest/browser-preview@4.1.10':
     resolution: {integrity: sha512-14MJrL59ZFkqXLjwfSk6RzTDy5Czf9UG4+8q8L6Gxjs2aPjEce/cVNYV14bXAc2BvMjUNu904+ZEZA1Xc1wtvQ==}
@@ -5578,6 +5590,8 @@ snapshots:
       tinyglobby: 0.2.17
       unplugin-utils: 0.3.2
       vite: '@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
+
+  '@varlock/bumpy@1.19.0': {}
 
   '@vitest/browser-preview@4.1.10(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(vitest@4.1.10)':
     dependencies:

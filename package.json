@@ -28,6 +28,7 @@
     "@mantaq/inspect": "catalog:",
     "@mantaq/viz": "catalog:",
     "@playwright/test": "catalog:",
+    "@varlock/bumpy": "catalog:",
     "astro": "catalog:",
     "playwright": "catalog:",
     "require-asset": "^1.2.2",

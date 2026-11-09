@@ -35,6 +35,19 @@ layer, Host, Actor). Use those terms exactly.
   `apps/backend`) and the `bare-host` AAR (`apps/android/app/build.gradle`) track
   the same release. Bump both together, run `vp check` + tests, then do app work.
   Currently **0.6.0**.
+- **Every PR adds a bump file.** Run `pnpm bumpy add` (CI fails without one);
+  use `--empty` for CI, test, docs and listing work. Each user-visible change
+  gets one line starting `[user]:`, written for the person holding the phone
+  (what they can now do or no longer hit, no jargon). Other lines are the
+  developer changelog. Example body:
+
+  ```
+  [user]: Photos you add while offline now send as soon as you are back online.
+  Retry the outbox on reconnect instead of on the next app start.
+  ```
+
+  The Android release note is built from the `[user]:` lines.
+
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
 - **All app state is a mantaq actor.** Views read it with `watch(actor, select)`
   from `@mantaq/lit`. For two actors, nest `watch`. Never nest two `watch`es on

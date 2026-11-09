@@ -1,0 +1,17 @@
+{
+  "$schema": "https://bumpy.varlock.dev/config-schema.json",
+  "baseBranch": "main",
+  "changelog": "default",
+  "publish": {
+    "access": "restricted"
+  },
+  "packages": {
+    "apps/*": {},
+    "packages/*": {}
+  },
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  },
+  "updateInternalDependencies": "patch"
+}
