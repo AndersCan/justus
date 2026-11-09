@@ -4,6 +4,7 @@ import type { Photo } from "@justus/core";
 import {
   GALLERY_STATES,
   gallery,
+  photoDeleted,
   galleryActor,
   galleryViewModel,
 } from "../machines/gallery-machine";
@@ -16,7 +17,10 @@ import { onStateChange } from "../machines/actor-utils";
 import { foldersActor } from "../machines/folders-machine";
 import { canRemove, roleFor, whyNoDelete } from "../utils/can-remove";
 import { toast } from "./toast";
-import { deleteDetail } from "../utils/holders";
+import { deleteDetail, deletedMessage } from "../utils/holders";
+import { buildPeople } from "../utils/people";
+import { friendsActor } from "../machines/friends-machine";
+import { syncActor } from "../machines/sync-machine";
 import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
 
 import { copy, t } from "../copy/copy";
@@ -70,6 +74,15 @@ if (typeof document !== "undefined") {
   });
 }
 
+/** The other people in the album the photo is in, when it is the open one; none otherwise. */
+function albumOthers(folderId: string | undefined) {
+  const status = syncActor.snapshot().context.status;
+  if (!status || status.folder.id !== folderId) return [];
+  return buildPeople(status, [], friendsActor.snapshot().context.friends).people.filter(
+    (p) => !p.you,
+  );
+}
+
 export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
   const ok = await confirmAction({
@@ -79,11 +92,18 @@ export async function deleteFromLightbox(photo: Photo) {
     tone: "danger",
   });
   if (!ok) return;
+  const others = albumOthers(photo.folderId);
+  const offDeleted = galleryActor.on("output", {
+    fn: (e) => {
+      if (photoDeleted.is(e)) toast(deletedMessage(photo.name, others));
+    },
+  });
   gallery.remove(photo.id, photo.folderId);
   // The view stays open until the album answers: success drops the photo and closes it.
   const stop = onStateChange(galleryActor, GALLERY_STATES, (next) => {
     if (next === "removingPhoto") return;
     stop();
+    offDeleted();
     if (next === "couldNotRemovePhoto")
       toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));
   });

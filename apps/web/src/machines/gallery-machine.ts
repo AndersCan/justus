@@ -125,7 +125,9 @@ const dismissBatch = event("DISMISS_BATCH")();
 /** The person removes a photo from the album. */
 const remove = event("REMOVE")<{ id: string; folderId?: string }>();
 /** The photo was removed. */
-const removed = event("REMOVED")<{ id: string; folderId?: string }>();
+const removed = event("REMOVED")<{ id: string; folderId?: string; alreadyGone: boolean }>();
+/** A photo was deleted by this phone (not one that was already gone); the viewer says so. */
+export const photoDeleted = event("PHOTO_DELETED")<{ id: string; folderId?: string }>();
 /** The photo could not be removed. */
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 /** The person taps Try again after an error. */
@@ -180,7 +182,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
   return Actor({
     inputs: [load, addMany, remove, retry, retryFailed, dismissBatch, synced],
     internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
-    outputs: [],
+    outputs: [photoDeleted],
     states: [
       photosNotLoaded,
       loadingPhotos,
@@ -512,14 +514,15 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           }
           return runInvoke(
             signal,
-            // Already deleted (often by someone else) counts as deleted; a role race is restored by the next reload.
+            // Already deleted still drops the photo but says nothing: the backend gives the same answer when it cannot find the photo.
+            // A role race is restored by the next reload.
             () =>
               port
                 .remove(pending.id, pending.folderId)
                 .then(([error, result]) =>
-                  codeOf(error) === PHOTO_GONE_CODE ? [null, result] : [error, result],
+                  codeOf(error) === PHOTO_GONE_CODE ? [null, "alreadyGone"] : [error, result],
                 ),
-            () => emit(removed.create(pending)),
+            (result) => emit(removed.create({ ...pending, alreadyGone: result === "alreadyGone" })),
             (message) => emit(removeFailed.create({ message })),
           );
         },
@@ -536,7 +539,12 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
               photos: c.photos.filter((p) => !samePhoto(p, e.payload)),
             }),
           );
-          return { state: showingPhotos };
+          return {
+            state: showingPhotos,
+            emit: e.payload.alreadyGone
+              ? []
+              : [photoDeleted.create({ id: e.payload.id, folderId: e.payload.folderId })],
+          };
         },
       });
       /** Removing failed: the photo stays and the person sees why. */

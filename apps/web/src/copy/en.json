@@ -3037,6 +3037,34 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "lightbox.deleted": {
+    "text": "Deleted “{name}”.",
+    "status": "draft",
+    "where": "Photo viewer › Deleted toast",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": "lightbox"
+  },
+  "lightbox.drops_it_now": {
+    "text": "{list} {n?album drops:albums drop} it now.",
+    "status": "draft",
+    "where": "Photo viewer › Deleted toast",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": "lightbox"
+  },
+  "lightbox.drops_it_later": {
+    "text": "{list} {n?album drops:albums drop} it later, when connected.",
+    "status": "draft",
+    "where": "Photo viewer › Deleted toast",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": "lightbox"
+  },
+  "lightbox.drops_it_now_and_later": {
+    "text": "{now} {n?album drops:albums drop} it now, {later} later, when connected.",
+    "status": "draft",
+    "where": "Photo viewer › Deleted toast",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": "lightbox"
+  },
   "lightbox.delete": {
     "text": "Delete “{name}”?",
     "status": "draft",

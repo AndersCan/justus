@@ -285,16 +285,31 @@ describe("gallery factory", () => {
     expect(h.ctx().photos).toHaveLength(1);
   });
 
-  test("a photo already deleted counts as deleted", async () => {
+  test("a deleted photo says so once", async () => {
+    const h = build({ list: async () => [null, { photos: [photo("p1")] }] });
+    const outputs: unknown[] = [];
+    h.actor.on("output", { fn: (e) => void outputs.push(e) });
+    await ready(h);
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    await vi.waitFor(() => expect(h.ctx().photos).toHaveLength(0));
+    expect(outputs).toEqual([
+      expect.objectContaining({ type: "PHOTO_DELETED", payload: { id: "p1", folderId: "f1" } }),
+    ]);
+  });
+
+  test("a photo already deleted drops from the list and says nothing", async () => {
+    const outputs: unknown[] = [];
     const h = build({
       list: async () => [null, { photos: [photo("p1")] }],
       remove: async () => [{ code: "justus.photos/not-found", message: "No photo p1" }, null],
     });
+    h.actor.on("output", { fn: (e) => void outputs.push(e) });
     await ready(h);
     h.send("REMOVE", { id: "p1", folderId: "f1" });
     await vi.waitFor(() => expect(h.ctx().photos).toHaveLength(0));
     expect(h.stateOf()).toBe("showingPhotos");
     expect(h.ctx().error).toBeNull();
+    expect(outputs).toEqual([]);
   });
 
   test("a failed delete keeps its reason in context but not in the banner", async () => {
@@ -302,11 +317,14 @@ describe("gallery factory", () => {
       list: async () => [null, { photos: [photo("p1")] }],
       remove: async () => [new Error("not allowed"), null],
     });
+    const outputs: unknown[] = [];
+    h.actor.on("output", { fn: (e) => void outputs.push(e) });
     await ready(h);
     h.send("REMOVE", { id: "p1", folderId: "f1" });
     await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
     expect(galleryViewModel(h.actor.snapshot(), null).error).toBeNull();
     expect(h.ctx().error).toBe("not allowed");
+    expect(outputs).toEqual([]);
   });
 
   describe("from couldNotRemovePhoto", () => {

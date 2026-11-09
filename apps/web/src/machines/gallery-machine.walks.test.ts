@@ -24,11 +24,33 @@ test("Anna removes a photo and it is gone", async () => {
   actor.inject({ type: "PHOTOS_LOADED", payload: { photos: [beach, picnic] } });
   await actor.settled();
   actor.send({ type: "REMOVE", payload: { id: beach.id, folderId: beach.folderId } });
-  actor.inject({ type: "REMOVED", payload: { id: beach.id, folderId: beach.folderId } });
+  actor.inject({
+    type: "REMOVED",
+    payload: { id: beach.id, folderId: beach.folderId, alreadyGone: false },
+  });
   await actor.settled();
   const view = galleryViewModel(actor.snapshot(), null);
   expect(view.state).toBe("showingPhotos");
   expect(view.photos).toEqual([picnic]);
+});
+
+test("Anna deletes a photo someone already deleted, and no Deleted message shows", async () => {
+  const actor = make({ clock: VirtualClock() });
+  const outputs: string[] = [];
+  actor.on("output", { fn: (e) => void outputs.push(e.type) });
+  actor.send({ type: "LOAD" });
+  actor.inject({ type: "PHOTOS_LOADED", payload: { photos: [beach, picnic] } });
+  await actor.settled();
+  actor.send({ type: "REMOVE", payload: { id: beach.id, folderId: beach.folderId } });
+  actor.inject({
+    type: "REMOVED",
+    payload: { id: beach.id, folderId: beach.folderId, alreadyGone: true },
+  });
+  await actor.settled();
+  const view = galleryViewModel(actor.snapshot(), null);
+  expect(view.state).toBe("showingPhotos");
+  expect(view.photos).toEqual([picnic]);
+  expect(outputs).toEqual([]);
 });
 
 test("Anna removes a photo, it fails, and the photo stays", async () => {
