@@ -148,6 +148,16 @@ describe("deletedMessage", () => {
     ["two connected", [ben, ana], "Deleted “Sunset”. Ben's and Ana's albums drop it now."],
     ["one away", [cara], "Deleted “Sunset”. Cara's album drops it later, when connected."],
     [
+      "two away",
+      [cara, { name: "Dan", connected: false }],
+      "Deleted “Sunset”. Cara's and Dan's albums drop it later, when connected.",
+    ],
+    [
+      "two connected and one away",
+      [ben, ana, cara],
+      "Deleted “Sunset”. Ben's and Ana's albums drop it now, Cara's later, when connected.",
+    ],
+    [
       "both",
       [ben, cara],
       "Deleted “Sunset”. Ben's album drops it now, Cara's later, when connected.",

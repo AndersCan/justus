@@ -5,6 +5,7 @@ import { toast } from "./toast";
 import { lightboxActor } from "../machines/lightbox-machine";
 import { galleryActor, gallery } from "../machines/gallery-machine";
 import { syncActor } from "../machines/sync-machine";
+import { friendsActor } from "../machines/friends-machine";
 import type { Photo } from "@justus/core";
 
 const hoisted = vi.hoisted(() => ({
@@ -214,6 +215,27 @@ describe("Delete", () => {
       "Deleted “b”. Ben's album drops it now, Cara's later, when connected.",
     );
     vi.mocked(syncActor.snapshot).mockRestore();
+  });
+
+  it("uses the saved friend name for a member", async () => {
+    await reload([a, b]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f1" },
+          members: [member("Ada", true), { ...member("Ben", true), identity: "id-ben" }],
+        },
+      },
+    } as never);
+    vi.spyOn(friendsActor, "snapshot").mockReturnValue({
+      context: { friends: { "id-ben": "Benny" } },
+    } as never);
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox({ ...b, folderId: "f1" });
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny's album drops it now.");
+    vi.mocked(syncActor.snapshot).mockRestore();
+    vi.mocked(friendsActor.snapshot).mockRestore();
   });
 
   it("names nobody when the photo is not in the open album", async () => {
