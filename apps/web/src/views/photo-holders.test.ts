@@ -33,16 +33,22 @@ const draw = (t: unknown) => {
 };
 
 describe("holdersRow", () => {
-  it("is h-11 when tappable", () => {
+  it("is min-h-11 when tappable", () => {
     const el = draw(holdersRow(photo(h({}))));
     const b = el.querySelector("button");
-    expect(b?.className).toContain("h-11");
+    expect(b?.className).toContain("min-h-11");
     expect(b?.getAttribute("aria-label")).toBe("Only on your phone, show who has this photo");
   });
-  it("is h-11 and not a button when it can't tell", () => {
+  it("wraps long text instead of cutting it", () => {
+    const el = draw(holdersRow(photo(h({ waiting: [m("Nils")] }))));
+    const text = el.querySelector(".justus-holders-text");
+    expect(text?.textContent).toContain("On its way to the people you let in");
+    expect(text?.className).not.toContain("truncate");
+  });
+  it("is min-h-11 and not a button when it can't tell", () => {
     const el = draw(holdersRow(photo(undefined)));
     expect(el.querySelector("button")).toBeNull();
-    expect(el.firstElementChild?.className).toContain("h-11");
+    expect(el.firstElementChild?.className).toContain("min-h-11");
     expect(el.textContent).toContain("Can't tell who has this photo yet");
   });
 });
