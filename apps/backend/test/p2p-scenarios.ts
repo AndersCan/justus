@@ -1509,7 +1509,7 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    name: "remove: someone waiting through the invite link is still listed and gets in on Accept",
+    name: "remove: someone waiting through the invite link is dropped, told the link was replaced, and an Accept does not let them in",
     async run(net, t) {
       const admin = await net.peer("Phone");
       const desktop = await net.peer("Desktop");
@@ -1549,23 +1549,21 @@ export const scenarios: Scenario[] = [
       const tabletKey = waiting.requests[0].requesterKey;
 
       t.noErr(await admin.store.removeMember(folderId, desktopKey), "remove Desktop");
-      const moved = (await admin.store.folders()).folders.find((f) => f.id === folderId)!;
       await eventually(
         () => admin.store.requests(),
-        (r) => r.requests.some((x) => x.requesterKey === tabletKey),
-        "Tablet is still listed after the Remove",
+        (r) => !r.requests.some((x) => x.requesterKey === tabletKey),
+        "Tablet leaves the Admin's list after the Remove",
         60_000,
       );
-
-      t.noErr(await admin.store.respond(folderId, tabletKey, true, "reader"), "accept Tablet");
-      const album = await eventually(
-        async () =>
-          (await tablet.store.folders()).folders.find((f) => f.shareKey === moved.shareKey),
-        (f) => f?.role === "reader" && !f.pending,
-        "Tablet is a Viewer on the new key",
+      const told = await eventually(
+        async () => (await tablet.store.folders()).asks[0],
+        (a) => a?.status === "linkOff",
+        "Tablet hears the link was replaced",
         60_000,
       );
-      t.ok(album?.role === "reader", "Tablet got the role the Admin picked");
+      t.eq(told?.why, "replaced", "Tablet is told why");
+      const [error] = await admin.store.respond(folderId, tabletKey, true, "reader");
+      t.ok(error !== null, "an Accept on the dropped request fails");
     },
   },
 ];

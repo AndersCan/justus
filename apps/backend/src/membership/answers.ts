@@ -101,7 +101,7 @@ export type OwingAlbum = {
   answers?: Readonly<Record<string, "accepted" | "declined">>;
   /** When the ask a decline answered was made, per identity. */
   declinedAsks?: Readonly<Record<string, number>>;
-  /** Requests the Admin's phone listed when their code was retired at a Remove: identity -> code. Never turned away. */
+  /** Friend invites open, and asks with an answer tapped, when a Remove retired their code: identity -> code. Never turned away. */
   heldAsks?: Readonly<Record<string, string>>;
   /** Discovery keys of the keys this album had before it moved, newest first. */
   movedFrom?: readonly string[];
