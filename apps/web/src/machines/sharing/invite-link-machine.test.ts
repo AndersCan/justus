@@ -311,6 +311,7 @@ describe("turning off links", () => {
     expect(actor.state.name).toBe("linkMade");
     expect(context(actor).folderId).toBe(FOLDER);
     expect(expiresAt(actor)).toBe(first);
+    expect(codeOf(actor)).toBe(CODE);
   });
 
   test("turning off remembers the album until a link is made for it", async () => {
