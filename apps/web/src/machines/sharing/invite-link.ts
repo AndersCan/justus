@@ -27,6 +27,8 @@ export type InviteLinkView = {
   /** Who was removed last, for that album's line. */
   removedName: string;
   expiresAt?: number;
+  /** The code the shown link was saved for. */
+  code?: string;
 };
 
 /** What the invite panel draws, as a pure function of the actor snapshot. */
@@ -49,7 +51,10 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     replacedFolderId: context.replacedFolderId,
     removedName: context.removedName,
     ...(state === "linkMade"
-      ? { expiresAt: (snapshot.payload as { expiresAt: number }).expiresAt }
+      ? {
+          expiresAt: (snapshot.payload as { expiresAt: number; code: string }).expiresAt,
+          code: (snapshot.payload as { expiresAt: number; code: string }).code,
+        }
       : {}),
   };
 }

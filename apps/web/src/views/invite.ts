@@ -59,7 +59,12 @@ async function madeLink(folder: FolderSummary, myName: string): Promise<string |
   inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   await inviteLinkActor.settled();
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
-  if (view.state !== "linkMade" || view.folderId !== folder.id || view.expiresAt === undefined)
+  if (
+    view.state !== "linkMade" ||
+    view.folderId !== folder.id ||
+    view.expiresAt === undefined ||
+    view.code !== (folder.invite?.code ?? "")
+  )
     return null;
   return inviteLinkFor(folder, myName, view.expiresAt);
 }
@@ -258,7 +263,12 @@ export function invitePanel(
   }
   return watch(inviteLinkActor, (snapshot) => {
     const view = inviteLinkViewOf(snapshot);
-    const made = view.folderId === folder.id && view.expiresAt !== undefined ? view : null;
+    const made =
+      view.folderId === folder.id &&
+      view.expiresAt !== undefined &&
+      view.code === (folder.invite?.code ?? "")
+        ? view
+        : null;
     return invitePanelBody(
       folder,
       myName,

@@ -79,6 +79,26 @@ describe("invite card after a removal", () => {
     await actor.settled();
     expect(hasLine(mount("f1", "c2"))).toBe(false);
   });
+
+  test("a made link whose code differs from the album's shows the picker and no link", async () => {
+    inviteLink.createLink("f1", "c");
+    await actor.settled();
+    const host = mount("f1", "c2");
+    expect(host.textContent).not.toContain("This link works until");
+    expect(host.querySelector("select")).not.toBeNull();
+  });
+
+  test("copying when the album's code is refused hands out no link for the old code", async () => {
+    inviteLink.createLink("f1", "c");
+    await actor.settled();
+    inviteLink.linkReplaced("f2", "d", "Cy");
+    await actor.settled();
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    await copyInviteLink(folder("f1", "d"), "Nils");
+    expect(writeText).not.toHaveBeenCalled();
+    expect(mock.toast).toHaveBeenCalledWith("Couldn't copy the invite link");
+  });
 });
 
 describe("copyInviteLink", () => {

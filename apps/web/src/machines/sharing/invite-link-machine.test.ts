@@ -502,6 +502,45 @@ describe("invite link after a removal", () => {
     expect(context(idle.actor).offCode).toBe("");
   });
 
+  test("copying another album's link and then this album's new link clears the removal line", async () => {
+    const { actor } = await shown();
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    actor.send({ type: "createLink", payload: { folderId: OTHER, code: "9".repeat(64) } });
+    await actor.settled();
+    expect(context(actor).replacedFolderId).toBe(FOLDER);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).replacedFolderId).toBe("");
+    expect(context(actor).removedName).toBe("");
+  });
+
+  test("a failed turn-off restores the link with its code, so Copy saves no new time", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup({
+      ...savingPort(saved),
+      turnOff: async () => [new Error("no"), null],
+    });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    turnOff(actor, FOLDER, CODE);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(codeOf(actor)).toBe(CODE);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved).toHaveLength(1);
+  });
+
+  test("an empty code does not overwrite a refused code when no link is shown", async () => {
+    const { actor } = setup();
+    actor.send(removed(FOLDER, CODE));
+    actor.send(removed(FOLDER, ""));
+    await actor.settled();
+    expect(context(actor).offCode).toBe(CODE);
+  });
+
   test("turning off the links clears the replaced line", async () => {
     const { actor } = await shown();
     actor.send(removed(FOLDER, CODE));
