@@ -65,4 +65,25 @@ describe("holders sheet in the lightbox", () => {
     const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
     expect(fill).toBe(`background:${memberColor("k1")}`);
   });
+
+  it("gives no Members colours when the open status is another album", () => {
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f2" },
+          members: [{ key: "k1", name: "Ada", admin: true, connected: true }],
+        },
+      },
+    } as never);
+    openLightbox({
+      ...photo,
+      folderId: "f1",
+      holders: { here: true, others: [], unsure: [], waiting: [], former: [], left: [] },
+    });
+    openHolders();
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
+    expect(fill).not.toBe(`background:${memberColor("k1")}`);
+  });
 });

@@ -69,9 +69,9 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
   const others = rows.others.map((m) => resolve(m, people));
   const waiting = rows.waiting.map((m) => resolve(m, people));
   const unsure = rows.unsure.map((m) => resolve(m, people));
-  const me = people.find((p) => p.you);
+  const self = people.find((p) => p.you);
   const youName = copy("photo_holders.you");
-  const youBadge = me ? memberBadge(me.name, me.key) : avatarBadge(youName);
+  const youBadge = self ? memberBadge(self.name, self.key) : avatarBadge(youName);
   const sources = [
     ...others.map((r) => r.name),
     ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),

@@ -175,6 +175,18 @@ describe("holdersSheet colours", () => {
     expect(fillOf(rows[1])).toBe(`background:${avatarColor("Old phone")}`);
     expect(fillOf(rows[2])).toBe(`background:${avatarColor("Ola")}`);
   });
+  it("shows a hasn't-said-yet keyed row with its Members name and colour", () => {
+    const el = draw(holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old" }] })), people));
+    const row = el.querySelectorAll("li")[1];
+    expect(row.querySelector(".text-fg")?.textContent).toBe("Cy");
+    expect(fillOf(row)).toBe(`background:${memberColor("k2")}`);
+  });
+  it("keeps the name colour for a left name", () => {
+    const el = draw(holdersSheet(photo(h({ left: ["Cleo"] })), people));
+    const row = el.querySelectorAll("li")[1];
+    expect(row.querySelector(".text-fg")?.textContent).toBe("Cleo");
+    expect(fillOf(row)).toBe(`background:${avatarColor("Cleo")}`);
+  });
   it("names Members' name in the Can still get it from heading", () => {
     const el = draw(
       holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada" }], waiting: [m("Cy")] })), people),
