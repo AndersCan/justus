@@ -113,6 +113,11 @@ describe("holdersSheet waiting", () => {
     ]);
     expect(lists[1].textContent).toContain("You");
     expect(lists[1].textContent).toContain("Arriving…");
+    expect(el.querySelector('[data-copy-id="photo_holders.can_still_get_it_from"]')).not.toBeNull();
+  });
+  it("puts you last in the list of sources", () => {
+    const el = draw(holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [m("Cy")] }))));
+    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Can still get it from Ben and you");
   });
   it("claims no source when nobody holds a copy", () => {
     const el = draw(holdersSheet(photo(h({ here: false, others: [] }))));

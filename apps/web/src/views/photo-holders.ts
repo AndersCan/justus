@@ -87,7 +87,7 @@ export function holdersSheet(photo: Photo) {
             ? html`<h4 class="mt-4 text-xs font-semibold text-muted">
                   ${
                     sources.length > 0
-                      ? copy("photo_holders.can_still_get_it_from", { names: nameList(sources) })
+                      ? t("photo_holders.can_still_get_it_from", { names: nameList(sources) })
                       : t("photo_holders.not_on_their_phone_yet")
                   }
                 </h4>
