@@ -215,7 +215,42 @@ describe("noticing photos someone else deleted", () => {
     await s.close();
   });
 
-  it("the Admin removing a member who added photos is not a delete", async () => {
+  it("a Collaborator made a Viewer is not told of a delete on their own phone", async () => {
+    const s = await album();
+    await s.anna.addBytes("sun.jpg", new Uint8Array([1, 2, 3, 4]));
+    await until(async () => (await s.nils.list()).some((p) => p.name === "sun.jpg"));
+    await s.nils.list();
+    await s.anna.makeViewer(s.folderId, s.nilsKey);
+    await until(
+      async () =>
+        (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.role === "reader",
+    );
+    await s.nils.list();
+    await sleep(100);
+    expect(deletedPushes(s.nilsPushes)).toEqual([]);
+    await s.close();
+  });
+
+  it("a removed member is not told of a delete on their own phone", async () => {
+    const s = await album();
+    await s.anna.addBytes("sun.jpg", new Uint8Array([1, 2, 3, 4]));
+    await until(async () => (await s.nils.list()).some((p) => p.name === "sun.jpg"));
+    await s.nils.list();
+    expect((await s.anna.removeMember(s.folderId, s.nilsKey))[0]).toBeNull();
+    await until(
+      async () =>
+        (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.notice?.kind ===
+        "removed",
+    );
+    await s.nils.list();
+    await sleep(100);
+    expect(deletedPushes(s.nilsPushes)).toEqual([]);
+    await s.close();
+  });
+
+  // The third phone never follows a Remove in the fakes (its album stays on the old keys),
+  // so this covers the Admin's phone; the third phone is covered by the Bare p2p scenario.
+  it("the Admin removing a member who added photos tells the Admin nothing about a delete", async () => {
     const s = await album({ cara: true });
     await s.nils.addBytes("mine.jpg", new Uint8Array([5, 6, 7, 8]));
     await until(async () => (await s.cara!.list()).some((p) => p.name === "mine.jpg"));
@@ -237,7 +272,7 @@ describe("noticing photos someone else deleted", () => {
     await until(async () => (await s.anna.list()).some((p) => p.name === "mine.jpg"));
     await s.anna.list();
     await s.nils.leaveAlbum(s.nilsFolderId);
-    await sleep(200);
+    await until(async () => !(await s.anna.list()).some((p) => p.name === "mine.jpg"));
     await s.anna.list();
     expect(deletedPushes(s.annaPushes)).toEqual([]);
     await s.close();
@@ -249,7 +284,7 @@ describe("noticing photos someone else deleted", () => {
     await until(async () => (await s.nils.list()).some((p) => p.name === "sun.jpg"));
     await s.nils.list();
     expect((await s.anna.deleteAlbum(s.folderId))[0]).toBeNull();
-    await sleep(200);
+    await until(async () => !(await s.nils.list()).some((p) => p.name === "sun.jpg"));
     await s.nils.list();
     expect(deletedPushes(s.nilsPushes)).toEqual([]);
     await s.close();

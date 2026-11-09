@@ -2593,22 +2593,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     };
     const now = rt.listing;
     void (async () => {
-      // A member who left takes their photos with them; that is not a delete.
-      const left = new Set<string>();
-      // The Admin deleting the album empties the Admin's drive; that is not a photo delete either.
-      if (await readDeleteNote(rt.folderDrive, { log, timeoutMs: 2_000 })) return;
-      for (const key of vanishedDrives(prev, now)) {
-        const drive = sources.get(key) as Drive | undefined;
-        if (key !== selfKey && drive && (await readLeftNote(drive, { log, timeoutMs: 2_000 })))
-          left.add(key);
-      }
-      const gone = deletedSince(prev, now, {
+      const ctx = {
         removed: gallery.removed,
         selfKey,
         adminName,
         deletedHere: rt.deletedHere,
-        left,
-      });
+        left: new Set<string>(),
+      };
+      // Nothing went: skip the note reads.
+      if (deletedSince(prev, now, ctx).length === 0) return;
+      // The Admin deleting the album empties the Admin's drive; that is not a photo delete either.
+      if (await readDeleteNote(rt.folderDrive, { log, timeoutMs: 2_000 })) return;
+      // A member who left takes their photos with them; that is not a delete.
+      for (const key of vanishedDrives(prev, now)) {
+        const drive = sources.get(key) as Drive | undefined;
+        if (key !== selfKey && drive && (await readLeftNote(drive, { log, timeoutMs: 2_000 })))
+          ctx.left.add(key);
+      }
+      const gone = deletedSince(prev, now, ctx);
       if (gone.length === 0) return;
       log("photos.deleted", { folder: rt.record.id, n: gone.length });
       deps.onChanged({
