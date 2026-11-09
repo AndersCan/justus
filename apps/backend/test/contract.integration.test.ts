@@ -195,6 +195,8 @@ describe("backend -> web contract, from real backend output", () => {
     });
     await c("photos.cancelAsk", { code: invite.code });
     expect((await c("photos.folders")).asks).toEqual([]);
+    // A joiner checks whether the link was turned off.
+    await c("photos.linkTurnedOff", { code: invite.code, owner: invite.owner });
     // A stranger asks through the album's invite code.
     await c("photos.ask", {
       code: invite.code,

@@ -221,6 +221,12 @@ export const photoSpecs = {
     args: {} as { code: string },
     result: {} as { ok: boolean },
   },
+  linkTurnedOff: {
+    pluginId: "justus.photos",
+    name: "photos.linkTurnedOff",
+    args: {} as { code: string; owner: string },
+    result: {} as { turnedOff: boolean },
+  },
   changed: {
     pluginId: "justus.photos",
     name: "photos.changed",
@@ -505,6 +511,16 @@ export const photoEvents = {
     },
     cancelAsk(code: string): InvokeEnvelope<"photos.cancelAsk", { code: string }, { ok: boolean }> {
       return invokeEvent(photoSpecs.cancelAsk, { code }, null, PHOTOS_SHORT_TIMEOUT_MS);
+    },
+    linkTurnedOff(
+      code: string,
+      owner: string,
+    ): InvokeEnvelope<
+      "photos.linkTurnedOff",
+      { code: string; owner: string },
+      { turnedOff: boolean }
+    > {
+      return invokeEvent(photoSpecs.linkTurnedOff, { code, owner }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
   },
 } as const;

@@ -116,6 +116,10 @@ import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
   checkAsk,
   fileInviteAsk,
+  DRIVE_PATH_LINKS,
+  linkOffId,
+  linksOffFile,
+  linksOffIn,
   newInviteAsk,
   offerAlbumTo,
   offerToTake,
@@ -503,6 +507,8 @@ export interface PhotoStore {
   dismissDeclinedAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes back a request still waiting; the Admin stops seeing it. The link can be asked through again. */
   cancelAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Joiner: whether the link's owner turned this link off, read from the owner's phone within 5 s; false when unknown. */
+  linkTurnedOff(code: string, owner: string): Promise<EitherResult<{ turnedOff: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -3816,6 +3822,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (result === "cleared") log("identity.cleared", {});
   }
 
+  /** Lists the links this phone turned off on the identity drive, hashed, once there is one. Derived from saved
+   * state, so a restart rewrites it. A failure is logged and never fails the caller. */
+  async function publishLinksOff(): Promise<void> {
+    try {
+      const ids = state.folders
+        .filter((f) => f.role === "creator")
+        .flatMap((f) => Object.entries(f.retiredWhy ?? {}))
+        .filter(([, why]) => why === "turnedOff")
+        .map(([code]) => linkOffId(code, crypto));
+      if (ids.length === 0) return;
+      await ownDrive.put(DRIVE_PATH_LINKS, Buffer.from(linksOffFile(ids)));
+    } catch (e) {
+      log("error", { where: "links.publish", err: errText(e) });
+    }
+  }
+
   async function ownerNameOf(shareKey: string): Promise<string> {
     let drive: Drive | null = null;
     try {
@@ -3842,6 +3864,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     await ensureOwnDriveIdentity();
     await migrateFromV1();
     await clearOldAlbumOnIdentity();
+    await publishLinksOff();
 
     // Registered before any topic join so early connections replicate too.
     network.start(ownDrive.key, onPeerEvent, deps.peerProtocol);
@@ -5751,10 +5774,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.retiredWhy = rt.record.retiredWhy;
       }
       saveState();
+      await publishLinksOff();
       serveInvite(next.invite.code);
       deps.onChanged({ cause: "request", folderId });
       for (const id of connectedIdentities()) void deliverAnswers(id).catch(answerErr("deliver"));
       return ok({ invite: { code: next.invite.code, owner: ownDrive.key } });
+    },
+
+    async linkTurnedOff(code, owner) {
+      await readyPromise;
+      if (!isHexKey(code) || !isHexKey(owner)) return err(PhotoError.INVALID_KEY, "Invalid link");
+      const text = await withTimeout(
+        openPeerOutbox(owner.toLowerCase()).then(async (drive) => {
+          await withTimeout(drive.update(), 3_000);
+          return readText(drive, DRIVE_PATH_LINKS);
+        }),
+        5_000,
+      ).catch(() => null);
+      const turnedOff = linksOffIn(text ?? null).includes(linkOffId(code.toLowerCase(), crypto));
+      log("link.checked", { owner: short(owner), reached: text != null, turnedOff });
+      return ok({ turnedOff });
     },
 
     async saveInviteLink(folderId, expiresAt) {
@@ -6271,6 +6310,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     dismissAlbumNotice: refuse,
     dismissDeclinedAsk: refuse,
     cancelAsk: refuse,
+    linkTurnedOff: refuse,
     debugState: () => inner.debugState(),
     close: () => inner.close(),
   };

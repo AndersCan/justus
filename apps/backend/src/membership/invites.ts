@@ -18,6 +18,8 @@ import {
 } from "./records";
 
 const DRIVE_PATH_REQUESTS = "/requests.json";
+/** The Admin's identity drive lists the links she turned off here (hashed). */
+export const DRIVE_PATH_LINKS = "/links.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES. */
 const MAX_RECORD_BYTES = 1024 * 1024;
 
@@ -292,4 +294,30 @@ export async function withdrawInvite(
     retired: old,
     retiredInvites: [...(album.retiredInvites ?? []), old],
   };
+}
+
+/** The id an Admin lists for a turned-off link: a domain-separated hash, so the
+ * file never reveals the code and the id matches no invite topic. */
+export function linkOffId(
+  code: string,
+  crypto: Pick<typeof import("bare-crypto"), "createHash">,
+): string {
+  return crypto.createHash("sha-256").update(`justus-link-off:${code}`).digest("hex");
+}
+
+/** The text of `/links.json`: the ids sorted, so the file says nothing about order. */
+export function linksOffFile(ids: readonly string[]): string {
+  return JSON.stringify({ off: [...ids].sort() });
+}
+
+/** The ids in a `/links.json` text; empty for a missing, garbled or odd file. */
+export function linksOffIn(text: string | null): string[] {
+  if (text === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const off = (parsed as { off?: unknown } | null)?.off;
+    return Array.isArray(off) ? off.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
 }
