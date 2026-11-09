@@ -104,17 +104,17 @@ describe("finishing the welcome", () => {
 });
 
 describe("leavesWelcomeForSavedProfile", () => {
-  it("leaves the intro when the phone already has a name", () => {
-    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", "welcome")).toBe(true);
-    expect(leavesWelcomeForSavedProfile("Joe", "askingForName", "welcome")).toBe(true);
+  it("leaves the intro when the phone already has an album", () => {
+    expect(leavesWelcomeForSavedProfile(true, "showingIntroCards", "welcome")).toBe(true);
+    expect(leavesWelcomeForSavedProfile(true, "askingForName", "welcome")).toBe(true);
   });
 
-  it("stays when there is no name, or the person is mid-onboarding, or not on welcome", () => {
-    expect(leavesWelcomeForSavedProfile("", "showingIntroCards", "welcome")).toBe(false);
-    expect(leavesWelcomeForSavedProfile("Joe", "savingName", "welcome")).toBe(false);
-    expect(leavesWelcomeForSavedProfile("Joe", "offeringAppLock", "welcome")).toBe(false);
-    expect(leavesWelcomeForSavedProfile("Joe", "choosingCreateOrJoin", "welcome")).toBe(false);
-    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", "gallery")).toBe(false);
-    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", undefined)).toBe(false);
+  it("stays when there is no album, or the person is mid-onboarding, or not on welcome", () => {
+    expect(leavesWelcomeForSavedProfile(false, "showingIntroCards", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile(true, "savingName", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile(true, "offeringAppLock", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile(true, "choosingCreateOrJoin", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile(true, "showingIntroCards", "gallery")).toBe(false);
+    expect(leavesWelcomeForSavedProfile(true, "showingIntroCards", undefined)).toBe(false);
   });
 });
