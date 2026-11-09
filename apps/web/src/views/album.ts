@@ -17,6 +17,7 @@ import {
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
 import { onPageChange } from "../machines/router-machine";
+import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
@@ -26,7 +27,7 @@ import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
-import { adminName, invitePanel } from "./invite";
+import { adminName, copyInviteLink, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
 import { addFriendSheetView } from "./add-friend-sheet";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
@@ -171,7 +172,10 @@ type PeopleVm = ReturnType<typeof peopleViewModel>;
 type Status = NonNullable<ReturnType<typeof syncViewModel>["status"]>;
 
 const memberNames = new Map<string, string>();
-const removedPeople = new Map<string, { name: string; album: string }>();
+const removedPeople = new Map<
+  string,
+  { name: string; album: string; folderId: string; code: string }
+>();
 
 onOutput(peopleActor, (e) => {
   if (e.type !== "viewerLetAddPhotos" && e.type !== "VIEWER_LET_ADD_PHOTOS") return;
@@ -201,8 +205,22 @@ onOutput(peopleActor, (e) => {
   const key = (e.payload as { memberKey: string }).memberKey;
   const removed = removedPeople.get(key);
   removedPeople.delete(key);
-  if (removed) toast(copy("album.is_no_longer_in", { name: removed.name, album: removed.album }));
+  if (!removed) return;
+  inviteLink.linkReplaced(removed.folderId, removed.code, removed.name);
+  toast(copy("album.is_no_longer_in", { name: removed.name, album: removed.album }), {
+    action: { label: copy("album.copy_new_link"), run: () => void copyNewLink(removed.folderId) },
+  });
 });
+
+/** Reads the album at tap time, so the link is made with the refreshed code. */
+async function copyNewLink(folderId: string) {
+  const status = syncViewModel(syncActor.snapshot()).status;
+  if (status?.folder.id !== folderId) {
+    toast(copy("invite.couldn_t_copy_the_invite_2"));
+    return;
+  }
+  await copyInviteLink(status.folder, status.name);
+}
 
 /** The toast after an answer went through: who is in and how, or who was declined. */
 export function answerToast(a: {
@@ -380,7 +398,12 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
                   tone: "danger",
                 });
                 if (!ok || !vm.folder) return;
-                removedPeople.set(p.key, { name: p.name, album: vm.folder.name });
+                removedPeople.set(p.key, {
+                  name: p.name,
+                  album: vm.folder.name,
+                  folderId: vm.folder.id,
+                  code: vm.folder.invite?.code ?? "",
+                });
                 people.remove(vm.folder.id, p.key);
               }}
             >

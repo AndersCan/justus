@@ -347,7 +347,14 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   });
   await members.getByRole("button", { name: /^Remove /, exact: false }).click();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
-  await expect(a.getByText(`is no longer in ${album}`)).toBeVisible({ timeout: 60_000 });
+  await expect(
+    a.getByText(`is no longer in ${album}. Links you sent stopped working.`),
+  ).toBeVisible({
+    timeout: 60_000,
+  });
+  const replaced = a.getByText("was removed, so your old invite link stopped working");
+  await expect(replaced).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText("This link works until")).toHaveCount(0);
   await expect(
     b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),
   ).toBeVisible({ timeout: 60_000 });
@@ -364,6 +371,8 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).not.toBe(link);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
   expect(newLink).toMatch(/^justus:\/\/join\?/);
+  await expect(replaced).toHaveCount(0);
+  await expect(a.getByText("This link works until")).toBeVisible();
 
   await askToJoin(b, newLink, album);
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
