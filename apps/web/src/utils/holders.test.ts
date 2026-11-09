@@ -7,6 +7,7 @@ import {
   holdersLine,
   holdersSheetRows,
   lacksFullPhoto,
+  previewOnly,
 } from "./holders";
 
 const m = (name: string) => ({ key: name, name });
@@ -15,6 +16,7 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   others: [],
   unsure: [],
   waiting: [],
+  previews: [],
   former: [],
   left: [],
   ...p,
@@ -217,5 +219,43 @@ describe("deletedMessage", () => {
     expect(deletedMessage("Sunset", h({ others }), saved)).toBe(
       "Deleted “Sunset”. Benny and Zed have the full photo.",
     );
+  });
+});
+
+describe("previews", () => {
+  const gone = "It will be gone from the album for everyone.";
+  it("previewOnly names who only has a preview", () => {
+    expect(previewOnly([])).toBe("");
+    expect(previewOnly(["Ben"])).toBe("Ben only has a preview.");
+    expect(previewOnly(["Ben", "Cy"])).toBe("Ben and Cy only have a preview.");
+  });
+  it("the dialog says who only has a preview", () => {
+    expect(deleteDetail(h({ previews: [m("Ben")] }))).toBe(
+      `${gone} Ben only has a preview. Deleting can't take it back.`,
+    );
+    expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [m("Dan")] }))).toBe(
+      `${gone} Ben has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Cy only has a preview. Dan doesn't have the full photo. Deleting can't take it back.`,
+    );
+  });
+  it("the toast says who only has a preview, and who finds out when connected", () => {
+    const people = [
+      { key: "Ben", name: "Ben", connected: true },
+      { key: "Cara", name: "Cara", connected: false },
+    ];
+    expect(deletedMessage("pixel-2.png", h({ previews: [m("Ben")] }), people)).toBe(
+      "Deleted “pixel-2.png”. Ben only has a preview.",
+    );
+    expect(deletedMessage("b", h({ previews: [m("Cara")] }), people)).toBe(
+      "Deleted “b”. Cara only has a preview. Cara will see it's gone when connected.",
+    );
+  });
+  it("a preview-only phone keeps the photo 'on its way'", () => {
+    expect(holdersLine(h({ previews: [m("Nils")] })).text).toBe(
+      "On its way to the people you let in",
+    );
+  });
+  it("sheet rows carry previews", () => {
+    expect(holdersSheetRows(h({ previews: [m("Ben")] })).previews).toEqual([m("Ben")]);
+    expect(holdersSheetRows(undefined).previews).toEqual([]);
   });
 });

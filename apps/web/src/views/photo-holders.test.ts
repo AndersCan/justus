@@ -24,6 +24,7 @@ const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   others: [],
   unsure: [],
   waiting: [],
+  previews: [],
   former: [],
   left: [],
   ...p,
@@ -213,5 +214,26 @@ describe("holdersSheet without Members", () => {
     const row = draw(holdersSheet(photo(h({})), [])).querySelector("li")!;
     expect(row.querySelector(".text-fg")?.textContent).toBe("You");
     expect(fillOf(row)).toBeUndefined();
+  });
+});
+
+describe("holdersSheet previews", () => {
+  const headings = (el: HTMLElement) =>
+    [...el.querySelectorAll("h4")].map((x) => x.firstElementChild?.getAttribute("data-copy-id"));
+  it("lists a preview-only phone under its own heading, with no 'Can still get it' line", () => {
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), []));
+    expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview"]);
+    expect(el.textContent).toContain("Ben");
+    expect(el.textContent).not.toContain("Can still get it from");
+    expect(el.textContent).not.toContain("Doesn't have the full photo");
+  });
+  it("keeps 'Can still get it from' under 'Doesn't have' and Ben under 'Only has a preview'", () => {
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [m("Cy")] })), []));
+    expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview", "full_photo.lacks"]);
+    const lists = el.querySelectorAll("ul");
+    expect(lists[1].textContent).toContain("Ben");
+    expect(lists[1].textContent).not.toContain("Cy");
+    expect(lists[2].textContent).toContain("Cy");
+    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe("Can still get it from you");
   });
 });

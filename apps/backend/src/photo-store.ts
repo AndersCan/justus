@@ -18,6 +18,7 @@ import {
   ensureHoldingMarker,
   holdersFor,
   markHeld,
+  markPreviewed,
   readFormer,
   readHeld,
   type FormerPerson,
@@ -2651,6 +2652,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deletedHere: rt.deletedHere,
         heldHere: rt.ownHeldRead === selfKey && own?.kind === "reports" ? own.ids : undefined,
         previewHere: (driveKey: string, id: string) =>
+          (own?.kind === "reports" && own.previews.has(id)) ||
           fs.existsSync(
             path.join(
               spoolDirFor(rt.record.id),
@@ -2793,10 +2795,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         mime,
         open: async () => {
           await spoolToFile(drive, drivePath, spoolPath);
-          if (display && driveKey !== selfKeyOf(rt)) {
-            void noteHeld(rt, p.id).catch((e) =>
-              log("error", { where: "noteHeld", err: errText(e) }),
-            );
+          if (driveKey !== selfKeyOf(rt)) {
+            if (display) {
+              void noteHeld(rt, p.id).catch((e) =>
+                log("error", { where: "noteHeld", err: errText(e) }),
+              );
+            } else {
+              void notePreviewed(rt, p.id).catch((e) =>
+                log("error", { where: "notePreviewed", err: errText(e) }),
+              );
+            }
           }
           return spoolPath;
         },
@@ -3174,6 +3182,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (a.kind === "silent" || b.kind === "silent") return true;
     if (a.ids.size !== b.ids.size) return false;
     for (const id of a.ids) if (!b.ids.has(id)) return false;
+    if (a.previews.size !== b.previews.size) return false;
+    for (const id of a.previews) if (!b.previews.has(id)) return false;
     return true;
   }
 
@@ -3292,13 +3302,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (report.kind === "reports") rt.ownHeldRead = drive.key;
     const current = rt.held.get(drive.key);
     const ids = new Set<string>();
-    for (const r of [report, current])
-      if (r?.kind === "reports") for (const id of r.ids) ids.add(id);
+    const previews = new Set<string>();
+    for (const r of [report, current]) {
+      if (r?.kind !== "reports") continue;
+      for (const id of r.ids) ids.add(id);
+      for (const id of r.previews) previews.add(id);
+    }
     rt.held.set(
       drive.key,
-      ids.size > 0 || report.kind === "reports" ? { kind: "reports", ids } : report,
+      ids.size > 0 || previews.size > 0 || report.kind === "reports"
+        ? { kind: "reports", ids, previews }
+        : report,
     );
-    if (ids.size > 0) deps.onChanged({ cause: "holders", folderId: rt.record.id });
+    if (ids.size > 0 || previews.size > 0)
+      deps.onChanged({ cause: "holders", folderId: rt.record.id });
   }
 
   const heldPending = new Set<string>();
@@ -3321,7 +3338,41 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const now = rt.held.get(drive.key);
       const ids = new Set(now?.kind === "reports" ? now.ids : []);
       ids.add(id);
-      rt.held.set(drive.key, { kind: "reports", ids });
+      rt.held.set(drive.key, {
+        kind: "reports",
+        ids,
+        previews: now?.kind === "reports" ? now.previews : new Set(),
+      });
+      deps.onChanged({ cause: "holders", folderId: rt.record.id });
+    } finally {
+      heldPending.delete(slot);
+    }
+  }
+
+  /** The preview of the photo is now on this phone: record it. */
+  async function notePreviewed(rt: FolderRuntime, id: string) {
+    const drive = rt.selfDrive;
+    const mine = rt.held.get(drive.key);
+    if (mine?.kind === "reports" && (mine.ids.has(id) || mine.previews.has(id))) return;
+    const slot = `${rt.record.id}:preview:${id}`;
+    if (heldPending.has(slot)) return;
+    heldPending.add(slot);
+    try {
+      await ensureHoldingMarker(drive);
+      const [writeErr, wrote] = await markPreviewed(drive, id);
+      if (writeErr) {
+        log("error", { where: "holding.preview", err: writeErr.message });
+        return;
+      }
+      if (!wrote) return;
+      const now = rt.held.get(drive.key);
+      const previews = new Set(now?.kind === "reports" ? now.previews : []);
+      previews.add(id);
+      rt.held.set(drive.key, {
+        kind: "reports",
+        ids: now?.kind === "reports" ? now.ids : new Set(),
+        previews,
+      });
       deps.onChanged({ cause: "holders", folderId: rt.record.id });
     } finally {
       heldPending.delete(slot);
@@ -3336,11 +3387,36 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const drive = rt.selfDrive;
     const mine = rt.held.get(drive.key);
     let marked = 0;
+    let previewed = 0;
     for (const p of photos) {
       if (p.driveKey === drive.key) continue;
       if (mine?.kind === "reports" && mine.ids.has(p.id)) continue;
       const spooled = path.join(spoolDirFor(rt.record.id), spoolNameFor(p.driveKey, p.id, p.ext));
-      if (!fs.existsSync(spooled)) continue;
+      if (!fs.existsSync(spooled)) {
+        const thumb = path.join(
+          spoolDirFor(rt.record.id),
+          spoolNameFor(p.driveKey, p.id, `thumb${RENDITION_EXT}`),
+        );
+        if (!fs.existsSync(thumb)) continue;
+        if (mine?.kind === "reports" && mine.previews.has(p.id)) continue;
+        await ensureHoldingMarker(drive);
+        const [previewErr, wrotePreview] = await markPreviewed(drive, p.id);
+        if (previewErr) {
+          log("error", { where: "holding.backfill", err: previewErr.message });
+          continue;
+        }
+        if (!wrotePreview) continue;
+        const current = rt.held.get(drive.key);
+        const previews = new Set(current?.kind === "reports" ? current.previews : []);
+        previews.add(p.id);
+        rt.held.set(drive.key, {
+          kind: "reports",
+          ids: current?.kind === "reports" ? current.ids : new Set(),
+          previews,
+        });
+        previewed++;
+        continue;
+      }
       await ensureHoldingMarker(drive);
       const [writeErr, wrote] = await markHeld(drive, p.id);
       if (writeErr) {
@@ -3351,11 +3427,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const now = rt.held.get(drive.key);
       const ids = new Set(now?.kind === "reports" ? now.ids : []);
       ids.add(p.id);
-      rt.held.set(drive.key, { kind: "reports", ids });
+      rt.held.set(drive.key, {
+        kind: "reports",
+        ids,
+        previews: now?.kind === "reports" ? now.previews : new Set(),
+      });
       marked++;
     }
-    log("holding.backfill", { folder: short(rt.record.id), marked });
-    if (marked > 0) deps.onChanged({ cause: "holders", folderId: rt.record.id });
+    log("holding.backfill", { folder: short(rt.record.id), marked, previewed });
+    if (marked > 0 || previewed > 0) deps.onChanged({ cause: "holders", folderId: rt.record.id });
   }
 
   async function computeStatus(): Promise<SyncStatus> {

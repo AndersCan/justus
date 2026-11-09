@@ -4,9 +4,10 @@
  * Two or three phones on the checked fakes share one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPhotoStore, type PhotoStoreDeps } from "../src/photo-store.ts";
+import { spoolNameFor } from "../src/spool-name.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import {
   FakeLoopbackServer,
@@ -187,6 +188,101 @@ describe("noticing photos someone else deleted", () => {
         },
       ],
     ]);
+    await s.close();
+  });
+
+  it("a phone that showed the preview is still told so after its cache is cleared", async () => {
+    const s = await album();
+    const display = join(s.annaDeps.cacheDir, "c-display.jpg");
+    const thumb = join(s.annaDeps.cacheDir, "c-thumb.jpg");
+    writeFileSync(display, new Uint8Array([10, 11, 12]));
+    writeFileSync(thumb, new Uint8Array([20, 21]));
+    await s.anna.add(display, "c.jpg", s.folderId, { thumb });
+    await until(async () => (await s.nils.list()).some((p) => p.name === "c.jpg"));
+    const photo = (await s.nils.list()).find((p) => p.name === "c.jpg")!;
+    await (s.nilsDeps.server as FakeLoopbackServer).getForTest(new URL(photo.thumbUrl!).pathname);
+    await until(async () => {
+      const seen = (await s.anna.list()).find((p) => p.name === "c.jpg")!;
+      return seen.holders!.previews.some((m: { key: string }) => m.key === s.nilsKey);
+    });
+    rmSync(
+      join(
+        s.nilsDeps.cacheDir,
+        "photos",
+        s.nilsFolderId,
+        spoolNameFor(photo.member.key, photo.id, "thumb.jpg"),
+      ),
+      { force: true },
+    );
+    await s.anna.remove(await photoId(s.anna, "c.jpg"));
+    await until(async () => !(await s.nils.list()).some((p) => p.name === "c.jpg"));
+    expect(deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos)).toEqual([
+      [
+        {
+          name: "c.jpg",
+          adderName: "Anna",
+          mine: false,
+          held: false,
+          preview: true,
+          deletedBy: "Anna",
+        },
+      ],
+    ]);
+    await s.close();
+  });
+
+  async function previewedThenCleared(s: Awaited<ReturnType<typeof album>>, name: string) {
+    const display = join(s.annaDeps.cacheDir, `${name}-display.jpg`);
+    const thumb = join(s.annaDeps.cacheDir, `${name}-thumb.jpg`);
+    writeFileSync(display, new Uint8Array([10, 11, 12]));
+    writeFileSync(thumb, new Uint8Array([20, 21]));
+    await s.anna.add(display, name, s.folderId, { thumb });
+    await until(async () => (await s.nils.list()).some((p) => p.name === name));
+    const photo = (await s.nils.list()).find((p) => p.name === name)!;
+    const server = s.nilsDeps.server as FakeLoopbackServer;
+    await server.getForTest(new URL(photo.thumbUrl!).pathname);
+    await until(async () => {
+      const seen = (await s.anna.list()).find((p) => p.name === name)!;
+      return seen.holders!.previews.some((m: { key: string }) => m.key === s.nilsKey);
+    });
+    return { photo, server };
+  }
+
+  it("a phone that restarts after clearing its cache still knows it showed the preview", async () => {
+    const s = await album();
+    const { photo } = await previewedThenCleared(s, "r.jpg");
+    await s.nils.close();
+    rmSync(
+      join(
+        s.nilsDeps.cacheDir,
+        "photos",
+        s.nilsFolderId,
+        spoolNameFor(photo.member.key, photo.id, "thumb.jpg"),
+      ),
+      { force: true },
+    );
+    const reopened = createPhotoStore(restarted(s.nilsDeps));
+    await reopened.ready();
+    await reopened.list(s.nilsFolderId);
+    await s.anna.remove(await photoId(s.anna, "r.jpg"));
+    await until(async () => {
+      await reopened.list(s.nilsFolderId);
+      return deletedPushes(s.nilsPushes).length > 0;
+    });
+    expect(deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos[0]?.preview)).toEqual([true]);
+    await reopened.close();
+    await s.anna.close();
+  });
+
+  it("loading the same thumbnail again records nothing new", async () => {
+    const s = await album();
+    const { photo, server } = await previewedThenCleared(s, "again.jpg");
+    await sleep(200);
+    const holdersPushes = () => s.nilsPushes.filter((p) => p.cause === "holders").length;
+    const before = holdersPushes();
+    await server.getForTest(new URL(photo.thumbUrl!).pathname);
+    await sleep(300);
+    expect(holdersPushes()).toBe(before);
     await s.close();
   });
 

@@ -112,6 +112,8 @@ async function album(options: { viewer?: boolean; oldApp?: boolean } = {}) {
   await nils.store.setActive(nilsFolderId);
   await anna.store.setActive(folderId);
   await anna.store.addBytes("sunset.jpg", new Uint8Array([1, 2, 3, 4, 5]));
+  const annaPhotoNamed = async (name: string) =>
+    (await anna.store.list()).find((p) => p.name === name)!;
   const annaPhoto = async () => (await anna.store.list()).find((p) => p.name === "sunset.jpg")!;
   const nilsPhoto = async () =>
     (await nils.store.list(nilsFolderId)).find((p) => p.name === "sunset.jpg");
@@ -120,7 +122,18 @@ async function album(options: { viewer?: boolean; oldApp?: boolean } = {}) {
     await anna.store.close();
     await nils.store.close();
   };
-  return { hub, anna, nils, folderId, nilsFolderId, nilsKey, annaPhoto, nilsPhoto, close };
+  return {
+    hub,
+    anna,
+    nils,
+    folderId,
+    nilsFolderId,
+    nilsKey,
+    annaPhoto,
+    annaPhotoNamed,
+    nilsPhoto,
+    close,
+  };
 }
 
 describe("who has each photo", () => {
@@ -189,7 +202,7 @@ describe("who has each photo", () => {
     await s.close();
   });
 
-  it("opening the thumbnail alone records nothing", async () => {
+  it("opening the thumbnail alone records a preview", async () => {
     const s = await album();
     const display = join(s.anna.deps.cacheDir, "t-display.jpg");
     const thumb = join(s.anna.deps.cacheDir, "t-thumb.jpg");
@@ -203,12 +216,53 @@ describe("who has each photo", () => {
     await sleep(300);
     const after = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "t.jpg")!;
     expect(after.holders!.here).toBe(false);
+    await until(async () => (await s.annaPhotoNamed("t.jpg")).holders!.previews.length === 1);
+    const seen = (await s.annaPhotoNamed("t.jpg")).holders!;
+    expect(seen.previews.map((m: { key: string }) => m.key)).toEqual([s.nilsKey]);
+    expect(seen.waiting).toEqual([]);
+    expect(seen.others.map((m: { key: string }) => m.key)).not.toContain(s.nilsKey);
     await s.nils.server.getForTest(new URL(photo.url).pathname);
     await until(
       async () =>
         (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "t.jpg")!.holders!.here,
     );
+    await until(async () => (await s.annaPhotoNamed("t.jpg")).holders!.previews.length === 0);
+    const full = (await s.annaPhotoNamed("t.jpg")).holders!;
+    expect(full.others.map((m: { key: string }) => m.key)).toContain(s.nilsKey);
     await s.close();
+  });
+
+  it("records a preview that was spooled before this version", async () => {
+    const s = await album();
+    const display = join(s.anna.deps.cacheDir, "o-display.jpg");
+    const thumb = join(s.anna.deps.cacheDir, "o-thumb.jpg");
+    writeFileSync(display, new Uint8Array([10, 11, 12]));
+    writeFileSync(thumb, new Uint8Array([20, 21]));
+    await s.anna.store.add(display, "o.jpg", s.folderId, { thumb });
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
+    const photo = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "o.jpg")!;
+    await s.nils.store.close();
+    mkdirSync(join(s.nils.deps.cacheDir, "photos", s.nilsFolderId), { recursive: true });
+    writeFileSync(
+      join(
+        s.nils.deps.cacheDir,
+        "photos",
+        s.nilsFolderId,
+        spoolNameFor(photo.member.key, photo.id, "thumb.jpg"),
+      ),
+      new Uint8Array([20, 21]),
+    );
+    const reopened = createPhotoStore(restarted(s.nils.deps));
+    await reopened.ready();
+    await reopened.list(s.nilsFolderId);
+    await until(async () => (await s.annaPhotoNamed("o.jpg")).holders!.previews.length === 1);
+    expect(
+      (await s.annaPhotoNamed("o.jpg")).holders!.previews.map((m: { key: string }) => m.key),
+    ).toEqual([s.nilsKey]);
+    // A photo with nothing spooled is not a preview.
+    expect((await s.annaPhoto()).holders!.previews).toEqual([]);
+    await reopened.close();
+    await s.anna.store.close();
   });
 
   it("records a copy that was opened before this version", async () => {

@@ -53,7 +53,15 @@ describe("holders sheet in the lightbox", () => {
     openLightbox({
       ...photo,
       folderId: "f1",
-      holders: { here: true, others: [], unsure: [], waiting: [], former: [], left: [] },
+      holders: {
+        here: true,
+        others: [],
+        unsure: [],
+        waiting: [],
+        previews: [],
+        former: [],
+        left: [],
+      },
     });
     openHolders();
     const el = document.createElement("div");
@@ -67,7 +75,15 @@ describe("holders sheet in the lightbox", () => {
     openLightbox({
       ...photo,
       folderId: "f1",
-      holders: { here: true, others: [], unsure: [], waiting: [], former: [], left: [] },
+      holders: {
+        here: true,
+        others: [],
+        unsure: [],
+        waiting: [],
+        previews: [],
+        former: [],
+        left: [],
+      },
     });
     openHolders();
     const el = document.createElement("div");

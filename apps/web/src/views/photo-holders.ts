@@ -72,6 +72,7 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
   const others = rows.others.map((m) => resolve(m, people));
   const waiting = rows.waiting.map((m) => resolve(m, people));
   const unsure = rows.unsure.map((m) => resolve(m, people));
+  const previews = rows.previews.map((m) => resolve(m, people));
   const self = people.find((p) => p.you);
   const youName = copy("photo_holders.you");
   const youBadge = self ? memberBadge(self.name, self.color) : memberBadge(youName, undefined);
@@ -98,6 +99,14 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
                 <ul>
                   ${rows.youArriving ? null : personRow(youName, youBadge)}
                   ${others.map((r) => personRow(r.name, r.badge))}
+                </ul>`
+            : null
+        }
+        ${
+          previews.length > 0
+            ? html`<h4 class="ui-label mt-4">${t("full_photo.only_preview")}</h4>
+                <ul>
+                  ${previews.map((r) => personRow(r.name, r.badge))}
                 </ul>`
             : null
         }

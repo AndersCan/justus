@@ -17,7 +17,7 @@ export function holdersLine(h: PhotoHolders | undefined): { text: string; tappab
         text:
           h.unsure.length > 0
             ? copy("holders.on_your_phone_others_haven")
-            : h.waiting.length > 0
+            : h.waiting.length + h.previews.length > 0
               ? copy("holders.only_on_your_phone_so")
               : copy("holders.only_on_your_phone"),
         tappable: true,
@@ -46,6 +46,7 @@ export type HoldersSheetRows = {
   others: PhotoMember[];
   unsure: PhotoMember[];
   waiting: PhotoMember[];
+  previews: PhotoMember[];
   former: string[];
   left: string[];
 };
@@ -57,6 +58,7 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
     others: h?.others ?? [],
     unsure: h?.unsure ?? [],
     waiting: h?.waiting ?? [],
+    previews: h?.previews ?? [],
     former: h?.former ?? [],
     left: h?.left ?? [],
   };
@@ -67,6 +69,13 @@ export function hasFullPhoto(names: readonly string[]): string {
   return names.length === 0
     ? ""
     : copy("full_photo.names_have", { list: nameList(names), n: names.length });
+}
+
+/** "Ben only has a preview." / "Ben and Cy only have a preview."; "" for no names. */
+export function previewOnly(names: readonly string[]): string {
+  return names.length === 0
+    ? ""
+    : copy("full_photo.names_preview", { list: nameList(names), n: names.length });
 }
 
 /** "Cy doesn't have the full photo." / "Cy and Dan don't have the full photo."; "" for no names. */
@@ -80,11 +89,12 @@ export function lacksFullPhoto(names: readonly string[]): string {
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
   const have = (h?.others ?? []).map((m) => m.name);
+  const preview = (h?.previews ?? []).map((m) => m.name);
   const lack = (h?.waiting ?? []).map((m) => m.name);
   const cannot =
     have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase", { n: have.length });
   const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, have.length) });
-  return [gone, hasFullPhoto(have), cannot, lacksFullPhoto(lack), back]
+  return [gone, hasFullPhoto(have), cannot, previewOnly(preview), lacksFullPhoto(lack), back]
     .filter((x) => x !== "")
     .join(" ");
 }
@@ -97,13 +107,15 @@ export function deletedMessage(
 ): string {
   const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
   const have = (holders?.others ?? []).map(named);
+  const preview = (holders?.previews ?? []).map(named);
   const lack = (holders?.waiting ?? []).map(named);
-  const later = (holders?.others ?? [])
+  const later = [...(holders?.others ?? []), ...(holders?.previews ?? [])]
     .filter((m) => people.some((p) => p.key === m.key && !p.connected))
     .map(named);
   return [
     copy("lightbox.deleted", { name }),
     hasFullPhoto(have),
+    previewOnly(preview),
     lacksFullPhoto(lack),
     later.length > 0 ? copy("lightbox.will_see_it_when_connected", { list: nameList(later) }) : "",
   ]

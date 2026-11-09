@@ -12,6 +12,7 @@ const photo = (folderId: string, holders?: Partial<PhotoHolders>): Photo =>
       others: [],
       unsure: [],
       waiting: [],
+      previews: [],
       former: [],
       left: [],
       ...holders,
