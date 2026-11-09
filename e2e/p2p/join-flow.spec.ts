@@ -325,12 +325,12 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   expect((await aToasts()).filter((t) => /made you a/.test(t))).toEqual([]);
 });
 
-test("Back trip: A removes B, B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
+test("Back trip: A removes B while C waits on the same link; C is told the link was replaced; B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
   instancePages,
 }) => {
-  test.setTimeout(180_000);
-  const [a, b] = instancePages;
-  await skipIntro([a, b]);
+  test.setTimeout(240_000);
+  const [a, b, c] = instancePages;
+  await skipIntro([a, b, c]);
   const album = "Back trip";
   await createAlbum(a, album, PHOTO, 31);
   const link = await copyInviteLink(a);
@@ -340,6 +340,8 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
   });
+  await askToJoin(c, link, album);
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await expect(members.getByRole("button", { name: /^Remove /, exact: false })).toBeVisible({
@@ -352,6 +354,16 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   ).toBeVisible({
     timeout: 60_000,
   });
+  await expect(a.getByText(`wants to join “${album}”`)).toHaveCount(0, { timeout: 30_000 });
+  const replacedSheet = c.getByRole("dialog", { name: /replaced this link\.$/ });
+  await expect(replacedSheet).toBeVisible({ timeout: 60_000 });
+  await expect(replacedSheet.getByText("Your request wasn't answered.")).toBeVisible();
+  await expect(replacedSheet.getByRole("button", { name: "Cancel request" })).toHaveCount(0);
+  await replacedSheet.getByRole("button", { name: "Close", exact: true }).click();
+  await c.goto("/join");
+  await expect(c.getByRole("button", { name: new RegExp(`${album}$`) })).toHaveCount(0);
+  await c.reload();
+  await expect(c.getByRole("button", { name: new RegExp(`${album}$`) })).toHaveCount(0);
   const replaced = a.getByText("was removed, so your old invite link stopped working");
   await expect(replaced).toBeVisible({ timeout: 60_000 });
   await expect(a.getByText("This link works until")).toHaveCount(0);

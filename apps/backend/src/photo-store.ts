@@ -329,7 +329,7 @@ type FolderRecord = {
   retiredInvites?: string[];
   /** Creator only: invite code -> why it was retired. Missing for codes retired before this was kept. */
   retiredWhy?: Record<string, "turnedOff" | "replaced">;
-  /** Creator: identity -> the old code for each request listed and each friend invite open when a Remove retired that code. Answering, Take back or Turn off links clears it. */
+  /** Creator: identity -> the old code for each friend invite open, and each ask with an answer tapped, when a Remove retired that code. Answering, Take back or Turn off links clears it. */
   heldAsks?: Record<string, string>;
   /** Creator only: identities with an open friend invite to this album. */
   invited?: string[];
@@ -4648,6 +4648,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** Accept, Decline and Remove for one album run one at a time, so a move never works from a member list an Accept is changing (or the reverse). Nothing run inside may await store.respond or store.removeMember: that would wait on itself. */
   const oneChangePerAlbum = oneAtATime();
+  /** Accept or Decline tapped and waiting for its turn, as folderId:requesterKey. */
+  const answering = new Set<string>();
 
   /** Admin: after someone was removed, moves the album to new drives and
    * records who still has to follow. Returns an error text, or undefined. The
@@ -4709,6 +4711,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (openErr) return openErr.message;
     const oldInvite = record.invite?.code;
     const held: Record<string, string> = {};
+    const dropped: string[] = [];
     if (oldInvite) {
       const waiting = pendingJoinRequests(await readRequestsFromPeers(rt), {
         registry,
@@ -4723,7 +4726,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const w of waiting) {
         const identity = w.requesterIdentity;
         if (!w.viaInvite || !identity || identity === removedIdentity) continue;
-        held[identity] = record.heldAsks?.[identity] ?? oldInvite;
+        if (answering.has(`${record.id}:${w.requesterKey.toLowerCase()}`)) {
+          held[identity] = record.heldAsks?.[identity] ?? oldInvite;
+        } else dropped.push(identity);
       }
       for (const identity of record.invited ?? []) {
         if (identity === removedIdentity) continue;
@@ -4768,6 +4773,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     for (const identity of Object.keys(moving)) {
       void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
     }
+    for (const identity of dropped) void deliverAnswers(identity).catch(answerErr("deliver"));
     return undefined;
   }
 
@@ -5599,6 +5605,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     },
 
     respond(folderId, requesterKey, approve, role = "member") {
+      const tapped = `${folderId}:${String(requesterKey).toLowerCase()}`;
+      answering.add(tapped);
       return oneChangePerAlbum(folderId, async () => {
         await readyPromise;
         if (role !== "reader" && role !== "member")
@@ -5710,7 +5718,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         deps.onChanged({ cause: "enroll", folderId, memberKey: requesterKey });
         if (seated) void deliverAnswers(seated).catch(answerErr("deliver"));
         return ok({ ok: true });
-      });
+      }).finally(() => answering.delete(tapped));
     },
 
     async turnOffInvite(folderId) {
@@ -5723,11 +5731,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         album: rt.record,
         newCode: newInviteCode(),
       });
-      const dropHeldFor = [...(rt.record.invited ?? [])];
       rt.record.invited = undefined;
       rt.record.offerOwed = undefined;
       rt.record.invitedRoles = undefined;
-      rt.record.heldAsks = withoutHeld(rt.record.heldAsks, dropHeldFor);
+      rt.record.heldAsks = undefined;
       rt.record.invite = next.invite;
       if (next.retired) {
         rt.record.retiredInvites = next.retiredInvites;
@@ -5739,7 +5746,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.invited = undefined;
         persisted.offerOwed = undefined;
         persisted.invitedRoles = undefined;
-        persisted.heldAsks = withoutHeld(persisted.heldAsks, dropHeldFor);
+        persisted.heldAsks = undefined;
         persisted.retiredInvites = rt.record.retiredInvites;
         persisted.retiredWhy = rt.record.retiredWhy;
       }
