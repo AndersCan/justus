@@ -404,7 +404,7 @@ export type PhotoStoreDeps = {
    * (e.g. when reading a peer's join-request outbox in `requests()`). Defaults
    * to 45_000. Test seams lower it so latency regressions surface quickly. */
   driveOpenTimeoutMs?: number;
-  /** Peer protocol this device announces. Tests only: plays a newer or older peer. */
+  /** Peer protocol this device announces. Tests and the dev hub (`protocol=`): plays a newer or older peer. */
   peerProtocol?: number;
   /** Receives structured p2p boundary events (see `p2p-log.ts`). Defaults to a
    * console line per event; tests inject a sink to assert on them. */
@@ -728,6 +728,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   let updateNeeded = false;
   /** Names of phones on an older Justus we refused; for this session only. */
   const peersBehind: string[] = [];
+  /** Admins (identity keys) of open asks whose phone runs a newer Justus; this session only. */
+  const versionGaps = new Set<string>();
   const MAX_PEERS_BEHIND = 5;
   const conns = new Map<
     number,
@@ -3376,7 +3378,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         updateNeeded = true;
         deps.onChanged({ cause: "version" });
       }
-      network.drop(connId);
+      // Its identity greeting names it; without one, give up after 5 s.
+      const newerTimer = setTimeout(() => network.drop(connId), 5_000);
+      newerTimer.unref?.();
       return;
     }
     c.refused = "older";
@@ -3409,6 +3413,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     network.drop(connId);
   }
 
+  /** Marks (or clears) the open asks to `identity`: its phone runs a newer Justus. */
+  function noteVersionGap(identity: string, newer: boolean) {
+    if (newer === versionGaps.has(identity)) return;
+    if (newer) {
+      if (!state.asks.some((a) => a.status === "waiting" && a.owner === identity)) return;
+      versionGaps.add(identity);
+    } else {
+      versionGaps.delete(identity);
+    }
+    deps.onChanged({ cause: "version" });
+  }
+
   /** A peer told us its identity drive. An Admin may have a join request
    * waiting there: tell the web layer to refresh its request inbox. */
   function onPeerIdentity(keyHex: string, connId: number) {
@@ -3420,9 +3436,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (c.protocol === undefined && !c.refused) c.refused = "older";
       if (c.refused) {
         if (c.refused === "older") void noteOlderPeer(connId, keyHex).catch(answerErr("version"));
+        else {
+          noteVersionGap(keyHex, true);
+          network.drop(connId);
+        }
         return;
       }
     }
+    if (keyHex !== ownDrive.key) noteVersionGap(keyHex, false);
     if (c) c.identityKey = keyHex;
     if (keyHex !== ownDrive.key) {
       void deliverAnswers(keyHex).catch(answerErr("deliver"));
@@ -3879,14 +3900,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function askSummary(a: AskRecord): AskSummary {
+    const status = a.status === "declined" || a.status === "linkOff" ? a.status : "waiting";
     return {
       code: a.code,
       owner: a.owner,
       albumName: a.albumName,
       ownerName: a.ownerName,
       askedAt: a.askedAt,
-      status: a.status === "declined" || a.status === "linkOff" ? a.status : "waiting",
+      status,
       checkCode: checkCode(ownDrive.key, crypto),
+      ...(status === "waiting" && versionGaps.has(a.owner)
+        ? { whoMustUpdate: "you" as const }
+        : {}),
     };
   }
 

@@ -698,6 +698,20 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "V1c: a joiner on an older version learns its Admin must be updated by it",
+    async run(net, t) {
+      const { admin, joiner } = await askedAlbum(net, { peerProtocol: PEER_PROTOCOL - 1 });
+      await eventually(
+        () => joiner.store.folders(),
+        (f) => f.asks[0]?.whoMustUpdate === "you",
+        "the ask is marked: update this phone",
+        20_000,
+      );
+      await new Promise((r) => setTimeout(r, 3_000));
+      t.eq((await admin.store.requests()).requests.length, 0, "no request reached the Admin");
+    },
+  },
+  {
     name: "friend: an Admin reaches a friend by key alone, with no shared album",
     async run(net, t) {
       const { admin, friend, folderId, friendIdentity } = await friendSetup(net, true);
@@ -1557,9 +1571,9 @@ export const scenarios: Scenario[] = [
 ];
 
 /** An Admin with a one-photo album, and a joiner that has asked through its invite code. */
-async function askedAlbum(net: Net) {
+async function askedAlbum(net: Net, joinerOpts?: Parameters<Net["peer"]>[2]) {
   const admin = await net.peer("Phone");
-  const joiner = await net.peer("Desktop");
+  const joiner = await net.peer("Desktop", undefined, joinerOpts);
   const created = await admin.store.createFolder("Lisbon");
   if (created[0]) throw created[0];
   const { id: folderId, shareKey, invite } = created[1].folder;

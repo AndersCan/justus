@@ -159,6 +159,7 @@ export const askSummarySchema = s.object({
   askedAt: s.number,
   status: s.oneOf("waiting", "declined", "linkOff"),
   checkCode: s.optional(s.string),
+  whoMustUpdate: s.optional(s.oneOf("you")),
 });
 
 export const offerSummarySchema = s.object({

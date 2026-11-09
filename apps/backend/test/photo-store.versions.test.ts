@@ -80,6 +80,70 @@ describe("peer versions", () => {
     await s.peer.store.close();
   });
 
+  const askTo = async (
+    s: Awaited<ReturnType<typeof setup>>,
+    owner: string,
+    code = "c".repeat(64),
+  ) => {
+    const asked = await s.me.store.ask({ code, owner, albumName: "Summer", ownerName: "Nils" });
+    expect(asked[0]).toBeNull();
+  };
+  const marks = async (s: Awaited<ReturnType<typeof setup>>) =>
+    (await s.me.store.folders()).asks.map((a) => a.whoMustUpdate);
+
+  it("a newer phone that is the ask's Admin marks the ask you", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === "you");
+    expect(await marks(s)).toEqual(["you"]);
+    expect(s.me.changes.filter((x) => x.cause === "version").length).toBeGreaterThan(0);
+    await until(() => phone.network.connectionCount() === 0);
+    expect(phone.network.connectionCount()).toBe(0);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("a newer phone that is someone else leaves the ask unmarked", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    const stranger = build("Eve", s.hub).identity();
+    const phone = peerPhone(s.hub, { identityKey: stranger, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(async () => (await s.me.store.status()).updateNeeded);
+    await until(() => phone.network.connectionCount() === 0);
+    expect(await marks(s)).toEqual([undefined]);
+    expect((await s.me.store.status()).updateNeeded).toBe(true);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("the Admin's phone on the same version clears the mark", async () => {
+    const s = await setup();
+    await askTo(s, s.peerKey);
+    peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 }).meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === "you");
+    const before = s.me.changes.filter((x) => x.cause === "version").length;
+    peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL }).meet(s.me.topic());
+    await until(async () => (await marks(s))[0] === undefined);
+    expect(await marks(s)).toEqual([undefined]);
+    expect(s.me.changes.filter((x) => x.cause === "version").length).toBe(before + 1);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
+  it("an ask made after the meeting is not marked", async () => {
+    const s = await setup();
+    const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 });
+    phone.meet(s.me.topic());
+    await until(() => phone.network.connectionCount() === 0);
+    await askTo(s, s.peerKey);
+    expect(await marks(s)).toEqual([undefined]);
+    await s.me.store.close();
+    await s.peer.store.close();
+  });
+
   it("greeting without a version: the name from /device.json, once", async () => {
     const s = await setup();
     const phone = peerPhone(s.hub, { identityKey: s.peerKey, legacy: true });
