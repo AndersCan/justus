@@ -551,8 +551,13 @@ describe("album join requests", () => {
     expect(host.textContent).toContain("Sees every photo and can add their own");
     expect(host.textContent).not.toContain("A Viewer sees every photo. A Collaborator");
     expect(button(host, "Accept")).toBeUndefined();
-    expect(button(host, "Accept as Viewer")!.className).toBe(
-      button(host, "Accept as Collaborator")!.className,
+    expect(button(host, "Accept as Viewer")!.className).toContain("ui-btn-primary");
+    for (const n of ["Accept as Collaborator", "Decline"]) {
+      expect(button(host, n)!.className).toContain("ui-btn-ghost");
+      expect(button(host, n)!.className).not.toContain("ui-btn-primary");
+    }
+    expect(host.querySelectorAll('li[data-motion-key^="request:"] .ui-btn-primary')).toHaveLength(
+      1,
     );
     button(host, "Accept as Viewer")!.click();
     await vi.waitFor(() =>
@@ -637,14 +642,16 @@ describe("album join requests", () => {
     expect(button(host, "Accept all 2 as Viewers")).toBeDefined();
   });
 
-  test("two invite requests show Accept all 2 as Viewers above the list", async () => {
+  test("two invite requests show Accept all 2 as Viewers below the list", async () => {
     const host = await show([ask("nils", true), ask("ola", true)]);
     const all = button(host, "Accept all 2 as Viewers")!;
     expect(all).toBeDefined();
-    expect(all.compareDocumentPosition(host.querySelector("li")!)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(host.textContent).toContain("They can see the photos but not add or remove any.");
+    expect(
+      host.querySelector("ul")!.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(all.className).toContain("text-accent");
+    expect(all.className).not.toContain("ui-btn");
+    expect(host.textContent).not.toContain("They can see the photos");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
       const h = await show(list);
       expect([...h.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all"))).toBe(

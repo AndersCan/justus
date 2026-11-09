@@ -709,7 +709,18 @@ test("A accepts B and C in one tap as Viewers: both land, A's waiting list is em
   await askToJoin(c, link, album);
 
   await expect(a.getByText(`wants to join “${album}”`)).toHaveCount(2, { timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept all 2 as Viewers", exact: true }).click();
+  await a.setViewportSize({ width: 390, height: 844 });
+  const cards = a.locator('li[data-motion-key^="request:"]');
+  await expect(cards).toHaveCount(2);
+  for (let i = 0; i < 2; i++) {
+    await expect(cards.nth(i).locator(".ui-btn-primary")).toHaveCount(1);
+    await expect(cards.nth(i).locator(".ui-btn-primary")).toContainText("Accept as Viewer");
+  }
+  const allLink = a.getByRole("button", { name: "Accept all 2 as Viewers", exact: true });
+  const lastCard = (await cards.last().boundingBox())!;
+  const linkBox = (await allLink.boundingBox())!;
+  expect(linkBox.y).toBeGreaterThanOrEqual(lastCard.y + lastCard.height);
+  await allLink.click();
   await expect(a.getByRole("dialog", { name: "Accept these 2 people as Viewers?" })).toBeVisible();
   await a.getByRole("button", { name: "Accept 2 as Viewers", exact: true }).click();
   await expect(a.getByText("2 people are in as Viewers")).toBeVisible({ timeout: 30_000 });
