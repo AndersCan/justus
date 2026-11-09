@@ -21,6 +21,7 @@ import {
   requestIdentity,
   removeDetail,
 } from "./album";
+import { open } from "../machines/router-machine";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
@@ -395,6 +396,11 @@ describe("album join requests", () => {
     ...(checkCode ? { checkCode } : {}),
   });
 
+  afterEach(async () => {
+    if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
+    await requestsActor.settled();
+  });
+
   async function show(list: ReturnType<typeof ask>[]) {
     vi.mocked(gateway.requests).mockResolvedValue([null, { requests: list }] as never);
     vi.mocked(gateway.respond).mockClear();
@@ -602,6 +608,8 @@ describe("album join requests", () => {
       () => new Promise((r) => resolvers.push(r)) as never,
     );
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
+    button(host, "Accept 2 as Viewers")!.click();
     await vi.waitFor(() => expect(resolvers).toHaveLength(1));
     await vi.waitFor(() => {
       expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
@@ -632,6 +640,8 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
     button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
+    button(host, "Accept 2 as Viewers")!.click();
     await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
     expect(host.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn't connect. Check your internet and try again.",
@@ -641,6 +651,135 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
     expect(toast).toHaveBeenCalledTimes(1);
     await requestsActor.settled();
+  });
+
+  test("Accept all opens a sheet naming everyone and answers nobody until Accept", async () => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([
+      ask("nils", true, "maple river stone"),
+      ask("ola", true, "lamp ocean tiger"),
+    ]);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    const dialog = host.querySelector('[role=dialog][aria-label^="Accept these"]')!;
+    expect(dialog.getAttribute("aria-label")).toBe("Accept these 2 people as Viewers?");
+    expect(flat(dialog)).toContain("nils");
+    expect(flat(dialog)).toContain("ola");
+    expect(flat(dialog)).toContain("Asked");
+    expect(flat(dialog)).toContain("Check code maple river stone");
+    expect(flat(dialog)).toContain("Check code lamp ocean tiger");
+    expect(flat(dialog)).toContain("every photo in “Trip”");
+    expect(gateway.respond).not.toHaveBeenCalled();
+    await requestsActor.settled();
+  });
+
+  const sheetOf = (host: HTMLElement) =>
+    host.querySelector('[role=dialog][aria-label^="Accept these"]');
+  const openSheet = async (host: HTMLElement, n: number) => {
+    button(host, `Accept all ${n} as Viewers`)!.click();
+    await vi.waitFor(() => expect(sheetOf(host)).not.toBeNull());
+  };
+
+  test("a sheet with three people says three and lists them", async () => {
+    const host = await show([ask("nils", true), ask("ola", true), ask("kim", true)]);
+    await vi.waitFor(() => expect(button(host, "Accept all 3 as Viewers")).toBeDefined());
+    await openSheet(host, 3);
+    expect(sheetOf(host)!.getAttribute("aria-label")).toBe("Accept these 3 people as Viewers?");
+    expect(sheetOf(host)!.querySelectorAll("li")).toHaveLength(3);
+    expect(buttonNamed(sheetOf(host)!, /^Accept 3 as Viewers$/)).toBeDefined();
+    await requestsActor.settled();
+  });
+
+  test("a tap on a name inside the sheet does not close it", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    await openSheet(host, 2);
+    (sheetOf(host)!.querySelector("li") as HTMLElement).click();
+    await requestsActor.settled();
+    expect(sheetOf(host)).not.toBeNull();
+    expect(requests.state()).toBe("confirmingAcceptAll");
+  });
+
+  test("focus lands on Cancel when the sheet opens and stays on Accept after a re-render", async () => {
+    document.body.replaceChildren();
+    friends.close();
+    await new Promise((r) => setTimeout(r, 50));
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    document.body.append(host);
+    await openSheet(host, 2);
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(host.querySelector("[data-accept-all-cancel]")),
+    );
+    const accept = buttonNamed(sheetOf(host)!, /^Accept 2 as Viewers$/)!;
+    accept.focus();
+    syncActor.send(statusSeen.create({ status }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(flat(document.activeElement!).trim()).toBe("Accept 2 as Viewers");
+    await requestsActor.settled();
+  });
+
+  test("Accept all is not stuck when the sheet is open in another album", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    await openSheet(host, 2);
+    const other = document.createElement("div");
+    const f2 = {
+      ...status,
+      folder: { ...status.folder, id: "f2", name: "Other" },
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: f2 }));
+    render(albumView("f2"), other);
+    await vi.waitFor(() => expect(other.textContent).toBeDefined());
+    expect(sheetOf(other)).toBeNull();
+  });
+
+  test("leaving the page closes the sheet, lets nobody in and reloads the list", async () => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    await openSheet(host, 2);
+    open("/help");
+    await vi.waitFor(() => expect(requests.state()).not.toBe("confirmingAcceptAll"));
+    await requestsActor.settled();
+    expect(gateway.respond).not.toHaveBeenCalled();
+    expect(sheetOf(host)).toBeNull();
+    open("/");
+  });
+
+  test.each([
+    [
+      "Cancel",
+      (host: HTMLElement) =>
+        (host.querySelector("[data-accept-all-cancel]") as HTMLElement).click(),
+    ],
+    [
+      "Escape",
+      (host: HTMLElement) =>
+        host
+          .querySelector('[role=dialog][aria-label^="Accept these"]')!
+          .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+    ],
+    [
+      "a tap outside",
+      (host: HTMLElement) =>
+        (
+          host.querySelector('[role=dialog][aria-label^="Accept these"]')!
+            .parentElement as HTMLElement
+        ).click(),
+    ],
+  ])("%s closes the Accept all sheet, lets nobody in and keeps both cards", async (_n, close) => {
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept all 2 as Viewers")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    close(host);
+    await vi.waitFor(() =>
+      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).toBeNull(),
+    );
+    await requestsActor.settled();
+    expect(gateway.respond).not.toHaveBeenCalled();
+    expect(host.querySelectorAll('li[data-motion-key^="request:"]')).toHaveLength(2);
   });
 
   test("Decline lowers the count and the button goes at one", async () => {

@@ -4275,5 +4275,33 @@
     "where": "Toast › a photo was deleted",
     "who": "People in a shared album, when someone else deletes a photo",
     "screen": ""
+  },
+  "album.accept_all_sheet_title": {
+    "text": "Accept these {count} people as Viewers?",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_body": {
+    "text": "They'll see every photo in “{folderName}”, including the ones already there. They can't add or remove photos. Anyone you don't know: cancel, then decline them.",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_confirm": {
+    "text": "Accept {count} as Viewers",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.accept_all_sheet_cancel": {
+    "text": "Cancel",
+    "status": "draft",
+    "where": "Album › Join requests › Accept all sheet",
+    "who": "Admins answering requests",
+    "screen": ""
   }
 }

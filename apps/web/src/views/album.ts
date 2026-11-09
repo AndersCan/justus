@@ -16,6 +16,7 @@ import {
   viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
+import { onPageChange } from "../machines/router-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
@@ -29,6 +30,7 @@ import { adminName, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
 import { addFriendSheetView } from "./add-friend-sheet";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
+import { acceptAllSheetView } from "./accept-all-sheet";
 import { toast } from "./toast";
 import { gridMotion } from "./grid-motion";
 
@@ -762,8 +764,14 @@ function albumBody(
     </div>
     ${status.folder.notice?.kind === "removed" ? null : membersSection(vm, id)}
     ${advancedSection(status, settled, busy)} ${friendSheetView()} ${addFriendSheetView()}
+    ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}
   </div>`;
 }
+
+/** Leaving the page with the Accept all sheet open closes it, so no other album is left with disabled buttons. */
+onPageChange(() => {
+  if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
+});
 
 export function albumView(id: string) {
   return watch(peopleActor, (ps) =>

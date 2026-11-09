@@ -179,6 +179,100 @@
       ]
     },
     {
+      "name": "Nils taps Accept all for the family, spots someone he doesn't know and cancels: everyone still waits",
+      "end": "showingRequests",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Mum",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Dad",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Sara",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ACCEPT_ALL_AS_VIEWERS",
+          "payload": {
+            "folderId": "f1",
+            "requesterKeys": ["k1", "k2", "k3"]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CANCEL_ACCEPT_ALL",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "REQUESTS_LOADED",
+          "payload": {
+            "requests": [
+              {
+                "requesterKey": "k1",
+                "requesterName": "Mum",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k2",
+                "requesterName": "Dad",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              },
+              {
+                "requesterKey": "k3",
+                "requesterName": "Sara",
+                "folderId": "f1",
+                "folderName": "Nils's photos",
+                "shareKey": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+                "requestedAt": 0,
+                "viaInvite": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Nils's family asks to look, and he accepts all three as Viewers",
       "end": "showingRequests",
       "steps": [
@@ -229,6 +323,11 @@
             "folderId": "f1",
             "requesterKeys": ["k1", "k2", "k3"]
           }
+        },
+        {
+          "kind": "event",
+          "event": "CONFIRM_ACCEPT_ALL",
+          "payload": {}
         },
         {
           "kind": "event",
