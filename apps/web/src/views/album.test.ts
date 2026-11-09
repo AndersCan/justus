@@ -23,6 +23,7 @@ import {
 } from "./album";
 import { open } from "../machines/router-machine";
 import { memberColor } from "../utils/palette";
+import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
@@ -38,6 +39,7 @@ vi.mock("../gateway", () => ({
     folders: vi.fn(),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
+    saveInviteLink: vi.fn().mockResolvedValue([null, { ok: true }]),
     makeMember: vi.fn().mockResolvedValue([null, { ok: true }]),
     makeViewer: vi.fn().mockResolvedValue([null, { ok: true }]),
     takeBackOffer: vi.fn().mockResolvedValue([null, { ok: true }]),
@@ -960,8 +962,94 @@ describe("album viewer rows", () => {
     const remove = buttonNamed(memberRows(host)[1], /^Remove /);
     remove?.click();
     await vi.waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/^Kimmy is no longer in .+/)),
+      expect(toast).toHaveBeenCalledWith(
+        expect.stringMatching(/^Kimmy is no longer in .+\. Links you sent stopped working\.$/),
+        { action: { label: "Copy new link", run: expect.any(Function) } },
+      ),
     );
+  });
+
+  test("Copy new link in the removal toast saves a time and copies a link", async () => {
+    vi.mocked(gateway.removeMember).mockResolvedValue([null, { ok: true }] as any);
+    vi.mocked(gateway.saveInviteLink).mockClear();
+    vi.mocked(toast).mockClear();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const withInvite = {
+      ...status,
+      folder: { ...status.folder, invite: { code: "c1", owner: "o" } },
+    } as unknown as SyncStatus;
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status: withInvite }));
+    people.open();
+    render(albumView("f1"), host);
+    inviteLink.createLink("f1", "c1");
+    await inviteLinkActor.settled();
+    expect(inviteLinkViewOf(inviteLinkActor.snapshot()).state).toBe("linkMade");
+    buttonNamed(memberRows(host)[1], /^Remove /)?.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(inviteLinkViewOf(inviteLinkActor.snapshot())).toMatchObject({
+      state: "noLinkYet",
+      replacedFolderId: "f1",
+      removedName: "Kimmy",
+    });
+    const options = vi.mocked(toast).mock.calls[0][1] as { action: { run: () => void } };
+    vi.mocked(toast).mockClear();
+    // The refresh after the removal brings the album's new code.
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...withInvite,
+          folder: { ...withInvite.folder, invite: { code: "c2", owner: "o" } },
+        },
+      } as never),
+    );
+    options.action.run();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Invite link copied"));
+    expect(gateway.saveInviteLink).toHaveBeenCalledWith("f1", expect.any(Number));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("justus://join"));
+  });
+
+  test("Copy new link on another album's page says it could not copy", async () => {
+    vi.mocked(gateway.removeMember).mockResolvedValue([null, { ok: true }] as any);
+    vi.mocked(gateway.saveInviteLink).mockClear();
+    vi.mocked(toast).mockClear();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    buttonNamed(memberRows(host)[1], /^Remove /)?.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    const options = vi.mocked(toast).mock.calls[0][1] as { action: { run: () => void } };
+    vi.mocked(toast).mockClear();
+    syncActor.send(
+      statusSeen.create({
+        status: { ...status, folder: { ...status.folder, id: "f2" } },
+      } as never),
+    );
+    options.action.run();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Couldn't copy the invite link"));
+    expect(gateway.saveInviteLink).not.toHaveBeenCalled();
+  });
+
+  test("a failed removal sends no toast and leaves the invite link alone", async () => {
+    vi.mocked(gateway.removeMember).mockResolvedValue([new Error("no"), null] as any);
+    vi.mocked(toast).mockClear();
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const host = document.createElement("div");
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    render(albumView("f1"), host);
+    buttonNamed(memberRows(host)[1], /^Remove /)?.click();
+    await vi.waitFor(() => expect(gateway.removeMember).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.stringContaining("Links you sent stopped working"),
+      expect.anything(),
+    );
+    expect(inviteLinkViewOf(inviteLinkActor.snapshot()).replacedFolderId).toBe("");
   });
 
   test("both member buttons are disabled while Let add photos is in progress", async () => {

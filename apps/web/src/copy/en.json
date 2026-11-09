@@ -1337,10 +1337,17 @@
     "screen": ""
   },
   "album.is_no_longer_in": {
-    "text": "{name} is no longer in {album}",
+    "text": "{name} is no longer in {album}. Links you sent stopped working.",
     "status": "draft",
     "where": "Album › Invite & members › toast",
     "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.copy_new_link": {
+    "text": "Copy new link",
+    "status": "draft",
+    "where": "Album › Invite & members › toast action",
+    "who": "Album Admin, right after removing someone",
     "screen": ""
   },
   "albums.couldn_t_join_needs_justus": {
