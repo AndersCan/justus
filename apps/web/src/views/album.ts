@@ -16,6 +16,7 @@ import {
   viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
+import { onPageChange } from "../machines/router-machine";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
@@ -766,6 +767,11 @@ function albumBody(
     ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}
   </div>`;
 }
+
+/** Leaving the page with the Accept all sheet open closes it, so no other album is left with disabled buttons. */
+onPageChange(() => {
+  if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
+});
 
 export function albumView(id: string) {
   return watch(peopleActor, (ps) =>

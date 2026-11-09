@@ -347,6 +347,23 @@ describe("accept all as Viewers", () => {
     expect(outputs).toEqual([]);
   });
 
+  test("Accept all after a stopped batch opens the sheet and clears the old error and stop", async () => {
+    const { actor, port } = await load(three);
+    port.respond
+      .mockResolvedValueOnce([null, { ok: true }] as never)
+      .mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(acceptAll("f1", ["k1", "k2", "k3"]));
+    actor.send(confirm());
+    await actor.settled();
+    expect(actor.snapshot().context.stoppedBatch).not.toBeNull();
+    actor.send(acceptAll("f1", ["k2", "k3"]));
+    expect(actor.state.name).toBe("confirmingAcceptAll");
+    const ctx = actor.snapshot().context;
+    expect(ctx.error).toBeNull();
+    expect(ctx.stoppedBatch).toBeNull();
+    expect(ctx.pendingRespond).toBeNull();
+  });
+
   test("Retry resends the failed answer, goes on with those still waiting and counts the whole batch", async () => {
     const { actor, port, outputs } = await load(three);
     port.respond

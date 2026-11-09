@@ -1,4 +1,5 @@
 import { html, type TemplateResult } from "lit-html";
+import { ref } from "lit-html/directives/ref.js";
 import { repeat } from "lit-html/directives/repeat.js";
 import { requests, requestsViewModel } from "../machines/requests-machine";
 import type { peopleViewModel } from "../machines/people-machine";
@@ -7,11 +8,13 @@ import { requestIdentity } from "./album";
 
 type Rows = ReturnType<typeof peopleViewModel>["requests"];
 
-function focusCancel() {
-  queueMicrotask(() => {
-    const el = document.querySelector<HTMLButtonElement>("[data-accept-all-cancel]");
-    if (el && document.activeElement !== el) el.focus();
-  });
+const focused = new WeakSet<Element>();
+
+/** Focus lands on Cancel once per opening; a later re-render must not pull it back from Accept. */
+function focusCancel(el?: Element) {
+  if (!(el instanceof HTMLElement) || focused.has(el)) return;
+  focused.add(el);
+  queueMicrotask(() => el.focus());
 }
 
 /** The sheet Accept all opens: names everyone it will let in, with their check codes. Nobody is answered until Accept. */
@@ -27,7 +30,6 @@ export function acceptAllSheetView(
   });
   const count = sheet.requesterKeys.length;
   const title = copy("album.accept_all_sheet_title", { count });
-  focusCancel();
   return html`<div
     class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
     @click=${() => requests.cancelAcceptAll()}
@@ -57,6 +59,7 @@ export function acceptAllSheetView(
         <button
           class="ui-btn-ghost"
           data-accept-all-cancel
+          ${ref(focusCancel)}
           @click=${() => requests.cancelAcceptAll()}
         >
           ${t("album.accept_all_sheet_cancel")}
