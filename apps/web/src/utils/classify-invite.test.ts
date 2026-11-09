@@ -26,8 +26,18 @@ describe("classifyInvite", () => {
       });
     }
   });
-  test("an ask told the link is off is turnedOff, but an album with that code wins", () => {
-    expect(classifyInvite("c1", [], [ask("c1", "linkOff")])).toEqual({ kind: "turnedOff" });
+  test("an ask told the link is off is stopped with its reason, but an album with that code wins", () => {
+    expect(classifyInvite("c1", [], [ask("c1", "linkOff")])).toEqual({
+      kind: "stopped",
+      why: undefined,
+    });
+    expect(classifyInvite("c1", [], [{ ...ask("c1", "linkOff"), why: "turnedOff" }])).toEqual({
+      kind: "stopped",
+      why: "turnedOff",
+    });
+    expect(
+      classifyInvite("c1", [], [{ ...ask("c1", "linkOff"), why: "albumDeleted", closed: true }]),
+    ).toEqual({ kind: "stopped", why: "albumDeleted" });
     expect(classifyInvite("c1", [folder("f2", "member", "c1")], [ask("c1", "linkOff")])).toEqual({
       kind: "member",
       folderId: "f2",
@@ -41,10 +51,10 @@ describe("classifyInvite", () => {
     }
   });
 
-  test("a removed album's code is turnedOff, for member and reader", () => {
+  test("a removed album's code is stopped as replaced, for member and reader", () => {
     for (const role of ["member", "reader"] as const) {
       const removed = { ...folder("f2", role, "c1"), notice: { kind: "removed" } } as FolderSummary;
-      expect(classifyInvite("c1", [removed], [])).toEqual({ kind: "turnedOff" });
+      expect(classifyInvite("c1", [removed], [])).toEqual({ kind: "stopped", why: "replaced" });
       expect(classifyInvite("c2", [removed], [])).toEqual({ kind: "new" });
     }
   });

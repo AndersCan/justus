@@ -3,6 +3,7 @@ import type { Clock } from "@mantaq/core";
 import { runInvoke } from "../actor-utils";
 import { parseInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
+import type { LinkOffWhy } from "@justus/core";
 
 import { copy } from "../../copy/copy";
 /**
@@ -16,8 +17,8 @@ export type Known =
   | { kind: "own"; folderId: string }
   | { kind: "member"; folderId: string }
   | { kind: "waiting" }
-  /** An earlier request through this code was told the link no longer works. */
-  | { kind: "turnedOff" };
+  /** An earlier request through this code was told the link no longer works; `why` is the reason when the Admin's phone gave one. */
+  | { kind: "stopped"; why?: LinkOffWhy };
 
 /** A request this phone already made, as the albums list shows it. */
 export type AskSummary = {
@@ -27,6 +28,7 @@ export type AskSummary = {
   ownerName: string;
   askedAt: number;
   status: "waiting" | "declined" | "linkOff";
+  why?: LinkOffWhy;
   whoMustUpdate?: "you";
 };
 
@@ -38,7 +40,6 @@ export const oldLinkMessage = (ownerName: string) =>
   copy("join_request.this_link_no_longer_works", { ownerName });
 export const EXPIRED_LINK = copy("join_request.this_invite_link_has_expired");
 export const expiredBody = (owner: string) => copy("join_request.ask_for_a_new_one", { owner });
-export const LINK_TURNED_OFF = copy("join_request.this_invite_link_no_longer");
 export const NOTHING_COPIED = copy("join_request.nothing_copied_yet");
 export const SEND_FAILED = copy("join_request.couldn_t_send_your_request");
 
@@ -62,8 +63,20 @@ const waitingForYouToUpdate = state("waitingForYouToUpdate")<JoinInvite>();
 const declinedByAdmin = state("declinedByAdmin")<JoinInvite>();
 /** The link's end time has passed; nothing is sent. */
 const linkExpired = state("linkExpired")<JoinInvite>();
-/** The Admin's phone said this link no longer works, so the request will not be answered. "Ask <owner> for a new one." */
-const linkTurnedOff = state("linkTurnedOff")<JoinInvite>();
+/** "<owner> turned off this link." The request was not answered; "Ask <owner> for a new link if you still want to join." */
+const linkTurnedOffByAdmin = state("linkTurnedOffByAdmin")<JoinInvite>();
+/** "<owner> replaced this link." The request was not answered; "Ask <owner> for the new link." */
+const linkReplacedByAdmin = state("linkReplacedByAdmin")<JoinInvite>();
+/** "<owner> deleted this album." "There is nothing to join any more." */
+const albumDeletedByAdmin = state("albumDeletedByAdmin")<JoinInvite>();
+/** "This invite link no longer works. Ask <owner> for a new one." The Admin's phone gave no reason (an older Justus, or a link turned off before reasons were kept). */
+const linkStoppedForUnknownReason = state("linkStoppedForUnknownReason")<JoinInvite>();
+const stoppedStates = [
+  linkTurnedOffByAdmin,
+  linkReplacedByAdmin,
+  albumDeletedByAdmin,
+  linkStoppedForUnknownReason,
+] as const;
 /** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
 const joinedAlbum = state("joinedAlbum")();
 
@@ -89,19 +102,20 @@ export const dismissDecline = event("dismissDecline")();
 export const dismissExpired = event("dismissExpired")();
 /** The joiner taps "Cancel request" on the waiting screen. */
 export const cancelRequest = event("cancelRequest")();
-/** The joiner closes the "no longer works" screen; the row stays until Cancel request or a new link. */
-export const closeLinkTurnedOff = event("closeLinkTurnedOff")();
+/** The joiner closes a stopped-link screen; a dead request leaves Waiting to join. */
+export const closeStoppedLink = event("closeStoppedLink")();
 /** This phone compared Justus versions with the Admin of a waiting request. */
 export const whoMustUpdateChanged = event("whoMustUpdateChanged")<{
   code: string;
   who: "you" | "nobody";
 }>();
+/** The owner's answer, as the push carries it. */
+export type RequestAnswer =
+  | { code: string; answer: "accepted"; folderId?: string }
+  | { code: string; answer: "declined" }
+  | { code: string; answer: "linkOff"; why?: LinkOffWhy };
 /** The owner's answer reached this phone. */
-export const requestAnswered = event("requestAnswered")<{
-  code: string;
-  answer: "accepted" | "declined" | "linkOff";
-  folderId?: string;
-}>();
+export const requestAnswered = event("requestAnswered")<RequestAnswer>();
 
 /** The request was sent. */
 const requestSent = event("requestSent")();
@@ -112,8 +126,24 @@ const requestFailed = event("requestFailed")<{ message: string }>();
 const openAlbum = event("openAlbum")<{ folderId: string }>();
 /** Asks the app to take the declined request off this phone. */
 export const dismissDeclinedAsk = event("dismissDeclinedAsk")<{ code: string }>();
-/** Asks the app to take the waiting request off this phone; the Admin stops seeing it. */
+/** Asks the app to take the request off this phone: a waiting one stops reaching the Admin; a dead one leaves Waiting to join. */
 export const cancelAsk = event("cancelAsk")<{ code: string }>();
+
+/** The screen that says why a link stopped working. */
+function stoppedScreen(why: LinkOffWhy | undefined, invite: JoinInvite) {
+  switch (why) {
+    case "expired":
+      return linkExpired.create(invite);
+    case "turnedOff":
+      return linkTurnedOffByAdmin.create(invite);
+    case "replaced":
+      return linkReplacedByAdmin.create(invite);
+    case "albumDeleted":
+      return albumDeletedByAdmin.create(invite);
+    default:
+      return linkStoppedForUnknownReason.create(invite);
+  }
+}
 
 function hasEnded(invite: JoinInvite, now: number): boolean {
   return invite.expiresAt !== undefined && now >= invite.expiresAt;
@@ -154,7 +184,7 @@ export function createJoinRequestActor(options: {
     if (found.kind === "waiting") {
       return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
     }
-    if (found.kind === "turnedOff") return { state: linkTurnedOff.create(invite) };
+    if (found.kind === "stopped") return { state: stoppedScreen(found.why, invite) };
     if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
     return { state: decidingToAsk.create(invite) };
   }
@@ -172,7 +202,7 @@ export function createJoinRequestActor(options: {
       cancelRequest,
       dismissDecline,
       dismissExpired,
-      closeLinkTurnedOff,
+      closeStoppedLink,
       requestAnswered,
       whoMustUpdateChanged,
     ],
@@ -190,7 +220,7 @@ export function createJoinRequestActor(options: {
       waitingForYouToUpdate,
       declinedByAdmin,
       linkExpired,
-      linkTurnedOff,
+      ...stoppedStates,
     ],
     initial: noInviteOpen,
     clock,
@@ -205,7 +235,7 @@ export function createJoinRequestActor(options: {
         waitingForYouToUpdate,
         declinedByAdmin,
         linkExpired,
-        linkTurnedOff,
+        ...stoppedStates,
       ]) {
         /** A link opens the screen that fits what this phone knows about it. */
         m.on(from, {
@@ -218,7 +248,7 @@ export function createJoinRequestActor(options: {
             waitingForYouToUpdate,
             declinedByAdmin,
             linkExpired,
-            linkTurnedOff,
+            ...stoppedStates,
           ],
           handler: (e, { actor, context }) => {
             const parsed = parseInviteLink(e.payload.text);
@@ -235,11 +265,17 @@ export function createJoinRequestActor(options: {
         /** A tapped request row shows its current answer. */
         m.on(from, {
           event: reopenRequest,
-          to: [waitingForAdminToAccept, waitingForYouToUpdate, declinedByAdmin, linkTurnedOff],
+          to: [
+            waitingForAdminToAccept,
+            waitingForYouToUpdate,
+            declinedByAdmin,
+            linkExpired,
+            ...stoppedStates,
+          ],
           handler: (e) => {
             const { ask: row } = e.payload;
             const invite = inviteOf(row);
-            if (row.status === "linkOff") return { state: linkTurnedOff.create(invite) };
+            if (row.status === "linkOff") return { state: stoppedScreen(row.why, invite) };
             return row.status === "declined"
               ? { state: declinedByAdmin.create(invite) }
               : { state: waitingFor(row.whoMustUpdate).create(invite) };
@@ -294,7 +330,7 @@ export function createJoinRequestActor(options: {
           waitingForAdminToAccept,
           waitingForYouToUpdate,
           linkExpired,
-          linkTurnedOff,
+          ...stoppedStates,
           decidingToAsk,
         ],
         handler: (_e, { actor }) => screenFor(actor.snapshot().payload as JoinInvite),
@@ -315,13 +351,13 @@ export function createJoinRequestActor(options: {
         /** An answer that arrives with no sheet open still counts: accepted opens the album, declined says so. */
         m.on(from, {
           event: requestAnswered,
-          to: [joinedAlbum, declinedByAdmin, linkTurnedOff, from],
+          to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates, from],
           handler: (e) => {
             if (e.payload.answer === "linkOff") {
               const row = asked(e.payload.code);
               return row === undefined
                 ? { state: from }
-                : { state: linkTurnedOff.create(inviteOf(row)) };
+                : { state: stoppedScreen(e.payload.why, inviteOf(row)) };
             }
             if (e.payload.answer === "declined") {
               const row = asked(e.payload.code);
@@ -337,15 +373,15 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      for (const from of [decidingToAsk, sendingRequest, linkExpired, linkTurnedOff]) {
+      for (const from of [decidingToAsk, sendingRequest, linkExpired, ...stoppedStates]) {
         /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. The open declined sheet takes no answer. */
         m.on(from, {
           event: requestAnswered,
           to: [joinedAlbum, from],
           handler: (e, { actor }) => {
-            const folderId = e.payload.folderId;
-            return e.payload.answer === "accepted" && folderId !== undefined
-              ? { state: joinedAlbum, emit: [openAlbum.create({ folderId })] }
+            const answer = e.payload;
+            return answer.answer === "accepted" && answer.folderId !== undefined
+              ? { state: joinedAlbum, emit: [openAlbum.create({ folderId: answer.folderId })] }
               : { state: from.create(actor.snapshot().payload as JoinInvite) };
           },
         });
@@ -421,12 +457,14 @@ export function createJoinRequestActor(options: {
         /** The Admin answered. Only an answer for this request counts. */
         m.on(from, {
           event: requestAnswered,
-          to: [joinedAlbum, declinedByAdmin, linkTurnedOff, from],
+          to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates, from],
           handler: (e, { actor }) => {
             const invite = actor.snapshot().payload as JoinInvite;
             if (e.payload.code !== invite.code) return { state: from.create(invite) };
             if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
-            if (e.payload.answer === "linkOff") return { state: linkTurnedOff.create(invite) };
+            if (e.payload.answer === "linkOff") {
+              return { state: stoppedScreen(e.payload.why, invite) };
+            }
             const folderId = e.payload.folderId;
             return folderId === undefined
               ? { state: from.create(invite) }
@@ -446,29 +484,23 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      /** The joiner takes the request back from the "no longer works" screen. */
-      m.on(linkTurnedOff, {
-        event: cancelRequest,
-        to: [noInviteOpen],
-        handler: (_e, { actor }) => {
-          const invite = actor.snapshot().payload as JoinInvite;
-          sent.delete(invite.code);
-          return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
-        },
-      });
-      /** The joiner closes the screen; the request row stays. */
-      m.on(linkTurnedOff, {
-        event: closeLinkTurnedOff,
-        to: [noInviteOpen],
-        handler: () => ({ state: noInviteOpen }),
-      });
-
-      /** The joiner closes the expired screen. */
-      m.on(linkExpired, {
-        event: dismissExpired,
-        to: [noInviteOpen],
-        handler: () => ({ state: noInviteOpen }),
-      });
+      /** The joiner closes a stopped-link or expired screen; a dead request leaves Waiting to join. */
+      for (const [from, close] of [
+        ...stoppedStates.map((st) => [st, closeStoppedLink] as const),
+        [linkExpired, dismissExpired] as const,
+      ]) {
+        m.on(from, {
+          event: close,
+          to: [noInviteOpen],
+          handler: (_e, { actor }) => {
+            const { code } = actor.snapshot().payload as JoinInvite;
+            const row = asked(code);
+            if (row === undefined || row.status === "declined") return { state: noInviteOpen };
+            sent.delete(code);
+            return { state: noInviteOpen, emit: [cancelAsk.create({ code })] };
+          },
+        });
+      }
 
       /** The joiner acknowledges the answer. */
       m.on(declinedByAdmin, {
@@ -515,8 +547,14 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
       return declinedByAdmin.create(invite);
     case "linkExpired":
       return linkExpired.create(invite);
-    case "linkTurnedOff":
-      return linkTurnedOff.create(invite);
+    case "linkTurnedOffByAdmin":
+      return linkTurnedOffByAdmin.create(invite);
+    case "linkReplacedByAdmin":
+      return linkReplacedByAdmin.create(invite);
+    case "albumDeletedByAdmin":
+      return albumDeletedByAdmin.create(invite);
+    case "linkStoppedForUnknownReason":
+      return linkStoppedForUnknownReason.create(invite);
     default:
       return showingLinkProblem;
   }

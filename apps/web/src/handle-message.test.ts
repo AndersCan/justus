@@ -25,7 +25,17 @@ describe("handleMessage", () => {
     const request = vi.spyOn(join, "requestAnswered").mockImplementation(() => {});
     handleMessage(push({ cause: "ask", code: "c", answer: "accepted", folderId: "f" }));
     expect(offer).toHaveBeenCalledWith("c", "accepted", "f");
-    expect(request).toHaveBeenCalledWith("c", "accepted", "f");
+    expect(request).toHaveBeenCalledWith({ code: "c", answer: "accepted", folderId: "f" });
+    offer.mockRestore();
+    request.mockRestore();
+  });
+
+  it("passes a declined answer to the join request and the friend invite", () => {
+    const offer = vi.spyOn(friendOffer, "askAnswered").mockImplementation(() => {});
+    const request = vi.spyOn(join, "requestAnswered").mockImplementation(() => {});
+    handleMessage(push({ cause: "ask", code: "c", answer: "declined" }));
+    expect(request).toHaveBeenCalledWith({ code: "c", answer: "declined" });
+    expect(offer).toHaveBeenCalledWith("c", "declined");
     offer.mockRestore();
     request.mockRestore();
   });
@@ -33,8 +43,8 @@ describe("handleMessage", () => {
   it("passes a link-off answer to the join request and not the friend invite", () => {
     const offer = vi.spyOn(friendOffer, "askAnswered").mockImplementation(() => {});
     const request = vi.spyOn(join, "requestAnswered").mockImplementation(() => {});
-    handleMessage(push({ cause: "ask", code: "c", answer: "linkOff" }));
-    expect(request).toHaveBeenCalledWith("c", "linkOff", undefined);
+    handleMessage(push({ cause: "ask", code: "c", answer: "linkOff", why: "replaced" }));
+    expect(request).toHaveBeenCalledWith({ code: "c", answer: "linkOff", why: "replaced" });
     expect(offer).not.toHaveBeenCalled();
     offer.mockRestore();
     request.mockRestore();
@@ -83,14 +93,36 @@ describe("askAnswer", () => {
     expect(askAnswer({ cause: "ask", code: "c", answer: "declined" })).toEqual({
       code: "c",
       answer: "declined",
-      folderId: undefined,
     });
   });
-  it("reads a link-off answer without a folder", () => {
+  it("reads a link-off answer without a reason", () => {
     expect(askAnswer({ cause: "ask", code: "c", answer: "linkOff" })).toEqual({
       code: "c",
       answer: "linkOff",
-      folderId: undefined,
+      why: undefined,
+    });
+  });
+  it.each(["expired", "turnedOff", "replaced", "albumDeleted"])(
+    "keeps the link-off reason %s",
+    (why) => {
+      expect(askAnswer({ cause: "ask", code: "c", answer: "linkOff", why })).toEqual({
+        code: "c",
+        answer: "linkOff",
+        why,
+      });
+    },
+  );
+  it.each(["removed", 3, null])("drops the unknown link-off reason %s", (why) => {
+    expect(askAnswer({ cause: "ask", code: "c", answer: "linkOff", why })).toEqual({
+      code: "c",
+      answer: "linkOff",
+      why: undefined,
+    });
+  });
+  it("reads a reason only on a link-off answer", () => {
+    expect(askAnswer({ cause: "ask", code: "c", answer: "declined", why: "replaced" })).toEqual({
+      code: "c",
+      answer: "declined",
     });
   });
   it.each([

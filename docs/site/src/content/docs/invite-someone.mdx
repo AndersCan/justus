@@ -20,9 +20,9 @@ On this page the invite machine runs with a pretend gateway: turning links off a
 | The link and when it ends                                       | Taps Send or Copy                | `inviteLink.linkMade`           |
 | The links are being turned off                                  | Confirms turning them off        | `inviteLink.turningOff`         |
 
-**An old link with its end time changed.** The ask reaches the Admin's phone, which shows nothing and answers that the link no longer works: `joinRequest.linkTurnedOff` on the joiner's phone.
+**An old link with its end time changed.** The ask reaches the Admin's phone, which shows nothing and answers that the link no longer works: `joinRequest.linkExpired` on the joiner's phone.
 
-**A link to a deleted album.** The Admin's phone keeps listening on a deleted album's invite codes. An ask through one, made before or after the delete, gets the same answer: `joinRequest.linkTurnedOff` on the joiner's phone. The Admin's phone shows nothing.
+**A link to a deleted album.** The Admin's phone keeps listening on a deleted album's invite codes. An ask through one, made before or after the delete, gets the answer that the album is gone: `joinRequest.albumDeletedByAdmin` on the joiner's phone. The Admin's phone shows nothing.
 
 Members who are not the Admin see "Ask &lt;Admin&gt; for the invite link". That is a line on the screen, not a state.
 
