@@ -9,7 +9,7 @@
  */
 import { makeTmpDir } from "./tmp-dirs.ts";
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import Corestore from "corestore";
 import Hyperdrive from "hyperdrive";
@@ -216,6 +216,54 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     expect(await pathsOf(identity3!)).toEqual(["/device.json", "/requests.json"]);
     await last.close();
   });
+
+  it("a store that stops partway through the clear is finished by the next start", async () => {
+    const storageDir = makeTmpDir("justus-legacy-");
+    const identityKey = await seedIdentity(storageDir, true);
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({ version: 2, name: "Nils", folders: [] }),
+      "utf8",
+    );
+    const real = realDeps(storageDir);
+    const realOpenOwn = real.drives.openOwn.bind(real.drives);
+    let dels = 0;
+    const failing = {
+      ...real,
+      drives: {
+        ...real.drives,
+        openOwn: async (...args: Parameters<typeof realOpenOwn>) => {
+          const drive = await realOpenOwn(...args);
+          return new Proxy(drive, {
+            get(target, prop) {
+              if (prop === "del") {
+                return async (path: string) => {
+                  dels++;
+                  if (dels >= 2) throw new Error("stopped partway");
+                  return target.del(path);
+                };
+              }
+              const value = Reflect.get(target, prop);
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+        },
+      },
+    } as typeof real;
+    const first = createPhotoStore(failing);
+    await withTimeout(first.ready(), 15_000);
+    expect(dels).toBeGreaterThanOrEqual(2);
+    await first.close();
+
+    const second = realDeps(storageDir);
+    const again = createPhotoStore(second);
+    await withTimeout(again.ready(), 15_000);
+    const [, identity] = await second.drives.open(identityKey, { timeoutMs: 2_000 });
+    expect(await pathsOf(identity!)).toEqual(["/device.json", "/requests.json"]);
+    await again.close();
+    const saved = JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
+    expect(saved.identityClearPending).toBeUndefined();
+  }, 30_000);
 
   it("leaves the identity drive alone while an album still lives on it", async () => {
     const storageDir = makeTmpDir("justus-legacy-");

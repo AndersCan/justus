@@ -88,7 +88,7 @@ export async function clearOldAlbumOffIdentity(
       try {
         await identity.put(REQUESTS, requests);
       } catch {
-        // the next boot clears again and puts it back
+        // best effort: if this fails the ask outbox is lost, and asks are filed again
       }
     }
   }
