@@ -606,8 +606,8 @@ type FolderRuntime = {
   watcherRemoves: Set<() => void>;
   /** What each phone says it holds, by drive key (this phone's own included). */
   held: Map<string, HeldReport>;
-  /** True once this phone's own holding record was really read (not silent or still reading). */
-  ownHeldRead?: boolean;
+  /** Key of the own drive whose holding record was really read (unset while silent or still reading). */
+  ownHeldRead?: string;
   /** People who left or were removed, from the Admin's `/former.json`. */
   former: FormerPerson[];
   /** True once the photos opened before holding records existed were recorded. */
@@ -2601,7 +2601,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         selfKey,
         adminName,
         deletedHere: rt.deletedHere,
-        heldHere: rt.ownHeldRead && own?.kind === "reports" ? own.ids : undefined,
+        heldHere: rt.ownHeldRead === selfKey && own?.kind === "reports" ? own.ids : undefined,
         left: new Set<string>(),
       };
       // Nothing went: skip the note reads.
@@ -3186,7 +3186,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const [markerErr] = await ensureHoldingMarker(drive);
     if (markerErr) log("error", { where: "holding.marker", err: markerErr.message });
     const report = await readHeld(drive, { timeoutMs: 2_000, log });
-    if (report.kind === "reports") rt.ownHeldRead = true;
+    if (report.kind === "reports") rt.ownHeldRead = drive.key;
     const current = rt.held.get(drive.key);
     const ids = new Set<string>();
     for (const r of [report, current])
