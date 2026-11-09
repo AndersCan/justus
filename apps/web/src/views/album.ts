@@ -202,14 +202,17 @@ onOutput(peopleActor, (e) => {
   if (removed) toast(copy("album.is_no_longer_in", { name: removed.name, album: removed.album }));
 });
 
-/** The toast after an answer went through; a No gets none. */
+/** The toast after an answer went through: who is in and how, or who was declined. */
 export function answerToast(a: {
   requesterName: string;
   approve: boolean;
   role: "reader" | "member";
   viaInvite: boolean;
 }): string {
-  if (!a.approve) return "";
+  if (!a.approve)
+    return a.requesterName && a.requesterName !== copy("requests.they")
+      ? copy("album.declined", { requesterName: a.requesterName })
+      : copy("album.declined_unnamed");
   if (a.role === "reader")
     return copy("album.is_in_as_a_viewer", { requesterName: a.requesterName });
   return a.viaInvite
