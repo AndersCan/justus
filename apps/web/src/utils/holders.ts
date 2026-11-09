@@ -62,39 +62,49 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
   };
 }
 
-/** The delete dialog's text: it leaves everyone's album, and whose phones keep a copy Justus can't erase. */
-export function deleteDetail(h: PhotoHolders | undefined): string {
-  const gone = copy("lightbox.it_will_be_gone_from");
-  const names = (h?.others ?? []).map((m) => `${m.name}'s`);
-  const cannot =
-    names.length === 0
-      ? ""
-      : names.length === 1
-        ? copy("lightbox.can_t_erase_the_copy", { name: names[0] })
-        : copy("lightbox.can_t_erase_the_copies", {
-            names: names.slice(0, -1).join(", "),
-            last: names[names.length - 1],
-          });
-  const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, names.length) });
-  return [gone, cannot, back].filter((x) => x !== "").join(" ");
+/** "Ben has the full photo." / "Ben and Cy have the full photo."; "" for no names. Sheet, dialog and toast share these words. */
+export function hasFullPhoto(names: readonly string[]): string {
+  return names.length === 0
+    ? ""
+    : copy("full_photo.names_have", { list: nameList(names), n: names.length });
 }
 
-/** The toast after a delete: which photo, whose phone keeps a copy, who never got it, and who finds out when connected. */
+/** "Cy doesn't have the full photo." / "Cy and Dan don't have the full photo."; "" for no names. */
+export function lacksFullPhoto(names: readonly string[]): string {
+  return names.length === 0
+    ? ""
+    : copy("full_photo.names_lack", { list: nameList(names), n: names.length });
+}
+
+/** The delete dialog's text: it leaves everyone's album, who has the full photo, and who does not. */
+export function deleteDetail(h: PhotoHolders | undefined): string {
+  const gone = copy("lightbox.it_will_be_gone_from");
+  const have = (h?.others ?? []).map((m) => m.name);
+  const lack = (h?.waiting ?? []).map((m) => m.name);
+  const cannot =
+    have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase", { n: have.length });
+  const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, have.length) });
+  return [gone, hasFullPhoto(have), cannot, lacksFullPhoto(lack), back]
+    .filter((x) => x !== "")
+    .join(" ");
+}
+
+/** The toast after a delete: which photo, who has the full photo, who does not, and who finds out when connected. */
 export function deletedMessage(
   name: string,
   holders: PhotoHolders | undefined,
   people: readonly { key: string; name: string; connected: boolean }[],
 ): string {
   const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
-  const kept = (holders?.others ?? []).map(named);
-  const never = (holders?.waiting ?? []).map(named);
+  const have = (holders?.others ?? []).map(named);
+  const lack = (holders?.waiting ?? []).map(named);
   const later = (holders?.others ?? [])
     .filter((m) => people.some((p) => p.key === m.key && !p.connected))
     .map(named);
   return [
     copy("lightbox.deleted", { name }),
-    kept.length > 0 ? copy("lightbox.keeps_a_copy", { list: nameList(kept), n: kept.length }) : "",
-    never.length > 0 ? copy("lightbox.never_got_it", { list: nameList(never) }) : "",
+    hasFullPhoto(have),
+    lacksFullPhoto(lack),
     later.length > 0 ? copy("lightbox.will_see_it_when_connected", { list: nameList(later) }) : "",
   ]
     .filter((x) => x !== "")

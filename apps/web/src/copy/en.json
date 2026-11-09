@@ -3100,20 +3100,6 @@
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": "lightbox"
   },
-  "lightbox.keeps_a_copy": {
-    "text": "{list} {n?keeps:keep} a copy.",
-    "status": "draft",
-    "where": "Photo viewer › Deleted toast",
-    "who": "People who delete a photo: who added it, or the Admin",
-    "screen": "lightbox"
-  },
-  "lightbox.never_got_it": {
-    "text": "{list} never got it.",
-    "status": "draft",
-    "where": "Photo viewer › Deleted toast",
-    "who": "People who delete a photo: who added it, or the Admin",
-    "screen": "lightbox"
-  },
   "lightbox.will_see_it_when_connected": {
     "text": "{list} will see it's gone when connected.",
     "status": "draft",
@@ -3133,20 +3119,6 @@
     "status": "draft",
     "where": "Photo viewer › text",
     "who": "Everyone who opens a photo",
-    "screen": ""
-  },
-  "lightbox.can_t_erase_the_copy": {
-    "text": "{name} phone stops showing it, but Justus can't erase the copy already stored there.",
-    "status": "draft",
-    "where": "Photo viewer › Delete › text",
-    "who": "People who delete a photo: who added it, or the Admin",
-    "screen": ""
-  },
-  "lightbox.can_t_erase_the_copies": {
-    "text": "{names} and {last} phones stop showing it, but Justus can't erase the copies already stored there.",
-    "status": "draft",
-    "where": "Photo viewer › Delete › text",
-    "who": "People who delete a photo: who added it, or the Admin",
     "screen": ""
   },
   "lightbox.deleting_can_t_take_back": {
@@ -3450,13 +3422,6 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
-  "photo_holders.phones_with_a_full_copy": {
-    "text": "Phones that have it, as of when they last connected.",
-    "status": "draft",
-    "where": "Photo viewer › Who has this photo › text",
-    "who": "People who tap the photo's holders",
-    "screen": ""
-  },
   "photo_holders.you": {
     "text": "You",
     "status": "draft",
@@ -3478,17 +3443,10 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
-  "photo_holders.not_on_their_phone_yet": {
-    "text": "Not on their phone yet",
-    "status": "draft",
-    "where": "Photo viewer › Who has this photo › heading",
-    "who": "People who tap the photo's holders",
-    "screen": ""
-  },
   "photo_holders.can_still_get_it_from": {
     "text": "Can still get it from {names}",
     "status": "draft",
-    "where": "Photo viewer › Who has this photo › heading",
+    "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",
     "screen": ""
   },
@@ -3510,13 +3468,6 @@
     "text": "No longer in this album",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › heading",
-    "who": "People who tap the photo's holders",
-    "screen": ""
-  },
-  "photo_holders.has_a_copy_from_before": {
-    "text": "Has a copy from before. Removing someone does not take it back.",
-    "status": "draft",
-    "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",
     "screen": ""
   },
@@ -4379,6 +4330,48 @@
     "status": "draft",
     "where": "Album › Join requests › Accept all sheet",
     "who": "Admins answering requests",
+    "screen": ""
+  },
+  "full_photo.has": {
+    "text": "Has the full photo",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "full_photo.lacks": {
+    "text": "Doesn't have the full photo",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "full_photo.names_have": {
+    "text": "{list} {n?has:have} the full photo.",
+    "status": "draft",
+    "where": "Photo viewer › Delete › text, Deleted toast",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "full_photo.names_lack": {
+    "text": "{list} {n?doesn't:don't} have the full photo.",
+    "status": "draft",
+    "where": "Photo viewer › Delete › text, Deleted toast",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "lightbox.stops_showing_can_t_erase": {
+    "text": "It stops showing there, but Justus can't erase the {n?copy:copies} already stored there.",
+    "status": "draft",
+    "where": "Photo viewer › Delete › text",
+    "who": "People who delete a photo: who added it, or the Admin",
+    "screen": ""
+  },
+  "photo_holders.has_the_full_photo_from": {
+    "text": "Has the full photo from before. Removing someone does not take it back.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
     "screen": ""
   }
 }

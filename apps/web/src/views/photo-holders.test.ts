@@ -61,7 +61,7 @@ describe("holdersSheet", () => {
     const names = [...el.querySelectorAll("li .text-fg")].map((n) => n.textContent);
     expect(names).toEqual(["You", "Nils"]);
     expect(el.textContent).not.toContain("Hasn't said yet");
-    expect(el.textContent).not.toContain("Not on their phone yet");
+    expect(el.textContent).not.toContain("Doesn't have the full photo");
     expect(el.textContent).not.toContain("No longer in this album");
     expect(el.textContent).not.toContain("Arriving…");
   });
@@ -85,13 +85,13 @@ describe("holdersSheet leavers", () => {
     expect(text).toContain("Cleo");
     expect(text).toContain("Their phone deleted its copy.");
     expect(text).not.toContain("Left.");
-    expect(text).not.toContain("Has a copy from before");
+    expect(text).not.toContain("Has the full photo from before");
   });
   it("lists removed people before leavers, each with its own text", () => {
     const text =
       draw(holdersSheet(photo(h({ former: ["Maya"], left: ["Cleo"] })), [])).textContent ?? "";
     expect(text.indexOf("Maya")).toBeLessThan(text.indexOf("Cleo"));
-    expect(text).toContain("Has a copy from before");
+    expect(text).toContain("Has the full photo from before.");
     expect(text).toContain("Their phone deleted its copy.");
     expect(text).not.toContain("Left.");
   });
@@ -102,14 +102,16 @@ describe("holdersSheet waiting", () => {
     const el = draw(holdersSheet(photo(h({ waiting: [m("Maya")], unsure: [m("Jo")] })), []));
     const text = el.textContent ?? "";
     expect(text).toContain("Maya");
-    expect(text).not.toContain("Not on their phone yet");
+    expect(text).toContain("Doesn't have the full photo");
     expect(text.indexOf("Can still get it from you")).toBeGreaterThan(-1);
     expect(text.indexOf("Can still get it from you")).toBeLessThan(text.indexOf("Hasn't said yet"));
   });
   it("on a waiting phone, lists the holders and moves You under the heading", () => {
     const el = draw(holdersSheet(photo(h({ here: false, others: [m("Ada"), m("Ben")] })), []));
-    const heading = el.querySelector("h4");
-    expect(heading?.textContent?.trim()).toBe("Can still get it from Ada and Ben");
+    const headings = [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
+    expect(headings).toEqual(["Has the full photo", "Doesn't have the full photo"]);
+    const note = el.querySelector("p.text-xs");
+    expect(note?.textContent?.trim()).toBe("Can still get it from Ada and Ben");
     const lists = el.querySelectorAll("ul");
     expect([...lists[0].querySelectorAll(".text-fg")].map((n) => n.textContent)).toEqual([
       "Ada",
@@ -123,11 +125,14 @@ describe("holdersSheet waiting", () => {
     const el = draw(
       holdersSheet(photo(h({ here: true, others: [m("Ben")], waiting: [m("Cy")] })), []),
     );
-    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Can still get it from Ben and you");
+    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
+      "Can still get it from Ben and you",
+    );
   });
   it("claims no source when nobody holds a copy", () => {
     const el = draw(holdersSheet(photo(h({ here: false, others: [] })), []));
-    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Not on their phone yet");
+    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Doesn't have the full photo");
+    expect(el.querySelector("p.text-xs")).toBeNull();
   });
 });
 
@@ -192,16 +197,14 @@ describe("holdersSheet colours", () => {
     const el = draw(
       holdersSheet(photo(h({ others: [{ key: "k1", name: "Ada" }], waiting: [m("Cy")] })), people),
     );
-    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Can still get it from Mum and you");
-  });
-  it("says the new subtitle once, above the first list", () => {
-    const el = draw(holdersSheet(photo(h({ others: [m("Nils")], former: ["Ola"] })), people));
-    const text = "Phones that have it, as of when they last connected.";
-    expect(el.textContent?.split(text).length).toBe(2);
-    const sub = [...el.querySelectorAll("p")].find((x) => x.textContent === text)!;
-    expect(sub.compareDocumentPosition(el.querySelector("ul")!)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
+      "Can still get it from Mum and you",
     );
+  });
+  it("has no subtitle and heads the first list", () => {
+    const el = draw(holdersSheet(photo(h({ others: [m("Nils")], former: ["Ola"] })), people));
+    expect(el.textContent).not.toContain("as of when they last connected");
+    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Has the full photo");
   });
 });
 

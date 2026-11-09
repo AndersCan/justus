@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { PhotoHolders } from "@justus/core";
-import { deleteDetail, deletedMessage, holdersLine, holdersSheetRows } from "./holders";
+import {
+  deleteDetail,
+  deletedMessage,
+  hasFullPhoto,
+  holdersLine,
+  holdersSheetRows,
+  lacksFullPhoto,
+} from "./holders";
 
 const m = (name: string) => ({ key: name, name });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
@@ -113,6 +120,21 @@ describe("holdersSheetRows", () => {
   });
 });
 
+describe("hasFullPhoto and lacksFullPhoto", () => {
+  it("say nothing for no names", () => {
+    expect(hasFullPhoto([])).toBe("");
+    expect(lacksFullPhoto([])).toBe("");
+  });
+  it("agree with one name", () => {
+    expect(hasFullPhoto(["Ben"])).toBe("Ben has the full photo.");
+    expect(lacksFullPhoto(["Cy"])).toBe("Cy doesn't have the full photo.");
+  });
+  it("agree with two names", () => {
+    expect(hasFullPhoto(["Ben", "Cy"])).toBe("Ben and Cy have the full photo.");
+    expect(lacksFullPhoto(["Cy", "Dan"])).toBe("Cy and Dan don't have the full photo.");
+  });
+});
+
 describe("deleteDetail", () => {
   const gone = "It will be gone from the album for everyone.";
   const back = "Deleting can't take it back.";
@@ -124,17 +146,27 @@ describe("deleteDetail", () => {
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
-      `${gone} Nils's phone stops showing it, but Justus can't erase the copy already stored there. Deleting can't take it back.`,
+      `${gone} Nils has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Deleting can't take it back.`,
     );
   });
   it("names two phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
-      `${gone} Nils's and Maya's phones stop showing it, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
+      `${gone} Nils and Maya have the full photo. It stops showing there, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
     );
   });
   it("names three phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
-      `${gone} Nils's, Maya's and Ben's phones stop showing it, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
+      `${gone} Nils, Maya and Ben have the full photo. It stops showing there, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
+    );
+  });
+  it("names who has it and who does not", () => {
+    expect(deleteDetail(h({ others: [m("Ben")], waiting: [m("Cy")] }))).toBe(
+      `${gone} Ben has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Cy doesn't have the full photo. Deleting can't take it back.`,
+    );
+  });
+  it("names only who lacks it", () => {
+    expect(deleteDetail(h({ waiting: [m("Ben")] }))).toBe(
+      `${gone} Ben doesn't have the full photo. Deleting can't take it back.`,
     );
   });
 });
@@ -147,18 +179,22 @@ describe("deletedMessage", () => {
     [
       "one keeps, one never got it",
       { others: [m("Ben")], waiting: [m("Cy")] },
-      "Deleted “Sunset”. Ben keeps a copy. Cy never got it.",
+      "Deleted “Sunset”. Ben has the full photo. Cy doesn't have the full photo.",
     ],
-    ["two keep", { others: [m("Ana"), m("Ben")] }, "Deleted “Sunset”. Ana and Ben keep a copy."],
+    [
+      "two keep",
+      { others: [m("Ana"), m("Ben")] },
+      "Deleted “Sunset”. Ana and Ben have the full photo.",
+    ],
     [
       "waiting away",
       { waiting: [m("Cy"), m("Dan")] },
-      "Deleted “Sunset”. Cy and Dan never got it.",
+      "Deleted “Sunset”. Cy and Dan don't have the full photo.",
     ],
     [
       "holder away",
       { others: [m("Ben"), m("Dan")] },
-      "Deleted “Sunset”. Ben and Dan keep a copy. Dan will see it's gone when connected.",
+      "Deleted “Sunset”. Ben and Dan have the full photo. Dan will see it's gone when connected.",
     ],
     [
       "only unsure, former, left",
@@ -179,7 +215,7 @@ describe("deletedMessage", () => {
       { key: "k2", name: "Zed" },
     ];
     expect(deletedMessage("Sunset", h({ others }), saved)).toBe(
-      "Deleted “Sunset”. Benny and Zed keep a copy.",
+      "Deleted “Sunset”. Benny and Zed have the full photo.",
     );
   });
 });

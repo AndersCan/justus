@@ -170,7 +170,7 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({
         detail:
-          "It will be gone from the album for everyone. Nils's phone stops showing it, but Justus can't erase the copy already stored there. Deleting can't take it back.",
+          "It will be gone from the album for everyone. Nils has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Deleting can't take it back.",
       }),
     );
   });
@@ -214,7 +214,7 @@ describe("Delete", () => {
     left: [],
   });
 
-  it("names who keeps a copy and who sees it's gone later", async () => {
+  it("names who has the full photo and who sees it's gone later", async () => {
     await reload([a, b]);
     vi.spyOn(syncActor, "snapshot").mockReturnValue(albumStatus());
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
@@ -228,7 +228,7 @@ describe("Delete", () => {
     });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
     expect(toast).toHaveBeenCalledWith(
-      "Deleted “b”. Ben and Cara keep a copy. Cara will see it's gone when connected.",
+      "Deleted “b”. Ben and Cara have the full photo. Cara will see it's gone when connected.",
     );
     vi.mocked(syncActor.snapshot).mockRestore();
   });
@@ -253,7 +253,7 @@ describe("Delete", () => {
       holders: holdersOf([{ key: "Ben", name: "Ben" }]),
     });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny keeps a copy.");
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny has the full photo.");
     vi.mocked(syncActor.snapshot).mockRestore();
     vi.mocked(friendsActor.snapshot).mockRestore();
   });
