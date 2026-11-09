@@ -77,7 +77,8 @@ jobs:
 
       # Every PR adds a bump file (`pnpm bumpy add`, `--empty` for CI/test/docs).
       # A version PR (from `bumpy version`) removes bump files and changes
-      # package.json versions, so "no bump files" is expected there.
+      # package.json versions, so "no bump files" is expected there. A PR is a
+      # version PR only when it deletes bump files.
       - name: bumpy check (allow version PRs)
         run: |
           set +e
@@ -87,8 +88,8 @@ jobs:
           if [ $code -eq 0 ]; then
             exit 0
           fi
-          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -q "package.json"; then
-            echo "Version bump detected (package.json changed), ignoring bumpy check failure"
+          if [ -n "$(git diff --diff-filter=D --name-only "$BASE_SHA...$HEAD_SHA" -- .bumpy/)" ]; then
+            echo "Version PR detected (bump files deleted), ignoring bumpy check failure"
             pnpm exec bumpy ci check --comment --no-fail || true
             exit 0
           fi

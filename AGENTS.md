@@ -35,18 +35,19 @@ layer, Host, Actor). Use those terms exactly.
   `apps/backend`) and the `bare-host` AAR (`apps/android/app/build.gradle`) track
   the same release. Bump both together, run `vp check` + tests, then do app work.
   Currently **0.6.0**.
-- **Every PR adds a bump file.** Run `pnpm bumpy add` (CI fails without one);
-  use `--empty` for CI, test, docs and listing work. Each user-visible change
-  gets one line starting `[user]:`, written for the person holding the phone
-  (what they can now do or no longer hit, no jargon). Other lines are the
-  developer changelog. Example body:
+- **Every PR adds a bump file.** Run `pnpm bumpy add`. CI fails without one
+  when the PR changes `apps/*` or `packages/*`; changes only under `scripts/`,
+  `.github/`, `e2e/`, `.maestro/` or `docs/` need none, but add one with
+  `--empty` if unsure. Each user-visible change gets one line starting
+  `[user]:`, written for the person holding the phone (what they can now do or
+  no longer hit, no jargon). Other lines are the developer changelog. The
+  Android release note is built from `apps/android/CHANGELOG.md` only, so a
+  user-visible change must bump `@justus/android`, whichever package the code
+  is in:
 
   ```
-  [user]: Photos you add while offline now send as soon as you are back online.
-  Retry the outbox on reconnect instead of on the next app start.
+  pnpm bumpy add --packages "@justus/android:patch" --message "[user]: Photos you add while offline now send as soon as you are back online."
   ```
-
-  The Android release note is built from the `[user]:` lines.
 
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
 - **All app state is a mantaq actor.** Views read it with `watch(actor, select)`
