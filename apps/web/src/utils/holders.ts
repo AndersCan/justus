@@ -1,6 +1,7 @@
 import type { PhotoHolders, PhotoMember } from "@justus/core";
 
 import { copy } from "../copy/copy";
+import { nameList } from "./people";
 /** Longest text the one-line "who has it" row shows before it falls back to a count. */
 const LIMIT = 36;
 
@@ -74,4 +75,20 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
           last: names[names.length - 1],
         });
   return `${gone} ${keeps} ${copy("lightbox.deleting_can_t_take_back", { k: names.length })}`;
+}
+
+/** The toast after a delete: which photo, whose albums drop it now and whose when that phone connects. */
+export function deletedMessage(
+  name: string,
+  others: readonly { name: string; connected: boolean }[],
+): string {
+  const first = copy("lightbox.deleted", { name });
+  const now = others.filter((o) => o.connected).map((o) => `${o.name}'s`);
+  const later = others.filter((o) => !o.connected).map((o) => `${o.name}'s`);
+  if (now.length === 0 && later.length === 0) return first;
+  if (later.length === 0)
+    return `${first} ${copy("lightbox.drops_it_now", { list: nameList(now), n: now.length })}`;
+  if (now.length === 0)
+    return `${first} ${copy("lightbox.drops_it_later", { list: nameList(later), n: later.length })}`;
+  return `${first} ${copy("lightbox.drops_it_now_and_later", { now: nameList(now), n: now.length, later: nameList(later) })}`;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { PhotoHolders } from "@justus/core";
-import { deleteDetail, holdersLine, holdersSheetRows } from "./holders";
+import { deleteDetail, deletedMessage, holdersLine, holdersSheetRows } from "./holders";
 
 const m = (name: string) => ({ key: name, name });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
@@ -135,5 +135,35 @@ describe("deleteDetail", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
       `${gone} Nils's, Maya's and Ben's phones keep a copy. Deleting can't take them back.`,
     );
+  });
+});
+
+describe("deletedMessage", () => {
+  const ben = { name: "Ben", connected: true };
+  const ana = { name: "Ana", connected: true };
+  const cara = { name: "Cara", connected: false };
+  const rows: [string, { name: string; connected: boolean }[], string][] = [
+    ["alone", [], "Deleted “Sunset”."],
+    ["one connected", [ben], "Deleted “Sunset”. Ben's album drops it now."],
+    ["two connected", [ben, ana], "Deleted “Sunset”. Ben's and Ana's albums drop it now."],
+    ["one away", [cara], "Deleted “Sunset”. Cara's album drops it later, when connected."],
+    [
+      "two away",
+      [cara, { name: "Dan", connected: false }],
+      "Deleted “Sunset”. Cara's and Dan's albums drop it later, when connected.",
+    ],
+    [
+      "two connected and one away",
+      [ben, ana, cara],
+      "Deleted “Sunset”. Ben's and Ana's albums drop it now, Cara's later, when connected.",
+    ],
+    [
+      "both",
+      [ben, cara],
+      "Deleted “Sunset”. Ben's album drops it now, Cara's later, when connected.",
+    ],
+  ];
+  it.each(rows)("%s", (_, others, text) => {
+    expect(deletedMessage("Sunset", others)).toBe(text);
   });
 });

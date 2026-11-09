@@ -4,6 +4,8 @@ import { confirmAction } from "./confirm";
 import { toast } from "./toast";
 import { lightboxActor } from "../machines/lightbox-machine";
 import { galleryActor, gallery } from "../machines/gallery-machine";
+import { syncActor } from "../machines/sync-machine";
+import { friendsActor } from "../machines/friends-machine";
 import type { Photo } from "@justus/core";
 
 const hoisted = vi.hoisted(() => ({
@@ -183,6 +185,77 @@ describe("Delete", () => {
     expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
     done([null, undefined]);
     await vi.waitFor(() => expect(lightboxActor.snapshot().context.photo).toBeUndefined());
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith("Deleted “b”.");
+  });
+
+  const member = (name: string, connected: boolean) => ({
+    key: name,
+    name,
+    admin: false,
+    connected,
+  });
+  const albumStatus = () =>
+    ({
+      context: {
+        status: {
+          folder: { id: "f1" },
+          members: [member("Ada", true), member("Ben", true), member("Cara", false)],
+        },
+      },
+    }) as never;
+
+  it("names whose albums drop it now and later", async () => {
+    await reload([a, b]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue(albumStatus());
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox({ ...b, folderId: "f1" });
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith(
+      "Deleted “b”. Ben's album drops it now, Cara's later, when connected.",
+    );
+    vi.mocked(syncActor.snapshot).mockRestore();
+  });
+
+  it("uses the saved friend name for a member", async () => {
+    await reload([a, b]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f1" },
+          members: [member("Ada", true), { ...member("Ben", true), identity: "id-ben" }],
+        },
+      },
+    } as never);
+    vi.spyOn(friendsActor, "snapshot").mockReturnValue({
+      context: { friends: { "id-ben": "Benny" } },
+    } as never);
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox({ ...b, folderId: "f1" });
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny's album drops it now.");
+    vi.mocked(syncActor.snapshot).mockRestore();
+    vi.mocked(friendsActor.snapshot).mockRestore();
+  });
+
+  it("names nobody when the photo is not in the open album", async () => {
+    await reload([a, b]);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue(albumStatus());
+    hoisted.gateway.remove.mockResolvedValue([null, undefined]);
+    await deleteFromLightbox({ ...b, folderId: "f2" });
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith("Deleted “b”.");
+    vi.mocked(syncActor.snapshot).mockRestore();
+  });
+
+  it("a photo that was already gone leaves the list without a message", async () => {
+    await reload([a, b]);
+    hoisted.gateway.remove.mockResolvedValue([
+      { code: "justus.photos/not-found", message: "gone" },
+      null,
+    ]);
+    await deleteFromLightbox(b);
+    await vi.waitFor(() => expect(galleryActor.snapshot().context.photos).toEqual([a]));
     expect(toast).not.toHaveBeenCalled();
   });
 

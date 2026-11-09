@@ -1,6 +1,52 @@
 {
   "gallery": [
     {
+      "name": "Anna deletes a photo someone already deleted, and no Deleted message shows",
+      "end": "showingPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "LOAD",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "PHOTOS_LOADED",
+          "payload": {
+            "photos": [
+              {
+                "id": "p1",
+                "name": "beach.jpg",
+                "folderId": "trip"
+              },
+              {
+                "id": "p2",
+                "name": "picnic.jpg",
+                "folderId": "trip"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVE",
+          "payload": {
+            "id": "p1",
+            "folderId": "trip"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REMOVED",
+          "payload": {
+            "id": "p1",
+            "folderId": "trip",
+            "alreadyGone": true
+          }
+        }
+      ]
+    },
+    {
       "name": "Anna opens Trip and sees its photos",
       "end": "showingPhotos",
       "steps": [
@@ -69,7 +115,8 @@
           "event": "REMOVED",
           "payload": {
             "id": "p1",
-            "folderId": "trip"
+            "folderId": "trip",
+            "alreadyGone": false
           }
         }
       ]
