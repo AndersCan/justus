@@ -1,3 +1,4 @@
+import { deletedSince, vanishedDrives, type Listing } from "./photos/deleted";
 import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
 import {
   DRIVE_PATH_PHOTOS,
@@ -6,6 +7,7 @@ import {
   addPhoto,
   galleryDrives,
   listGallery,
+  type Gallery,
 } from "./photos/gallery";
 import {
   addFormer,
@@ -608,6 +610,12 @@ type FolderRuntime = {
   former: FormerPerson[];
   /** True once the photos opened before holding records existed were recorded. */
   heldBackfilled: boolean;
+  /** What the last listing showed, to spot photos someone else deleted since. */
+  listing?: Listing;
+  /** Counts listings as they start; the newest one to finish is the one kept. */
+  listSeq: number;
+  /** "<driveKey>:<id>" of photos this phone deleted this session. */
+  deletedHere: Set<string>;
 };
 
 /** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
@@ -2555,7 +2563,64 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** Tells the screen about photos someone else deleted since this album was last listed. */
+  function tellScreenOfDeletes(
+    rt: FolderRuntime,
+    seen: {
+      seq: number;
+      selfKey: string;
+      gallery: Gallery;
+      sources: ReadonlyMap<string, object>;
+      adminName: string | undefined;
+    },
+  ) {
+    const { seq, selfKey, gallery, sources, adminName } = seen;
+    // A listing that started before the stored one is stale: no swap, no diff.
+    if (rt.listing !== undefined && seq <= rt.listing.seq) return;
+    const prev = rt.listing;
+    rt.listing = {
+      seq,
+      role: rt.record.role,
+      notice: rt.record.notice?.kind,
+      complete: gallery.complete,
+      sources,
+      photos: new Map(
+        gallery.photos.map((d) => [
+          `${d.driveKey}:${d.id}`,
+          { driveKey: d.driveKey, name: d.name, adderName: d.memberName },
+        ]),
+      ),
+    };
+    const now = rt.listing;
+    void (async () => {
+      // A member who left takes their photos with them; that is not a delete.
+      const left = new Set<string>();
+      // The Admin deleting the album empties the Admin's drive; that is not a photo delete either.
+      if (await readDeleteNote(rt.folderDrive, { log, timeoutMs: 2_000 })) return;
+      for (const key of vanishedDrives(prev, now)) {
+        const drive = sources.get(key) as Drive | undefined;
+        if (key !== selfKey && drive && (await readLeftNote(drive, { log, timeoutMs: 2_000 })))
+          left.add(key);
+      }
+      const gone = deletedSince(prev, now, {
+        removed: gallery.removed,
+        selfKey,
+        adminName,
+        deletedHere: rt.deletedHere,
+        left,
+      });
+      if (gone.length === 0) return;
+      log("photos.deleted", { folder: rt.record.id, n: gone.length });
+      deps.onChanged({
+        cause: "deleted",
+        folderId: rt.record.id,
+        deleted: { albumName: rt.record.name, photos: gone },
+      });
+    })().catch((e) => log("error", { where: "deletedSince", err: errText(e) }));
+  }
+
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
+    const seq = ++rt.listSeq;
     const selfKey = selfKeyOf(rt);
     const sources = galleryDrives({
       role: rt.record.role,
@@ -2564,14 +2629,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       memberDrives: rt.memberDrives,
       removed: rt.record.notice?.kind === "removed",
     });
-    const derived = await listGallery(sources, {
+    const gallery = await listGallery(sources, {
       removedFrom: rt.folderDrive,
       memberName: (k) => (k === selfKey ? state.name : rt.memberNameCache.get(k)),
       log,
     });
+    const derived = gallery.photos;
     const driveByKey = new Map(sources.map((s) => [s.key, s.drive]));
 
     const people = await albumPeople(rt);
+    tellScreenOfDeletes(rt, {
+      seq,
+      selfKey,
+      gallery,
+      sources: driveByKey,
+      adminName: people.find((p) => p.admin)?.name,
+    });
     const photos: Photo[] = [];
     const listed: { id: string; ext: string; driveKey: string }[] = [];
     for (const d of derived) {
@@ -3646,6 +3719,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         watcherRemoves: new Set(),
         held: new Map(),
         heldBackfilled: false,
+        listSeq: 0,
+        deletedHere: new Set(),
         former: [],
       };
       runtimes.set(record.id, rt);
@@ -3818,6 +3893,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watcherRemoves: new Set(),
       held: new Map(),
       heldBackfilled: false,
+      listSeq: 0,
+      deletedHere: new Set(),
       former: [],
     };
     runtimes.set(folderId, rt);
@@ -4832,6 +4909,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             watcherRemoves: new Set(),
             held: new Map(),
             heldBackfilled: false,
+            listSeq: 0,
+            deletedHere: new Set(),
             former: [],
           };
           runtimes.set(existing.id, rt);
@@ -4918,6 +4997,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       watcherRemoves: new Set(),
       held: new Map(),
       heldBackfilled: false,
+      listSeq: 0,
+      deletedHere: new Set(),
       former: [],
     };
     runtimes.set(folderId, rt);
@@ -4985,8 +5066,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         const rt = activeRuntime();
         return rt ? listPhotosIn(rt) : [];
       }
+      const shown = shownFolders();
+      for (const [id, rt] of runtimes) {
+        if (!shown.some((f) => f.id === id)) rt.listing = undefined;
+      }
       const photos: Photo[] = [];
-      for (const record of shownFolders()) {
+      for (const record of shown) {
         const rt = runtimes.get(record.id);
         if (rt) photos.push(...(await listPhotosIn(rt)));
       }
@@ -5075,6 +5160,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         for (const [key, drive] of rt.memberDrives) {
           for (const base of await drivePhotoKeys(drive)) {
             if (base.startsWith(`${id}.`) || base === id) {
+              rt.deletedHere.add(`${key}:${id}`);
               removed[`${key}:${id}`] = { memberKey: key, removedAt: Date.now() };
               forgetPhoto(rt, key, id, base.slice(id.length));
               pruneIndex(id, key);

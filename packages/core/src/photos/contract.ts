@@ -211,6 +211,7 @@ export const photoChangedSchema = s.object({
     "version",
     "holders",
     "role",
+    "deleted",
   ),
   folderId: s.optional(s.string),
   memberKey: s.optional(s.string),
@@ -222,6 +223,19 @@ export const photoChangedSchema = s.object({
       to: s.oneOf("member", "reader"),
       albumName: s.string,
       adminName: s.optional(s.string),
+    }),
+  ),
+  deleted: s.optional(
+    s.object({
+      albumName: s.string,
+      photos: s.array(
+        s.object({
+          name: s.string,
+          adderName: s.string,
+          mine: s.boolean,
+          deletedBy: s.optional(s.string),
+        }),
+      ),
     }),
   ),
 });

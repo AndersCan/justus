@@ -102,3 +102,24 @@ describe("photo contract", () => {
     expect(checkPhotoResult("photos.setName", { name: "x", extra: 1 })).toBeNull();
   });
 });
+
+describe("deleted push", () => {
+  const deleted = {
+    albumName: "Trip",
+    photos: [
+      { name: "a.jpg", adderName: "Ann", mine: false, deletedBy: "Ann" },
+      { name: "b.jpg", adderName: "Bo", mine: true },
+    ],
+  };
+
+  it("accepts a deleted push and names a bad field", () => {
+    expect(checkPhotoChanged({ cause: "deleted", folderId: "f", deleted })).toBeNull();
+    expect(
+      checkPhotoChanged({
+        cause: "deleted",
+        folderId: "f",
+        deleted: { ...deleted, photos: [{ name: "a", adderName: "A", mine: "yes" }] },
+      }),
+    ).toContain("args.deleted.photos[0].mine");
+  });
+});
