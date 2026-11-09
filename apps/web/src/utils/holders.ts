@@ -62,33 +62,35 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
   };
 }
 
-/** The delete dialog's text: who loses the photo, and whose phones keep a copy. */
+/** The delete dialog's text: it leaves everyone's album, and whose phones keep a copy Justus can't erase. */
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
   const names = (h?.others ?? []).map((m) => `${m.name}'s`);
-  if (names.length === 0) return gone;
-  const keeps =
-    names.length === 1
-      ? copy("lightbox.phone_keeps_a_copy", { name: names[0] })
-      : copy("lightbox.and_phones_keep_a_copy", {
-          names: names.slice(0, -1).join(", "),
-          last: names[names.length - 1],
-        });
-  return `${gone} ${keeps} ${copy("lightbox.deleting_can_t_take_back", { k: names.length })}`;
+  const cannot =
+    names.length === 0
+      ? ""
+      : names.length === 1
+        ? copy("lightbox.can_t_erase_the_copy", { name: names[0] })
+        : copy("lightbox.can_t_erase_the_copies", {
+            names: names.slice(0, -1).join(", "),
+            last: names[names.length - 1],
+          });
+  const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, names.length) });
+  return [gone, cannot, back].filter((x) => x !== "").join(" ");
 }
 
-/** The toast after a delete: which photo, whose albums drop it now and whose when that phone connects. */
+/** The toast after a delete: which photo, who sees it's gone now and who when that phone connects. */
 export function deletedMessage(
   name: string,
   others: readonly { name: string; connected: boolean }[],
 ): string {
   const first = copy("lightbox.deleted", { name });
-  const now = others.filter((o) => o.connected).map((o) => `${o.name}'s`);
-  const later = others.filter((o) => !o.connected).map((o) => `${o.name}'s`);
+  const now = others.filter((o) => o.connected).map((o) => o.name);
+  const later = others.filter((o) => !o.connected).map((o) => o.name);
   if (now.length === 0 && later.length === 0) return first;
   if (later.length === 0)
-    return `${first} ${copy("lightbox.drops_it_now", { list: nameList(now), n: now.length })}`;
+    return `${first} ${copy("lightbox.sees_it_s_gone", { list: nameList(now), n: now.length })}`;
   if (now.length === 0)
-    return `${first} ${copy("lightbox.drops_it_later", { list: nameList(later), n: later.length })}`;
-  return `${first} ${copy("lightbox.drops_it_now_and_later", { now: nameList(now), n: now.length, later: nameList(later) })}`;
+    return `${first} ${copy("lightbox.will_see_it_when_connected", { list: nameList(later) })}`;
+  return `${first} ${copy("lightbox.sees_it_s_gone_later", { now: nameList(now), n: now.length, later: nameList(later) })}`;
 }

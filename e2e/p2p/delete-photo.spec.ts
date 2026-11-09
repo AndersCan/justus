@@ -143,12 +143,14 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("menuitem", { name: "Delete" }).click();
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
-  await expect(dialog).toContainText(/'s phone keeps a copy\. Deleting can't take it back\./);
+  await expect(dialog).toContainText(
+    /Justus can't erase the copy on .+'s phone\. Deleting can't take it back\./,
+  );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("status").filter({ hasText: `Deleted “${ANA}”.` })).toContainText(
-    "'s album drops it now.",
+    " it's gone.",
   );
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
@@ -162,7 +164,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .locator("wa-button", { hasText: "Delete" })
     .click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toContainText(
-    "'s album drops it now.",
+    " it's gone.",
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {

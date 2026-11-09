@@ -2,4 +2,4 @@
 "@justus/android": patch
 ---
 
-[user]: Deleting a photo now says so, and names whose albums drop it now and whose drop it later.
+[user]: Deleting a photo now says so, and who sees it's gone now and who when they connect.

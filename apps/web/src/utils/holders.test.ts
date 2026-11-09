@@ -115,25 +115,26 @@ describe("holdersSheetRows", () => {
 
 describe("deleteDetail", () => {
   const gone = "It will be gone from the album for everyone.";
-  it("says only that it is gone without holders", () => {
-    expect(deleteDetail(undefined)).toBe(gone);
+  const back = "Deleting can't take it back.";
+  it("says it is gone for everyone without holders", () => {
+    expect(deleteDetail(undefined)).toBe(`${gone} ${back}`);
   });
   it("says only that it is gone when no one else has it", () => {
-    expect(deleteDetail(h({ unsure: [m("Jo")], former: ["Al"] }))).toBe(gone);
+    expect(deleteDetail(h({ unsure: [m("Jo")], former: ["Al"] }))).toBe(`${gone} ${back}`);
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
-      `${gone} Nils's phone keeps a copy. Deleting can't take it back.`,
+      `${gone} Justus can't erase the copy on Nils's phone. Deleting can't take it back.`,
     );
   });
   it("names two phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
-      `${gone} Nils's and Maya's phones keep a copy. Deleting can't take them back.`,
+      `${gone} Justus can't erase the copies on Nils's and Maya's phones. Deleting can't take them back.`,
     );
   });
   it("names three phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
-      `${gone} Nils's, Maya's and Ben's phones keep a copy. Deleting can't take them back.`,
+      `${gone} Justus can't erase the copies on Nils's, Maya's and Ben's phones. Deleting can't take them back.`,
     );
   });
 });
@@ -144,24 +145,20 @@ describe("deletedMessage", () => {
   const cara = { name: "Cara", connected: false };
   const rows: [string, { name: string; connected: boolean }[], string][] = [
     ["alone", [], "Deleted “Sunset”."],
-    ["one connected", [ben], "Deleted “Sunset”. Ben's album drops it now."],
-    ["two connected", [ben, ana], "Deleted “Sunset”. Ben's and Ana's albums drop it now."],
-    ["one away", [cara], "Deleted “Sunset”. Cara's album drops it later, when connected."],
+    ["one connected", [ben], "Deleted “Sunset”. Ben sees it's gone."],
+    ["two connected", [ben, ana], "Deleted “Sunset”. Ben and Ana see it's gone."],
+    ["one away", [cara], "Deleted “Sunset”. Cara will see it's gone when connected."],
     [
       "two away",
       [cara, { name: "Dan", connected: false }],
-      "Deleted “Sunset”. Cara's and Dan's albums drop it later, when connected.",
+      "Deleted “Sunset”. Cara and Dan will see it's gone when connected.",
     ],
     [
       "two connected and one away",
       [ben, ana, cara],
-      "Deleted “Sunset”. Ben's and Ana's albums drop it now, Cara's later, when connected.",
+      "Deleted “Sunset”. Ben and Ana see it's gone, Cara when connected.",
     ],
-    [
-      "both",
-      [ben, cara],
-      "Deleted “Sunset”. Ben's album drops it now, Cara's later, when connected.",
-    ],
+    ["both", [ben, cara], "Deleted “Sunset”. Ben sees it's gone, Cara when connected."],
   ];
   it.each(rows)("%s", (_, others, text) => {
     expect(deletedMessage("Sunset", others)).toBe(text);
