@@ -135,6 +135,7 @@ import {
   removeAlbumMember,
   rotateAlbum,
 } from "./albums/albums";
+import { clearOldAlbumOffIdentity } from "./rotate-album";
 import {
   createPresence,
   learnDevices,
@@ -3496,6 +3497,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** A pre-#195 album left its photos and member list on the identity drive, whose key every
+   * invite link carries. Not while the album still lives there. Retried next boot on failure. */
+  async function clearOldAlbumOnIdentity(): Promise<void> {
+    const stillHere = [...state.folders, ...state.gone].some((r) => r.shareKey === ownDrive.key);
+    if (stillHere) return;
+    const [err, result] = await clearOldAlbumOffIdentity(ownDrive);
+    if (err) log("error", { where: "identity.clear.failed", err: errText(err) });
+    else if (result === "cleared") log("identity.cleared", {});
+  }
+
   async function ownerNameOf(shareKey: string): Promise<string> {
     let drive: Drive | null = null;
     try {
@@ -3521,6 +3532,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     ownDrive = await deps.drives.openOwn();
     await ensureOwnDriveIdentity();
     await migrateFromV1();
+    await clearOldAlbumOnIdentity();
 
     // Registered before any topic join so early connections replicate too.
     network.start(ownDrive.key, onPeerEvent, deps.peerProtocol);
