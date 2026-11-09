@@ -935,7 +935,7 @@ describe("the other phones follow the move by themselves", () => {
     await s.close();
   }, 40_000);
 
-  it("while the old drive is kept, the Admin and a Viewer list a copied photo once and the other photo once", async () => {
+  it("while the old drive is kept, the Admin, a Viewer and the Collaborator list a copied photo once and the other photo once", async () => {
     const s = await invited();
     // Copy exactly one photo, whatever its random path: the other stays only on the old drive.
     let first = true;
@@ -967,6 +967,75 @@ describe("the other phones follow the move by themselves", () => {
     expect(bad).toEqual([]);
     await s.close();
   }, 40_000);
+
+  it("a Collaborator who restarts while the old drive is kept still lists each photo once", async () => {
+    const s = await invited();
+    let first = true;
+    limitCopies(s.nils, () => {
+      const keep = first;
+      first = false;
+      return keep;
+    });
+    await s.nils.store.addBytes("a.jpg", new Uint8Array([1, 1, 1]), s.ids.nils);
+    await s.nils.store.addBytes("b.jpg", new Uint8Array([2, 2, 2]), s.ids.nils);
+    await until(async () => (await names(s.admin)).length === 2);
+    await s.nils.store.setName("Nils B");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await sleep(2_000);
+    await s.nils.store.close();
+    s.nils.deps = restarted(s.nils.deps);
+    s.nils.store = createPhotoStore(s.nils.deps);
+    await s.nils.store.ready();
+    const bad: string[] = [];
+    const end = Date.now() + 6_000;
+    while (Date.now() < end) {
+      const list = (await names(s.nils)).join();
+      if (list !== "a.jpg,b.jpg") bad.push(list);
+      await sleep(100);
+    }
+    expect(bad).toEqual([]);
+    await s.close();
+  }, 40_000);
+
+  it("after a second removal, the Admin and the Collaborator still list each photo once", async () => {
+    const s = await invited();
+    let all = false;
+    let first = true;
+    limitCopies(s.nils, () => {
+      if (all) return true;
+      const keep = first;
+      first = false;
+      return keep;
+    });
+    await s.nils.store.addBytes("a.jpg", new Uint8Array([1, 1, 1]), s.ids.nils);
+    await s.nils.store.addBytes("b.jpg", new Uint8Array([2, 2, 2]), s.ids.nils);
+    await until(async () => (await names(s.admin)).length === 2);
+    await s.nils.store.setName("Nils B");
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    await sleep(2_000);
+    const code = s.record().invite.code as string;
+    const veraNew = (await s.vera.deps.drives.openOwn(`ask/${code}`)).key;
+    all = true;
+    await s.admin.store.removeMember(s.folderId, veraNew);
+    const after = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === after, 15_000);
+    await sleep(2_000);
+    const bad: string[] = [];
+    const end = Date.now() + 6_000;
+    while (Date.now() < end) {
+      for (const p of [s.admin, s.nils]) {
+        const list = (await names(p)).join();
+        if (list !== "a.jpg,b.jpg") bad.push(list);
+      }
+      await sleep(100);
+    }
+    expect(bad).toEqual([]);
+    await s.close();
+  }, 60_000);
 
   it("a Viewer follows without copying anything", async () => {
     const s = await invited();
