@@ -33,7 +33,11 @@ export type AskSummary = {
 };
 
 /** Sends the request; resolves `[error, result]` like the gateway. */
-export type JoinPort = { ask(invite: JoinInvite): Promise<[unknown, unknown]> };
+export type JoinPort = {
+  ask(invite: JoinInvite): Promise<[unknown, unknown]>;
+  /** Reads whether the owner turned this link off; `[error, { turnedOff }]`. */
+  checkLink?(invite: JoinInvite): Promise<[unknown, unknown]>;
+};
 
 export const GARBLED_LINK = copy("join_request.that_invite_doesn_t_look");
 export const oldLinkMessage = (ownerName: string) =>
@@ -51,6 +55,8 @@ const showingWelcome = state("showingWelcome")();
 const holdingInviteUntilWelcomeEnds = state("holdingInviteUntilWelcomeEnds")<JoinInvite>();
 /** The opened text is not a link that works; the reason shows under the paste box. */
 const showingLinkProblem = state("showingLinkProblem")();
+/** "Checking <owner>'s link…": the owner's phone is asked whether the link was turned off, for at most a few seconds. Nothing is sent. */
+const checkingLink = state("checkingLink")<JoinInvite>();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
 const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 /** The request is being sent; the buttons are disabled. */
@@ -117,6 +123,8 @@ export type RequestAnswer =
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<RequestAnswer>();
 
+/** The owner's phone answered whether the link is turned off; any failure reads as not off. */
+const linkChecked = event("linkChecked")<{ turnedOff: boolean }>();
 /** The request was sent. */
 const requestSent = event("requestSent")();
 /** The request could not be sent. */
@@ -166,6 +174,7 @@ export function createJoinRequestActor(options: {
       sent.set(invite.code, askOf(invite, clock.now()));
       return [undefined, {}];
     },
+    checkLink: async () => [undefined, { turnedOff: false }],
   };
   const asked = options.asked ?? ((code: string) => sent.get(code));
   const classify = typeof known === "function" ? known : () => known;
@@ -186,7 +195,7 @@ export function createJoinRequestActor(options: {
     }
     if (found.kind === "stopped") return { state: stoppedScreen(found.why, invite) };
     if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
-    return { state: decidingToAsk.create(invite) };
+    return { state: checkingLink.create(invite) };
   }
 
   return Actor({
@@ -206,7 +215,7 @@ export function createJoinRequestActor(options: {
       requestAnswered,
       whoMustUpdateChanged,
     ],
-    internal: [requestSent, requestFailed],
+    internal: [requestSent, requestFailed, linkChecked],
     outputs: [openAlbum, dismissDeclinedAsk, cancelAsk],
     states: [
       noInviteOpen,
@@ -214,6 +223,7 @@ export function createJoinRequestActor(options: {
       holdingInviteUntilWelcomeEnds,
       showingLinkProblem,
       joinedAlbum,
+      checkingLink,
       decidingToAsk,
       sendingRequest,
       waitingForAdminToAccept,
@@ -230,6 +240,7 @@ export function createJoinRequestActor(options: {
         noInviteOpen,
         showingLinkProblem,
         joinedAlbum,
+        checkingLink,
         decidingToAsk,
         waitingForAdminToAccept,
         waitingForYouToUpdate,
@@ -243,6 +254,7 @@ export function createJoinRequestActor(options: {
           to: [
             showingLinkProblem,
             joinedAlbum,
+            checkingLink,
             decidingToAsk,
             waitingForAdminToAccept,
             waitingForYouToUpdate,
@@ -331,7 +343,7 @@ export function createJoinRequestActor(options: {
           waitingForYouToUpdate,
           linkExpired,
           ...stoppedStates,
-          decidingToAsk,
+          checkingLink,
         ],
         handler: (_e, { actor }) => screenFor(actor.snapshot().payload as JoinInvite),
       });
@@ -373,7 +385,13 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      for (const from of [decidingToAsk, sendingRequest, linkExpired, ...stoppedStates]) {
+      for (const from of [
+        checkingLink,
+        decidingToAsk,
+        sendingRequest,
+        linkExpired,
+        ...stoppedStates,
+      ]) {
         /** An accept for an earlier request still opens the album over another sheet. A decline leaves the open sheet alone; the request row shows it. The open declined sheet takes no answer. */
         m.on(from, {
           event: requestAnswered,
@@ -386,6 +404,37 @@ export function createJoinRequestActor(options: {
           },
         });
       }
+
+      /** The owner's phone is asked whether the link is off. Nothing is sent, and no failure is shown: not knowing leads to the question. */
+      m.effect(checkingLink, {
+        name: "checkLink",
+        sends: [linkChecked],
+        fn: ({ signal, emit, state: current }) =>
+          runInvoke(
+            signal,
+            () =>
+              port.checkLink?.(current.payload as JoinInvite) ??
+              Promise.resolve([undefined, { turnedOff: false }] as [unknown, unknown]),
+            (r) =>
+              emit(
+                linkChecked.create({
+                  turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
+                }),
+              ),
+            () => emit(linkChecked.create({ turnedOff: false })),
+          ),
+      });
+      /** Off: the link is refused before any question. Anything else: today's question. */
+      m.on(checkingLink, {
+        event: linkChecked,
+        to: [linkTurnedOffByAdmin, decidingToAsk],
+        handler: (e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          return e.payload.turnedOff
+            ? { state: linkTurnedOffByAdmin.create(invite) }
+            : { state: decidingToAsk.create(invite) };
+        },
+      });
 
       /** "Ask to join": the request goes out and the buttons lock. */
       m.on(decidingToAsk, {
@@ -537,6 +586,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
   const snap = actor.snapshot();
   const invite = snap.payload as JoinInvite;
   switch (snap.path[0]) {
+    case "checkingLink":
+      return checkingLink.create(invite);
     case "decidingToAsk":
       return decidingToAsk.create(invite);
     case "waitingForAdminToAccept":

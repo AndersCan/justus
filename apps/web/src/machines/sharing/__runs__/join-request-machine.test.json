@@ -13,6 +13,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -32,6 +39,46 @@
       ]
     },
     {
+      "name": "Ben opens a link Ada turned off and is told at Continue",
+      "end": "linkTurnedOffByAdmin",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ben opens a working link and is asked to join after the check",
+      "end": "decidingToAsk",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        }
+      ]
+    },
+    {
       "name": "Cy asks, Ada turns off the links, and Cy closes the dead request",
       "end": "noInviteOpen",
       "steps": [
@@ -40,6 +87,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -91,6 +145,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -134,6 +195,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -161,6 +229,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -197,6 +272,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -225,6 +307,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -244,6 +333,13 @@
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
           }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
         }
       ]
     },
@@ -256,6 +352,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -312,6 +415,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -345,6 +455,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -388,6 +505,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -427,6 +551,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -455,6 +586,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -491,6 +629,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -518,6 +663,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -550,6 +702,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -590,6 +749,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -617,6 +783,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&e=600&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -657,6 +830,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -690,6 +870,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -739,6 +926,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {
@@ -793,6 +987,13 @@
         },
         {
           "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        },
+        {
+          "kind": "event",
           "event": "askToJoin",
           "payload": {}
         },
@@ -831,6 +1032,13 @@
           "event": "openLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
           }
         },
         {

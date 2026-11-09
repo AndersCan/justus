@@ -64,7 +64,7 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
   await page.goto("/join");
   await page.getByLabel("Invite link").fill(link);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: askName })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: askName })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Ask to join" }).click();
   const waiting = page.getByRole("dialog", { name: "Waiting for Nils" });
   await expect(waiting).toBeVisible();
@@ -78,6 +78,6 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
   await page.getByLabel("Invite link").fill(link);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const again = page.getByRole("dialog", { name: askName });
-  await expect(again).toBeVisible();
+  await expect(again).toBeVisible({ timeout: 15_000 });
   await again.getByRole("button", { name: "Not now" }).click();
 });

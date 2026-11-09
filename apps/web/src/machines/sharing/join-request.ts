@@ -31,6 +31,7 @@ export type JoinView = {
     | "noInviteOpen"
     | "showingLinkProblem"
     | "joinedAlbum"
+    | "checkingLink"
     | "decidingToAsk"
     | "showingWelcome"
     | "holdingInviteUntilWelcomeEnds"
@@ -78,6 +79,7 @@ export const joinActor = createJoinRequestActor({
       if (!outcome[0]) folders.refresh();
       return outcome;
     },
+    checkLink: (invite) => gateway.linkTurnedOff(invite.code, invite.owner),
   },
 });
 

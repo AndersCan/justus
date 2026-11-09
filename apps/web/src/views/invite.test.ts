@@ -13,7 +13,9 @@ vi.mock("../gateway", () => ({
   },
 }));
 
-const asksHolder = vi.hoisted(() => ({ asks: [] as { code: string; checkCode?: string }[] }));
+const asksHolder = vi.hoisted(() => ({
+  asks: [] as { code: string; checkCode?: string; closed?: boolean }[],
+}));
 
 vi.mock("@mantaq/lit", async (orig) => ({
   ...(await orig<object>()),
@@ -355,9 +357,11 @@ describe("joinSheet update screen", () => {
       const askedElsewhere = draw();
       asksHolder.asks = [{ code: "c9" }];
       const asked = draw();
+      asksHolder.asks = [{ code: "c9", closed: true }];
+      const askedThenClosed = draw();
       asksHolder.asks = [];
       spy.mockRestore();
-      return { none, askedElsewhere, asked };
+      return { none, askedElsewhere, asked, askedThenClosed };
     }
 
     test("the Close button and the backdrop both close the stopped link", async () => {
@@ -384,7 +388,7 @@ describe("joinSheet update screen", () => {
     });
 
     test.each(STATES)("%s names the reason", async (state, title, body, askedLine) => {
-      const { none, askedElsewhere, asked } = await draws(state);
+      const { none, askedElsewhere, asked, askedThenClosed } = await draws(state);
       const line = "Your request wasn't answered.";
       for (const text of [none, askedElsewhere, asked]) {
         expect(text).toContain(title);
@@ -395,9 +399,24 @@ describe("joinSheet update screen", () => {
       }
       expect(none).not.toContain(line);
       expect(askedElsewhere).not.toContain(line);
+      expect(askedThenClosed).not.toContain(line);
       if (askedLine) expect(asked).toContain(line);
       else expect(asked).not.toContain(line);
     });
+  });
+
+  test("the checking sheet names the owner and has no button", async () => {
+    const mod = await import("../machines/sharing/join-request");
+    const view = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+      state: "checkingLink",
+      invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
+      error: "",
+    } as ReturnType<typeof mod.joinViewOf>);
+    const host = document.createElement("div");
+    render(joinSheet(), host);
+    view.mockRestore();
+    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe("Checking Anna's link…");
+    expect(host.querySelectorAll("button")).toHaveLength(0);
   });
 
   test("the plain waiting sheet keeps its own text", () => {
