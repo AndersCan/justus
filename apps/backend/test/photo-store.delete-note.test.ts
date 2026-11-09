@@ -7,7 +7,12 @@ import { describe, it, expect } from "vite-plus/test";
 import { mkdirSync } from "node:fs";
 import { createPhotoStore, type PhotoStoreDeps } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import { fakeStoreDeps, joinAsMember, restarted } from "./fakes/fake-store-deps.ts";
+import {
+  FakeLoopbackServer,
+  fakeStoreDeps,
+  joinAsMember,
+  restarted,
+} from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -215,41 +220,6 @@ describe("noticing photos someone else deleted", () => {
     await s.close();
   });
 
-  it("a Collaborator made a Viewer is not told of a delete on their own phone", async () => {
-    const s = await album();
-    await s.anna.addBytes("sun.jpg", new Uint8Array([1, 2, 3, 4]));
-    await until(async () => (await s.nils.list()).some((p) => p.name === "sun.jpg"));
-    await s.nils.list();
-    await s.anna.makeViewer(s.folderId, s.nilsKey);
-    await until(
-      async () =>
-        (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.role === "reader",
-    );
-    await s.nils.list();
-    await sleep(100);
-    expect(deletedPushes(s.nilsPushes)).toEqual([]);
-    await s.close();
-  });
-
-  it("a removed member is not told of a delete on their own phone", async () => {
-    const s = await album();
-    await s.anna.addBytes("sun.jpg", new Uint8Array([1, 2, 3, 4]));
-    await until(async () => (await s.nils.list()).some((p) => p.name === "sun.jpg"));
-    await s.nils.list();
-    expect((await s.anna.removeMember(s.folderId, s.nilsKey))[0]).toBeNull();
-    await until(
-      async () =>
-        (await s.nils.folders()).folders.find((f) => f.id === s.nilsFolderId)?.notice?.kind ===
-        "removed",
-    );
-    await s.nils.list();
-    await sleep(100);
-    expect(deletedPushes(s.nilsPushes)).toEqual([]);
-    await s.close();
-  });
-
-  // The third phone never follows a Remove in the fakes (its album stays on the old keys),
-  // so this covers the Admin's phone; the third phone is covered by the Bare p2p scenario.
   it("the Admin removing a member who added photos tells the Admin nothing about a delete", async () => {
     const s = await album({ cara: true });
     await s.nils.addBytes("mine.jpg", new Uint8Array([5, 6, 7, 8]));
@@ -265,6 +235,58 @@ describe("noticing photos someone else deleted", () => {
     });
     await s.close();
   });
+
+  it("the Admin removing a member who added photos tells a third phone nothing about a delete", async () => {
+    const hub = createFakeHub();
+    const pushes: Record<string, Push[]> = { anna: [], nils: [], cara: [] };
+    const make = (name: string, key: string) => {
+      const deps = { ...phoneDeps(hub, name, pushes[key]!), server: new FakeLoopbackServer() };
+      return { deps, store: createPhotoStore(deps) };
+    };
+    const anna = make("Anna", "anna");
+    const nils = make("Nils", "nils");
+    const cara = make("Cara", "cara");
+    for (const p of [anna, nils, cara]) await p.store.ready();
+    const created = await anna.store.createFolder("Trip");
+    const { id: folderId, shareKey, invite } = created[1]!.folder;
+    const identity = (anna.store.debugState() as { identityDrive: string }).identityDrive;
+    const keys: Record<string, string> = {};
+    const ids: Record<string, string> = {};
+    for (const [name, who] of [
+      ["nils", nils],
+      ["cara", cara],
+    ] as const) {
+      await who.store.ask({
+        code: invite!.code,
+        owner: identity,
+        albumName: "Trip",
+        ownerName: "Anna",
+      });
+      let requesterKey = "";
+      await until(async () => {
+        requesterKey = (await anna.store.requests()).requests[0]?.requesterKey ?? "";
+        return requesterKey !== "";
+      });
+      keys[name] = requesterKey;
+      expect((await anna.store.respond(folderId, requesterKey, true, "member"))[0]).toBeNull();
+      await until(async () => (await who.store.folders()).folders[0]?.shareKey === shareKey);
+      ids[name] = (await who.store.folders()).folders[0]!.id;
+      await who.store.setActive(ids[name]!);
+    }
+    await nils.store.addBytes("mine.jpg", new Uint8Array([5, 6, 7, 8]), ids.nils);
+    await until(async () => (await cara.store.list()).some((p) => p.name === "mine.jpg"));
+    await cara.store.list();
+    expect((await anna.store.removeMember(folderId, keys.nils!))[0]).toBeNull();
+    await until(async () => {
+      const moved = (await cara.store.folders()).folders.find((f) => f.id === ids.cara);
+      return moved?.shareKey !== shareKey;
+    });
+    await until(async () => !(await cara.store.list()).some((p) => p.name === "mine.jpg"));
+    await cara.store.list();
+    await sleep(100);
+    expect(deletedPushes(pushes.cara!)).toEqual([]);
+    for (const p of [anna, nils, cara]) await p.store.close();
+  }, 40_000);
 
   it("a member leaving is not a delete", async () => {
     const s = await album();
