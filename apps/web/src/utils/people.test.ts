@@ -259,6 +259,32 @@ describe("requestsHint", () => {
       "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
     );
   });
+  it("says how many asked by link at 2 or more, before the code hint", () => {
+    const r = row({ viaInvite: true, checkCode: "a b c" });
+    expect(requestsHint([r, r])).toBe(
+      "2 people asked with your invite link. Decline anyone you don't know. Not sure who it is? Ask them which check code their phone shows.",
+    );
+  });
+  it("keeps the clash warning after the count", () => {
+    expect(
+      requestsHint([
+        row({ viaInvite: true, checkCode: "a b c" }),
+        row({ viaInvite: true, clash: "Dad" }),
+      ]),
+    ).toBe(
+      "2 people asked with your invite link. Decline anyone you don't know. Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+    );
+  });
+  it("says only the count when link asks have no code", () => {
+    expect(requestsHint([row({ viaInvite: true }), row({ viaInvite: true })])).toBe(
+      "2 people asked with your invite link. Decline anyone you don't know.",
+    );
+  });
+  it("counts only link asks", () => {
+    expect(
+      requestsHint([row({ viaInvite: true, checkCode: "a b c" }), row({ checkCode: "d e f" })]),
+    ).toBe("Not sure who it is? Ask them which check code their phone shows.");
+  });
   it("is empty otherwise", () => {
     expect(requestsHint([row({})])).toBe("");
     expect(requestsHint([])).toBe("");
