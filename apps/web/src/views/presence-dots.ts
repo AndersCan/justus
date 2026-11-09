@@ -1,11 +1,8 @@
-import { html } from "lit-html";
+import { html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import type { SyncMember } from "@justus/core";
 import { memberColor } from "../utils/palette";
-import { styleMap } from "lit-html/directives/style-map.js";
 import { gridMotion } from "./grid-motion";
-
-const dotFill = (fill: string | undefined) => (fill === undefined ? {} : { background: fill });
 
 function dotClass(fill: string | undefined): string {
   return fill === undefined
@@ -24,14 +21,16 @@ export function presenceDots(members: readonly SyncMember[], albumId: string) {
     ${repeat(
       members,
       (m) => m.key,
-      (m) =>
-        html`<span class="inline-flex" data-motion-key=${m.key}
+      (m) => {
+        const fill = memberColor(m.color);
+        return html`<span class="inline-flex" data-motion-key=${m.key}
           ><span
-            class=${dotClass(memberColor(m.color))}
-            style=${styleMap(dotFill(memberColor(m.color)))}
+            class=${dotClass(fill)}
+            style=${fill === undefined ? nothing : `background:${fill};`}
             title="${m.name}"
           ></span
-        ></span>`,
+        ></span>`;
+      },
     )}
   </span>`;
 }

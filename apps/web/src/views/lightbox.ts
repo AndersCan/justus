@@ -1,6 +1,6 @@
-import { html } from "lit-html";
+import { html, nothing } from "lit-html";
 import { watch } from "@mantaq/lit";
-import type { Photo } from "@justus/core";
+import type { Photo, SyncStatus } from "@justus/core";
 import {
   GALLERY_STATES,
   gallery,
@@ -11,7 +11,6 @@ import {
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
-import { styleMap } from "lit-html/directives/style-map.js";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
 import { onStateChange } from "../machines/actor-utils";
@@ -76,10 +75,13 @@ if (typeof document !== "undefined") {
 }
 
 /** Everyone in the album the photo is in, when it is the open one; none otherwise. */
-function albumPeople(folderId: string | undefined) {
-  const status = syncActor.snapshot().context.status;
+function peopleIn(status: SyncStatus | null | undefined, folderId: string | undefined) {
   if (!status || status.folder.id !== folderId) return [];
   return buildPeople(status, [], friendsActor.snapshot().context.friends).people;
+}
+
+function albumPeople(folderId: string | undefined) {
+  return peopleIn(syncActor.snapshot().context.status, folderId);
 }
 
 function albumOthers(folderId: string | undefined) {
@@ -112,10 +114,8 @@ export async function deleteFromLightbox(photo: Photo) {
   });
 }
 
-function lightboxBody(photo: Photo) {
-  const adderFill = memberColor(
-    albumPeople(photo.folderId).find((p) => p.key === photo.member.key)?.color,
-  );
+function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
+  const adderFill = memberColor(people.find((p) => p.key === photo.member.key)?.color);
   let touchStart: { x: number; y: number } | null = null;
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
@@ -196,7 +196,7 @@ function lightboxBody(photo: Photo) {
                       ? "inline-block h-2.5 w-2.5 rounded-full border border-muted bg-surface"
                       : "inline-block h-2.5 w-2.5 rounded-full"
                   }
-                  style=${styleMap(adderFill === undefined ? {} : { background: adderFill })}
+                  style=${adderFill === undefined ? nothing : `background:${adderFill};`}
                 ></span>
                 <span class="truncate">${photo.member.name}</span>
                 <span>·</span>
@@ -283,9 +283,12 @@ function lightboxBody(photo: Photo) {
 }
 
 export function lightboxView() {
-  return watch(lightboxActor, (s) =>
-    s.context.photo
-      ? html`${lightboxBody(s.context.photo)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(s.context.photo, albumPeople(s.context.photo.folderId)) : null}`
-      : null,
-  );
+  return watch(lightboxActor, (s) => {
+    const photo = s.context.photo;
+    if (!photo) return null;
+    return watch(syncActor, (sync) => {
+      const people = peopleIn(sync.context.status, photo.folderId);
+      return html`${lightboxBody(photo, people)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+    });
+  });
 }

@@ -5,7 +5,7 @@ import { openLightbox, closeLightbox } from "./lightbox";
 import { openHolders } from "./photo-holders";
 import { render } from "lit-html";
 import { lightboxActor } from "../machines/lightbox-machine";
-import { syncActor } from "../machines/sync-machine";
+import { syncActor, statusSeen } from "../machines/sync-machine";
 import { lightboxView } from "./lightbox";
 import { memberColor } from "../utils/palette";
 
@@ -22,6 +22,8 @@ const photo: Photo = {
   addedAt: 0,
   member: { key: "m", name: "M" },
 };
+const see = (id: string, members: unknown[]) =>
+  syncActor.send(statusSeen.create({ status: { folder: { id }, members } as never }));
 const escape = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 
 describe("Escape in the lightbox", () => {
@@ -46,14 +48,7 @@ describe("holders sheet in the lightbox", () => {
   });
 
   it("colours rows from the open album's people", () => {
-    vi.spyOn(syncActor, "snapshot").mockReturnValue({
-      context: {
-        status: {
-          folder: { id: "f1" },
-          members: [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }],
-        },
-      },
-    } as never);
+    see("f1", [{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
     openLightbox({
       ...photo,
       folderId: "f1",
@@ -67,14 +62,7 @@ describe("holders sheet in the lightbox", () => {
   });
 
   it("gives no Members colours when the open status is another album", () => {
-    vi.spyOn(syncActor, "snapshot").mockReturnValue({
-      context: {
-        status: {
-          folder: { id: "f2" },
-          members: [{ key: "k1", name: "Ada", admin: true, connected: true }],
-        },
-      },
-    } as never);
+    see("f2", [{ key: "k1", name: "Ada", admin: true, connected: true }]);
     openLightbox({
       ...photo,
       folderId: "f1",
@@ -93,15 +81,15 @@ describe("lightbox adder dot", () => {
     closeLightbox();
     vi.restoreAllMocks();
   });
-  const dot = (members: unknown[]) => {
-    vi.spyOn(syncActor, "snapshot").mockReturnValue({
-      context: { status: { folder: { id: "f1" }, members } },
-    } as never);
+  const open = (members: unknown[]) => {
+    see("f1", members);
     openLightbox({ ...photo, folderId: "f1", member: { key: "k2", name: "Ben" } });
     const el = document.createElement("div");
     render(lightboxView(), el);
-    return el.querySelector("span.h-2\\.5");
+    return el;
   };
+  const adder = (el: Element) => el.querySelector("span.h-2\\.5");
+  const dot = (members: unknown[]) => adder(open(members));
 
   it("takes the adder's colour from Members", () => {
     const d = dot([
@@ -113,7 +101,23 @@ describe("lightbox adder dot", () => {
 
   it("is hollow when the adder is not in the album", () => {
     const d = dot([{ key: "k1", name: "Ada", admin: true, connected: true, color: 0 }]);
-    expect(d?.getAttribute("style") ?? "").toBe("");
+    expect(d?.hasAttribute("style")).toBe(false);
     expect(d?.className).toContain("border-muted");
+  });
+
+  it("follows a status that arrives while the photo is open", () => {
+    const ada = { key: "k1", name: "Ada", admin: true, connected: true, color: 0 };
+    const el = open([ada, { key: "k2", name: "Ben", admin: false, connected: true }]);
+    expect(adder(el)?.hasAttribute("style")).toBe(false);
+    see("f1", [ada, { key: "k2", name: "Ben", admin: false, connected: true, color: 1 }]);
+    expect(adder(el)?.getAttribute("style")).toBe(`background:${memberColor(1)};`);
+  });
+
+  it("matches the adder by key when two people share a name", () => {
+    const d = dot([
+      { key: "k1", name: "Ben", admin: true, connected: true, color: 0 },
+      { key: "k2", name: "Ben", admin: false, connected: true, color: 1 },
+    ]);
+    expect(d?.getAttribute("style")).toBe(`background:${memberColor(1)};`);
   });
 });
