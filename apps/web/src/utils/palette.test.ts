@@ -13,6 +13,8 @@ const STATUS = [
   "#C62F35",
   "#FF6B72",
 ];
+// Light --accent and --accent-strong (brand indigo).
+const ACCENT = ["#4B3FD6", "#3328A8"];
 const DARK_SURFACE = "#1A1730";
 
 function rgb(hex: string): number[] {
@@ -29,6 +31,15 @@ function linear(hex: string): number[] {
 function luminance(hex: string): number {
   const [r, g, b] = linear(hex);
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}
+
+function hue(hex: string): number {
+  const [r, g, b] = rgb(hex).map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return h * 60;
 }
 
 function lab(hex: string): number[] {
@@ -48,12 +59,12 @@ function distance(a: string, b: string): number {
 }
 
 describe("memberColor", () => {
-  it("gives seat 0 pink and seat 1 teal", () => {
-    expect(memberColor(0)).toBe("#C2457A");
-    expect(memberColor(1)).toBe("#0E6F8F");
+  it("gives seat 0 magenta and seat 1 blue", () => {
+    expect(memberColor(0)).toBe("#B0408C");
+    expect(memberColor(1)).toBe("#2672C0");
   });
-  it("gives seat 2 brown", () => {
-    expect(memberColor(2)).toBe("#9A583C");
+  it("gives seat 2 violet", () => {
+    expect(memberColor(2)).toBe("#9A3AF0");
   });
   it("repeats from the sixth seat", () => {
     expect(memberColor(5)).toBe(memberColor(0));
@@ -67,6 +78,17 @@ describe("memberColor", () => {
   it("never uses a connection-status colour for a person", () => {
     for (const seat of SEATS)
       for (const status of STATUS) expect(distance(seat, status)).toBeGreaterThan(20);
+  });
+  it("keeps every seat 30 degrees of hue from every status colour", () => {
+    for (const seat of SEATS)
+      for (const status of STATUS) {
+        const gap = Math.abs(hue(seat) - hue(status));
+        expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(30);
+      }
+  });
+  it("keeps every seat clear of the brand indigo", () => {
+    for (const seat of SEATS)
+      for (const accent of ACCENT) expect(distance(seat, accent)).toBeGreaterThan(20);
   });
   it("tells every pair of seats apart", () => {
     for (const [i, a] of SEATS.entries())
