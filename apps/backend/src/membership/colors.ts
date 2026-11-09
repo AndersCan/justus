@@ -20,9 +20,13 @@ export function pickColor(taken: ReadonlySet<number>, preferred?: number): numbe
   return seat;
 }
 
-/** The Admin's seat plus every seat the two lists hold. */
-export function takenColors(registry: RegistryFile, viewers: ViewersFile["viewers"]): Set<number> {
-  const taken = new Set<number>([ADMIN_COLOR]);
+/** The Admin's seat plus every seat the two lists hold, plus `also` (people still moving). */
+export function takenColors(
+  registry: RegistryFile,
+  viewers: ViewersFile["viewers"],
+  also: readonly number[] = [],
+): Set<number> {
+  const taken = new Set<number>([ADMIN_COLOR, ...also]);
   for (const entry of [...Object.values(registry.members), ...Object.values(viewers)]) {
     if (entry.color !== undefined) taken.add(entry.color);
   }
