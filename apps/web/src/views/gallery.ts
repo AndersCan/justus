@@ -671,7 +671,14 @@ function openAlbumAction(folders: FolderSummary[]) {
       >`;
 }
 
-function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSummary | null) {
+export function scopeEmptyState(page: PhotosPage, scope: PhotoScope, album: FolderSummary | null) {
+  if (album?.notice?.kind === "removed") {
+    return emptyState(
+      copy("gallery.removed_empty_title"),
+      copy("gallery.removed_empty_body", { name: album.name }),
+      null,
+    );
+  }
   if (album) {
     const canAdd = addTargets([album]).length > 0;
     return emptyState(

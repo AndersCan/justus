@@ -34,6 +34,21 @@ describe("classifyInvite", () => {
     });
   });
 
+  test("a moved or new-key album's code is still member", () => {
+    for (const kind of ["moved", "newKey"] as const) {
+      const f = { ...folder("f2", "member", "c1"), notice: { kind } } as FolderSummary;
+      expect(classifyInvite("c1", [f], [])).toEqual({ kind: "member", folderId: "f2" });
+    }
+  });
+
+  test("a removed album's code is turnedOff, for member and reader", () => {
+    for (const role of ["member", "reader"] as const) {
+      const removed = { ...folder("f2", role, "c1"), notice: { kind: "removed" } } as FolderSummary;
+      expect(classifyInvite("c1", [removed], [])).toEqual({ kind: "turnedOff" });
+      expect(classifyInvite("c2", [removed], [])).toEqual({ kind: "new" });
+    }
+  });
+
   test("a waiting ask is waiting; a declined ask can be asked again", () => {
     expect(classifyInvite("c1", [], [ask("c1", "waiting")])).toEqual({ kind: "waiting" });
     expect(classifyInvite("c1", [], [ask("c1", "declined")])).toEqual({ kind: "new" });

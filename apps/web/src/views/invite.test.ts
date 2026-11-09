@@ -314,6 +314,32 @@ describe("joinSheet update screen", () => {
     expect(text).toContain("Close");
   });
 
+  test("a turned-off link nobody asked through has no Cancel request", async () => {
+    const mod = await import("../machines/sharing/join-request");
+    const spy = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+      state: "linkTurnedOff",
+      invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
+      error: "",
+    } as ReturnType<typeof mod.joinViewOf>);
+    const draw = () => {
+      const host = document.createElement("div");
+      render(joinSheet(), host);
+      return host.textContent?.replace(/\s+/g, " ") ?? "";
+    };
+    asksHolder.asks = [];
+    const none = draw();
+    asksHolder.asks = [{ code: "other" }];
+    const askedElsewhere = draw();
+    asksHolder.asks = [{ code: "c9" }];
+    const asked = draw();
+    asksHolder.asks = [];
+    spy.mockRestore();
+    expect(none).toContain("This invite link no longer works.");
+    expect(none).not.toContain("Cancel request");
+    expect(askedElsewhere).not.toContain("Cancel request");
+    expect(asked).toContain("Cancel request");
+  });
+
   test("the plain waiting sheet keeps its own text", () => {
     const host = document.createElement("div");
     render(joinSheet(), host);
