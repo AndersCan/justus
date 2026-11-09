@@ -6,7 +6,7 @@
 import type { Drive } from "../ports/drive-store";
 import { RENDITION_EXT, type Role } from "@justus/core";
 import { deriveGallery, type DerivedPhoto, type DriveScan } from "../gallery-order";
-import { parseDeviceName, parseRemoved } from "../membership/records";
+import { parseDeviceName, parseRemoved, type RemovedFile } from "../membership/records";
 
 export const DRIVE_PATH_PHOTOS = "/photos";
 /** Thumbnails, one per photo, at `/thumbs/<id>.jpg`. Kept out of `/photos` so
@@ -110,6 +110,14 @@ export function galleryDrives(album: AlbumDrives): GallerySource[] {
   return sources;
 }
 
+/** The album's photos, its tombstones, and whether everything was read. */
+export type Gallery = {
+  photos: DerivedPhoto[];
+  removed: RemovedFile["removed"];
+  /** False when a drive scan or the `/removed.json` read threw. A missing file is still complete. */
+  complete: boolean;
+};
+
 /** Reads the album's gallery off its drives. A drive it cannot list is logged and skipped. */
 export async function listGallery(
   sources: GallerySource[],
@@ -118,9 +126,22 @@ export async function listGallery(
     memberName: (key: string) => string | undefined;
     log: GalleryLog;
   },
-): Promise<DerivedPhoto[]> {
+): Promise<Gallery> {
   const { removedFrom, memberName, log } = options;
-  const removed = parseRemoved(await readText(removedFrom, { path: DRIVE_PATH_REMOVED, log }));
+  let complete = true;
+  let removedText: string | null = null;
+  try {
+    removedText = (await removedFrom.readSmall(DRIVE_PATH_REMOVED, MAX_RECORD_BYTES)) ?? null;
+  } catch (thrown: unknown) {
+    complete = false;
+    log("error", {
+      where: "drive.read",
+      drive: short(removedFrom.key),
+      path: DRIVE_PATH_REMOVED,
+      err: errText(thrown),
+    });
+  }
+  const removed = parseRemoved(removedText);
 
   const scans: DriveScan[] = [];
   for (const { key, drive } of sources) {
@@ -129,6 +150,7 @@ export async function listGallery(
       for await (const entry of drive.list(DRIVE_PATH_PHOTOS)) entries.push(entry);
       scans.push({ key, entries });
     } catch (e: unknown) {
+      complete = false;
       log("error", { where: "drive.scan", drive: short(key), err: errText(e) });
     }
   }
@@ -141,7 +163,11 @@ export async function listGallery(
       memberName(key) ?? parseDeviceName(await readText(drive, { path: DRIVE_PATH_DEVICE, log })),
     );
   }
-  return deriveGallery(scans, removed, (k) => names.get(k) ?? "Unknown device");
+  return {
+    photos: deriveGallery(scans, removed, (k) => names.get(k) ?? "Unknown device"),
+    removed,
+    complete,
+  };
 }
 
 /** Writes one photo, and its thumbnail first, to this device's drive. */

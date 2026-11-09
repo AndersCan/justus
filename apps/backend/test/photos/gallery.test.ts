@@ -125,7 +125,7 @@ describe("listGallery", () => {
     await photoAt(dc, { id: "p3", addedAt: 2000 });
     await db.put("/device.json", json({ name: "Bo" }));
     const sources = [da, db, dc].map((drive) => ({ key: drive.key, drive }));
-    const photos = await listGallery(sources, {
+    const { photos } = await listGallery(sources, {
       removedFrom: da,
       memberName: (k) => (k === da.key ? "Ann" : undefined),
       log: a.log,
@@ -148,7 +148,7 @@ describe("listGallery", () => {
       json({ version: 1, removed: { [`${db.key}:gone`]: { memberKey: db.key, removedAt: 5 } } }),
     );
     const sources = [da, db].map((drive) => ({ key: drive.key, drive }));
-    const photos = await listGallery(sources, {
+    const { photos } = await listGallery(sources, {
       removedFrom: da,
       memberName: () => "X",
       log: a.log,
@@ -165,7 +165,7 @@ describe("listGallery", () => {
     await photoAt(da, { id: "p1", addedAt: 1000 });
     await photoAt(db, { id: "p2", addedAt: 2000 });
     const sources = [da, db].map((drive) => ({ key: drive.key, drive }));
-    const photos = await listGallery(sources, {
+    const { photos } = await listGallery(sources, {
       removedFrom: da,
       memberName: () => "X",
       log: a.log,
@@ -190,7 +190,69 @@ describe("listGallery", () => {
         memberName: noName,
         log: a.log,
       }),
-    ).toEqual([]);
+    ).toEqual({ photos: [], removed: {}, complete: true });
+  });
+
+  it("is complete when the removed list is missing, and returns its tombstones", async () => {
+    const [a, b] = devices(2);
+    const da = await a.drives.openOwn("a");
+    const db = await b.drives.openOwn("b");
+    await photoAt(db, { id: "gone", addedAt: 2000 });
+    const tombstone = { memberKey: db.key, removedAt: 5 };
+    const read = () =>
+      listGallery(
+        [da, db].map((drive) => ({ key: drive.key, drive })),
+        {
+          removedFrom: da,
+          memberName: () => "X",
+          log: a.log,
+        },
+      );
+    const before = await read();
+    await da.put("/removed.json", json({ version: 1, removed: { [`${db.key}:gone`]: tombstone } }));
+    const after = await read();
+    expect({
+      before: [before.complete, before.removed],
+      after: [after.complete, after.removed],
+    }).toEqual({
+      before: [true, {}],
+      after: [true, { [`${db.key}:gone`]: tombstone }],
+    });
+  });
+
+  it("is incomplete when a drive scan fails", async () => {
+    let bad = "";
+    const [a, b] = devices(2, { unreachable: (k) => k === bad });
+    const da = await a.drives.openOwn("a");
+    const db = await b.drives.openOwn("b");
+    bad = db.key;
+    const { complete } = await listGallery(
+      [da, db].map((drive) => ({ key: drive.key, drive })),
+      {
+        removedFrom: da,
+        memberName: () => "X",
+        log: a.log,
+      },
+    );
+    expect(complete).toBe(false);
+  });
+
+  it("is incomplete when the removed list cannot be read, and logs drive.read", async () => {
+    const [a] = devices(1);
+    const da = await a.drives.openOwn("a");
+    const broken = Object.create(da) as typeof da;
+    broken.readSmall = async () => {
+      throw new Error("boom");
+    };
+    const { complete } = await listGallery([{ key: da.key, drive: da }], {
+      removedFrom: broken,
+      memberName: () => "X",
+      log: a.log,
+    });
+    expect({ complete, events: a.events.map((e) => e.fields?.where) }).toEqual({
+      complete: false,
+      events: ["drive.read"],
+    });
   });
 });
 
@@ -207,7 +269,7 @@ describe("addPhoto", () => {
     const [ann] = devices(1);
     const drive = await ann.drives.openOwn("folder/a");
     const [writeErr, added] = await addPhoto(drive, newPhoto("p1"));
-    const listed = await listGallery([{ key: drive.key, drive }], {
+    const { photos: listed } = await listGallery([{ key: drive.key, drive }], {
       removedFrom: drive,
       memberName: () => "Ann",
       log: ann.log,
@@ -256,7 +318,7 @@ describe("addPhoto", () => {
     const changed = nextChange(memberCopy!);
     const [, added] = await addPhoto(folder, newPhoto("p1"));
     await changed;
-    const gallery = await listGallery(
+    const { photos: gallery } = await listGallery(
       galleryDrives({
         role: "member",
         folderDrive: memberCopy!,
@@ -276,7 +338,7 @@ describe("addPhoto", () => {
     const changed = nextChange(memberCopy!);
     const [, added] = await addPhoto(selfDrive, newPhoto("p2"));
     await changed;
-    const gallery = await listGallery(
+    const { photos: gallery } = await listGallery(
       galleryDrives({
         role: "creator",
         folderDrive: folder,
@@ -309,7 +371,7 @@ describe("addPhoto", () => {
     const changed = nextChange(memberCopy!);
     setFakeNodeConnected({ hub: member.hub, node: member.node, connected: true });
     await changed;
-    expect({ before, after: await read() }).toEqual({
+    expect({ before: before.photos, after: (await read()).photos }).toEqual({
       before: [],
       after: [{ ...added, memberName: "Admin" }],
     });

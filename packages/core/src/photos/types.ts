@@ -202,7 +202,8 @@ export type PhotoChangedCause =
   | "offer"
   | "version"
   | "holders"
-  | "role";
+  | "role"
+  | "deleted";
 
 /** A role this phone can be moved between by the Admin. The Admin's own role never changes. */
 export type ChangedRole = "member" | "reader";
@@ -217,6 +218,21 @@ export type RoleChange = {
   adminName?: string;
 };
 
+/** A photo this phone listed before that someone else has deleted since. */
+export type DeletedPhoto = {
+  /** The photo's file name, as listed. */
+  name: string;
+  /** Who added it, as listed. */
+  adderName: string;
+  /** This phone added it. */
+  mine: boolean;
+  /** Who deleted it, when the album's drives prove it: the Admin for a photo in the Admin's /removed.json, the adder for one gone from their own drive. Unset when the name is not known. */
+  deletedBy?: string;
+};
+
+/** For cause "deleted": one album's photos deleted by someone else since this phone last listed it. */
+export type DeletedPhotos = { albumName: string; photos: DeletedPhoto[] };
+
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {
   cause: PhotoChangedCause;
@@ -230,4 +246,6 @@ export type PhotoChanged = {
   answer?: "accepted" | "declined" | "linkOff";
   /** For cause "role": what changed. */
   role?: RoleChange;
+  /** For cause "deleted": what was deleted. */
+  deleted?: DeletedPhotos;
 };

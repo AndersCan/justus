@@ -1113,6 +1113,14 @@
   },
   "pushes": [
     {
+      "cause": "deleted",
+      "folderId": "mw863kfj-44ee1f0e",
+      "deleted": {
+        "albumName": "Trip",
+        "photos": [{ "name": "a.jpg", "adderName": "Ann", "mine": false, "deletedBy": "Ann" }]
+      }
+    },
+    {
       "cause": "enroll",
       "folderId": "mw863kfj-44ee1f0e",
       "memberKey": "0404040404040404040404040404040404040404040404040404040404040404"
