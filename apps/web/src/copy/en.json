@@ -3094,14 +3094,14 @@
     "screen": ""
   },
   "lightbox.can_t_erase_the_copy": {
-    "text": "Justus can't erase the copy on {name} phone.",
+    "text": "{name} phone stops showing it, but Justus can't erase the copy already stored there.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": ""
   },
   "lightbox.can_t_erase_the_copies": {
-    "text": "Justus can't erase the copies on {names} and {last} phones.",
+    "text": "{names} and {last} phones stop showing it, but Justus can't erase the copies already stored there.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",

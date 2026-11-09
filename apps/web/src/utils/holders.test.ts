@@ -124,17 +124,17 @@ describe("deleteDetail", () => {
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
-      `${gone} Justus can't erase the copy on Nils's phone. Deleting can't take it back.`,
+      `${gone} Nils's phone stops showing it, but Justus can't erase the copy already stored there. Deleting can't take it back.`,
     );
   });
   it("names two phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
-      `${gone} Justus can't erase the copies on Nils's and Maya's phones. Deleting can't take them back.`,
+      `${gone} Nils's and Maya's phones stop showing it, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
     );
   });
   it("names three phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
-      `${gone} Justus can't erase the copies on Nils's, Maya's and Ben's phones. Deleting can't take them back.`,
+      `${gone} Nils's, Maya's and Ben's phones stop showing it, but Justus can't erase the copies already stored there. Deleting can't take them back.`,
     );
   });
 });
