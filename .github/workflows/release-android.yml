@@ -134,6 +134,9 @@ jobs:
           name: store-screenshots
           path: apps/android/fastlane/metadata/android/en-US/images/phoneScreenshots/*.png
           retention-days: 14
+      - name: Gate on release note
+        working-directory: .
+        run: node scripts/check-copy-release.mjs note "$VERSION_NAME"
       - name: Write upload keystore and Play key
         env:
           UPLOAD_KEYSTORE_BASE64: ${{ secrets.JUSTUS_UPLOAD_KEYSTORE_BASE64 }}
@@ -148,6 +151,17 @@ jobs:
           JUSTUS_UPLOAD_KEY_ALIAS: ${{ secrets.JUSTUS_UPLOAD_KEY_ALIAS }}
           JUSTUS_UPLOAD_KEY_PASSWORD: ${{ secrets.JUSTUS_UPLOAD_KEY_PASSWORD }}
         run: bundle exec fastlane internal version_name:"$VERSION_NAME"
+      - name: Show release note
+        if: ${{ github.event_name == 'push' || inputs.upload }}
+        working-directory: .
+        run: |
+          note=$(ls -t apps/android/fastlane/metadata/android/en-US/changelogs/*.txt | head -n 1)
+          {
+            echo "### Release $VERSION_NAME, version code $(basename "$note" .txt)"
+            echo '```'
+            cat "$note"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       # First release: Play's API can't see the app yet, so build only and
       # upload the artifact by hand. versionCode 1 is fine for that one.
       - name: Build only

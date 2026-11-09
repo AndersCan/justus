@@ -66,3 +66,19 @@ test("all approved passes in both scopes", () => {
   expect(releaseProblems({ ...ok, scope: "app" })).toEqual([]);
   expect(releaseProblems({ ...ok, scope: "store" })).toEqual([]);
 });
+
+test("note scope refuses a [user] line Play cannot show", () => {
+  const long = "x".repeat(499);
+  const base = { catalogue: {}, manifest: {}, scope: "note" };
+  expect(releaseProblems({ ...base, noteLines: ["ok", long] })).toEqual([
+    `Release note line over 500 characters: ${long.slice(0, 40)}…`,
+  ]);
+  expect(releaseProblems({ ...base, noteLines: ["ok"] })).toEqual([]);
+});
+
+test("note scope keeps a [user] line that makes exactly 500 characters", () => {
+  const exact = "x".repeat(498);
+  expect(
+    releaseProblems({ catalogue: {}, manifest: {}, scope: "note", noteLines: [exact] }),
+  ).toEqual([]);
+});

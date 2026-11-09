@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHANGELOG, PLAY_LIMIT, changelogSection, userLines } from "./release-note.mjs";
 
 export const CATALOGUE = "apps/web/src/copy/en.json";
 export const SHOTS_MANIFEST = "apps/android/fastlane/store-screenshots.json";
@@ -25,8 +26,16 @@ export function draftShots(manifest) {
  * What a release refuses. scope "app" is the text inside the app (everything but
  * `store.*`); "store" is the Play listing text and screenshots.
  */
-export function releaseProblems({ catalogue, manifest, scope }) {
+export function releaseProblems({ catalogue, manifest, scope, noteLines = [] }) {
   const problems = [];
+  if (scope === "note") {
+    // A line longer than Play's limit can never be shown, so the note would drop it.
+    for (const line of noteLines) {
+      if (`• ${line}`.length > PLAY_LIMIT) {
+        problems.push(`Release note line over ${PLAY_LIMIT} characters: ${line.slice(0, 40)}…`);
+      }
+    }
+  }
   if (scope === "app") {
     const ids = draftIds(catalogue).filter((id) => !id.startsWith("store."));
     if (ids.length > 0) problems.push(`Draft app text: ${ids.join(", ")}`);
@@ -42,16 +51,22 @@ export function releaseProblems({ catalogue, manifest, scope }) {
 
 function main() {
   const scope = process.argv[2];
-  if (scope !== "app" && scope !== "store") {
-    console.error("usage: check-copy-release.mjs app|store");
+  if (scope !== "app" && scope !== "store" && scope !== "note") {
+    console.error("usage: check-copy-release.mjs app|store|note <version>");
     process.exit(2);
   }
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const read = (file) => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+  const changelog = path.join(root, CHANGELOG);
+  const noteLines =
+    scope === "note" && fs.existsSync(changelog)
+      ? userLines(changelogSection(fs.readFileSync(changelog, "utf8"), process.argv[3]))
+      : [];
   const problems = releaseProblems({
-    catalogue: read(CATALOGUE),
-    manifest: read(SHOTS_MANIFEST),
+    catalogue: scope === "note" ? {} : read(CATALOGUE),
+    manifest: scope === "note" ? {} : read(SHOTS_MANIFEST),
     scope,
+    noteLines,
   });
   if (problems.length > 0) {
     for (const line of problems) console.error(line);

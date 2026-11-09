@@ -1,63 +1,66 @@
 #!/usr/bin/env node
 /**
- * Prints a one-line release note (at most 120 characters) from the merged PR
- * titles since the previous release tag.
+ * Prints the Play release note for a version: the `[user]:` lines of its
+ * section in apps/android/CHANGELOG.md (written by `bumpy version`), one per
+ * line as "• …", at most 500 characters (Play's limit).
+ * Usage: release-note.mjs <version>
  */
-import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PR_SUFFIX = / \(#\d+\)$/;
-const SKIPPED = /^(ci|test|tests|chore|docs|build|refactor|style|vision)(\([^)]*\))?!?:|^Bump /i;
-const EMPTY_NOTE = "Bug fixes and improvements.";
+export const EMPTY_NOTE = "Bug fixes and improvements.";
+export const PLAY_LIMIT = 500;
+export const CHANGELOG = "apps/android/CHANGELOG.md";
 
-/** Takes subjects newest first and returns one line of at most `max` characters. */
-export function releaseNote(subjects, max = 120) {
-  const titles = [];
-  for (const subject of subjects) {
-    if (!PR_SUFFIX.test(subject)) continue;
-    const title = subject.replace(PR_SUFFIX, "").trim();
-    if (SKIPPED.test(title)) continue;
-    const shown = title.replace(/^Android:\s*/i, "");
-    if (shown !== "") titles.push(shown);
-  }
-  if (titles.length === 0) return EMPTY_NOTE;
+// bumpy writes "- *(minor)* [user]: …" or, for a multi-line body, indented lines.
+const USER_LINE = /^\s*(?:-\s+)?(?:\*\([a-z]+\)\*\s+)?\[user\]:\s*(.+?)\s*$/i;
 
-  function lineFor(count) {
-    const suffix = count === titles.length ? "." : `; and ${titles.length - count} more.`;
-    return titles.slice(0, count).join("; ") + suffix;
-  }
-
-  let count = 1;
-  while (count < titles.length && lineFor(count + 1).length <= max) count += 1;
-  const line = lineFor(count);
-  if (line.length <= max) return line;
-
-  const suffix = lineFor(1).slice(titles[0].length);
-  return titles[0].slice(0, Math.max(0, max - suffix.length - 1)).trimEnd() + "…" + suffix;
+/** Returns the body of the `## <version>` section ("v0.3.0" is "0.3.0"), or "" when there is none. */
+export function changelogSection(changelog, version) {
+  const lines = changelog.split("\n");
+  const heading = `## ${version.replace(/^v/, "")}`;
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return "";
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => line.startsWith("## "));
+  return (end === -1 ? rest : rest.slice(0, end)).join("\n");
 }
 
-/** Returns the newest release tag before HEAD, or undefined when there is none. */
-export function previousTag(git) {
-  try {
-    return git(["describe", "--tags", "--abbrev=0", "--match", "v*", "HEAD~1"]).trim() || undefined;
-  } catch {
-    return undefined;
+/** Returns the text after `[user]:` on each matching line of a changelog section. */
+export function userLines(section) {
+  const found = [];
+  for (const line of section.split("\n")) {
+    const match = USER_LINE.exec(line);
+    if (match) found.push(match[1]);
   }
+  return found;
+}
+
+/** Joins lines as "• …", keeping whole lines while the note fits `max` characters. */
+export function releaseNote(lines, max = PLAY_LIMIT) {
+  const kept = [];
+  let length = 0;
+  for (const line of lines) {
+    const bullet = `• ${line}`;
+    const next = length + (kept.length > 0 ? 1 : 0) + bullet.length;
+    if (next > max) break;
+    kept.push(bullet);
+    length = next;
+  }
+  return kept.length === 0 ? EMPTY_NOTE : kept.join("\n");
 }
 
 function main() {
-  const root = fileURLToPath(new URL("..", import.meta.url));
-  function git(args) {
-    return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+  const version = process.argv[2];
+  if (!version || !/^v?\d+\.\d+\.\d+/.test(version)) {
+    console.error("usage: release-note.mjs <version>");
+    process.exit(2);
   }
-  if (git(["rev-parse", "--is-shallow-repository"]).trim() === "true") {
-    console.error("release-note: the checkout is shallow; use fetch-depth: 0");
-    process.exit(1);
-  }
-  const tag = previousTag(git);
-  const range = tag ? [`${tag}..HEAD`] : [];
-  const log = git(["log", "--first-parent", "--format=%s", ...range]);
-  console.log(releaseNote(log.split("\n").filter(Boolean)));
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const file = path.join(root, CHANGELOG);
+  const changelog = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  console.log(releaseNote(userLines(changelogSection(changelog, version))));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

@@ -48,9 +48,9 @@ platform :android do
     sh({ "READELF" => readelf }, File.expand_path("../../../scripts/check-aab-page-size.sh", __dir__), File.expand_path("../#{AAB}", __dir__))
   end
 
-  desc "Write the one-line release note for a version code to changelogs/<code>.txt"
+  desc "Write the release note (the [user]: lines of the version's changelog) to changelogs/<code>.txt"
   private_lane :write_release_note do |options|
-    note = sh("node", RELEASE_NOTE_SCRIPT, log: false).strip
+    note = sh("node", RELEASE_NOTE_SCRIPT, options[:version_name].to_s, log: false).strip
     FileUtils.mkdir_p(CHANGELOGS_DIR)
     File.write(File.join(CHANGELOGS_DIR, "#{options[:code]}.txt"), "#{note}\n")
     UI.message("Release note for #{options[:code]}: #{note}")
@@ -60,7 +60,7 @@ platform :android do
   lane :internal do |options|
     code = next_version_code
     build(version_code: code, version_name: options[:version_name])
-    write_release_note(code: code)
+    write_release_note(code: code, version_name: options[:version_name])
     upload_to_play_store(
       track: "internal",
       aab: AAB,
