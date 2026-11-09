@@ -31,6 +31,15 @@ function luminance(hex: string): number {
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
 }
 
+function hue(hex: string): number {
+  const [r, g, b] = rgb(hex).map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return h * 60;
+}
+
 function lab(hex: string): number[] {
   const [r, g, b] = linear(hex);
   const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
@@ -48,9 +57,9 @@ function distance(a: string, b: string): number {
 }
 
 describe("memberColor", () => {
-  it("gives seat 0 pink and seat 1 teal", () => {
+  it("gives seat 0 pink and seat 1 blue", () => {
     expect(memberColor(0)).toBe("#C2457A");
-    expect(memberColor(1)).toBe("#0E6F8F");
+    expect(memberColor(1)).toBe("#2672C0");
   });
   it("gives seat 2 brown", () => {
     expect(memberColor(2)).toBe("#9A583C");
@@ -67,6 +76,15 @@ describe("memberColor", () => {
   it("never uses a connection-status colour for a person", () => {
     for (const seat of SEATS)
       for (const status of STATUS) expect(distance(seat, status)).toBeGreaterThan(20);
+  });
+  it("keeps every seat 30 degrees of hue from the ok teal and out of the amber-to-green band", () => {
+    for (const seat of SEATS) {
+      for (const ok of STATUS.slice(0, 3)) {
+        const gap = Math.abs(hue(seat) - hue(ok));
+        expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(30);
+      }
+      expect(hue(seat) < 25 || hue(seat) > 190).toBe(true);
+    }
   });
   it("tells every pair of seats apart", () => {
     for (const [i, a] of SEATS.entries())
