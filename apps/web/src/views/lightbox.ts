@@ -74,13 +74,15 @@ if (typeof document !== "undefined") {
   });
 }
 
-/** The other people in the album the photo is in, when it is the open one; none otherwise. */
-function albumOthers(folderId: string | undefined) {
+/** Everyone in the album the photo is in, when it is the open one; none otherwise. */
+function albumPeople(folderId: string | undefined) {
   const status = syncActor.snapshot().context.status;
   if (!status || status.folder.id !== folderId) return [];
-  return buildPeople(status, [], friendsActor.snapshot().context.friends).people.filter(
-    (p) => !p.you,
-  );
+  return buildPeople(status, [], friendsActor.snapshot().context.friends).people;
+}
+
+function albumOthers(folderId: string | undefined) {
+  return albumPeople(folderId).filter((p) => !p.you);
 }
 
 export async function deleteFromLightbox(photo: Photo) {
@@ -275,7 +277,7 @@ function lightboxBody(photo: Photo) {
 export function lightboxView() {
   return watch(lightboxActor, (s) =>
     s.context.photo
-      ? html`${lightboxBody(s.context.photo)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(s.context.photo) : null}`
+      ? html`${lightboxBody(s.context.photo)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(s.context.photo, albumPeople(s.context.photo.folderId)) : null}`
       : null,
   );
 }

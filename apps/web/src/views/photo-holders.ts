@@ -1,11 +1,11 @@
-import { html } from "lit-html";
+import { html, type TemplateResult } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
 import { keyed } from "lit-html/directives/keyed.js";
 import type { Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
-import { nameList } from "../utils/people";
-import { avatarBadge } from "./avatar";
+import { nameList, type Person } from "../utils/people";
+import { avatarBadge, memberBadge } from "./avatar";
 
 import { copy, t } from "../copy/copy";
 /** The "who has this photo" row on photo detail, and the sheet it opens. */
@@ -48,9 +48,15 @@ export function holdersRow(photo: Photo) {
   </button>`;
 }
 
-function personRow(name: string, detail?: string) {
+/** A keyed row takes the name and colour it has on Members; a key not there keeps what the backend sent. */
+function resolve(m: { key: string; name: string }, people: readonly Person[]) {
+  const p = people.find((q) => q.key === m.key);
+  return { name: p?.name ?? m.name, badge: p ? memberBadge(p.name, p.key) : avatarBadge(m.name) };
+}
+
+function personRow(name: string, badge: TemplateResult, detail?: string) {
   return html`<li class="flex items-center gap-3 py-2">
-    ${avatarBadge(name)}
+    ${badge}
     <div class="min-w-0">
       <div class="truncate text-sm text-fg">${name}</div>
       ${detail ? html`<div class="text-xs text-muted">${detail}</div>` : null}
@@ -58,10 +64,16 @@ function personRow(name: string, detail?: string) {
   </li>`;
 }
 
-export function holdersSheet(photo: Photo) {
+export function holdersSheet(photo: Photo, people: readonly Person[]) {
   const rows = holdersSheetRows(photo.holders);
+  const others = rows.others.map((m) => resolve(m, people));
+  const waiting = rows.waiting.map((m) => resolve(m, people));
+  const unsure = rows.unsure.map((m) => resolve(m, people));
+  const me = people.find((p) => p.you);
+  const youName = copy("photo_holders.you");
+  const youBadge = me ? memberBadge(me.name, me.key) : avatarBadge(youName);
   const sources = [
-    ...rows.others.map((m) => m.name),
+    ...others.map((r) => r.name),
     ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),
   ];
   return html`<div
@@ -79,8 +91,8 @@ export function holdersSheet(photo: Photo) {
       <p class="text-xs text-muted">${t("photo_holders.phones_with_a_full_copy")}</p>
       <div class="max-h-[60vh] overflow-y-auto">
         <ul>
-          ${rows.youArriving ? null : personRow(copy("photo_holders.you"))}
-          ${rows.others.map((m) => personRow(m.name))}
+          ${rows.youArriving ? null : personRow(youName, youBadge)}
+          ${others.map((r) => personRow(r.name, r.badge))}
         </ul>
         ${
           rows.youArriving || rows.waiting.length > 0
@@ -94,10 +106,10 @@ export function holdersSheet(photo: Photo) {
                 <ul>
                   ${
                     rows.youArriving
-                      ? personRow(copy("photo_holders.you"), copy("photo_holders.arriving"))
+                      ? personRow(youName, youBadge, copy("photo_holders.arriving"))
                       : null
                   }
-                  ${rows.waiting.map((m) => personRow(m.name))}
+                  ${waiting.map((r) => personRow(r.name, r.badge))}
                 </ul>`
             : null
         }
@@ -105,7 +117,7 @@ export function holdersSheet(photo: Photo) {
           rows.unsure.length > 0
             ? html`<h4 class="ui-label mt-4">${t("photo_holders.hasn_t_said_yet")}</h4>
                 <ul>
-                  ${rows.unsure.map((m) => personRow(m.name))}
+                  ${unsure.map((r) => personRow(r.name, r.badge))}
                 </ul>
                 <p class="text-xs text-muted">${t("photo_holders.a_phone_says_what_it")}</p>`
             : null
@@ -115,10 +127,18 @@ export function holdersSheet(photo: Photo) {
             ? html`<h4 class="ui-label mt-4">${t("photo_holders.no_longer_in_this_album")}</h4>
                 <ul>
                   ${rows.former.map((name) =>
-                    personRow(name, copy("photo_holders.has_a_copy_from_before")),
+                    personRow(
+                      name,
+                      avatarBadge(name),
+                      copy("photo_holders.has_a_copy_from_before"),
+                    ),
                   )}
                   ${rows.left.map((name) =>
-                    personRow(name, copy("photo_holders.left_their_phone_deleted_its")),
+                    personRow(
+                      name,
+                      avatarBadge(name),
+                      copy("photo_holders.left_their_phone_deleted_its"),
+                    ),
                   )}
                 </ul>`
             : null
