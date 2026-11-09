@@ -19,7 +19,15 @@ DEFAULT_AVD="Medium_Phone_API_36.1"
 MAESTRO_DIR="$REPO_ROOT/.maestro"
 FLOWS_DIR="$MAESTRO_DIR/flows"
 OUT_DIR="$MAESTRO_DIR/out"
-APK="apps/android/app/build/outputs/apk/debug/app-debug.apk"
+# JUSTUS_VARIANT=release runs the R8-minified release build (debug-signed, see app/build.gradle).
+VARIANT="${JUSTUS_VARIANT:-debug}"
+if [[ "$VARIANT" == "release" ]]; then
+  GRADLE_ARGS=(:app:assembleRelease -Pjustus.deviceCheck)
+  APK="apps/android/app/build/outputs/apk/release/app-release.apk"
+else
+  GRADLE_ARGS=(:app:assembleDebug)
+  APK="apps/android/app/build/outputs/apk/debug/app-debug.apk"
+fi
 BOOT_TIMEOUT=300          # seconds to wait for sys.boot_completed
 POLL_INTERVAL=2           # seconds between boot polls
 EMULATOR_LOG="/tmp/justus-emulator.log"
@@ -64,9 +72,9 @@ done
 #    itself, so we only need to invoke the wrapper from apps/android.
 # ----------------------------------------------------------------------------
 echo
-echo "▶ Building debug APK..."
-if ! ( cd "$REPO_ROOT/apps/android" && ./gradlew :app:assembleDebug ); then
-  echo "ERROR: Gradle build of the debug APK failed (/apps/android :app:assembleDebug)." >&2
+echo "▶ Building $VARIANT APK..."
+if ! ( cd "$REPO_ROOT/apps/android" && ./gradlew "${GRADLE_ARGS[@]}" ); then
+  echo "ERROR: Gradle build of the $VARIANT APK failed (apps/android ./gradlew ${GRADLE_ARGS[*]})." >&2
   exit 1
 fi
 if [[ ! -f "$REPO_ROOT/$APK" ]]; then

@@ -162,6 +162,11 @@ jobs:
           name: justus-android-aab
           path: apps/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: justus-android-mapping
+          path: apps/android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 30
 
   # Keeps the website's screenshots in step with the Play listing.
   publish-screenshots:

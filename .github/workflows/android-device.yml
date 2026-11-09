@@ -69,8 +69,20 @@ jobs:
       - name: Pre-fetch Gradle and dependencies
         working-directory: apps/android
         run: |
-          for i in 1 2 3 4 5; do ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest && exit 0; sleep 10; done
+          for i in 1 2 3 4 5; do ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease -Pjustus.deviceCheck && exit 0; sleep 10; done
           exit 1
+      # The R8 release build: the same flows must pass with shrinking on.
+      - name: Maestro device flows (release, R8)
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          JUSTUS_VARIANT: release
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/maestro-e2e.sh emulator-5554
       - name: Maestro device flows
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
