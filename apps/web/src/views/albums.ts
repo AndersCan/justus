@@ -535,7 +535,9 @@ export function albumsHint(folders: readonly FolderSummary[]): string {
 /** Requests still waiting for an answer, shown on the start screen and on Photos. */
 export function pendingAsks() {
   return watch(foldersActor, (s) => {
-    const waiting = s.context.asks.filter((a) => a.status === "waiting" || a.status === "linkOff");
+    const waiting = s.context.asks.filter(
+      (a) => a.status === "waiting" || (a.status === "linkOff" && !a.closed),
+    );
     if (waiting.length === 0) return null;
     return html`<section aria-label=${copy("albums.waiting_to_join")}>
       <h2 class="ui-label mb-2">${t("albums.waiting_to_join")}</h2>

@@ -45,12 +45,13 @@ const album = (id: string, role = "creator") => ({
   pending: false,
 });
 
-const ask = (status: "waiting" | "declined" | "linkOff") => ({
+const ask = (status: "waiting" | "declined" | "linkOff", closed?: true) => ({
   code: "c1",
   owner: "anna-id",
   ownerName: "Anna",
   albumName: "Summer trip",
   status,
+  ...(closed ? { closed } : {}),
 });
 
 const offer = {
@@ -194,6 +195,13 @@ describe("pending asks", () => {
       section?.querySelector("button[aria-label='Link no longer works: Summer trip']"),
     ).not.toBeNull();
     await load(["a"], [ask("declined")]);
+    expect(host.querySelector("section")).toBeNull();
+  });
+
+  test("a dead ask the person closed is not listed", async () => {
+    const host = document.createElement("div");
+    render(pendingAsks(), host);
+    await load(["a"], [ask("linkOff", true)]);
     expect(host.querySelector("section")).toBeNull();
   });
 

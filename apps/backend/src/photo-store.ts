@@ -104,6 +104,7 @@ import {
   boxKeyOf,
   sealedAskBytes,
   inLinkTime,
+  isLinkOffWhy,
   type EarlierEntry,
   type LinkTime,
   type RegistryFile,
@@ -325,6 +326,8 @@ type FolderRecord = {
   /** Creator only: invite codes turned off. A joiner that asked through one
    * still gets its answer under that code. */
   retiredInvites?: string[];
+  /** Creator only: invite code -> why it was retired. Missing for codes retired before this was kept. */
+  retiredWhy?: Record<string, "turnedOff" | "replaced">;
   /** Creator: identity -> the old code for each request listed and each friend invite open when a Remove retired that code. Answering, Take back or Turn off links clears it. */
   heldAsks?: Record<string, string>;
   /** Creator only: identities with an open friend invite to this album. */
@@ -921,6 +924,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (c): c is string => typeof c === "string" && isHexKey(c),
       );
     }
+    if (isTextJSON(f.retiredWhy)) {
+      const retiredWhy: Record<string, "turnedOff" | "replaced"> = {};
+      for (const [code, why] of Object.entries(f.retiredWhy)) {
+        if (isHexKey(code) && (why === "turnedOff" || why === "replaced")) retiredWhy[code] = why;
+      }
+      if (Object.keys(retiredWhy).length > 0) out.retiredWhy = retiredWhy;
+    }
     if (Array.isArray(f.invited)) {
       out.invited = (f.invited as unknown[]).filter(
         (c): c is string => typeof c === "string" && isHexKey(c),
@@ -1121,6 +1131,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ownerName: peerName(a.ownerName, DEFAULT_ASK_OWNER),
         askedAt: typeof a.askedAt === "number" ? a.askedAt : 0,
         status: a.status,
+        ...(a.status === "linkOff" && isLinkOffWhy(a.why) ? { why: a.why } : {}),
+        ...(a.closed === true ? { closed: true } : {}),
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
         ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
       });
@@ -3676,6 +3688,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           delete record.answers;
           delete record.declinedAsks;
           delete record.retiredInvites;
+          delete record.retiredWhy;
           delete record.heldAsks;
           saveState();
         } catch (e) {
@@ -4090,6 +4103,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       ownerName: a.ownerName,
       askedAt: a.askedAt,
       status,
+      ...(status === "linkOff" && a.why ? { why: a.why } : {}),
+      ...(a.closed ? { closed: true } : {}),
       checkCode: checkCode(ownDrive.key, crypto),
       ...(status === "waiting" && versionGaps.has(a.owner)
         ? { whoMustUpdate: "you" as const }
@@ -4390,10 +4405,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!ask) return;
     if (arrival.kind === "linkOff") {
       ask.status = "linkOff";
+      if (arrival.why) ask.why = arrival.why;
       saveState();
       leaveTopic(hex(inviteTopic(ask.code, crypto)));
       await pruneJoinRequests();
-      deps.onChanged({ cause: "ask", code: ask.code, answer: "linkOff" });
+      deps.onChanged({
+        cause: "ask",
+        code: ask.code,
+        answer: "linkOff",
+        ...(arrival.why ? { why: arrival.why } : {}),
+      });
       return;
     }
     if (arrival.kind === "declined") {
@@ -4637,6 +4658,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       retiredInvites: oldInvite
         ? [oldInvite, ...(record.retiredInvites ?? [])]
         : record.retiredInvites,
+      retiredWhy: oldInvite ? { ...record.retiredWhy, [oldInvite]: "replaced" } : record.retiredWhy,
       answers,
       heldAsks: Object.keys(held).length > 0 ? held : undefined,
       moving: Object.keys(moving).length > 0 ? moving : undefined,
@@ -5622,7 +5644,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       rt.record.invitedRoles = undefined;
       rt.record.heldAsks = withoutHeld(rt.record.heldAsks, dropHeldFor);
       rt.record.invite = next.invite;
-      if (next.retired) rt.record.retiredInvites = next.retiredInvites;
+      if (next.retired) {
+        rt.record.retiredInvites = next.retiredInvites;
+        rt.record.retiredWhy = { ...rt.record.retiredWhy, [next.retired]: "turnedOff" };
+      }
       const persisted = state.folders.find((f) => f.id === folderId);
       if (persisted) {
         persisted.invite = next.invite;
@@ -5631,6 +5656,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         persisted.invitedRoles = undefined;
         persisted.heldAsks = withoutHeld(persisted.heldAsks, dropHeldFor);
         persisted.retiredInvites = rt.record.retiredInvites;
+        persisted.retiredWhy = rt.record.retiredWhy;
       }
       saveState();
       serveInvite(next.invite.code);
@@ -6002,6 +6028,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         (a) => a.code === code && (a.status === "waiting" || a.status === "linkOff"),
       );
       if (!found) return err(PhotoError.NOT_FOUND, `No open request for ${code}`);
+      if (found.status === "linkOff") {
+        // The record stays so the link is still known to be off.
+        found.closed = true;
+        saveState();
+        deps.onChanged({ cause: "ask", code });
+        return ok({ ok: true });
+      }
       state.asks = state.asks.filter((a) => a !== found);
       saveState();
       leaveTopic(hex(inviteTopic(code, crypto)));

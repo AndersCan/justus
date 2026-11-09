@@ -159,6 +159,8 @@ export const askSummarySchema = s.object({
   ownerName: s.string,
   askedAt: s.number,
   status: s.oneOf("waiting", "declined", "linkOff"),
+  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted")),
+  closed: s.optional(s.boolean),
   checkCode: s.optional(s.string),
   whoMustUpdate: s.optional(s.oneOf("you")),
 });
@@ -219,6 +221,7 @@ export const photoChangedSchema = s.object({
   memberKey: s.optional(s.string),
   code: s.optional(s.string),
   answer: s.optional(s.oneOf("accepted", "declined", "linkOff")),
+  why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted")),
   role: s.optional(
     s.object({
       from: s.oneOf("member", "reader"),

@@ -488,6 +488,24 @@ describe("linkOff answers", () => {
     expect(parseAnswer({ code, answer: "linkOff", askedAt: Number.NaN })).toBeUndefined();
   });
 
+  test("parseAnswer keeps each known reason and drops one it does not know", () => {
+    for (const why of ["expired", "turnedOff", "replaced", "albumDeleted"]) {
+      expect(parseAnswer({ code, answer: "linkOff", askedAt: 7, why })).toEqual({
+        code,
+        answer: "linkOff",
+        askedAt: 7,
+        why,
+      });
+    }
+    for (const why of ["removed", 3, null]) {
+      expect(parseAnswer({ code, answer: "linkOff", askedAt: 7, why })).toEqual({
+        code,
+        answer: "linkOff",
+        askedAt: 7,
+      });
+    }
+  });
+
   test("inLinkTime: no windows count as on time; slack edges and gaps", () => {
     const links = [
       { from: 1_000_000, to: 2_000_000 },

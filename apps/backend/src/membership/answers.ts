@@ -4,6 +4,7 @@
  * arriving answer means. photo-store keeps the saved state, connections,
  * topics, timers and notifications.
  */
+import type { LinkOffWhy } from "@justus/core";
 import type { Drive, OpenResult } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
 import {
@@ -95,6 +96,8 @@ export type OwingAlbum = {
   /** Identities with an open friend invite: never turned away by link times. */
   invited?: readonly string[];
   retiredInvites?: readonly string[];
+  /** Why a retired code was retired, when known (creator only). */
+  retiredWhy?: Readonly<Record<string, "turnedOff" | "replaced">>;
   answers?: Readonly<Record<string, "accepted" | "declined">>;
   /** When the ask a decline answered was made, per identity. */
   declinedAsks?: Readonly<Record<string, number>>;
@@ -144,7 +147,14 @@ export function answersOwed(
       const settled =
         answer === "accepted" ||
         (answer === "declined" && (askedAt === undefined || a.requestedAt <= askedAt));
-      if (!settled) owed.push({ code: a.code, answer: "linkOff", askedAt: a.requestedAt });
+      if (settled) continue;
+      const why = retired ? album.retiredWhy?.[a.code] : "expired";
+      owed.push({
+        code: a.code,
+        answer: "linkOff",
+        askedAt: a.requestedAt,
+        ...(why ? { why } : {}),
+      });
     }
   }
   return owed;
@@ -157,7 +167,12 @@ export function deletedAlbumAnswers(
 ): Answer[] {
   return asked
     .filter((a) => deletedCodes.has(a.code))
-    .map((a) => ({ code: a.code, answer: "linkOff", askedAt: a.requestedAt }));
+    .map((a) => ({
+      code: a.code,
+      answer: "linkOff",
+      askedAt: a.requestedAt,
+      why: "albumDeleted",
+    }));
 }
 
 export type DeliveryPorts = {
@@ -216,7 +231,7 @@ export type AnswerArrival =
       reason: "version" | "malformed" | "no-waiting-ask" | "unverified" | "settled" | "stale";
     }
   | { kind: "declined"; code: string }
-  | { kind: "linkOff"; code: string }
+  | { kind: "linkOff"; code: string; why?: LinkOffWhy }
   | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
@@ -244,7 +259,8 @@ export async function arrivingAnswer(
   }
   if (!waiting(answer.code)) return { kind: "ignored", reason: "settled" };
   if (answer.answer === "declined") return { kind: "declined", code: answer.code };
-  if (answer.answer === "linkOff") return { kind: "linkOff", code: answer.code };
+  if (answer.answer === "linkOff")
+    return { kind: "linkOff", code: answer.code, ...(answer.why ? { why: answer.why } : {}) };
   return {
     kind: "accepted",
     code: answer.code,

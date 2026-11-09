@@ -252,6 +252,25 @@ describe("answers: a turned-off link", () => {
     ).toEqual([{ code: RETIRED, answer: "linkOff", askedAt: 7 }]);
   });
 
+  it("owed: a linkOff carries why for a retired code with a recorded reason, and no key without one", () => {
+    const owed = (retiredWhy?: OwingAlbum["retiredWhy"]) =>
+      answersOwed(
+        [album({ answers: undefined, retiredInvites: [RETIRED], retiredWhy })],
+        b,
+        asked(7),
+      );
+    expect(owed({ [RETIRED]: "turnedOff" })).toEqual([
+      { code: RETIRED, answer: "linkOff", askedAt: 7, why: "turnedOff" },
+    ]);
+    expect(owed({ [RETIRED]: "replaced" })).toEqual([
+      { code: RETIRED, answer: "linkOff", askedAt: 7, why: "replaced" },
+    ]);
+    expect(owed({ [hex("9")]: "replaced" })).toEqual([
+      { code: RETIRED, answer: "linkOff", askedAt: 7 },
+    ]);
+    expect(Object.keys(owed()[0]!)).not.toContain("why");
+  });
+
   it("owed: a held ask through a retired code gets no linkOff", () => {
     expect(
       answersOwed(
@@ -351,6 +370,17 @@ describe("answers: a turned-off link", () => {
 
     it("settles a waiting ask from the proven owner", async () => {
       expect(await arrive(OWNER, linkOff(7))).toEqual({ kind: "linkOff", code: RETIRED });
+    });
+    it("passes the reason through, and drops one it does not know", async () => {
+      expect(await arrive(OWNER, { ...linkOff(7), why: "replaced" })).toEqual({
+        kind: "linkOff",
+        code: RETIRED,
+        why: "replaced",
+      });
+      expect(await arrive(OWNER, { ...linkOff(7), why: "removed" })).toEqual({
+        kind: "linkOff",
+        code: RETIRED,
+      });
     });
     it("is unverified from another identity", async () => {
       expect(await arrive(hex("f"), linkOff(7))).toEqual({
@@ -666,7 +696,7 @@ describe("answers: asks outside the link times", () => {
 
   it("a late ask on the current code gets a linkOff with its askedAt", () => {
     expect(answersOwed([withLinks()], b, ask(9_000_000))).toEqual([
-      { code: CODE, answer: "linkOff", askedAt: 9_000_000 },
+      { code: CODE, answer: "linkOff", askedAt: 9_000_000, why: "expired" },
     ]);
   });
 
@@ -690,7 +720,7 @@ describe("answers: a deleted album", () => {
         { code: CODE, requestedAt: 5 },
         { code: RETIRED, requestedAt: 6 },
       ]),
-    ).toEqual([{ code: CODE, answer: "linkOff", askedAt: 5 }]);
+    ).toEqual([{ code: CODE, answer: "linkOff", askedAt: 5, why: "albumDeleted" }]);
   });
 
   it("no deleted codes, nothing owed", () => {

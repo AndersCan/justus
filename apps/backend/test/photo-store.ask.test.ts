@@ -1131,15 +1131,23 @@ describe("a request through a turned-off link", () => {
     await until(async () => (await askStatus(s)) === "linkOff", 4_000);
     expect(await askStatus(s)).toBe("linkOff");
     const linkOff = arrived.filter((m) => m.answer === "linkOff");
-    expect(linkOff).toEqual([{ code: s.invite.code, answer: "linkOff", askedAt }]);
-    expect(Object.keys(linkOff[0]).sort()).toEqual(["answer", "askedAt", "code"]);
+    expect(linkOff).toEqual([
+      { code: s.invite.code, answer: "linkOff", askedAt, why: "turnedOff" },
+    ]);
+    expect(Object.keys(linkOff[0]).sort()).toEqual(["answer", "askedAt", "code", "why"]);
+    expect((await s.joiner.store.folders()).asks[0]).toMatchObject({ why: "turnedOff" });
     expect((await s.joiner.store.folders()).folders).toEqual([]);
     expect(JSON.parse(await outboxText(s.outbox)).requests[`invite:${s.invite.code}`]).toBe(
       undefined,
     );
     expect(joinsOf(s.joiner.store)).not.toContain(topicHex(s.invite.code));
     expect(joinsOf(s.admin.store)).toContain(topicHex(s.invite.code));
-    expect(changes).toContainEqual({ cause: "ask", code: s.invite.code, answer: "linkOff" });
+    expect(changes).toContainEqual({
+      cause: "ask",
+      code: s.invite.code,
+      answer: "linkOff",
+      why: "turnedOff",
+    });
     await s.close();
   });
 
@@ -1154,7 +1162,25 @@ describe("a request through a turned-off link", () => {
     joinerNetwork.join(s.adminTopic, { server: false });
     await until(async () => (await askStatus(s)) === "linkOff", 4_000);
     expect(await askStatus(s)).toBe("linkOff");
+    expect((await s.joiner.store.folders()).asks[0]!.why).toBe("turnedOff");
     await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("a link turned off after a restart is still answered as turned off after the next one", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.admin.store.close();
+    const first = createPhotoStore(restarted(s.admin.deps));
+    await first.ready();
+    await first.turnOffInvite(s.folderId);
+    await first.close();
+    const second = createPhotoStore(restarted(s.admin.deps));
+    await second.ready();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect((await s.joiner.store.folders()).asks[0]!.why).toBe("turnedOff");
+    await second.close();
     await s.joiner.store.close();
   });
 
@@ -1177,8 +1203,9 @@ describe("a request through a turned-off link", () => {
     await until(async () => (await askStatus(s)) === "linkOff", 600);
     expect(await askStatus(s)).toBe("linkOff");
     expect(arrived.filter((m) => m.answer === "linkOff")).toEqual([
-      { code: s.invite.code, answer: "linkOff", askedAt },
+      { code: s.invite.code, answer: "linkOff", askedAt, why: "albumDeleted" },
     ]);
+    expect((await s.joiner.store.folders()).asks[0]!.why).toBe("albumDeleted");
     expect((await s.joiner.store.folders()).folders).toEqual([]);
     expect(joinsOf(s.joiner.store)).not.toContain(topicHex(s.invite.code));
     expect(joinsOf(s.admin.store)).toContain(topicHex(s.invite.code));
@@ -1297,16 +1324,164 @@ describe("a request through a turned-off link", () => {
     await s.close();
   });
 
-  it("Cancel takes a linkOff request off the phone", async () => {
-    const { s, joinerNetwork } = await teed();
+  it("Close on a linkOff request hides it and the phone still knows the link is off", async () => {
+    const { s, joinerNetwork, changes } = await teed();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
     joinerNetwork.join(s.adminTopic, { server: false });
     await until(async () => (await s.admin.store.requests()).requests.length === 1);
     await s.admin.store.turnOffInvite(s.folderId);
     await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    expect((await s.joiner.store.folders()).asks[0]!.closed).toBeUndefined();
+    changes.length = 0;
     expect(await s.joiner.store.cancelAsk(s.invite.code)).toEqual([null, { ok: true }]);
-    expect((await s.joiner.store.folders()).asks).toEqual([]);
+    expect(changes).toContainEqual({ cause: "ask", code: s.invite.code });
+    const kept = (await s.joiner.store.folders()).asks;
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({ status: "linkOff", why: "turnedOff", closed: true });
+    await s.joiner.store.close();
+    const reopened = createPhotoStore(restarted(s.joiner.deps));
+    await reopened.ready();
+    expect((await reopened.folders()).asks[0]).toMatchObject({
+      status: "linkOff",
+      why: "turnedOff",
+      closed: true,
+    });
+    const again = await reopened.ask({ code: s.invite.code, owner: s.owner });
+    expect(again[1]!.ask).toMatchObject({ status: "linkOff", closed: true });
+    expect(joinsOf(reopened)).not.toContain(topicHex(s.invite.code));
+    await reopened.close();
+    await s.admin.store.close();
+  });
+
+  it("a linkOff answer from an older Admin phone, with no reason, stores none", async () => {
+    const hub = createFakeHub();
+    const net = createFakePeerNetwork({ hub });
+    const older: PeerNetwork = {
+      ...net,
+      start: (identity, on, protocol) =>
+        net.start(
+          identity,
+          (e: PeerEvent) => {
+            if (e.type === "answer") delete (e.value as { why?: string }).why;
+            on(e);
+          },
+          protocol,
+        ),
+    };
+    const s = await scenario(undefined, { network: older }, hub);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    older.join(s.adminTopic, { server: false });
+    await s.admin.store.turnOffInvite(s.folderId);
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    const [ask] = (await s.joiner.store.folders()).asks;
+    expect(ask!.status).toBe("linkOff");
+    expect(ask).not.toHaveProperty("why");
     await s.close();
+  });
+
+  it("a person removed from the album: an ask through the old link says it was replaced", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const [req] = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, req.requesterKey, true);
+    await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
+    expect((await s.admin.store.removeMember(s.folderId, req.requesterKey))[0]).toBeNull();
+    const c = buildStore("Cy", s.hub);
+    await c.store.ready();
+    await c.store.ask({ code: s.invite.code, owner: s.owner });
+    c.deps.network.join(s.adminTopic, { server: false });
+    await until(async () => (await c.store.folders()).asks[0]?.status === "linkOff", 4_000);
+    expect((await c.store.folders()).asks[0]).toMatchObject({ status: "linkOff", why: "replaced" });
+    await c.store.close();
+    await s.close();
+  });
+
+  it("Remove then Turn off: the code the Remove retired still answers replaced", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const [req] = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, req.requesterKey, true);
+    await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
+    await s.admin.store.removeMember(s.folderId, req.requesterKey);
+    await s.admin.store.turnOffInvite(s.folderId);
+    const c = buildStore("Cy", s.hub);
+    await c.store.ready();
+    await c.store.ask({ code: s.invite.code, owner: s.owner });
+    c.deps.network.join(s.adminTopic, { server: false });
+    await until(async () => (await c.store.folders()).asks[0]?.status === "linkOff", 4_000);
+    expect((await c.store.folders()).asks[0]).toMatchObject({ status: "linkOff", why: "replaced" });
+    await c.store.close();
+    await s.close();
+  });
+
+  it("Turn off then Remove: the code Turn off retired still answers turnedOff", async () => {
+    const { s, joinerNetwork } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const [req] = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, req.requesterKey, true);
+    await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
+    await s.admin.store.turnOffInvite(s.folderId);
+    await s.admin.store.removeMember(s.folderId, req.requesterKey);
+    const c = buildStore("Cy", s.hub);
+    await c.store.ready();
+    await c.store.ask({ code: s.invite.code, owner: s.owner });
+    c.deps.network.join(s.adminTopic, { server: false });
+    await until(async () => (await c.store.folders()).asks[0]?.status === "linkOff", 4_000);
+    expect((await c.store.folders()).asks[0]).toMatchObject({
+      status: "linkOff",
+      why: "turnedOff",
+    });
+    await c.store.close();
+    await s.close();
+  });
+
+  it("bad saved reasons are dropped on load", async () => {
+    const { s } = await teed();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await s.admin.store.turnOffInvite(s.folderId);
+    await s.admin.store.close();
+    await s.joiner.store.close();
+    const hex = "ab".repeat(32);
+    const adminFile = join(s.admin.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(adminFile, "utf8"));
+    saved.folders[0].retiredWhy = {
+      [hex]: "turnedOff",
+      nothex: "replaced",
+      [`${"cd".repeat(32)}`]: "bogus",
+    };
+    writeFileSync(adminFile, JSON.stringify(saved));
+    const admin = createPhotoStore(restarted(s.admin.deps));
+    await admin.ready();
+    await admin.turnOffInvite(s.folderId);
+    const kept = JSON.parse(readFileSync(adminFile, "utf8")).folders[0].retiredWhy;
+    expect(Object.keys(kept)).toContain(hex);
+    expect(kept[hex]).toBe("turnedOff");
+    expect(kept).not.toHaveProperty("nothex");
+    expect(kept).not.toHaveProperty("cd".repeat(32));
+    await admin.close();
+    const joinerFile = join(s.joiner.deps.storageDir, "justus.json");
+    const js = JSON.parse(readFileSync(joinerFile, "utf8"));
+    js.asks = [
+      { ...js.asks[0], status: "linkOff", why: "bogus" },
+      { ...js.asks[0], code: "zz", status: "linkOff", why: "turnedOff" },
+      { ...js.asks[0], code: hex, status: "waiting", why: "turnedOff" },
+    ];
+    writeFileSync(joinerFile, JSON.stringify(js));
+    const joiner = createPhotoStore(restarted(s.joiner.deps));
+    await joiner.ready();
+    const asks = (await joiner.folders()).asks;
+    expect(asks.map((a) => [a.code, a.status])).toEqual([
+      [js.asks[0].code, "linkOff"],
+      [hex, "waiting"],
+    ]);
+    expect(asks.every((a) => !("why" in a))).toBe(true);
+    await joiner.close();
   });
 
   it("a new ask to the same Admin and album replaces the linkOff row", async () => {

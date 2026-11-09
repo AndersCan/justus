@@ -1,4 +1,4 @@
-import type { JoinRequest } from "@justus/core";
+import type { JoinRequest, LinkOffWhy } from "@justus/core";
 import type { IdentityProof } from "../ports/drive-store";
 import { parseColor } from "./colors";
 
@@ -405,18 +405,26 @@ export function invitesAsked(text: string): Array<{ code: string; requestedAt: n
 export type Answer =
   | { code: string; answer: "accepted"; shareKey: string; movedFrom?: string[] }
   | { code: string; answer: "declined"; askedAt?: number }
-  /** The code was turned off before this ask was answered. Nothing else is said. */
-  | { code: string; answer: "linkOff"; askedAt: number };
+  /** The code no longer works for this ask; `why` says which, when known. */
+  | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy };
+
+/** True for the four reasons a link can stop working. */
+export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
+  return (
+    value === "expired" || value === "turnedOff" || value === "replaced" || value === "albumDeleted"
+  );
+}
 
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey, askedAt, movedFrom } = value as {
+  const { code, answer, shareKey, askedAt, movedFrom, why } = value as {
     code?: unknown;
     answer?: unknown;
     shareKey?: unknown;
     askedAt?: unknown;
     movedFrom?: unknown;
+    why?: unknown;
   };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
   if (answer === "declined") {
@@ -425,9 +433,9 @@ export function parseAnswer(value: unknown): Answer | undefined {
       : { code, answer };
   }
   if (answer === "linkOff") {
-    return typeof askedAt === "number" && Number.isFinite(askedAt)
-      ? { code, answer, askedAt }
-      : undefined;
+    if (typeof askedAt !== "number" || !Number.isFinite(askedAt)) return undefined;
+    // An unknown reason (a future one) reads generic; the answer still stands.
+    return isLinkOffWhy(why) ? { code, answer, askedAt, why } : { code, answer, askedAt };
   }
   if (answer === "accepted" && typeof shareKey === "string" && isHexKey(shareKey)) {
     const moved =
