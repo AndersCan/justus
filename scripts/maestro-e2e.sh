@@ -240,7 +240,15 @@ albums_reopened() {
   done
   return 1
 }
-run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
+# The debug APK is debuggable, so run-as works. The release (R8) device build is
+# not: read its storage as root (the google_apis image allows adb root).
+if [[ "$VARIANT" == "release" ]]; then
+  "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
+  "$ADB" -s "$SERIAL" wait-for-device
+  run_as() { "$ADB" -s "$SERIAL" shell "cd /data/data/$APP && sh -c '$1'"; }
+else
+  run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
+fi
 survive_fail() {
   echo "✗ Survive check FAILED: $1"
   mkdir -p "$OUT_DIR"

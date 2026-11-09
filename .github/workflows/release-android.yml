@@ -74,7 +74,7 @@ jobs:
       - name: Gate on approved text
         working-directory: .
         run: node scripts/check-copy-release.mjs app && node scripts/check-copy-release.mjs store
-      # Device gate: the debug APK on an x86_64 emulator, running .maestro/flows
+      # Device gate: the R8 release APK (debug-signed) on an x86_64 emulator, running .maestro/flows
       # (boot + native photo picker). Runs before any signing material exists.
       - name: Enable KVM
         working-directory: .
@@ -96,6 +96,8 @@ jobs:
           echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
       - name: Gate on Maestro device flows
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          JUSTUS_VARIANT: release
         with:
           api-level: 36
           target: google_apis

@@ -55,11 +55,11 @@ android {
       shrinkResources = true
       proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
       if (uploadStore) signingConfig = signingConfigs.upload
-      // CI device check: install the R8 build on an emulator. Debug-signed and
-      // debuggable (so run-as works), never used for Play.
+      // CI device check: install the R8 build on an emulator. Debug-signed so
+      // it installs, never used for Play. Not debuggable: the check must run
+      // the shipped code paths (the script reads app storage with adb root).
       if (project.hasProperty("justus.deviceCheck")) {
         signingConfig = signingConfigs.debug
-        debuggable = true
       }
     }
   }

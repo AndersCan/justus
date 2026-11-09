@@ -9,34 +9,17 @@
 #   Java_to_holepunch_bare_kit_IPC_{init,destroy,read,write,update}
 #   Java_to_holepunch_bare_kit_Worklet_{init,start,suspend,resume,terminate,push}
 # and calls back into Worklet$NativePushCallback.apply(ByteBuffer, String)
-# (descriptor "(Ljava/nio/ByteBuffer;Ljava/lang/String;)V" in the .so) and the
-# IPC poll/read/write callbacks. Classes read from classes.jar of the AAR.
+# (descriptor "(Ljava/nio/ByteBuffer;Ljava/lang/String;)V" in the .so). The
+# handle fields, Worklet.Options and the IPC callbacks are only touched from
+# Java, so they are not kept here.
 
 # (a) JNI: native methods keep their names (the Java_... symbols bind by name).
 -keepclasseswithmembernames,includedescriptorclasses class to.holepunch.bare.kit.** {
     native <methods>;
 }
 
-# (a) JNI: native-owned handle and worklet fields.
--keepclassmembers class to.holepunch.bare.kit.IPC {
-    java.nio.ByteBuffer handle;
-    to.holepunch.bare.kit.Worklet worklet;
-}
--keepclassmembers class to.holepunch.bare.kit.Worklet {
-    java.nio.ByteBuffer handle;
-}
-
-# (a) JNI: callbacks native code invokes by name.
+# (a) JNI: the native library calls Worklet$NativePushCallback.apply by name.
 -keep interface to.holepunch.bare.kit.Worklet$NativePushCallback { *; }
--keep interface to.holepunch.bare.kit.IPC$PollCallback { *; }
--keep interface to.holepunch.bare.kit.IPC$ReadCallback { *; }
--keep interface to.holepunch.bare.kit.IPC$WriteCallback { *; }
-
-# (a) Worklet.Options is read field by field when a worklet starts.
--keepclassmembers class to.holepunch.bare.kit.Worklet$Options {
-    int memoryLimit;
-    java.lang.String assets;
-}
 
 # (b) No @JavascriptInterface methods: the WebView talks to the worklet over
 #     HTTP and a document-start script, not addJavascriptInterface.
