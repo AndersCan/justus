@@ -372,7 +372,7 @@ test("Back trip: A removes B, B's old link no longer works, B asks with A's new 
   await expect(async () => {
     await b.goto("/sharing");
     await expect(b.getByText(album, { exact: true })).toHaveCount(1, { timeout: 5_000 });
-    const row = b.getByRole("link", { name: `Invite & members of ${album}` });
+    const row = b.getByRole("link", { name: `Invite & members of ${album}`, exact: true });
     await expect(row).toContainText("Collaborator", { timeout: 5_000 });
     await expect(row).not.toContainText("No longer in this album");
   }).toPass({ timeout: 90_000 });
