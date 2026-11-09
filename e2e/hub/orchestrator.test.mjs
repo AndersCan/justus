@@ -35,6 +35,30 @@ describe("parseArgs", () => {
   });
 });
 
+describe("--peer-protocol", () => {
+  it("puts protocol=3 on worklet 1 only", () => {
+    const plan = buildOrchestratorPlan(parseArgs(["--count", "2", "--peer-protocol", "1=3"]));
+    const [a, b] = plan.plan.worklets;
+    expect(a.args.some((x) => x.startsWith("protocol="))).toBe(false);
+    expect(b.args).toContain("protocol=3");
+  });
+
+  it("adds no protocol arg without the flag", () => {
+    const plan = buildOrchestratorPlan(parseArgs([]));
+    for (const w of plan.plan.worklets) {
+      expect(w.args.some((x) => x.startsWith("protocol="))).toBe(false);
+    }
+  });
+
+  it.each([["2=3"], ["0=0"], ["0=x"], ["1"], ["-1=3"], ["0=1.5"]])("rejects %s", (v) => {
+    expect(() => parseArgs(["--count", "2", "--peer-protocol", v])).toThrow(RangeError);
+  });
+
+  it("rejects a missing value", () => {
+    expect(() => parseArgs(["--peer-protocol"])).toThrow(RangeError);
+  });
+});
+
 describe("buildOrchestratorPlan", () => {
   it("produces count worklets, each with its own port + storage", () => {
     const plan = buildOrchestratorPlan({ count: 3 });

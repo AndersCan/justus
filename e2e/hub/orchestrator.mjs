@@ -32,7 +32,8 @@ export const DEFAULTS = {
 
 /** Parse CLI argv into normalized options (with validation). */
 export function parseArgs(argv) {
-  const opts = { ...DEFAULTS };
+  const opts = { ...DEFAULTS, peerProtocols: {} };
+  const protocolFlags = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     switch (a) {
@@ -55,6 +56,9 @@ export function parseArgs(argv) {
       case "--registry-file":
         opts.registryFile = argv[++i];
         break;
+      case "--peer-protocol":
+        protocolFlags.push(argv[++i]);
+        break;
       case "--help":
       case "-h":
         opts.help = true;
@@ -71,6 +75,17 @@ export function parseArgs(argv) {
   }
   if (!Number.isInteger(opts.dhtPort) || opts.dhtPort < 1 || opts.dhtPort > 65535) {
     throw new RangeError(`--dht-port must be a TCP port (1-65535), got ${opts.dhtPort}`);
+  }
+  for (const v of protocolFlags) {
+    const m = /^(\d+)=(\d+)$/.exec(String(v));
+    const index = m ? Number(m[1]) : -1;
+    const n = m ? Number(m[2]) : 0;
+    if (!m || index >= opts.count || n < 1) {
+      throw new RangeError(
+        `--peer-protocol needs <index>=<n> with index < count and n a whole number >= 1, got "${v}"`,
+      );
+    }
+    opts.peerProtocols[index] = n;
   }
   return opts;
 }
@@ -113,7 +128,7 @@ export function buildOrchestratorPlan(opts = {}) {
     bootstrap,
   };
 
-  const worklets = registry.instances.map((inst) => ({
+  const worklets = registry.instances.map((inst, index) => ({
     id: inst.id,
     type: "worklet",
     runtime: "bare",
@@ -138,6 +153,7 @@ export function buildOrchestratorPlan(opts = {}) {
       `port=${inst.port}`,
       // Hyperswarm wants host:port, not the registry's http:// URL (which never connects).
       `bootstrap=127.0.0.1:${o.dhtPort}`,
+      ...(o.peerProtocols?.[index] ? [`protocol=${o.peerProtocols[index]}`] : []),
     ],
   }));
 

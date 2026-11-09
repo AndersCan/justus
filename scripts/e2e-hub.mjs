@@ -51,6 +51,7 @@ Options:
   --count <n>            Number of worklet instances (default 2).
   --base-port <p>        First instance port (default 9000).
   --dht-port <p>         DHT bootstrap port (default 49737).
+  --peer-protocol <i>=<n>  Instance i (0-based) announces peer protocol n (dev only).
   --storage-root <dir>   Parent dir for per-instance storage.
   --registry-file <f>    Where to write the registry JSON.
   -h, --help             Show this help.
