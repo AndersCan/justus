@@ -57,12 +57,12 @@ function distance(a: string, b: string): number {
 }
 
 describe("memberColor", () => {
-  it("gives seat 0 pink and seat 1 blue", () => {
-    expect(memberColor(0)).toBe("#C2457A");
+  it("gives seat 0 magenta and seat 1 blue", () => {
+    expect(memberColor(0)).toBe("#B0408C");
     expect(memberColor(1)).toBe("#2672C0");
   });
-  it("gives seat 2 brown", () => {
-    expect(memberColor(2)).toBe("#9A583C");
+  it("gives seat 2 violet", () => {
+    expect(memberColor(2)).toBe("#A83AE0");
   });
   it("repeats from the sixth seat", () => {
     expect(memberColor(5)).toBe(memberColor(0));
@@ -77,14 +77,12 @@ describe("memberColor", () => {
     for (const seat of SEATS)
       for (const status of STATUS) expect(distance(seat, status)).toBeGreaterThan(20);
   });
-  it("keeps every seat 30 degrees of hue from the ok teal and out of the amber-to-green band", () => {
-    for (const seat of SEATS) {
-      for (const ok of STATUS.slice(0, 3)) {
-        const gap = Math.abs(hue(seat) - hue(ok));
+  it("keeps every seat 30 degrees of hue from every status colour", () => {
+    for (const seat of SEATS)
+      for (const status of STATUS) {
+        const gap = Math.abs(hue(seat) - hue(status));
         expect(Math.min(gap, 360 - gap)).toBeGreaterThanOrEqual(30);
       }
-      expect(hue(seat) < 25 || hue(seat) > 190).toBe(true);
-    }
   });
   it("tells every pair of seats apart", () => {
     for (const [i, a] of SEATS.entries())
