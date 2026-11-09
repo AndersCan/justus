@@ -326,6 +326,14 @@ describe("parseAnswer", () => {
     });
   });
 
+  test("keeps movedFrom when every item is a key, else drops it and keeps the answer", () => {
+    const base = { code: k1, answer: "accepted", shareKey: k2 };
+    expect(parseAnswer({ ...base, movedFrom: [k1, k2] })).toEqual({ ...base, movedFrom: [k1, k2] });
+    for (const bad of ["x", [], [k1, "nope"], [k1, 5], { 0: k1 }]) {
+      expect(parseAnswer({ ...base, movedFrom: bad })).toEqual(base);
+    }
+  });
+
   test("accepts a declined answer and drops extra fields", () => {
     expect(parseAnswer({ code: k1, answer: "declined", shareKey: k2 })).toEqual({
       code: k1,

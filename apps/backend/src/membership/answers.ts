@@ -100,6 +100,8 @@ export type OwingAlbum = {
   declinedAsks?: Readonly<Record<string, number>>;
   /** Requests the Admin's phone listed when their code was retired at a Remove: identity -> code. Never turned away. */
   heldAsks?: Readonly<Record<string, string>>;
+  /** Discovery keys of the keys this album had before it moved, newest first. */
+  movedFrom?: readonly string[];
 };
 
 export type AskedCode = { code: string; requestedAt: number };
@@ -120,8 +122,14 @@ export function answersOwed(
     const askedAt = album.declinedAsks?.[identity];
     if (answer) {
       for (const code of [album.invite.code, ...(album.retiredInvites ?? [])]) {
-        if (answer === "accepted") owed.push({ code, answer, shareKey: album.shareKey });
-        else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
+        if (answer === "accepted") {
+          owed.push({
+            code,
+            answer,
+            shareKey: album.shareKey,
+            ...(album.movedFrom?.length ? { movedFrom: [...album.movedFrom] } : {}),
+          });
+        } else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
       }
     }
     for (const a of asked) {
@@ -209,7 +217,7 @@ export type AnswerArrival =
     }
   | { kind: "declined"; code: string }
   | { kind: "linkOff"; code: string }
-  | { kind: "accepted"; code: string; shareKey: string };
+  | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
 export async function arrivingAnswer(
@@ -237,5 +245,10 @@ export async function arrivingAnswer(
   if (!waiting(answer.code)) return { kind: "ignored", reason: "settled" };
   if (answer.answer === "declined") return { kind: "declined", code: answer.code };
   if (answer.answer === "linkOff") return { kind: "linkOff", code: answer.code };
-  return { kind: "accepted", code: answer.code, shareKey: answer.shareKey };
+  return {
+    kind: "accepted",
+    code: answer.code,
+    shareKey: answer.shareKey,
+    movedFrom: answer.movedFrom ?? [],
+  };
 }
