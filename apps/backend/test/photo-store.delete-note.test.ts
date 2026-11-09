@@ -349,4 +349,65 @@ describe("noticing photos someone else deleted", () => {
     await again.close();
     await s.anna.close();
   });
+
+  async function openFull(
+    store: ReturnType<typeof createPhotoStore>,
+    server: FakeLoopbackServer,
+    name: string,
+  ) {
+    const photo = (await store.list()).find((p) => p.name === name)!;
+    await server.getForTest(new URL(photo.url).pathname);
+  }
+
+  it("a photo the Collaborator opened is told as held, from the phone's own record", async () => {
+    const s = await album();
+    await s.anna.addBytes("a.jpg", new Uint8Array([1, 2, 3, 4]));
+    await until(async () => (await s.nils.list()).some((p) => p.name === "a.jpg"));
+    await openFull(s.nils, s.nilsDeps.server as FakeLoopbackServer, "a.jpg");
+    await sleep(300);
+    await s.anna.list();
+    await s.anna.remove(await photoId(s.anna, "a.jpg"));
+    await until(async () => !(await s.nils.list()).some((p) => p.name === "a.jpg"));
+    await until(async () => deletedPushes(s.nilsPushes).length > 0);
+    expect(deletedPushes(s.nilsPushes)[0]).toMatchObject({
+      deleted: { photos: [{ name: "a.jpg", held: true }] },
+    });
+    await s.close();
+  });
+
+  it("an unreadable own record never says the photo had not reached the phone", async () => {
+    const s = await album();
+    await s.anna.addBytes("a.jpg", new Uint8Array([1, 2, 3, 4]));
+    await s.anna.addBytes("b.jpg", new Uint8Array([5, 6, 7, 8]));
+    await until(async () => (await s.nils.list()).length === 2);
+    await openFull(s.nils, s.nilsDeps.server as FakeLoopbackServer, "a.jpg");
+    await sleep(300);
+    await s.nils.close();
+    const pushes: Push[] = [];
+    const deps = restarted(s.nilsDeps);
+    const openOwn = deps.drives.openOwn.bind(deps.drives);
+    deps.drives.openOwn = async (namespace?: string) => {
+      const drive = await openOwn(namespace);
+      const readSmall = drive.readSmall.bind(drive);
+      drive.readSmall = async (...a: Parameters<typeof readSmall>) => {
+        if (a[0] === "/holding.json") throw new Error("unreadable");
+        return readSmall(...a);
+      };
+      return drive;
+    };
+    const again = createPhotoStore({ ...deps, onChanged: (p: Push) => void pushes.push(p) });
+    await again.ready();
+    await again.list();
+    await openFull(again, deps.server as FakeLoopbackServer, "b.jpg");
+    await sleep(300);
+    await s.anna.list();
+    await s.anna.remove(await photoId(s.anna, "a.jpg"));
+    await until(async () => !(await again.list()).some((p) => p.name === "a.jpg"));
+    await until(async () => deletedPushes(pushes).length > 0);
+    const photo = (deletedPushes(pushes)[0] as any).deleted.photos[0];
+    expect(photo.name).toBe("a.jpg");
+    expect(photo.held).toBeUndefined();
+    await again.close();
+    await s.anna.close();
+  });
 });
