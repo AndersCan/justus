@@ -130,12 +130,14 @@ describe("checkCodeLine", () => {
   test("is null without a code", () => {
     expect(checkCodeLine(undefined, "Anna")).toBeNull();
   });
-  test("names the code and what to do with it", () => {
+  test("says what the words are for, then shows them on their own line", () => {
     const host = document.createElement("div");
     render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Your check code is maple river stone. If Anna asks, tell them these three words so Anna knows it's you.",
+      "Anna may ask you for these three words, to check it's really you. Read them out if asked. maple river stone",
     );
+    const last = [...host.querySelectorAll("p")].at(-1);
+    expect(last?.textContent?.trim()).toBe("maple river stone");
   });
 });
 
@@ -147,15 +149,18 @@ describe("joinSheet waiting screen", () => {
     return host.textContent?.replace(/\s+/g, " ") ?? "";
   };
   test("shows the code stored on this invite's ask", () => {
-    expect(text([{ code: "c1", checkCode: "maple river stone" }])).toContain(
-      "Your check code is maple river stone",
-    );
+    const shown = text([{ code: "c1", checkCode: "maple river stone" }]);
+    expect(shown).toContain("may ask you for these three words");
+    expect(shown).toContain("maple river stone");
+    expect(shown.toLowerCase()).not.toContain("check code");
   });
   test("shows no code for another invite's ask", () => {
-    expect(text([{ code: "c2", checkCode: "zoo wrap cat" }])).not.toContain("check code");
+    const shown = text([{ code: "c2", checkCode: "zoo wrap cat" }]);
+    expect(shown).not.toContain("three words");
+    expect(shown).not.toContain("zoo wrap cat");
   });
   test("shows no code when the ask has none", () => {
-    expect(text([{ code: "c1" }])).not.toContain("check code");
+    expect(text([{ code: "c1" }])).not.toContain("three words");
   });
 });
 

@@ -251,18 +251,18 @@ describe("requestsHint", () => {
   });
   it("asks for the code when a row has one", () => {
     expect(requestsHint([row({ checkCode: "a b c" })])).toBe(
-      "Not sure who it is? Ask them which check code their phone shows.",
+      "Not sure who it is? Ask them which three words their phone shows.",
     );
   });
   it("warns when a row clashes, even with a code", () => {
     expect(requestsHint([row({ checkCode: "a b c", clash: "Dad" })])).toBe(
-      "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+      "Someone not in your friends typed a friend's name. Ask which three words their phone shows before you accept.",
     );
   });
   it("says how many asked by link at 2 or more, before the code hint", () => {
     const r = row({ viaInvite: true, checkCode: "a b c" });
     expect(requestsHint([r, r])).toBe(
-      "2 people asked with your invite link. Decline anyone you don't know. Not sure who it is? Ask them which check code their phone shows.",
+      "2 people asked with your invite link. Decline anyone you don't know. Not sure who it is? Ask them which three words their phone shows.",
     );
   });
   it("keeps the clash warning after the count", () => {
@@ -272,7 +272,7 @@ describe("requestsHint", () => {
         row({ viaInvite: true, clash: "Dad" }),
       ]),
     ).toBe(
-      "2 people asked with your invite link. Decline anyone you don't know. Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+      "2 people asked with your invite link. Decline anyone you don't know. Someone not in your friends typed a friend's name. Ask which three words their phone shows before you accept.",
     );
   });
   it("says only the count when link asks have no code", () => {
@@ -288,7 +288,7 @@ describe("requestsHint", () => {
   it("counts only link asks", () => {
     expect(
       requestsHint([row({ viaInvite: true, checkCode: "a b c" }), row({ checkCode: "d e f" })]),
-    ).toBe("Not sure who it is? Ask them which check code their phone shows.");
+    ).toBe("Not sure who it is? Ask them which three words their phone shows.");
   });
   it("is empty otherwise", () => {
     expect(requestsHint([row({})])).toBe("");

@@ -532,14 +532,14 @@
     "screen": ""
   },
   "people.someone_not_in_your_friends": {
-    "text": "Someone not in your friends typed a friend's name. Ask which check code their phone shows before you accept.",
+    "text": "Someone not in your friends typed a friend's name. Ask which three words their phone shows before you accept.",
     "status": "draft",
     "where": "Album › Members › text",
     "who": "Album members",
     "screen": ""
   },
   "people.not_sure_who_it_is": {
-    "text": "Not sure who it is? Ask them which check code their phone shows.",
+    "text": "Not sure who it is? Ask them which three words their phone shows.",
     "status": "draft",
     "where": "Album › Members › text",
     "who": "Album members",
@@ -1106,7 +1106,7 @@
     "screen": ""
   },
   "album.check_code": {
-    "text": "· Check code",
+    "text": "· Three words",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -2785,18 +2785,11 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
-  "invite.your_check_code_is": {
-    "text": "Your check code is",
+  "invite.may_ask_you_for_these": {
+    "text": "{owner} may ask you for these three words, to check it's really you. Read them out if asked.",
     "status": "draft",
     "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
-    "screen": ""
-  },
-  "invite.sees_the_same_code_next": {
-    "text": ". If {owner} asks, tell them these three words so {owner} knows it's you.",
-    "status": "draft",
-    "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
+    "who": "People joining by a link",
     "screen": ""
   },
   "invite.more": {

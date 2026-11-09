@@ -446,15 +446,16 @@ describe("album join requests", () => {
   const button = (host: HTMLElement, text: string) =>
     [...host.querySelectorAll("button")].find((b) => name(b) === text);
 
-  test("rows show their check code and the section says what it is for", async () => {
+  test("rows show their three words and the section says what it is for", async () => {
     const host = await show([
       { ...ask("a", true, "maple river stone"), requesterName: "Ben" },
       { ...ask("b", true, "lamp ocean tiger"), requesterName: "Ben" },
     ]);
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
-    expect(flat(rows[0]!)).toContain("Check code maple river stone");
-    expect(flat(rows[1]!)).toContain("Check code lamp ocean tiger");
+    expect(flat(rows[0]!)).toContain("Three words maple river stone");
+    expect(flat(rows[1]!)).toContain("Three words lamp ocean tiger");
     expect(host.textContent).toContain("Not sure who it is?");
+    expect(flat(host).toLowerCase()).not.toContain("check code");
   });
 
   test("two link asks say how many asked, in the hint paragraph above Accept all", async () => {
@@ -471,7 +472,7 @@ describe("album join requests", () => {
     expect(mixed.textContent).not.toContain("people asked with your invite link");
   });
 
-  test("the identity line alone has name, check code and no wants to join", () => {
+  test("the identity line alone has name, three words and no wants to join", () => {
     const host = document.createElement("div");
     const row = {
       ...ask("a", true, "maple river stone"),
@@ -484,7 +485,7 @@ describe("album join requests", () => {
     expect(text).toContain("Dad");
     expect(text).toContain("· Friend");
     expect(text).toContain("Ben");
-    expect(text).toMatch(/Asked .+ · Check code maple river stone/);
+    expect(text).toMatch(/Asked .+ · Three words maple river stone/);
     expect(text).not.toContain("wants to join");
     render(requestIdentity(row, html`wants to join Trip`), host);
     expect(flat(host)).toContain("Dad wants to join Trip");
@@ -521,8 +522,8 @@ describe("album join requests", () => {
     ]);
     await vi.waitFor(() => expect(host.textContent).toContain("Not your friend Dad"));
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
-    const rowB = rows.find((r) => flat(r).includes("Check code lamp ocean tiger"))!;
-    const rowA = rows.find((r) => flat(r).includes("Check code maple river stone"))!;
+    const rowB = rows.find((r) => flat(r).includes("Three words lamp ocean tiger"))!;
+    const rowA = rows.find((r) => flat(r).includes("Three words maple river stone"))!;
     expect(rowB.textContent).toContain("Not your friend Dad");
     expect(rowA.textContent).not.toContain("Not your friend");
     expect(host.textContent).toContain("typed a friend's name.");
@@ -536,9 +537,9 @@ describe("album join requests", () => {
     ).toHaveLength(2);
   });
 
-  test("without codes there is no check code text", async () => {
+  test("without codes there is no three words text", async () => {
     const host = await show([ask("nils", true)]);
-    expect(host.textContent).not.toContain("Check code");
+    expect(host.textContent).not.toContain("Three words");
     expect(host.textContent).not.toContain("Not sure who it is?");
   });
 
@@ -728,8 +729,8 @@ describe("album join requests", () => {
     expect(flat(dialog)).toContain("nils");
     expect(flat(dialog)).toContain("ola");
     expect(flat(dialog)).toContain("Asked");
-    expect(flat(dialog)).toContain("Check code maple river stone");
-    expect(flat(dialog)).toContain("Check code lamp ocean tiger");
+    expect(flat(dialog)).toContain("Three words maple river stone");
+    expect(flat(dialog)).toContain("Three words lamp ocean tiger");
     expect(flat(dialog)).toContain("every photo in “Trip”");
     expect(gateway.respond).not.toHaveBeenCalled();
     await requestsActor.settled();
