@@ -182,7 +182,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
   await expect
     .poll(async () =>
-      (await bToasts()).filter((t) => /^.+ deleted “del-ana\.png” from Delete trip\.$/.test(t)),
+      (await bToasts()).filter((t) =>
+        /^.+ deleted “del-ana\.png” from Delete trip\. No longer shown on your phone\.$/.test(t),
+      ),
     )
     .toHaveLength(1);
 
@@ -203,7 +205,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   });
   await expect
     .poll(async () =>
-      (await aToasts()).filter((t) => /^.+ deleted “del-ben\.png” from Delete trip\.$/.test(t)),
+      (await aToasts()).filter((t) =>
+        /^.+ deleted “del-ben\.png” from Delete trip\. No longer shown on your phone\.$/.test(t),
+      ),
     )
     .toHaveLength(1);
 
@@ -222,7 +226,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await bToasts()).filter((t) =>
-        /^.+ deleted your photo “del-ben2\.png” from Delete trip\.$/.test(t),
+        /^.+ deleted your photo “del-ben2\.png” from Delete trip\. No longer shown on your phone\.$/.test(
+          t,
+        ),
       ),
     )
     .toHaveLength(1);

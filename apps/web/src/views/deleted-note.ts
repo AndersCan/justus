@@ -7,8 +7,14 @@ export type DeletedIn = DeletedPhotos & { folderId: string };
 const MERGE_MS = 300;
 const HOLD_MS = 8000;
 
-/** The note for the albums' deleted photos: one sentence per batch. */
+/** The note for the albums' deleted photos: what happened, then that this phone no longer shows them. */
 export function deletedNoteText(albums: readonly DeletedPhotos[]): string {
+  const what = whatHappened(albums);
+  if (what === "") return "";
+  return `${what} ${copy("deleted_note.no_longer_shows")}`;
+}
+
+function whatHappened(albums: readonly DeletedPhotos[]): string {
   const first = albums[0];
   if (first === undefined) return "";
   const n = albums.reduce((sum, a) => sum + a.photos.length, 0);
