@@ -55,6 +55,34 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
   }
 });
 
+/**
+ * The phone remembers the name, but the seen flag lives in the page origin, which the Android
+ * shell changes on every launch (the worklet picks a free port). A name reported before the
+ * person has saved one here means the device is set up: skip the intro instead of replaying it.
+ */
+export function leavesWelcomeForSavedProfile(
+  userName: string,
+  state: string,
+  route: string | undefined,
+): boolean {
+  return (
+    userName !== "" &&
+    route === "welcome" &&
+    (state === "showingIntroCards" || state === "askingForName")
+  );
+}
+
+foldersActor.on("change", {
+  fn: (snapshot) => {
+    const state = String(onboardingActor.snapshot().path[0]);
+    if (!leavesWelcomeForSavedProfile(snapshot.context.userName, state, currentPage()?.route))
+      return;
+    markWelcomeSeen();
+    join.welcomeEnded();
+    open("/", { replace: true });
+  },
+});
+
 // Turning App lock on from the first-run card confirms itself, as the Settings switch does.
 onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
   if (prev === "turningOnAppLock" && state === "choosingCreateOrJoin")

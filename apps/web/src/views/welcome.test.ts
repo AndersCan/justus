@@ -11,7 +11,12 @@ vi.mock("../gateway", () => ({
 import { onboarding, onboardingActor } from "../machines/onboarding-machine";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import { buildInviteLink } from "../utils/invite-link";
-import { hasSeenWelcome, markWelcomeSeen, readLockForOnboarding } from "./welcome";
+import {
+  hasSeenWelcome,
+  leavesWelcomeForSavedProfile,
+  markWelcomeSeen,
+  readLockForOnboarding,
+} from "./welcome";
 
 function fakeStorage(): Storage {
   const map = new Map<string, string>();
@@ -95,5 +100,21 @@ describe("finishing the welcome", () => {
     await vi.waitFor(() => expect(joinViewOf(joinActor.snapshot()).state).toBe("decidingToAsk"));
     expect(joinViewOf(joinActor.snapshot()).invite?.album).toBe("Garden");
     join.notNow();
+  });
+});
+
+describe("leavesWelcomeForSavedProfile", () => {
+  it("leaves the intro when the phone already has a name", () => {
+    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", "welcome")).toBe(true);
+    expect(leavesWelcomeForSavedProfile("Joe", "askingForName", "welcome")).toBe(true);
+  });
+
+  it("stays when there is no name, or the person is mid-onboarding, or not on welcome", () => {
+    expect(leavesWelcomeForSavedProfile("", "showingIntroCards", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile("Joe", "savingName", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile("Joe", "offeringAppLock", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile("Joe", "choosingCreateOrJoin", "welcome")).toBe(false);
+    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", "gallery")).toBe(false);
+    expect(leavesWelcomeForSavedProfile("Joe", "showingIntroCards", undefined)).toBe(false);
   });
 });
