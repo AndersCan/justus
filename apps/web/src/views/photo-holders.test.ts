@@ -94,12 +94,29 @@ describe("holdersSheet leavers", () => {
 });
 
 describe("holdersSheet waiting", () => {
-  it("shows Not on their phone yet with names, above Hasn't said yet", () => {
+  it("names the phones a waiting friend gets the photo from, above Hasn't said yet", () => {
     const el = draw(holdersSheet(photo(h({ waiting: [m("Maya")], unsure: [m("Jo")] }))));
     const text = el.textContent ?? "";
     expect(text).toContain("Maya");
-    expect(text.indexOf("Not on their phone yet")).toBeGreaterThan(-1);
-    expect(text.indexOf("Not on their phone yet")).toBeLessThan(text.indexOf("Hasn't said yet"));
+    expect(text).not.toContain("Not on their phone yet");
+    expect(text.indexOf("Can still get it from you")).toBeGreaterThan(-1);
+    expect(text.indexOf("Can still get it from you")).toBeLessThan(text.indexOf("Hasn't said yet"));
+  });
+  it("on a waiting phone, lists the holders and moves You under the heading", () => {
+    const el = draw(holdersSheet(photo(h({ here: false, others: [m("Ada"), m("Ben")] }))));
+    const heading = el.querySelector("h4");
+    expect(heading?.textContent?.trim()).toBe("Can still get it from Ada and Ben");
+    const lists = el.querySelectorAll("ul");
+    expect([...lists[0].querySelectorAll(".text-fg")].map((n) => n.textContent)).toEqual([
+      "Ada",
+      "Ben",
+    ]);
+    expect(lists[1].textContent).toContain("You");
+    expect(lists[1].textContent).toContain("Arriving…");
+  });
+  it("claims no source when nobody holds a copy", () => {
+    const el = draw(holdersSheet(photo(h({ here: false, others: [] }))));
+    expect(el.querySelector("h4")?.textContent?.trim()).toBe("Not on their phone yet");
   });
 });
 

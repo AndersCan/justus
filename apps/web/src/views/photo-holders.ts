@@ -4,6 +4,7 @@ import { keyed } from "lit-html/directives/keyed.js";
 import type { Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
+import { nameList } from "../utils/people";
 import { avatarBadge } from "./avatar";
 
 import { copy, t } from "../copy/copy";
@@ -59,6 +60,10 @@ function personRow(name: string, detail?: string) {
 
 export function holdersSheet(photo: Photo) {
   const rows = holdersSheetRows(photo.holders);
+  const sources = [
+    ...rows.others.map((m) => m.name),
+    ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),
+  ];
   return html`<div
     class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
     @click=${closeHolders}
@@ -74,13 +79,24 @@ export function holdersSheet(photo: Photo) {
       <p class="text-xs text-muted">${t("photo_holders.phones_with_a_full_copy")}</p>
       <div class="max-h-[60vh] overflow-y-auto">
         <ul>
-          ${personRow(copy("photo_holders.you"), rows.youArriving ? copy("photo_holders.arriving") : undefined)}
+          ${rows.youArriving ? null : personRow(copy("photo_holders.you"))}
           ${rows.others.map((m) => personRow(m.name))}
         </ul>
         ${
-          rows.waiting.length > 0
-            ? html`<h4 class="ui-label mt-4">${t("photo_holders.not_on_their_phone_yet")}</h4>
+          rows.youArriving || rows.waiting.length > 0
+            ? html`<h4 class="mt-4 text-xs font-semibold text-muted">
+                  ${
+                    sources.length > 0
+                      ? copy("photo_holders.can_still_get_it_from", { names: nameList(sources) })
+                      : t("photo_holders.not_on_their_phone_yet")
+                  }
+                </h4>
                 <ul>
+                  ${
+                    rows.youArriving
+                      ? personRow(copy("photo_holders.you"), copy("photo_holders.arriving"))
+                      : null
+                  }
                   ${rows.waiting.map((m) => personRow(m.name))}
                 </ul>`
             : null

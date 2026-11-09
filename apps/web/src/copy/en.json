@@ -3443,6 +3443,20 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "photo_holders.can_still_get_it_from": {
+    "text": "Can still get it from {names}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.you_in_a_sentence": {
+    "text": "you",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "photo_holders.a_phone_says_what_it": {
     "text": "A phone says what it has once it runs the latest Justus and connects to yours.",
     "status": "draft",
