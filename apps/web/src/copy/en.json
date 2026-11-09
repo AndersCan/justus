@@ -1105,6 +1105,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.people_asked_with_link": {
+    "text": "{count} people asked with your invite link. Decline anyone you don't know.",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album Admins answering requests",
+    "screen": ""
+  },
   "album.accept_all_as_viewers": {
     "text": "Accept all {count} as Viewers",
     "status": "draft",

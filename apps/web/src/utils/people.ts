@@ -71,15 +71,17 @@ export function requestRowOf(r: JoinRequest, friends: Record<string, string>): R
   };
 }
 
-/** The line above the requests: ask for the check code first. */
+/** The line above the requests: how many asked by link (at 2 or more), then ask for the check code. */
 export function requestsHint(rows: RequestRow[]): string {
-  if (rows.some((r) => r.clash !== undefined)) {
-    return copy("people.someone_not_in_your_friends");
-  }
-  if (rows.some((r) => r.checkCode)) {
-    return copy("people.not_sure_who_it_is");
-  }
-  return "";
+  const links = rows.filter((r) => r.viaInvite === true).length;
+  const rest = rows.some((r) => r.clash !== undefined)
+    ? copy("people.someone_not_in_your_friends")
+    : rows.some((r) => r.checkCode)
+      ? copy("people.not_sure_who_it_is")
+      : "";
+  if (links < 2) return rest;
+  const count = copy("album.people_asked_with_link", { count: links });
+  return rest === "" ? count : `${count} ${rest}`;
 }
 
 /** Presence line for one member. Wording is "connected", never "online". */

@@ -432,6 +432,20 @@ describe("album join requests", () => {
     expect(host.textContent).toContain("Not sure who it is?");
   });
 
+  test("two link asks say how many asked, in the hint paragraph above Accept all", async () => {
+    const host = await show([ask("nils", true, "a b c"), ask("ola", true, "d e f")]);
+    const hint =
+      [...host.querySelectorAll("p.text-muted")]
+        .map((x) => x.textContent ?? "")
+        .find((t) => t.includes("Not sure who it is?")) ?? "";
+    expect(hint).toContain("2 people asked with your invite link.");
+    expect(hint).toContain("Not sure who it is?");
+    const one = await show([ask("nils", true)]);
+    expect(one.textContent).not.toContain("people asked with your invite link");
+    const mixed = await show([ask("nils", true), ask("ola", false)]);
+    expect(mixed.textContent).not.toContain("people asked with your invite link");
+  });
+
   test("the identity line alone has name, check code and no wants to join", () => {
     const host = document.createElement("div");
     const row = {
