@@ -595,6 +595,34 @@ describe("pendingJoinRequests after a decline", () => {
       { registry: { version: 1, members: {} }, denied: new Set(), answers, declinedAsks },
     ).length;
 
+  it("marks a newer ask from a declined phone, and nothing else", () => {
+    const ask = (viaInvite: boolean, answers: Record<string, "accepted" | "declined">) =>
+      pendingJoinRequests(
+        [
+          {
+            request: {
+              folderId: "f1",
+              folderName: "Trip",
+              requesterKey: key,
+              requesterName: "Bo",
+              requestedAt: 200,
+            },
+            identity: "i",
+            viaInvite,
+          },
+        ],
+        {
+          registry: { version: 1, members: {} },
+          denied: new Set(),
+          answers,
+          declinedAsks: { i: 100 },
+        },
+      )[0]!;
+    expect(ask(true, { i: "declined" }).declinedEarlier).toBe(true);
+    expect("declinedEarlier" in ask(true, {})).toBe(false);
+    expect("declinedEarlier" in ask(false, { i: "declined" })).toBe(false);
+  });
+
   it("lists a newer ask, hides the answered one, an unknown time and an accepted one", () => {
     expect(list(200, { i: "declined" }, { i: 100 })).toBe(1);
     expect(list(100, { i: "declined" }, { i: 100 })).toBe(0);

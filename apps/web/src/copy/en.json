@@ -867,6 +867,13 @@
     "who": "Admins answering requests",
     "screen": ""
   },
+  "album.declined_earlier": {
+    "text": "Declined earlier",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
   "album.declined_unnamed": {
     "text": "Declined that request",
     "status": "draft",

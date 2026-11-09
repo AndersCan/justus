@@ -385,6 +385,9 @@ test("B asks by link, A declines, B taps OK and the row goes, B asks again, A ac
 
   await askToJoin(b, link, REASK_ALBUM);
   await expect(a.getByText(`wants to join “${REASK_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(a.locator("li", { hasText: `wants to join “${REASK_ALBUM}”` })).toContainText(
+    "Declined earlier",
+  );
   await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });

@@ -190,6 +190,8 @@ export type JoinRequest = {
   checkCode?: string;
   /** The asker's identity key, the one saved friends are stored under. */
   requesterIdentity?: string;
+  /** This phone asked through the link before and the Admin declined it; set only on a later ask. */
+  declinedEarlier?: boolean;
 };
 
 export type PhotoChangedCause =

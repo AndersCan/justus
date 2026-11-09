@@ -416,7 +416,7 @@ function inviteAccept(
   </button>`;
 }
 
-/** Who is asking: name, Friend tag, warning, real name, when and check code. The card and the sheet share it. */
+/** Who is asking: name, Friend tag, warning, real name, when, check code and declined earlier. The card and the sheet share it. */
 export function requestIdentity(r: PeopleVm["requests"][number], joining: TemplateResult | null) {
   return html` <p class="text-sm text-fg">
       <span class="font-semibold">${r.name}</span>
@@ -437,7 +437,8 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
               <span class="font-semibold text-fg">${r.checkCode}</span>`
           : ""
       }
-    </p>`;
+    </p>
+    ${r.declinedEarlier ? html`<p class="mt-1 text-xs font-semibold text-warn-fg">${t("album.declined_earlier")}</p>` : null}`;
 }
 
 function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {

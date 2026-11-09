@@ -385,6 +385,7 @@ describe("album people motion", () => {
 
 describe("album join requests", () => {
   const ask = (requesterKey: string, viaInvite: boolean, checkCode?: string) => ({
+    declinedEarlier: undefined as boolean | undefined,
     requesterIdentity: undefined as string | undefined,
     folderId: "f1",
     folderName: "Trip",
@@ -582,6 +583,19 @@ describe("album join requests", () => {
     expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
     await requestsActor.settled();
     await vi.waitFor(() => expect(card("nils")).toBeUndefined());
+  });
+
+  test("a phone declined earlier says so and is left out of Accept all", async () => {
+    const host = await show([
+      ask("nils", true),
+      { ...ask("bo", true), declinedEarlier: true },
+      ask("ola", true),
+    ]);
+    const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
+    const flagged = rows.filter((r) => r.textContent?.includes("Declined earlier"));
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]!.textContent).toContain("bo");
+    expect(button(host, "Accept all 2 as Viewers")).toBeDefined();
   });
 
   test("two invite requests show Accept all 2 as Viewers above the list", async () => {
