@@ -625,7 +625,7 @@ describe("an answer that names a kept album", () => {
 });
 
 describe("someone who asked with the link the Remove replaced", () => {
-  async function waiting(opts: { declineFirst?: boolean } = {}) {
+  async function waiting(opts: { declineFirst?: boolean; remove?: boolean } = {}) {
     const s = await album();
     const kim = phone(s.hub, "Kim");
     await kim.store.ready();
@@ -656,7 +656,8 @@ describe("someone who asked with the link the Remove replaced", () => {
       expect(await ask()).toBeNull();
       await until(async () => (await s.admin.store.requests()).requests.length === 1);
     }
-    expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    if (opts.remove !== false)
+      expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
     const kimAsk = async () => (await kim.store.folders()).asks?.[0];
     return { ...s, kim, key, kimAsk, folder };
   }
@@ -721,6 +722,48 @@ describe("someone who asked with the link the Remove replaced", () => {
     await s.close();
   });
 
+  it("Anna's phone off when Kim asked: never listed after the Remove", async () => {
+    const s = await album();
+    const kim = phone(s.hub, "Kim");
+    await kim.store.ready();
+    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const owner = identityOf(s.admin);
+    await s.admin.store.close();
+    expect(
+      (
+        await kim.store.ask({
+          code: folder.invite!.code,
+          owner,
+          albumName: "Trip",
+          ownerName: "Anna",
+        })
+      )[0],
+    ).toBeNull();
+    const admin = createPhotoStore(restarted(s.admin.deps));
+    await admin.ready();
+    expect((await admin.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
+    expect((await admin.requests()).requests).toHaveLength(0);
+    await until(async () => (await kim.store.folders()).asks?.[0]?.status === "linkOff", 10_000);
+    expect((await kim.store.folders()).asks?.[0]).toMatchObject(replaced);
+    await admin.close();
+    await kim.store.close();
+    for (const p of [s.nils, s.ben, s.vera]) await p.store.close();
+  }, 30_000);
+
+  it("an Accept tapped with an upper-case key during the Remove still lets them in", async () => {
+    const s = await waiting({ remove: false });
+    const removing = s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const accepting = s.admin.store.respond(s.folderId, s.key.toUpperCase(), true, "reader");
+    expect((await removing)[0]).toBeNull();
+    expect((await accepting)[0]).toBeNull();
+    const newKey = s.record().shareKey;
+    await until(async () =>
+      (await s.kim.store.folders()).folders.some((f) => f.shareKey === newKey),
+    );
+    await s.kim.store.close();
+    await s.close();
+  });
+
   it("Turn off clears a request kept by an earlier build", async () => {
     const s = await album();
     const kim = phone(s.hub, "Kim");
@@ -753,6 +796,9 @@ describe("someone who asked with the link the Remove replaced", () => {
     expect((await admin.requests()).requests).toHaveLength(1);
     expect((await admin.turnOffInvite(s.folderId))[0]).toBeNull();
     expect((await admin.requests()).requests).toHaveLength(0);
+    setFakeNodeConnected({ hub: s.hub, node: kim.node, connected: true });
+    await until(async () => (await kim.store.folders()).asks?.[0]?.status === "linkOff", 10_000);
+    expect((await kim.store.folders()).asks?.[0]).toMatchObject({ status: "linkOff" });
     const after = JSON.parse(readFileSync(file, "utf8"));
     expect(after.folders.find((f: { id: string }) => f.id === s.folderId).heldAsks).toBeUndefined();
     await admin.close();
