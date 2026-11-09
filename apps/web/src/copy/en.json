@@ -860,6 +860,20 @@
     "who": "Admins answering requests",
     "screen": ""
   },
+  "album.declined": {
+    "text": "Declined {requesterName}",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.declined_unnamed": {
+    "text": "Declined that request",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
   "album.1_person_is_in_as": {
     "text": "1 person is in as a Viewer",
     "status": "draft",

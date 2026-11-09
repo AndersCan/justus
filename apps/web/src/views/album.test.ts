@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { SyncStatus } from "@justus/core";
+import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
@@ -515,6 +516,21 @@ describe("album join requests", () => {
     await requestsActor.settled();
   });
 
+  test("the decline toast waits for the answer and names who", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    let resolve!: (v: unknown) => void;
+    vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (resolve = r)) as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
+    expect(toast).not.toHaveBeenCalled();
+    resolve([null, { ok: true }]);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Declined nils"));
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(host.textContent).toContain("ola");
+    await requestsActor.settled();
+  });
+
   test("a failed answer shows why on that card, with no toast; Retry sends it again", async () => {
     vi.mocked(toast).mockClear();
     const host = await show([ask("nils", true), ask("ola", true)]);
@@ -630,9 +646,13 @@ describe("album join requests", () => {
     expect(acceptAllToast(13)).toBe("13 people are in as Viewers");
   });
 
-  test("answerToast: no toast for a No; Viewer, Collaborator and plain Accept wording", () => {
+  test("answerToast: a No names who was declined; Viewer, Collaborator and plain Accept wording", () => {
     const a = { requesterName: "Nils", approve: true, role: "member" as const, viaInvite: false };
-    expect(answerToast({ ...a, approve: false })).toBe("");
+    expect(answerToast({ ...a, approve: false })).toBe("Declined Nils");
+    expect(answerToast({ ...a, approve: false, requesterName: "" })).toBe("Declined that request");
+    expect(answerToast({ ...a, approve: false, requesterName: copy("requests.they") })).toBe(
+      "Declined that request",
+    );
     expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe("Nils is in as a Viewer");
     expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in as a Collaborator");
     expect(answerToast(a)).toBe("Nils is in");
