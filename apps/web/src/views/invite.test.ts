@@ -360,6 +360,29 @@ describe("joinSheet update screen", () => {
       return { none, askedElsewhere, asked };
     }
 
+    test("the Close button and the backdrop both close the stopped link", async () => {
+      const mod = await import("../machines/sharing/join-request");
+      const view = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+        state: "linkTurnedOffByAdmin",
+        invite: { code: "c9", album: "Lisbon", ownerName: "Anna" },
+        error: "",
+      } as ReturnType<typeof mod.joinViewOf>);
+      const close = vi.spyOn(mod.join, "closeStoppedLink").mockImplementation(() => {});
+      asksHolder.asks = [{ code: "c9" }];
+      const host = document.createElement("div");
+      render(joinSheet(), host);
+      asksHolder.asks = [];
+      view.mockRestore();
+      const button = [...host.querySelectorAll("button")].find((b) =>
+        b.textContent?.includes("Close"),
+      );
+      button?.click();
+      expect(close).toHaveBeenCalledTimes(1);
+      host.querySelector<HTMLElement>(".justus-backdrop")?.click();
+      expect(close).toHaveBeenCalledTimes(2);
+      close.mockRestore();
+    });
+
     test.each(STATES)("%s names the reason", async (state, title, body, askedLine) => {
       const { none, askedElsewhere, asked } = await draws(state);
       const line = "Your request wasn't answered.";

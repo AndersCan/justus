@@ -953,10 +953,10 @@ describe("stopped links", () => {
     expect(s.outputs).toEqual([]);
   });
 
-  test("a garbled paste keeps the screen", async () => {
-    const s = await screen("replaced");
+  test.each(SCREENS)("a garbled paste keeps the screen for why %s", async (why, name) => {
+    const s = await screen(why);
     await s.send("openLink", { text: "justus://join/not-a-link" });
-    expect(s.actor.state.name).toBe("linkReplacedByAdmin");
+    expect(s.actor.state.name).toBe(name);
     expect(payload(s)).toEqual(INVITE);
   });
 
