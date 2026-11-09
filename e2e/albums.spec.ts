@@ -113,3 +113,28 @@ test("reloading an album or its Invite & members page shows it again", async ({ 
   });
   expect(missing).toEqual([]);
 });
+
+test("Archive from the album page lands on Sharing with the album under Archived and Undo", async ({
+  page,
+}) => {
+  await page.goto("/albums");
+  await page.getByRole("button", { name: "New album" }).click();
+  const sheet = page.getByRole("dialog", { name: "Start an album" });
+  await sheet.getByLabel("Album name").fill("Summer trip");
+  await sheet.getByRole("button", { name: "Create album" }).click();
+  await expect(page.getByRole("heading", { name: "Summer trip" })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.getByRole("link", { name: "Invite & members" }).click();
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
+
+  await expect(page).toHaveURL(/\/sharing$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible();
+  await expect(page.getByText("Archived (1)")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("link", { name: "Invite & members of Summer trip" })).toBeVisible();
+});
