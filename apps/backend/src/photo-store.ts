@@ -3190,8 +3190,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Reads another phone's record. A failed read never replaces a report already known. */
   async function refreshHeld(rt: FolderRuntime, key: string, drive: Drive) {
     const prev = rt.held.get(key);
-    const next = await readHeld(drive, { timeoutMs: 1_500, log });
-    if (next.kind === "silent" && prev?.kind === "reports") return;
+    const read = await readHeld(drive, { timeoutMs: 1_500, log });
+    if (read.kind === "silent" && prev?.kind === "reports") return;
+    // A previews list that failed keeps the previews already known.
+    const next: HeldReport =
+      read.kind === "reports" && read.previewsUnknown && prev?.kind === "reports"
+        ? { kind: "reports", ids: read.ids, previews: prev.previews }
+        : read;
     if (sameReport(prev, next)) return;
     rt.held.set(key, next);
     deps.onChanged({ cause: "holders", folderId: rt.record.id });

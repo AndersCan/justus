@@ -17,7 +17,13 @@ const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const HELD_BODY = new Uint8Array([0x31]);
 
 export type HeldReport =
-  | { kind: "reports"; ids: ReadonlySet<string>; previews: ReadonlySet<string> }
+  | {
+      kind: "reports";
+      ids: ReadonlySet<string>;
+      previews: ReadonlySet<string>;
+      /** The previews list failed: `previews` is empty only because it is unknown. */
+      previewsUnknown?: true;
+    }
   | { kind: "silent" };
 export type HoldersError = { kind: "write-failed"; message: string };
 export type HoldersResult<T> = [HoldersError, null] | [null, T];
@@ -106,22 +112,22 @@ async function listIds(
   return { ids };
 }
 
-/** The previews a phone showed. A slow or failing list is empty: it never makes the phone silent. */
+/** The previews a phone showed, or undefined when the list is slow or failing: it never makes the phone silent. */
 async function readPreviews(
   drive: Drive,
   deadline: number,
   log: GalleryLog,
-): Promise<ReadonlySet<string>> {
+): Promise<ReadonlySet<string> | undefined> {
   try {
     const listed = await listIds(drive, PREVIEWED_DIR, deadline);
     if ("timedOut" in listed) {
       log("holding.read", { drive: drive.key.slice(0, 8), err: "previews-timeout" });
-      return new Set();
+      return undefined;
     }
     return listed.ids;
   } catch (thrown: unknown) {
     log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
-    return new Set();
+    return undefined;
   }
 }
 
@@ -146,6 +152,9 @@ export async function readHeld(
       return { kind: "silent" };
     }
     const previews = await readPreviews(drive, deadline, log);
+    if (previews === undefined) {
+      return { kind: "reports", ids: listed.ids, previews: new Set(), previewsUnknown: true };
+    }
     return { kind: "reports", ids: listed.ids, previews };
   } catch (thrown: unknown) {
     log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });

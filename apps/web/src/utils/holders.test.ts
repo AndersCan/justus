@@ -210,6 +210,12 @@ describe("deletedMessage", () => {
   it("without holders", () => {
     expect(deletedMessage("Sunset", undefined, people)).toBe("Deleted “Sunset”.");
   });
+  it("names a person with only a preview by the friend name", () => {
+    const saved = [{ key: "k1", name: "Benny", connected: true }];
+    expect(deletedMessage("Sunset", h({ previews: [{ key: "k1", name: "Ben" }] }), saved)).toBe(
+      "Deleted “Sunset”. Benny only has a preview.",
+    );
+  });
   it("uses the friend name, else the phone's own name", () => {
     const saved = [{ key: "k1", name: "Benny", connected: true }];
     const others = [

@@ -195,6 +195,7 @@ describe("readHeld", () => {
       kind: "reports",
       ids: new Set(["a1"]),
       previews: new Set(),
+      previewsUnknown: true,
     });
     expect(lines.map(([e, d]) => [e, (d as { err: string }).err])).toEqual([
       ["holding.read", "previews-timeout"],
@@ -218,6 +219,7 @@ describe("readHeld", () => {
       kind: "reports",
       ids: new Set(["a1"]),
       previews: new Set(),
+      previewsUnknown: true,
     });
     expect(lines.map(([e, d]) => [e, (d as { err: string }).err])).toEqual([
       ["holding.read", "gone"],

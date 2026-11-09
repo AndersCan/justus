@@ -26,7 +26,7 @@ async function until(done: () => boolean | Promise<boolean>, ms = 4_000): Promis
 function watched(
   deps: ReturnType<typeof fakeStoreDeps>,
   heldPuts: string[],
-  quiet: { on: boolean },
+  quiet: { on: boolean; previews: boolean },
 ) {
   {
     const openOwn = deps.drives.openOwn.bind(deps.drives);
@@ -48,6 +48,11 @@ function watched(
       const result = await open(...args);
       const drive = result[1];
       if (!drive) return result;
+      const list = drive.list.bind(drive);
+      drive.list = (dir: string) =>
+        quiet.previews && dir === "/previewed"
+          ? { [Symbol.asyncIterator]: () => ({ next: () => new Promise<never>(() => {}) }) }
+          : list(dir);
       const readSmall = drive.readSmall.bind(drive);
       drive.readSmall = async (...a: Parameters<Drive["readSmall"]>) => {
         if (quiet.on && a[0] === "/holding.json") throw new Error("unreachable");
@@ -76,7 +81,7 @@ function phone(
     onChanged: (e) => pushes.push(e as { cause: string }),
   });
   const heldPuts: string[] = [];
-  const quiet = { on: false };
+  const quiet = { on: false, previews: false };
   watched(deps, heldPuts, quiet);
   if (options.oldApp) {
     // A phone from before holding records: its writes to them are lost.
@@ -135,6 +140,134 @@ async function album(options: { viewer?: boolean; oldApp?: boolean } = {}) {
     close,
   };
 }
+
+type Album = Awaited<ReturnType<typeof album>>;
+
+/** Anna adds a photo with a thumbnail; returns Nils's view of it. */
+async function addThumbed(s: Album, name: string) {
+  const display = join(s.anna.deps.cacheDir, `${name}-display.jpg`);
+  const thumb = join(s.anna.deps.cacheDir, `${name}-thumb.jpg`);
+  writeFileSync(display, new Uint8Array([10, 11, 12]));
+  writeFileSync(thumb, new Uint8Array([20, 21]));
+  const count = (await s.nils.store.list(s.nilsFolderId)).length;
+  await s.anna.store.add(display, name, s.folderId, { thumb });
+  await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === count + 1);
+  return (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === name)!;
+}
+
+const previewKeys = async (s: Album, name: string) =>
+  (await s.annaPhotoNamed(name)).holders!.previews.map((m: { key: string }) => m.key);
+const fullKeys = async (s: Album, name: string) =>
+  (await s.annaPhotoNamed(name)).holders!.others.map((m: { key: string }) => m.key);
+
+describe("a phone with a full copy and a preview of different photos", () => {
+  it("a preview of one photo keeps the full copy of another", async () => {
+    const s = await album();
+    await s.nils.server.getForTest(new URL((await s.nilsPhoto())!.url).pathname);
+    await until(async () => (await s.nilsPhoto())!.holders!.here);
+    const k = await addThumbed(s, "k.jpg");
+    await s.nils.server.getForTest(new URL(k.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "k.jpg")).length === 1);
+    expect((await s.nilsPhoto())!.holders!.here).toBe(true);
+    expect(await fullKeys(s, "sunset.jpg")).toEqual([s.nilsKey]);
+    await s.close();
+  });
+
+  it("a full copy of one photo keeps the preview of another", async () => {
+    const s = await album();
+    const k = await addThumbed(s, "k.jpg");
+    await s.nils.server.getForTest(new URL(k.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "k.jpg")).length === 1);
+    await s.nils.server.getForTest(new URL((await s.nilsPhoto())!.url).pathname);
+    await until(async () => (await fullKeys(s, "sunset.jpg")).length === 1);
+    expect(await previewKeys(s, "k.jpg")).toEqual([s.nilsKey]);
+    await s.close();
+  });
+
+  it("a preview does not replace a full copy of the same photo", async () => {
+    const s = await album();
+    const k = await addThumbed(s, "k.jpg");
+    await s.nils.server.getForTest(new URL(k.url).pathname);
+    await until(async () => (await fullKeys(s, "k.jpg")).length === 1);
+    await s.nils.server.getForTest(new URL(k.thumbUrl!).pathname);
+    await sleep(400);
+    expect(await previewKeys(s, "k.jpg")).toEqual([]);
+    expect(await fullKeys(s, "k.jpg")).toEqual([s.nilsKey]);
+    // Nothing was written to the phone's own preview list either.
+    const drive = (await s.anna.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    const listed: string[] = [];
+    for await (const entry of drive.list("/previewed")) listed.push(entry.path);
+    expect(listed).toEqual([]);
+    await s.close();
+  });
+
+  it("keeps known previews when the previews list is slow", async () => {
+    const s = await album();
+    const k = await addThumbed(s, "k.jpg");
+    await s.nils.server.getForTest(new URL(k.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "k.jpg")).length === 1);
+    s.anna.quiet.previews = true;
+    await s.nils.store.addBytes("more.jpg", new Uint8Array([9, 9]), s.nilsFolderId);
+    await until(async () => (await s.anna.store.list()).length === 3);
+    await sleep(2_200);
+    expect(await previewKeys(s, "k.jpg")).toEqual([s.nilsKey]);
+    expect((await s.annaPhotoNamed("k.jpg")).holders!.waiting).toEqual([]);
+    await s.close();
+  }, 20_000);
+
+  it("backfill keeps a full copy and a preview of different photos", async () => {
+    const s = await album();
+    const sun = (await s.nilsPhoto())!;
+    const k = await addThumbed(s, "k.jpg");
+    await s.anna.store.addBytes("moon.jpg", new Uint8Array([6, 6]));
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 3);
+    const moon = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "moon.jpg")!;
+    await s.nils.store.close();
+    const dir = join(s.nils.deps.cacheDir, "photos", s.nilsFolderId);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, spoolNameFor(sun.member.key, sun.id, ".jpg")), new Uint8Array([1]));
+    writeFileSync(join(dir, spoolNameFor(moon.member.key, moon.id, ".jpg")), new Uint8Array([1]));
+    writeFileSync(join(dir, spoolNameFor(k.member.key, k.id, "thumb.jpg")), new Uint8Array([2]));
+    const reopened = createPhotoStore(restarted(s.nils.deps));
+    await reopened.ready();
+    await reopened.list(s.nilsFolderId);
+    await until(async () => (await previewKeys(s, "k.jpg")).length === 1);
+    await until(async () => (await fullKeys(s, "sunset.jpg")).length === 1);
+    await until(async () => (await fullKeys(s, "moon.jpg")).length === 1);
+    expect(await previewKeys(s, "k.jpg")).toEqual([s.nilsKey]);
+    const mine = await reopened.list(s.nilsFolderId);
+    expect(mine.map((p) => [p.name, p.holders!.here]).sort()).toEqual([
+      ["k.jpg", false],
+      ["moon.jpg", true],
+      ["sunset.jpg", true],
+    ]);
+    await reopened.close();
+    await s.anna.store.close();
+  }, 20_000);
+
+  it("a backfilled preview alone pushes a holders change", async () => {
+    const s = await album();
+    const k = await addThumbed(s, "k.jpg");
+    await s.nils.store.close();
+    const dir = join(s.nils.deps.cacheDir, "photos", s.nilsFolderId);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, spoolNameFor(k.member.key, k.id, "thumb.jpg")), new Uint8Array([2]));
+    const pushes: { cause: string }[] = [];
+    const reopened = createPhotoStore({
+      ...restarted(s.nils.deps),
+      onChanged: (e) => pushes.push(e as { cause: string }),
+    });
+    await reopened.ready();
+    await sleep(1_500);
+    const before = pushes.filter((e) => e.cause === "holders").length;
+    await reopened.list(s.nilsFolderId);
+    await until(async () => (await previewKeys(s, "k.jpg")).length === 1);
+    await sleep(200);
+    expect(pushes.filter((e) => e.cause === "holders").length).toBeGreaterThan(before);
+    await reopened.close();
+    await s.anna.store.close();
+  }, 20_000);
+});
 
 describe("who has each photo", () => {
   it("the adder's phone holds it and nobody else does yet", async () => {

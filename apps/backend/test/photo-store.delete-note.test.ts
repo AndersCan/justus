@@ -274,6 +274,78 @@ describe("noticing photos someone else deleted", () => {
     await s.anna.close();
   });
 
+  it("a full copy of another photo keeps the record of the preview", async () => {
+    const s = await album();
+    const { photo } = await previewedThenCleared(s, "q.jpg");
+    await s.anna.addBytes("whole.jpg", new Uint8Array([1, 2, 3, 4]));
+    await until(async () => (await s.nils.list()).some((p) => p.name === "whole.jpg"));
+    const whole = (await s.nils.list()).find((p) => p.name === "whole.jpg")!;
+    await (s.nilsDeps.server as FakeLoopbackServer).getForTest(new URL(whole.url).pathname);
+    await until(
+      async () => (await s.nils.list()).find((p) => p.name === "whole.jpg")!.holders!.here,
+    );
+    rmSync(
+      join(
+        s.nilsDeps.cacheDir,
+        "photos",
+        s.nilsFolderId,
+        spoolNameFor(photo.member.key, photo.id, "thumb.jpg"),
+      ),
+      { force: true },
+    );
+    await s.anna.remove(await photoId(s.anna, "q.jpg"));
+    await until(async () => !(await s.nils.list()).some((p) => p.name === "q.jpg"));
+    expect(deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos[0]?.preview)).toEqual([true]);
+    await s.close();
+  });
+
+  it("backfill keeps a preview next to full copies", async () => {
+    const s = await album();
+    await s.anna.addBytes("a.jpg", new Uint8Array([1, 2]));
+    const display = join(s.annaDeps.cacheDir, "bk-display.jpg");
+    const thumb = join(s.annaDeps.cacheDir, "bk-thumb.jpg");
+    writeFileSync(display, new Uint8Array([10, 11, 12]));
+    writeFileSync(thumb, new Uint8Array([20, 21]));
+    await s.anna.add(display, "bk.jpg", s.folderId, { thumb });
+    await s.anna.addBytes("z.jpg", new Uint8Array([3, 4]));
+    await until(async () => (await s.nils.list()).length === 3);
+    const all = await s.nils.list();
+    await s.nils.close();
+    const dir = join(s.nilsDeps.cacheDir, "photos", s.nilsFolderId);
+    mkdirSync(dir, { recursive: true });
+    for (const p of all) {
+      const rendition = p.name === "bk.jpg" ? "thumb.jpg" : ".jpg";
+      writeFileSync(join(dir, spoolNameFor(p.member.key, p.id, rendition)), new Uint8Array([1]));
+    }
+    const reopened = createPhotoStore(restarted(s.nilsDeps));
+    await reopened.ready();
+    await reopened.list(s.nilsFolderId);
+    await until(async () => {
+      const seen = (await s.anna.list()).find((p) => p.name === "bk.jpg")!;
+      return seen.holders!.previews.length === 1;
+    });
+    await sleep(300);
+    rmSync(
+      join(
+        dir,
+        spoolNameFor(
+          all.find((p) => p.name === "bk.jpg")!.member.key,
+          all.find((p) => p.name === "bk.jpg")!.id,
+          "thumb.jpg",
+        ),
+      ),
+      { force: true },
+    );
+    await s.anna.remove(await photoId(s.anna, "bk.jpg"));
+    await until(async () => {
+      await reopened.list(s.nilsFolderId);
+      return deletedPushes(s.nilsPushes).length > 0;
+    });
+    expect(deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos[0]?.preview)).toEqual([true]);
+    await reopened.close();
+    await s.anna.close();
+  }, 20_000);
+
   it("loading the same thumbnail again records nothing new", async () => {
     const s = await album();
     const { photo, server } = await previewedThenCleared(s, "again.jpg");
