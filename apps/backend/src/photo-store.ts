@@ -2638,6 +2638,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         adminName,
         deletedHere: rt.deletedHere,
         heldHere: rt.ownHeldRead === selfKey && own?.kind === "reports" ? own.ids : undefined,
+        previewHere: (driveKey: string, id: string) =>
+          fs.existsSync(
+            path.join(
+              spoolDirFor(rt.record.id),
+              spoolNameFor(driveKey, id, `thumb${RENDITION_EXT}`),
+            ),
+          ),
         left: new Set<string>(),
       };
       // Nothing went: skip the note reads.

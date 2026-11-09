@@ -235,6 +235,8 @@ export type DeletedPhoto = {
   deletedBy?: string;
   /** This phone had the full copy: it added it, or its own holding record listed it. Unset when this phone's record was not read yet. */
   held?: boolean;
+  /** Set only with held false: this phone showed the photo's preview (its thumbnail was loaded here). */
+  preview?: true;
 };
 
 /** For cause "deleted": one album's photos deleted by someone else since this phone last listed it. */

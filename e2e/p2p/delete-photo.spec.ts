@@ -190,6 +190,16 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     )
     .toHaveLength(1);
 
+  // Ana's phone shows Ben's photo as a preview only once its thumbnail has loaded.
+  await expect
+    .poll(() =>
+      a
+        .getByRole("button", { name: `View ${BEN}` })
+        .locator("img")
+        .evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0),
+    )
+    .toBe(true);
+
   // Ben deletes his own photo through the menu; it leaves both phones.
   await b.getByRole("button", { name: `View ${BEN}` }).click();
   await b.getByRole("button", { name: "More options" }).click();
@@ -208,7 +218,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await aToasts()).filter((t) =>
-        /^.+ deleted “del-ben\.png” from Delete trip\. It had not reached your phone\.$/.test(t),
+        /^.+ deleted “del-ben\.png” from Delete trip\. Only a preview had reached your phone\. It's no longer shown\.$/.test(
+          t,
+        ),
       ),
     )
     .toHaveLength(1);

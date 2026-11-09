@@ -17,8 +17,11 @@ export function deletedNoteText(albums: readonly DeletedPhotos[]): string {
 /** Whether the one deleted photo was on this phone; the plain line when that is not known or there are several. */
 function afterText(albums: readonly DeletedPhotos[]): string {
   const only = albums.length === 1 ? albums[0]?.photos : undefined;
-  const held = only?.length === 1 ? only[0]?.held : undefined;
+  const one = only?.length === 1 ? only[0] : undefined;
+  const held = one?.held;
   if (held === true) return copy("deleted_note.no_longer_shows_kept");
+  if (held === false && one?.preview === true)
+    return copy("deleted_note.only_a_preview_had_reached");
   if (held === false) return copy("deleted_note.never_arrived");
   return copy("deleted_note.no_longer_shows");
 }
