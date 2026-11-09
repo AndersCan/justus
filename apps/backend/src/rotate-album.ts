@@ -52,17 +52,25 @@ const REQUESTS = "/requests.json";
  * The identity drive held a pre-#195 album: delete every file but /device.json
  * and the phone's own /requests.json outbox, then keep only /device.json so no
  * older version of the drive gives back a photo or a member list, and put the
- * outbox back after. Does nothing when /folder.json is absent.
+ * outbox back after. Runs when /folder.json is listed or `resume` is set; the
+ * caller keeps `resume` true (saved by `markPending`, called before the first
+ * delete) until this returns without an error, so a run that stopped partway
+ * is finished next time. The outbox is put back on every exit after the deletes.
  */
 export async function clearOldAlbumOffIdentity(
   identity: Drive,
+  pending: { resume: boolean; markPending: () => void },
 ): Promise<[Error, null] | [null, "nothing" | "cleared"]> {
+  let requests: Uint8Array | undefined;
+  let deleted = false;
   try {
     const paths = [...(await entriesIn(identity, "/")).keys()];
-    if (!paths.includes(FOLDER)) return [null, "nothing"];
+    if (!pending.resume && !paths.includes(FOLDER)) return [null, "nothing"];
     const device = await identity.readBytes(DEVICE);
     if (!device) return [new Error("clear: cannot read /device.json"), null];
-    const requests = paths.includes(REQUESTS) ? await identity.readBytes(REQUESTS) : undefined;
+    requests = paths.includes(REQUESTS) ? await identity.readBytes(REQUESTS) : undefined;
+    pending.markPending();
+    deleted = true;
     for (const path of paths) {
       if (path !== DEVICE) await identity.del(path);
     }
@@ -72,9 +80,16 @@ export async function clearOldAlbumOffIdentity(
     if (!kept.olderVersionsCleared) {
       return [new Error("clear: older versions of the identity drive remain"), null];
     }
-    if (requests) await identity.put(REQUESTS, requests);
     return [null, "cleared"];
   } catch (e) {
     return [e instanceof Error ? e : new Error(String(e)), null];
+  } finally {
+    if (deleted && requests) {
+      try {
+        await identity.put(REQUESTS, requests);
+      } catch {
+        // the next boot clears again and puts it back
+      }
+    }
   }
 }

@@ -255,13 +255,13 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const deps = realDeps(storageDir);
     await deps.drives.ready();
     const identity = await deps.drives.openOwn();
-    expect(await clearOldAlbumOffIdentity(identity)).toEqual([null, "cleared"]);
+    expect(await clearOldAlbumOffIdentity(identity, noMark)).toEqual([null, "cleared"]);
     expect(await pathsOf(identity)).toEqual(["/device.json", "/requests.json"]);
     expect(new TextDecoder().decode(await identity.readBytes("/requests.json"))).toBe(
       '{"asks":["keep me"]}',
     );
     const version = identity.version();
-    expect(await clearOldAlbumOffIdentity(identity)).toEqual([null, "nothing"]);
+    expect(await clearOldAlbumOffIdentity(identity, noMark)).toEqual([null, "nothing"]);
     expect(identity.version()).toBe(version);
   });
 
@@ -272,9 +272,73 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     await deps.drives.ready();
     const identity = await deps.drives.openOwn();
     await identity.del("/device.json");
-    const [err, result] = await clearOldAlbumOffIdentity(identity);
+    const [err, result] = await clearOldAlbumOffIdentity(identity, noMark);
     expect(err?.message).toBe("clear: cannot read /device.json");
     expect(result).toBeNull();
     expect(await pathsOf(identity)).toContain("/photos/p1.jpg");
+  });
+});
+
+const noMark = { resume: false, markPending: () => {} };
+
+async function seededIdentity(): Promise<{ identity: Drive; deps: ReturnType<typeof realDeps> }> {
+  const storageDir = makeTmpDir("justus-legacy-");
+  await seedIdentity(storageDir, true);
+  const deps = realDeps(storageDir);
+  await deps.drives.ready();
+  return { identity: await deps.drives.openOwn(), deps };
+}
+
+describe("a clear that stops partway is finished next time", () => {
+  it("a delete that throws leaves the work to do when resume is set", async () => {
+    const { identity } = await seededIdentity();
+    let calls = 0;
+    const flaky: Drive = Object.create(identity);
+    flaky.del = async (path: string) => {
+      if (++calls >= 2) throw new Error("killed");
+      return identity.del(path);
+    };
+    let marked = 0;
+    const [err] = await clearOldAlbumOffIdentity(flaky, {
+      resume: false,
+      markPending: () => marked++,
+    });
+    expect(err?.message).toBe("killed");
+    expect(marked).toBe(1);
+    expect(
+      await clearOldAlbumOffIdentity(identity, { resume: true, markPending: () => {} }),
+    ).toEqual([null, "cleared"]);
+    expect(await pathsOf(identity)).toEqual(["/device.json", "/requests.json"]);
+  });
+
+  it("a keepOnly error is retried and the outbox survives", async () => {
+    const { identity } = await seededIdentity();
+    const failing: Drive = Object.create(identity);
+    failing.keepOnly = async () => [new Error("disk full"), null];
+    const [err] = await clearOldAlbumOffIdentity(failing, noMark);
+    expect(err?.message).toBe("disk full");
+    expect(await pathsOf(identity)).toEqual(["/device.json", "/requests.json"]);
+    expect(
+      await clearOldAlbumOffIdentity(identity, { resume: true, markPending: () => {} }),
+    ).toEqual([null, "cleared"]);
+  });
+
+  it("older versions remaining is an error value and the outbox survives", async () => {
+    const { identity } = await seededIdentity();
+    const lying: Drive = Object.create(identity);
+    lying.keepOnly = async () => [null, { olderVersionsCleared: false }];
+    const [err, result] = await clearOldAlbumOffIdentity(lying, noMark);
+    expect(err?.message).toBe("clear: older versions of the identity drive remain");
+    expect(result).toBeNull();
+    expect(await pathsOf(identity)).toEqual(["/device.json", "/requests.json"]);
+  });
+
+  it("does nothing without /folder.json unless resume is set", async () => {
+    const { identity } = await seededIdentity();
+    await clearOldAlbumOffIdentity(identity, noMark);
+    expect(await clearOldAlbumOffIdentity(identity, noMark)).toEqual([null, "nothing"]);
+    expect(
+      await clearOldAlbumOffIdentity(identity, { resume: true, markPending: () => {} }),
+    ).toEqual([null, "cleared"]);
   });
 });

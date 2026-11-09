@@ -235,6 +235,9 @@ type PersistedState = {
   offers: OfferSummary[];
   /** Albums that left this phone's list, kept for what still has to be done or shown. */
   gone: GoneRecord[];
+  /** Set once an old album is found on the identity drive; unset after its older versions are
+   * cleared, so a clear that stopped partway is finished next boot. */
+  identityClearPending?: true;
 };
 
 /** An album removed from this phone. `deletedForEveryone`: this phone is the
@@ -837,6 +840,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           asks: loadAsks(parsed.asks),
           offers: loadOffers(parsed.offers),
           gone: loadGone(parsed.gone),
+          ...(parsed.identityClearPending === true ? { identityClearPending: true as const } : {}),
         };
       }
     } catch {
@@ -3502,9 +3506,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function clearOldAlbumOnIdentity(): Promise<void> {
     const stillHere = [...state.folders, ...state.gone].some((r) => r.shareKey === ownDrive.key);
     if (stillHere) return;
-    const [err, result] = await clearOldAlbumOffIdentity(ownDrive);
-    if (err) log("error", { where: "identity.clear.failed", err: errText(err) });
-    else if (result === "cleared") log("identity.cleared", {});
+    const [err, result] = await clearOldAlbumOffIdentity(ownDrive, {
+      resume: state.identityClearPending === true,
+      markPending: () => {
+        state.identityClearPending = true;
+        saveState();
+      },
+    });
+    if (err) {
+      log("error", { where: "identity.clear.failed", err: errText(err) });
+      return;
+    }
+    if (state.identityClearPending) {
+      delete state.identityClearPending;
+      saveState();
+    }
+    if (result === "cleared") log("identity.cleared", {});
   }
 
   async function ownerNameOf(shareKey: string): Promise<string> {
