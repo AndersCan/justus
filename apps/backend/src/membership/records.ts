@@ -377,7 +377,7 @@ export function invitesAsked(text: string): Array<{ code: string; requestedAt: n
 
 /** What an Admin tells a joiner who asked through an invite code (`justus/answer/v1`). */
 export type Answer =
-  | { code: string; answer: "accepted"; shareKey: string }
+  | { code: string; answer: "accepted"; shareKey: string; movedFrom?: string[] }
   | { code: string; answer: "declined"; askedAt?: number }
   /** The code was turned off before this ask was answered. Nothing else is said. */
   | { code: string; answer: "linkOff"; askedAt: number };
@@ -385,11 +385,12 @@ export type Answer =
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey, askedAt } = value as {
+  const { code, answer, shareKey, askedAt, movedFrom } = value as {
     code?: unknown;
     answer?: unknown;
     shareKey?: unknown;
     askedAt?: unknown;
+    movedFrom?: unknown;
   };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
   if (answer === "declined") {
@@ -403,7 +404,11 @@ export function parseAnswer(value: unknown): Answer | undefined {
       : undefined;
   }
   if (answer === "accepted" && typeof shareKey === "string" && isHexKey(shareKey)) {
-    return { code, answer, shareKey };
+    const moved =
+      Array.isArray(movedFrom) &&
+      movedFrom.length > 0 &&
+      movedFrom.every((k): k is string => typeof k === "string" && isHexKey(k));
+    return moved ? { code, answer, shareKey, movedFrom } : { code, answer, shareKey };
   }
   return undefined;
 }

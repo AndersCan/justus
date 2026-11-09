@@ -421,6 +421,209 @@ describe("someone who asked through the invite and is removed", () => {
   });
 });
 
+describe("someone removed who asks again with the new code", () => {
+  it("is accepted: the kept album becomes the live one under the same id, another kept album stays", async () => {
+    const s = await album();
+    const carl = phone(s.hub, "Carl");
+    await carl.store.ready();
+    const first = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const owner = identityOf(s.admin);
+    expect(
+      (
+        await carl.store.ask({
+          code: first.invite!.code,
+          owner,
+          albumName: "Trip",
+          ownerName: "Anna",
+        })
+      )[0],
+    ).toBeNull();
+    let requesterKey = "";
+    await until(async () => {
+      requesterKey = (await s.admin.store.requests()).requests[0]?.requesterKey ?? "";
+      return requesterKey !== "";
+    });
+    expect((await s.admin.store.respond(s.folderId, requesterKey, true))[0]).toBeNull();
+
+    // A second album of the same Admin that Carl also keeps, removed from it earlier.
+    const other = await s.admin.store.createFolder("Other");
+    const otherId = other[1]!.folder.id;
+    const otherCode = other[1]!.folder.invite!.code;
+    expect(
+      (await carl.store.ask({ code: otherCode, owner, albumName: "Other", ownerName: "Anna" }))[0],
+    ).toBeNull();
+    let otherKey = "";
+    await until(async () => {
+      otherKey =
+        (await s.admin.store.requests()).requests.find((r) => r.requesterKey !== requesterKey)
+          ?.requesterKey ?? "";
+      return otherKey !== "";
+    });
+    expect((await s.admin.store.respond(otherId, otherKey, true))[0]).toBeNull();
+
+    const carlFolders = async () => (await carl.store.folders()).folders;
+    await until(async () => (await carlFolders()).length === 2, 10_000);
+    const kept = (await carlFolders()).find((f) => f.name === "Trip")!;
+    const otherKept = (await carlFolders()).find((f) => f.name === "Other")!;
+
+    expect((await s.admin.store.removeMember(s.folderId, requesterKey))[0]).toBeNull();
+    expect((await s.admin.store.removeMember(otherId, otherKey))[0]).toBeNull();
+    await until(
+      async () => (await carlFolders()).every((f) => f.notice?.kind === "removed"),
+      15_000,
+    );
+
+    const now = (await s.admin.store.folders()).folders.find((f) => f.id === otherId)!;
+    expect(now.invite!.code).not.toBe(otherCode);
+    expect(
+      (
+        await carl.store.ask({
+          code: now.invite!.code,
+          owner,
+          albumName: "Other",
+          ownerName: "Anna",
+        })
+      )[0],
+    ).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length > 0, 10_000);
+    const again = (await s.admin.store.requests()).requests[0]!.requesterKey;
+    expect((await s.admin.store.respond(otherId, again, true))[0]).toBeNull();
+
+    await until(
+      async () => (await carlFolders()).find((f) => f.id === otherKept.id)?.notice === undefined,
+      15_000,
+    );
+    const after = await carlFolders();
+    expect(after.length).toBe(2);
+    const live = after.find((f) => f.id === otherKept.id)!;
+    expect(live.shareKey).toBe(now.shareKey);
+    expect(live.notice).toBeUndefined();
+    const stay = after.find((f) => f.id === kept.id)!;
+    expect(stay.shareKey).toBe(kept.shareKey);
+    expect(stay.notice?.kind).toBe("removed");
+    await carl.store.close();
+    await s.close();
+  });
+});
+
+/** Carl joined Anna's Trip through its invite and was then removed: he keeps a copy with a removed notice. */
+async function removedCarl() {
+  const s = await album();
+  const carl = phone(s.hub, "Carl");
+  await carl.store.ready();
+  const owner = identityOf(s.admin);
+  const first = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+  const oldKey = first.shareKey;
+  expect(
+    (
+      await carl.store.ask({
+        code: first.invite!.code,
+        owner,
+        albumName: "Trip",
+        ownerName: "Anna",
+      })
+    )[0],
+  ).toBeNull();
+  let requesterKey = "";
+  await until(async () => {
+    requesterKey = (await s.admin.store.requests()).requests[0]?.requesterKey ?? "";
+    return requesterKey !== "";
+  });
+  expect((await s.admin.store.respond(s.folderId, requesterKey, true))[0]).toBeNull();
+  const carlFolders = async () => (await carl.store.folders()).folders;
+  await until(async () => (await carlFolders()).length === 1, 10_000);
+  const kept = (await carlFolders())[0]!;
+  expect((await s.admin.store.removeMember(s.folderId, requesterKey))[0]).toBeNull();
+  await until(async () => (await carlFolders())[0]?.notice?.kind === "removed", 15_000);
+  const now = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+  return { s, carl, owner, oldKey, kept, now, carlFolders };
+}
+
+describe("an answer that names a kept album", () => {
+  it("from another Admin never replaces a kept album", async () => {
+    const { s, carl, oldKey, kept, carlFolders } = await removedCarl();
+    const mal = phone(s.hub, "Mal");
+    await mal.store.ready();
+    const made = await mal.store.createFolder("Mal's");
+    const malId = made[1]!.folder.id;
+    const movedFrom = [carl.deps.drives.discoveryKeyOf(oldKey)];
+    const network = mal.deps.network;
+    const sendAnswer = network.sendAnswer.bind(network);
+    network.sendAnswer = ((conn: number, msg: { answer?: string }) =>
+      sendAnswer(
+        conn,
+        (msg.answer === "accepted" ? { ...msg, movedFrom } : msg) as never,
+      )) as typeof network.sendAnswer;
+    expect(
+      (
+        await carl.store.ask({
+          code: made[1]!.folder.invite!.code,
+          owner: identityOf(mal),
+          albumName: "Mal's",
+          ownerName: "Mal",
+        })
+      )[0],
+    ).toBeNull();
+    await until(async () => (await mal.store.requests()).requests.length > 0, 10_000);
+    const who = (await mal.store.requests()).requests[0]!.requesterKey;
+    expect((await mal.store.respond(malId, who, true))[0]).toBeNull();
+    await until(async () => (await carlFolders()).length === 2, 15_000);
+    const after = await carlFolders();
+    expect(after).toHaveLength(2);
+    const trip = after.find((f) => f.id === kept.id)!;
+    expect(trip.shareKey).toBe(kept.shareKey);
+    expect(trip.notice?.kind).toBe("removed");
+    expect(after.some((f) => f.name === "Mal's")).toBe(true);
+    await mal.store.close();
+    await carl.store.close();
+    await s.close();
+  }, 40_000);
+
+  it("still replaces the kept album when the phone restarts before the join finishes", async () => {
+    const { s, carl, owner, kept, now, carlFolders } = await removedCarl();
+    const drives = carl.deps.drives;
+    const real = drives.open.bind(drives);
+    let offline = false;
+    drives.open = (async (...args: Parameters<typeof drives.open>) => {
+      if (offline && args[0] === now.shareKey) throw new Error("offline");
+      return real(...args);
+    }) as typeof drives.open;
+    expect(
+      (
+        await carl.store.ask({
+          code: now.invite!.code,
+          owner,
+          albumName: "Trip",
+          ownerName: "Anna",
+        })
+      )[0],
+    ).toBeNull();
+    offline = true;
+    await until(async () => (await s.admin.store.requests()).requests.length > 0, 10_000);
+    const again = (await s.admin.store.requests()).requests[0]!.requesterKey;
+    expect((await s.admin.store.respond(s.folderId, again, true))[0]).toBeNull();
+    const savedAsks = () =>
+      (
+        JSON.parse(readFileSync(join(carl.deps.storageDir, "justus.json"), "utf8")) as {
+          asks: { status: string; replaces?: string }[];
+        }
+      ).asks;
+    await until(() => savedAsks().some((a) => a.status === "accepted"), 15_000);
+    expect(savedAsks().map((a) => a.replaces)).toEqual([kept.id]);
+    expect(await carlFolders()).toHaveLength(1);
+    await carl.store.close();
+    const reopened = createPhotoStore(restarted(carl.deps));
+    await reopened.ready();
+    await until(async () => (await reopened.folders()).folders[0]?.notice === undefined, 15_000);
+    const folders = (await reopened.folders()).folders;
+    expect(folders.map((f) => f.id)).toEqual([kept.id]);
+    expect(folders[0]!.shareKey).toBe(now.shareKey);
+    expect(folders[0]!.notice).toBeUndefined();
+    await reopened.close();
+    await s.close();
+  }, 40_000);
+});
+
 describe("someone waiting when the Admin removes another person", () => {
   async function waiting() {
     const s = await album();

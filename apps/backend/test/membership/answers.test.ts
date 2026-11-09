@@ -188,6 +188,18 @@ describe("answers: what is owed", () => {
     ]);
   });
 
+  it("owed: movedFrom rides on every accepted answer, never on a declined one", () => {
+    const b = hex("b");
+    const movedFrom = [hex("d"), hex("e")];
+    expect(answersOwed([album({ retiredInvites: [RETIRED], movedFrom })], b)).toEqual([
+      { code: CODE, answer: "accepted", shareKey: SHARE, movedFrom },
+      { code: RETIRED, answer: "accepted", shareKey: SHARE, movedFrom },
+    ]);
+    expect(answersOwed([album({ answers: { [b]: "declined" }, movedFrom })], b)).toEqual([
+      { code: CODE, answer: "declined" },
+    ]);
+  });
+
   it("owed: only creator albums with an invite and an answer for that identity count", () => {
     const b = hex("b");
     expect(
@@ -531,6 +543,17 @@ describe("answers: an answer arriving", () => {
     expect(proofs).toBe(0);
   });
 
+  it("arriving answer: an accepted answer hands on movedFrom", async () => {
+    const movedFrom = [hex("d")];
+    const result = await arrivingAnswer(proven(OWNER), {
+      conn: 1,
+      value: { ...accepted, movedFrom },
+      refused: false,
+      asks: asks(waiting),
+    });
+    expect(result).toEqual({ kind: "accepted", code: CODE, shareKey: SHARE, movedFrom });
+  });
+
   it("arriving answer: malformed, unknown code, or a settled ask is ignored", async () => {
     const arrive = (value: unknown, list: Ask[]) =>
       arrivingAnswer(proven(OWNER), { conn: 1, value, refused: false, asks: asks(...list) });
@@ -558,7 +581,12 @@ describe("answers: an answer arriving", () => {
       });
     expect(await arrive(hex("f"))).toEqual({ kind: "ignored", reason: "unverified" });
     expect(await arrive(undefined)).toEqual({ kind: "ignored", reason: "unverified" });
-    expect(await arrive(OWNER)).toEqual({ kind: "accepted", code: CODE, shareKey: SHARE });
+    expect(await arrive(OWNER)).toEqual({
+      kind: "accepted",
+      code: CODE,
+      shareKey: SHARE,
+      movedFrom: [],
+    });
   });
 
   it("arriving answer: a decline for an older ask is stale", async () => {
@@ -622,7 +650,7 @@ describe("answers: an answer arriving", () => {
       });
       expect(result).toEqual(
         answer === "accepted"
-          ? { kind: "accepted", code: CODE, shareKey: SHARE }
+          ? { kind: "accepted", code: CODE, shareKey: SHARE, movedFrom: [] }
           : { kind: "declined", code: CODE },
       );
     }

@@ -4240,7 +4240,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const deleted = new Set(state.gone.flatMap((g) => g.inviteCodes ?? []));
     const owed = () => [
       ...answersOwed(
-        [...runtimes.values()].map((rt) => rt.record),
+        [...runtimes.values()].map((rt) =>
+          rt.record.pastKeys?.length
+            ? {
+                ...rt.record,
+                movedFrom: rt.record.pastKeys.map((k) => deps.drives.discoveryKeyOf(k)),
+              }
+            : rt.record,
+        ),
         identity,
         asked,
       ),
@@ -4298,6 +4305,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await pruneJoinRequests();
       deps.onChanged({ cause: "ask", code: ask.code, answer: "declined" });
       return;
+    }
+    if (!ask.replaces) {
+      const kept = [...runtimes.values()].find(
+        (rt) =>
+          rt.record.notice?.kind === "removed" &&
+          rt.record.invite?.owner === ask.owner &&
+          arrival.movedFrom.includes(deps.drives.discoveryKeyOf(rt.record.shareKey)),
+      );
+      if (kept) ask.replaces = kept.record.id;
     }
     ask.status = "accepted";
     ask.shareKey = arrival.shareKey;

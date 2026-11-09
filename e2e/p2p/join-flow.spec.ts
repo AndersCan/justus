@@ -325,6 +325,59 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   expect((await aToasts()).filter((t) => /made you a/.test(t))).toEqual([]);
 });
 
+test("Back trip: A removes B, B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
+  instancePages,
+}) => {
+  test.setTimeout(180_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  const album = "Back trip";
+  await createAlbum(a, album, PHOTO, 31);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, album);
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  await expect(members.getByRole("button", { name: /^Remove /, exact: false })).toBeVisible({
+    timeout: 60_000,
+  });
+  await members.getByRole("button", { name: /^Remove /, exact: false }).click();
+  await a.getByRole("button", { name: "Remove", exact: true }).last().click();
+  await expect(a.getByText(`is no longer in ${album}`)).toBeVisible({ timeout: 60_000 });
+  await expect(
+    b.getByText(`You're no longer in ${album}. You can still see the photos you have.`),
+  ).toBeVisible({ timeout: 60_000 });
+
+  await b.goto("/join");
+  await b.getByLabel("Invite link").fill(link);
+  await b.getByRole("button", { name: "Continue", exact: true }).click();
+  const off = b.getByRole("dialog", { name: "This invite link no longer works." });
+  await expect(off).toBeVisible({ timeout: 20_000 });
+  await expect(b.getByRole("dialog", { name: /^Ask to join/ })).toHaveCount(0);
+  await off.getByRole("button", { name: "Close", exact: true }).click();
+
+  await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
+  await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).not.toBe(link);
+  const newLink = await a.evaluate(() => navigator.clipboard.readText());
+  expect(newLink).toMatch(/^justus:\/\/join\?/);
+
+  await askToJoin(b, newLink, album);
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+
+  await expect(async () => {
+    await b.goto("/sharing");
+    await expect(b.getByText(album, { exact: true })).toHaveCount(1, { timeout: 5_000 });
+    const row = b.getByRole("link", { name: `Invite & members of ${album}`, exact: true });
+    await expect(row).toContainText("Collaborator", { timeout: 5_000 });
+    await expect(row).not.toContainText("No longer in this album");
+  }).toPass({ timeout: 90_000 });
+});
+
 test("A saves B as a friend from the Members list and the name stays after a reload", async ({
   instancePages,
 }) => {
