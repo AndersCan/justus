@@ -21,11 +21,11 @@ export function closeHolders(): void {
   queueMicrotask(() => document.querySelector<HTMLElement>(`[${ROW_ATTR}]`)?.focus());
 }
 
-/** A fixed-height row, so the photo above it never moves when the text changes. */
+/** A row at least 44px tall; long lines wrap rather than get cut. */
 export function holdersRow(photo: Photo) {
   const { text, tappable } = holdersLine(photo.holders);
   const label = html`<span
-    class="justus-holders-text min-w-0 flex-1 truncate text-left text-xs ${
+    class="justus-holders-text min-w-0 flex-1 text-left text-xs ${
       tappable ? "text-fg" : "text-muted"
     }"
     aria-live="polite"
@@ -33,12 +33,12 @@ export function holdersRow(photo: Photo) {
   >`;
   const body = keyed(text, label);
   if (!tappable) {
-    return html`<div class="mt-3 flex h-11 items-center gap-2 border-t border-line pt-1">
+    return html`<div class="mt-3 flex min-h-11 items-center gap-2 border-t border-line py-1">
       ${body}
     </div>`;
   }
   return html`<button
-    class="ui-focus -mx-2 mt-3 flex h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg border-t border-line px-2 pt-1 hover:bg-subtle"
+    class="ui-focus -mx-2 mt-3 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg border-t border-line px-2 py-1 hover:bg-subtle"
     ${ROW_ATTR}
     aria-label=${copy("photo_holders.show_who_has_this_photo", { text })}
     @click=${openHolders}

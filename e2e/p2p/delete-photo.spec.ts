@@ -104,7 +104,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
   const anaLine = a.getByRole("button", { name: /show who has this photo$/ });
-  await expect(anaLine).toContainText("Only yours until others open it", {
+  await expect(anaLine).toContainText("On its way to the people you let in", {
     timeout: 20_000,
   });
   const lightboxImage = a.locator("div.fixed img");
