@@ -170,7 +170,7 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({
         detail:
-          "It will be gone from the album for everyone. Justus can't erase the copy on Nils's phone. Deleting can't take it back.",
+          "It will be gone from the album for everyone. Nils's phone stops showing it, but Justus can't erase the copy already stored there. Deleting can't take it back.",
       }),
     );
   });
