@@ -413,7 +413,7 @@
     "screen": ""
   },
   "holders.only_on_your_phone_so": {
-    "text": "Only on your phone so far",
+    "text": "Only yours until others open it",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",

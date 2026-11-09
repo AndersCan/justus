@@ -30,8 +30,8 @@ describe("holdersLine", () => {
   it("only on your phone", () => {
     expect(holdersLine(h({}))).toEqual({ text: "Only on your phone", tappable: true });
   });
-  it("only on your phone so far when others can get it", () => {
-    expect(holdersLine(h({ waiting: [m("Nils")] })).text).toBe("Only on your phone so far");
+  it("only yours until others open it", () => {
+    expect(holdersLine(h({ waiting: [m("Nils")] })).text).toBe("Only yours until others open it");
   });
   it("others haven't said wins over so far", () => {
     expect(holdersLine(h({ unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(
