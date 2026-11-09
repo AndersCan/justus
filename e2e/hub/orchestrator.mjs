@@ -129,6 +129,8 @@ export function buildOrchestratorPlan(opts = {}) {
     args: [
       workletBundle,
       "mode=dev",
+      // No sample album: a phone with an album skips the first-run intro the specs walk.
+      "seed=off",
       `webassets=${webDist}`,
       `storage=${inst.storageDir}`,
       `cache=${resolve(inst.storageDir, "cache")}`,

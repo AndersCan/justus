@@ -18,6 +18,7 @@ vi.mock("../machines/router-machine", async (importOriginal) => ({
   open,
 }));
 
+import { join } from "../machines/sharing/join-request";
 import { foldersActor, folders, nameSeen } from "../machines/folders-machine";
 import "./welcome";
 
@@ -41,5 +42,13 @@ describe("welcome listener", () => {
     folderList.mockResolvedValue([null, { folders: [album], activeFolderId: "a1" }]);
     folders.refresh();
     await vi.waitFor(() => expect(open).toHaveBeenCalledWith("/", { replace: true }));
+  });
+
+  it("releases an invite held during the intro when the intro is skipped", async () => {
+    const released = vi.spyOn(join, "welcomeEnded");
+    folderList.mockResolvedValue([null, { folders: [album], activeFolderId: "a1" }]);
+    folders.refresh();
+    await vi.waitFor(() => expect(released).toHaveBeenCalled());
+    released.mockRestore();
   });
 });

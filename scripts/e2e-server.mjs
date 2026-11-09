@@ -26,6 +26,9 @@ const workletBundle = join(root, "apps/backend/dist/main.core.gen.js");
 // Not the dev port (8080): a leftover dev tab reconnects to whatever worklet
 // holds 8080 and steals the single protocol socket from the test page.
 const PORT = 8090;
+// A second worklet with no sample album, for the first-run specs: a phone that has an album skips the intro.
+const EMPTY_PORT = 8091;
+const emptyDir = join(e2eDir, "empty");
 
 function log(message) {
   console.log(`[justus:e2e] ${message}`);
@@ -58,6 +61,15 @@ async function main() {
     log,
   });
 
+  await ensurePortFree({
+    port: EMPTY_PORT,
+    bundlePattern: /\/apps\/backend\/dist\/main\.core\.gen\.js/,
+    log,
+  });
+  mkdirSync(join(emptyDir, "storage"), { recursive: true });
+  mkdirSync(join(emptyDir, "cache"), { recursive: true });
+  mkdirSync(join(emptyDir, "inbox"), { recursive: true });
+
   build("web app", "pnpm --filter @justus/web run build", root);
   build("backend worklet", "pnpm --filter @justus/backend run build", root);
 
@@ -75,6 +87,25 @@ async function main() {
     ],
     { stdio: ["inherit", "inherit", "pipe"] },
   );
+  const empty = spawn(
+    bareExecutable,
+    [
+      workletBundle,
+      "mode=dev",
+      "seed=off",
+      `webassets=${webDist}`,
+      `storage=${join(emptyDir, "storage")}`,
+      `cache=${join(emptyDir, "cache")}`,
+      `inbox=${join(emptyDir, "inbox")}`,
+      `port=${EMPTY_PORT}`,
+    ],
+    { stdio: ["inherit", "inherit", "inherit"] },
+  );
+  empty.on("exit", (code) => {
+    log(`empty worklet exited (code=${code}); shutting down.`);
+    bare.kill("SIGKILL");
+    process.exit(code ?? 0);
+  });
   bare.stderr.on("data", (chunk) => {
     const text = chunk.toString();
     process.stderr.write(text);
@@ -94,6 +125,12 @@ async function main() {
     process.exit(code ?? 0);
   });
 
+  if (!(await waitForPort(EMPTY_PORT, 30_000))) {
+    log(`ERROR: empty worklet did not bind port ${EMPTY_PORT} within 30s.`);
+    bare.kill("SIGKILL");
+    empty.kill("SIGKILL");
+    process.exit(1);
+  }
   if (!(await waitForPort(PORT, 30_000))) {
     log(`ERROR: worklet did not bind port ${PORT} within 30s.`);
     try {
@@ -119,6 +156,7 @@ async function main() {
   const shutdown = () => {
     log("shutting down...");
     bare.kill("SIGKILL");
+    empty.kill("SIGKILL");
     process.exit(0);
   };
   process.on("SIGINT", shutdown);

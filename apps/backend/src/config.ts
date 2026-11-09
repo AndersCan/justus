@@ -11,6 +11,8 @@ declare const Bare: { argv?: string[] } | undefined;
 export type JustusRuntimeOptions = WorkletRuntimeOptions & {
   /** Dev mode (`mode=dev`): auth off, fixed port, seeded photos, inbox watcher. */
   dev: boolean;
+  /** Dev mode starts a "Sample photos" album on an empty store; `seed=off` leaves it empty. */
+  seedSamples?: boolean;
   /** Dev-only: watched folder; a file dropped here is imported as a photo. */
   inbox?: string;
   /** Hyperswarm DHT bootstrap servers (dev/test: point at a local DHT). */
@@ -46,6 +48,7 @@ export function resolveJustusConfig(): JustusRuntimeOptions {
   return {
     ...config,
     inbox: label("inbox"),
+    seedSamples: label("seed") !== "off",
     bootstrap: bootstrapArg ? [bootstrapArg] : undefined,
     dev: true,
   };

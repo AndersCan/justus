@@ -452,7 +452,8 @@ test("B asks from the first-run screen, closes the waiting sheet, A accepts, B o
   instancePages,
 }) => {
   test.setTimeout(150_000);
-  const [a, b] = instancePages;
+  // The third phone has no album yet; a phone with one skips the intro this test starts on.
+  const [a, , b] = instancePages;
   await skipIntro([a]);
   await createAlbum(a, ALBUM, PHOTO, 31);
   const link = await copyInviteLink(a);

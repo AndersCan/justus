@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-// A fresh install: no welcome-seen flag, so "/" lands on the intro.
+// A fresh install: no welcome-seen flag, so "/" lands on the intro. A phone that already has an
+// album skips the intro, so this file runs on the worklet with no sample album (playwright.config.ts,
+// "first-run" project; scripts/e2e-server.mjs). The test that creates an album stays last.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 /**
@@ -48,23 +50,6 @@ test("two cards, no Skip on the last, Back returns to the card left", async ({ p
   await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
 });
 
-/** Creating the first album lands inside it, where its add button names it,
- * not on "All", where it would be unclear which album photos go to. */
-test("creating the first album opens it", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Skip" }).click();
-  await page.getByLabel("Your name").fill("Robin Park");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: "Start sharing" })).toBeVisible({
-    timeout: 20_000,
-  });
-
-  await page.getByLabel("Album name").fill("Summer");
-  await page.getByRole("button", { name: "Create an album" }).click();
-  await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "Add photos to Summer" })).toBeVisible();
-});
-
 test("the tabs stay hidden until the name is saved", async ({ page }) => {
   const tabs = page.getByRole("navigation", { name: "Main" });
   await page.goto("/");
@@ -92,4 +77,21 @@ test("an invite link opened before the welcome asks once the name is saved", asy
   await expect(page.getByRole("dialog", { name: "Ask to join “Garden”?" })).toBeVisible({
     timeout: 20_000,
   });
+});
+
+/** Creating the first album lands inside it, where its add button names it,
+ * not on "All", where it would be unclear which album photos go to. */
+test("creating the first album opens it", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Skip" }).click();
+  await page.getByLabel("Your name").fill("Robin Park");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Start sharing" })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.getByLabel("Album name").fill("Summer");
+  await page.getByRole("button", { name: "Create an album" }).click();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Add photos to Summer" })).toBeVisible();
 });

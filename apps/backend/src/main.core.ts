@@ -108,7 +108,7 @@ const store: PhotoStore = createPhotoStore({
   server: runtime.server,
   deviceName: `Device-${Math.floor(Math.random() * 100000)}`,
   onChanged: pushChange,
-  seedOnEmpty: config.dev,
+  seedOnEmpty: config.dev && config.seedSamples !== false,
   fs,
   path,
   crypto,
