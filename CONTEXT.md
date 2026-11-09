@@ -41,8 +41,8 @@ A device's request to join an album through an invite code. It waits until the A
 _Avoid_: join request (the older request made with a share key)
 
 **Check code**:
-Three words from a 2048-word list, worked out from a phone's identity drive key. The asker's waiting screen and the Admin's request row show the same code, so the Admin can ask which code a person sees before accepting. It proves nothing alone.
-_Avoid_: PIN, password, safety number
+Three words from a 2048-word list, worked out from a phone's identity drive key. The asker's waiting screen and the Admin's request row show the same words, so the Admin can ask which words a person sees before accepting. It proves nothing alone. People see it as "three words".
+_Avoid_: PIN, password, safety number; "check code" in anything a person reads
 
 **Delete note**:
 `/deleted.json` in the album's own drive. Only the Admin's device can write it. A phone that reads it removes the album and its photos.
@@ -102,7 +102,7 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Archive (album)  | **Archive**                    | This phone only; Restore from Archived.                                                    |
 | Leave (album)    | **Leave album**                | Member or Viewer; needs a new invite to come back.                                         |
 | Delete (album)   | **Delete album**               | Admin only; gone from every phone; no undo.                                                |
-| Check code       | **Check code**                 | Shown on the request and the waiting screen.                                               |
+| Check code       | **three words**                | Shown on the request and the waiting screen. Never "check code" on screen.                 |
 | Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
 | Registry         | _(hidden)_                     |                                                                                            |
 | Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |

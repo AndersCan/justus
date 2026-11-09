@@ -149,13 +149,11 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** The joiner's check code, shown while waiting; null until the stored ask has one. */
+/** The joiner's three words, shown while the Admin has the request; null until the stored ask has them. */
 export function checkCodeLine(code: string | undefined, owner: string) {
   if (!code) return null;
-  return html`<p class="mt-3 text-sm text-fg">
-    ${t("invite.your_check_code_is")}
-    <span class="font-semibold">${code}</span>${t("invite.sees_the_same_code_next", { owner })}
-  </p>`;
+  return html`<p class="mt-3 text-sm text-fg">${t("invite.may_ask_you_for_these", { owner })}</p>
+    <p class="mt-1 text-base font-semibold text-fg">${code}</p>`;
 }
 
 /** "From your friends: A, B or C. They get the invite in Justus, no link needed." Up to three names, then "or N more". */
