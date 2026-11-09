@@ -104,6 +104,7 @@ import {
   boxKeyOf,
   sealedAskBytes,
   inLinkTime,
+  isLinkOffWhy,
   type EarlierEntry,
   type LinkTime,
   type RegistryFile,
@@ -180,7 +181,6 @@ import type {
   DeletedAlbum,
   FolderSummary,
   JoinRequest,
-  LinkOffWhy,
   Photo,
   PhotoChanged,
   PhotoChangedCause,
@@ -1108,15 +1108,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
     }
     return out;
-  }
-
-  function isLinkOffWhy(value: unknown): value is LinkOffWhy {
-    return (
-      value === "expired" ||
-      value === "turnedOff" ||
-      value === "replaced" ||
-      value === "albumDeleted"
-    );
   }
 
   function loadAsks(raw: unknown): AskRecord[] {

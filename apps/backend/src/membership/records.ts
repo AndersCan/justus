@@ -408,7 +408,12 @@ export type Answer =
   /** The code no longer works for this ask; `why` says which, when known. */
   | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy };
 
-const LINK_OFF_WHY: readonly unknown[] = ["expired", "turnedOff", "replaced", "albumDeleted"];
+/** True for the four reasons a link can stop working. */
+export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
+  return (
+    value === "expired" || value === "turnedOff" || value === "replaced" || value === "albumDeleted"
+  );
+}
 
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
@@ -430,9 +435,7 @@ export function parseAnswer(value: unknown): Answer | undefined {
   if (answer === "linkOff") {
     if (typeof askedAt !== "number" || !Number.isFinite(askedAt)) return undefined;
     // An unknown reason (a future one) reads generic; the answer still stands.
-    return LINK_OFF_WHY.includes(why)
-      ? { code, answer, askedAt, why: why as LinkOffWhy }
-      : { code, answer, askedAt };
+    return isLinkOffWhy(why) ? { code, answer, askedAt, why } : { code, answer, askedAt };
   }
   if (answer === "accepted" && typeof shareKey === "string" && isHexKey(shareKey)) {
     const moved =
