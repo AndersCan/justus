@@ -580,12 +580,18 @@ export const requests = {
   cancelAcceptAll: () => requestsActor.send(cancelAcceptAll.create()),
 };
 
-/** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, in list order. */
+/** The requests Accept all as Viewers answers in one album: invite-link asks only (only those can be Viewers), not those whose name equals a saved friend's, not phones declined earlier, in list order. */
 export function viewerAcceptKeys(
   requests: (JoinRequest & { clash?: string })[],
   folderId: string,
 ): string[] {
   return requests
-    .filter((r) => r.folderId === folderId && r.viaInvite === true && r.clash === undefined)
+    .filter(
+      (r) =>
+        r.folderId === folderId &&
+        r.viaInvite === true &&
+        r.clash === undefined &&
+        !r.declinedEarlier,
+    )
     .map((r) => r.requesterKey);
 }

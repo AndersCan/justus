@@ -384,7 +384,13 @@ export function pendingJoinRequests(
     .map((f) => {
       const withIdentity = { ...f.request, requesterIdentity: f.identity };
       const base = f.viaInvite ? { ...withIdentity, viaInvite: true } : withIdentity;
-      return options.checkCodeOf ? { ...base, checkCode: options.checkCodeOf(f.identity) } : base;
+      const flagged =
+        f.viaInvite && options.answers?.[f.identity] === "declined"
+          ? { ...base, declinedEarlier: true }
+          : base;
+      return options.checkCodeOf
+        ? { ...flagged, checkCode: options.checkCodeOf(f.identity) }
+        : flagged;
     });
 }
 

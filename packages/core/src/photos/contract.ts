@@ -197,6 +197,7 @@ export const joinRequestSchema = s.object({
   viaInvite: s.optional(s.boolean),
   checkCode: s.optional(s.string),
   requesterIdentity: s.optional(s.string),
+  declinedEarlier: s.optional(s.boolean),
 });
 
 export const photoChangedSchema = s.object({
