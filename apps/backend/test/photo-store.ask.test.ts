@@ -1428,7 +1428,6 @@ describe("a request through a turned-off link", () => {
     await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
     await s.admin.store.turnOffInvite(s.folderId);
     await s.admin.store.removeMember(s.folderId, req.requesterKey);
-    await s.admin.store.turnOffInvite(s.folderId);
     const c = buildStore("Cy", s.hub);
     await c.store.ready();
     await c.store.ask({ code: s.invite.code, owner: s.owner });
