@@ -9,13 +9,22 @@ import type { GalleryLog } from "./gallery";
 
 export const HOLDING_PATH = "/holding.json";
 export const HELD_DIR = "/held";
+export const PREVIEWED_DIR = "/previewed";
 /** Peer-controlled list bound. */
 export const MAX_HELD = 20_000;
 const MAX_MARKER_BYTES = 1024;
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const HELD_BODY = new Uint8Array([0x31]);
 
-export type HeldReport = { kind: "reports"; ids: ReadonlySet<string> } | { kind: "silent" };
+export type HeldReport =
+  | {
+      kind: "reports";
+      ids: ReadonlySet<string>;
+      previews: ReadonlySet<string>;
+      /** The previews list failed: `previews` is empty only because it is unknown. */
+      previewsUnknown?: true;
+    }
+  | { kind: "silent" };
 export type HoldersError = { kind: "write-failed"; message: string };
 export type HoldersResult<T> = [HoldersError, null] | [null, T];
 
@@ -50,6 +59,17 @@ export async function markHeld(drive: Drive, id: string): Promise<HoldersResult<
   }
 }
 
+/** Records that this phone showed the photo's preview. False when the id is not safe to write. */
+export async function markPreviewed(drive: Drive, id: string): Promise<HoldersResult<boolean>> {
+  if (!SAFE_ID.test(id)) return [null, false];
+  try {
+    await drive.put(`${PREVIEWED_DIR}/${id}`, HELD_BODY);
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
 function parseVersion(text: string): number | undefined {
   try {
     const parsed: unknown = JSON.parse(text);
@@ -63,10 +83,11 @@ function parseVersion(text: string): number | undefined {
 
 async function listIds(
   drive: Drive,
+  dir: string,
   deadline: number,
 ): Promise<{ ids: Set<string> } | { timedOut: true }> {
   const ids = new Set<string>();
-  const iterator = drive.list(HELD_DIR)[Symbol.asyncIterator]();
+  const iterator = drive.list(dir)[Symbol.asyncIterator]();
   let seen = 0;
   try {
     while (seen < MAX_HELD) {
@@ -82,13 +103,32 @@ async function listIds(
       if (next === "timeout") return { timedOut: true };
       if (next.done) break;
       seen++;
-      const id = next.value.path.slice(HELD_DIR.length + 1);
+      const id = next.value.path.slice(dir.length + 1);
       if (SAFE_ID.test(id)) ids.add(id);
     }
   } finally {
     void iterator.return?.();
   }
   return { ids };
+}
+
+/** The previews a phone showed, or undefined when the list is slow or failing: it never makes the phone silent. */
+async function readPreviews(
+  drive: Drive,
+  deadline: number,
+  log: GalleryLog,
+): Promise<ReadonlySet<string> | undefined> {
+  try {
+    const listed = await listIds(drive, PREVIEWED_DIR, deadline);
+    if ("timedOut" in listed) {
+      log("holding.read", { drive: drive.key.slice(0, 8), err: "previews-timeout" });
+      return undefined;
+    }
+    return listed.ids;
+  } catch (thrown: unknown) {
+    log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
+    return undefined;
+  }
 }
 
 /** What a phone says it holds. A missing, unreadable or slow record is silent, never "holds nothing". */
@@ -106,12 +146,16 @@ export async function readHeld(
       if (version !== undefined) log("holding.unsupported", { version });
       return { kind: "silent" };
     }
-    const listed = await listIds(drive, deadline);
+    const listed = await listIds(drive, HELD_DIR, deadline);
     if ("timedOut" in listed) {
       log("holding.read", { drive: drive.key.slice(0, 8), err: "timeout" });
       return { kind: "silent" };
     }
-    return { kind: "reports", ids: listed.ids };
+    const previews = await readPreviews(drive, deadline, log);
+    if (previews === undefined) {
+      return { kind: "reports", ids: listed.ids, previews: new Set(), previewsUnknown: true };
+    }
+    return { kind: "reports", ids: listed.ids, previews };
   } catch (thrown: unknown) {
     log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
     return { kind: "silent" };
@@ -125,15 +169,17 @@ export async function copyHeld(from: Drive, to: Drive): Promise<number> {
   if ((await to.readSmall(HOLDING_PATH, MAX_MARKER_BYTES)) === undefined) {
     await to.put(HOLDING_PATH, Buffer.from(marker));
   }
-  const have = new Set<string>();
-  for await (const entry of to.list(HELD_DIR)) have.add(entry.path);
   let copied = 0;
-  let seen = 0;
-  for await (const entry of from.list(HELD_DIR)) {
-    if (++seen > MAX_HELD) break;
-    if (have.has(entry.path) || !SAFE_ID.test(entry.path.slice(HELD_DIR.length + 1))) continue;
-    await to.put(entry.path, HELD_BODY);
-    copied++;
+  for (const dir of [HELD_DIR, PREVIEWED_DIR]) {
+    const have = new Set<string>();
+    for await (const entry of to.list(dir)) have.add(entry.path);
+    let seen = 0;
+    for await (const entry of from.list(dir)) {
+      if (++seen > MAX_HELD) break;
+      if (have.has(entry.path) || !SAFE_ID.test(entry.path.slice(dir.length + 1))) continue;
+      await to.put(entry.path, HELD_BODY);
+      copied++;
+    }
   }
   return copied;
 }
@@ -144,6 +190,10 @@ function byNameThenKey(a: PhotoMember, b: PhotoMember): number {
 
 function holds(report: HeldReport | undefined, id: string): boolean {
   return report?.kind === "reports" && report.ids.has(id);
+}
+
+function previewed(report: HeldReport | undefined, id: string): boolean {
+  return report?.kind === "reports" && report.previews.has(id);
 }
 
 export function holdersFor(input: {
@@ -163,10 +213,12 @@ export function holdersFor(input: {
   }
   const unsure = new Map<string, PhotoMember>();
   const waiting = new Map<string, PhotoMember>();
+  const previews = new Map<string, PhotoMember>();
   for (const person of people) {
     if (person.key === selfKey || person.key === photo.driveKey) continue;
     if (holds(held.get(person.key), photo.id)) others.set(person.key, person);
     else if (held.get(person.key)?.kind !== "reports") unsure.set(person.key, person);
+    else if (previewed(held.get(person.key), photo.id)) previews.set(person.key, person);
     else waiting.set(person.key, person);
   }
   const removed = new Set<string>();
@@ -179,6 +231,7 @@ export function holdersFor(input: {
     others: [...others.values()].sort(byNameThenKey),
     unsure: [...unsure.values()].sort(byNameThenKey),
     waiting: [...waiting.values()].sort(byNameThenKey),
+    previews: [...previews.values()].sort(byNameThenKey),
     former: [...removed].sort(),
     left: [...leavers].sort(),
   };

@@ -4402,6 +4402,20 @@
     "who": "People who tap the photo's holders or delete a photo",
     "screen": ""
   },
+  "full_photo.only_preview": {
+    "text": "Only has a preview",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "full_photo.names_preview": {
+    "text": "{list} only {n?has:have} a preview.",
+    "status": "draft",
+    "where": "Photo viewer › Delete › text, Deleted toast",
+    "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
   "full_photo.names_lack": {
     "text": "{list} {n?doesn't:don't} have the full photo.",
     "status": "draft",

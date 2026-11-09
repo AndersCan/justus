@@ -10,6 +10,7 @@ import {
   HELD_DIR,
   HOLDING_PATH,
   MAX_HELD,
+  PREVIEWED_DIR,
   FORMER_PATH,
   MAX_FORMER_IDS,
   MAX_FORMER_PEOPLE,
@@ -22,6 +23,7 @@ import {
   holdersFor,
   markFormerLeft,
   markHeld,
+  markPreviewed,
   readFormer,
   readHeld,
   type HeldReport,
@@ -94,6 +96,37 @@ describe("markHeld", () => {
   });
 });
 
+describe("markPreviewed", () => {
+  it("writes the entry under /previewed", async () => {
+    const [drive] = await twoDrives();
+    expect(await markPreviewed(drive, "abc-1_x")).toEqual([null, true]);
+    expect(await drive.readSmall(`${PREVIEWED_DIR}/abc-1_x`, 10)).toBe("1");
+    expect(await drive.readSmall(`${HELD_DIR}/abc-1_x`, 10)).toBeUndefined();
+  });
+
+  it("refuses unsafe ids and writes nothing", async () => {
+    const [drive] = await twoDrives();
+    for (const id of ["../x", "", "a".repeat(81), "a/b"]) {
+      expect(await markPreviewed(drive, id)).toEqual([null, false]);
+    }
+    expect(await markPreviewed(drive, "a".repeat(80))).toEqual([null, true]);
+  });
+
+  it("returns an error value when the write fails", async () => {
+    const [drive] = await twoDrives();
+    const broken: Drive = {
+      ...drive,
+      put: async () => {
+        throw new Error("nope");
+      },
+    };
+    expect((await markPreviewed(broken, "a"))[0]).toEqual({
+      kind: "write-failed",
+      message: "nope",
+    });
+  });
+});
+
 describe("readHeld", () => {
   it("is silent without a marker", async () => {
     const [drive] = await twoDrives();
@@ -127,7 +160,70 @@ describe("readHeld", () => {
     expect(await readHeld(drive, { timeoutMs: 100, log: () => {} })).toEqual({
       kind: "reports",
       ids: new Set(["a1", "b2"]),
+      previews: new Set(),
     });
+  });
+
+  it("reads the previews and skips junk names", async () => {
+    const [drive] = await twoDrives();
+    await ensureHoldingMarker(drive);
+    await markHeld(drive, "a1");
+    await markPreviewed(drive, "p1");
+    await drive.put(`${PREVIEWED_DIR}/bad name`, Buffer.from("1"));
+    await drive.put(`${PREVIEWED_DIR}/sub/x`, Buffer.from("1"));
+    expect(await readHeld(drive, { timeoutMs: 100, log: () => {} })).toEqual({
+      kind: "reports",
+      ids: new Set(["a1"]),
+      previews: new Set(["p1"]),
+    });
+  });
+
+  it("keeps the held ids and logs when the previews list is slow", async () => {
+    const [drive] = await twoDrives();
+    await ensureHoldingMarker(drive);
+    await markHeld(drive, "a1");
+    const slow: Drive = {
+      ...drive,
+      list: (dir) =>
+        dir === PREVIEWED_DIR
+          ? { [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) }
+          : drive.list(dir),
+    };
+    const lines: Array<[string, unknown]> = [];
+    const log = (event: string, data?: unknown) => void lines.push([event, data]);
+    expect(await readHeld(slow, { timeoutMs: 60, log })).toEqual({
+      kind: "reports",
+      ids: new Set(["a1"]),
+      previews: new Set(),
+      previewsUnknown: true,
+    });
+    expect(lines.map(([e, d]) => [e, (d as { err: string }).err])).toEqual([
+      ["holding.read", "previews-timeout"],
+    ]);
+  });
+
+  it("keeps the held ids and logs when the previews list throws", async () => {
+    const [drive] = await twoDrives();
+    await ensureHoldingMarker(drive);
+    await markHeld(drive, "a1");
+    const broken: Drive = {
+      ...drive,
+      list: (dir) => {
+        if (dir === PREVIEWED_DIR) throw new Error("gone");
+        return drive.list(dir);
+      },
+    };
+    const lines: Array<[string, unknown]> = [];
+    const log = (event: string, data?: unknown) => void lines.push([event, data]);
+    expect(await readHeld(broken, { timeoutMs: 100, log })).toEqual({
+      kind: "reports",
+      ids: new Set(["a1"]),
+      previews: new Set(),
+      previewsUnknown: true,
+    });
+    expect(lines.map(([e, d]) => [e, (d as { err: string }).err])).toEqual([
+      ["holding.read", "gone"],
+    ]);
   });
 
   it("reports an empty list when the marker has no entries", async () => {
@@ -136,6 +232,7 @@ describe("readHeld", () => {
     expect(await readHeld(drive, { timeoutMs: 100, log: () => {} })).toEqual({
       kind: "reports",
       ids: new Set(),
+      previews: new Set(),
     });
   });
 
@@ -144,7 +241,8 @@ describe("readHeld", () => {
     await ensureHoldingMarker(drive);
     const many: Drive = {
       ...drive,
-      async *list() {
+      async *list(dir) {
+        if (dir !== HELD_DIR) return;
         for (let i = 0; i < MAX_HELD + 5; i++) {
           yield { path: `${HELD_DIR}/p${i}`, size: 1, metadata: {} };
         }
@@ -193,6 +291,21 @@ describe("copyHeld", () => {
     expect(await readHeld(to, { timeoutMs: 100, log: () => {} })).toEqual({
       kind: "reports",
       ids: new Set(["a", "b"]),
+      previews: new Set(),
+    });
+    expect(await copyHeld(from, to)).toBe(0);
+  });
+
+  it("copies the previews too, once", async () => {
+    const [from, to] = await twoDrives();
+    await ensureHoldingMarker(from);
+    await markHeld(from, "a");
+    await markPreviewed(from, "p");
+    expect(await copyHeld(from, to)).toBe(2);
+    expect(await readHeld(to, { timeoutMs: 100, log: () => {} })).toEqual({
+      kind: "reports",
+      ids: new Set(["a"]),
+      previews: new Set(["p"]),
     });
     expect(await copyHeld(from, to)).toBe(0);
   });
@@ -202,7 +315,8 @@ describe("copyHeld", () => {
     await ensureHoldingMarker(from);
     const many: Drive = {
       ...from,
-      async *list() {
+      async *list(dir) {
+        if (dir !== HELD_DIR) return;
         for (let i = 0; i < MAX_HELD + 5; i++) {
           yield { path: `${HELD_DIR}/p${i}`, size: 1, metadata: {} };
         }
@@ -237,7 +351,16 @@ describe("holdersFor", () => {
   const adder = person(ADDER, "Ada");
   const ben = person(B, "Ben");
   const cy = person(C, "Cy");
-  const has = (...ids: string[]): HeldReport => ({ kind: "reports", ids: new Set(ids) });
+  const report = (ids: string[], previews: string[]): HeldReport => ({
+    kind: "reports",
+    ids: new Set(ids),
+    previews: new Set(previews),
+  });
+  const has = (...ids: string[]): HeldReport => ({
+    kind: "reports",
+    ids: new Set(ids),
+    previews: new Set(),
+  });
   const silent: HeldReport = { kind: "silent" };
   const photo = { id: "p1", driveKey: ADDER, memberName: "Ada" };
 
@@ -262,6 +385,7 @@ describe("holdersFor", () => {
       others: [adder],
       unsure: [],
       waiting: [],
+      previews: [],
       former: [],
       left: [],
     });
@@ -278,6 +402,7 @@ describe("holdersFor", () => {
       others: [],
       unsure: [],
       waiting: [ben],
+      previews: [],
       former: [],
       left: [],
     });
@@ -299,6 +424,25 @@ describe("holdersFor", () => {
     const result = run({ people: [self, adder, ben], held: [[B, has("p2")]] });
     expect(result.others).toEqual([adder]);
     expect(result.unsure).toEqual([]);
+    expect(result.waiting).toEqual([ben]);
+  });
+
+  it("a person who reports only a preview is in previews, not waiting", () => {
+    const result = run({ people: [self, adder, ben], held: [[B, report([], ["p1"])]] });
+    expect(result.previews).toEqual([ben]);
+    expect(result.waiting).toEqual([]);
+    expect(result.others).toEqual([adder]);
+  });
+
+  it("a person with the full photo and its preview is only in others", () => {
+    const result = run({ people: [self, adder, ben], held: [[B, report(["p1"], ["p1"])]] });
+    expect(result.others).toEqual([adder, ben]);
+    expect(result.previews).toEqual([]);
+  });
+
+  it("a preview of another photo does not count", () => {
+    const result = run({ people: [self, adder, ben], held: [[B, report([], ["p2"])]] });
+    expect(result.previews).toEqual([]);
     expect(result.waiting).toEqual([ben]);
   });
 

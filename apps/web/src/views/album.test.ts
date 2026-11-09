@@ -1448,6 +1448,7 @@ describe("album holding", () => {
       others: kimHas ? [{ key: "k1", name: "Kim" }] : [],
       unsure: [{ key: "k2", name: "Zed" }],
       waiting: [],
+      previews: [],
       former: [],
       left: [],
     },

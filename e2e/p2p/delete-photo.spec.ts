@@ -200,16 +200,21 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     )
     .toBe(true);
 
-  // Ben deletes his own photo through the menu; it leaves both phones.
+  // Ben's sheet learns that Ana's phone only showed the preview.
   await b.getByRole("button", { name: `View ${BEN}` }).click();
+  await b.getByRole("button", { name: /show who has this photo$/ }).click();
+  const sheet = b.getByRole("dialog", { name: "Who has this photo" });
+  await expect(sheet).toContainText("Only has a preview", { timeout: 60_000 });
+  await b.keyboard.press("Escape");
+
+  // Ben deletes his own photo through the menu; it leaves both phones.
   await b.getByRole("button", { name: "More options" }).click();
   await b.getByRole("menuitem", { name: "Delete" }).click();
-  await b
-    .locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` })
-    .locator("wa-button", { hasText: "Delete" })
-    .click();
+  const benDialog = b.locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` });
+  await expect(benDialog).toContainText(/.+ only (has|have) a preview\./);
+  await benDialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^\s*Deleted “del-ben\.png”\. .+ (doesn't|don't) have the full photo\.\s*$/,
+    /^\s*Deleted “del-ben\.png”\. .+ only (has|have) a preview\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {

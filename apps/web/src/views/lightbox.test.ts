@@ -163,6 +163,7 @@ describe("Delete", () => {
       others: [{ key: "n", name: "Nils" }],
       unsure: [],
       waiting: [],
+      previews: [],
       former: [],
       left: [],
     };
@@ -210,6 +211,7 @@ describe("Delete", () => {
     others,
     unsure: [],
     waiting: [],
+    previews: [],
     former: [],
     left: [],
   });
