@@ -61,6 +61,18 @@ describe("deletedNoteText", () => {
       "Ada deleted “Sunset” from Trip. It had not reached your phone.",
     ],
     [
+      [photo({ deletedBy: "Ada", held: false, preview: true })],
+      "Ada deleted “Sunset” from Trip. Only a preview had reached your phone. It's no longer shown.",
+    ],
+    [
+      [photo({ deletedBy: "Ada", preview: true })],
+      "Ada deleted “Sunset” from Trip. No longer shown on your phone.",
+    ],
+    [
+      [photo({ held: false, preview: true }), photo({ held: false, preview: true })],
+      "2 photos were deleted from Trip. No longer shown on your phone.",
+    ],
+    [
       [photo({ held: true }), photo({ held: true })],
       "2 photos were deleted from Trip. No longer shown on your phone.",
     ],

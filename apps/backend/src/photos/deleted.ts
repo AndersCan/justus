@@ -40,6 +40,8 @@ export function deletedSince(
     deletedHere: ReadonlySet<string>;
     /** Photo ids this phone's own holding record lists; undefined while that record is not read. */
     heldHere: ReadonlySet<string> | undefined;
+    /** Whether this phone loaded the photo's thumbnail. */
+    previewHere: (driveKey: string, id: string) => boolean;
     /** Drive keys whose owner left the album: their photos went with them. */
     left: ReadonlySet<string>;
   },
@@ -61,11 +63,16 @@ export function deletedSince(
     if (ctx.removed[key] !== undefined) deleter = ctx.adminName;
     else if (mine) continue;
     else deleter = photo.adderName;
+    const held =
+      mine || ctx.heldHere !== undefined ? mine || ctx.heldHere?.has(photo.id) : undefined;
     gone.push({
       name: photo.name,
       adderName: photo.adderName,
       mine,
-      ...(mine || ctx.heldHere !== undefined ? { held: mine || ctx.heldHere?.has(photo.id) } : {}),
+      ...(held !== undefined ? { held } : {}),
+      ...(held === false && ctx.previewHere(photo.driveKey, photo.id)
+        ? ({ preview: true } satisfies Pick<DeletedPhoto, "preview">)
+        : {}),
       ...(deleter !== undefined && !PLACEHOLDER_NAMES.has(deleter) ? { deletedBy: deleter } : {}),
     });
   }

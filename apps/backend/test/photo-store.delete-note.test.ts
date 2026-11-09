@@ -4,7 +4,8 @@
  * Two or three phones on the checked fakes share one hub.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createPhotoStore, type PhotoStoreDeps } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import {
@@ -159,6 +160,33 @@ describe("noticing photos someone else deleted", () => {
       anna: [[{ name: "mine.jpg", adderName: "New member", mine: false, held: false }]],
       nils: [],
     });
+    await s.close();
+  });
+
+  it("a phone that loaded only the thumbnail is told so", async () => {
+    const s = await album();
+    const display = join(s.annaDeps.cacheDir, "p-display.jpg");
+    const thumb = join(s.annaDeps.cacheDir, "p-thumb.jpg");
+    writeFileSync(display, new Uint8Array([10, 11, 12]));
+    writeFileSync(thumb, new Uint8Array([20, 21]));
+    await s.anna.add(display, "p.jpg", s.folderId, { thumb });
+    await until(async () => (await s.nils.list()).some((p) => p.name === "p.jpg"));
+    const photo = (await s.nils.list()).find((p) => p.name === "p.jpg")!;
+    await (s.nilsDeps.server as FakeLoopbackServer).getForTest(new URL(photo.thumbUrl!).pathname);
+    await s.anna.remove(await photoId(s.anna, "p.jpg"));
+    await until(async () => !(await s.nils.list()).some((p) => p.name === "p.jpg"));
+    expect(deletedPushes(s.nilsPushes).map((p) => p.deleted?.photos)).toEqual([
+      [
+        {
+          name: "p.jpg",
+          adderName: "Anna",
+          mine: false,
+          held: false,
+          preview: true,
+          deletedBy: "Anna",
+        },
+      ],
+    ]);
     await s.close();
   });
 

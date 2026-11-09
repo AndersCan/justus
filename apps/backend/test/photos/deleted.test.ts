@@ -37,6 +37,7 @@ const ctx = {
   adminName: "Ann" as string | undefined,
   deletedHere: new Set<string>(),
   heldHere: undefined as ReadonlySet<string> | undefined,
+  previewHere: (() => false) as (driveKey: string, id: string) => boolean,
   left: new Set<string>(),
 };
 
@@ -68,6 +69,47 @@ describe("deletedSince", () => {
     prev.photos.get("A:p1")!.adderName = "Unknown device";
     expect(deletedSince(prev, empty, ctx)).toEqual([
       { name: "A:p1.jpg", adderName: "Unknown device", mine: false },
+    ]);
+  });
+
+  it("marks a photo this phone only previewed", () => {
+    expect(
+      deletedSince(listing(), empty, { ...ctx, heldHere: new Set(), previewHere: () => true }),
+    ).toEqual([
+      {
+        name: "A:p1.jpg",
+        adderName: "Ann",
+        mine: false,
+        held: false,
+        deletedBy: "Ann",
+        preview: true,
+      },
+    ]);
+  });
+
+  it("asks about the photo's own drive and id", () => {
+    const asked: string[] = [];
+    deletedSince(listing(), empty, {
+      ...ctx,
+      heldHere: new Set(),
+      previewHere: (k, id) => (asked.push(`${k}:${id}`), false),
+    });
+    expect(asked).toEqual(["A:p1"]);
+  });
+
+  it("does not mark a preview for a photo this phone holds in full", () => {
+    expect(
+      deletedSince(listing(), empty, {
+        ...ctx,
+        heldHere: new Set(["p1"]),
+        previewHere: () => true,
+      }),
+    ).toEqual([{ name: "A:p1.jpg", adderName: "Ann", mine: false, held: true, deletedBy: "Ann" }]);
+  });
+
+  it("does not mark a preview while the holding record is not read", () => {
+    expect(deletedSince(listing(), empty, { ...ctx, previewHere: () => true })).toEqual([
+      { name: "A:p1.jpg", adderName: "Ann", mine: false, deletedBy: "Ann" },
     ]);
   });
 
