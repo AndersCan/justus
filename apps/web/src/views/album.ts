@@ -1,5 +1,5 @@
 import type { FolderSummary } from "@justus/core";
-import { html } from "lit-html";
+import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
@@ -414,13 +414,11 @@ function inviteAccept(
   </button>`;
 }
 
-function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {
-  const accept = (role: "reader" | "member") => () =>
-    requests.respond(r.folderId, r.requesterKey, true, role);
-  return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
-    <p class="text-sm text-fg">
+/** Who is asking: name, Friend tag, warning, real name, when and check code. The card and the sheet share it. */
+export function requestIdentity(r: PeopleVm["requests"][number], joining: TemplateResult | null) {
+  return html` <p class="text-sm text-fg">
       <span class="font-semibold">${r.name}</span>
-      ${t("album.wants_to_join", { folderName: r.folderName })}${
+      ${joining}${
         r.friend ? html`<span class="ml-1 text-xs text-muted">${t("album.friend")}</span>` : null
       }
     </p>
@@ -437,7 +435,14 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
               <span class="font-semibold text-fg">${r.checkCode}</span>`
           : ""
       }
-    </p>
+    </p>`;
+}
+
+function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {
+  const accept = (role: "reader" | "member") => () =>
+    requests.respond(r.folderId, r.requesterKey, true, role);
+  return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
+    ${requestIdentity(r, t("album.wants_to_join", { folderName: r.folderName }))}
     ${
       r.viaInvite
         ? html`<div class="mt-2 flex flex-col gap-2">

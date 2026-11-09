@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { render } from "lit-html";
+import { html, render } from "lit-html";
 import type { SyncStatus } from "@justus/core";
 import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
@@ -18,6 +18,7 @@ import {
   answerToast,
   deleteSheet,
   leaveDetail,
+  requestIdentity,
   removeDetail,
 } from "./album";
 import { toast } from "./toast";
@@ -422,6 +423,26 @@ describe("album join requests", () => {
     expect(flat(rows[0]!)).toContain("Check code maple river stone");
     expect(flat(rows[1]!)).toContain("Check code lamp ocean tiger");
     expect(host.textContent).toContain("Not sure who it is?");
+  });
+
+  test("the identity line alone has name, check code and no wants to join", () => {
+    const host = document.createElement("div");
+    const row = {
+      ...ask("a", true, "maple river stone"),
+      name: "Dad",
+      friend: true,
+      clash: null,
+      requesterName: "Ben",
+    };
+    render(requestIdentity(row as never, null), host);
+    const text = flat(host);
+    expect(text).toContain("Dad");
+    expect(text).toContain("Friend");
+    expect(text).toContain("Ben");
+    expect(text).toContain("Check code maple river stone");
+    expect(text).not.toContain("wants to join");
+    render(requestIdentity(row as never, html`wants to join Trip`), host);
+    expect(flat(host)).toContain("Dad wants to join Trip");
   });
 
   test("a request from a saved friend shows your name for them and Friend", async () => {
