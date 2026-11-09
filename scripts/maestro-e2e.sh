@@ -196,6 +196,17 @@ trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 ||
 # 5. Run the Maestro flow suite
 #    `--device` must come BEFORE `test` (Maestro CLI convention).
 # ----------------------------------------------------------------------------
+APP=no.cankode.justus
+# The debug APK is debuggable, so run-as works. The release (R8) device build is
+# not: read its storage as root (the google_apis image allows adb root).
+if [[ "$VARIANT" == "release" ]]; then
+  "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
+  "$ADB" -s "$SERIAL" wait-for-device
+  run_as() { "$ADB" -s "$SERIAL" shell "cd /data/data/$APP && sh -c '$1'"; }
+else
+  run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
+fi
+
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
@@ -210,9 +221,9 @@ if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
   {
-    "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'" 2>/dev/null \
-      && "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'ls -la files/bare/ 2>/dev/null || true'" 2>/dev/null
-  } >"$worklet_file" 2>/dev/null || true
+    run_as 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'
+    run_as 'ls -la files/bare/ 2>/dev/null || true'
+  }>"$worklet_file" 2>/dev/null || true
 
   echo
   echo "Maestro diagnostics written to:"
@@ -226,7 +237,6 @@ fi
 # ----------------------------------------------------------------------------
 # 5b. Albums survive "Clear cache", and an old cache-folder install is moved
 # ----------------------------------------------------------------------------
-APP=no.cankode.justus
 # The web layer's intro-seen flag is keyed by the loopback origin, whose port changes every launch,
 # so the UI cannot tell "albums survived" apart. Ask the worklet: after a relaunch it logs
 # "rediscover.attempt" for every album drive it reopened from the store.
@@ -240,15 +250,6 @@ albums_reopened() {
   done
   return 1
 }
-# The debug APK is debuggable, so run-as works. The release (R8) device build is
-# not: read its storage as root (the google_apis image allows adb root).
-if [[ "$VARIANT" == "release" ]]; then
-  "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
-  "$ADB" -s "$SERIAL" wait-for-device
-  run_as() { "$ADB" -s "$SERIAL" shell "cd /data/data/$APP && sh -c '$1'"; }
-else
-  run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
-fi
 survive_fail() {
   echo "✗ Survive check FAILED: $1"
   mkdir -p "$OUT_DIR"
