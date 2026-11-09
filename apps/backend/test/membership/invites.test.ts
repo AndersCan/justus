@@ -265,6 +265,7 @@ describe("invites: the Admin's reply", () => {
       registry,
       requesterKey: askDrive.key,
       requests: pending,
+      color: 1,
     });
     expect(error, "accept: no error").toBeNull();
     expect(accepted?.member.name, "accept: the asker's name").toBe("Nils");

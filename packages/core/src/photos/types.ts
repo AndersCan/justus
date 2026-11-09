@@ -70,6 +70,9 @@ export type SyncMember = {
   identity?: string;
   /** Accepted as a Viewer: sees every photo, adds none. Unset for the Admin and Collaborators. */
   viewer?: boolean;
+  /** The person's colour seat in the album, the same on every phone: 0 for the Admin, then 1, 2, … in
+   * the order people were let in. Unset until the Admin's phone has given one. */
+  color?: number;
 };
 
 /** A call A device's view of one folder it belongs to. A device can hold many

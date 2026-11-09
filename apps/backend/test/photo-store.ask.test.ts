@@ -400,6 +400,24 @@ describe("accepting as a Viewer", () => {
     expect(JSON.parse((await readText(albumDrive, "/former.json"))!).former).toEqual([]);
   });
 
+  it("gives a Viewer accepted next to another Viewer the next free seat", async () => {
+    const s = await asked();
+    expect((await s.admin.store.respond(s.folderId, s.key, true, "reader"))[0]).toBeNull();
+    const second = buildStore("Second", s.hub);
+    await second.store.ready();
+    await second.store.ask({ code: s.invite.code, owner: s.owner });
+    await connect(s, identityOf(second));
+    const { requests } = await s.admin.store.requests();
+    const next = requests.find((r) => r.requesterKey !== s.key)!;
+    expect(
+      (await s.admin.store.respond(s.folderId, next.requesterKey, true, "reader"))[0],
+    ).toBeNull();
+    const file = JSON.parse((await readText(await albumDriveOf(s), "/viewers.json"))!);
+    expect(file.viewers[s.key].color).toBe(1);
+    expect(file.viewers[next.requesterKey].color).toBe(2);
+    await second.store.close();
+  });
+
   it("lists the asker in /viewers.json, loads no drive and leaves the request list", async () => {
     const s = await asked();
     expect(s.request.viaInvite).toBe(true);
@@ -408,6 +426,7 @@ describe("accepting as a Viewer", () => {
     const albumDrive = await albumDriveOf(s);
     const file = JSON.parse((await readText(albumDrive, "/viewers.json"))!);
     expect(Object.keys(file.viewers)).toEqual([s.key]);
+    expect(file.viewers[s.key].color).toBe(1);
     expect(await readText(albumDrive, "/members.json")).toBeUndefined();
     expect((await s.admin.store.requests()).requests).toEqual([]);
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
@@ -498,6 +517,7 @@ describe("accepting as a Viewer", () => {
     const albumDrive = await albumDriveOf(s);
     expect(await readText(albumDrive, "/viewers.json")).toBeUndefined();
     expect(await readText(albumDrive, "/members.json")).not.toBeUndefined();
+    expect(JSON.parse((await readText(albumDrive, "/members.json"))!).members[s.key].color).toBe(1);
     await s.close();
   });
 
@@ -557,6 +577,19 @@ describe("letting a Viewer add photos", () => {
     expect((await s.admin.store.respond(s.folderId, key, true, "reader"))[0]).toBeNull();
     return { ...s, key, albumDrive: await albumDriveOf(s) };
   }
+
+  it("shows the Viewer their own seat on their own phone", async () => {
+    const s = await viewer();
+    await connect(s);
+    await s.joiner.store.join(s.shareKey);
+    const own = async () =>
+      (await s.joiner.store.status()).members.find((m: { viewer?: boolean }) => m.viewer) as
+        | { color?: number }
+        | undefined;
+    await until(async () => (await own())?.color === 1);
+    expect((await own())?.color).toBe(1);
+    await s.close();
+  });
 
   it("moves the key from /viewers.json to /members.json and loads the drive", async () => {
     const s = await viewer();

@@ -1,9 +1,19 @@
 import type { JoinRequest } from "@justus/core";
 import type { IdentityProof } from "../ports/drive-store";
+import { parseColor } from "./colors";
 
 export type RegistryFile = {
   version: 1;
-  members: Record<string, { key: string; name: string; addedAt: number }>;
+  members: Record<
+    string,
+    {
+      key: string;
+      name: string;
+      addedAt: number;
+      /** The person's colour seat, set by the Admin. */
+      color?: number;
+    }
+  >;
 };
 
 /** People the Admin accepted as Viewers: they see every photo and add none.
@@ -18,6 +28,8 @@ export type ViewersFile = {
       addedAt: number;
       /** Set when a Collaborator became a Viewer: their drive is read up to this version. */
       keptVersion?: number;
+      /** The person's colour seat, set by the Admin. */
+      color?: number;
     }
   >;
 };
@@ -82,12 +94,24 @@ export function isEnrolled(registry: RegistryFile, key: string): boolean {
   return Object.values(registry.members).some((m) => m.key === key);
 }
 
+/** Keeps a valid `color` on each entry and drops an invalid one; the rest of the entry is as read. */
+function withValidColors(members: RegistryFile["members"]): RegistryFile["members"] {
+  return Object.fromEntries(
+    Object.entries(members).map(([key, entry]) => {
+      if (!isTextJSON(entry)) return [key, entry];
+      const { color, ...rest } = entry as typeof entry & { color?: unknown };
+      const valid = parseColor(color);
+      return [key, valid === undefined ? rest : { ...rest, color: valid }];
+    }),
+  );
+}
+
 export function parseRegistry(text: string | null): RegistryFile {
   if (text === null) return { version: 1, members: {} };
   try {
     const parsed = JSON.parse(text) as { version?: unknown; members?: unknown };
     if (parsed.version === 1 && isTextJSON(parsed.members)) {
-      return { version: 1, members: parsed.members as RegistryFile["members"] };
+      return { version: 1, members: withValidColors(parsed.members as RegistryFile["members"]) };
     }
   } catch {
     // malformed
@@ -115,11 +139,13 @@ export function parseViewers(text: string | null): ViewersFile {
         raw.keptVersion >= 0
           ? raw.keptVersion
           : undefined;
+      const color = parseColor(raw.color);
       viewers[recordKey] = {
         key: recordKey,
         name: peerName(raw.name, "New member"),
         addedAt: raw.addedAt,
         ...(keptVersion === undefined ? {} : { keptVersion }),
+        ...(color === undefined ? {} : { color }),
       };
     }
     return { version: 1, viewers };

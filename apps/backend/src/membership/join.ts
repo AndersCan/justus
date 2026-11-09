@@ -398,9 +398,14 @@ export function pendingJoinRequests(
  * request, else a neutral label. The input registry is not changed. */
 export async function acceptJoinRequest(
   folderDrive: Drive,
-  options: { registry: RegistryFile; requesterKey: string; requests: JoinRequest[] },
+  options: {
+    registry: RegistryFile;
+    requesterKey: string;
+    requests: JoinRequest[];
+    color: number;
+  },
 ): Promise<JoinResult<{ registry: RegistryFile; member: RegistryFile["members"][string] }>> {
-  const { registry, requesterKey, requests } = options;
+  const { registry, requesterKey, requests, color } = options;
   if (registry.members[requesterKey]) {
     return [{ kind: "already-enrolled", message: "Member already enrolled" }, null];
   }
@@ -409,7 +414,7 @@ export async function acceptJoinRequest(
     ...registry,
     members: {
       ...registry.members,
-      [requesterKey]: { key: requesterKey, name, addedAt: Date.now() },
+      [requesterKey]: { key: requesterKey, name, addedAt: Date.now(), color },
     },
   };
   try {

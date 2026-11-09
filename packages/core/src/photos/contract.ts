@@ -130,6 +130,7 @@ export const syncMemberSchema = s.object({
   lastSeenAt: s.optional(s.number),
   identity: s.optional(s.string),
   viewer: s.optional(s.boolean),
+  color: s.optional(s.number),
 });
 
 export const folderSummarySchema = s.object({
