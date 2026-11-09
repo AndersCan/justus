@@ -323,6 +323,28 @@ describe("colour seats through a Remove", () => {
     await s.close();
   }, 20_000);
 
+  it("keeps a moving person's seat away from a newcomer accepted as a Viewer", async () => {
+    const s = await album();
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const dee = phone(s.hub, "Dee");
+    await dee.store.ready();
+    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    const asked = await dee.store.ask({
+      code: folder.invite!.code,
+      owner: identityOf(s.admin),
+      albumName: "Trip",
+      ownerName: "Anna",
+    });
+    expect(asked[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const { requests } = await s.admin.store.requests();
+    const deeKey = requests[0]!.requesterKey;
+    expect((await s.admin.store.respond(s.folderId, deeKey, true, "reader"))[0]).toBeNull();
+    expect((await seats(s.admin))[deeKey]).toBe(2);
+    await dee.store.close();
+    await s.close();
+  }, 20_000);
+
   it("keeps a seat when the Admin's phone restarts while the person is still moving", async () => {
     const s = await album();
     const veraId = identityOf(s.vera);
