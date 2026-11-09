@@ -431,17 +431,16 @@ describe("album join requests", () => {
       ...ask("a", true, "maple river stone"),
       name: "Dad",
       friend: true,
-      clash: null,
       requesterName: "Ben",
     };
-    render(requestIdentity(row as never, null), host);
+    render(requestIdentity(row, null), host);
     const text = flat(host);
     expect(text).toContain("Dad");
-    expect(text).toContain("Friend");
+    expect(text).toContain("· Friend");
     expect(text).toContain("Ben");
-    expect(text).toContain("Check code maple river stone");
+    expect(text).toMatch(/Asked .+ · Check code maple river stone/);
     expect(text).not.toContain("wants to join");
-    render(requestIdentity(row as never, html`wants to join Trip`), host);
+    render(requestIdentity(row, html`wants to join Trip`), host);
     expect(flat(host)).toContain("Dad wants to join Trip");
   });
 
