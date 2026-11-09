@@ -59,6 +59,26 @@
       ]
     },
     {
+      "name": "Ben opens a working link and is asked to join after the check",
+      "end": "decidingToAsk",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openLink",
+          "payload": {
+            "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkChecked",
+          "payload": {
+            "turnedOff": false
+          }
+        }
+      ]
+    },
+    {
       "name": "Cy asks, Ada turns off the links, and Cy closes the dead request",
       "end": "noInviteOpen",
       "steps": [

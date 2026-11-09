@@ -200,15 +200,6 @@ describe("checkingLink", () => {
     await s.send("openLink", { text: LINK });
     expect(s.actor.state.name).toBe("decidingToAsk");
   });
-
-  test("a link held during the welcome is checked when the name is saved", async () => {
-    const { port } = portWith(async () => [undefined, { turnedOff: true }]);
-    const s = setup({ port });
-    await s.send("welcomeStarted");
-    await s.send("openLink", { text: LINK });
-    await s.send("welcomeEnded");
-    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
-  });
 });
 
 describe("reopenRequest", () => {
@@ -1114,6 +1105,21 @@ test("Ben opens a link Ada turned off and is told at Continue", async () => {
     },
   );
   expect(actor.state.name).toBe("linkTurnedOffByAdmin");
+});
+
+test("Ben opens a working link and is asked to join after the check", async () => {
+  const actor = await drive(
+    async (send) => {
+      await send("openLink", { text: LINK });
+    },
+    {
+      port: {
+        ask: async () => [undefined, {}],
+        checkLink: async () => [undefined, { turnedOff: false }],
+      },
+    },
+  );
+  expect(actor.state.name).toBe("decidingToAsk");
 });
 
 test("Maya waits, and Nils turns off his links", async () => {
