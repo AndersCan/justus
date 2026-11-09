@@ -12,6 +12,7 @@ Two people, two phones. Ana wants in; Nils is the Admin.
 | Ana opens the link                              | Ask to join "&lt;album&gt;"? `joinRequest.decidingToAsk`                                                                                                                                    | Nothing                                                                                                       |
 | Ana taps "Ask to join"                          | "Asking…" `joinRequest.sendingRequest`                                                                                                                                                      | Nothing                                                                                                       |
 | The request is sent                             | "Request to join sent to &lt;Admin&gt;. You'll see "&lt;album&gt;" when accepted. &lt;Admin&gt; must be online too: keep Justus open on both phones." `joinRequest.waitingForAdminToAccept` | The request with Accept and Decline `requests.showingRequests`                                                |
+| Ana's Justus is older than Nils's               | "Update Justus to join "&lt;album&gt;"". Your request is saved on this phone. It reaches Nils once both phones have the same Justus. `joinRequest.waitingForYouToUpdate`                    | Nils sees "Update Justus to keep syncing" (existing banner)                                                   |
 | Ana taps "Ask to join" while Nils is elsewhere  |                                                                                                                                                                                             | "Ana wants to join "&lt;album&gt;"" at the bottom of any other screen, with Review `requests.showingRequests` |
 | Ana closes the waiting screen                   | Her request stays in "Waiting to join"; when Nils answers, the album opens or the decline shows `joinRequest.noInviteOpen`                                                                  | The request with Accept and Decline                                                                           |
 | Ana taps "Cancel request"                       | The waiting screen closes and her row leaves "Waiting to join"; the link can be asked through again while it works `joinRequest.noInviteOpen`                                               | The request leaves his list at the next refresh                                                               |
@@ -24,6 +25,7 @@ Two people, two phones. Ana wants in; Nils is the Admin.
 Walks of the joiner's side:
 
 - [Joe opens Tom's link during the welcome and asks once his name is saved](?machine=joinRequest&run=Joe%20opens%20Tom's%20link%20during%20the%20welcome%20and%20asks%20once%20his%20name%20is%20saved)
+- [Maya asks on an older Justus, and is told to update first](?machine=joinRequest&run=Maya%20asks%20on%20an%20older%20Justus%2C%20and%20is%20told%20to%20update%20first)
 - [Joe taps Paste with nothing copied](?machine=joinRequest&run=Joe%20taps%20Paste%20with%20nothing%20copied)
 
 Walks of the Admin's side:

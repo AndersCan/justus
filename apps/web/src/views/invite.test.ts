@@ -305,6 +305,12 @@ describe("joinSheet update screen", () => {
     spy.mockRestore();
     const text = host.textContent?.replace(/\s+/g, " ") ?? "";
     expect(text).not.toContain("didn't accept");
+    expect(text).not.toContain("Request to join sent");
+    expect(text).toContain("Update Justus to join “Lisbon”");
+    expect(text).toContain(
+      "Your request is saved on this phone. It reaches Anna once both phones have the same Justus.",
+    );
     expect(text).toContain("Cancel request");
+    expect(text).toContain("Close");
   });
 });
