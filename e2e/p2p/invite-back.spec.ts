@@ -68,7 +68,8 @@ test("Back from the invite page shows Sharing after Ben adds photos", async ({
   const adds = addPushes(a);
 
   await a.goto("/albums");
-  await a.getByRole("button", { name: "New album" }).click();
+  // "Start an album" while Photos has no albums, "New album" once it has one (repeat runs share the instance)
+  await a.getByRole("button", { name: /^(Start an album|New album)$/ }).click();
   const sheet = a.getByRole("dialog", { name: "Start an album" });
   await sheet.getByLabel("Album name").fill(album);
   await sheet.getByRole("button", { name: "Create album" }).click();
