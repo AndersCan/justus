@@ -108,7 +108,7 @@ describe("deleted push", () => {
     albumName: "Trip",
     photos: [
       { name: "a.jpg", adderName: "Ann", mine: false, deletedBy: "Ann" },
-      { name: "b.jpg", adderName: "Bo", mine: true },
+      { name: "b.jpg", adderName: "Bo", mine: true, held: true },
     ],
   };
 

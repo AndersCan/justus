@@ -235,6 +235,7 @@ export const photoChangedSchema = s.object({
           adderName: s.string,
           mine: s.boolean,
           deletedBy: s.optional(s.string),
+          held: s.optional(s.boolean),
         }),
       ),
     }),
