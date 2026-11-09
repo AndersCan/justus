@@ -3066,7 +3066,7 @@
     "screen": "lightbox"
   },
   "lightbox.will_see_it_when_connected": {
-    "text": "{list} will see it when connected.",
+    "text": "{list} will see it's gone when connected.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
