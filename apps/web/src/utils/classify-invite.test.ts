@@ -26,6 +26,14 @@ describe("classifyInvite", () => {
       });
     }
   });
+  test("an ask told the link is off is turnedOff, but an album with that code wins", () => {
+    expect(classifyInvite("c1", [], [ask("c1", "linkOff")])).toEqual({ kind: "turnedOff" });
+    expect(classifyInvite("c1", [folder("f2", "member", "c1")], [ask("c1", "linkOff")])).toEqual({
+      kind: "member",
+      folderId: "f2",
+    });
+  });
+
   test("a waiting ask is waiting; a declined ask can be asked again", () => {
     expect(classifyInvite("c1", [], [ask("c1", "waiting")])).toEqual({ kind: "waiting" });
     expect(classifyInvite("c1", [], [ask("c1", "declined")])).toEqual({ kind: "new" });

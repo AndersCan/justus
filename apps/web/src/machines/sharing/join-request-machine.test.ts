@@ -829,6 +829,21 @@ describe("linkTurnedOff", () => {
     return s;
   }
 
+  test("Continue on a link the phone knows is off shows no-longer-works and sends nothing", async () => {
+    const s = setup({ known: { kind: "turnedOff" } });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+    expect(payload(s)).toEqual(INVITE);
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("a link both turned off and past its end time shows no-longer-works, not ended", async () => {
+    const s = setup({ known: { kind: "turnedOff" } });
+    s.clock.advance(600_000);
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    expect(s.actor.state.name).toBe("linkTurnedOff");
+  });
+
   test("a linkOff answer while waiting shows the no-longer-works screen", async () => {
     const s = await screen();
     expect(s.actor.state.name).toBe("linkTurnedOff");
