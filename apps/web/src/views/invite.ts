@@ -492,7 +492,7 @@ export function joinSheet() {
         },
       );
     }
-    if (state === "waitingForAdminToAccept") {
+    if (state === "waitingForAdminToAccept" || state === "waitingForYouToUpdate") {
       const title = copy("invite.waiting_for", { owner });
       return sheet(
         title,

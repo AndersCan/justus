@@ -929,6 +929,12 @@ describe("joiner design", () => {
         { ask: { ...ask("waiting") } },
         { ask: { ...ask("declined") } },
         { ask: { ...ask("linkOff") } },
+        { ask: { ...ask("waiting"), whoMustUpdate: "you" } },
+      ],
+      whoMustUpdateChanged: [
+        { code: INVITE.code, who: "you" },
+        { code: INVITE.code, who: "nobody" },
+        { code: "c".repeat(64), who: "you" },
       ],
       requestAnswered: [
         { code: INVITE.code, answer: "accepted", folderId: "f1" },
@@ -1003,4 +1009,130 @@ test("Maya closes the no-longer-works screen and taps her row again", async () =
     await send("reopenRequest", { ask: ROW("linkOff") });
   });
   expect(actor.state.name).toBe("linkTurnedOff");
+});
+
+const OTHER_CODE = "c".repeat(64);
+
+test("Maya asks on an older Justus, and is told to update first", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+  });
+  expect(actor.state.name).toBe("waitingForYouToUpdate");
+  expect(actor.snapshot().payload).toEqual(INVITE);
+});
+
+test("Maya updates and her request goes back to waiting for Nils", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "nobody" });
+  });
+  expect(actor.state.name).toBe("waitingForAdminToAccept");
+});
+
+test("Maya, told to update, cancels her request", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    await send("cancelRequest");
+  });
+  expect(actor.state.name).toBe("noInviteOpen");
+});
+
+test("Nils accepts after both phones match", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    await send("whoMustUpdateChanged", { code: INVITE.code, who: "nobody" });
+    await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+  });
+  expect(actor.state.name).toBe("joinedAlbum");
+});
+
+test("a mark for another request leaves Maya's sheet alone", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("whoMustUpdateChanged", { code: OTHER_CODE, who: "you" });
+  });
+  expect(actor.state.name).toBe("waitingForAdminToAccept");
+});
+
+test("reopening a marked row opens the update screen", async () => {
+  const actor = await drive(async (send) => {
+    await send("reopenRequest", { ask: { ...ROW("waiting"), whoMustUpdate: "you" } });
+  });
+  expect(actor.state.name).toBe("waitingForYouToUpdate");
+});
+
+describe("the mark that lands around the send", () => {
+  test("a mark already on the stored ask opens the update screen after sending", async () => {
+    const s = setup({
+      asked: (code) =>
+        code === INVITE.code ? { ...ROW("waiting"), whoMustUpdate: "you" } : undefined,
+    });
+    await s.send("openLink", { text: LINK });
+    await s.send("askToJoin");
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("a known marked request opens the update screen from a link", async () => {
+    const s = setup({
+      known: { kind: "waiting" },
+      asked: () => ({ ...ROW("waiting"), whoMustUpdate: "you" }),
+    });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("closing the update screen keeps the request", async () => {
+    const s = await waitingSetup();
+    await s.send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    await s.send("closeWaiting");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+  });
+
+  test("a decline on the update screen is final", async () => {
+    const s = await waitingSetup();
+    await s.send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    expect(s.actor.state.name).toBe("declinedByAdmin");
+  });
+});
+
+describe("the update screen stays put", () => {
+  const onUpdateScreen = async () => {
+    const s = await waitingSetup();
+    await s.send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    return s;
+  };
+
+  test("another request's answer changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("requestAnswered", { code: "other", answer: "declined" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("an accept with no folder changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("another request's mark changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("whoMustUpdateChanged", { code: "other", who: "nobody" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("an unusable link keeps it", async () => {
+    const s = await onUpdateScreen();
+    await s.send("openLink", { text: "nope" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
 });

@@ -8,6 +8,7 @@ import type { AskSummary } from "@justus/core";
 import { folders, foldersActor } from "../folders-machine";
 import {
   requestAnswered,
+  whoMustUpdateChanged,
   welcomeStarted,
   welcomeEnded,
   pasteFoundNothing,
@@ -34,6 +35,7 @@ export type JoinView = {
     | "holdingInviteUntilWelcomeEnds"
     | "sendingRequest"
     | "waitingForAdminToAccept"
+    | "waitingForYouToUpdate"
     | "declinedByAdmin"
     | "linkExpired"
     | "linkTurnedOff";
@@ -90,6 +92,36 @@ onOutput(joinActor, (e) => {
     void gateway.cancelAsk((e.payload as { code: string }).code).then(() => folders.refresh());
   }
 });
+
+/**
+ * Tells the join screen when the open waiting request's Admin is on another Justus.
+ * Sends only when the screen would change.
+ */
+export function wireAsksToJoin(
+  foldersSource: {
+    snapshot(): { context: { asks: readonly { code: string; whoMustUpdate?: "you" }[] } };
+    on(event: "change", options: { fn: () => void }): () => void;
+  },
+  target: {
+    snapshot(): Snapshot<unknown>;
+    send(e: ReturnType<typeof whoMustUpdateChanged.create>): unknown;
+  },
+): () => void {
+  return foldersSource.on("change", {
+    fn: () => {
+      const snap = target.snapshot();
+      const name = snap.path[0];
+      if (name !== "waitingForAdminToAccept" && name !== "waitingForYouToUpdate") return;
+      const { code } = snap.payload as JoinInvite;
+      const ask = foldersSource.snapshot().context.asks.find((a) => a.code === code);
+      const who = ask?.whoMustUpdate ?? "nobody";
+      if ((who === "you") === (name === "waitingForYouToUpdate")) return;
+      target.send(whoMustUpdateChanged.create({ code, who }));
+    },
+  });
+}
+
+wireAsksToJoin(foldersActor, joinActor);
 
 export const join = {
   /** The first-run welcome opened. */
