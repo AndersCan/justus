@@ -325,7 +325,7 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   expect((await aToasts()).filter((t) => /made you a/.test(t))).toEqual([]);
 });
 
-test("A removes B, B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
+test("Back trip: A removes B, B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
   instancePages,
 }) => {
   test.setTimeout(180_000);
@@ -372,7 +372,9 @@ test("A removes B, B's old link no longer works, B asks with A's new link, A acc
   await expect(async () => {
     await b.goto("/sharing");
     await expect(b.getByText(album, { exact: true })).toHaveCount(1, { timeout: 5_000 });
-    await expect(b.getByText("No longer in this album")).toHaveCount(0, { timeout: 5_000 });
+    const row = b.getByRole("link", { name: `Invite & members of ${album}` });
+    await expect(row).toContainText("Collaborator", { timeout: 5_000 });
+    await expect(row).not.toContainText("No longer in this album");
   }).toPass({ timeout: 90_000 });
 });
 

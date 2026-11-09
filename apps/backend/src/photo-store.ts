@@ -4309,7 +4309,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!ask.replaces) {
       const kept = [...runtimes.values()].find(
         (rt) =>
-          rt.record.role !== "creator" &&
           rt.record.notice?.kind === "removed" &&
           rt.record.invite?.owner === ask.owner &&
           arrival.movedFrom.includes(deps.drives.discoveryKeyOf(rt.record.shareKey)),

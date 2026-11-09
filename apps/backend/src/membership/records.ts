@@ -407,10 +407,8 @@ export function parseAnswer(value: unknown): Answer | undefined {
     const moved =
       Array.isArray(movedFrom) &&
       movedFrom.length > 0 &&
-      movedFrom.every((k) => typeof k === "string" && isHexKey(k));
-    return moved
-      ? { code, answer, shareKey, movedFrom: movedFrom as string[] }
-      : { code, answer, shareKey };
+      movedFrom.every((k): k is string => typeof k === "string" && isHexKey(k));
+    return moved ? { code, answer, shareKey, movedFrom } : { code, answer, shareKey };
   }
   return undefined;
 }
