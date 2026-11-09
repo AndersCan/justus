@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import { photoSpecs } from "@justus/core";
 import type { WireMessage } from "@ekrooh/bare/core";
-import { askAnswer, changeCause, handleMessage, roleChangeOf } from "./handle-message";
+import { askAnswer, changeCause, deletedOf, handleMessage, roleChangeOf } from "./handle-message";
+import { deletedNote } from "./views/deleted-note";
 import { roleToast } from "./views/role-toast";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
@@ -130,5 +131,29 @@ describe("handleMessage role", () => {
     expect(roleChangeOf({ cause: "role", folderId: "f1", role: null })).toBeUndefined();
     expect(roleChangeOf({ cause: "add", folderId: "f1", role })).toBeUndefined();
     expect(roleChangeOf(undefined)).toBeUndefined();
+  });
+});
+
+describe("handleMessage deleted", () => {
+  const deleted = {
+    albumName: "Trip",
+    photos: [{ name: "a.png", adderName: "Anna", mine: false, deletedBy: "Anna" }],
+  };
+
+  it("a deleted push tells the note and reloads nothing", () => {
+    const spy = vi.spyOn(deletedNote, "add").mockImplementation(() => {});
+    const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
+    handleMessage(push({ cause: "deleted", folderId: "f1", deleted }));
+    expect(spy).toHaveBeenCalledWith({ ...deleted, folderId: "f1" });
+    expect(load).not.toHaveBeenCalled();
+    spy.mockRestore();
+    load.mockRestore();
+  });
+
+  it("deletedOf needs a folder id and a deleted object", () => {
+    expect(deletedOf({ cause: "deleted", deleted })).toBeUndefined();
+    expect(deletedOf({ cause: "deleted", folderId: "f1" })).toBeUndefined();
+    expect(deletedOf({ cause: "enroll", folderId: "f1", deleted })).toBeUndefined();
+    expect(deletedOf({ cause: "deleted", folderId: "f1", deleted: null })).toBeUndefined();
   });
 });

@@ -7,6 +7,7 @@ import { requests } from "./machines/requests-machine";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import { sync } from "./machines/sync-machine";
+import { deletedNote, type DeletedIn } from "./views/deleted-note";
 import { roleToast, type RoleChangeIn } from "./views/role-toast";
 
 /** The `cause` carried in a `photos.changed` dispatch, if any. */
@@ -47,6 +48,14 @@ export function roleChangeOf(args: unknown): RoleChangeIn | undefined {
   return { ...(a.role as Omit<RoleChangeIn, "folderId">), folderId: a.folderId };
 }
 
+/** The deleted photos carried by a `photos.changed` push with cause "deleted". */
+export function deletedOf(args: unknown): DeletedIn | undefined {
+  const a = (args ?? {}) as { cause?: unknown; folderId?: unknown; deleted?: unknown };
+  if (a.cause !== "deleted" || typeof a.folderId !== "string") return undefined;
+  if (typeof a.deleted !== "object" || a.deleted === null) return undefined;
+  return { ...(a.deleted as Omit<DeletedIn, "folderId">), folderId: a.folderId };
+}
+
 /** Routes inbound wire messages: backend→web pushes refresh the actors;
  * invoke failures log. */
 export function handleMessage(msg: WireMessage) {
@@ -63,6 +72,12 @@ export function handleMessage(msg: WireMessage) {
     // Who holds a photo changed: only the open photo's line needs the new list.
     if (changeCause(h) === "holders") {
       gallery.load();
+      return;
+    }
+    // A delete found by a list that is already current: tell the person, reload nothing.
+    const deleted = deletedOf(h.args);
+    if (deleted) {
+      deletedNote.add(deleted);
       return;
     }
     gallery.synced(Date.now());

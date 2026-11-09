@@ -4226,5 +4226,54 @@
     "where": "Toast › your role changed",
     "who": "Collaborators and Viewers, when the Admin changes their role",
     "screen": ""
+  },
+  "deleted_note.deleted_one": {
+    "text": "{name} deleted “{photo}” from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.deleted_one_yours": {
+    "text": "{name} deleted your photo “{photo}” from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.was_deleted_one": {
+    "text": "{adder}'s photo “{photo}” was deleted from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.was_deleted_one_yours": {
+    "text": "Your photo “{photo}” was deleted from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.deleted_several": {
+    "text": "{name} deleted {n} photos from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.were_deleted_several": {
+    "text": "{n} photos were deleted from {album}.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
+  "deleted_note.were_deleted_albums": {
+    "text": "{n} photos were deleted.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
   }
 }

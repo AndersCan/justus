@@ -70,9 +70,12 @@ function dismiss(id: number) {
   paint();
 }
 
-export function toast(message: string, options: { action?: ToastAction } = {}): void {
+export function toast(
+  message: string,
+  options: { action?: ToastAction; duration?: number } = {},
+): void {
   const id = ++nextId;
   toasts = [...toasts, { id, message, action: options.action }];
   paint();
-  setTimeout(() => dismiss(id), options.action ? 6000 : 3200);
+  setTimeout(() => dismiss(id), options.duration ?? (options.action ? 6000 : 3200));
 }

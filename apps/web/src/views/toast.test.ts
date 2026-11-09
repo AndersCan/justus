@@ -126,3 +126,16 @@ describe("toast motion", () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe("toast duration", () => {
+  test("a duration option holds the toast that long", () => {
+    vi.useFakeTimers();
+    toast("Held for eight seconds", { duration: 8000 });
+    const text = () => document.body.textContent ?? "";
+    vi.advanceTimersByTime(7000);
+    expect(text()).toContain("Held for eight seconds");
+    vi.advanceTimersByTime(1100);
+    expect(text()).not.toContain("Held for eight seconds");
+    vi.useRealTimers();
+  });
+});

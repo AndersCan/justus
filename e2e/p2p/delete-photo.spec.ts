@@ -41,6 +41,29 @@ async function createAlbum(a, name, file, colour) {
   });
 }
 
+// Every toast a page shows, each counted once.
+async function recordToasts(page) {
+  await page.evaluate(() => {
+    window.__toasts = window.__toasts ?? [];
+    const seen = new Set();
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const n of r.addedNodes) {
+          if (!(n instanceof Element)) continue;
+          const found = n.matches(".justus-toast") ? [n] : [...n.querySelectorAll(".justus-toast")];
+          for (const t of found) {
+            const key = t.getAttribute("data-motion-key");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            window.__toasts.push(t.textContent?.trim() ?? "");
+          }
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  return () => page.evaluate(() => window.__toasts ?? []);
+}
+
 async function copyInviteLink(a) {
   await a.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await a
@@ -137,6 +160,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });
 
+  const aToasts = await recordToasts(a);
+  const bToasts = await recordToasts(b);
+
   // The Admin deletes Ana's photo: Ben's open view closes by itself.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
   await a.getByRole("button", { name: "More options" }).click();
@@ -154,6 +180,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   );
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
+  await expect
+    .poll(async () =>
+      (await bToasts()).filter((t) => /^.+ deleted “del-ana\.png” from Delete trip\.$/.test(t)),
+    )
+    .toHaveLength(1);
 
   // Ben deletes his own photo through the menu; it leaves both phones.
   await b.getByRole("button", { name: `View ${BEN}` }).click();
@@ -170,6 +201,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
     timeout: 60_000,
   });
+  await expect
+    .poll(async () =>
+      (await aToasts()).filter((t) => /^.+ deleted “del-ben\.png” from Delete trip\.$/.test(t)),
+    )
+    .toHaveLength(1);
 
   // The Admin deletes another member's photo; it leaves both phones.
   await a.getByRole("button", { name: `View ${BEN2}` }).click();
@@ -183,4 +219,16 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(b.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, {
     timeout: 60_000,
   });
+  await expect
+    .poll(async () =>
+      (await bToasts()).filter((t) =>
+        /^.+ deleted your photo “del-ben2\.png” from Delete trip\.$/.test(t),
+      ),
+    )
+    .toHaveLength(1);
+  // Neither phone is told about a delete it made itself.
+  expect((await aToasts()).filter((t) => /“del-(ana|ben2)\.png” from Delete trip/.test(t))).toEqual(
+    [],
+  );
+  expect((await bToasts()).filter((t) => /“del-ben\.png” from Delete trip/.test(t))).toEqual([]);
 });
