@@ -2655,6 +2655,31 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     })().catch((e) => log("error", { where: "deletedSince", err: errText(e) }));
   }
 
+  /** After a move a Collaborator's old drive is read until their new one catches up. A photo the new drive already holds (same sha256) is listed once, from the new drive. */
+  function withoutCopiedEarlier<P extends { driveKey: string; sha256?: string }>(
+    rt: FolderRuntime,
+    members: Record<string, { key: string; name: string }>,
+    photos: P[],
+  ): P[] {
+    const hidden = new Map<string, Set<string>>();
+    for (const e of rt.record.earlier ?? []) {
+      const identity = presence.identities.get(e.key);
+      // The new drive's identity is learned a moment after it enrols: until then the name stands in.
+      const next = Object.values(members).find(
+        (m) =>
+          m.key !== e.key &&
+          ((identity !== undefined && presence.identities.get(m.key) === identity) ||
+            (!presence.identities.has(m.key) && m.name === e.name)),
+      );
+      if (!next) continue;
+      const have = new Set<string>();
+      for (const p of photos) if (p.driveKey === next.key && p.sha256) have.add(p.sha256);
+      hidden.set(e.key, have);
+    }
+    if (hidden.size === 0) return photos;
+    return photos.filter((p) => !(p.sha256 && hidden.get(p.driveKey)?.has(p.sha256)));
+  }
+
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
     const seq = ++rt.listSeq;
     const selfKey = selfKeyOf(rt);
@@ -2670,7 +2695,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       memberName: (k) => (k === selfKey ? state.name : rt.memberNameCache.get(k)),
       log,
     });
-    const derived = gallery.photos;
+    const registry = await readRegistryIn(rt.folderDrive);
+    const derived = withoutCopiedEarlier(rt, registry.members, gallery.photos);
     const driveByKey = new Map(sources.map((s) => [s.key, s.drive]));
 
     const people = await albumPeople(rt);
