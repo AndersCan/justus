@@ -135,6 +135,7 @@ import {
   removeAlbumMember,
   rotateAlbum,
 } from "./albums/albums";
+import { clearOldAlbumOffIdentity } from "./rotate-album";
 import {
   createPresence,
   learnDevices,
@@ -234,6 +235,9 @@ type PersistedState = {
   offers: OfferSummary[];
   /** Albums that left this phone's list, kept for what still has to be done or shown. */
   gone: GoneRecord[];
+  /** Set once an old album is found on the identity drive; unset after its older versions are
+   * cleared, so a clear that stopped partway is finished next boot. */
+  identityClearPending?: true;
 };
 
 /** An album removed from this phone. `deletedForEveryone`: this phone is the
@@ -836,6 +840,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           asks: loadAsks(parsed.asks),
           offers: loadOffers(parsed.offers),
           gone: loadGone(parsed.gone),
+          ...(parsed.identityClearPending === true ? { identityClearPending: true as const } : {}),
         };
       }
     } catch {
@@ -3496,6 +3501,29 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
+  /** A pre-#195 album left its photos and member list on the identity drive, whose key every
+   * invite link carries. Not while the album still lives there. Retried next boot on failure. */
+  async function clearOldAlbumOnIdentity(): Promise<void> {
+    const stillHere = [...state.folders, ...state.gone].some((r) => r.shareKey === ownDrive.key);
+    if (stillHere) return;
+    const [err, result] = await clearOldAlbumOffIdentity(ownDrive, {
+      resume: state.identityClearPending === true,
+      markPending: () => {
+        state.identityClearPending = true;
+        saveState();
+      },
+    });
+    if (err) {
+      log("error", { where: "identity.clear.failed", err: errText(err) });
+      return;
+    }
+    if (state.identityClearPending) {
+      delete state.identityClearPending;
+      saveState();
+    }
+    if (result === "cleared") log("identity.cleared", {});
+  }
+
   async function ownerNameOf(shareKey: string): Promise<string> {
     let drive: Drive | null = null;
     try {
@@ -3521,6 +3549,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     ownDrive = await deps.drives.openOwn();
     await ensureOwnDriveIdentity();
     await migrateFromV1();
+    await clearOldAlbumOnIdentity();
 
     // Registered before any topic join so early connections replicate too.
     network.start(ownDrive.key, onPeerEvent, deps.peerProtocol);
