@@ -313,4 +313,12 @@ describe("joinSheet update screen", () => {
     expect(text).toContain("Cancel request");
     expect(text).toContain("Close");
   });
+
+  test("the plain waiting sheet keeps its own text", () => {
+    const host = document.createElement("div");
+    render(joinSheet(), host);
+    const text = host.textContent?.replace(/\s+/g, " ") ?? "";
+    expect(text).toContain("Request to join sent");
+    expect(text).not.toContain("Update Justus to join");
+  });
 });
