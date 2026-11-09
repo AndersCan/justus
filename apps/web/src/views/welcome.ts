@@ -55,6 +55,39 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state) => {
   }
 });
 
+/**
+ * The phone remembers its albums, but the seen flag lives in the page origin, which the Android
+ * shell changes on every launch (the worklet picks a free port). An album on the phone means the
+ * device is set up: skip the intro instead of replaying it. The name does not tell: the worklet
+ * makes one up on a first run.
+ */
+export function leavesWelcomeForSavedProfile(
+  hasAlbums: boolean,
+  state: string,
+  route: string | undefined,
+): boolean {
+  return (
+    hasAlbums && route === "welcome" && (state === "showingIntroCards" || state === "askingForName")
+  );
+}
+
+foldersActor.on("change", {
+  fn: (snapshot) => {
+    const state = String(onboardingActor.snapshot().path[0]);
+    if (
+      !leavesWelcomeForSavedProfile(
+        snapshot.context.folders.length > 0,
+        state,
+        currentPage()?.route,
+      )
+    )
+      return;
+    markWelcomeSeen();
+    join.welcomeEnded();
+    open("/", { replace: true });
+  },
+});
+
 // Turning App lock on from the first-run card confirms itself, as the Settings switch does.
 onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
   if (prev === "turningOnAppLock" && state === "choosingCreateOrJoin")

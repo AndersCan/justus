@@ -46,6 +46,7 @@ describe("buildOrchestratorPlan", () => {
 
     for (const w of plan.plan.worklets) {
       expect(w.args).toContain("mode=dev");
+      expect(w.args).toContain("seed=off");
       expect(w.args).toContain(`port=${w.port}`);
       expect(w.args).toContain(`storage=${w.storageDir}`);
       expect(w.args).toContain(`bootstrap=127.0.0.1:${plan.registry.dht.port}`);

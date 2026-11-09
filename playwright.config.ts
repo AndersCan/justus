@@ -34,5 +34,17 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 90_000,
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    // A phone with an album skips the intro, so the first-run specs run on a worklet with no sample album.
+    {
+      name: "first-run",
+      testMatch: "onboarding.spec.ts",
+      use: { browserName: "chromium", baseURL: "http://127.0.0.1:8091" },
+    },
+    {
+      name: "chromium",
+      testIgnore: ["**/p2p/**", "**/hub/**", "onboarding.spec.ts"],
+      use: { browserName: "chromium" },
+    },
+  ],
 });
