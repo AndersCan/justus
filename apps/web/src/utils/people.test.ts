@@ -280,6 +280,11 @@ describe("requestsHint", () => {
       "2 people asked with your invite link. Decline anyone you don't know.",
     );
   });
+  it("counts only the link asks in the number", () => {
+    expect(requestsHint([row({ viaInvite: true }), row({ viaInvite: true }), row({})])).toBe(
+      "2 people asked with your invite link. Decline anyone you don't know.",
+    );
+  });
   it("counts only link asks", () => {
     expect(
       requestsHint([row({ viaInvite: true, checkCode: "a b c" }), row({ checkCode: "d e f" })]),
