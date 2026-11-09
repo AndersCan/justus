@@ -493,12 +493,19 @@ export function joinSheet() {
       );
     }
     if (state === "waitingForAdminToAccept" || state === "waitingForYouToUpdate") {
-      const title = copy("invite.waiting_for", { owner });
+      const update = state === "waitingForYouToUpdate";
+      const title = update
+        ? copy("invite.update_justus_to_join", { album: invite.album })
+        : copy("invite.waiting_for", { owner });
       return sheet(
         title,
         html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
           <p class="mt-3 text-sm text-fg">
-            ${t("invite.request_to_join_sent_to", { owner, album: invite.album })}
+            ${
+              update
+                ? t("invite.request_reaches_after_update", { owner })
+                : t("invite.request_to_join_sent_to", { owner, album: invite.album })
+            }
           </p>
           ${watch(foldersActor, (f) =>
             checkCodeLine(f.context.asks.find((a) => a.code === invite.code)?.checkCode, owner),

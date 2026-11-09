@@ -2988,6 +2988,20 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.update_justus_to_join": {
+    "text": "Update Justus to join “{album}”",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "invite.request_reaches_after_update": {
+    "text": "Your request is saved on this phone. It reaches {owner} once both phones have the same Justus.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "invite.request_to_join_sent_to": {
     "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. {owner} must be online too: keep Justus open on both phones.",
     "status": "draft",
