@@ -3437,7 +3437,7 @@
     "screen": ""
   },
   "photo_holders.phones_with_a_full_copy": {
-    "text": "Phones with a full copy, as they last told yours.",
+    "text": "Phones that have it, as of when they last connected.",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",

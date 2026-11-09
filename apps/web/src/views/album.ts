@@ -22,7 +22,7 @@ import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
 import { nameList, requestsHint, type Person } from "../utils/people";
 import { formatRelative } from "../utils/time";
-import { avatarBadge } from "./avatar";
+import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
 import { errorBanner } from "./error-banner";
@@ -282,7 +282,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
   );
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
-  const body = html`${avatarBadge(p.name)}
+  const body = html`${memberBadge(p.name, p.key)}
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-medium text-fg">
         ${p.name}${p.you ? copy("album.you") : ""}

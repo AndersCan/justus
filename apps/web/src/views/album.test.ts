@@ -22,6 +22,7 @@ import {
   removeDetail,
 } from "./album";
 import { open } from "../machines/router-machine";
+import { memberColor } from "../utils/palette";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
@@ -193,6 +194,17 @@ describe("Make Viewer", () => {
 });
 
 describe("album people", () => {
+  test("each row's avatar is the colour of that person's header dot", () => {
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const fills = memberRows(host).map((r) =>
+      r.querySelector("span[style]")?.getAttribute("style"),
+    );
+    expect(fills).toEqual(["k0", "k1", "k2"].map((k) => `background:${memberColor(k)}`));
+  });
+
   test("naming a friend changes that row's label and keeps every row element", async () => {
     syncActor.send(statusSeen.create({ status }));
     people.open();

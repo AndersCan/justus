@@ -3,7 +3,11 @@ import { describe, it, expect, afterEach, vi } from "vite-plus/test";
 import type { Photo } from "@justus/core";
 import { openLightbox, closeLightbox } from "./lightbox";
 import { openHolders } from "./photo-holders";
+import { render } from "lit-html";
 import { lightboxActor } from "../machines/lightbox-machine";
+import { syncActor } from "../machines/sync-machine";
+import { lightboxView } from "./lightbox";
+import { memberColor } from "../utils/palette";
 
 vi.mock("../gateway", () => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
@@ -32,5 +36,54 @@ describe("Escape in the lightbox", () => {
     expect(lightboxActor.snapshot().context.photo?.id).toBe("a");
     escape();
     expect(lightboxActor.snapshot().context.photo).toBeUndefined();
+  });
+});
+
+describe("holders sheet in the lightbox", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+
+  it("colours rows from the open album's people", () => {
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f1" },
+          members: [{ key: "k1", name: "Ada", admin: true, connected: true }],
+        },
+      },
+    } as never);
+    openLightbox({
+      ...photo,
+      folderId: "f1",
+      holders: { here: true, others: [], unsure: [], waiting: [], former: [], left: [] },
+    });
+    openHolders();
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
+    expect(fill).toBe(`background:${memberColor("k1")}`);
+  });
+
+  it("gives no Members colours when the open status is another album", () => {
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: {
+        status: {
+          folder: { id: "f2" },
+          members: [{ key: "k1", name: "Ada", admin: true, connected: true }],
+        },
+      },
+    } as never);
+    openLightbox({
+      ...photo,
+      folderId: "f1",
+      holders: { here: true, others: [], unsure: [], waiting: [], former: [], left: [] },
+    });
+    openHolders();
+    const el = document.createElement("div");
+    render(lightboxView(), el);
+    const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
+    expect(fill).not.toBe(`background:${memberColor("k1")}`);
   });
 });
