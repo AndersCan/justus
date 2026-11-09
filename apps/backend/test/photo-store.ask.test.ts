@@ -1934,6 +1934,17 @@ describe("a joiner checks a link against the owner's published list", () => {
     await s.close();
   });
 
+  it("an owner who never turned off a link answers at once, not after the wait", async () => {
+    const s = await scenario();
+    const started = Date.now();
+    expect(await s.joiner.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
+      null,
+      { turnedOff: false },
+    ]);
+    expect(Date.now() - started).toBeLessThan(3_000);
+    await s.close();
+  });
+
   it("a replaced link is not listed", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });

@@ -153,6 +153,64 @@ function ask(status: AskSummary["status"]): AskSummary {
   };
 }
 
+describe("checkingLink", () => {
+  const portWith = (checkLink: JoinPort["checkLink"]) => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = {
+      ask: async (invite) => {
+        asks.push(invite);
+        return [undefined, {}];
+      },
+      checkLink,
+    };
+    return { port, asks };
+  };
+
+  test("a link its owner turned off is refused at Continue, and nothing is sent", async () => {
+    const { port, asks } = portWith(async () => [undefined, { turnedOff: true }]);
+    const s = setup({ port });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
+    expect(payload(s)).toEqual(INVITE);
+    expect(asks).toEqual([]);
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("a link that is not off asks the question", async () => {
+    const s = setup({ port: portWith(async () => [undefined, { turnedOff: false }]).port });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+
+  test.each([
+    ["rejects", async () => Promise.reject(new Error("down"))],
+    ["returns an error", async () => [{ code: "X" }, null] as [unknown, unknown]],
+    [
+      "returns a garbled result",
+      async () => [undefined, { turnedOff: "yes" }] as [unknown, unknown],
+    ],
+  ])("a check that %s asks the question", async (_name, checkLink) => {
+    const s = setup({ port: portWith(checkLink).port });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+
+  test("a port with no check asks the question", async () => {
+    const s = setup({ port: { ask: async () => [undefined, {}] } });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+
+  test("a link held during the welcome is checked when the name is saved", async () => {
+    const { port } = portWith(async () => [undefined, { turnedOff: true }]);
+    const s = setup({ port });
+    await s.send("welcomeStarted");
+    await s.send("openLink", { text: LINK });
+    await s.send("welcomeEnded");
+    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
+  });
+});
+
 describe("reopenRequest", () => {
   test.each([
     ["waiting", "waitingForAdminToAccept"],
@@ -1041,6 +1099,21 @@ test("Maya: closes the waiting screen and Nils declines", async () => {
     await send("requestAnswered", { code: INVITE.code, answer: "declined" });
   });
   expect(actor.state.name).toBe("declinedByAdmin");
+});
+
+test("Ben opens a link Ada turned off and is told at Continue", async () => {
+  const actor = await drive(
+    async (send) => {
+      await send("openLink", { text: LINK });
+    },
+    {
+      port: {
+        ask: async () => [undefined, {}],
+        checkLink: async () => [undefined, { turnedOff: true }],
+      },
+    },
+  );
+  expect(actor.state.name).toBe("linkTurnedOffByAdmin");
 });
 
 test("Maya waits, and Nils turns off his links", async () => {

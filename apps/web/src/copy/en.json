@@ -97,6 +97,13 @@
     "who": "People joining by a link",
     "screen": ""
   },
+  "join_request.checking_owner_s_link": {
+    "text": "Checking {owner}'s link…",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "join_request.this_invite_link_has_expired": {
     "text": "This invite link has expired.",
     "status": "draft",

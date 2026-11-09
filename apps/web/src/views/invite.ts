@@ -432,7 +432,7 @@ function invitePanelBody(
   `;
 }
 
-/** What a stopped-link sheet says, or null for a state that is not one. `askedLine`: add "Your request wasn't answered." when this phone has an ask for the code. */
+/** What a stopped-link sheet says, or null for a state that is not one. `askedLine`: add "Your request wasn't answered." when this phone has an ask for the code that is not closed. */
 function stoppedSheet(
   state: string,
   owner: string,
@@ -520,7 +520,7 @@ export function joinSheet() {
         stopped.title,
         html`<h3 class="break-words text-base font-semibold text-fg">${stopped.title}</h3>
           ${watch(foldersActor, (f) =>
-            stopped.askedLine && f.context.asks.some((a) => a.code === invite.code)
+            stopped.askedLine && f.context.asks.some((a) => a.code === invite.code && !a.closed)
               ? html`<p class="mt-3 text-sm text-fg">
                   ${t("join_request.your_request_wasn_t_answered")}
                 </p>`
@@ -533,6 +533,15 @@ export function joinSheet() {
             </button>
           </div>`,
         () => join.closeStoppedLink(),
+      );
+    }
+    if (state === "checkingLink") {
+      const title = copy("join_request.checking_owner_s_link", { owner });
+      // Ends by itself within seconds, so there is no button and the backdrop does nothing.
+      return sheet(
+        title,
+        html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>`,
+        () => {},
       );
     }
     if (state === "decidingToAsk" || state === "sendingRequest") {

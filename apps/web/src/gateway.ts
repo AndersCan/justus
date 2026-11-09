@@ -91,6 +91,9 @@ export const gateway = {
   /** Asks the album's Admin to let this phone in, from a link's code, owner and name hints. */
   ask: (code: string, owner: string, albumName?: string, ownerName?: string) =>
     invoke(photoEvents.photos.ask(code, owner, albumName, ownerName)),
+  /** Whether the link's owner turned it off, read from the owner's phone within a few seconds. */
+  linkTurnedOff: (code: string, owner: string) =>
+    invoke(photoEvents.photos.linkTurnedOff(code, owner)),
   createFolder: (name: string) => invoke(photoEvents.photos.createFolder(name)),
   setActive: (folderId: string) => invoke(photoEvents.photos.setActive(folderId)),
   setName: (name: string) => invoke(photoEvents.photos.setName(name)),

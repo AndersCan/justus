@@ -177,7 +177,7 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const [, newDrive] = await deps.drives.open(moved!.shareKey, { timeoutMs: 2_000 });
     expect(await pathsOf(newDrive!)).toContain("/photos/p1.jpg");
     const [, identity] = await deps.drives.open(identityKey, { timeoutMs: 2_000 });
-    expect(await pathsOf(identity!)).toEqual(["/device.json", "/requests.json"]);
+    expect(await pathsOf(identity!)).toEqual(["/device.json", "/links.json", "/requests.json"]);
     const version = identity!.version();
     for (let v = 1; v < version; v++) {
       expect(await readable(deps, identityKey, v, "/photos/p1.jpg")).toBe(false);
@@ -198,7 +198,7 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const store = createPhotoStore(first);
     await withTimeout(store.ready(), 15_000);
     const [, identity] = await first.drives.open(identityKey, { timeoutMs: 2_000 });
-    expect(await pathsOf(identity!)).toEqual(["/device.json", "/requests.json"]);
+    expect(await pathsOf(identity!)).toEqual(["/device.json", "/links.json", "/requests.json"]);
     await store.close();
 
     const second = realDeps(storageDir);
@@ -213,7 +213,7 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const [, identity3] = await third.drives.open(identityKey, { timeoutMs: 2_000 });
     // Only the swarm key in /device.json may be rewritten on boot.
     expect(identity3!.version() - before).toBeLessThanOrEqual(1);
-    expect(await pathsOf(identity3!)).toEqual(["/device.json", "/requests.json"]);
+    expect(await pathsOf(identity3!)).toEqual(["/device.json", "/links.json", "/requests.json"]);
     await last.close();
   });
 
@@ -259,7 +259,7 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const again = createPhotoStore(second);
     await withTimeout(again.ready(), 15_000);
     const [, identity] = await second.drives.open(identityKey, { timeoutMs: 2_000 });
-    expect(await pathsOf(identity!)).toEqual(["/device.json", "/requests.json"]);
+    expect(await pathsOf(identity!)).toEqual(["/device.json", "/links.json", "/requests.json"]);
     await again.close();
     const saved = JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
     expect(saved.identityClearPending).toBeUndefined();
@@ -293,7 +293,7 @@ describe("clearing a pre-#195 album off the identity drive", () => {
     const store = createPhotoStore(deps);
     await withTimeout(store.ready(), 15_000);
     const [, identity] = await deps.drives.open(identityKey, { timeoutMs: 2_000 });
-    expect(await pathsOf(identity!)).toEqual(["/device.json", "/requests.json"]);
+    expect(await pathsOf(identity!)).toEqual(["/device.json", "/links.json", "/requests.json"]);
     await store.close();
   });
 

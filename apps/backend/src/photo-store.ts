@@ -3830,8 +3830,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         .flatMap((f) => Object.entries(f.retiredWhy ?? {}))
         .filter(([, why]) => why === "turnedOff")
         .map(([code]) => linkOffId(code, crypto));
-      if (ids.length === 0) return;
-      await ownDrive.put(DRIVE_PATH_LINKS, Buffer.from(linksOffFile(ids)));
+      const file = linksOffFile(ids);
+      // A boot that changes nothing writes nothing.
+      if ((await readText(ownDrive, DRIVE_PATH_LINKS)) === file) return;
+      await ownDrive.put(DRIVE_PATH_LINKS, Buffer.from(file));
     } catch (e) {
       log("error", { where: "links.publish", err: errText(e) });
     }
@@ -5783,10 +5785,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     async linkTurnedOff(code, owner) {
       await readyPromise;
       if (!isHexKey(code) || !isHexKey(owner)) return err(PhotoError.INVALID_KEY, "Invalid link");
+      const deadline = Date.now() + 5_000;
       const text = await withTimeout(
         openPeerOutbox(owner.toLowerCase()).then(async (drive) => {
-          await withTimeout(drive.update(), 3_000);
-          return readText(drive, DRIVE_PATH_LINKS);
+          // The file may not have replicated yet: wait for it, but only until the timeout.
+          while (!closed && Date.now() < deadline) {
+            await withTimeout(drive.update(), 3_000);
+            const list = await readText(drive, DRIVE_PATH_LINKS);
+            if (list !== null) return list;
+            await sleep(100);
+          }
+          return null;
         }),
         5_000,
       ).catch(() => null);
