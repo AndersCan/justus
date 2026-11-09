@@ -3058,22 +3058,22 @@
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": "lightbox"
   },
-  "lightbox.drops_it_now": {
-    "text": "{list} {n?album drops:albums drop} it now.",
+  "lightbox.sees_it_s_gone": {
+    "text": "{list} {n?sees:see} it's gone.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": "lightbox"
   },
-  "lightbox.drops_it_later": {
-    "text": "{list} {n?album drops:albums drop} it later, when connected.",
+  "lightbox.will_see_it_when_connected": {
+    "text": "{list} will see it when connected.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": "lightbox"
   },
-  "lightbox.drops_it_now_and_later": {
-    "text": "{now} {n?album drops:albums drop} it now, {later} later, when connected.",
+  "lightbox.sees_it_s_gone_later": {
+    "text": "{now} {n?sees:see} it's gone, {later} when connected.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
@@ -3093,15 +3093,15 @@
     "who": "Everyone who opens a photo",
     "screen": ""
   },
-  "lightbox.phone_keeps_a_copy": {
-    "text": "{name} phone keeps a copy.",
+  "lightbox.can_t_erase_the_copy": {
+    "text": "Justus can't erase the copy on {name} phone.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": ""
   },
-  "lightbox.and_phones_keep_a_copy": {
-    "text": "{names} and {last} phones keep a copy.",
+  "lightbox.can_t_erase_the_copies": {
+    "text": "Justus can't erase the copies on {names} and {last} phones.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",

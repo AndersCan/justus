@@ -143,19 +143,19 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledTimes(2);
     expect(confirmAction).toHaveBeenCalledWith({
       title: "Delete “a”?",
-      detail: "It will be gone from the album for everyone.",
+      detail: "It will be gone from the album for everyone. Deleting can't take it back.",
       confirmLabel: "Delete",
       tone: "danger",
     });
     expect(confirmAction).toHaveBeenCalledWith({
       title: "Delete “b”?",
-      detail: "It will be gone from the album for everyone.",
+      detail: "It will be gone from the album for everyone. Deleting can't take it back.",
       confirmLabel: "Delete",
       tone: "danger",
     });
   });
 
-  it("names the phones that keep a copy", async () => {
+  it("names the phones Justus can't erase", async () => {
     await reload([a, b]);
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
     const holders = {
@@ -170,7 +170,7 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({
         detail:
-          "It will be gone from the album for everyone. Nils's phone keeps a copy. Deleting can't take it back.",
+          "It will be gone from the album for everyone. Justus can't erase the copy on Nils's phone. Deleting can't take it back.",
       }),
     );
   });
@@ -205,15 +205,13 @@ describe("Delete", () => {
       },
     }) as never;
 
-  it("names whose albums drop it now and later", async () => {
+  it("names who sees it's gone now and later", async () => {
     await reload([a, b]);
     vi.spyOn(syncActor, "snapshot").mockReturnValue(albumStatus());
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
     await deleteFromLightbox({ ...b, folderId: "f1" });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith(
-      "Deleted “b”. Ben's album drops it now, Cara's later, when connected.",
-    );
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Ben sees it's gone, Cara when connected.");
     vi.mocked(syncActor.snapshot).mockRestore();
   });
 
@@ -233,7 +231,7 @@ describe("Delete", () => {
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
     await deleteFromLightbox({ ...b, folderId: "f1" });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny's album drops it now.");
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny sees it's gone.");
     vi.mocked(syncActor.snapshot).mockRestore();
     vi.mocked(friendsActor.snapshot).mockRestore();
   });
