@@ -21,7 +21,10 @@ vi.mock("@mantaq/lit", async (orig) => ({
 }));
 vi.mock("../machines/folders-machine", async (orig) => ({
   ...(await orig<object>()),
-  foldersActor: { snapshot: () => ({ context: { asks: asksHolder.asks } }) },
+  foldersActor: {
+    snapshot: () => ({ context: { asks: asksHolder.asks } }),
+    on: () => () => {},
+  },
 }));
 vi.mock("../machines/sharing/join-request", async (orig) => ({
   ...(await orig<object>()),

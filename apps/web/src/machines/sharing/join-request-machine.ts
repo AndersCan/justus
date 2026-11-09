@@ -25,6 +25,7 @@ export type AskSummary = {
   ownerName: string;
   askedAt: number;
   status: "waiting" | "declined" | "linkOff";
+  whoMustUpdate?: "you";
 };
 
 /** Sends the request; resolves `[error, result]` like the gateway. */
@@ -53,6 +54,8 @@ const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 const sendingRequest = state("sendingRequest")<JoinInvite>();
 /** "Waiting for <owner>". Shown with no timer until an answer comes. */
 const waitingForAdminToAccept = state("waitingForAdminToAccept")<JoinInvite>();
+/** This phone's Justus is older than the Admin's: "Update Justus to join". The request stays and goes out once both match. */
+const waitingForYouToUpdate = state("waitingForYouToUpdate")<JoinInvite>();
 /** "<owner> didn't accept your request." OK takes the request off this phone; the link can be asked through again. */
 const declinedByAdmin = state("declinedByAdmin")<JoinInvite>();
 /** The link's end time has passed; nothing is sent. */
@@ -86,6 +89,11 @@ export const dismissExpired = event("dismissExpired")();
 export const cancelRequest = event("cancelRequest")();
 /** The joiner closes the "no longer works" screen; the row stays until Cancel request or a new link. */
 export const closeLinkTurnedOff = event("closeLinkTurnedOff")();
+/** This phone compared Justus versions with the Admin of a waiting request. */
+export const whoMustUpdateChanged = event("whoMustUpdateChanged")<{
+  code: string;
+  who: "you" | "nobody";
+}>();
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<{
   code: string;
@@ -130,13 +138,20 @@ export function createJoinRequestActor(options: {
   const asked = options.asked ?? ((code: string) => sent.get(code));
   const classify = typeof known === "function" ? known : () => known;
 
+  /** The waiting screen that fits who must update. */
+  function waitingFor(who: "you" | "nobody" | undefined) {
+    return who === "you" ? waitingForYouToUpdate : waitingForAdminToAccept;
+  }
+
   /** The screen a usable link opens, from what this phone knows about it. */
   function screenFor(invite: JoinInvite) {
     const found = classify(invite);
     if (found.kind === "own" || found.kind === "member") {
       return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
     }
-    if (found.kind === "waiting") return { state: waitingForAdminToAccept.create(invite) };
+    if (found.kind === "waiting") {
+      return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+    }
     if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
     return { state: decidingToAsk.create(invite) };
   }
@@ -156,6 +171,7 @@ export function createJoinRequestActor(options: {
       dismissExpired,
       closeLinkTurnedOff,
       requestAnswered,
+      whoMustUpdateChanged,
     ],
     internal: [requestSent, requestFailed],
     outputs: [openAlbum, dismissDeclinedAsk, cancelAsk],
@@ -168,6 +184,7 @@ export function createJoinRequestActor(options: {
       decidingToAsk,
       sendingRequest,
       waitingForAdminToAccept,
+      waitingForYouToUpdate,
       declinedByAdmin,
       linkExpired,
       linkTurnedOff,
@@ -182,6 +199,7 @@ export function createJoinRequestActor(options: {
         joinedAlbum,
         decidingToAsk,
         waitingForAdminToAccept,
+        waitingForYouToUpdate,
         declinedByAdmin,
         linkExpired,
         linkTurnedOff,
@@ -194,6 +212,7 @@ export function createJoinRequestActor(options: {
             joinedAlbum,
             decidingToAsk,
             waitingForAdminToAccept,
+            waitingForYouToUpdate,
             declinedByAdmin,
             linkExpired,
             linkTurnedOff,
@@ -213,14 +232,14 @@ export function createJoinRequestActor(options: {
         /** A tapped request row shows its current answer. */
         m.on(from, {
           event: reopenRequest,
-          to: [waitingForAdminToAccept, declinedByAdmin, linkTurnedOff],
+          to: [waitingForAdminToAccept, waitingForYouToUpdate, declinedByAdmin, linkTurnedOff],
           handler: (e) => {
             const { ask: row } = e.payload;
             const invite = inviteOf(row);
             if (row.status === "linkOff") return { state: linkTurnedOff.create(invite) };
             return row.status === "declined"
               ? { state: declinedByAdmin.create(invite) }
-              : { state: waitingForAdminToAccept.create(invite) };
+              : { state: waitingFor(row.whoMustUpdate).create(invite) };
           },
         });
       }
@@ -267,7 +286,13 @@ export function createJoinRequestActor(options: {
       /** The name is saved: the held link opens the screen that fits it now. */
       m.on(holdingInviteUntilWelcomeEnds, {
         event: welcomeEnded,
-        to: [joinedAlbum, waitingForAdminToAccept, linkExpired, decidingToAsk],
+        to: [
+          joinedAlbum,
+          waitingForAdminToAccept,
+          waitingForYouToUpdate,
+          linkExpired,
+          decidingToAsk,
+        ],
         handler: (_e, { actor }) => screenFor(actor.snapshot().payload as JoinInvite),
       });
       for (const from of [noInviteOpen, showingLinkProblem]) {
@@ -356,10 +381,11 @@ export function createJoinRequestActor(options: {
       /** The request is on its way: "Waiting for <Admin>". */
       m.on(sendingRequest, {
         event: requestSent,
-        to: [waitingForAdminToAccept],
-        handler: (_e, { actor }) => ({
-          state: waitingForAdminToAccept.create(actor.snapshot().payload as JoinInvite),
-        }),
+        to: [waitingForAdminToAccept, waitingForYouToUpdate],
+        handler: (_e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        },
       });
       /** The send failed: back to the question, with the error shown. */
       m.on(sendingRequest, {
@@ -371,38 +397,50 @@ export function createJoinRequestActor(options: {
         },
       });
 
-      /** The joiner closes the screen; the request stays pending. */
-      m.on(waitingForAdminToAccept, {
-        event: closeWaiting,
-        to: [noInviteOpen],
-        handler: () => ({ state: noInviteOpen }),
-      });
-      /** The joiner takes the request back; the app removes it from this phone. */
-      m.on(waitingForAdminToAccept, {
-        event: cancelRequest,
-        to: [noInviteOpen],
-        handler: (_e, { actor }) => {
-          const invite = actor.snapshot().payload as JoinInvite;
-          sent.delete(invite.code);
-          return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
-        },
-      });
-      /** The Admin answered. Only an answer for this request counts. */
-      m.on(waitingForAdminToAccept, {
-        event: requestAnswered,
-        to: [joinedAlbum, declinedByAdmin, linkTurnedOff, waitingForAdminToAccept],
-        handler: (e, { actor }) => {
-          const invite = actor.snapshot().payload as JoinInvite;
-          if (e.payload.code !== invite.code)
-            return { state: waitingForAdminToAccept.create(invite) };
-          if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
-          if (e.payload.answer === "linkOff") return { state: linkTurnedOff.create(invite) };
-          const folderId = e.payload.folderId;
-          return folderId === undefined
-            ? { state: waitingForAdminToAccept.create(invite) }
-            : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
-        },
-      });
+      for (const from of [waitingForAdminToAccept, waitingForYouToUpdate]) {
+        /** The joiner closes the screen; the request stays pending. */
+        m.on(from, {
+          event: closeWaiting,
+          to: [noInviteOpen],
+          handler: () => ({ state: noInviteOpen }),
+        });
+        /** The joiner takes the request back; the app removes it from this phone. */
+        m.on(from, {
+          event: cancelRequest,
+          to: [noInviteOpen],
+          handler: (_e, { actor }) => {
+            const invite = actor.snapshot().payload as JoinInvite;
+            sent.delete(invite.code);
+            return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
+          },
+        });
+        /** The Admin answered. Only an answer for this request counts. */
+        m.on(from, {
+          event: requestAnswered,
+          to: [joinedAlbum, declinedByAdmin, linkTurnedOff, from],
+          handler: (e, { actor }) => {
+            const invite = actor.snapshot().payload as JoinInvite;
+            if (e.payload.code !== invite.code) return { state: from.create(invite) };
+            if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
+            if (e.payload.answer === "linkOff") return { state: linkTurnedOff.create(invite) };
+            const folderId = e.payload.folderId;
+            return folderId === undefined
+              ? { state: from.create(invite) }
+              : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
+          },
+        });
+        /** The phones compared versions: the screen says who must update. Another request's mark changes nothing. */
+        m.on(from, {
+          event: whoMustUpdateChanged,
+          to: [waitingForAdminToAccept, waitingForYouToUpdate],
+          handler: (e, { actor }) => {
+            const invite = actor.snapshot().payload as JoinInvite;
+            return e.payload.code === invite.code
+              ? { state: waitingFor(e.payload.who).create(invite) }
+              : { state: from.create(invite) };
+          },
+        });
+      }
 
       /** The joiner takes the request back from the "no longer works" screen. */
       m.on(linkTurnedOff, {
@@ -467,6 +505,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
       return decidingToAsk.create(invite);
     case "waitingForAdminToAccept":
       return waitingForAdminToAccept.create(invite);
+    case "waitingForYouToUpdate":
+      return waitingForYouToUpdate.create(invite);
     case "declinedByAdmin":
       return declinedByAdmin.create(invite);
     case "linkExpired":

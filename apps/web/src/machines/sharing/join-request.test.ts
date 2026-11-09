@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   open: vi.fn(),
   refresh: vi.fn(),
   currentPage: vi.fn(() => undefined as { route: string } | undefined),
+  listeners: [] as (() => void)[],
 }));
 
 vi.mock("../../gateway", () => ({
@@ -23,7 +24,13 @@ vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: mocks.curre
 vi.mock("../folders-machine", () => {
   const context = { folders: [] as unknown[], asks: [] as unknown[] };
   return {
-    foldersActor: { snapshot: () => ({ context }) },
+    foldersActor: {
+      snapshot: () => ({ context }),
+      on: (_event: string, o: { fn: () => void }) => {
+        mocks.listeners.push(o.fn);
+        return () => {};
+      },
+    },
     folders: { refresh: mocks.refresh },
   };
 });
@@ -257,5 +264,65 @@ describe("joinViewOf", () => {
     const view = joinViewOf(joinActor.snapshot());
     expect(view.state).toBe("decidingToAsk");
     expect(view.invite).toMatchObject({ album: "Spain 2026" });
+  });
+});
+
+describe("wireAsksToJoin", () => {
+  const foldersChanged = async () => {
+    for (const fn of mocks.listeners) fn();
+    await settle();
+  };
+  const mark = (whoMustUpdate?: "you") => {
+    foldersContext.asks = [{ code: INVITE.code, whoMustUpdate }];
+  };
+  const wait = async () => {
+    mocks.ask.mockResolvedValue([null, {}]);
+    join.openLink(LINK);
+    await settle();
+    join.askToJoin();
+    await settle();
+  };
+
+  test("a mark on the open ask moves the screen, and clearing it moves it back", async () => {
+    await wait();
+    mark("you");
+    await foldersChanged();
+    expect(view().state).toBe("waitingForYouToUpdate");
+    mark(undefined);
+    await foldersChanged();
+    expect(view().state).toBe("waitingForAdminToAccept");
+  });
+
+  test("the same mark again sends nothing", async () => {
+    await wait();
+    mark("you");
+    await foldersChanged();
+    const sent = vi.spyOn(joinActor, "send");
+    await foldersChanged();
+    expect(sent).not.toHaveBeenCalled();
+    sent.mockRestore();
+  });
+
+  test("a mark on another request leaves the screen alone", async () => {
+    await wait();
+    foldersContext.asks = [{ code: "c".repeat(64), whoMustUpdate: "you" }];
+    await foldersChanged();
+    expect(view().state).toBe("waitingForAdminToAccept");
+  });
+
+  test("with no waiting screen open nothing is sent", async () => {
+    await wait();
+    mark("you");
+    await foldersChanged();
+    join.closeWaiting();
+    await settle();
+    const sent = vi.spyOn(joinActor, "send");
+    await foldersChanged();
+    expect(sent).not.toHaveBeenCalled();
+    sent.mockRestore();
+    mark(undefined);
+    join.openLink(LINK);
+    await settle();
+    expect(view().state).toBe("decidingToAsk");
   });
 });
