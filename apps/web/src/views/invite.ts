@@ -149,7 +149,7 @@ function qrCode(link: string) {
   </svg>`;
 }
 
-/** The joiner's three words, shown while the Admin has the request; null until the stored ask has them. */
+/** The joiner's three words, shown in the waiting dialog and on the update screen; null until the stored ask has them. */
 export function checkCodeLine(code: string | undefined, owner: string) {
   if (!code) return null;
   return html`<p class="mt-3 text-sm text-fg">${t("invite.may_ask_you_for_these", { owner })}</p>

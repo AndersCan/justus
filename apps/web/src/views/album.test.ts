@@ -539,7 +539,7 @@ describe("album join requests", () => {
 
   test("without codes there is no three words text", async () => {
     const host = await show([ask("nils", true)]);
-    expect(host.textContent).not.toContain("Check code");
+    expect(host.textContent).not.toContain("Three words");
     expect(host.textContent).not.toContain("Not sure who it is?");
   });
 
