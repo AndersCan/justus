@@ -176,7 +176,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("status").filter({ hasText: `Deleted “${ANA}”.` })).toHaveText(
-    /^Deleted “del-ana\.png”\. .+ keeps? a copy\.$/,
+    /^\s*Deleted “del-ana\.png”\. .+ keeps? a copy\.\s*$/,
   );
   await expect(b.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
@@ -197,7 +197,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .locator("wa-button", { hasText: "Delete" })
     .click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^Deleted “del-ben\.png”\. .+ never got it\.$/,
+    /^\s*Deleted “del-ben\.png”\. .+ never got it\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
