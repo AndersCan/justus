@@ -937,7 +937,13 @@ describe("the other phones follow the move by themselves", () => {
 
   it("while the old drive is kept, the Admin and a Viewer list a copied photo once and the other photo once", async () => {
     const s = await invited();
-    limitCopies(s.nils, (path) => path.includes("a.jpg"));
+    // Copy exactly one photo, whatever its random path: the other stays only on the old drive.
+    let first = true;
+    limitCopies(s.nils, () => {
+      const keep = first;
+      first = false;
+      return keep;
+    });
     await s.nils.store.addBytes("a.jpg", new Uint8Array([1, 1, 1]), s.ids.nils);
     await s.nils.store.addBytes("b.jpg", new Uint8Array([2, 2, 2]), s.ids.nils);
     await until(async () => (await names(s.admin)).length === 2);

@@ -336,6 +336,8 @@ type FolderRecord = {
   /** Corestore namespace of this device's drive in the album. Defaults to
    * `member/<shareKey>`; an album joined through an ask keeps `ask/<code>`. */
   selfNs?: string;
+  /** Keys of this device's own drives in earlier versions of the album (it followed moves), newest first. */
+  formerSelf?: string[];
   /** Creator: when this album moved to a new key (the rerun guard). */
   rotatedAt?: number;
   /** Creator: the old member drives, kept as read-only photo sources. */
@@ -939,6 +941,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (Object.keys(roles).length > 0) out.invitedRoles = roles;
     }
     if (typeof f.selfNs === "string" && f.selfNs) out.selfNs = f.selfNs;
+    if (Array.isArray(f.formerSelf)) {
+      const keys = f.formerSelf.filter((k): k is string => typeof k === "string" && isHexKey(k));
+      if (keys.length > 0) out.formerSelf = keys;
+    }
     if (typeof f.rotatedAt === "number") out.rotatedAt = f.rotatedAt;
     if (Array.isArray(f.earlier)) {
       const earlier: EarlierEntry[] = [];
@@ -2664,12 +2670,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const hidden = new Map<string, Set<string>>();
     for (const e of rt.record.earlier ?? []) {
       const identity = presence.identities.get(e.key);
-      // The new drive's identity is learned a moment after it enrols: until then the name stands in.
+      // This phone's own old drive: its current drive replaces it, whatever the name.
+      const mine = rt.record.formerSelf?.includes(e.key) === true;
       const next = Object.values(members).find(
         (m) =>
           m.key !== e.key &&
-          ((identity !== undefined && presence.identities.get(m.key) === identity) ||
-            (!presence.identities.has(m.key) && m.name === e.name)),
+          (mine
+            ? m.key === selfKeyOf(rt)
+            : (identity !== undefined && presence.identities.get(m.key) === identity) ||
+              // The new drive's identity is learned a moment after it enrols: until then the name stands in.
+              (!presence.identities.has(m.key) && m.name === e.name)),
       );
       if (!next) continue;
       const have = new Set<string>();
@@ -5102,6 +5112,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         createdAt: old?.record.createdAt ?? Date.now(),
         ...(old?.record.lifecycle ? { lifecycle: old.record.lifecycle } : {}),
         ...(via ? { invite: via.invite, selfNs: via.selfNs } : {}),
+        ...(old
+          ? {
+              formerSelf: [...new Set([old.selfDrive.key, ...(old.record.formerSelf ?? [])])].slice(
+                0,
+                MAX_PAST_KEYS,
+              ),
+            }
+          : {}),
       },
       folderDrive: drive,
       selfDrive,
