@@ -60,7 +60,7 @@ import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { checkCode } from "./membership/check-code";
 import { inviteTopic } from "./membership/invite";
-import { ADMIN_COLOR, fillColors, pickColor, takenColors } from "./membership/colors";
+import { ADMIN_COLOR, fillColors, parseColor, pickColor, takenColors } from "./membership/colors";
 import { makeMemberViewer, makeViewerMember, removeViewer, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
@@ -288,7 +288,7 @@ type AskRecord = Omit<AskSummary, "status"> & {
 type Answers = Record<string, "accepted" | "declined">;
 
 /** Someone the album moved away from who has not arrived on the new key yet. */
-type MovingEntry = { role: "member" | "reader"; name: string; key: string };
+type MovingEntry = { role: "member" | "reader"; name: string; key: string; color?: number };
 
 /** The album drive's list of earlier member drives (see `EarlierFile`). */
 const DRIVE_PATH_EARLIER = "/earlier.json";
@@ -971,7 +971,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (!isHexKey(identity) || !isTextJSON(m)) continue;
         if ((m.role !== "member" && m.role !== "reader") || typeof m.key !== "string") continue;
         if (!isHexKey(m.key)) continue;
-        moving[identity] = { role: m.role, name: peerName(m.name, "Unknown device"), key: m.key };
+        moving[identity] = {
+          role: m.role,
+          name: peerName(m.name, "Unknown device"),
+          key: m.key,
+          color: parseColor(m.color),
+        };
       }
       if (Object.keys(moving).length > 0) out.moving = moving;
     }
@@ -980,7 +985,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       for (const [key, m] of Object.entries(f.movingUnknown)) {
         if (!isHexKey(key) || !isTextJSON(m)) continue;
         if ((m.role !== "member" && m.role !== "reader") || m.key !== key) continue;
-        unknown[key] = { role: m.role, name: peerName(m.name, "Unknown device"), key };
+        unknown[key] = {
+          role: m.role,
+          name: peerName(m.name, "Unknown device"),
+          key,
+          color: parseColor(m.color),
+        };
       }
       if (Object.keys(unknown).length > 0) out.movingUnknown = unknown;
     }
@@ -3087,7 +3097,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             ...Object.values(rt.record.movingUnknown ?? {}),
           ]
             .filter((m, i, all) => all.findIndex((o) => o.key === m.key) === i)
-            .map((m) => person(m.key, m.name, m.role === "reader", undefined))
+            .map((m) => person(m.key, m.name, m.role === "reader", m.color))
         : []),
     ];
   }
@@ -4505,13 +4515,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const unknownNow: MovingEntry[] = [];
     for (const m of Object.values(registry.members)) {
       const identity = presence.identities.get(m.key);
-      const entry: MovingEntry = { role: "member", name: m.name, key: m.key };
+      const entry: MovingEntry = { role: "member", name: m.name, key: m.key, color: m.color };
       if (identity) people.set(identity, entry);
       else if (m.key !== removedKey) unknownNow.push(entry);
     }
     for (const v of Object.values(rt.viewers)) {
       const identity = presence.identities.get(v.key);
-      const entry: MovingEntry = { role: "reader", name: v.name, key: v.key };
+      const entry: MovingEntry = { role: "reader", name: v.name, key: v.key, color: v.color };
       if (identity) people.set(identity, entry);
       else if (v.key !== removedKey) unknownNow.push(entry);
     }
@@ -4609,6 +4619,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       void deliverMoveOffers(identity).catch(answerErr("moveOffer"));
     }
     return undefined;
+  }
+
+  /** Seats held by people still moving, except the one who is arriving now. */
+  function movingColors(rt: FolderRuntime, arriving: string | undefined): number[] {
+    const held: number[] = [];
+    for (const [identity, m] of Object.entries(rt.record.moving ?? {})) {
+      if (identity !== arriving && m.color !== undefined) held.push(m.color);
+    }
+    for (const m of Object.values(rt.record.movingUnknown ?? {})) {
+      if (m.color !== undefined) held.push(m.color);
+    }
+    return held;
   }
 
   /** Admin: people left out of a move whose identity is now known join `moving`.
@@ -5483,7 +5505,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             registry,
             requesterKey,
             requests: found.map((f) => f.request),
-            color: pickColor(takenColors(registry, rt.viewers)),
+            color: pickColor(
+              takenColors(registry, rt.viewers, movingColors(rt, asker)),
+              rt.record.moving?.[asker]?.color,
+            ),
           });
           if (seatErr) {
             setAnswer(rt, asker, undefined);
@@ -5505,7 +5530,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           registry,
           requesterKey,
           requests: found.map((f) => f.request),
-          color: pickColor(takenColors(registry, rt.viewers)),
+          color: pickColor(
+            takenColors(registry, rt.viewers, movingColors(rt, reply.identity)),
+            reply.identity ? rt.record.moving?.[reply.identity]?.color : undefined,
+          ),
         });
         if (acceptErr) {
           if (seated) setAnswer(rt, seated, undefined);
