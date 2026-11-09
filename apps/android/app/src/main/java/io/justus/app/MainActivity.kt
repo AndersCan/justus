@@ -1,6 +1,7 @@
 package io.justus.app
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -128,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             registerDefaultHostPlugins(hostPlugins)
             registerMediaHostPlugins(hostPlugins)
             registerLockHostPlugins(hostPlugins)
+            registerShareHostPlugins(hostPlugins)
             HostIpcCoordinator(ipc, hostPlugins).start()
         } catch (e: Exception) {
             Log.e("JUSTUS_ANDROID", "Failed to start worklet", e)
@@ -295,6 +297,31 @@ class MainActivity : AppCompatActivity() {
                             is UnlockResult.Failed -> fail(result.message)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /** justus.share host handler: opens the system share sheet and answers once it is shown. */
+    private fun registerShareHostPlugins(registry: HostPluginRegistry) {
+        registry.register("justus.share", "share.send") { args, _, respond ->
+            mainHandler.post {
+                val text = args?.opt("text") as? String
+                if (text.isNullOrBlank()) {
+                    respond(HostPluginRegistry.HostInvokeOutcome.Fail(ErrorCodes.HOST_ERROR, "Missing text"))
+                    return@post
+                }
+                try {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    startActivity(Intent.createChooser(send, null))
+                    Log.i("JUSTUS_ANDROID", "share opened")
+                    respond(HostPluginRegistry.HostInvokeOutcome.Ok(JSONObject().put("shown", true)))
+                } catch (e: Exception) {
+                    Log.w("JUSTUS_ANDROID", "share failed", e)
+                    respond(HostPluginRegistry.HostInvokeOutcome.Fail(ErrorCodes.HOST_ERROR, "Couldn't open the share sheet: ${e.message}"))
                 }
             }
         }
