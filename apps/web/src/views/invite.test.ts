@@ -328,12 +328,15 @@ describe("joinSheet update screen", () => {
     };
     asksHolder.asks = [];
     const none = draw();
+    asksHolder.asks = [{ code: "other" }];
+    const askedElsewhere = draw();
     asksHolder.asks = [{ code: "c9" }];
     const asked = draw();
     asksHolder.asks = [];
     spy.mockRestore();
     expect(none).toContain("This invite link no longer works.");
     expect(none).not.toContain("Cancel request");
+    expect(askedElsewhere).not.toContain("Cancel request");
     expect(asked).toContain("Cancel request");
   });
 
