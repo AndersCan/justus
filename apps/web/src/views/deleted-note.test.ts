@@ -17,27 +17,43 @@ const album = (photos: ReturnType<typeof photo>[], albumName = "Trip") => ({ alb
 
 describe("deletedNoteText", () => {
   test.each([
-    [[photo({ deletedBy: "Ada" })], "Ada deleted “Sunset” from Trip."],
-    [[photo({ deletedBy: "Ada", mine: true })], "Ada deleted your photo “Sunset” from Trip."],
-    [[photo()], "Cara's photo “Sunset” was deleted from Trip."],
-    [[photo({ mine: true })], "Your photo “Sunset” was deleted from Trip."],
+    [
+      [photo({ deletedBy: "Ada" })],
+      "Ada deleted “Sunset” from Trip. No longer shown on your phone.",
+    ],
+    [
+      [photo({ deletedBy: "Ada", mine: true })],
+      "Ada deleted your photo “Sunset” from Trip. No longer shown on your phone.",
+    ],
+    [[photo()], "Cara's photo “Sunset” was deleted from Trip. No longer shown on your phone."],
+    [
+      [photo({ mine: true })],
+      "Your photo “Sunset” was deleted from Trip. No longer shown on your phone.",
+    ],
     [
       [photo({ deletedBy: "Ada" }), photo({ deletedBy: "Ada" }), photo({ deletedBy: "Ada" })],
-      "Ada deleted 3 photos from Trip.",
+      "Ada deleted 3 photos from Trip. No longer shown on your phone.",
     ],
     [
       [photo({ deletedBy: "Ada" }), photo({ deletedBy: "Cara" })],
-      "2 photos were deleted from Trip.",
+      "2 photos were deleted from Trip. No longer shown on your phone.",
     ],
-    [[photo({ deletedBy: "Ada" }), photo()], "2 photos were deleted from Trip."],
-    [[photo(), photo()], "2 photos were deleted from Trip."],
+    [
+      [photo({ deletedBy: "Ada" }), photo()],
+      "2 photos were deleted from Trip. No longer shown on your phone.",
+    ],
+    [[photo(), photo()], "2 photos were deleted from Trip. No longer shown on your phone."],
   ])("one album %#", (photos, text) => {
     expect(deletedNoteText([album(photos)])).toBe(text);
   });
 
+  test("no albums make no note", () => {
+    expect(deletedNoteText([])).toBe("");
+  });
+
   test("more than one album", () => {
     expect(deletedNoteText([album([photo(), photo()]), album([photo(), photo()], "Home")])).toBe(
-      "4 photos were deleted.",
+      "4 photos were deleted. No longer shown on your phone.",
     );
   });
 });
@@ -57,14 +73,19 @@ describe("deletedNote.add", () => {
     expect(toast).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(toast).toHaveBeenCalledTimes(1);
-    expect(toast).toHaveBeenCalledWith("Ada deleted 2 photos from Trip.", { duration: 8000 });
+    expect(toast).toHaveBeenCalledWith(
+      "Ada deleted 2 photos from Trip. No longer shown on your phone.",
+      { duration: 8000 },
+    );
   });
 
   test("pushes for two albums merge into one toast", () => {
     deletedNote.add({ folderId: "f1", ...album([photo()]) });
     deletedNote.add({ folderId: "f2", ...album([photo()], "Home") });
     vi.advanceTimersByTime(300);
-    expect(toast).toHaveBeenCalledWith("2 photos were deleted.", { duration: 8000 });
+    expect(toast).toHaveBeenCalledWith("2 photos were deleted. No longer shown on your phone.", {
+      duration: 8000,
+    });
   });
 
   test("pushes 400 ms apart make two toasts", () => {
@@ -73,8 +94,11 @@ describe("deletedNote.add", () => {
     deletedNote.add({ folderId: "f1", ...album([photo()]) });
     vi.advanceTimersByTime(400);
     expect(toast).toHaveBeenCalledTimes(2);
-    expect(toast).toHaveBeenLastCalledWith("Cara's photo “Sunset” was deleted from Trip.", {
-      duration: 8000,
-    });
+    expect(toast).toHaveBeenLastCalledWith(
+      "Cara's photo “Sunset” was deleted from Trip. No longer shown on your phone.",
+      {
+        duration: 8000,
+      },
+    );
   });
 });

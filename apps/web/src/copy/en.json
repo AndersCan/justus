@@ -4297,6 +4297,13 @@
     "who": "People in a shared album, when someone else deletes a photo",
     "screen": ""
   },
+  "deleted_note.no_longer_shows": {
+    "text": "No longer shown on your phone.",
+    "status": "draft",
+    "where": "Toast › a photo was deleted",
+    "who": "People in a shared album, when someone else deletes a photo",
+    "screen": ""
+  },
   "album.accept_all_sheet_title": {
     "text": "Accept these {count} people as Viewers?",
     "status": "draft",
