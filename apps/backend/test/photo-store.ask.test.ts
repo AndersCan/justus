@@ -1915,3 +1915,73 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
     await s.joiner.store.close();
   }, 15_000);
 });
+
+describe("a joiner checks a link against the owner's published list", () => {
+  it("a joiner who never asked learns a turned-off link is off, and the Admin sees nothing", async () => {
+    const s = await scenario();
+    await s.admin.store.turnOffInvite(s.folderId);
+    const result = await s.joiner.store.linkTurnedOff(s.invite.code, s.owner);
+    expect(result).toEqual([null, { turnedOff: true }]);
+    expect((await s.admin.store.requests()).requests).toEqual([]);
+    expect((await s.joiner.store.folders()).asks).toEqual([]);
+    await s.close();
+  });
+
+  it("the current link is not off", async () => {
+    const s = await scenario();
+    const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
+    expect(await s.joiner.store.linkTurnedOff(code, s.owner)).toEqual([null, { turnedOff: false }]);
+    await s.close();
+  });
+
+  it("a replaced link is not listed", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const phone = await connect(s);
+    void phone;
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    const [req] = (await s.admin.store.requests()).requests;
+    await s.admin.store.respond(s.folderId, req.requesterKey, true);
+    await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
+    await s.admin.store.removeMember(s.folderId, req.requesterKey);
+    await s.admin.store.turnOffInvite(s.folderId);
+    const c = buildStore("Cy", s.hub);
+    await c.store.ready();
+    expect(await c.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
+      null,
+      { turnedOff: false },
+    ]);
+    await c.store.close();
+    await s.close();
+  });
+
+  it("after a restart the list is still published", async () => {
+    const s = await scenario();
+    await s.admin.store.turnOffInvite(s.folderId);
+    // The file is derived from saved state: blank it, and the next boot writes it again.
+    await (await openDrive(s.admin, s.owner)).put("/links.json", Buffer.from('{"off":[]}'));
+    await s.admin.store.close();
+    const reopened = createPhotoStore(restarted(s.admin.deps));
+    await reopened.ready();
+    const c = buildStore("Cy", s.hub);
+    await c.store.ready();
+    expect(await c.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
+      null,
+      { turnedOff: true },
+    ]);
+    await c.store.close();
+    await reopened.close();
+    await s.joiner.store.close();
+  });
+
+  it("an unreachable owner reads as not off within the budget", async () => {
+    const hub = createFakeHub({ readyDelayMs: (key) => (key === "e".repeat(64) ? Infinity : 0) });
+    const joiner = buildStore("Joiner", hub);
+    await joiner.store.ready();
+    const started = Date.now();
+    const result = await joiner.store.linkTurnedOff("c".repeat(64), "e".repeat(64));
+    expect(result).toEqual([null, { turnedOff: false }]);
+    expect(Date.now() - started).toBeLessThan(6_000);
+    await joiner.store.close();
+  }, 10_000);
+});
