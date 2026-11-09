@@ -1935,7 +1935,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (filled.viewersChanged) {
       await rt.folderDrive.put(DRIVE_PATH_VIEWERS, Buffer.from(JSON.stringify(filled.viewers)));
-      rt.viewers = filled.viewers.viewers;
     }
     if (filled.membersChanged || filled.viewersChanged) {
       await refreshMembersFor(rt);

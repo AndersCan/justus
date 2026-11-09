@@ -61,6 +61,14 @@ describe("parseRegistry", () => {
   test("returns the contents of a version 1 file", () => {
     expect(parseRegistry(JSON.stringify({ version: 1, members }))).toEqual({ version: 1, members });
   });
+  test("keeps the other entries when one entry is not an object", () => {
+    const text = JSON.stringify({
+      version: 1,
+      members: { a: { key: KEY_A, name: "A", addedAt: 1, color: 2 }, b: null },
+    });
+    expect(Object.keys(parseRegistry(text).members)).toEqual(["a", "b"]);
+    expect(parseRegistry(text).members.a).toMatchObject({ color: 2 });
+  });
   test("returns an empty registry when missing, malformed, wrong-version or non-object", () => {
     expect(parseRegistry(null)).toEqual(empty);
     expect(parseRegistry("{nope")).toEqual(empty);

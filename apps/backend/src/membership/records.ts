@@ -98,6 +98,7 @@ export function isEnrolled(registry: RegistryFile, key: string): boolean {
 function withValidColors(members: RegistryFile["members"]): RegistryFile["members"] {
   return Object.fromEntries(
     Object.entries(members).map(([key, entry]) => {
+      if (!isTextJSON(entry)) return [key, entry];
       const { color, ...rest } = entry as typeof entry & { color?: unknown };
       const valid = parseColor(color);
       return [key, valid === undefined ? rest : { ...rest, color: valid }];

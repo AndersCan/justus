@@ -99,6 +99,90 @@ describe("colour seats", () => {
     await s.close();
   });
 
+  it("does not hand a Viewer's seat to the next Collaborator", async () => {
+    const s = await album();
+    expect((await s.admin.store.makeViewer(s.folderId, s.keys.ben))[0]).toBeNull();
+    const dee = phone(s.hub, "Dee");
+    await dee.store.ready();
+    const deeKey = await joinAsMember(s.admin.store, s.folderId, dee.store, s.shareKey);
+    expect((await seats(s.admin))[deeKey]).toBe(4);
+    await dee.store.close();
+    await s.close();
+  });
+
+  it("frees a seat when a person leaves: the next accept takes it and the others keep theirs", async () => {
+    const s = await album();
+    const benFolder = (await s.ben.store.folders()).folders[0]!;
+    expect((await s.ben.store.leaveAlbum(benFolder.id))[0]).toBeNull();
+    await until(
+      async () => !((await seats(s.admin)) as object as Record<string, unknown>)[s.keys.ben],
+    );
+    const dee = phone(s.hub, "Dee");
+    await dee.store.ready();
+    const deeKey = await joinAsMember(s.admin.store, s.folderId, dee.store, s.shareKey);
+    expect(await seats(s.admin)).toEqual({
+      admin: 0,
+      [s.keys.nils]: 1,
+      [deeKey]: 2,
+      [s.keys.vera]: 3,
+    });
+    await dee.store.close();
+    await s.close();
+  });
+
+  it("fills a Viewer's seat on boot, writes /viewers.json and tells the screen", async () => {
+    const s = await album();
+    expect((await s.admin.store.makeViewer(s.folderId, s.keys.ben))[0]).toBeNull();
+    const folder = (await s.admin.store.folders()).folders.find((f) => f.id === s.folderId)!;
+    let [, drive] = await s.admin.deps.drives.open(folder.driveKey, { timeoutMs: 1_000 });
+    const read = async (path: string) =>
+      JSON.parse(Buffer.from((await drive!.readSmall(path, 1 << 20))!).toString());
+    const viewers = await read("/viewers.json");
+    delete viewers.viewers[s.keys.ben].color;
+    await drive!.put("/viewers.json", Buffer.from(JSON.stringify(viewers)));
+    await s.admin.store.close();
+
+    const deps2 = restarted(s.admin.deps);
+    const pushed: unknown[] = [];
+    deps2.onChanged = (e: unknown) => void pushed.push(e);
+    const again = createPhotoStore(deps2);
+    await again.ready();
+    [, drive] = await deps2.drives.open(folder.driveKey, { timeoutMs: 1_000 });
+    await until(async () => (await read("/viewers.json")).viewers[s.keys.ben].color === 2);
+    expect((await read("/viewers.json")).viewers[s.keys.ben].color).toBe(2);
+    await sleep(300);
+    const filledPushes = pushed.length;
+    expect((await seats({ store: again } as P))[s.keys.ben]).toBe(2);
+    // The filled seat is the one the next person is kept away from.
+    const key = "ab".repeat(32);
+    expect((await again.enroll(key, "Dee"))[0]).toBeNull();
+    expect((await seats({ store: again } as P))[key]).toBe(4);
+    await again.close();
+
+    // A boot with nothing to fill pushes fewer changes: the fill told the screen.
+    const deps3 = restarted(deps2);
+    let quietPushes = 0;
+    deps3.onChanged = () => void quietPushes++;
+    const quiet = createPhotoStore(deps3);
+    await quiet.ready();
+    await sleep(300);
+    // The fill pushes twice: once from the refresh after the write, once of its own.
+    expect(filledPushes).toBeGreaterThanOrEqual(quietPushes + 2);
+    await quiet.close();
+    await s.nils.store.close();
+    await s.ben.store.close();
+    await s.vera.store.close();
+  });
+
+  it("does not give a person added by key a Viewer's seat", async () => {
+    const s = await album();
+    expect((await s.admin.store.makeViewer(s.folderId, s.keys.ben))[0]).toBeNull();
+    const key = "ab".repeat(32);
+    expect((await s.admin.store.enroll(key, "Dee"))[0]).toBeNull();
+    expect((await seats(s.admin))[key]).toBe(4);
+    await s.close();
+  });
+
   it("gives a person added by key the lowest free seat", async () => {
     const s = await album();
     const key = "ab".repeat(32);
