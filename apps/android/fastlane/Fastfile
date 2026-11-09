@@ -3,6 +3,7 @@
 default_platform(:android)
 
 AAB = "app/build/outputs/bundle/release/app-release.aab"
+MAPPING = "app/build/outputs/mapping/release/mapping.txt"
 TRACKS = %w[internal alpha beta production].freeze
 # Same names as Screengrab.screenshot(...) in ListingScreenshots.kt.
 SCREENSHOTS = %w[1_album 2_invite 3_photo 4_help].freeze
@@ -64,6 +65,7 @@ platform :android do
     upload_to_play_store(
       track: "internal",
       aab: AAB,
+      mapping_paths: [MAPPING],
       skip_upload_apk: true, # ignore stray debug APKs from earlier builds
       # Play only accepts drafts until the app has been reviewed and published once.
       release_status: ENV.fetch("PLAY_RELEASE_STATUS", "completed"),

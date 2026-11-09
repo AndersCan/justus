@@ -19,7 +19,15 @@ DEFAULT_AVD="Medium_Phone_API_36.1"
 MAESTRO_DIR="$REPO_ROOT/.maestro"
 FLOWS_DIR="$MAESTRO_DIR/flows"
 OUT_DIR="$MAESTRO_DIR/out"
-APK="apps/android/app/build/outputs/apk/debug/app-debug.apk"
+# JUSTUS_VARIANT=release runs the R8-minified release build (debug-signed, see app/build.gradle).
+VARIANT="${JUSTUS_VARIANT:-debug}"
+if [[ "$VARIANT" == "release" ]]; then
+  GRADLE_ARGS=(:app:assembleRelease -Pjustus.deviceCheck)
+  APK="apps/android/app/build/outputs/apk/release/app-release.apk"
+else
+  GRADLE_ARGS=(:app:assembleDebug)
+  APK="apps/android/app/build/outputs/apk/debug/app-debug.apk"
+fi
 BOOT_TIMEOUT=300          # seconds to wait for sys.boot_completed
 POLL_INTERVAL=2           # seconds between boot polls
 EMULATOR_LOG="/tmp/justus-emulator.log"
@@ -64,9 +72,9 @@ done
 #    itself, so we only need to invoke the wrapper from apps/android.
 # ----------------------------------------------------------------------------
 echo
-echo "▶ Building debug APK..."
-if ! ( cd "$REPO_ROOT/apps/android" && ./gradlew :app:assembleDebug ); then
-  echo "ERROR: Gradle build of the debug APK failed (/apps/android :app:assembleDebug)." >&2
+echo "▶ Building $VARIANT APK..."
+if ! ( cd "$REPO_ROOT/apps/android" && ./gradlew "${GRADLE_ARGS[@]}" ); then
+  echo "ERROR: Gradle build of the $VARIANT APK failed (apps/android ./gradlew ${GRADLE_ARGS[*]})." >&2
   exit 1
 fi
 if [[ ! -f "$REPO_ROOT/$APK" ]]; then
@@ -188,6 +196,17 @@ trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 ||
 # 5. Run the Maestro flow suite
 #    `--device` must come BEFORE `test` (Maestro CLI convention).
 # ----------------------------------------------------------------------------
+APP=no.cankode.justus
+# The debug APK is debuggable, so run-as works. The release (R8) device build is
+# not: read its storage as root (the google_apis image allows adb root).
+if [[ "$VARIANT" == "release" ]]; then
+  "$ADB" -s "$SERIAL" root >/dev/null 2>&1 || true
+  "$ADB" -s "$SERIAL" wait-for-device
+  run_as() { "$ADB" -s "$SERIAL" shell "cd /data/data/$APP && sh -c '$1'"; }
+else
+  run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
+fi
+
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
@@ -202,9 +221,9 @@ if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
   {
-    "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'" 2>/dev/null \
-      && "$ADB" -s "$SERIAL" shell "run-as no.cankode.justus sh -c 'ls -la files/bare/ 2>/dev/null || true'" 2>/dev/null
-  } >"$worklet_file" 2>/dev/null || true
+    run_as 'cat cache/bare-cache/*.jsonl 2>/dev/null || true'
+    run_as 'ls -la files/bare/ 2>/dev/null || true'
+  }>"$worklet_file" 2>/dev/null || true
 
   echo
   echo "Maestro diagnostics written to:"
@@ -218,7 +237,6 @@ fi
 # ----------------------------------------------------------------------------
 # 5b. Albums survive "Clear cache", and an old cache-folder install is moved
 # ----------------------------------------------------------------------------
-APP=no.cankode.justus
 # The web layer's intro-seen flag is keyed by the loopback origin, whose port changes every launch,
 # so the UI cannot tell "albums survived" apart. Ask the worklet: after a relaunch it logs
 # "rediscover.attempt" for every album drive it reopened from the store.
@@ -232,7 +250,6 @@ albums_reopened() {
   done
   return 1
 }
-run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
 survive_fail() {
   echo "✗ Survive check FAILED: $1"
   mkdir -p "$OUT_DIR"

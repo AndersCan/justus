@@ -21,6 +21,10 @@ android {
     versionCode = (System.getenv("JUSTUS_VERSION_CODE") ?: "1").toInteger()
     versionName = System.getenv("JUSTUS_VERSION_NAME") ?: "0.1.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    // Native symbol tables let Play symbolicate native crashes.
+    ndk {
+      debugSymbolLevel "SYMBOL_TABLE"
+    }
   }
 
   // Upload key for Play App Signing. Read from apps/android/keystore.properties
@@ -45,9 +49,18 @@ android {
 
   buildTypes {
     release {
-      // No R8: the worklet is JS, and the JNI/bare-kit surface has no keep rules yet.
-      minifyEnabled = false
+      // R8 shrinks the Java side only (the worklet is JS); proguard-rules.pro
+      // keeps what bare-kit's native code reaches through JNI.
+      minifyEnabled = true
+      shrinkResources = true
+      proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
       if (uploadStore) signingConfig = signingConfigs.upload
+      // CI device check: install the R8 build on an emulator. Debug-signed so
+      // it installs, never used for Play. Not debuggable: the check must run
+      // the shipped code paths (the script reads app storage with adb root).
+      if (project.hasProperty("justus.deviceCheck")) {
+        signingConfig = signingConfigs.debug
+      }
     }
   }
 
