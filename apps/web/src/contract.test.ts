@@ -14,6 +14,7 @@ import { folders, foldersActor } from "./machines/folders-machine";
 import { gallery, galleryActor } from "./machines/gallery-machine";
 import { requests, requestsActor } from "./machines/requests-machine";
 import { sync, syncActor } from "./machines/sync-machine";
+import { deletedNote } from "./views/deleted-note";
 import { roleToast } from "./views/role-toast";
 
 const foldersNow = () => foldersActor.snapshot().context;
@@ -99,6 +100,7 @@ describe("machines on real backend payloads", () => {
     const refresh = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     vi.spyOn(folders, "refresh").mockImplementation(() => {});
     vi.spyOn(requests, "refresh").mockImplementation(() => {});
+    const noteShown = vi.spyOn(deletedNote, "add").mockImplementation(() => {});
     const roleShown = vi.spyOn(roleToast, "changed").mockImplementation(() => {});
     for (const args of fixture.pushes) {
       handleMessage({
@@ -109,11 +111,15 @@ describe("machines on real backend payloads", () => {
     expect(roleShown).toHaveBeenCalledTimes(
       fixture.pushes.filter((p) => p.cause === "role").length,
     );
-    // Every push but a holders one refreshes sync; only non-presence pushes reload the gallery.
-    expect(refresh).toHaveBeenCalledTimes(
-      fixture.pushes.filter((p) => p.cause !== "holders").length,
+    expect(noteShown).toHaveBeenCalledTimes(
+      fixture.pushes.filter((p) => p.cause === "deleted").length,
     );
-    expect(load).toHaveBeenCalledTimes(fixture.pushes.filter((p) => p.cause !== "presence").length);
+    // A holders or deleted push does not refresh sync; only the rest but presence reload the gallery.
+    const quiet = (c: unknown) => c === "holders" || c === "deleted";
+    expect(refresh).toHaveBeenCalledTimes(fixture.pushes.filter((p) => !quiet(p.cause)).length);
+    expect(load).toHaveBeenCalledTimes(
+      fixture.pushes.filter((p) => p.cause !== "presence" && p.cause !== "deleted").length,
+    );
   });
 
   test("folders: a fresh device (empty active id) and a populated one", async () => {
