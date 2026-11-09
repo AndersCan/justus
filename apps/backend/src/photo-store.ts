@@ -60,6 +60,7 @@ import { PEER_PROTOCOL } from "./versions";
 import { STATE_VERSION, stateVersionOf } from "./versions";
 import { checkCode } from "./membership/check-code";
 import { inviteTopic } from "./membership/invite";
+import { ADMIN_COLOR, fillColors, pickColor, takenColors } from "./membership/colors";
 import { makeMemberViewer, makeViewerMember, removeViewer, seatViewer } from "./membership/viewers";
 import {
   DRIVE_PATH_MEMBERS,
@@ -1922,6 +1923,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Why the last Make Collaborator for a person failed, so the caller gets the same refusal as before. */
   const lastRefusal = new Map<string, EitherResult<{ ok: boolean }>>();
 
+  /** Admin: gives a colour seat to everyone the lists hold without one (albums from before seats
+   * existed). Reads both lists again inside the one-change-at-a-time lock and writes a file only
+   * when something changed. */
+  async function fillMissingColors(rt: FolderRuntime): Promise<void> {
+    await refreshViewers(rt);
+    const registry = await readRegistryIn(rt.folderDrive);
+    const filled = fillColors(registry, { version: 1, viewers: rt.viewers });
+    if (filled.membersChanged) {
+      await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(filled.registry)));
+    }
+    if (filled.viewersChanged) {
+      await rt.folderDrive.put(DRIVE_PATH_VIEWERS, Buffer.from(JSON.stringify(filled.viewers)));
+      rt.viewers = filled.viewers.viewers;
+    }
+    if (filled.membersChanged || filled.viewersChanged) {
+      await refreshMembersFor(rt);
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+    }
+  }
+
   /** Admin: a Viewer becomes a Collaborator. */
   async function makeCollaboratorNow(rt: FolderRuntime, key: string) {
     await refreshViewers(rt);
@@ -3007,6 +3028,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     admin: boolean;
     self: boolean;
     viewer: boolean;
+    color?: number;
   };
 
   /** Everyone in the album as this phone sees it: this phone, the Admin, the
@@ -3017,13 +3039,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     // Dedupe self in case the registry already lists this device (issue #89).
     const isAdmin = rt.record.role === "creator";
     const adminKey = rt.record.shareKey;
-    const person = (key: string, name: string, viewer: boolean): AlbumPerson => ({
+    const person = (
+      key: string,
+      name: string,
+      viewer: boolean,
+      color: number | undefined,
+    ): AlbumPerson => ({
       key,
       name,
       admin: false,
       self: false,
       viewer,
+      ...(color === undefined ? {} : { color }),
     });
+    const selfEntry = registry.members[selfKey] ?? rt.viewers[selfKey];
     return [
       {
         key: selfKey,
@@ -3031,25 +3060,35 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         admin: isAdmin,
         self: true,
         viewer: rt.record.role === "reader" && rt.viewers[selfKey] !== undefined,
+        ...(isAdmin
+          ? { color: ADMIN_COLOR }
+          : selfEntry?.color === undefined
+            ? {}
+            : { color: selfEntry.color }),
       },
       // A member sees the Admin too: the registry only lists enrolled writers.
       ...(!isAdmin && selfKey !== adminKey
-        ? [{ ...person(adminKey, await readDeviceName(rt.folderDrive), false), admin: true }]
+        ? [
+            {
+              ...person(adminKey, await readDeviceName(rt.folderDrive), false, ADMIN_COLOR),
+              admin: true,
+            },
+          ]
         : []),
       ...Object.values(registry.members)
         .filter((m) => m.key !== selfKey && m.key !== adminKey)
-        .map((m) => person(m.key, m.name, false)),
+        .map((m) => person(m.key, m.name, false, m.color)),
       ...Object.values(rt.viewers)
         .filter((v) => v.key !== selfKey && v.key !== adminKey && !registry.members[v.key])
         .sort((a, b) => a.addedAt - b.addedAt)
-        .map((v) => person(v.key, v.name, true)),
+        .map((v) => person(v.key, v.name, true, v.color)),
       ...(isAdmin
         ? [
             ...Object.values(rt.record.moving ?? {}),
             ...Object.values(rt.record.movingUnknown ?? {}),
           ]
             .filter((m, i, all) => all.findIndex((o) => o.key === m.key) === i)
-            .map((m) => person(m.key, m.name, m.role === "reader"))
+            .map((m) => person(m.key, m.name, m.role === "reader", undefined))
         : []),
     ];
   }
@@ -3289,6 +3328,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             connected: true,
             identity: ownDrive.key,
             ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
+            ...(person.color === undefined ? {} : { color: person.color }),
           }
         : {
             key: person.key,
@@ -3296,6 +3336,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             admin: person.admin,
             ...memberPresence(presence, person.key),
             ...(person.viewer ? { viewer: true as const } : {}),
+            ...(person.color === undefined ? {} : { color: person.color }),
           },
     );
     const photos = (await listPhotosIn(rt)).length;
@@ -3753,6 +3794,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         } catch (e) {
           console.error(`[justus] failed to refresh creator device identity: ${errMsg(e)}`);
         }
+      }
+      if (isCreator) {
+        void oneChangePerAlbum(record.id, () => fillMissingColors(rt)).catch((e) =>
+          log("error", { where: "fillMissingColors", folder: short(record.id), err: errText(e) }),
+        );
       }
       await refreshMembersFor(rt);
       watchDrive(fd, record.id, fd.key, isCreator ? "enroll" : "add");
@@ -5221,7 +5267,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (registry.members[key]) {
         return err(PhotoError.ALREADY_ENROLLED, "Member already enrolled");
       }
-      registry.members[key] = { key, name, addedAt: Date.now() };
+      registry.members[key] = {
+        key,
+        name,
+        addedAt: Date.now(),
+        color: pickColor(takenColors(registry, rt.viewers)),
+      };
       await rt.folderDrive.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify(registry)));
       await loadMemberDrive(rt, key, name);
       deps.onChanged({ cause: "enroll", folderId: rt.record.id, memberKey: key });
@@ -5433,6 +5484,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             registry,
             requesterKey,
             requests: found.map((f) => f.request),
+            color: pickColor(takenColors(registry, rt.viewers)),
           });
           if (seatErr) {
             setAnswer(rt, asker, undefined);
@@ -5454,6 +5506,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           registry,
           requesterKey,
           requests: found.map((f) => f.request),
+          color: pickColor(takenColors(registry, rt.viewers)),
         });
         if (acceptErr) {
           if (seated) setAnswer(rt, seated, undefined);

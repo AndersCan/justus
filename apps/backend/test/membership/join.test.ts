@@ -652,8 +652,9 @@ describe("acceptJoinRequest", () => {
         registry,
         requesterKey: KEY_A,
         requests: [asked(KEY_B, "Other"), asked(KEY_A, "Bo")],
+        color: 2,
       });
-      const member = { key: KEY_A, name: "Bo", addedAt: 1_700_000_000_000 };
+      const member = { key: KEY_A, name: "Bo", addedAt: 1_700_000_000_000, color: 2 };
       const next = { version: 1, members: { ...registry.members, [KEY_A]: member } };
       expect({
         result,
@@ -676,6 +677,7 @@ describe("acceptJoinRequest", () => {
       registry,
       requesterKey: KEY_A,
       requests: [asked(KEY_B, "Other")],
+      color: 1,
     });
     expect({ err, name: accepted?.member.name }).toEqual({ err: null, name: "New member" });
   });
@@ -683,7 +685,12 @@ describe("acceptJoinRequest", () => {
   it("gives already-enrolled for a member", async () => {
     const [admin] = devices(1);
     const folder = await admin.ports.drives.openOwn("folder/a");
-    const result = await acceptJoinRequest(folder, { registry, requesterKey: "k", requests: [] });
+    const result = await acceptJoinRequest(folder, {
+      registry,
+      requesterKey: "k",
+      requests: [],
+      color: 1,
+    });
     expect({ result, stored: await readRegistry(folder, { log: admin.ports.log }) }).toEqual({
       result: [{ kind: "already-enrolled", message: "Member already enrolled" }, null],
       stored: { version: 1, members: {} },
@@ -699,6 +706,7 @@ describe("acceptJoinRequest", () => {
       registry,
       requesterKey: KEY_A,
       requests: [],
+      color: 1,
     });
     expect(result).toEqual([{ kind: "write-failed", message: "Drive is not writable" }, null]);
   });
@@ -746,6 +754,7 @@ describe("join, request, accept", () => {
       registry,
       requesterKey: self.key,
       requests: pending,
+      color: 1,
     });
     expect(acceptErr).toEqual(null);
 

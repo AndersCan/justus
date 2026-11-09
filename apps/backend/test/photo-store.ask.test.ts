@@ -408,6 +408,7 @@ describe("accepting as a Viewer", () => {
     const albumDrive = await albumDriveOf(s);
     const file = JSON.parse((await readText(albumDrive, "/viewers.json"))!);
     expect(Object.keys(file.viewers)).toEqual([s.key]);
+    expect(file.viewers[s.key].color).toBe(1);
     expect(await readText(albumDrive, "/members.json")).toBeUndefined();
     expect((await s.admin.store.requests()).requests).toEqual([]);
     const saved = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
@@ -498,6 +499,7 @@ describe("accepting as a Viewer", () => {
     const albumDrive = await albumDriveOf(s);
     expect(await readText(albumDrive, "/viewers.json")).toBeUndefined();
     expect(await readText(albumDrive, "/members.json")).not.toBeUndefined();
+    expect(JSON.parse((await readText(albumDrive, "/members.json"))!).members[s.key].color).toBe(1);
     await s.close();
   });
 

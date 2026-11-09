@@ -27,9 +27,10 @@ export async function seatViewer(
     registry: RegistryFile;
     requesterKey: string;
     requests: JoinRequest[];
+    color: number;
   },
 ): Promise<ViewerResult<{ viewers: ViewersFile; viewer: ViewersFile["viewers"][string] }>> {
-  const { viewers, registry, requesterKey, requests } = options;
+  const { viewers, registry, requesterKey, requests, color } = options;
   if (registry.members[requesterKey] || viewers.viewers[requesterKey]) {
     return [{ kind: "already-enrolled", message: "Member already enrolled" }, null];
   }
@@ -38,7 +39,7 @@ export async function seatViewer(
     ...viewers,
     viewers: {
       ...viewers.viewers,
-      [requesterKey]: { key: requesterKey, name, addedAt: Date.now() },
+      [requesterKey]: { key: requesterKey, name, addedAt: Date.now(), color },
     },
   };
   try {
@@ -87,7 +88,12 @@ export async function makeViewerMember(
     ...registry,
     members: {
       ...registry.members,
-      [memberKey]: { key: viewer.key, name: viewer.name, addedAt: viewer.addedAt },
+      [memberKey]: {
+        key: viewer.key,
+        name: viewer.name,
+        addedAt: viewer.addedAt,
+        ...(viewer.color === undefined ? {} : { color: viewer.color }),
+      },
     },
   };
   try {
@@ -130,7 +136,13 @@ export async function makeMemberViewer(
       ...viewers,
       viewers: {
         ...viewers.viewers,
-        [memberKey]: { key: memberKey, name: member.name, addedAt: member.addedAt, keptVersion },
+        [memberKey]: {
+          key: memberKey,
+          name: member.name,
+          addedAt: member.addedAt,
+          keptVersion,
+          ...(member.color === undefined ? {} : { color: member.color }),
+        },
       },
     };
     try {

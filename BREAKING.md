@@ -7,6 +7,7 @@ breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
 
 ## Unreleased · peer protocol 4
 
+- **Each person has a colour seat** (`/members.json` and `/viewers.json` entries gain an optional `"color"`, written by the Admin's phone). Who: internal testers on a protocol-4 build from before this change. Their colours disagree with updated phones, and an Admin on such a build writes people without a seat until it updates. Do: update Justus.
 - **An album from before 2026-10-28 is cleared off the phone's identity drive** after it moved. Who: testers whose first album predates #195. Do: nothing.
 - **Join asks are sealed to the Admin's phone** (`/requests.json` invite entries carry `sealedKey`, not `requesterKey`; the identity drive's `/device.json` gains `boxKey`). Who: internal testers on a protocol-4 build from before this change. Their asks are not listed by an updated Admin, and an Admin on such a build does not see asks from updated phones. Collaborators who joined before keep their old drive key in their outbox history: photos they added before stay readable to anyone who knows their friend key until a Remove moves the album. Do: update Justus.
 - **Who has each photo** (`/holding.json`, `/held/<id>` on each phone's album drive). Who:
