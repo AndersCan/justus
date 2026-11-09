@@ -2,4 +2,4 @@
 "@justus/android": patch
 ---
 
-[user]: A photo you have not sent yet now says it is on its way to the people you let in.
+[user]: A photo the others have not opened yet now says "Only on your phone. Others get it when they open it".
