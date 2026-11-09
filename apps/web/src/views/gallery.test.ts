@@ -3,7 +3,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
 import { createGalleryActor } from "../machines/gallery-machine";
-import { albumAddRow, albumHeader, missingAlbumText, scopePhotos, viewerLine } from "./gallery";
+import {
+  albumAddRow,
+  albumHeader,
+  missingAlbumText,
+  scopeEmptyState,
+  scopePhotos,
+  viewerLine,
+} from "./gallery";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -282,6 +289,27 @@ describe("albumAddRow for a removed album", () => {
       "You're no longer in Trip. You can still see the photos you have.",
     );
     expect(host.querySelector("button")).toBeNull();
+  });
+});
+
+describe("scopeEmptyState for an album", () => {
+  const draw = (album: Record<string, unknown>) => {
+    const host = document.createElement("div");
+    render(scopeEmptyState({ folders: [album] } as never, {} as never, album as never), host);
+    return host;
+  };
+  test("a removed album says how to come back, with no button", () => {
+    const host = draw({ id: "f1", name: "Trip", role: "reader", notice: { kind: "removed" } });
+    expect(host.querySelector("h2")?.textContent).toBe("No photos on this phone");
+    expect(host.querySelector("p")?.textContent).toBe(
+      "The Admin removed you from Trip, so new photos won't arrive. To ask to rejoin, paste a new invite link from the Admin. The Admin decides.",
+    );
+    expect(host.querySelector("button, a")).toBeNull();
+  });
+  test("a reader who was not removed keeps the usual text", () => {
+    const host = draw({ id: "f1", name: "Trip", role: "reader" });
+    expect(host.querySelector("h2")?.textContent).toBe("No photos in this album yet.");
+    expect(host.querySelector("p")?.textContent).toContain("Photos show up here");
   });
 });
 

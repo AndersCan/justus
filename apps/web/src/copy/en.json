@@ -2218,6 +2218,20 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.removed_empty_title": {
+    "text": "No photos on this phone",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "People removed from an album",
+    "screen": ""
+  },
+  "gallery.removed_empty_body": {
+    "text": "The Admin removed you from {name}, so new photos won't arrive. To ask to rejoin, paste a new invite link from the Admin. The Admin decides.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "People removed from an album",
+    "screen": ""
+  },
   "gallery.no_photos_in_this_album": {
     "text": "No photos in this album yet.",
     "status": "draft",

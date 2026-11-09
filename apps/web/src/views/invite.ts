@@ -461,9 +461,13 @@ export function joinSheet() {
         html`<h3 class="break-words text-base font-semibold text-fg">${LINK_TURNED_OFF}</h3>
           <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
           <div class="mt-4 flex justify-end gap-2">
-            <button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
-              ${t("invite.cancel_request")}
-            </button>
+            ${watch(foldersActor, (f) =>
+              f.context.asks.some((a) => a.code === invite.code)
+                ? html`<button class="ui-btn-ghost" @click=${() => join.cancelRequest()}>
+                    ${t("invite.cancel_request")}
+                  </button>`
+                : null,
+            )}
             <button class="ui-btn-primary" @click=${() => join.closeLinkTurnedOff()}>
               ${t("invite.close")}
             </button>
