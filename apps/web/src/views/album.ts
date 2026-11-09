@@ -424,14 +424,10 @@ function inviteAccept(
   label: string,
   meaning: string,
   onClick: () => void,
+  cls: string,
 ) {
   const descId = `${requestKey(r)}:${label}`;
-  return html`<button
-    class="ui-btn-primary w-full"
-    aria-describedby=${descId}
-    ?disabled=${busy}
-    @click=${onClick}
-  >
+  return html`<button class=${cls} aria-describedby=${descId} ?disabled=${busy} @click=${onClick}>
     <span class="flex w-full flex-col items-start text-left">
       <span>${label}</span>
       <span class="text-xs font-normal" id=${descId} aria-hidden="true">${meaning}</span>
@@ -478,6 +474,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
               copy("album.accept_as_viewer"),
               copy("album.sees_every_photo_can_t"),
               accept("reader"),
+              "ui-btn-primary w-full",
             )}
             ${inviteAccept(
               r,
@@ -485,6 +482,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
               copy("album.accept_as_collaborator"),
               copy("album.sees_every_photo_and_can"),
               accept("member"),
+              "ui-btn-ghost w-full",
             )}
             <button
               class="ui-btn-ghost w-full"
@@ -521,20 +519,6 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   >
     <h2 class="ui-label mb-3">${t("album.asking_to_join")}</h2>
     ${hint !== "" ? html`<p class="mb-3 text-xs text-muted">${hint}</p>` : null}
-    ${
-      keys.length >= 2
-        ? html`<div class="mb-3">
-            <button
-              class="ui-btn-primary w-full"
-              ?disabled=${reqVm.responding || reqVm.loading}
-              @click=${() => requests.acceptAllAsViewers(id, keys)}
-            >
-              ${t("album.accept_all_as_viewers", { count: keys.length })}
-            </button>
-            <p class="mt-1 text-xs text-muted">${t("album.they_can_see_the_photos")}</p>
-          </div>`
-        : null
-    }
     <ul class="space-y-2" ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}>
       ${repeat(vm.requests, requestKey, (r) =>
         requestRow(
@@ -547,6 +531,17 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
         ),
       )}
     </ul>
+    ${
+      keys.length >= 2
+        ? html`<button
+            class="ui-focus mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong disabled:pointer-events-none disabled:opacity-50"
+            ?disabled=${reqVm.responding || reqVm.loading}
+            @click=${() => requests.acceptAllAsViewers(id, keys)}
+          >
+            ${t("album.accept_all_as_viewers", { count: keys.length })}
+          </button>`
+        : null
+    }
   </section>`;
 }
 
