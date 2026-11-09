@@ -36,6 +36,10 @@ type InviteLinkContext = {
   offCode: string;
   /** The album whose links were just turned off; its panel says so until a link is made for it. Empty when none. */
   offFolderId: string;
+  /** The album whose shown link was replaced by a removal; its panel says so until a link is made for it. Empty when none. */
+  replacedFolderId: string;
+  /** The latest person removed, for that line. */
+  removedName: string;
 };
 
 /** Turning links off, as the gateway answers it. */
@@ -53,14 +57,14 @@ const noPort: InviteLinkPort = {
 /** No link has been made yet; the panel shows the time picker. */
 const noLinkYet = state("noLinkYet")();
 /** The link's end time is being saved on this phone; the link is not handed out until it is. */
-const savingLinkTime = state("savingLinkTime")<{ expiresAt: number }>();
-/** A link was made and works until `expiresAt` (ms since the epoch, whole seconds). */
-const linkMade = state("linkMade")<{ expiresAt: number }>();
+const savingLinkTime = state("savingLinkTime")<{ expiresAt: number; code: string }>();
+/** A link was made with the album's code `code` and works until `expiresAt` (ms since the epoch, whole seconds). */
+const linkMade = state("linkMade")<{ expiresAt: number; code: string }>();
 /** The owner confirmed turning off the links; `before` is the link shown until then, if any. */
 const turningOff = state("turningOff")<{
   folderId: string;
   code: string;
-  before?: { expiresAt: number };
+  before?: { expiresAt: number; code: string };
 }>();
 
 /** The owner picks how long the link works. */
@@ -74,6 +78,15 @@ export const createLink = event("createLink")<{
   folderId: string;
   /** The album's current invite code. */
   code: string;
+}>();
+/** A person was removed, so the album's invite code `code` no longer works; `name` is who. */
+export const linkReplaced = event("linkReplaced")<{
+  /** The album the person was removed from. */
+  folderId: string;
+  /** The album's invite code that no longer works. */
+  code: string;
+  /** Who was removed. */
+  name: string;
 }>();
 /** The owner confirmed turning off every link sent for an album; `code` is the album's current one. */
 export const turnOffLink = event("turnOffLink")<{
@@ -111,13 +124,20 @@ function msUntil(expiresAt: number, now: number): number {
 export function createInviteLinkActor(options: { clock: Clock; port?: InviteLinkPort }) {
   const { clock, port = noPort } = options;
   return Actor({
-    inputs: [chooseLinkTime, createLink, turnOffLink],
+    inputs: [chooseLinkTime, createLink, turnOffLink, linkReplaced],
     internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
     outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
     states: [noLinkYet, savingLinkTime, linkMade, turningOff],
     initial: noLinkYet,
     clock,
-    context: { folderId: "", validFor: "1d", offCode: "", offFolderId: "" } as InviteLinkContext,
+    context: {
+      folderId: "",
+      validFor: "1d",
+      offCode: "",
+      offFolderId: "",
+      replacedFolderId: "",
+      removedName: "",
+    } as InviteLinkContext,
     setup: (m) => {
       /** The owner picks a time; a value that is not one of the choices is ignored. */
       m.on(noLinkYet, {
@@ -140,10 +160,13 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
             ...current,
             folderId: e.payload.folderId,
             offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+            ...(current.replacedFolderId === e.payload.folderId
+              ? { replacedFolderId: "", removedName: "" }
+              : {}),
           });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: savingLinkTime.create({ expiresAt }) };
+          return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
         },
       });
       /** The panel for another album shows the picker, so a pick still counts. */
@@ -155,21 +178,29 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
           return {};
         },
       });
-      /** A link for another album replaces the one made; the same album keeps its link. */
+      /** A link for another album, or for this album's new code, replaces the one made; the same link is kept. */
       m.on(linkMade, {
         event: createLink,
         to: [savingLinkTime],
-        handler: (e, { context }) => {
+        handler: (e, { context, state }) => {
           const current = context.get();
-          if (e.payload.folderId === "" || e.payload.folderId === current.folderId) return {};
+          if (
+            e.payload.folderId === "" ||
+            e.payload.code === current.offCode ||
+            (e.payload.folderId === current.folderId && e.payload.code === state.payload.code)
+          )
+            return {};
           context.set({
             ...current,
             folderId: e.payload.folderId,
             offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+            ...(current.replacedFolderId === e.payload.folderId
+              ? { replacedFolderId: "", removedName: "" }
+              : {}),
           });
           const expiresAt =
             Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: savingLinkTime.create({ expiresAt }) };
+          return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
         },
       });
       /** A timer runs until the link's end time. */
@@ -201,7 +232,7 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
         event: linkTimeSaved,
         to: [linkMade],
         handler: (_e, { state }) => ({
-          state: linkMade.create({ expiresAt: (state.payload as { expiresAt: number }).expiresAt }),
+          state: linkMade.create(state.payload as { expiresAt: number; code: string }),
         }),
       });
       /** Saving failed, so no link is shown and the owner can try again. */
@@ -228,8 +259,8 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
         to: [turningOff],
         handler: (e, { state }) => {
           if (e.payload.folderId === "" || e.payload.code === "") return {};
-          const { expiresAt } = state.payload as { expiresAt: number };
-          return { state: turningOff.create({ ...e.payload, before: { expiresAt } }) };
+          const { expiresAt, code } = state.payload as { expiresAt: number; code: string };
+          return { state: turningOff.create({ ...e.payload, before: { expiresAt, code } }) };
         },
       });
       /** The links are turned off on this phone. */
@@ -252,13 +283,16 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
         to: [noLinkYet, linkMade],
         handler: (e, { context, state }) => {
           const current = context.get();
-          const { before } = state.payload as { before?: { expiresAt: number } };
+          const { before } = state.payload as { before?: { expiresAt: number; code: string } };
           const keep = before !== undefined && e.payload.folderId !== current.folderId;
           context.set({
             ...current,
             offCode: e.payload.code,
             offFolderId: e.payload.folderId,
             validFor: keep ? current.validFor : "1d",
+            ...(current.replacedFolderId === e.payload.folderId
+              ? { replacedFolderId: "", removedName: "" }
+              : {}),
           });
           return {
             state: keep ? linkMade.create(before) : noLinkYet,
@@ -271,11 +305,48 @@ export function createInviteLinkActor(options: { clock: Clock; port?: InviteLink
         event: linkOffFailed,
         to: [noLinkYet, linkMade],
         handler: (e, { state }) => {
-          const { before } = state.payload as { before?: { expiresAt: number } };
+          const { before } = state.payload as { before?: { expiresAt: number; code: string } };
           return {
             state: before ? linkMade.create(before) : noLinkYet,
             emit: [turnOffFailed.create({ folderId: e.payload.folderId })],
           };
+        },
+      });
+      /** A removal before any link is shown: the old code is refused; a second removal names the new person. */
+      m.on(noLinkYet, {
+        event: linkReplaced,
+        handler: (e, { context }) => {
+          if (e.payload.folderId === "" || e.payload.code === "") return {};
+          const current = context.get();
+          context.set({
+            ...current,
+            offCode: e.payload.code,
+            ...(current.replacedFolderId === e.payload.folderId
+              ? { removedName: e.payload.name }
+              : {}),
+          });
+          return {};
+        },
+      });
+      /** A removal while a link is shown: another album's link stays; this album's goes back to the picker. */
+      m.on(linkMade, {
+        event: linkReplaced,
+        to: [noLinkYet, linkMade],
+        handler: (e, { context }) => {
+          if (e.payload.folderId === "" || e.payload.code === "") return {};
+          const current = context.get();
+          if (e.payload.folderId !== current.folderId) {
+            context.set({ ...current, offCode: e.payload.code });
+            return {};
+          }
+          context.set({
+            ...current,
+            offCode: e.payload.code,
+            replacedFolderId: e.payload.folderId,
+            removedName: e.payload.name,
+            validFor: "1d",
+          });
+          return { state: noLinkYet };
         },
       });
       /** The time ran out, so the panel offers the picker again. */

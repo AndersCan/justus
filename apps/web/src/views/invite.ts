@@ -114,6 +114,16 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   }, 2000);
 }
 
+/** Copies the album's current link and says whether it worked; used by the toast after a removal. */
+export async function copyInviteLink(folder: FolderSummary, myName: string) {
+  const link = await madeLink(folder, myName);
+  toast(
+    link && (await copyText(link))
+      ? copy("invite.invite_link_copied")
+      : copy("invite.couldn_t_copy_the_invite_2"),
+  );
+}
+
 async function turnOff(folder: FolderSummary) {
   if (!folder.invite) return;
   const ok = await confirmAction({
@@ -289,10 +299,18 @@ function invitePanelBody(
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
   const linksOff = view.offFolderId === folder.id;
+  const replaced = view.replacedFolderId === folder.id;
   const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
+      ${
+        replaced
+          ? html`<p class="mb-4 text-sm text-fg" role="status">
+              ${t("invite.link_replaced_by_removal", { name: view.removedName })}
+            </p>`
+          : null
+      }
       ${
         linksOff
           ? html`<p class="mb-4 text-sm text-fg" role="status">

@@ -7,6 +7,7 @@ import {
   chooseLinkTime,
   createInviteLinkActor,
   createLink,
+  linkReplaced,
   turnOffLink,
   type ValidFor,
 } from "./invite-link-machine";
@@ -21,6 +22,10 @@ export type InviteLinkView = {
   offCode: string;
   /** The album whose links were just turned off; "" when none. */
   offFolderId: string;
+  /** The album whose shown link a removal replaced; "" when none. */
+  replacedFolderId: string;
+  /** Who was removed last, for that album's line. */
+  removedName: string;
   expiresAt?: number;
 };
 
@@ -31,6 +36,8 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     validFor: ValidFor;
     offCode: string;
     offFolderId: string;
+    replacedFolderId: string;
+    removedName: string;
   };
   const state = snapshot.path[0] as InviteLinkView["state"];
   return {
@@ -39,6 +46,8 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
     validFor: context.validFor,
     offCode: context.offCode,
     offFolderId: context.offFolderId,
+    replacedFolderId: context.replacedFolderId,
+    removedName: context.removedName,
     ...(state === "linkMade"
       ? { expiresAt: (snapshot.payload as { expiresAt: number }).expiresAt }
       : {}),
@@ -67,6 +76,8 @@ export const inviteLink = {
   chooseLinkTime: (validFor: ValidFor) => inviteLinkActor.send(chooseLinkTime.create({ validFor })),
   createLink: (folderId: string, code: string) =>
     inviteLinkActor.send(createLink.create({ folderId, code })),
+  linkReplaced: (folderId: string, code: string, name: string) =>
+    inviteLinkActor.send(linkReplaced.create({ folderId, code, name })),
   turnOffLink: (folderId: string, code: string) =>
     inviteLinkActor.send(turnOffLink.create({ folderId, code })),
 };
