@@ -17,6 +17,8 @@ export type JustusRuntimeOptions = WorkletRuntimeOptions & {
   inbox?: string;
   /** Hyperswarm DHT bootstrap servers (dev/test: point at a local DHT). */
   bootstrap?: string[];
+  /** Dev only (`protocol=<n>`): the peer protocol this device announces, to play an older or newer phone. */
+  peerProtocol?: number;
   /** Desktop host: fd to hand the origin + bootstrap nonce to (not dev). */
   handoffFd?: number;
 };
@@ -45,11 +47,18 @@ export function resolveJustusConfig(): JustusRuntimeOptions {
     return hit ? hit.slice(name.length + 1) : undefined;
   };
   const bootstrapArg = label("bootstrap");
+  const protocolArg = label("protocol");
+  const protocol = Number(protocolArg);
+  const peerProtocol = Number.isInteger(protocol) && protocol >= 1 ? protocol : undefined;
+  if (protocolArg !== undefined && peerProtocol === undefined) {
+    console.error(`protocol=${protocolArg} ignored: not a whole number >= 1`);
+  }
   return {
     ...config,
     inbox: label("inbox"),
     seedSamples: label("seed") !== "off",
     bootstrap: bootstrapArg ? [bootstrapArg] : undefined,
+    peerProtocol,
     dev: true,
   };
 }

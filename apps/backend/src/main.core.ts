@@ -114,6 +114,7 @@ const store: PhotoStore = createPhotoStore({
   crypto,
   drives,
   network,
+  peerProtocol: config.peerProtocol,
 });
 
 runtime.pluginRegistry.register(createPhotosPlugin({ store, checkContract: config.dev }));
