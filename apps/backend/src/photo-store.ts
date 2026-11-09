@@ -3827,7 +3827,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function publishLinksOff(): Promise<void> {
     try {
       const ids = state.folders
-        .filter((f) => f.role === "creator")
         .flatMap((f) => Object.entries(f.retiredWhy ?? {}))
         .filter(([, why]) => why === "turnedOff")
         .map(([code]) => linkOffId(code, crypto));
@@ -5792,7 +5791,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         5_000,
       ).catch(() => null);
       const turnedOff = linksOffIn(text ?? null).includes(linkOffId(code.toLowerCase(), crypto));
-      log("link.checked", { owner: short(owner), reached: text != null, turnedOff });
       return ok({ turnedOff });
     },
 

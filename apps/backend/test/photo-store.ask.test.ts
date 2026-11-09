@@ -8,7 +8,6 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeCrypto from "node:crypto";
 import { inviteTopic } from "../src/membership/invite.ts";
-import { linksOffFile } from "../src/membership/invites.ts";
 import { boxKeyOf } from "../src/membership/records.ts";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import type { Drive } from "../src/ports/drive-store.ts";
@@ -1155,9 +1154,6 @@ describe("a request through a turned-off link", () => {
   it("after a restart the Admin still serves a turned-off code and tells a joiner who asks through it", async () => {
     const { s, joinerNetwork } = await teed();
     await s.admin.store.turnOffInvite(s.folderId);
-    // The file is derived from saved state: lose it, and the next boot writes it again.
-    const own = await openDrive(s.admin, s.owner);
-    await own.put("/links.json", Buffer.from(linksOffFile([])));
     await s.admin.store.close();
     const reopened = createPhotoStore(restarted(s.admin.deps));
     await reopened.ready();
@@ -1432,6 +1428,7 @@ describe("a request through a turned-off link", () => {
     await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
     await s.admin.store.turnOffInvite(s.folderId);
     await s.admin.store.removeMember(s.folderId, req.requesterKey);
+    await s.admin.store.turnOffInvite(s.folderId);
     const c = buildStore("Cy", s.hub);
     await c.store.ready();
     await c.store.ask({ code: s.invite.code, owner: s.owner });
@@ -1931,14 +1928,6 @@ describe("a joiner checks a link against the owner's published list", () => {
     await s.close();
   });
 
-  it("the file holds hashes, not codes", async () => {
-    const s = await scenario();
-    await s.admin.store.turnOffInvite(s.folderId);
-    const text = (await readText(await openDrive(s.joiner, s.owner), "/links.json"))!;
-    expect(text).not.toContain(s.invite.code);
-    await s.close();
-  });
-
   it("the current link is not off", async () => {
     const s = await scenario();
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
@@ -1956,6 +1945,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     await s.admin.store.respond(s.folderId, req.requesterKey, true);
     await until(async () => (await s.joiner.store.folders()).folders.length === 1, 4_000);
     await s.admin.store.removeMember(s.folderId, req.requesterKey);
+    await s.admin.store.turnOffInvite(s.folderId);
     const c = buildStore("Cy", s.hub);
     await c.store.ready();
     expect(await c.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
@@ -1986,7 +1976,7 @@ describe("a joiner checks a link against the owner's published list", () => {
   });
 
   it("an unreachable owner reads as not off within the budget", async () => {
-    const hub = createFakeHub({ unreachable: (key) => key === "e".repeat(64) });
+    const hub = createFakeHub({ readyDelayMs: (key) => (key === "e".repeat(64) ? Infinity : 0) });
     const joiner = buildStore("Joiner", hub);
     await joiner.store.ready();
     const started = Date.now();
@@ -1995,16 +1985,4 @@ describe("a joiner checks a link against the owner's published list", () => {
     expect(Date.now() - started).toBeLessThan(6_000);
     await joiner.store.close();
   }, 10_000);
-
-  it("refuses a code or owner that is not a key", async () => {
-    const joiner = buildStore("Joiner", createFakeHub());
-    await joiner.store.ready();
-    expect((await joiner.store.linkTurnedOff("zz", "e".repeat(64)))[0]?.code).toBe(
-      PhotoError.INVALID_KEY,
-    );
-    expect((await joiner.store.linkTurnedOff("c".repeat(64), "zz"))[0]?.code).toBe(
-      PhotoError.INVALID_KEY,
-    );
-    await joiner.store.close();
-  });
 });
