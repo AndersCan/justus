@@ -33,6 +33,8 @@ const context = (actor: ReturnType<typeof setup>["actor"]) =>
     validFor: ValidFor;
     offCode: string;
     offFolderId: string;
+    replacedFolderId: string;
+    removedName: string;
   };
 const expiresAt = (actor: ReturnType<typeof setup>["actor"]) =>
   (actor.snapshot().payload as { expiresAt: number }).expiresAt;
@@ -41,7 +43,14 @@ describe("invite link machine", () => {
   test("starts with no link and a 1 day choice", () => {
     const { actor } = setup();
     expect(actor.state.name).toBe("noLinkYet");
-    expect(context(actor)).toEqual({ folderId: "", validFor: "1d", offCode: "", offFolderId: "" });
+    expect(context(actor)).toEqual({
+      folderId: "",
+      validFor: "1d",
+      offCode: "",
+      offFolderId: "",
+      replacedFolderId: "",
+      removedName: "",
+    });
   });
 
   test.each([
@@ -242,6 +251,8 @@ describe("turning off links", () => {
       validFor: "1d",
       offCode: CODE,
       offFolderId: FOLDER,
+      replacedFolderId: "",
+      removedName: "",
     });
     expect(seen).toContain("linkTurnedOff");
   });
@@ -300,6 +311,7 @@ describe("turning off links", () => {
     expect(actor.state.name).toBe("linkMade");
     expect(context(actor).folderId).toBe(FOLDER);
     expect(expiresAt(actor)).toBe(first);
+    expect(codeOf(actor)).toBe(CODE);
   });
 
   test("turning off remembers the album until a link is made for it", async () => {
@@ -377,6 +389,171 @@ describe("turning off links", () => {
   });
 });
 
+const codeOf = (actor: ReturnType<typeof setup>["actor"]) =>
+  (actor.snapshot().payload as { code: string }).code;
+const removed = (folderId: string, code: string, name = "Cy") =>
+  ({ type: "linkReplaced", payload: { folderId, code, name } }) as const;
+
+describe("invite link after a removal", () => {
+  async function shown() {
+    const saved: [string, number][] = [];
+    const { clock, actor } = setup(savingPort(saved));
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    return { clock, actor, saved };
+  }
+
+  test("a removal while this album's link is shown goes back to the picker and drops the timer", async () => {
+    const { clock, actor } = await shown();
+    actor.send({ type: "chooseLinkTime", payload: { validFor: "7d" } });
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(context(actor)).toEqual({
+      folderId: FOLDER,
+      validFor: "1d",
+      offCode: CODE,
+      offFolderId: "",
+      replacedFolderId: FOLDER,
+      removedName: "Cy",
+    });
+    clock.advance(VALID_FOR_MS["1d"] + 1_000);
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+  });
+
+  test("the old code makes no link; the new code saves its own time and clears the line", async () => {
+    const { clock, actor, saved } = await shown();
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("noLinkYet");
+    expect(saved).toHaveLength(1);
+    clock.advance(5_000);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(codeOf(actor)).toBe(NEW_CODE);
+    expect(saved).toEqual([
+      [FOLDER, VALID_FOR_MS["1d"]],
+      [FOLDER, 5_000 + VALID_FOR_MS["1d"]],
+    ]);
+    expect(context(actor).replacedFolderId).toBe("");
+    expect(context(actor).removedName).toBe("");
+  });
+
+  test("a new code for the same album saves a new time even without a removal message", async () => {
+    const { actor, saved } = await shown();
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(codeOf(actor)).toBe(NEW_CODE);
+    expect(saved).toHaveLength(2);
+  });
+
+  test("a removal from another album keeps this album's link and refuses the old code", async () => {
+    const { actor } = await shown();
+    const before = expiresAt(actor);
+    actor.send(removed("e".repeat(64), "d".repeat(64)));
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(expiresAt(actor)).toBe(before);
+    expect(context(actor).offCode).toBe("d".repeat(64));
+    expect(context(actor).replacedFolderId).toBe("");
+    actor.send({ type: "createLink", payload: { folderId: "e".repeat(64), code: "d".repeat(64) } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).folderId).toBe(FOLDER);
+  });
+
+  test("a removal with no link shown sets only the refused code; a second one renames", async () => {
+    const { actor } = setup();
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    expect(context(actor)).toEqual({
+      folderId: "",
+      validFor: "1d",
+      offCode: CODE,
+      offFolderId: "",
+      replacedFolderId: "",
+      removedName: "",
+    });
+    const second = setup(savingPort([]));
+    second.actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await second.actor.settled();
+    second.actor.send(removed(FOLDER, CODE, "Cy"));
+    second.actor.send(removed(FOLDER, NEW_CODE, "Dee"));
+    await second.actor.settled();
+    expect(context(second.actor).removedName).toBe("Dee");
+    expect(context(second.actor).offCode).toBe(NEW_CODE);
+  });
+
+  test("empty folder or code is ignored", async () => {
+    const { actor } = await shown();
+    actor.send(removed("", CODE));
+    actor.send(removed(FOLDER, ""));
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).offCode).toBe("");
+    const idle = setup();
+    idle.actor.send(removed(FOLDER, ""));
+    idle.actor.send(removed("", CODE));
+    await idle.actor.settled();
+    expect(context(idle.actor).offCode).toBe("");
+  });
+
+  test("copying another album's link and then this album's new link clears the removal line", async () => {
+    const { actor } = await shown();
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    actor.send({ type: "createLink", payload: { folderId: OTHER, code: "9".repeat(64) } });
+    await actor.settled();
+    expect(context(actor).replacedFolderId).toBe(FOLDER);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(context(actor).replacedFolderId).toBe("");
+    expect(context(actor).removedName).toBe("");
+  });
+
+  test("a failed turn-off restores the link with its code, so Copy saves no new time", async () => {
+    const saved: [string, number][] = [];
+    const { actor } = setup({
+      ...savingPort(saved),
+      turnOff: async () => [new Error("no"), null],
+    });
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    turnOff(actor, FOLDER, CODE);
+    await actor.settled();
+    expect(actor.state.name).toBe("linkMade");
+    expect(codeOf(actor)).toBe(CODE);
+    actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+    await actor.settled();
+    expect(saved).toHaveLength(1);
+  });
+
+  test("an empty code does not overwrite a refused code when no link is shown", async () => {
+    const { actor } = setup();
+    actor.send(removed(FOLDER, CODE));
+    actor.send(removed(FOLDER, ""));
+    await actor.settled();
+    expect(context(actor).offCode).toBe(CODE);
+  });
+
+  test("turning off the links clears the replaced line", async () => {
+    const { actor } = await shown();
+    actor.send(removed(FOLDER, CODE));
+    await actor.settled();
+    actor.send({ type: "turnOffLink", payload: { folderId: FOLDER, code: NEW_CODE } });
+    await actor.settled();
+    expect(context(actor).replacedFolderId).toBe("");
+    expect(context(actor).removedName).toBe("");
+    expect(context(actor).offFolderId).toBe(FOLDER);
+  });
+});
+
 const walkTarget = () => createInviteLinkActor({ clock: VirtualClock() });
 const make = recordRuns(createInviteLinkActor);
 
@@ -388,6 +565,15 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
   await actor.settled();
   expect(actor.state.name).toBe("linkMade");
   clock.advance(VALID_FOR_MS["1h"]);
+  await actor.settled();
+  expect(actor.state.name).toBe("noLinkYet");
+});
+
+test("Nils removes someone while his link is shown, and the panel offers the picker again", async () => {
+  const actor = make({ clock: VirtualClock(), port: savingPort([]) });
+  actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
+  await actor.settled();
+  actor.send(removed(FOLDER, CODE));
   await actor.settled();
   expect(actor.state.name).toBe("noLinkYet");
 });

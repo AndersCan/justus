@@ -59,7 +59,12 @@ async function madeLink(folder: FolderSummary, myName: string): Promise<string |
   inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   await inviteLinkActor.settled();
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
-  if (view.state !== "linkMade" || view.folderId !== folder.id || view.expiresAt === undefined)
+  if (
+    view.state !== "linkMade" ||
+    view.folderId !== folder.id ||
+    view.expiresAt === undefined ||
+    view.code !== (folder.invite?.code ?? "")
+  )
     return null;
   return inviteLinkFor(folder, myName, view.expiresAt);
 }
@@ -112,6 +117,16 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   setTimeout(() => {
     button.textContent = label;
   }, 2000);
+}
+
+/** Copies the album's current link and says whether it worked; used by the toast after a removal. */
+export async function copyInviteLink(folder: FolderSummary, myName: string) {
+  const link = await madeLink(folder, myName);
+  toast(
+    link && (await copyText(link))
+      ? copy("invite.invite_link_copied")
+      : copy("invite.couldn_t_copy_the_invite_2"),
+  );
 }
 
 async function turnOff(folder: FolderSummary) {
@@ -248,7 +263,12 @@ export function invitePanel(
   }
   return watch(inviteLinkActor, (snapshot) => {
     const view = inviteLinkViewOf(snapshot);
-    const made = view.folderId === folder.id && view.expiresAt !== undefined ? view : null;
+    const made =
+      view.folderId === folder.id &&
+      view.expiresAt !== undefined &&
+      view.code === (folder.invite?.code ?? "")
+        ? view
+        : null;
     return invitePanelBody(
       folder,
       myName,
@@ -289,10 +309,18 @@ function invitePanelBody(
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
   const linksOff = view.offFolderId === folder.id;
+  const replaced = view.replacedFolderId === folder.id;
   const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
+      ${
+        replaced
+          ? html`<p class="mb-4 text-sm text-fg" role="status">
+              ${t("invite.link_replaced_by_removal", { name: view.removedName })}
+            </p>`
+          : null
+      }
       ${
         linksOff
           ? html`<p class="mb-4 text-sm text-fg" role="status">

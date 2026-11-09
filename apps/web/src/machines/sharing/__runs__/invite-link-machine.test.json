@@ -36,6 +36,34 @@
       ]
     },
     {
+      "name": "Nils removes someone while his link is shown, and the panel offers the picker again",
+      "end": "noLinkYet",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "createLink",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "linkTimeSaved",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "linkReplaced",
+          "payload": {
+            "folderId": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "code": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "name": "Cy"
+          }
+        }
+      ]
+    },
+    {
       "name": "Nils turns off the links he sent",
       "end": "noLinkYet",
       "steps": [

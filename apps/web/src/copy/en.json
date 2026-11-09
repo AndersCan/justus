@@ -2855,6 +2855,13 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.link_replaced_by_removal": {
+    "text": "{name} was removed, so your old invite link stopped working. Copy a new one to send.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites",
+    "screen": ""
+  },
   "invite.links_turned_off_links_you": {
     "text": "Links turned off. Links you sent no longer work.",
     "status": "draft",
