@@ -205,13 +205,31 @@ describe("Delete", () => {
       },
     }) as never;
 
-  it("names who sees it's gone now and later", async () => {
+  const holdersOf = (others: { key: string; name: string }[]) => ({
+    here: true,
+    others,
+    unsure: [],
+    waiting: [],
+    former: [],
+    left: [],
+  });
+
+  it("names who keeps a copy and who sees it's gone later", async () => {
     await reload([a, b]);
     vi.spyOn(syncActor, "snapshot").mockReturnValue(albumStatus());
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
-    await deleteFromLightbox({ ...b, folderId: "f1" });
+    await deleteFromLightbox({
+      ...b,
+      folderId: "f1",
+      holders: holdersOf([
+        { key: "Ben", name: "Ben" },
+        { key: "Cara", name: "Cara" },
+      ]),
+    });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith("Deleted “b”. Ben sees it's gone, Cara when connected.");
+    expect(toast).toHaveBeenCalledWith(
+      "Deleted “b”. Ben and Cara keep a copy. Cara will see it's gone when connected.",
+    );
     vi.mocked(syncActor.snapshot).mockRestore();
   });
 
@@ -229,9 +247,13 @@ describe("Delete", () => {
       context: { friends: { "id-ben": "Benny" } },
     } as never);
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
-    await deleteFromLightbox({ ...b, folderId: "f1" });
+    await deleteFromLightbox({
+      ...b,
+      folderId: "f1",
+      holders: holdersOf([{ key: "Ben", name: "Ben" }]),
+    });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny sees it's gone.");
+    expect(toast).toHaveBeenCalledWith("Deleted “b”. Benny keeps a copy.");
     vi.mocked(syncActor.snapshot).mockRestore();
     vi.mocked(friendsActor.snapshot).mockRestore();
   });

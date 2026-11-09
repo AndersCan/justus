@@ -140,27 +140,46 @@ describe("deleteDetail", () => {
 });
 
 describe("deletedMessage", () => {
-  const ben = { name: "Ben", connected: true };
-  const ana = { name: "Ana", connected: true };
-  const cara = { name: "Cara", connected: false };
-  const rows: [string, { name: string; connected: boolean }[], string][] = [
-    ["alone", [], "Deleted “Sunset”."],
-    ["one connected", [ben], "Deleted “Sunset”. Ben sees it's gone."],
-    ["two connected", [ben, ana], "Deleted “Sunset”. Ben and Ana see it's gone."],
-    ["one away", [cara], "Deleted “Sunset”. Cara will see it's gone when connected."],
+  const person = (name: string, connected = true) => ({ key: name, name, connected });
+  const people = [person("Ben"), person("Ana"), person("Cy"), person("Dan", false)];
+  const rows: [string, Partial<PhotoHolders>, string][] = [
+    ["alone", {}, "Deleted “Sunset”."],
     [
-      "two away",
-      [cara, { name: "Dan", connected: false }],
-      "Deleted “Sunset”. Cara and Dan will see it's gone when connected.",
+      "one keeps, one never got it",
+      { others: [m("Ben")], waiting: [m("Cy")] },
+      "Deleted “Sunset”. Ben keeps a copy. Cy never got it.",
+    ],
+    ["two keep", { others: [m("Ana"), m("Ben")] }, "Deleted “Sunset”. Ana and Ben keep a copy."],
+    [
+      "waiting away",
+      { waiting: [m("Cy"), m("Dan")] },
+      "Deleted “Sunset”. Cy and Dan never got it.",
     ],
     [
-      "two connected and one away",
-      [ben, ana, cara],
-      "Deleted “Sunset”. Ben and Ana see it's gone, Cara when connected.",
+      "holder away",
+      { others: [m("Ben"), m("Dan")] },
+      "Deleted “Sunset”. Ben and Dan keep a copy. Dan will see it's gone when connected.",
     ],
-    ["both", [ben, cara], "Deleted “Sunset”. Ben sees it's gone, Cara when connected."],
+    [
+      "only unsure, former, left",
+      { unsure: [m("Ben")], former: ["Eve"], left: ["Fay"] },
+      "Deleted “Sunset”.",
+    ],
   ];
-  it.each(rows)("%s", (_, others, text) => {
-    expect(deletedMessage("Sunset", others)).toBe(text);
+  it.each(rows)("%s", (_, p, text) => {
+    expect(deletedMessage("Sunset", h(p), people)).toBe(text);
+  });
+  it("without holders", () => {
+    expect(deletedMessage("Sunset", undefined, people)).toBe("Deleted “Sunset”.");
+  });
+  it("uses the friend name, else the phone's own name", () => {
+    const saved = [{ key: "k1", name: "Benny", connected: true }];
+    const others = [
+      { key: "k1", name: "Ben" },
+      { key: "k2", name: "Zed" },
+    ];
+    expect(deletedMessage("Sunset", h({ others }), saved)).toBe(
+      "Deleted “Sunset”. Benny and Zed keep a copy.",
+    );
   });
 });
