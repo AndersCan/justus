@@ -16,6 +16,7 @@ catalog:
   "@mantaq/sugar": ^2.1.1
   "@mantaq/viz": ^0.21.0
   "@mantaq/utils": ^0.0.6
+  "@varlock/bumpy": ^1.18.1
   astro: ^7.4.4
   "@playwright/test": ^1.62.1
   playwright: ^1.62.1

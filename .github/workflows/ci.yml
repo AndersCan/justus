@@ -46,6 +46,59 @@ jobs:
       - name: Run test suites
         run: pnpm exec vp run -r test
 
+  bumpy:
+    name: bump file
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 11.22.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.18"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Every PR adds a bump file (`pnpm bumpy add`, `--empty` for CI/test/docs).
+      # A version PR (from `bumpy version`) removes bump files and changes
+      # package.json versions, so "no bump files" is expected there. A PR is a
+      # version PR only when it deletes bump files.
+      - name: bumpy check (allow version PRs)
+        run: |
+          set +e
+          pnpm exec bumpy ci check --comment
+          code=$?
+          set -e
+          if [ $code -eq 0 ]; then
+            exit 0
+          fi
+          if [ -n "$(git diff --diff-filter=D --name-only "$BASE_SHA...$HEAD_SHA" -- .bumpy/)" ]; then
+            echo "Version PR detected (bump files deleted), ignoring bumpy check failure"
+            pnpm exec bumpy ci check --comment --no-fail || true
+            exit 0
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
   e2e:
     name: e2e (Playwright, real worklet)
     runs-on: ubuntu-latest
