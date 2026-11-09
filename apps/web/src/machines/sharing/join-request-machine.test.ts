@@ -1104,3 +1104,35 @@ describe("the mark that lands around the send", () => {
     expect(s.actor.state.name).toBe("declinedByAdmin");
   });
 });
+
+describe("the update screen stays put", () => {
+  const onUpdateScreen = async () => {
+    const s = await waitingSetup();
+    await s.send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+    return s;
+  };
+
+  test("another request's answer changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("requestAnswered", { code: "other", answer: "declined" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("an accept with no folder changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("another request's mark changes nothing", async () => {
+    const s = await onUpdateScreen();
+    await s.send("whoMustUpdateChanged", { code: "other", who: "nobody" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("an unusable link keeps it", async () => {
+    const s = await onUpdateScreen();
+    await s.send("openLink", { text: "nope" });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+});

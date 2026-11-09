@@ -769,6 +769,27 @@
           }
         }
       ]
+    },
+    {
+      "name": "reopening a marked row opens the update screen",
+      "end": "waitingForYouToUpdate",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "reopenRequest",
+          "payload": {
+            "ask": {
+              "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "owner": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "albumName": "Spain 2026",
+              "ownerName": "Nils",
+              "askedAt": 1,
+              "status": "waiting",
+              "whoMustUpdate": "you"
+            }
+          }
+        }
+      ]
     }
   ]
 }

@@ -291,3 +291,20 @@ describe("invited friends list", () => {
     );
   });
 });
+
+describe("joinSheet update screen", () => {
+  test("renders as the waiting sheet, not the decline sheet", async () => {
+    const mod = await import("../machines/sharing/join-request");
+    const spy = vi.spyOn(mod, "joinViewOf").mockReturnValue({
+      state: "waitingForYouToUpdate",
+      invite: { code: "c1", album: "Lisbon", ownerName: "Anna" },
+      error: "",
+    } as ReturnType<typeof mod.joinViewOf>);
+    const host = document.createElement("div");
+    render(joinSheet(), host);
+    spy.mockRestore();
+    const text = host.textContent?.replace(/\s+/g, " ") ?? "";
+    expect(text).not.toContain("didn't accept");
+    expect(text).toContain("Cancel request");
+  });
+});

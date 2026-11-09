@@ -310,6 +310,24 @@ describe("wireAsksToJoin", () => {
     expect(view().state).toBe("waitingForAdminToAccept");
   });
 
+  test("a mark that comes after close and reopen still moves the screen", async () => {
+    await wait();
+    join.closeWaiting();
+    await settle();
+    join.reopenRequest({
+      code: INVITE.code,
+      owner: INVITE.owner,
+      albumName: INVITE.album,
+      ownerName: INVITE.ownerName,
+      askedAt: 1,
+      status: "waiting",
+    });
+    await settle();
+    mark("you");
+    await foldersChanged();
+    expect(view().state).toBe("waitingForYouToUpdate");
+  });
+
   test("with no waiting screen open nothing is sent", async () => {
     await wait();
     mark("you");
