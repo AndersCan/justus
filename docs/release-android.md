@@ -173,14 +173,16 @@ a build. The first bundle must go through the Play Console UI.
    on an x86_64 emulator) before uploading, but on the debug APK: release
    builds differ (no WebView debugging, 15 s handoff deadline instead of 90 s),
    so step 3 still matters.
-2. **Build and upload:** push tag `vX.Y.Z`, or run the workflow with
+2. **Build and upload:** run `pnpm bumpy version` (folds the bump files into
+   `apps/android/CHANGELOG.md` and sets the version), merge that, then push tag `vX.Y.Z`, or run the workflow with
    `version_name`. CI runs `fastlane internal`, which:
    - sets `versionCode` to one above the highest code on any Play track, so a
      code is never reused, even after a manual upload;
    - takes `versionName` from the tag or input;
    - builds the signed bundle, refuses an unsigned one, and uploads it to the
-     **internal** track with a one-line release note built from the merged PR
-     titles since the last tag (`node scripts/release-note.mjs` prints it);
+     **internal** track with a release note made of the `[user]:` lines of that
+     version's section in `apps/android/CHANGELOG.md` (`node scripts/release-note.mjs <version>`
+     prints it; none → "Bug fixes and improvements."). The run summary shows it;
    - then uploads the store listing (text, icon, feature graphic) and the
      four screenshots from the emulator step. If the screenshots are missing,
      the run warns and Play keeps its previous ones. If the listing upload
@@ -194,7 +196,7 @@ a build. The first bundle must go through the Play Console UI.
    fastlane rollout rollout:1                                 # 100%
    ```
    To halt a bad rollout, use Play Console → Production → _Halt rollout_.
-5. **Release notes:** automatic (step 2). Edit them in Play Console only if needed.
+5. **Release notes:** automatic (step 2), from the `[user]:` lines in bump files. `fastlane promote` keeps the internal release's notes. Edit them in Play Console only if needed.
 
 ### When an ekrooh release lands
 

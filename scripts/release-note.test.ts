@@ -1,72 +1,86 @@
 // @ts-expect-error release-note.mjs is a plain script without type declarations
-import { releaseNote } from "./release-note.mjs";
+import { changelogSection, releaseNote, userLines } from "./release-note.mjs";
+import { spawnSync } from "node:child_process";
 import { expect, test } from "vite-plus/test";
 
-const fixture = [
-  "Android: App lock after 30s away (#264)",
-  "Keep album grid tiles in place when photos change (#270)",
-  "Show the new-key album line and the update lines in the app (#269)",
-  "Refuse a peer on another version and say who must update (#268)",
-  "Give links from before the new key their own message (#266)",
-  "Saved state version 2: every album you started moves to a new key (#261)",
-  "Test accept and decline of a join request in two browsers (#267)",
-  "Bound peer record reads so a vanished peer cannot hang requests() (#265)",
-  "Ask to join through the new invite link: join screens, ask rows, Accept and Decline (#259)",
-  "ci: run Android emulator tests on pull requests that touch the app (#262)",
-  "Add App lock card to Settings (Android host only) (#263)",
-  "Add the justus/version peer channel (#260)",
-];
+const changelog = `# Changelog
 
-test("keeps (#n) subjects and strips the suffix", () => {
-  expect(releaseNote(["Fix crash (#1)"])).toBe("Fix crash.");
+## 0.3.0
+<sub>2026-11-10</sub>
+
+- *(minor)*
+  [user]: Photos you add offline send when you are back online.
+  Refactor the send queue.
+  [user]: Album grid tiles stay in place.
+- *(patch)* [user]: Invite links open the right album.
+- *(patch)* Bump a dependency.
+
+## 0.2.6
+<sub>2026-11-01</sub>
+
+- *(patch)* [user]: Old line that must not leak.
+- *(patch)* Tidy CI.
+`;
+
+test("reads only the [user] lines of the asked version, prefix stripped", () => {
+  expect(userLines(changelogSection(changelog, "0.3.0"))).toEqual([
+    "Photos you add offline send when you are back online.",
+    "Album grid tiles stay in place.",
+    "Invite links open the right album.",
+  ]);
 });
 
-test("returns only titles with a PR number", () => {
-  expect(releaseNote(["Fix crash", "Add thing (#2)"])).toBe("Add thing.");
+test("a section with no [user] lines gets the fallback note", () => {
+  const section = changelogSection("## 1.0.0\n- *(patch)* Tidy CI.\n", "1.0.0");
+  expect(releaseNote(userLines(section))).toBe("Bug fixes and improvements.");
 });
 
-test("returns the fallback when only internal titles remain", () => {
-  expect(
-    releaseNote([
-      "ci: speed up (#1)",
-      "test: more (#2)",
-      "chore(android): tidy (#3)",
-      "docs: words (#4)",
-      "refactor!: rename (#5)",
-      "vision: new (#6)",
-      "Bump @mantaq/inspect to 0.5.1 (#249)",
-    ]),
-  ).toBe("Bug fixes and improvements.");
+test("an unknown version or an empty changelog has no section", () => {
+  expect(changelogSection(changelog, "9.9.9")).toBeUndefined();
+  expect(changelogSection("", "0.3.0")).toBeUndefined();
 });
 
-test("returns titles without the Android prefix", () => {
-  expect(releaseNote(["Android: App lock (#1)"])).toBe("App lock.");
-});
-
-test("adds an and-N-more tail when only some titles fit", () => {
-  const a = "a".repeat(50);
-  const b = "b".repeat(40);
-  const c = "c".repeat(40);
-  const line = releaseNote([`${a} (#1)`, `${b} (#2)`, `${c} (#3)`]);
-  expect(line).toBe(`${a}; ${b}; and 1 more.`);
-});
-
-test("returns a line ending in a period when all titles fit", () => {
-  expect(releaseNote(["One (#1)", "Two (#2)"])).toBe("One; Two.");
-});
-
-test("returns a long title cut with an ellipsis to 120 characters", () => {
-  const line = releaseNote([`${"x".repeat(200)} (#1)`]);
-  expect(line).toBe(`${"x".repeat(118)}….`);
-});
-
-test("returns the fallback note when nothing is kept", () => {
-  expect(releaseNote([])).toBe("Bug fixes and improvements.");
-  expect(releaseNote(["no pr here"])).toBe("Bug fixes and improvements.");
-});
-
-test("returns two titles and a count for the real v0.2.1..654b64e history", () => {
-  expect(releaseNote(fixture)).toBe(
-    "App lock after 30s away; Keep album grid tiles in place when photos change; and 9 more.",
+test("an older section's [user] line does not leak into the asked version", () => {
+  expect(userLines(changelogSection(changelog, "0.3.0"))).not.toContain(
+    "Old line that must not leak.",
   );
+  expect(userLines(changelogSection(changelog, "0.2.6"))).toEqual(["Old line that must not leak."]);
+});
+
+test("a tag name with a leading v finds the same section", () => {
+  expect(changelogSection(changelog, "v0.2.6")).toBe(changelogSection(changelog, "0.2.6"));
+  expect(changelogSection(changelog, "v0.2.6")).not.toBe("");
+});
+
+test("a version is not matched by prefix", () => {
+  expect(changelogSection("## 0.3.10\n- [user]: x", "0.3.1")).toBeUndefined();
+});
+
+test("lines are bullets, one per line", () => {
+  expect(releaseNote(["One.", "Two."])).toBe("• One.\n• Two.");
+});
+
+test("over 500 characters is cut at a line boundary", () => {
+  const a = "a".repeat(300);
+  const b = "b".repeat(300);
+  expect(releaseNote([a, b])).toBe(`• ${a}`);
+});
+
+test("exactly 500 characters is kept, 501 is cut", () => {
+  const first = "a".repeat(248); // "• " + 248 = 250
+  const fits = "b".repeat(247); // "\n• " + 247 = 250, total 500
+  expect(releaseNote([first, fits]).length).toBe(500);
+  expect(releaseNote([first, `${fits}c`])).toBe(`• ${first}`);
+});
+
+test("a first line over 500 characters leaves the fallback note", () => {
+  expect(releaseNote(["x".repeat(600)])).toBe("Bug fixes and improvements.");
+});
+
+test("the script fails for a version with no changelog section and rejects a bad version", () => {
+  const ok = spawnSync("node", ["scripts/release-note.mjs", "0.0.1"], { encoding: "utf8" });
+  expect(ok.status).toBe(1);
+  expect(ok.stderr).toContain('No "## 0.0.1" section');
+  const bad = spawnSync("node", ["scripts/release-note.mjs", "oops"], { encoding: "utf8" });
+  expect(bad.status).toBe(2);
 });
