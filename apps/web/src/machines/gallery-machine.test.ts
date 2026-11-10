@@ -448,6 +448,66 @@ describe("a delete confirmed while the list is loading", () => {
   });
 });
 
+describe("a delete waiting on a load, with other work", () => {
+  const gated = (lists: () => unknown[][]) => {
+    let calls = 0;
+    const lands: Array<() => void> = [];
+    const list = (): Promise<any> => {
+      calls += 1;
+      const photos = lists()[Math.min(calls - 1, lists().length - 1)];
+      if (calls === 1) return Promise.resolve([null, { photos }]);
+      return new Promise((r) => lands.push(() => r([null, { photos }])));
+    };
+    return { list, lands };
+  };
+
+  test("runs on the list that landed, not the one before", async () => {
+    const g = gated(() => [[photo("p1")], [photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p2"]);
+  });
+
+  test("a sync during the load still reloads after the delete", async () => {
+    const g = gated(() => [[photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    h.send("LOAD");
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalled());
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
+  });
+
+  test("a delete queued next to an add runs after the add", async () => {
+    const g = gated(() => [[photo("p1")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" });
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalledWith("p1", "f1"));
+  });
+
+  test("a second delete during the load does not replace the first", async () => {
+    const g = gated(() => [[photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    h.send("REMOVE", { id: "p2", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.port.remove.mock.calls).toEqual([["p1", "f1"]]);
+  });
+});
+
 describe("gallery idle reset", () => {
   test("a batch finishing keeps the error from a failed load", async () => {
     const h = build();

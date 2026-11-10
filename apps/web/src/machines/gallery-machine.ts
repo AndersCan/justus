@@ -289,6 +289,8 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       m.on(loadingPhotos, {
         event: remove,
         handler: (e, opts) => {
+          // The first waiting delete keeps its place; a second would replace it.
+          if (opts.context.get().pendingRemove) return {};
           opts.context.set({ ...opts.context.get(), pendingRemove: { ...e.payload } });
           return {};
         },
@@ -495,11 +497,20 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       /** Adding ended: the summary shows the result and the photos reload if uploads or syncs need it. */
       m.on(addingPhotos, {
         event: batchDone,
-        to: [loadingPhotos, showingPhotos],
+        to: [loadingPhotos, showingPhotos, removingPhoto],
         handler: (_e, opts) => {
           const c = opts.context.get();
           // Uploads come back as bare ids: reload for the full photos.
           const uploaded = c.pendingAdd?.sources.some((s) => s.kind === "file") ?? false;
+          // A delete that waited next to the add runs now; the reload follows it.
+          if (c.pendingRemove) {
+            opts.context.set({
+              ...idleContext(c, { batch: c.batch ? { ...c.batch, running: false } : null }),
+              pendingRemove: c.pendingRemove,
+              reloadAfterAdd: c.reloadAfterAdd || uploaded,
+            });
+            return { state: removingPhoto };
+          }
           opts.context.set(
             idleContext(c, { batch: c.batch ? { ...c.batch, running: false } : null }),
           );
@@ -548,9 +559,11 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       /** The photo disappears from the list. */
       m.on(removingPhoto, {
         event: removed,
-        to: [showingPhotos],
+        to: [showingPhotos, loadingPhotos],
         handler: (e, opts) => {
           const c = opts.context.get();
+          // A push that arrived while the delete waited names photos this list predates.
+          const next = c.reloadAfterAdd ? loadingPhotos : showingPhotos;
           opts.context.set(
             idleContext(c, {
               error: null,
@@ -558,7 +571,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
             }),
           );
           return {
-            state: showingPhotos,
+            state: next,
             emit: e.payload.alreadyGone
               ? []
               : [photoDeleted.create({ id: e.payload.id, folderId: e.payload.folderId })],

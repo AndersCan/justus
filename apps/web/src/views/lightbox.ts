@@ -92,6 +92,8 @@ function albumOthers(folderId: string | undefined) {
 
 export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
+  // A delete confirmed during a reload is already waiting: a second would replace it.
+  if (galleryActor.snapshot().context.pendingRemove) return;
   const ok = await confirmAction({
     title: copy("lightbox.delete", { name: photo.name }),
     detail: deleteDetail(photo.holders),
