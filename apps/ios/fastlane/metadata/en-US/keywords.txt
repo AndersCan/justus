@@ -1,0 +1,1 @@
+family,photos,album,share,private,kids,peer to peer,no cloud,encrypted

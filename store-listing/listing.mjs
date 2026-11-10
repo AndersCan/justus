@@ -95,3 +95,49 @@ export function readListing(root) {
   }
   return { ok: true, flowPhoto: flow, images };
 }
+
+const TEXT_FILES = {
+  play: {
+    dir: "apps/android/fastlane/metadata/android/en-US",
+    files: {
+      title: "title",
+      shortDescription: "short_description",
+      description: "full_description",
+    },
+    icon: "apps/android/fastlane/metadata/android/en-US/images/icon.png",
+  },
+  ios: {
+    dir: "apps/ios/fastlane/metadata/en-US",
+    files: {
+      name: "name",
+      subtitle: "subtitle",
+      promotionalText: "promotional_text",
+      description: "description",
+      keywords: "keywords",
+    },
+    icon: "apps/ios/app/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+  },
+};
+
+// Reads each store's listing text (read only). A missing file is an error naming it.
+export function readStoreText(root) {
+  const text = {};
+  for (const [store, { dir, files, icon }] of Object.entries(TEXT_FILES)) {
+    text[store] = { icon: `/${icon}` };
+    for (const [key, file] of Object.entries(files)) {
+      const path = join(root, dir, `${file}.txt`);
+      if (!existsSync(path)) return fail(`${dir}/${file}.txt: file not found`);
+      text[store][key] = readFileSync(path, "utf8").trim();
+    }
+  }
+  return { ok: true, text };
+}
+
+// Everything the mock page shows: images.json and the store text, or the first problem.
+export function readMock(root) {
+  const listing = readListing(root);
+  if (!listing.ok) return listing;
+  const text = readStoreText(root);
+  if (!text.ok) return text;
+  return { ok: true, flowPhoto: listing.flowPhoto, images: listing.images, text: text.text };
+}
