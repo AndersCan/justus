@@ -267,9 +267,14 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
       /** The photos are shown; photos picked while loading start adding now, and another sync during the load triggers one more reload. */
       m.on(loadingPhotos, {
         event: loaded,
-        to: [loadingPhotos, showingPhotos, addingPhotos],
+        to: [loadingPhotos, showingPhotos, addingPhotos, removingPhoto],
         handler: (e, opts) => {
           const c = opts.context.get();
+          // A delete confirmed while the list was loading starts now, on the list that just landed.
+          if (c.pendingRemove && !c.pendingAdd) {
+            opts.context.set({ ...c, photos: e.payload.photos, error: null });
+            return { state: removingPhoto };
+          }
           // Photos picked while the list was loading start adding now.
           if (c.pendingAdd) {
             opts.context.set({ ...c, photos: e.payload.photos, error: null });
@@ -280,15 +285,28 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           return { state: c.reloadAfterAdd ? loadingPhotos : showingPhotos };
         },
       });
+      /** A delete confirmed while the list is loading waits for the list, then runs. */
+      m.on(loadingPhotos, {
+        event: remove,
+        handler: (e, opts) => {
+          opts.context.set({ ...opts.context.get(), pendingRemove: { ...e.payload } });
+          return {};
+        },
+      });
       /** Loading failed and an error is shown; photos already picked still start adding. */
       m.on(loadingPhotos, {
         event: loadFailed,
-        to: [couldNotLoadPhotos, addingPhotos],
+        to: [couldNotLoadPhotos, addingPhotos, couldNotRemovePhoto],
         handler: (e, opts) => {
           const c = opts.context.get();
           if (c.pendingAdd) {
             opts.context.set({ ...c, error: e.payload.message });
             return { state: addingPhotos };
+          }
+          // The delete never ran: the person is told, as for any failed delete.
+          if (c.pendingRemove) {
+            opts.context.set(idleContext(c, { error: e.payload.message }));
+            return { state: couldNotRemovePhoto };
           }
           opts.context.set(idleContext(c, { error: e.payload.message }));
           return { state: couldNotLoadPhotos };

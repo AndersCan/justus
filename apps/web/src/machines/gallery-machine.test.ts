@@ -407,6 +407,47 @@ describe("gallery factory", () => {
   });
 });
 
+describe("a delete confirmed while the list is loading", () => {
+  test("runs once the list lands and drops the photo", async () => {
+    let land!: () => void;
+    let calls = 0;
+    const h = build({
+      list: () => {
+        calls += 1;
+        if (calls === 1) return Promise.resolve([null, { photos: [photo("p1"), photo("p2")] }]);
+        return new Promise((r) => (land = () => r([null, { photos: [photo("p1"), photo("p2")] }])));
+      },
+    });
+    await ready(h);
+    h.send("LOAD");
+    expect(h.stateOf()).toBe("loadingPhotos");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    expect(h.port.remove).not.toHaveBeenCalled();
+    land();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.port.remove).toHaveBeenCalledWith("p1", "f1");
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p2"]);
+  });
+
+  test("a list that fails says the delete did not happen", async () => {
+    let calls = 0;
+    const h = build({
+      list: () => {
+        calls += 1;
+        return Promise.resolve(
+          calls === 1 ? [null, { photos: [photo("p1")] }] : [new Error("down"), null],
+        );
+      },
+    });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
+    expect(h.port.remove).not.toHaveBeenCalled();
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p1"]);
+  });
+});
+
 describe("gallery idle reset", () => {
   test("a batch finishing keeps the error from a failed load", async () => {
     const h = build();
