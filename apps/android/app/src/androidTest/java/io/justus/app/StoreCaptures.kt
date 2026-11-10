@@ -129,11 +129,6 @@ class StoreCaptures {
     Thread.sleep(500)
   }
 
-  private fun swipeDown() {
-    device.swipe(device.displayWidth / 2, device.displayHeight / 4, device.displayWidth / 2, device.displayHeight * 3 / 4, 20)
-    Thread.sleep(500)
-  }
-
   @Test
   fun captures() {
     val intent = target.packageManager.getLaunchIntentForPackage(target.packageName)!!
@@ -191,23 +186,24 @@ class StoreCaptures {
     if (!opened) fail("invite page did not open", "Copy link")
     capture("invite")
 
-    // Settings shows App lock; Help is a row below it, possibly under the fold.
-    // The tap on Settings or Help can land before the web view binds its handlers: try again.
-    var settingsCaptured = false
+    // The App lock card appears after a status read, and the tap on Settings can land before the web view
+    // binds its handlers: on a miss go to Photos and back to Settings.
+    var locked = false
     for (attempt in 1..4) {
       find("Settings", 10).click()
-      if (!settingsCaptured) {
-        find("App lock", 10)
-        capture("settings")
-        settingsCaptured = true
-      }
-      repeat(4) {
-        if (device.findObject(By.text("Help")) == null) swipeUp()
-      }
-      device.findObject(By.text("Help"))?.click()
-      if (device.wait(Until.hasObject(By.text("What is Justus?")), 5000)) break
-      repeat(4) { swipeDown() }
+      locked = device.wait(Until.hasObject(By.text("App lock")), 10000)
+      if (locked) break
+      find("Photos", 10).click()
+      Thread.sleep(1000)
     }
+    if (!locked) fail("settings did not show App lock", "App lock")
+    capture("settings")
+
+    // Help is a row below App lock, possibly under the fold.
+    repeat(4) {
+      if (device.findObject(By.text("Help")) == null) swipeUp()
+    }
+    find("Help", 10).click()
     find("What is Justus?", 10).click()
     Thread.sleep(1000)
     capture("help")

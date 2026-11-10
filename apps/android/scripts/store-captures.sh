@@ -9,6 +9,6 @@ $adb install -r -g app/build/outputs/apk/debug/app-debug.apk
 $adb install -r -g app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 $adb shell am instrument -w -e class io.justus.app.StoreCaptures \
   no.cankode.justus.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/store-captures.log
-grep -q "^OK" /tmp/store-captures.log
+grep -q "^OK" /tmp/store-captures.log || { $adb logcat -d -s StoreCaptures TestRunner AndroidRuntime; exit 1; }
 rm -rf store-captures
 $adb pull /sdcard/Android/data/no.cankode.justus/files/store-captures store-captures
