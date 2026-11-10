@@ -1,7 +1,16 @@
 // An unreadable flowPhoto must fail the render, not export an empty white card.
 import { chromium } from "@playwright/test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -11,18 +20,21 @@ const broken = join(repo, "assets/sample-photos/zz-not-a-photo.jpg");
 const captures = join(repo, "store-listing/captures/android");
 const names = ["album", "invite", "photo", "settings", "help"];
 
-async function writeCaptures() {
-  mkdirSync(captures, { recursive: true });
-  const missing = names.filter((name) => !existsSync(join(captures, `${name}.png`)));
-  if (missing.length === 0) return missing;
+// Pushes each name into `written` right after its screenshot, so a throw midway still lets the caller clean up.
+async function writeCaptures(written: string[], dir = captures) {
+  mkdirSync(dir, { recursive: true });
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1080, height: 2160 } });
-  for (const name of missing) {
-    await page.setContent(`<body style="margin:0;background:#3a3"></body>`);
-    await page.screenshot({ path: join(captures, `${name}.png`) });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 2160 } });
+    for (const name of names) {
+      if (existsSync(join(dir, `${name}.png`))) continue;
+      await page.setContent(`<body style="margin:0;background:#3a3"></body>`);
+      await page.screenshot({ path: join(dir, `${name}.png`) });
+      written.push(name);
+    }
+  } finally {
+    await browser.close();
   }
-  await browser.close();
-  return missing;
 }
 
 function removeWritten(written: string[]) {
@@ -32,9 +44,9 @@ function removeWritten(written: string[]) {
 describe("flow photo", () => {
   it("fails the render when flowPhoto exists but is not an image", async () => {
     const original = readFileSync(configFile, "utf8");
-    let written: string[] = [];
+    const written: string[] = [];
     try {
-      written = await writeCaptures();
+      await writeCaptures(written);
       writeFileSync(broken, "not a jpeg");
       writeFileSync(
         configFile,
@@ -54,9 +66,9 @@ describe("flow photo", () => {
   }, 60_000);
 
   it("draws the coral path in each of the first three images", async () => {
-    let written: string[] = [];
+    const written: string[] = [];
     try {
-      written = await writeCaptures();
+      await writeCaptures(written);
       const run = spawnSync("node", ["store-listing/render.mjs", "--store", "play"], {
         cwd: repo,
         encoding: "utf8",
@@ -103,17 +115,43 @@ describe("flow photo", () => {
   it("keeps a capture that already exists when it fills in the missing ones", async () => {
     const album = join(captures, "album.png");
     const saved = existsSync(album) ? readFileSync(album) : undefined;
-    let written: string[] = [];
+    const written: string[] = [];
     try {
       mkdirSync(captures, { recursive: true });
       const real = readFileSync(join(repo, "assets/brand/justus-wordmark-dark.png"));
       writeFileSync(album, real);
-      written = await writeCaptures();
+      await writeCaptures(written);
       expect(readFileSync(album).equals(real)).toBe(true);
     } finally {
       removeWritten(written);
       if (saved) writeFileSync(album, saved);
       else rmSync(album, { force: true });
+    }
+  }, 60_000);
+
+  it("reports only the captures it wrote", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "captures-"));
+    const written: string[] = [];
+    try {
+      writeFileSync(join(dir, "invite.png"), "real");
+      writeFileSync(join(dir, "help.png"), "real");
+      await writeCaptures(written, dir);
+      expect(written).toEqual(["album", "photo", "settings"]);
+      expect(readFileSync(join(dir, "invite.png"), "utf8")).toBe("real");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("still reports what it wrote when a screenshot fails midway", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "captures-"));
+    const written: string[] = [];
+    try {
+      symlinkSync(join(dir, "no-such-dir/x.png"), join(dir, "photo.png"));
+      await expect(writeCaptures(written, dir)).rejects.toThrow();
+      expect(written).toEqual(["album", "invite"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   }, 60_000);
 });
