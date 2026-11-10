@@ -8,6 +8,7 @@ import { folders, foldersActor, foldersViewModel } from "../machines/folders-mac
 import { people, peopleActor, peopleViewModel } from "../machines/people-machine";
 import {
   allAcceptedAsViewers,
+  declineHeld,
   requestCancelledBeforeAnswer,
   answerSent,
   requests,
@@ -224,6 +225,13 @@ async function copyNewLink(folderId: string) {
   await copyInviteLink(status.folder, status.name);
 }
 
+/** The toast when Decline is tapped: who was declined, with Undo until it closes. */
+export function declinedToast(requesterName: string): string {
+  return requesterName && requesterName !== copy("requests.they")
+    ? copy("album.declined", { requesterName })
+    : copy("album.declined_unnamed");
+}
+
 /** The toast after an answer went through: who is in and how, or who was declined. */
 export function answerToast(a: {
   requesterName: string;
@@ -231,10 +239,7 @@ export function answerToast(a: {
   role: "reader" | "member";
   viaInvite: boolean;
 }): string {
-  if (!a.approve)
-    return a.requesterName && a.requesterName !== copy("requests.they")
-      ? copy("album.declined", { requesterName: a.requesterName })
-      : copy("album.declined_unnamed");
+  if (!a.approve) return declinedToast(a.requesterName);
   if (a.role === "reader")
     return copy("album.is_in_as_a_viewer", { requesterName: a.requesterName });
   return a.viaInvite
@@ -252,6 +257,21 @@ export function acceptAllToast(count: number): string {
 onOutput(requestsActor, (e) => {
   if (e.type === allAcceptedAsViewers.type) {
     toast(acceptAllToast((e.payload as { count: number }).count));
+    return;
+  }
+  if (e.type === declineHeld.type) {
+    const { folderId, requesterKey, requesterName } = e.payload as {
+      folderId: string;
+      requesterKey: string;
+      requesterName: string;
+    };
+    toast(declinedToast(requesterName), {
+      action: {
+        label: copy("albums.undo"),
+        run: () => requests.undoDecline(folderId, requesterKey),
+      },
+      onClose: () => void requests.sendDecline(folderId, requesterKey),
+    });
     return;
   }
   if (e.type === requestCancelledBeforeAnswer.type) {
@@ -486,7 +506,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
             <button
               class="ui-btn-ghost w-full"
               ?disabled=${busy}
-              @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
+              @click=${() => requests.holdDecline(r.folderId, r.requesterKey)}
             >
               ${t("album.decline")}
             </button>
@@ -495,7 +515,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
             <button
               class="ui-btn-ghost"
               ?disabled=${busy}
-              @click=${() => requests.respond(r.folderId, r.requesterKey, false)}
+              @click=${() => requests.holdDecline(r.folderId, r.requesterKey)}
             >
               ${t("album.decline")}
             </button>

@@ -693,3 +693,36 @@ describe("a request the joiner cancelled", () => {
     expect(outputs).toEqual([]);
   });
 });
+
+describe("held decline", () => {
+  const hold = (k: string) =>
+    ({ type: "HOLD_DECLINE", payload: { folderId: "f1", requesterKey: k } }) as never;
+  test("a reload while a Decline is held keeps that card away; once sent it is forgotten", async () => {
+    const { actor } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    actor.send(refresh());
+    await actor.settled();
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
+    actor.send({ type: "DECLINE_SENT", payload: { folderId: "f1", requesterKey: "k1" } } as never);
+    expect(actor.snapshot().context.heldDeclines).toEqual([]);
+    actor.send(refresh());
+    await actor.settled();
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k1", "k2"]);
+  });
+
+  test("hold emits and removes", async () => {
+    const { actor } = setup();
+    const out: unknown[] = [];
+    onOutput(actor, (e) => out.push(e));
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(hold("k1"));
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k2"]);
+    expect(out).toHaveLength(1);
+    actor.send({ type: "UNDO_DECLINE", payload: { folderId: "f1", requesterKey: "k1" } } as never);
+    expect(actor.state.name).toBe("showingRequests");
+    expect(actor.snapshot().context.requests.map((r) => r.requesterKey)).toEqual(["k1", "k2"]);
+  });
+});

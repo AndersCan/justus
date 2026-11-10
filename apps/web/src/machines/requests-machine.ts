@@ -92,6 +92,20 @@ export const answerSent = event("ANSWER_SENT")<{
   role: "reader" | "member";
   viaInvite: boolean;
 }>();
+/** The Admin taps Decline: the card leaves the list at once but nothing is sent yet, so the toast can offer Undo. */
+const holdDecline = event("HOLD_DECLINE")<{ folderId: string; requesterKey: string }>();
+/** The Admin taps Undo on the Declined toast: the card comes back exactly as it was. */
+const undoDecline = event("UNDO_DECLINE")<{ folderId: string; requesterKey: string }>();
+/** The Declined toast closed and the No was sent; the held request is forgotten. */
+const declineSent = event("DECLINE_SENT")<{ folderId: string; requesterKey: string }>();
+/** The held No could not be sent; the card comes back so the Admin can answer again. */
+const declineFailed = event("DECLINE_FAILED")<{ folderId: string; requesterKey: string }>();
+/** A Decline is held; the view says who with an Undo on the toast. */
+export const declineHeld = event("DECLINE_HELD")<{
+  folderId: string;
+  requesterKey: string;
+  requesterName: string;
+}>();
 /** The person taps Try again after an error, or Retry after a failed answer (the same answer is sent again). */
 const retry = event("RETRY")();
 
@@ -108,6 +122,8 @@ type RequestsContext = {
   error: string | null;
   /** The Accept all answer that failed, kept so Retry carries on with the rest. */
   stoppedBatch: Batch | null;
+  /** Declines waiting for their toast to close, with where each card sat. */
+  heldDeclines: { request: JoinRequest; index: number }[];
 };
 
 const initialContext: RequestsContext = {
@@ -116,6 +132,7 @@ const initialContext: RequestsContext = {
   loadedOnce: false,
   error: null,
   stoppedBatch: null,
+  heldDeclines: [],
 };
 
 /** The error code the backend gives when the joiner cancelled the request. */
@@ -139,6 +156,10 @@ function sameAsk(a: JoinRequest, b: JoinRequest): boolean {
     a.requesterKey === b.requesterKey &&
     a.requestedAt === b.requestedAt
   );
+}
+
+function sameKey(r: JoinRequest, p: { folderId: string; requesterKey: string }): boolean {
+  return r.folderId === p.folderId && r.requesterKey === p.requesterKey;
 }
 
 const nameOf = stateNameOf(REQUESTS_STATES);
@@ -171,9 +192,26 @@ type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
   const { clock, gateway: port = gateway } = options;
   return Actor({
-    inputs: [refresh, respond, retry, acceptAllAsViewers, confirmAcceptAll, cancelAcceptAll],
+    inputs: [
+      refresh,
+      respond,
+      retry,
+      acceptAllAsViewers,
+      confirmAcceptAll,
+      cancelAcceptAll,
+      holdDecline,
+      undoDecline,
+      declineSent,
+      declineFailed,
+    ],
     internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
-    outputs: [answerSent, allAcceptedAsViewers, requestsArrived, requestCancelledBeforeAnswer],
+    outputs: [
+      answerSent,
+      allAcceptedAsViewers,
+      requestsArrived,
+      requestCancelledBeforeAnswer,
+      declineHeld,
+    ],
     states: [
       requestsNotLoaded,
       loadingRequests,
@@ -188,6 +226,75 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
     clock,
     context: initialContext,
     setup: (m) => {
+      /** Decline, Undo and the held No finishing work in every state, so a tap on a toast is never lost. */
+      for (const at of [
+        showingRequests,
+        couldNotSendAnswer,
+        sendingAnswer,
+        sendingAnswersToAll,
+        loadingRequests,
+        confirmingAcceptAll,
+        couldNotLoadRequests,
+      ]) {
+        m.on(at, {
+          event: holdDecline,
+          to: [],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const index = ctx.requests.findIndex((r) => sameKey(r, e.payload));
+            const request = ctx.requests[index];
+            if (!request) return {};
+            opts.context.set({
+              ...ctx,
+              requests: removeRequestFromList(
+                ctx.requests,
+                e.payload.folderId,
+                e.payload.requesterKey,
+              ),
+              heldDeclines: [...ctx.heldDeclines, { request, index }],
+            });
+            return {
+              emit: [
+                declineHeld.create({
+                  ...e.payload,
+                  requesterName: request.requesterName || copy("requests.they"),
+                }),
+              ],
+            };
+          },
+        });
+        for (const ev of [undoDecline, declineFailed]) {
+          m.on(at, {
+            event: ev,
+            to: [at],
+            handler: (e, opts) => {
+              const ctx = opts.context.get();
+              const held = ctx.heldDeclines.find((h) => sameKey(h.request, e.payload));
+              if (!held) return {};
+              const requests = [...ctx.requests];
+              requests.splice(Math.min(held.index, requests.length), 0, held.request);
+              opts.context.set({
+                ...ctx,
+                requests,
+                heldDeclines: ctx.heldDeclines.filter((h) => h !== held),
+              });
+              return { state: at.create(opts.state.payload as never) as never };
+            },
+          });
+        }
+        m.on(at, {
+          event: declineSent,
+          to: [at],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            opts.context.set({
+              ...ctx,
+              heldDeclines: ctx.heldDeclines.filter((h) => !sameKey(h.request, e.payload)),
+            });
+            return { state: at.create(opts.state.payload as never) as never };
+          },
+        });
+      }
       /** The first load starts and any old error is cleared. */
       m.on(requestsNotLoaded, {
         event: refresh,
@@ -334,8 +441,11 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         to: [showingRequests],
         handler: (e, opts) => {
           const ctx = opts.context.get();
-          const fresh = e.payload.requests.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
-          opts.context.set({ ...ctx, requests: e.payload.requests, error: null, loadedOnce: true });
+          const listed = e.payload.requests.filter(
+            (r) => !ctx.heldDeclines.some((h) => sameKey(h.request, r)),
+          );
+          const fresh = listed.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
+          opts.context.set({ ...ctx, requests: listed, error: null, loadedOnce: true });
           if (ctx.loadedOnce && fresh.length > 0) {
             return { state: showingRequests, emit: [requestsArrived.create({ requests: fresh })] };
           }
@@ -574,6 +684,21 @@ export const requests = {
     role: "reader" | "member" = "member",
   ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
+  /** Decline leaves the card at once; the No is sent by `sendDecline` once the toast closes. */
+  holdDecline: (folderId: string, requesterKey: string) =>
+    requestsActor.send(holdDecline.create({ folderId, requesterKey })),
+  undoDecline: (folderId: string, requesterKey: string) =>
+    requestsActor.send(undoDecline.create({ folderId, requesterKey })),
+  /** Sends a held No; if it cannot be sent the card comes back. */
+  sendDecline: async (folderId: string, requesterKey: string) => {
+    const held = requestsActor
+      .snapshot()
+      .context.heldDeclines.some((h) => sameKey(h.request, { folderId, requesterKey }));
+    if (!held) return;
+    const [error] = await gateway.respond(folderId, requesterKey, false);
+    const done = error && codeOf(error) !== REQUEST_CANCELLED_CODE ? declineFailed : declineSent;
+    requestsActor.send(done.create({ folderId, requesterKey }));
+  },
   acceptAllAsViewers: (folderId: string, requesterKeys: string[]) =>
     requestsActor.send(acceptAllAsViewers.create({ folderId, requesterKeys })),
   confirmAcceptAll: () => requestsActor.send(confirmAcceptAll.create()),
