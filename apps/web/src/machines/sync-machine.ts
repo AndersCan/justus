@@ -19,7 +19,6 @@ export const SYNC_STATES = [
   "couldNotAddMember",
   "couldNotCheckAlbum",
 ] as const;
-export type SyncStateName = (typeof SYNC_STATES)[number];
 
 const nameOf = stateNameOf(SYNC_STATES);
 

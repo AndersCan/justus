@@ -29,8 +29,6 @@ type AddArgs = { path?: string; name?: string; folderId?: string } & AddExtras;
 const PHOTOS_ADD_TIMEOUT_MS = 120_000;
 /** list/status read every member's drive listing — network pulls can be slow. */
 const PHOTOS_LIST_TIMEOUT_MS = 30_000;
-/** join waits for a peer handshake; give it a generous window. */
-const PHOTOS_JOIN_TIMEOUT_MS = 60_000;
 /** remove/enroll/respond/create touch local drives — still, don't be stingy. */
 const PHOTOS_SHORT_TIMEOUT_MS = 15_000;
 /** offerAlbum waits up to 30 s for the friend's phone to answer. */
@@ -253,20 +251,6 @@ export const photoEvents = {
         PHOTOS_ADD_TIMEOUT_MS,
       );
     },
-    /** Adds a photo whose bytes travel in-band as the invoke payload (the
-     * browser multi-file picker — no host path exists there). */
-    addFile(
-      name: string,
-      bytes: Uint8Array | ArrayBuffer,
-      folderId?: string,
-    ): InvokeEnvelope<"photos.add", AddArgs, Photo> {
-      return invokeEvent(
-        photoSpecs.add,
-        { name, ...(folderId ? { folderId } : {}) },
-        bytes,
-        PHOTOS_ADD_TIMEOUT_MS,
-      );
-    },
     remove(
       id: string,
       folderId?: string,
@@ -276,17 +260,6 @@ export const photoEvents = {
         folderId ? { id, folderId } : { id },
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
-      );
-    },
-    join(
-      key: string,
-      name?: string,
-    ): InvokeEnvelope<"photos.join", { key: string; name?: string }, SyncStatus> {
-      return invokeEvent(
-        photoSpecs.join,
-        name ? { key, name } : { key },
-        null,
-        PHOTOS_JOIN_TIMEOUT_MS,
       );
     },
     enroll(

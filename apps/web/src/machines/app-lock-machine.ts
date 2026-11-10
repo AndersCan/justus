@@ -54,8 +54,6 @@ export function createAppLockActor(options: { clock: Clock }) {
   });
 }
 
-export type AppLockActor = ReturnType<typeof createAppLockActor>;
-
 export const appLockActor = createAppLockActor({ clock: RealClock() });
 
 export const appLockEvents = { statusRead, saveStarted, saveEnded };

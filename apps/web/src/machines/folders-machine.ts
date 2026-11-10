@@ -34,7 +34,6 @@ export const FOLDERS_STATES = [
   "couldNotSaveName",
   "couldNotChangeAlbum",
 ] as const;
-export type FoldersStateName = (typeof FOLDERS_STATES)[number];
 
 const nameOf = stateNameOf(FOLDERS_STATES);
 

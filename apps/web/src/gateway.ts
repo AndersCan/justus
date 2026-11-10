@@ -46,9 +46,6 @@ export const gateway = {
   list: () => invoke(photoEvents.photos.list(true)),
   add: (path: string, name?: string, folderId?: string, extras?: AddExtras) =>
     invoke(photoEvents.photos.add(path, name, folderId, extras)),
-  /** Adds a photo from bytes picked in the browser (multi-file upload). */
-  addFile: (name: string, bytes: Uint8Array | ArrayBuffer) =>
-    invoke(photoEvents.photos.addFile(name, bytes)),
   /** Encodes a browser-picked file into the copies an album shares and posts
    * them to the worklet's `POST /photos` route (same-origin in the WebView,
    * Vite-proxied in dev): the thumbnail, then the display copy, in one body.
@@ -84,7 +81,6 @@ export const gateway = {
     }
   },
   remove: (id: string, folderId?: string) => invoke(photoEvents.photos.remove(id, folderId)),
-  join: (key: string, name?: string) => invoke(photoEvents.photos.join(key, name)),
   enroll: (key: string, name: string) => invoke(photoEvents.photos.enroll(key, name)),
   status: () => invoke(photoEvents.photos.status()),
   folders: () => invoke(photoEvents.photos.folders()),

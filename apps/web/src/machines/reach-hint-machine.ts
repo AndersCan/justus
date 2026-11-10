@@ -13,7 +13,6 @@ import { syncActor, type SyncActor } from "./sync-machine";
 type ReachContext = { name: string };
 
 const REACH_STATES = ["noWifiHint", "waitingBeforeWifiHint", "showingWifiHint"] as const;
-export type ReachStateName = (typeof REACH_STATES)[number];
 
 const nameOf = stateNameOf(REACH_STATES);
 
