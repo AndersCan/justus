@@ -87,6 +87,7 @@ const scenarios = {
   },
   devices: { open: (page) => page.goto("/devices") },
   join: { open: (page) => page.goto("/join") },
+  "not-found": { at: /\/nope$/, open: (page) => page.goto("/nope") },
   settings: { open: (page) => page.goto("/settings") },
   help: { open: (page) => page.goto("/help") },
 };

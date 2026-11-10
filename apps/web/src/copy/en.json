@@ -228,7 +228,7 @@
     "status": "draft",
     "where": "App shell › text",
     "who": "Everyone, on every screen",
-    "screen": ""
+    "screen": "not-found"
   },
   "add_photos.1_photo_couldn_t_be": {
     "text": "1 photo couldn't be added",
