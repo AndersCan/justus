@@ -600,11 +600,20 @@ test("Nils turns off the links, it fails, and his link stays shown", async () =>
   expect(actor.state.name).toBe("linkMade");
 });
 
+const designPayloads = {
+  chooseLinkTime: [{ validFor: "10m" }, { validFor: "1h" }, { validFor: "1d" }, { validFor: "7d" }],
+  createLink: [{ folderId: FOLDER, code: CODE }],
+  turnOffLink: [{ folderId: FOLDER, code: CODE }],
+  linkOff: [{ folderId: FOLDER, code: CODE }],
+  linkOffFailed: [{ folderId: FOLDER }],
+  linkReplaced: [{ folderId: FOLDER, code: CODE, name: "Ben" }],
+};
+
 describe("invite link design", () => {
   test("has no design errors", () => {
-    expectNoDesignErrors({ id: "inviteLink", create: walkTarget });
+    expectNoDesignErrors({ id: "inviteLink", create: walkTarget, payloads: designPayloads });
   });
   test("reaches every state", () => {
-    expectAllStatesReached({ id: "inviteLink", create: walkTarget });
+    expectAllStatesReached({ id: "inviteLink", create: walkTarget, payloads: designPayloads });
   });
 });

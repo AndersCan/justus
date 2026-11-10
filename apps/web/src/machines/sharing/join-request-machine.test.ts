@@ -1062,6 +1062,7 @@ describe("joiner design", () => {
         { code: "c".repeat(64), who: "you" },
       ],
       requestAnswered: answers,
+      linkChecked: [{ turnedOff: false }, { turnedOff: true }],
     },
   };
   test("has no design errors", () => {

@@ -288,6 +288,8 @@ describe("album lifecycle design", () => {
       roleSeen: [{ role: "creator" }, { role: "member" }, { role: "reader" }],
       deleteHeard: [{ adminName: "Nils" }],
       leaveSaved: [{ waiting: true }, { waiting: false }],
+      leaveFailed: [{ reason: "offline" }],
+      deleteFailed: [{ reason: "offline" }],
     },
     tests: [
       {
