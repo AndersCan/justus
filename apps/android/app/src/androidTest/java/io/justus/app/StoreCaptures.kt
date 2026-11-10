@@ -214,8 +214,8 @@ class StoreCaptures {
     // The drag ends with a stationary segment so the page does not fling past the App lock card.
     val x = device.displayWidth / 2
     val from = device.displayHeight * 3 / 4
-    // 920 px puts the Appearance card just under the status bar, so the App lock card sits in the part the store frame shows.
-    val drag = 920
+    // 1090 px puts the gap above the Appearance card under the status bar, so the App lock card sits in the part the store frame shows.
+    val drag = 1090
     device.swipe(arrayOf(Point(x, from), Point(x, from - drag / 2), Point(x, from - drag), Point(x, from - drag)), 120)
     Thread.sleep(500)
     var lockShown = false
