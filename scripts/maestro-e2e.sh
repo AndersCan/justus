@@ -207,10 +207,32 @@ else
   run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
 fi
 
+run_maestro() { maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; }
+
+# adb can drop a freshly booted emulator for a moment: Maestro then fails in seconds with
+# "device offline" / DeviceServerDiedException on its first command (justus#654, first attempt of
+# run 42799188001: launchApp failed after 1.3s, adbd logged "connection terminated"). The app was
+# never reached. Only that failure is run again, once; any other failure fails the suite.
+adb_dropped() {
+  local log
+  log="$(find "$OUT_DIR" -name maestro.log -newer "$1" 2>/dev/null | head -n 1)"
+  [[ -n "$log" ]] && grep -q -E 'device offline|DeviceServerDiedException' "$log"
+}
+
+run_maestro_suite() {
+  local started
+  started="$(mktemp)"
+  run_maestro && return 0
+  adb_dropped "$started" || return 1
+  echo "⚠ adb dropped the emulator during the run — waiting for it, then running once more."
+  "$ADB" -s "$SERIAL" wait-for-device
+  run_maestro
+}
+
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
-if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; then
+if ! run_maestro_suite; then
   echo
   echo "✗ Maestro suite FAILED — capturing diagnostics..."
   mkdir -p "$OUT_DIR"
