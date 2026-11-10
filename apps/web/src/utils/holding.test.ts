@@ -73,6 +73,14 @@ describe("albumHolding", () => {
       if (sheet > 0) expect(r.byKey.get(key)).toEqual({ kind: "count", held: sheet });
     }
   });
+  it("previews or waiting only is none, not silent", () => {
+    const r = albumHolding(
+      [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
+      "f1",
+    );
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("none in full on their phone");
+    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("none in full on their phone");
+  });
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
   });

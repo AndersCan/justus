@@ -1552,12 +1552,26 @@ describe("album holding", () => {
     expect(host.textContent).not.toContain("A phone gets a photo");
   });
 
+  test("plan 516 Try it: Kim holds 2 of 3, her line is exactly that", async () => {
+    const host = await open([
+      photo("a", "f1", true),
+      photo("b", "f1", true),
+      photo("c", "f1", false),
+    ]);
+    const line = memberRows(host)[1]
+      .querySelector('[data-copy-id="member.role_collaborator"]')!
+      .closest("p")!;
+    expect(line.textContent?.trim()).toBe("Collaborator · 2 in full on their phone");
+  });
+
   test("the Members card shows one line, then the people, then what the lines mean", async () => {
     const host = await open([photo("a", "f1", true)]);
     const section = host.querySelector('[data-motion-key="section:members"]')!;
     const ul = section.querySelector("ul")!;
     const caption = section.querySelector("p")!;
-    expect(caption.textContent?.trim()).toBe("Everyone in the album sees this list.");
+    expect(caption.textContent?.trim()).toBe(
+      "Everyone in the album sees this list. Collaborators add photos; Viewers only see them.",
+    );
     expect(caption.compareDocumentPosition(ul) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const after = ul.nextElementSibling!;
     expect(after.tagName).toBe("P");

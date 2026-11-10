@@ -1176,7 +1176,7 @@
     "screen": "album"
   },
   "album.everyone_in_the_album_sees": {
-    "text": "Everyone in the album sees this list.",
+    "text": "Everyone in the album sees this list. Collaborators add photos; Viewers only see them.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
