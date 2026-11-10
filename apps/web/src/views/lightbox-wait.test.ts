@@ -132,3 +132,30 @@ describe("a second delete confirmed while one waits", () => {
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Deleted “b”."));
   });
 });
+
+describe("a delete confirmed during a reload that fails", () => {
+  it("says it couldn't delete", async () => {
+    vi.mocked(toast).mockClear();
+    hoisted.gateway.remove.mockReset();
+    hoisted.gateway.list.mockResolvedValueOnce([null, { photos: [a, b] }]);
+    if (gallery.state() !== "photosNotLoaded") {
+      await vi.waitFor(() =>
+        expect(["showingPhotos", "couldNotRemovePhoto"]).toContain(gallery.state()),
+      );
+    }
+    gallery.load();
+    await vi.waitFor(() => expect(gallery.state()).toBe("showingPhotos"));
+    let fail: () => void = () => {};
+    hoisted.gateway.list.mockReturnValueOnce(
+      new Promise((r) => (fail = () => r([new Error("offline"), null]))),
+    );
+    gallery.load();
+    expect(gallery.state()).toBe("loadingPhotos");
+    await deleteFromLightbox(b);
+    fail();
+    await vi.waitFor(() => expect(gallery.state()).toBe("couldNotRemovePhoto"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(hoisted.gateway.remove).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith("Couldn't delete “b”. Try again.");
+  });
+});
