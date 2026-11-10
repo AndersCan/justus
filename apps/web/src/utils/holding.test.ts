@@ -32,12 +32,12 @@ describe("albumHolding", () => {
     const r = albumHolding([photo("f1"), photo("f1", {})], "f1");
     expect(r.total).toBe(1);
   });
-  it("counts the adder through others, and you through here", () => {
+  it("counts the adder through others", () => {
     const r = albumHolding(
       [photo("f1", { here: true, others: [m("kim")] }), photo("f1", { others: [m("kim")] })],
       "f1",
     );
-    expect(r).toEqual({ total: 2, you: 1, byKey: new Map([["kim", { kind: "count", held: 2 }]]) });
+    expect(r).toEqual({ total: 2, byKey: new Map([["kim", { kind: "count", held: 2 }]]) });
   });
   it("silent wins over a count, in either order", () => {
     const a = albumHolding(
@@ -52,7 +52,7 @@ describe("albumHolding", () => {
     expect(b.byKey.get("z")).toEqual({ kind: "silent" });
   });
   it("empty list", () => {
-    expect(albumHolding([], "f1")).toEqual({ total: 0, you: 0, byKey: new Map() });
+    expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
   });
 });
 

@@ -1500,6 +1500,29 @@ describe("album holding", () => {
     expect(host.textContent).not.toContain("first opened there");
   });
 
+  test("solo album: the caption does not point at lines that are not there", async () => {
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      { photos: [photo("a", "f1", false)] },
+    ] as never);
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...status,
+          members: [status.members[0]],
+          folder: { ...status.folder, members: 1 },
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const rows = memberRows(host);
+    expect(rows.some((r) => /Has /.test(r.textContent ?? ""))).toBe(false);
+    expect(host.textContent).not.toContain("these lines are what each phone last told yours");
+  });
+
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];

@@ -7,8 +7,6 @@ export type Holding = { kind: "count"; held: number } | { kind: "silent" };
 export type AlbumHolding = {
   /** Album photos whose holders are known. 0 means: say nothing. */
   total: number;
-  /** Photos on this phone. */
-  you: number;
   /** By person key (current people other than this phone). An absent key holds 0 of `total`. */
   byKey: ReadonlyMap<string, Holding>;
 };
@@ -17,12 +15,10 @@ export type AlbumHolding = {
 export function albumHolding(photos: readonly Photo[], folderId: string): AlbumHolding {
   const byKey = new Map<string, Holding>();
   let total = 0;
-  let you = 0;
   for (const photo of photos) {
     const holders = photo.holders;
     if (photo.folderId !== folderId || holders === undefined) continue;
     total += 1;
-    if (holders.here) you += 1;
     for (const m of holders.others) {
       const prev = byKey.get(m.key);
       if (prev?.kind === "silent") continue;
@@ -30,7 +26,7 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
     }
     for (const m of holders.unsure) byKey.set(m.key, { kind: "silent" });
   }
-  return { total, you, byKey };
+  return { total, byKey };
 }
 
 /** The line under another person, or undefined when there is nothing to say (total 0). Your own row has no line. */
