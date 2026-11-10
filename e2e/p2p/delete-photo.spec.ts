@@ -150,7 +150,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     .first()
     .click();
   await expect(
-    a.locator("li", { hasText: /Has (\d+) of \1 photos/ }).filter({ hasNotText: "(you)" }),
+    a.locator("li", { hasText: /Has every photo in full/ }).filter({ hasNotText: "(you)" }),
   ).toHaveCount(1, { timeout: 60_000 });
   await a
     .getByRole("link", { name: /See photos in this album/ })

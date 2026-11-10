@@ -1197,7 +1197,7 @@
     "screen": "album"
   },
   "album.a_phone_gets_a_photo_when": {
-    "text": "A phone gets a photo when it is first opened there; the counts are what each phone last told yours.",
+    "text": "A phone gets a photo in full when it is first opened there; these lines are what each phone last told yours.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -2897,8 +2897,22 @@
     "who": "Everyone in an album",
     "screen": ""
   },
-  "holding.count": {
-    "text": "Has {held} of {total} {total?photo:photos}",
+  "holding.all": {
+    "text": "Has every photo in full",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.some": {
+    "text": "Has some photos in full. Open a photo to see which.",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.none": {
+    "text": "Has no photos in full yet",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",

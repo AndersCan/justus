@@ -296,10 +296,7 @@ export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "no
 }
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHolding) {
-  const line = holdingLine(
-    p.you ? { kind: "count", held: holding.you } : holding.byKey.get(p.key),
-    holding.total,
-  );
+  const line = p.you ? undefined : holdingLine(holding.byKey.get(p.key), holding.total);
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${memberBadge(p.name, p.color)}
@@ -547,7 +544,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
-const NO_HOLDING: AlbumHolding = { total: 0, you: 0, byKey: new Map() };
+const NO_HOLDING: AlbumHolding = { total: 0, byKey: new Map() };
 
 function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
@@ -572,7 +569,9 @@ function membersSection(vm: PeopleVm, id: string) {
         </ul>
         <p class="mt-2 text-xs text-muted">
           ${t("album.connected_means_they_have_justus")}${
-            holding.total > 0 ? html` ${t("album.a_phone_gets_a_photo_when")}` : null
+            holding.total > 0 && vm.people.some((p) => !p.you)
+              ? html` ${t("album.a_phone_gets_a_photo_when")}`
+              : null
           }
         </p>`;
     })}

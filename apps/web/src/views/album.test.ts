@@ -1474,8 +1474,8 @@ describe("album holding", () => {
     ]);
     const rows = memberRows(host);
     expect(rows).toHaveLength(3);
-    expect(rows[0]?.textContent).toContain("Has 2 of 3 photos");
-    expect(rows[1]?.textContent).toContain("Has 2 of 3 photos");
+    expect(rows[0]?.textContent).not.toContain("Has ");
+    expect(rows[1]?.textContent).toContain("Has some photos in full");
     expect(rows[2]?.textContent).toContain("Hasn't said yet which photos they have");
     expect(host.textContent).toContain("first opened there");
   });
@@ -1500,16 +1500,39 @@ describe("album holding", () => {
     expect(host.textContent).not.toContain("first opened there");
   });
 
+  test("solo album: the caption does not point at lines that are not there", async () => {
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      { photos: [photo("a", "f1", false)] },
+    ] as never);
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...status,
+          members: [status.members[0]],
+          folder: { ...status.folder, members: 1 },
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const rows = memberRows(host);
+    expect(rows.some((r) => /Has /.test(r.textContent ?? ""))).toBe(false);
+    expect(host.textContent).not.toContain("these lines are what each phone last told yours");
+  });
+
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];
-    expect(kim?.textContent).toContain("Has 1 of 2 photos");
+    expect(kim?.textContent).toContain("Has some photos in full");
     vi.mocked(gateway.list).mockResolvedValue([
       null,
       { photos: [photo("a", "f1", true), photo("b", "f1", true)] },
     ] as never);
     await gallery.load();
-    await vi.waitFor(() => expect(kim?.textContent).toContain("Has 2 of 2 photos"));
+    await vi.waitFor(() => expect(kim?.textContent).toContain("Has every photo in full"));
     expect(memberRows(host)[1]).toBe(kim);
   });
 });
