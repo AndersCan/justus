@@ -213,7 +213,7 @@ describe("deletedMessage", () => {
   it("names a person with only a preview by the friend name", () => {
     const saved = [{ key: "k1", name: "Benny", connected: true }];
     expect(deletedMessage("Sunset", h({ previews: [{ key: "k1", name: "Ben" }] }), saved)).toBe(
-      "Deleted “Sunset”. Benny only has a preview.",
+      "Deleted “Sunset”. Benny only has a small preview. It stops showing there, but Justus can't erase it.",
     );
   });
   it("uses the friend name, else the phone's own name", () => {
@@ -232,15 +232,19 @@ describe("previews", () => {
   const gone = "It will be gone from the album for everyone.";
   it("previewOnly names who only has a preview", () => {
     expect(previewOnly([])).toBe("");
-    expect(previewOnly(["Ben"])).toBe("Ben only has a preview.");
-    expect(previewOnly(["Ben", "Cy"])).toBe("Ben and Cy only have a preview.");
+    expect(previewOnly(["Ben"])).toBe(
+      "Ben only has a small preview. It stops showing there, but Justus can't erase it.",
+    );
+    expect(previewOnly(["Ben", "Cy"])).toBe(
+      "Ben and Cy only have a small preview. It stops showing there, but Justus can't erase it.",
+    );
   });
   it("the dialog says who only has a preview", () => {
     expect(deleteDetail(h({ previews: [m("Ben")] }))).toBe(
-      `${gone} Ben only has a preview. Deleting can't take it back.`,
+      `${gone} Ben only has a small preview. It stops showing there, but Justus can't erase it. Deleting can't take it back.`,
     );
     expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [m("Dan")] }))).toBe(
-      `${gone} Ben has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Cy only has a preview. Dan doesn't have the full photo. Deleting can't take it back.`,
+      `${gone} Ben has the full photo. It stops showing there, but Justus can't erase the copy already stored there. Cy only has a small preview. It stops showing there, but Justus can't erase it. Dan doesn't have the full photo. Deleting can't take it back.`,
     );
   });
   it("the toast says who only has a preview, and who finds out when connected", () => {
@@ -249,10 +253,10 @@ describe("previews", () => {
       { key: "Cara", name: "Cara", connected: false },
     ];
     expect(deletedMessage("pixel-2.png", h({ previews: [m("Ben")] }), people)).toBe(
-      "Deleted “pixel-2.png”. Ben only has a preview.",
+      "Deleted “pixel-2.png”. Ben only has a small preview. It stops showing there, but Justus can't erase it.",
     );
     expect(deletedMessage("b", h({ previews: [m("Cara")] }), people)).toBe(
-      "Deleted “b”. Cara only has a preview. Cara will see it's gone when connected.",
+      "Deleted “b”. Cara only has a small preview. It stops showing there, but Justus can't erase it. Cara will see it's gone when connected.",
     );
   });
   it("a preview-only phone keeps the photo 'on its way'", () => {

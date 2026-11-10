@@ -71,7 +71,7 @@ export function hasFullPhoto(names: readonly string[]): string {
     : copy("full_photo.names_have", { list: nameList(names), n: names.length });
 }
 
-/** "Ben only has a preview." / "Ben and Cy only have a preview."; "" for no names. */
+/** "Ben only has a small preview. It stops showing there, but Justus can't erase it." (plural: "have"); "" for no names. */
 export function previewOnly(names: readonly string[]): string {
   return names.length === 0
     ? ""

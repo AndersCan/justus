@@ -4424,7 +4424,7 @@
     "screen": ""
   },
   "full_photo.names_preview": {
-    "text": "{list} only {n?has:have} a preview.",
+    "text": "{list} only {n?has:have} a small preview. It stops showing there, but Justus can't erase it.",
     "status": "draft",
     "where": "Photo viewer › Delete › text, Deleted toast",
     "who": "People who tap the photo's holders or delete a photo",
