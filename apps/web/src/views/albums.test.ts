@@ -282,6 +282,7 @@ describe("Join tab", () => {
     const input = scope.querySelector("input")!;
     expect(next.className).toContain("ui-btn-ghost");
     expect(create.getAttribute("variant")).toBe("brand");
+    expect(create.hasAttribute("appearance")).toBe(false);
     input.value = buildInviteLink({
       code: "a".repeat(64),
       owner: "b".repeat(64),
@@ -292,10 +293,12 @@ describe("Join tab", () => {
     expect(next.className).toContain("ui-btn-primary");
     expect(next.className).not.toContain("ui-btn-ghost");
     expect(create.getAttribute("variant")).toBe("neutral");
+    expect(create.getAttribute("appearance")).toBe("filled");
     input.value = "not a link";
     input.dispatchEvent(new Event("input"));
     expect(next.className).toContain("ui-btn-ghost");
     expect(create.getAttribute("variant")).toBe("brand");
+    expect(create.hasAttribute("appearance")).toBe(false);
   });
 
   test("on the join tab alone Continue stays primary", () => {
@@ -929,6 +932,7 @@ describe("primary button follows the invite box", () => {
     const next = scope.querySelector("[data-join-continue]")!;
     await vi.waitFor(() => expect(next.className).toContain("ui-btn-primary"));
     expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("neutral");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("appearance")).toBe("filled");
   });
 
   test("clearing the box after Continue makes Create primary again", () => {
@@ -940,6 +944,7 @@ describe("primary button follows the invite box", () => {
     expect(input.value).toBe("");
     expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
     expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
+    expect(scope.querySelector("[data-create-album]")!.hasAttribute("appearance")).toBe(false);
     join.notNow();
   });
 });

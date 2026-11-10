@@ -470,6 +470,8 @@ export function applyPrimaryButtons(scope: ParentNode, invite: boolean) {
   next?.classList.toggle("ui-btn-ghost", !invite);
   const create = scope.querySelector("[data-create-album]");
   create?.setAttribute("variant", invite ? "neutral" : "brand");
+  if (invite) create?.setAttribute("appearance", "filled");
+  else create?.removeAttribute("appearance");
 }
 
 function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {

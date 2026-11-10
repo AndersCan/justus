@@ -34,11 +34,13 @@ describe("Start sharing screen", () => {
     const create = host.querySelector("[data-create-album]")!;
     const next = host.querySelector("[data-join-continue]")!;
     expect(create.getAttribute("variant")).toBe("brand");
+    expect(create.hasAttribute("appearance")).toBe(false);
     expect(next.className).toContain("ui-btn-ghost");
     vi.stubGlobal("navigator", { clipboard: { readText: async () => link } });
     host.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
     await vi.waitFor(() => expect(next.className).toContain("ui-btn-primary"));
     expect(next.className).not.toContain("ui-btn-ghost");
     expect(create.getAttribute("variant")).toBe("neutral");
+    expect(create.getAttribute("appearance")).toBe("filled");
   });
 });
