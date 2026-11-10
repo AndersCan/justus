@@ -3,6 +3,7 @@ package io.justus.app
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Point
 import android.annotation.TargetApi
 import android.provider.MediaStore
 import android.util.Log
@@ -208,8 +209,10 @@ class StoreCaptures {
     if (!locked) fail("settings did not show App lock", "Require unlock")
     // Scroll once so the whole App lock card is on screen, then assert the switch right before the capture:
     // the card can disappear while the status reloads, so retry the assert, not the test.
-    // A short swipe (about 700 px) keeps the Profile card clear of the status bar.
-    device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight * 3 / 4 - 760, 20)
+    // The drag ends with a stationary segment so the page does not fling past the App lock card.
+    val x = device.displayWidth / 2
+    val from = device.displayHeight * 3 / 4
+    device.swipe(arrayOf(Point(x, from), Point(x, from - 760), Point(x, from - 760)), 40)
     Thread.sleep(500)
     var lockShown = false
     for (attempt in 1..10) {
@@ -218,6 +221,8 @@ class StoreCaptures {
       Thread.sleep(1000)
     }
     if (!lockShown) fail("App lock switch not visible before the settings capture", "Require unlock")
+    // Without a screen lock the card reads "Set a screen lock in your phone's Settings" and the switch is off limits.
+    if (device.hasObject(By.text(Pattern.compile("Set a screen lock.*")))) fail("App lock is unavailable", "Set a screen lock")
     capture("settings")
 
     // Help is a row below App lock, possibly under the fold.
