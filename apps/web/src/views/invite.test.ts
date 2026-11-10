@@ -93,10 +93,10 @@ describe("invite card send hint", () => {
     expect(host.textContent).toContain(LINE);
   });
 
-  test("Copy invite link is the one primary button", () => {
+  test("the invite buttons are plain", () => {
     const host = mount("creator");
-    expect(copyButton(host)!.className).toContain("ui-btn-primary");
-    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
+    expect(copyButton(host)!.className).toContain("ui-btn-ghost");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(0);
   });
 
   test("two quick Copy taps still bring the send line back, with its span", async () => {
@@ -114,12 +114,12 @@ describe("invite card send hint", () => {
     expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
   });
 
-  test("with the share sheet, Copy link is the one primary", () => {
+  test("with the share sheet, both buttons are plain", () => {
     vi.stubGlobal("navigator", { ...navigator, share: vi.fn() });
     const host = mount("creator");
     expect(copyButton(host)!.textContent!.trim()).toBe("Copy link");
-    expect(copyButton(host)!.className).toContain("ui-btn-primary");
-    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
+    expect(copyButton(host)!.className).toContain("ui-btn-ghost");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(0);
   });
 
   test("a member sees no line", () => {

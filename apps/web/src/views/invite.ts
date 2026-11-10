@@ -384,14 +384,14 @@ function invitePanelBody(
                   ${t("invite.send_invite_link")}
                 </button>
                 <button
-                  class="ui-btn-primary"
+                  class="ui-btn-ghost"
                   ?disabled=${linkBlocked}
                   @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
                 >
                   ${t("invite.copy_link")}
                 </button>`
             : html`<button
-                class="ui-btn-primary"
+                class="ui-btn-ghost"
                 ?disabled=${linkBlocked}
                 @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
               >

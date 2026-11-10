@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { focusOnArrival } from "./arrival-focus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import type { SyncStatus } from "@justus/core";
@@ -1635,6 +1636,13 @@ describe("Add photos on the album page", () => {
         .map((b) => flat(b).trim()),
     ).toEqual(["Add photos"]);
     expect(host.textContent).toContain("See photos in this album");
+  });
+
+  test("after Create album the page's heading has focus", async () => {
+    focusOnArrival("f1");
+    const host = mountWith("creator");
+    document.body.append(host);
+    await vi.waitFor(() => expect(document.activeElement).toBe(host.querySelector("h1")));
   });
 
   test("a Collaborator gets it too", () => {

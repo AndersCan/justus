@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { arrivalFocus } from "./arrival-focus";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
 import type { FolderSummary, JoinRequest, Photo, SyncStatus } from "@justus/core";
@@ -678,7 +679,13 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
     <div class="space-y-2" data-motion-key="section:album">
       <a class="text-sm text-muted hover:text-fg" href="/albums">${t("gallery.all_albums")}</a>
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg">${album.name}</h2>
+        <h2
+          class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg outline-none"
+          tabindex="-1"
+          ${arrivalFocus(album.id)}
+        >
+          ${album.name}
+        </h2>
         <a
           class="ui-btn-ghost inline-flex shrink-0 items-center gap-1.5"
           href="/sharing/${album.id}"
