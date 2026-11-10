@@ -254,6 +254,8 @@ class StoreCaptures {
       val landscapeDeadline = System.currentTimeMillis() + 60000
       while (device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).size < 3) {
         if (System.currentTimeMillis() > landscapeDeadline) fail("landscape photo tiles", "View")
+        // The header fills the short screen, so the tiles can sit under the fold.
+        swipeUp()
         Thread.sleep(500)
       }
       Thread.sleep(1000)
