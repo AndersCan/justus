@@ -270,6 +270,40 @@ describe("Join tab", () => {
     join.notNow();
   });
 
+  test("Continue is primary only once an invite link is pasted", () => {
+    const scope = document.createElement("div");
+    scope.setAttribute("data-invite-scope", "");
+    scope.innerHTML = '<wa-button variant="brand" data-create-album></wa-button>';
+    const panel = document.createElement("div");
+    scope.append(panel);
+    render(joinPanel(true), panel);
+    const next = scope.querySelector("[data-join-continue]")!;
+    const create = scope.querySelector("[data-create-album]")!;
+    const input = scope.querySelector("input")!;
+    expect(next.className).toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("brand");
+    input.value = buildInviteLink({
+      code: "a".repeat(64),
+      owner: "b".repeat(64),
+      album: "Trip",
+      ownerName: "Nils",
+    });
+    input.dispatchEvent(new Event("input"));
+    expect(next.className).toContain("ui-btn-primary");
+    expect(next.className).not.toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("neutral");
+    input.value = "not a link";
+    input.dispatchEvent(new Event("input"));
+    expect(next.className).toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("brand");
+  });
+
+  test("on the join tab alone Continue stays primary", () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    expect(host.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
+  });
+
   test("Continue with a garbled link keeps the text", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);

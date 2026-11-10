@@ -457,7 +457,21 @@ export function joinError() {
   });
 }
 
-function joinSection(settled: boolean, busy: boolean) {
+/** True when the pasted text is an invite link: then Continue is the next step, not Create an album. */
+export function hasInviteLink(text: string): boolean {
+  return parseInviteLink(text).kind === "invite";
+}
+
+/** Swaps which button is primary inside `scope`: Continue when an invite is pasted, else Create. */
+export function applyPrimaryButtons(scope: ParentNode, invite: boolean) {
+  const next = scope.querySelector("[data-join-continue]");
+  next?.classList.toggle("ui-btn-primary", invite);
+  next?.classList.toggle("ui-btn-ghost", !invite);
+  const create = scope.querySelector("[data-create-album]");
+  create?.setAttribute("variant", invite ? "neutral" : "brand");
+}
+
+function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("albums.join_with_an_invite_link")}</h2>
@@ -469,7 +483,7 @@ function joinSection(settled: boolean, busy: boolean) {
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
           const text = input.value;
           join.openLink(text);
-          if (parseInviteLink(text).kind === "invite") input.value = "";
+          if (hasInviteLink(text)) input.value = "";
         }}
       >
         <input
@@ -480,6 +494,12 @@ function joinSection(settled: boolean, busy: boolean) {
           autocapitalize="none"
           autocomplete="off"
           autocorrect="off"
+          @input=${(e: Event) => {
+            if (!rivalsCreate) return;
+            const input = e.currentTarget as HTMLInputElement;
+            const scope = input.closest("[data-invite-scope]");
+            if (scope) applyPrimaryButtons(scope, hasInviteLink(input.value));
+          }}
         />
         <div class="flex gap-2">
           <button
@@ -494,7 +514,12 @@ function joinSection(settled: boolean, busy: boolean) {
           >
             ${t("albums.paste")}
           </button>
-          <button class="ui-btn-primary flex-1" type="submit" ?disabled=${busy || !settled}>
+          <button
+            class="${rivalsCreate ? "ui-btn-ghost" : "ui-btn-primary"} flex-1"
+            data-join-continue
+            type="submit"
+            ?disabled=${busy || !settled}
+          >
             ${t("albums.continue")}
           </button>
         </div>
@@ -553,9 +578,10 @@ export function pendingAsks() {
 }
 
 /** Sharing → Join: paste an invite to ask into someone's album. */
-export function joinPanel() {
+/** `rivalsCreate`: a Create an album button sits beside it, so Continue is primary only once a link is pasted. */
+export function joinPanel(rivalsCreate = false) {
   return watch(syncActor, (s) => {
     const syncVm = syncViewModel(s);
-    return joinSection(syncVm.settled, syncVm.busy);
+    return joinSection(syncVm.settled, syncVm.busy, rivalsCreate);
   });
 }

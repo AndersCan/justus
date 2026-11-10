@@ -257,7 +257,7 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
 
 function chooseStep() {
   return html`
-    <div class="mx-auto max-w-md space-y-4">
+    <div class="mx-auto max-w-md space-y-4" data-invite-scope>
       <h1 class="text-center text-xl font-bold text-fg">${t("welcome.start_sharing")}</h1>
       ${pendingAsks()}
       ${watch(foldersActor, (s) => {
@@ -283,14 +283,20 @@ function chooseStep() {
               maxlength="60"
               required
             />
-            <wa-button variant="brand" class="w-full" type="submit" ?disabled=${busy}>
+            <wa-button
+              variant="brand"
+              data-create-album
+              class="w-full"
+              type="submit"
+              ?disabled=${busy}
+            >
               ${vm.state === "creatingAlbum" ? copy("welcome.creating") : copy("welcome.create_an_album")}
             </wa-button>
             ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
         `;
       })}
-      ${joinPanel()}
+      ${joinPanel(true)}
     </div>
   `;
 }

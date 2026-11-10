@@ -85,10 +85,17 @@ describe("invite card send hint", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(copyButton(host)!.textContent).toBe("Copied ✓");
-    expect(host.textContent).toContain(LINE);
+    expect(host.textContent).toContain("Copied. Paste it into a chat to send it.");
+    expect(host.textContent).not.toContain(LINE);
     await vi.advanceTimersByTimeAsync(3000);
     expect(copyButton(host)!.textContent!.trim()).toBe(label);
     expect(host.textContent).toContain(LINE);
+  });
+
+  test("Copy invite link is the one primary button", () => {
+    const host = mount("creator");
+    expect(copyButton(host)!.className).toContain("ui-btn-primary");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
   });
 
   test("a member sees no line", () => {
