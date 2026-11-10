@@ -42,6 +42,15 @@ const stubServer = {
   close() {},
 } as unknown as PhotoStoreDeps["server"];
 
+/**
+ * A phone from before the version channel has no refusal logic, so it never
+ * drops a link on seeing a peer with no version. Without this the emulated
+ * legacy phone hangs up on the current one before the current one has read its name.
+ */
+function legacyNetwork<N extends { drop(conn: number): void }>(network: N, legacy?: boolean): N {
+  return legacy ? { ...network, drop: () => {} } : network;
+}
+
 export async function bareNet(root: string): Promise<Net> {
   const testnet = await createTestnet(5);
   const live = new Set<Peer>();
@@ -77,12 +86,15 @@ export async function bareNet(root: string): Promise<Net> {
       path,
       crypto,
       drives,
-      network: createHyperPeerNetwork({
-        bootstrap: testnet.bootstrap as never,
-        replicate: (conn) => drives.replicate(conn),
-        log: createP2pLog((e: P2pEvent) => events.push(e)),
-        ...(opts.legacy ? { openVersion: () => {} } : {}),
-      }),
+      network: legacyNetwork(
+        createHyperPeerNetwork({
+          bootstrap: testnet.bootstrap as never,
+          replicate: (conn) => drives.replicate(conn),
+          log: createP2pLog((e: P2pEvent) => events.push(e)),
+          ...(opts.legacy ? { openVersion: () => {} } : {}),
+        }),
+        opts.legacy,
+      ),
       driveOpenTimeoutMs: 10_000,
       log: (e: P2pEvent) => events.push(e),
     });

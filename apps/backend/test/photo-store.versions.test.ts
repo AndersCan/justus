@@ -228,7 +228,7 @@ describe("peer versions", () => {
     await s.peer.store.close();
   });
 
-  it("an unreadable name falls back to Someone", async () => {
+  it("an unreadable name holds the link and names no one if the peer closes it", async () => {
     const s = await setup();
     const copy = await s.me.deps.drives.open(s.peerKey, { timeoutMs: 1_000 });
     if (copy[0] || !copy[1]) throw new Error("peer identity drive did not open");
@@ -236,13 +236,17 @@ describe("peer versions", () => {
     copy[1].readSmall = () => slow;
     const phone = peerPhone(s.hub, { identityKey: s.peerKey, legacy: true });
     phone.meet(s.me.topic());
-    await until(async () => (await behind(s)).length > 0, 8_000);
-    expect(await behind(s)).toEqual(["Someone"]);
-    await until(() => phone.network.connectionCount() === 0);
-    expect(phone.network.connectionCount()).toBe(0);
+    await until(() => phone.network.connectionCount() === 1);
+    // Past the old 5 s give-up: still held, nothing named.
+    await new Promise((r) => setTimeout(r, 6_000));
+    expect(phone.network.connectionCount()).toBe(1);
+    expect(await behind(s)).toEqual([]);
+    await phone.network.close();
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await behind(s)).toEqual([]);
     await s.me.store.close();
     await s.peer.store.close();
-  }, 15_000);
+  }, 20_000);
 
   it("a refused connection is never asked or answered", async () => {
     const s = await setup();

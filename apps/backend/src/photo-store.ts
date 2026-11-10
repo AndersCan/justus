@@ -3659,10 +3659,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       newerTimer.unref?.();
       return;
     }
+    // Held open: noteOlderPeer drops it once the peer's name is read, or the peer closes it.
     c.refused = "older";
-    // Its identity greeting names it; without one, give up after 5 s.
-    const timer = setTimeout(() => network.drop(connId), 5_000);
-    timer.unref?.();
   }
 
   /** Records the name of a peer on an older Justus, then drops it. */
@@ -3670,19 +3668,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const c = conns.get(connId);
     if (!c || c.noted) return;
     c.noted = true;
-    const name =
-      (await withTimeout(
-        openPeerOutbox(identity).then(async (drive) => {
-          // The file may not have replicated yet: wait for it.
-          while (!closed) {
-            await drive.update();
-            if ((await readText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
-            await sleep(100);
-          }
-        }),
-        5_000,
-      ).catch(() => undefined)) ?? "Someone";
-    if (!peersBehind.includes(name) && peersBehind.length < MAX_PEERS_BEHIND) {
+    // Wait for the name while the peer keeps the link open. If it closes first, name no one: a later link asks again.
+    const linkGone = async () => {
+      while (!closed && conns.has(connId)) await sleep(100);
+    };
+    const read = openPeerOutbox(identity).then(async (drive) => {
+      while (!closed && conns.has(connId)) {
+        await drive.update();
+        if ((await readText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
+        await sleep(100);
+      }
+    });
+    const name = await Promise.race([read, linkGone()]).catch(() => undefined);
+    if (
+      name !== undefined &&
+      !peersBehind.includes(name) &&
+      peersBehind.length < MAX_PEERS_BEHIND
+    ) {
       peersBehind.push(name);
       deps.onChanged({ cause: "version" });
     }
