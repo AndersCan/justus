@@ -542,6 +542,7 @@ describe("album lifecycle in the folders machine", () => {
         LEAVE_ALBUM: [trip],
         DELETE_ALBUM: [trip],
         DISMISS_DELETED_NOTICE: [trip],
+        NAME_SEEN: [{ name: "Summer" }],
       },
     } as any);
   });
