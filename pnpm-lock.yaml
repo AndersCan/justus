@@ -229,9 +229,6 @@ catalogs:
     '@mantaq/utils':
       specifier: ^0.0.6
       version: 0.0.6
-    '@mantaq/viz':
-      specifier: ^0.21.0
-      version: 0.21.0
     '@playwright/test':
       specifier: ^1.62.1
       version: 1.62.1
@@ -282,9 +279,6 @@ importers:
       '@mantaq/inspect':
         specifier: 'catalog:'
         version: 0.31.0(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(astro@7.4.6(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(playwright@1.62.1)(vitest@4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(happy-dom@21.0.4))
-      '@mantaq/viz':
-        specifier: 'catalog:'
-        version: 0.21.0
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.62.1
@@ -1151,9 +1145,6 @@ packages:
 
   '@mantaq/utils@0.0.6':
     resolution: {integrity: sha512-A3/S1Mbtvw2CJJqarH8HtyD7E2fRyXH5rCz9NUYuqq7M3+CBfDiRwzcqIAAP9Tyf2XZEYYsZISKCfSrfXoQHUA==}
-
-  '@mantaq/viz@0.21.0':
-    resolution: {integrity: sha512-gMQTknNIFR7YfJJoUJdpFZpVBdViUrWXLWTvgTFjR2sDo1pjLLWnYwuWVW2G5Mfz2slmYz6wKkS+xxlLoK27Wg==}
 
   '@mantaq/viz@0.22.0':
     resolution: {integrity: sha512-AbeUSZkCio3BbhfgDFgKSrfBu3Iz9M78mcICi9XFtFkw5OSFDkp/+/BCu6IP7iYwRG7XAQ0WBnNay8MJdX583w==}
@@ -4945,11 +4936,6 @@ snapshots:
   '@mantaq/utils@0.0.2': {}
 
   '@mantaq/utils@0.0.6': {}
-
-  '@mantaq/viz@0.21.0':
-    dependencies:
-      '@dagrejs/dagre': 3.1.3
-      '@mantaq/utils': 0.0.6
 
   '@mantaq/viz@0.22.0':
     dependencies:
