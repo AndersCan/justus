@@ -171,6 +171,16 @@ class StoreCaptures {
     cleanBars()
     capture("album")
 
+    // The same screen turned on its side, for the landscape store layout.
+    device.setOrientationLeft()
+    Thread.sleep(2000)
+    if (device.displayWidth <= device.displayHeight) fail("device did not rotate to landscape", "landscape")
+    cleanBars()
+    capture("album-landscape")
+    device.setOrientationNatural()
+    Thread.sleep(2000)
+    cleanBars()
+
     device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first().click()
     Thread.sleep(5000)
     capture("photo")
