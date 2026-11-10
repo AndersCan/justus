@@ -248,6 +248,26 @@ describe("peer versions", () => {
     await s.peer.store.close();
   }, 20_000);
 
+  it("an older peer with the version channel is also held past 5 s, then falls back to Someone if the peer closes it", async () => {
+    const s = await setup();
+    const copy = await s.me.deps.drives.open(s.peerKey, { timeoutMs: 1_000 });
+    if (copy[0] || !copy[1]) throw new Error("peer identity drive did not open");
+    const slow = new Promise<never>(() => {});
+    copy[1].readSmall = () => slow;
+    const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL - 1 });
+    phone.meet(s.me.topic());
+    await until(() => phone.network.connectionCount() === 1);
+    // Past the old 5 s give-up: still held.
+    await new Promise((r) => setTimeout(r, 6_000));
+    expect(phone.network.connectionCount()).toBe(1);
+    expect(await behind(s)).toEqual([]);
+    await phone.network.close();
+    await until(async () => (await behind(s)).length > 0);
+    expect(await behind(s)).toEqual(["Someone"]);
+    await s.me.store.close();
+    await s.peer.store.close();
+  }, 20_000);
+
   it("a refused connection is never asked or answered", async () => {
     const s = await setup();
     const phone = peerPhone(s.hub, { identityKey: s.peerKey, protocol: PEER_PROTOCOL + 1 });
