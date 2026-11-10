@@ -59,9 +59,9 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Added a photo to Trip 2026")).toBeVisible({ timeout: 20_000 });
-  // The e2e worklet seeds sample photos into every new album.
-  await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
-  const inTrip = await page.locator("figure img").count();
+  // A new album gets the same sample photos as the seed album, plus the one added above.
+  const inTrip = total + 1;
+  await expect(page.locator("figure img")).toHaveCount(inTrip, { timeout: 20_000 });
 
   const views = page.getByRole("navigation", { name: "Show photos" });
   await views.getByRole("link", { name: "All", exact: true }).click();
