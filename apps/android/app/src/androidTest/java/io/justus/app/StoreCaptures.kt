@@ -12,6 +12,7 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -190,13 +191,21 @@ class StoreCaptures {
     // binds its handlers: on a miss go to Photos and back to Settings.
     var locked = false
     for (attempt in 1..4) {
-      find("Settings", 10).click()
-      locked = device.wait(Until.hasObject(By.text("App lock")), 10000)
+      try {
+        find("Settings", 10).click()
+      } catch (e: StaleObjectException) {
+        continue
+      }
+      locked = device.wait(Until.hasObject(By.text(Pattern.compile("Require unlock to open Justus.*"))), 10000)
       if (locked) break
-      find("Photos", 10).click()
+      try {
+        find("Photos", 10).click()
+      } catch (e: StaleObjectException) {
+        continue
+      }
       Thread.sleep(1000)
     }
-    if (!locked) fail("settings did not show App lock", "App lock")
+    if (!locked) fail("settings did not show App lock", "Require unlock")
     capture("settings")
 
     // Help is a row below App lock, possibly under the fold.
