@@ -89,7 +89,6 @@ const NAV_SECTION: Partial<Record<AppPage["route"], NavRoute>> = {
   photoAlbums: "gallery",
   photoAlbum: "gallery",
   sharingJoin: "sharing",
-  sharingDevices: "sharing",
   album: "sharing",
   help: "settings",
 };
@@ -239,7 +238,6 @@ function routeView(page: AppPage | undefined) {
   if (page.route === "album") return albumView(page.params.id);
   if (page.route === "sharing") return sharingView("albums");
   if (page.route === "sharingJoin") return sharingView("join");
-  if (page.route === "sharingDevices") return sharingView("devices");
   if (page.route === "help") return helpView();
   if (page.route === "welcome") return welcomeView();
   return settingsView();

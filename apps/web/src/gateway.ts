@@ -8,7 +8,6 @@ import {
   photoEvents,
   logEvents,
   friendEvents,
-  grantEvents,
   justusLockEvents,
   justusShareEvents,
   justusMediaEvents,
@@ -146,12 +145,5 @@ export const gateway = {
     add: (identity: string, name: string) => invoke(friendEvents.add(identity, name)),
     rename: (identity: string, name: string) => invoke(friendEvents.rename(identity, name)),
     remove: (identity: string) => invoke(friendEvents.remove(identity)),
-  },
-  grants: {
-    view: () => invoke(grantEvents.view()),
-    grant: (peerId: string) => invoke(grantEvents.grant(peerId)),
-    decline: (peerId: string) => invoke(grantEvents.decline(peerId)),
-    revoke: (peerId: string) => invoke(grantEvents.revoke(peerId)),
-    snooze: () => invoke(grantEvents.snooze()),
   },
 };

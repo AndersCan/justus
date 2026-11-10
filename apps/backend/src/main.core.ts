@@ -10,9 +10,6 @@ import { createLogsPlugin } from "./logs-plugin";
 import { createLockPluginStub } from "./lock-plugin";
 import { createSharePluginStub } from "./share-plugin";
 import { createMediaPluginStub } from "./media-plugin";
-import { GrantLedger } from "./grant-ledger";
-import { createGrantsPlugin } from "./grants-plugin";
-import { createFileLedgerStore } from "./ledger-store";
 import { createBareFiles } from "./adapters/bare-files";
 import { createHyperDriveStore } from "./adapters/hyper-drive-store";
 import { createHyperPeerNetwork } from "./adapters/hyper-peer-network";
@@ -123,15 +120,6 @@ runtime.pluginRegistry.register(createMediaPluginStub());
 runtime.pluginRegistry.register(createLockPluginStub());
 runtime.pluginRegistry.register(createSharePluginStub());
 
-// Per-device grant ledger (issue #30): the local owner's view of who holds
-// their album. Never replicated, so a plain JSON file in `storageDir` is the
-// durable store. Loaded before the runtime starts so the first `view` is
-// accurate.
-const grantLedger = new GrantLedger({
-  store: createFileLedgerStore({ dir: storageDir, fs, path }),
-});
-runtime.pluginRegistry.register(createGrantsPlugin({ ledger: grantLedger }));
-
 // Per-device friends: names this device gave to people, keyed by identity key.
 // Local only, so a file in `storageDir` (not localStorage: the web origin's
 // port can change, the desktop host falls back to a random one when its fixed
@@ -178,9 +166,8 @@ function shutdown(code: number): void {
 
 if (config.handoffFd !== undefined) void watchParentDeath(() => shutdown(0));
 
-void grantLedger
-  .load()
-  .then(() => store.ready())
+void store
+  .ready()
   .then(() => runtime.start())
   .then(async (credentials) => {
     console.log(`[justus] worklet ready at ${credentials.origin}`);
