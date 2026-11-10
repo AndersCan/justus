@@ -641,7 +641,24 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(toast).toHaveBeenCalled());
     declineToast().onClose();
     await vi.waitFor(() => expect(flat(host)).toContain("nils wants"));
+    expect(toast).toHaveBeenCalledWith("Couldn't send your No to nils. The request is back.");
     await requestsActor.settled();
+  });
+
+  test("a Decline answered with 'request cancelled' keeps the card gone, with no failure toast", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true)]);
+    vi.mocked(gateway.respond).mockResolvedValueOnce([
+      { code: "justus.photos/request-cancelled", message: "cancelled" },
+      null,
+    ] as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().onClose();
+    await requestsActor.settled();
+    await vi.waitFor(() => expect(requestsActor.snapshot().context.heldDeclines).toEqual([]));
+    expect(flat(host)).not.toContain("nils wants");
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("Couldn't send your No"));
   });
 
   test("a failed answer shows why on that card, with no toast; Retry sends it again", async () => {

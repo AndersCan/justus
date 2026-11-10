@@ -9,6 +9,7 @@ import { people, peopleActor, peopleViewModel } from "../machines/people-machine
 import {
   allAcceptedAsViewers,
   declineHeld,
+  declineNotSent,
   requestCancelledBeforeAnswer,
   answerSent,
   requests,
@@ -272,6 +273,15 @@ onOutput(requestsActor, (e) => {
       },
       onClose: () => void requests.sendDecline(folderId, requesterKey),
     });
+    return;
+  }
+  if (e.type === declineNotSent.type) {
+    const { requesterName } = e.payload as { requesterName: string };
+    toast(
+      copy("album.couldn_t_send_your_no", {
+        requesterName: requesterName || copy("requests.they"),
+      }),
+    );
     return;
   }
   if (e.type === requestCancelledBeforeAnswer.type) {

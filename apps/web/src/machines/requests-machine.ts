@@ -100,6 +100,8 @@ const undoDecline = event("UNDO_DECLINE")<{ folderId: string; requesterKey: stri
 const declineSent = event("DECLINE_SENT")<{ folderId: string; requesterKey: string }>();
 /** The held No could not be sent; the card comes back so the Admin can answer again. */
 const declineFailed = event("DECLINE_FAILED")<{ folderId: string; requesterKey: string }>();
+/** A held No could not be sent and the card is back; the view says so. */
+export const declineNotSent = event("DECLINE_NOT_SENT")<{ requesterName: string }>();
 /** A Decline is held; the view says who with an Undo on the toast. */
 export const declineHeld = event("DECLINE_HELD")<{
   folderId: string;
@@ -162,6 +164,19 @@ function sameKey(r: JoinRequest, p: { folderId: string; requesterKey: string }):
   return r.folderId === p.folderId && r.requesterKey === p.requesterKey;
 }
 
+function restoreHeld(
+  context: { get: () => RequestsContext; set: (c: RequestsContext) => void },
+  key: { folderId: string; requesterKey: string },
+) {
+  const ctx = context.get();
+  const held = ctx.heldDeclines.find((h) => sameKey(h.request, key));
+  if (!held) return null;
+  const requests = [...ctx.requests];
+  requests.splice(Math.min(held.index, requests.length), 0, held.request);
+  context.set({ ...ctx, requests, heldDeclines: ctx.heldDeclines.filter((h) => h !== held) });
+  return held;
+}
+
 const nameOf = stateNameOf(REQUESTS_STATES);
 
 /** The requests inbox view model as a pure function of the actor snapshot. */
@@ -211,6 +226,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
       requestsArrived,
       requestCancelledBeforeAnswer,
       declineHeld,
+      declineNotSent,
     ],
     states: [
       requestsNotLoaded,
@@ -226,7 +242,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
     clock,
     context: initialContext,
     setup: (m) => {
-      /** Decline, Undo and the held No finishing work in every state, so a tap on a toast is never lost. */
+      // Decline, Undo and the held No finishing work in every state, so a tap on a toast is never lost.
       for (const at of [
         showingRequests,
         couldNotSendAnswer,
@@ -236,6 +252,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
         confirmingAcceptAll,
         couldNotLoadRequests,
       ]) {
+        /** The Admin tapped Decline: the card leaves the list at once, the state stays, and the toast offers Undo. */
         m.on(at, {
           event: holdDecline,
           to: [],
@@ -257,41 +274,43 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
               emit: [
                 declineHeld.create({
                   ...e.payload,
-                  requesterName: request.requesterName || copy("requests.they"),
+                  requesterName: request.requesterName,
                 }),
               ],
             };
           },
         });
-        for (const ev of [undoDecline, declineFailed]) {
-          m.on(at, {
-            event: ev,
-            to: [at],
-            handler: (e, opts) => {
-              const ctx = opts.context.get();
-              const held = ctx.heldDeclines.find((h) => sameKey(h.request, e.payload));
-              if (!held) return {};
-              const requests = [...ctx.requests];
-              requests.splice(Math.min(held.index, requests.length), 0, held.request);
-              opts.context.set({
-                ...ctx,
-                requests,
-                heldDeclines: ctx.heldDeclines.filter((h) => h !== held),
-              });
-              return { state: at.create(opts.state.payload as never) as never };
-            },
-          });
-        }
+        /** Undo brings the card back at its old place; the state stays as it is, so nothing in flight is sent again. */
+        m.on(at, {
+          event: undoDecline,
+          to: [],
+          handler: (e, opts) => {
+            restoreHeld(opts.context, e.payload);
+            return {};
+          },
+        });
+        /** The held No could not be sent: the card comes back and the Admin is told. */
+        m.on(at, {
+          event: declineFailed,
+          to: [],
+          handler: (e, opts) => {
+            const held = restoreHeld(opts.context, e.payload);
+            return held
+              ? { emit: [declineNotSent.create({ requesterName: held.request.requesterName })] }
+              : {};
+          },
+        });
+        /** The held No went through; it is forgotten and the state stays as it is. */
         m.on(at, {
           event: declineSent,
-          to: [at],
+          to: [],
           handler: (e, opts) => {
             const ctx = opts.context.get();
             opts.context.set({
               ...ctx,
               heldDeclines: ctx.heldDeclines.filter((h) => !sameKey(h.request, e.payload)),
             });
-            return { state: at.create(opts.state.payload as never) as never };
+            return {};
           },
         });
       }

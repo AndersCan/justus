@@ -909,6 +909,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.couldn_t_send_your_no": {
+    "text": "Couldn't send your No to {requesterName}. The request is back.",
+    "status": "draft",
+    "where": "Album › Join requests › toast",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
   "album.cancelled_this_request": {
     "text": "{requesterName} cancelled this request",
     "status": "draft",
