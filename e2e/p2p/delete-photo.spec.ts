@@ -211,10 +211,12 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("button", { name: "More options" }).click();
   await b.getByRole("menuitem", { name: "Delete" }).click();
   const benDialog = b.locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` });
-  await expect(benDialog).toContainText(/.+ only (has|have) a preview\./);
+  await expect(benDialog).toContainText(
+    /.+ only (has|have) a small preview\. It stops showing there, but Justus can.t erase it\./,
+  );
   await benDialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^\s*Deleted “del-ben\.png”\. .+ only (has|have) a preview\.\s*$/,
+    /^\s*Deleted “del-ben\.png”\. .+ only (has|have) a small preview\. It stops showing there, but Justus can.t erase it\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
