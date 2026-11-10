@@ -20,9 +20,7 @@ vi.mock("../gateway", () => {
   const g = {
     list: vi.fn(),
     add: vi.fn(),
-    addFile: vi.fn(),
     remove: vi.fn(),
-    join: vi.fn(),
     enroll: vi.fn(),
     status: vi.fn(),
     folders: vi.fn(),

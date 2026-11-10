@@ -24,7 +24,6 @@ const PEOPLE_STATES = [
   "takingBackInvite",
   "couldNotTakeBackInvite",
 ] as const;
-export type PeopleStateName = (typeof PEOPLE_STATES)[number];
 
 /** The People sheet is hidden. */
 const peopleSheetClosed = state("peopleSheetClosed")();

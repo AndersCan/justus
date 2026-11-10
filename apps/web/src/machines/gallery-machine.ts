@@ -20,7 +20,6 @@ export const GALLERY_STATES = [
   "removingPhoto",
   "couldNotRemovePhoto",
 ] as const;
-export type GalleryStateName = (typeof GALLERY_STATES)[number];
 
 /** One photo to add: a file the native host staged (`path`, with the shared
  * copies it made, see `PickedMedia`), or a file the browser picked (encoded

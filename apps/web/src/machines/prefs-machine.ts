@@ -72,8 +72,6 @@ export function createPrefsActor(options: { clock: Clock }) {
   });
 }
 
-export type PrefsActor = ReturnType<typeof createPrefsActor>;
-
 export const prefsActor = createPrefsActor({ clock: RealClock() });
 
 /** Each command saves to this device first, then updates what the screens show. */

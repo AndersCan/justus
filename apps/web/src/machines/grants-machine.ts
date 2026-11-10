@@ -20,7 +20,6 @@ const GRANTS_STATES = [
   "couldNotLoadShareList",
   "couldNotSaveShareChoice",
 ] as const;
-export type GrantsStateName = (typeof GRANTS_STATES)[number];
 
 function dueRecords(records: GrantRecord[], due: string[]): GrantRecord[] {
   const dueSet = new Set(due);

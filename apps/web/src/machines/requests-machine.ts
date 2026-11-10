@@ -27,7 +27,6 @@ const REQUESTS_STATES = [
   "couldNotLoadRequests",
   "couldNotSendAnswer",
 ] as const;
-export type RequestsStateName = (typeof REQUESTS_STATES)[number];
 
 /** The inbox of requests to join the person's albums has not been loaded yet. */
 const requestsNotLoaded = state("requestsNotLoaded")();

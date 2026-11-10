@@ -22,7 +22,6 @@ export const ONBOARDING_STATES = [
   "turningOnAppLock",
   "choosingCreateOrJoin",
 ] as const;
-export type OnboardingStateName = (typeof ONBOARDING_STATES)[number];
 
 const nameOf = stateNameOf(ONBOARDING_STATES);
 
