@@ -1,0 +1,31 @@
+{
+  "friendOffer": [
+    {
+      "name": "Nils adds Kari to Lisbon trip as a Viewer, and she joins from her albums list",
+      "end": "showingFriendOffers",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "join",
+          "payload": {
+            "offer": {
+              "code": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+              "owner": "4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e",
+              "albumName": "Lisbon trip",
+              "ownerName": "Nils"
+            }
+          }
+        },
+        {
+          "kind": "event",
+          "event": "askAnswered",
+          "payload": {
+            "code": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+            "answer": "accepted",
+            "folderId": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+          }
+        }
+      ]
+    }
+  ]
+}
