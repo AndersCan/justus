@@ -208,7 +208,9 @@ class StoreCaptures {
     if (!locked) fail("settings did not show App lock", "Require unlock")
     // Scroll once so the whole App lock card is on screen, then assert the switch right before the capture:
     // the card can disappear while the status reloads, so retry the assert, not the test.
-    swipeUp()
+    // A short swipe (about 700 px) keeps the Profile card clear of the status bar.
+    device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight * 3 / 4 - 760, 20)
+    Thread.sleep(500)
     var lockShown = false
     for (attempt in 1..10) {
       lockShown = device.hasObject(By.text(Pattern.compile("Require unlock to open Justus.*")))
