@@ -9,7 +9,7 @@
     "start:mac": "node apps/desktop/scripts/build.mjs && open apps/desktop/dist/Justus.app",
     "check:issue-refs": "node scripts/check-issue-refs.mjs",
     "check:play-listing": "node scripts/check-play-listing.mjs",
-    "test": "vp test run scripts",
+    "test": "vp test run scripts store-listing",
     "test:e2e": "playwright test",
     "test:bare": "pnpm --filter @justus/backend run test:bare",
     "test:e2e-hub": "vitest run --config e2e/hub/vitest.config.ts",
@@ -20,7 +20,8 @@
     "site:build": "gh release download store-screenshots -R AndersCan/justus -p '*.png' -D docs/site/src/assets/store-screenshots --clobber && astro build --config docs/site/astro.config.mjs",
     "copy:shots": "node scripts/copy-shots.mjs",
     "flows:dev": "node scripts/flows-dev.mjs",
-    "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev"
+    "dev:peers": "JUSTUS_PEERS=2 pnpm --parallel --filter './apps/*' run dev",
+    "store:render": "node store-listing/render.mjs"
   },
   "devDependencies": {
     "@astrojs/mdx": "catalog:",

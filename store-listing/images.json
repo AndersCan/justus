@@ -1,0 +1,35 @@
+{
+  "flowPhoto": "happy-dog.jpg",
+  "images": [
+    {
+      "id": "01_private",
+      "layout": "deviceAngled",
+      "capture": "album",
+      "headline": "Private photo sharing"
+    },
+    {
+      "id": "02_you_choose",
+      "layout": "deviceBelow",
+      "capture": "invite",
+      "headline": "You choose who joins"
+    },
+    {
+      "id": "03_phone_to_phone",
+      "layout": "deviceAbove",
+      "capture": "photo",
+      "headline": "Photos, phone to phone"
+    },
+    {
+      "id": "04_app_lock",
+      "layout": "deviceBelow",
+      "capture": "settings",
+      "headline": "Lock Justus on your phone"
+    },
+    {
+      "id": "05_help",
+      "layout": "headlineBelow",
+      "capture": "help",
+      "headline": "How it works, right in the app"
+    }
+  ]
+}
