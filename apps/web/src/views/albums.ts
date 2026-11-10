@@ -51,6 +51,7 @@ async function pasteKey(input: HTMLInputElement) {
       return;
     }
     input.value = text;
+    input.dispatchEvent(new Event("input"));
   } catch {
     toast(copy("albums.couldn_t_read_the_clipboard"));
   }
@@ -483,7 +484,10 @@ function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
           const text = input.value;
           join.openLink(text);
-          if (hasInviteLink(text)) input.value = "";
+          if (hasInviteLink(text)) {
+            input.value = "";
+            input.dispatchEvent(new Event("input"));
+          }
         }}
       >
         <input
@@ -495,7 +499,6 @@ function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
           autocomplete="off"
           autocorrect="off"
           @input=${(e: Event) => {
-            if (!rivalsCreate) return;
             const input = e.currentTarget as HTMLInputElement;
             const scope = input.closest("[data-invite-scope]");
             if (scope) applyPrimaryButtons(scope, hasInviteLink(input.value));

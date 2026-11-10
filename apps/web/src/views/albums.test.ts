@@ -901,3 +901,45 @@ describe("roleAndCount", () => {
     expect(roleAndCount(album("a", "reader") as never)).toBe("Viewer · 1 member");
   });
 });
+
+describe("primary button follows the invite box", () => {
+  const link = buildInviteLink({
+    code: "a".repeat(64),
+    owner: "b".repeat(64),
+    album: "Trip",
+    ownerName: "Nils",
+  });
+  const mountScope = () => {
+    const scope = document.createElement("div");
+    scope.setAttribute("data-invite-scope", "");
+    scope.innerHTML = '<wa-button variant="brand" data-create-album></wa-button>';
+    const panel = document.createElement("div");
+    scope.append(panel);
+    document.body.append(scope);
+    render(joinPanel(true), panel);
+    return scope;
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("Paste with an invite copied makes Continue primary", async () => {
+    const scope = mountScope();
+    vi.stubGlobal("navigator", { clipboard: { readText: async () => link } });
+    scope.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
+    const next = scope.querySelector("[data-join-continue]")!;
+    await vi.waitFor(() => expect(next.className).toContain("ui-btn-primary"));
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("neutral");
+  });
+
+  test("clearing the box after Continue makes Create primary again", () => {
+    const scope = mountScope();
+    const input = scope.querySelector("input")!;
+    input.value = link;
+    input.dispatchEvent(new Event("input"));
+    scope.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    expect(input.value).toBe("");
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
+    join.notNow();
+  });
+});

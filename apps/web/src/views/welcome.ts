@@ -255,7 +255,7 @@ function lockStep(vm: ReturnType<typeof onboardingViewModel>) {
   `;
 }
 
-function chooseStep() {
+export function chooseStep() {
   return html`
     <div class="mx-auto max-w-md space-y-4" data-invite-scope>
       <h1 class="text-center text-xl font-bold text-fg">${t("welcome.start_sharing")}</h1>

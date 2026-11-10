@@ -110,12 +110,16 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   const label = button.dataset.label ?? button.textContent ?? "";
   button.dataset.label = label;
   button.textContent = copy("invite.copied");
-  const hint = button.parentElement?.parentElement?.querySelector("[data-invite-hint]");
-  const hintText = hint?.textContent ?? "";
-  if (hint) hint.textContent = copy("invite.copied_paste_it");
+  const hint = button.parentElement?.parentElement?.querySelector<HTMLElement>(
+    "[data-invite-hint] [data-copy-id]",
+  );
+  if (hint) {
+    hint.dataset.text = hint.dataset.text ?? hint.textContent ?? "";
+    hint.textContent = copy("invite.copied_paste_it");
+  }
   setTimeout(() => {
     button.textContent = label;
-    if (hint) hint.textContent = hintText;
+    if (hint) hint.textContent = hint.dataset.text ?? "";
   }, 2000);
 }
 

@@ -98,6 +98,30 @@ describe("invite card send hint", () => {
     expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
   });
 
+  test("two quick Copy taps still bring the send line back, with its span", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => {}) },
+      configurable: true,
+    });
+    const host = mount("creator");
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(500);
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(host.textContent).toContain(LINE);
+    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
+  });
+
+  test("with the share sheet, Copy link is the one primary", () => {
+    vi.stubGlobal("navigator", { ...navigator, share: vi.fn() });
+    const host = mount("creator");
+    expect(copyButton(host)!.textContent!.trim()).toBe("Copy link");
+    expect(copyButton(host)!.className).toContain("ui-btn-primary");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
+    vi.unstubAllGlobals();
+  });
+
   test("a member sees no line", () => {
     const host = mount("member");
     expect(host.textContent).not.toContain(LINE);
