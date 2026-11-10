@@ -1281,7 +1281,7 @@
     "screen": "album"
   },
   "album.technical_keys_for_troubleshooting_do": {
-    "text": "Codes for troubleshooting. Share them only with someone helping you fix a problem.",
+    "text": "Codes for troubleshooting. Share one only with someone helping you fix a problem.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1295,7 +1295,7 @@
     "screen": ""
   },
   "album.a_one_way_fingerprint_of": {
-    "text": "Devices use this to find each other. It opens no photos.",
+    "text": "Devices use this to find each other. It opens no photos, but someone with it can see which devices are syncing this album.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1712,14 +1712,14 @@
     "status": "draft",
     "where": "Your albums › heading",
     "who": "Everyone, every time they open Your albums",
-    "screen": "join"
+    "screen": "welcome-start"
   },
   "albums.got_an_invite_link_from": {
     "text": "Got an invite link from someone? Paste it here to ask to join their album.",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
-    "screen": "join"
+    "screen": "welcome-start"
   },
   "albums.paste_the_invite_link": {
     "text": "Paste the invite link",
@@ -1747,14 +1747,14 @@
     "status": "draft",
     "where": "Your albums › button",
     "who": "Everyone, every time they open Your albums",
-    "screen": "join"
+    "screen": "welcome-start"
   },
   "albums.continue": {
     "text": "Continue",
     "status": "draft",
     "where": "Your albums › button",
     "who": "Everyone, every time they open Your albums",
-    "screen": "join"
+    "screen": "welcome-start"
   },
   "albums.tap_an_album_to_invite": {
     "text": "Tap an album to invite people or see who's in it. Each album has its own invite link.",
@@ -2055,7 +2055,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "welcome"
+    "screen": "gallery"
   },
   "gallery.date_added": {
     "text": "Date added",
@@ -2076,7 +2076,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "welcome"
+    "screen": "start-album"
   },
   "gallery.connected_now": {
     "text": "{connected} connected now",
@@ -2398,14 +2398,14 @@
     "status": "draft",
     "where": "Photos › heading",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "welcome"
+    "screen": "start-album"
   },
   "gallery.refresh": {
     "text": "Refresh",
     "status": "draft",
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "welcome"
+    "screen": "start-album"
   },
   "gallery.all_albums": {
     "text": "← All albums",
@@ -2716,7 +2716,7 @@
     "screen": ""
   },
   "intro_cards.share_an_album_with_a": {
-    "text": "Share an album with a link or QR code. The link alone shows no photos: you accept each person who asks to join, and only the photos you pick are added.",
+    "text": "Share an album with a link or QR code. The link alone shows no photos: you accept each person who asks to join.",
     "status": "draft",
     "where": "Welcome › Intro cards › text",
     "who": "New people, once, at first launch",
@@ -4001,21 +4001,21 @@
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome"
   },
   "welcome.skip": {
     "text": "Skip",
     "status": "draft",
     "where": "Welcome › button",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome"
   },
   "welcome.back": {
     "text": "Back",
     "status": "draft",
     "where": "Welcome › button",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-card-2"
   },
   "welcome.continue": {
     "text": "Continue",
@@ -4036,14 +4036,14 @@
     "status": "draft",
     "where": "Welcome › heading",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-name"
   },
   "welcome.your_name_is_shared_only": {
     "text": "Only albums you join see your name.",
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-name"
   },
   "welcome.your_name": {
     "text": "Your name",
@@ -4057,7 +4057,7 @@
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-name"
   },
   "welcome.saving": {
     "text": "Saving…",
@@ -4099,14 +4099,14 @@
     "status": "draft",
     "where": "Welcome › heading",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-start"
   },
   "welcome.create_an_album": {
     "text": "Create an album",
     "status": "draft",
     "where": "Welcome › heading",
     "who": "New people, once, at first launch",
-    "screen": ""
+    "screen": "welcome-start"
   },
   "welcome.album_name": {
     "text": "Album name",
