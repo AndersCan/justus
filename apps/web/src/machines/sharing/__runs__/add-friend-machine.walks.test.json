@@ -1,0 +1,56 @@
+{
+  "addFriend": [
+    {
+      "name": "Nils adds Kari to Lisbon trip as a Viewer, and she joins from her albums list",
+      "end": "showingPeopleWithAddFriend",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "openPicker",
+          "payload": {
+            "folderId": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+            "albumName": "Lisbon trip",
+            "friends": [
+              {
+                "identity": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+                "name": "Kari"
+              },
+              {
+                "identity": "6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f",
+                "name": "Ole"
+              }
+            ],
+            "memberIdentities": []
+          }
+        },
+        {
+          "kind": "event",
+          "event": "toggleFriend",
+          "payload": {
+            "identity": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "pickRole",
+          "payload": {
+            "role": "reader"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "friendsAnswered",
+          "payload": {
+            "answers": [
+              {
+                "identity": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+                "name": "Kari",
+                "outcome": "asked"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
