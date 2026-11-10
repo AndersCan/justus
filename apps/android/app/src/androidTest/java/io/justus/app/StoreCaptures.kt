@@ -250,6 +250,7 @@ class StoreCaptures {
       // The restart lands on Photos; albums are listed on the Sharing tab.
       find("Sharing", 60).click()
       find("Summer 2026", 30).click()
+      find("See photos in this album", 30).click()
       val landscapeDeadline = System.currentTimeMillis() + 60000
       while (device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).size < 3) {
         if (System.currentTimeMillis() > landscapeDeadline) fail("landscape photo tiles", "View")
