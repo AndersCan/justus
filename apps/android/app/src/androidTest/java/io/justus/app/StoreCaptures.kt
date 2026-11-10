@@ -206,6 +206,16 @@ class StoreCaptures {
       Thread.sleep(1000)
     }
     if (!locked) fail("settings did not show App lock", "Require unlock")
+    // Scroll once so the whole App lock card is on screen, then assert the switch right before the capture:
+    // the card can disappear while the status reloads, so retry the assert, not the test.
+    swipeUp()
+    var lockShown = false
+    for (attempt in 1..10) {
+      lockShown = device.hasObject(By.text(Pattern.compile("Require unlock to open Justus.*")))
+      if (lockShown) break
+      Thread.sleep(1000)
+    }
+    if (!lockShown) fail("App lock switch not visible before the settings capture", "Require unlock")
     capture("settings")
 
     // Help is a row below App lock, possibly under the fold.
