@@ -11,11 +11,11 @@ const broken = join(repo, "assets/sample-photos/zz-not-a-photo.jpg");
 const captures = join(repo, "store-listing/captures/android");
 const names = ["album", "invite", "photo", "settings", "help"];
 
-async function writeCaptures() {
+async function writeCaptures(missing: string[]) {
   mkdirSync(captures, { recursive: true });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1080, height: 2160 } });
-  for (const name of names) {
+  for (const name of missing) {
     await page.setContent(`<body style="margin:0;background:#3a3"></body>`);
     await page.screenshot({ path: join(captures, `${name}.png`) });
   }
@@ -27,7 +27,7 @@ describe("flow photo", () => {
     const original = readFileSync(configFile, "utf8");
     const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
     try {
-      if (!hadCaptures.every(Boolean)) await writeCaptures();
+      await writeCaptures(names.filter((_, at) => !hadCaptures[at]));
       writeFileSync(broken, "not a jpeg");
       writeFileSync(
         configFile,
@@ -51,7 +51,7 @@ describe("flow photo", () => {
   it("draws the coral path in each of the first three images", async () => {
     const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
     try {
-      if (!hadCaptures.every(Boolean)) await writeCaptures();
+      await writeCaptures(names.filter((_, at) => !hadCaptures[at]));
       const run = spawnSync("node", ["store-listing/render.mjs", "--store", "play"], {
         cwd: repo,
         encoding: "utf8",
