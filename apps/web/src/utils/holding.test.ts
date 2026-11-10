@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Photo, PhotoHolders } from "@justus/core";
+import { holdersSheetRows } from "./holders";
+import { copy } from "../copy/copy";
 import { albumHolding, holdingLine } from "./holding";
 
 const m = (key: string) => ({ key, name: key });
@@ -39,7 +41,7 @@ describe("albumHolding", () => {
     );
     expect(r).toEqual({ total: 2, byKey: new Map([["kim", { kind: "count", held: 2 }]]) });
   });
-  it("silent wins over a count, in either order", () => {
+  it("a count the sheets show wins over not said yet, in either order", () => {
     const a = albumHolding(
       [photo("f1", { others: [m("z")] }), photo("f1", { unsure: [m("z")] })],
       "f1",
@@ -48,8 +50,36 @@ describe("albumHolding", () => {
       [photo("f1", { unsure: [m("z")] }), photo("f1", { others: [m("z")] })],
       "f1",
     );
-    expect(a.byKey.get("z")).toEqual({ kind: "silent" });
-    expect(b.byKey.get("z")).toEqual({ kind: "silent" });
+    expect(a.byKey.get("z")).toEqual({ kind: "count", held: 1 });
+    expect(b.byKey.get("z")).toEqual({ kind: "count", held: 1 });
+  });
+  it("silent only when no sheet lists them as holding", () => {
+    const r = albumHolding([photo("f1", { unsure: [m("z")] })], "f1");
+    expect(r.byKey.get("z")).toEqual({ kind: "silent" });
+  });
+  it("row == sheet", () => {
+    const photos = [
+      photo("f1", { here: true, others: [m("a")], unsure: [m("b")] }),
+      photo("f1", { others: [m("a"), m("b")], unsure: [m("c")] }),
+      photo("f1", { waiting: [m("a")], previews: [m("b")], unsure: [m("a")] }),
+      photo("f1"),
+      photo("f2", { others: [m("c")] }),
+    ];
+    const r = albumHolding(photos, "f1");
+    for (const key of ["a", "b", "c"]) {
+      const sheet = photos.filter(
+        (p) => p.folderId === "f1" && holdersSheetRows(p.holders).others.some((o) => o.key === key),
+      ).length;
+      if (sheet > 0) expect(r.byKey.get(key)).toEqual({ kind: "count", held: sheet });
+    }
+  });
+  it("previews or waiting only is none, not silent", () => {
+    const r = albumHolding(
+      [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
+      "f1",
+    );
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("none in full on their phone");
+    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("none in full on their phone");
   });
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
@@ -62,17 +92,32 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "silent" }, 0)).toBeUndefined();
   });
   it("silent", () => {
-    expect(holdingLine({ kind: "silent" }, 3)).toBe("hasn't said yet what's on their phone");
+    expect(holdingLine({ kind: "silent" }, 3)).toBe("their phone hasn't said yet");
   });
-  it("everything held says every photo", () => {
+  it("everything held says all", () => {
     expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("all in full on their phone");
     expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("all in full on their phone");
   });
-  it("part held says some, never a count", () => {
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("some in full on their phone");
+  it("part held says the count", () => {
+    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("2 in full on their phone");
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("1 in full on their phone");
   });
-  it("absent or zero means none yet", () => {
-    expect(holdingLine(undefined, 4)).toBe("none in full on their phone yet");
-    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("none in full on their phone yet");
+  it("absent or zero means none", () => {
+    expect(holdingLine(undefined, 4)).toBe("none in full on their phone");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("none in full on their phone");
+  });
+  it("role and phone part fit a 360 px row (~44 chars of text-xs)", () => {
+    const phones = [
+      holdingLine({ kind: "silent" }, 3),
+      holdingLine(undefined, 3),
+      holdingLine({ kind: "count", held: 3 }, 3),
+      holdingLine({ kind: "count", held: 999 }, 1000),
+    ];
+    for (const role of [
+      "member.role_admin",
+      "member.role_collaborator",
+      "member.role_viewer",
+    ] as const)
+      for (const phone of phones) expect(`${copy(role)} · ${phone}`.length).toBeLessThanOrEqual(42);
   });
 });
