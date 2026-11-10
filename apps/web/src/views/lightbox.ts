@@ -2,9 +2,10 @@ import { html, nothing } from "lit-html";
 import { watch } from "@mantaq/lit";
 import type { Photo, SyncStatus } from "@justus/core";
 import {
-  GALLERY_STATES,
   gallery,
   photoDeleted,
+  photoNotDeleted,
+  samePhoto,
   galleryActor,
   galleryViewModel,
 } from "../machines/gallery-machine";
@@ -13,7 +14,6 @@ import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
 import { memberColor } from "../utils/palette";
 import { confirmAction } from "./confirm";
-import { onStateChange } from "../machines/actor-utils";
 import { foldersActor } from "../machines/folders-machine";
 import { canRemove, roleFor, whyNoDelete } from "../utils/can-remove";
 import { toast } from "./toast";
@@ -90,9 +90,13 @@ function albumOthers(folderId: string | undefined) {
   return albumPeople(folderId).filter((p) => !p.you);
 }
 
+// Only one delete is in flight; an earlier listener that never heard back (the photo was already gone) must not toast again.
+let stopListening = () => {};
+
 export async function deleteFromLightbox(photo: Photo) {
   if (gallery.state() === "removingPhoto") return;
   // A delete confirmed during a reload is already waiting: a second would replace it.
+
   if (galleryActor.snapshot().context.pendingRemove) return;
   const ok = await confirmAction({
     title: copy("lightbox.delete", { name: photo.name }),
@@ -102,20 +106,21 @@ export async function deleteFromLightbox(photo: Photo) {
   });
   if (!ok) return;
   const others = albumOthers(photo.folderId);
-  const offDeleted = galleryActor.on("output", {
+  // The view stays open until the album answers: success drops the photo and closes it.
+  stopListening();
+  const off = galleryActor.on("output", {
     fn: (e) => {
-      if (photoDeleted.is(e)) toast(deletedMessage(photo.name, photo.holders, others));
+      if (photoDeleted.is(e) && samePhoto(e.payload, photo)) {
+        off();
+        toast(deletedMessage(photo.name, photo.holders, others));
+      } else if (photoNotDeleted.is(e) && samePhoto(e.payload, photo)) {
+        off();
+        toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));
+      }
     },
   });
+  stopListening = off;
   gallery.remove(photo.id, photo.folderId);
-  // The view stays open until the album answers: success drops the photo and closes it.
-  const stop = onStateChange(galleryActor, GALLERY_STATES, (next) => {
-    if (next === "removingPhoto") return;
-    stop();
-    offDeleted();
-    if (next === "couldNotRemovePhoto")
-      toast(copy("lightbox.couldn_t_delete_try_again", { name: photo.name }));
-  });
 }
 
 function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {

@@ -128,6 +128,8 @@ const remove = event("REMOVE")<{ id: string; folderId?: string }>();
 const removed = event("REMOVED")<{ id: string; folderId?: string; alreadyGone: boolean }>();
 /** A photo was deleted by this phone (not one that was already gone); the viewer says so. */
 export const photoDeleted = event("PHOTO_DELETED")<{ id: string; folderId?: string }>();
+/** This phone's delete failed; the viewer says so. */
+export const photoNotDeleted = event("PHOTO_NOT_DELETED")<{ id: string; folderId?: string }>();
 /** The photo could not be removed. */
 const removeFailed = event("REMOVE_FAILED")<{ message: string }>();
 /** The person taps Try again after an error. */
@@ -182,7 +184,7 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
   return Actor({
     inputs: [load, addMany, remove, retry, retryFailed, dismissBatch, synced],
     internal: [loaded, loadFailed, itemAdded, itemFailed, batchDone, removed, removeFailed],
-    outputs: [photoDeleted],
+    outputs: [photoDeleted, photoNotDeleted],
     states: [
       photosNotLoaded,
       loadingPhotos,
@@ -308,7 +310,10 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           // The delete never ran: the person is told, as for any failed delete.
           if (c.pendingRemove) {
             opts.context.set(idleContext(c, { error: e.payload.message }));
-            return { state: couldNotRemovePhoto };
+            return {
+              state: couldNotRemovePhoto,
+              emit: [photoNotDeleted.create({ ...c.pendingRemove })],
+            };
           }
           opts.context.set(idleContext(c, { error: e.payload.message }));
           return { state: couldNotLoadPhotos };
@@ -578,13 +583,18 @@ export function createGalleryActor(options: { clock: Clock; gateway?: GalleryPor
           };
         },
       });
-      /** Removing failed: the photo stays and the person sees why. */
+      /** Removing failed: the photo stays and the person sees why; a pending reload still runs. */
       m.on(removingPhoto, {
         event: removeFailed,
-        to: [couldNotRemovePhoto],
+        to: [couldNotRemovePhoto, loadingPhotos],
         handler: (e, opts) => {
-          opts.context.set(idleContext(opts.context.get(), { error: e.payload.message }));
-          return { state: couldNotRemovePhoto };
+          const c = opts.context.get();
+          const pending = c.pendingRemove;
+          opts.context.set(idleContext(c, { error: e.payload.message }));
+          return {
+            state: c.reloadAfterAdd ? loadingPhotos : couldNotRemovePhoto,
+            emit: pending ? [photoNotDeleted.create({ ...pending })] : [],
+          };
         },
       });
     },

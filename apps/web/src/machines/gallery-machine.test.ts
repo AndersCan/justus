@@ -324,7 +324,7 @@ describe("gallery factory", () => {
     await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
     expect(galleryViewModel(h.actor.snapshot(), null).error).toBeNull();
     expect(h.ctx().error).toBe("not allowed");
-    expect(outputs).toEqual([]);
+    expect(outputs).toEqual([{ type: "PHOTO_NOT_DELETED", payload: { id: "p1", folderId: "f1" } }]);
   });
 
   describe("from couldNotRemovePhoto", () => {
