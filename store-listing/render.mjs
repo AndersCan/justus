@@ -46,9 +46,22 @@ for (const store of chosen.stores) {
     await page.goto(`${base}store-listing/image.html?store=${store.name}&id=${image.id}`);
     await page.waitForSelector("body[data-ready]");
     const result = JSON.parse(await page.evaluate(() => document.body.dataset.result));
+    if (result.error) {
+      console.error(`${label}: ${result.error}`);
+      await browser.close();
+      await server.close();
+      process.exit(2);
+    }
+    const landscapeSkip = result.skip?.startsWith("Needs a landscape");
+    if (result.skip && image.captures[store.name] && !landscapeSkip) {
+      console.error(`${label}: capture ${image.capture} exists but cannot be read as an image`);
+      await browser.close();
+      await server.close();
+      process.exit(2);
+    }
     if (result.skip) {
       const iOS = store.name === "ios" ? "iOS " : "";
-      const reason = result.skip.startsWith("Needs a landscape")
+      const reason = landscapeSkip
         ? "needs a landscape capture"
         : `needs ${iOS}capture ${image.capture}`;
       console.log(`skip ${store.name} ${image.id}: ${reason}`);

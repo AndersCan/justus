@@ -24,6 +24,10 @@ describe("headlineFits", () => {
     expect(headlineFits({ ...base, rect: { ...base.rect, right: 1000 } }).ok).toBe(false);
     expect(headlineFits({ ...base, rect: { ...base.rect, left: 80 } }).ok).toBe(false);
   });
+  it("allows half a pixel of rounding but no more", () => {
+    expect(headlineFits({ ...base, rect: { ...base.rect, left: 89.5 } }).ok).toBe(true);
+    expect(headlineFits({ ...base, rect: { ...base.rect, left: 89 } }).ok).toBe(false);
+  });
   it("fails when text crosses the top or bottom margin", () => {
     expect(headlineFits({ ...base, rect: { ...base.rect, top: 100 } }).ok).toBe(false);
     expect(headlineFits({ ...base, rect: { ...base.rect, bottom: 1810 } }).ok).toBe(false);

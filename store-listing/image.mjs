@@ -176,6 +176,6 @@ async function render() {
   return { checks, skip: usable ? "" : tileText };
 }
 
-const result = await render();
+const result = await render().catch((error) => ({ error: String(error?.message ?? error) }));
 document.body.dataset.result = JSON.stringify(result);
 document.body.dataset.ready = "1";

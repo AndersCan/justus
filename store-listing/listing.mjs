@@ -16,20 +16,21 @@ function lineOf(text, needle) {
 }
 
 function pngSize(path) {
-  if (!existsSync(path)) return undefined;
+  if (!existsSync(path)) return { ok: true, size: undefined };
   const head = readFileSync(path).subarray(0, 24);
-  const signature = head.subarray(1, 4).toString("latin1") === "PNG";
-  return signature ? { width: head.readUInt32BE(16), height: head.readUInt32BE(20) } : undefined;
+  const signature = head.length === 24 && head.subarray(1, 4).toString("latin1") === "PNG";
+  if (!signature) return fail(`${path}: not a PNG image`);
+  return { ok: true, size: { width: head.readUInt32BE(16), height: head.readUInt32BE(20) } };
 }
 
 function capturesFor(root, name) {
   const found = {};
   for (const store of Object.values(STORES)) {
-    found[store.name] = pngSize(
-      join(root, "store-listing/captures", store.captureDir, `${name}.png`),
-    );
+    const read = pngSize(join(root, "store-listing/captures", store.captureDir, `${name}.png`));
+    if (!read.ok) return read;
+    found[store.name] = read.size;
   }
-  return found;
+  return { ok: true, found };
 }
 
 function readImage(root, text, image) {
@@ -55,7 +56,8 @@ function readImage(root, text, image) {
     );
   }
   const captures = capturesFor(root, image.capture);
-  return { ok: true, image: { ...image, captures } };
+  if (!captures.ok) return captures;
+  return { ok: true, image: { ...image, captures: captures.found } };
 }
 
 // Parses and validates images.json and finds each image's captures.
@@ -84,6 +86,9 @@ export function readListing(root) {
   for (const raw of config.images) {
     const read = readImage(root, text, raw);
     if (!read.ok) return read;
+    if (images.some((seen) => seen.id === read.image.id)) {
+      return fail(`${CONFIG}: image id ${JSON.stringify(read.image.id)} is used twice`);
+    }
     images.push(read.image);
   }
   return { ok: true, flowPhoto: flow, images };

@@ -95,4 +95,47 @@ describe("readListing", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.images[0].captures.play).toBeUndefined();
   });
+
+  it("rejects two images with the same id", () => {
+    const base = { id: "01_a", layout: "deviceBelow", capture: "album", headline: "Hi" };
+    const images = [base, { ...base, headline: "Other" }];
+    const result = readListing(fixture(JSON.stringify({ flowPhoto: "dog.jpg", images })));
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("01_a");
+  });
+
+  it("rejects a flowPhoto that climbs out of sample-photos to a file that exists", () => {
+    const root = fixture(configWith({}, "../secret.jpg"));
+    writeFileSync(join(root, "assets/secret.jpg"), "x");
+    const result = readListing(root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("must be a plain file name");
+  });
+
+  it("names the file when images.json is missing", () => {
+    const root = mkdtempSync(join(tmpdir(), "listing-"));
+    expect(readListing(root)).toEqual({
+      ok: false,
+      message: "store-listing/images.json: file not found",
+    });
+  });
+
+  it("rejects a null image entry with a message", () => {
+    const config = JSON.stringify({ flowPhoto: "dog.jpg", images: [null] });
+    expect(readListing(fixture(config))).toEqual({
+      ok: false,
+      message: "store-listing/images.json: each image must be an object",
+    });
+  });
+
+  it("rejects a capture that is not a PNG", () => {
+    const root = fixture(configWith({}));
+    writeFileSync(
+      join(root, "store-listing/captures/android/album.png"),
+      "garbage bytes long enough to read",
+    );
+    const result = readListing(root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not a PNG image");
+  });
 });
