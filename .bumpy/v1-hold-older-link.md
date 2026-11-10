@@ -2,4 +2,4 @@
 "@justus/android": patch
 ---
 
-[user]: When a friend's phone runs an older Justus, the update notice now waits for and shows their name.
+[user]: On a slow connection, the update notice now shows the name of a friend on Justus 0.2.1 or older instead of "Someone".
