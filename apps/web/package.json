@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@awesome.me/webawesome": "catalog:",
-    "@ekrooh/bare": "^0.6.2",
+    "@ekrooh/bare": "^0.7.0",
     "@justus/core": "workspace:*",
     "@mantaq/core": "catalog:",
     "@mantaq/lit": "catalog:",

@@ -34,7 +34,7 @@ layer, Host, Actor). Use those terms exactly.
 - **Keep ekrooh versions in lockstep.** `@ekrooh/bare` (JS, `apps/web` +
   `apps/backend`) and the `bare-host` AAR (`apps/android/app/build.gradle`) track
   the same release. Bump both together, run `vp check` + tests, then do app work.
-  Currently **0.6.0**.
+  Currently **0.7.0**.
 - **Every PR adds a bump file.** Run `pnpm bumpy add`. CI fails without one
   when the PR changes `apps/*` or `packages/*`; changes only under `scripts/`,
   `.github/`, `e2e/`, `.maestro/` or `docs/` need none, but add one with
