@@ -86,14 +86,12 @@ describe("add a friend", () => {
     expect(host.textContent).toContain("Or send a link");
   });
 
-  test("the invite card has no coloured button: Add photos is the page's one", () => {
+  test("the invite card's one coloured button is Copy invite link", () => {
     const host = mount("creator", { i1: "Kari" });
-    expect(primaries(host)).toEqual([]);
+    expect(primaries(host)).toEqual(["Copy invite link"]);
     expect(button(host, "Add a friend")!.className).toContain("ui-btn-ghost");
-    expect(button(host, "Copy invite link")!.className).toContain("ui-btn-ghost");
     document.body.replaceChildren();
-    expect(primaries(mount("creator"))).toEqual([]);
-    expect(button(mount("creator"), "Copy invite link")!.className).toContain("ui-btn-ghost");
+    expect(primaries(mount("creator"))).toEqual(["Copy invite link"]);
   });
 
   test("friend rows in the picker are checkboxes named by the friend", async () => {

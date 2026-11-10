@@ -110,8 +110,16 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   const label = button.dataset.label ?? button.textContent ?? "";
   button.dataset.label = label;
   button.textContent = copy("invite.copied");
+  const hint = button.parentElement?.parentElement
+    ?.querySelector("[data-invite-hint]")
+    ?.querySelector<HTMLElement>("[data-copy-id]");
+  if (hint) {
+    hint.dataset.text = hint.dataset.text ?? hint.textContent ?? "";
+    hint.textContent = copy("invite.copied_paste_it");
+  }
   setTimeout(() => {
     button.textContent = label;
+    if (hint) hint.textContent = hint.dataset.text ?? "";
   }, 2000);
 }
 
@@ -376,14 +384,14 @@ function invitePanelBody(
                   ${t("invite.send_invite_link")}
                 </button>
                 <button
-                  class="ui-btn-ghost"
+                  class="ui-btn-primary"
                   ?disabled=${linkBlocked}
                   @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
                 >
                   ${t("invite.copy_link")}
                 </button>`
             : html`<button
-                class="ui-btn-ghost"
+                class="ui-btn-primary"
                 ?disabled=${linkBlocked}
                 @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
               >
@@ -394,7 +402,9 @@ function invitePanelBody(
       ${
         linkBlocked
           ? null
-          : html`<p class="mt-2 text-sm text-muted">${t("invite.send_it_in_any_chat")}</p>`
+          : html`<p class="mt-2 text-sm text-muted" data-invite-hint>
+              ${t("invite.send_it_in_any_chat")}
+            </p>`
       }
       ${
         link === null

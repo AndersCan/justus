@@ -270,6 +270,43 @@ describe("Join tab", () => {
     join.notNow();
   });
 
+  test("Continue is primary only once an invite link is pasted", () => {
+    const scope = document.createElement("div");
+    scope.setAttribute("data-invite-scope", "");
+    scope.innerHTML = '<wa-button variant="brand" data-create-album></wa-button>';
+    const panel = document.createElement("div");
+    scope.append(panel);
+    render(joinPanel(true), panel);
+    const next = scope.querySelector("[data-join-continue]")!;
+    const create = scope.querySelector("[data-create-album]")!;
+    const input = scope.querySelector("input")!;
+    expect(next.className).toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("brand");
+    expect(create.hasAttribute("appearance")).toBe(false);
+    input.value = buildInviteLink({
+      code: "a".repeat(64),
+      owner: "b".repeat(64),
+      album: "Trip",
+      ownerName: "Nils",
+    });
+    input.dispatchEvent(new Event("input"));
+    expect(next.className).toContain("ui-btn-primary");
+    expect(next.className).not.toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("neutral");
+    expect(create.getAttribute("appearance")).toBe("filled");
+    input.value = "not a link";
+    input.dispatchEvent(new Event("input"));
+    expect(next.className).toContain("ui-btn-ghost");
+    expect(create.getAttribute("variant")).toBe("brand");
+    expect(create.hasAttribute("appearance")).toBe(false);
+  });
+
+  test("on the join tab alone Continue stays primary", () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    expect(host.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
+  });
+
   test("Continue with a garbled link keeps the text", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
@@ -865,5 +902,49 @@ describe("roleAndCount", () => {
       "No longer in this album",
     );
     expect(roleAndCount(album("a", "reader") as never)).toBe("Viewer · 1 member");
+  });
+});
+
+describe("primary button follows the invite box", () => {
+  const link = buildInviteLink({
+    code: "a".repeat(64),
+    owner: "b".repeat(64),
+    album: "Trip",
+    ownerName: "Nils",
+  });
+  const mountScope = () => {
+    const scope = document.createElement("div");
+    scope.setAttribute("data-invite-scope", "");
+    scope.innerHTML = '<wa-button variant="brand" data-create-album></wa-button>';
+    const panel = document.createElement("div");
+    scope.append(panel);
+    document.body.append(scope);
+    render(joinPanel(true), panel);
+    return scope;
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("Paste with an invite copied makes Continue primary", async () => {
+    const scope = mountScope();
+    vi.stubGlobal("navigator", { clipboard: { readText: async () => link } });
+    scope.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
+    const next = scope.querySelector("[data-join-continue]")!;
+    await vi.waitFor(() => expect(next.className).toContain("ui-btn-primary"));
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("neutral");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("appearance")).toBe("filled");
+  });
+
+  test("clearing the box after Continue makes Create primary again", () => {
+    const scope = mountScope();
+    const input = scope.querySelector("input")!;
+    input.value = link;
+    input.dispatchEvent(new Event("input"));
+    scope.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    expect(input.value).toBe("");
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
+    expect(scope.querySelector("[data-create-album]")!.hasAttribute("appearance")).toBe(false);
+    join.notNow();
   });
 });

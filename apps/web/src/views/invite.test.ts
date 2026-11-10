@@ -65,6 +65,7 @@ const copyButton = (host: HTMLElement) =>
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   document.body.replaceChildren();
 });
 
@@ -85,10 +86,40 @@ describe("invite card send hint", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(copyButton(host)!.textContent).toBe("Copied ✓");
-    expect(host.textContent).toContain(LINE);
+    expect(host.textContent).toContain("Copied. Paste it into a chat to send it.");
+    expect(host.textContent).not.toContain(LINE);
     await vi.advanceTimersByTimeAsync(3000);
     expect(copyButton(host)!.textContent!.trim()).toBe(label);
     expect(host.textContent).toContain(LINE);
+  });
+
+  test("Copy invite link is the one primary button", () => {
+    const host = mount("creator");
+    expect(copyButton(host)!.className).toContain("ui-btn-primary");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
+  });
+
+  test("two quick Copy taps still bring the send line back, with its span", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => {}) },
+      configurable: true,
+    });
+    const host = mount("creator");
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(500);
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(host.textContent).toContain(LINE);
+    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
+  });
+
+  test("with the share sheet, Copy link is the one primary", () => {
+    vi.stubGlobal("navigator", { ...navigator, share: vi.fn() });
+    const host = mount("creator");
+    expect(copyButton(host)!.textContent!.trim()).toBe("Copy link");
+    expect(copyButton(host)!.className).toContain("ui-btn-primary");
+    expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
   });
 
   test("a member sees no line", () => {
