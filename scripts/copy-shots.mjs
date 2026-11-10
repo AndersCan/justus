@@ -85,7 +85,6 @@ const scenarios = {
       await page.waitForURL(/\/sharing\/.+/);
     },
   },
-  devices: { open: (page) => page.goto("/devices") },
   join: { open: (page) => page.goto("/join") },
   "not-found": { at: /\/nope$/, open: (page) => page.goto("/nope") },
   settings: { open: (page) => page.goto("/settings") },

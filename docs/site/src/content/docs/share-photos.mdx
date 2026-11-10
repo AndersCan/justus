@@ -5,28 +5,22 @@ description: "A member adds photos to an album and decides who sees them."
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-| What the person sees                                                                                 | What they do        | State                         |
-| ---------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------- |
-| The photo grid                                                                                       | Taps "Add photos"   | `gallery.showingPhotos`       |
-| "n of m" while photos are added; afterwards a summary of added, already there and failed, with Retry | Waits, or retries   | `gallery.addingPhotos`        |
-| Other phones reload the grid when photos arrive                                                      | Nothing             | `gallery.loadingPhotos`       |
-| Nobody in the album can be reached for a while                                                       | Waits               | `reach.waitingBeforeWifiHint` |
-| "Can't reach anyone in this album yet. If you're on mobile data, try WiFi."                          | Switches to WiFi    | `reach.showingWifiHint`       |
-| "Who you share with"                                                                                 | Picks who sees what | `grants.showingShareList`     |
-| The choice is being saved                                                                            | Waits               | `grants.savingShareChoice`    |
-| A photo full screen (see [Internals](../internals/))                                                 | Taps a photo        | `lightbox.showingPhoto`       |
+| What the person sees                                                                                 | What they do      | State                         |
+| ---------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------- |
+| The photo grid                                                                                       | Taps "Add photos" | `gallery.showingPhotos`       |
+| "n of m" while photos are added; afterwards a summary of added, already there and failed, with Retry | Waits, or retries | `gallery.addingPhotos`        |
+| Other phones reload the grid when photos arrive                                                      | Nothing           | `gallery.loadingPhotos`       |
+| Nobody in the album can be reached for a while                                                       | Waits             | `reach.waitingBeforeWifiHint` |
+| "Can't reach anyone in this album yet. If you're on mobile data, try WiFi."                          | Switches to WiFi  | `reach.showingWifiHint`       |
+| A photo full screen (see [Internals](../internals/))                                                 | Taps a photo      | `lightbox.showingPhoto`       |
 
 **When it goes wrong.**
 
-| What went wrong                     | State                            |
-| ----------------------------------- | -------------------------------- |
-| Photos could not be loaded          | `gallery.couldNotLoadPhotos`     |
-| A photo could not be removed        | `gallery.couldNotRemovePhoto`    |
-| The share choice could not be saved | `grants.couldNotSaveShareChoice` |
-| The share list could not be loaded  | `grants.couldNotLoadShareList`   |
+| What went wrong              | State                         |
+| ---------------------------- | ----------------------------- |
+| Photos could not be loaded   | `gallery.couldNotLoadPhotos`  |
+| A photo could not be removed | `gallery.couldNotRemovePhoto` |
 
 <Machine src="apps/web/src/machines/gallery-machine.ts" />
-
-<Machine src="apps/web/src/machines/grants-machine.ts" />
 
 <Machine src="apps/web/src/machines/reach-hint-machine.ts" />

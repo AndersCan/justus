@@ -5,8 +5,6 @@ export * from "./photos/exif-date";
 export * from "./photos/renditions";
 export * from "./logging/types";
 export * from "./logging/events";
-export * from "./grants/types";
-export * from "./grants/events";
 export * from "./media/events";
 export * from "./lock/events";
 export * from "./share/events";

@@ -12,7 +12,6 @@ export const ROUTES = {
   photoAlbum: "/albums/:id",
   sharing: "/sharing",
   sharingJoin: "/join",
-  sharingDevices: "/devices",
   album: "/sharing/:id",
   help: "/help",
   settings: "/settings",
