@@ -20,6 +20,13 @@
     "who": "New people, once",
     "screen": ""
   },
+  "requests.them": {
+    "text": "them",
+    "status": "draft",
+    "where": "Album › Join requests › toast",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
   "requests.they": {
     "text": "They",
     "status": "draft",

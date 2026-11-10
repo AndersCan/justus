@@ -279,7 +279,7 @@ onOutput(requestsActor, (e) => {
     const { requesterName } = e.payload as { requesterName: string };
     toast(
       copy("album.couldn_t_send_your_no", {
-        requesterName: requesterName || copy("requests.they"),
+        requesterName: requesterName || copy("requests.them"),
       }),
     );
     return;

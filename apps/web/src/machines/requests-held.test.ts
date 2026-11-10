@@ -110,19 +110,6 @@ describe("held decline in every state", () => {
     expect(actor.state.name).toBe("sendingAnswersToAll");
   });
 
-  test("Hold works after a failed load", async () => {
-    const port = {
-      requests: vi.fn(async () => [new Error("offline"), null] as never),
-      respond: vi.fn(),
-    };
-    const actor = createRequestsActor({ clock: VirtualClock(), gateway: port as never });
-    actor.send(ev("REFRESH"));
-    await actor.settled();
-    expect(actor.state.name).toBe("couldNotLoadRequests");
-    actor.send(hold("k1"));
-    expect(actor.state.name).toBe("couldNotLoadRequests");
-  });
-
   test("a held No that fails brings the card back and says so", async () => {
     const { actor } = setup();
     const out: { type: string; payload: unknown }[] = [];

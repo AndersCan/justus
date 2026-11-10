@@ -645,6 +645,19 @@ describe("album join requests", () => {
     await requestsActor.settled();
   });
 
+  test("a Decline without a name that cannot be sent says 'them' in lower case", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([{ ...ask("k9", true), requesterName: "" }]);
+    vi.mocked(gateway.respond).mockResolvedValueOnce([new Error("offline"), null] as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().onClose();
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("Couldn't send your No to them. The request is back."),
+    );
+    await requestsActor.settled();
+  });
+
   test("a Decline answered with 'request cancelled' keeps the card gone, with no failure toast", async () => {
     vi.mocked(toast).mockClear();
     const host = await show([ask("nils", true)]);
