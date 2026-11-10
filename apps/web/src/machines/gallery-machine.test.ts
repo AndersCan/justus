@@ -324,7 +324,7 @@ describe("gallery factory", () => {
     await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
     expect(galleryViewModel(h.actor.snapshot(), null).error).toBeNull();
     expect(h.ctx().error).toBe("not allowed");
-    expect(outputs).toEqual([]);
+    expect(outputs).toEqual([{ type: "PHOTO_NOT_DELETED", payload: { id: "p1", folderId: "f1" } }]);
   });
 
   describe("from couldNotRemovePhoto", () => {
@@ -404,6 +404,123 @@ describe("gallery factory", () => {
     h.send("LOAD");
     await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotLoadPhotos"));
     expect(h.ctx().error).toMatch(/no photos/);
+  });
+});
+
+describe("a delete confirmed while the list is loading", () => {
+  test("runs once the list lands and drops the photo", async () => {
+    let land!: () => void;
+    let calls = 0;
+    const h = build({
+      list: () => {
+        calls += 1;
+        if (calls === 1) return Promise.resolve([null, { photos: [photo("p1"), photo("p2")] }]);
+        return new Promise((r) => (land = () => r([null, { photos: [photo("p1"), photo("p2")] }])));
+      },
+    });
+    await ready(h);
+    h.send("LOAD");
+    expect(h.stateOf()).toBe("loadingPhotos");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    expect(h.port.remove).not.toHaveBeenCalled();
+    land();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.port.remove).toHaveBeenCalledWith("p1", "f1");
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p2"]);
+  });
+
+  test("a list that fails says the delete did not happen", async () => {
+    let calls = 0;
+    const h = build({
+      list: () => {
+        calls += 1;
+        return Promise.resolve(
+          calls === 1 ? [null, { photos: [photo("p1")] }] : [new Error("down"), null],
+        );
+      },
+    });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    await vi.waitFor(() => expect(h.stateOf()).toBe("couldNotRemovePhoto"));
+    expect(h.port.remove).not.toHaveBeenCalled();
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p1"]);
+  });
+});
+
+describe("a delete waiting on a load, with other work", () => {
+  const gated = (lists: () => unknown[][]) => {
+    let calls = 0;
+    const lands: Array<() => void> = [];
+    const list = (): Promise<any> => {
+      calls += 1;
+      const photos = lists()[Math.min(calls - 1, lists().length - 1)];
+      if (calls === 1) return Promise.resolve([null, { photos }]);
+      return new Promise((r) => lands.push(() => r([null, { photos }])));
+    };
+    return { list, lands };
+  };
+
+  test("runs on the list that landed, not the one before", async () => {
+    const g = gated(() => [[photo("p1")], [photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.ctx().photos.map((p: { id: string }) => p.id)).toEqual(["p2"]);
+  });
+
+  test("a sync during the load still reloads after the delete", async () => {
+    const g = gated(() => [[photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    h.send("LOAD");
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalled());
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
+  });
+
+  test("a delete queued next to an add runs after the add", async () => {
+    const g = gated(() => [[photo("p1")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("ADD_MANY", { sources: [path("a.jpg")], folderId: "f1" });
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalledWith("p1", "f1"));
+    expect(h.port.add).toHaveBeenCalled();
+  });
+
+  test("a delete queued next to an upload reloads after it", async () => {
+    const g = gated(() => [[photo("p1")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("ADD_MANY", {
+      sources: [{ kind: "file", file: new Blob(["x"]), name: "a.jpg" }],
+      folderId: "f1",
+    });
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalledWith("p1", "f1"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
+  });
+
+  test("a second delete during the load does not replace the first", async () => {
+    const g = gated(() => [[photo("p1"), photo("p2")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    h.send("REMOVE", { id: "p2", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.stateOf()).toBe("showingPhotos"));
+    expect(h.port.remove.mock.calls).toEqual([["p1", "f1"]]);
   });
 });
 
