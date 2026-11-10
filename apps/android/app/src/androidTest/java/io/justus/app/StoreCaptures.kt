@@ -171,16 +171,6 @@ class StoreCaptures {
     cleanBars()
     capture("album")
 
-    // The same screen turned on its side, for the landscape store layout.
-    device.setOrientationLeft()
-    Thread.sleep(2000)
-    if (device.displayWidth <= device.displayHeight) fail("device did not rotate to landscape", "landscape")
-    cleanBars()
-    capture("album-landscape")
-    device.setOrientationNatural()
-    Thread.sleep(2000)
-    cleanBars()
-
     device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).first().click()
     Thread.sleep(5000)
     capture("photo")
@@ -251,6 +241,24 @@ class StoreCaptures {
     find("What is Justus?", 10).click()
     Thread.sleep(1000)
     capture("help")
+
+    // Last, because turning the phone restarts the app on the Photos home screen: open the album again, then capture it on its side.
+    device.setOrientationLeft()
+    try {
+      Thread.sleep(2000)
+      if (device.displayWidth <= device.displayHeight) fail("device did not rotate to landscape", "landscape")
+      find("Summer 2026", 60).click()
+      val landscapeDeadline = System.currentTimeMillis() + 60000
+      while (device.findObjects(By.text(Pattern.compile("View .*\\.jpg"))).size < 3) {
+        if (System.currentTimeMillis() > landscapeDeadline) fail("landscape photo tiles", "View")
+        Thread.sleep(500)
+      }
+      Thread.sleep(1000)
+      cleanBars()
+      capture("album-landscape")
+    } finally {
+      device.setOrientationNatural()
+    }
   }
 
   private fun capture(name: String) {
