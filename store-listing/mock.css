@@ -118,5 +118,6 @@ body {
 
 #zoom iframe {
   display: block;
+  pointer-events: none;
   border: 0;
 }

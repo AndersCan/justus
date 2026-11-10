@@ -44,6 +44,16 @@ describe("mock page data", () => {
     rmSync(root, { recursive: true });
   });
 
+  it("readMock reports a missing store text file instead of ok", () => {
+    const root = copy();
+    rmSync(join(root, "apps/ios/fastlane/metadata/en-US/subtitle.txt"));
+    expect(readMock(root)).toEqual({
+      ok: false,
+      message: "apps/ios/fastlane/metadata/en-US/subtitle.txt: file not found",
+    });
+    rmSync(root, { recursive: true });
+  });
+
   it("reports a bad images.json instead of text", () => {
     const root = copy();
     writeFileSync(join(root, "store-listing/images.json"), "{");

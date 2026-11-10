@@ -22,6 +22,7 @@ function closeZoom() {
 
 function openZoom(store, id) {
   const zoom = document.getElementById("zoom");
+  zoom.replaceChildren();
   const frame = element("iframe", "", zoom);
   frame.width = store.width;
   frame.height = store.height;
@@ -98,6 +99,7 @@ async function show() {
   iosColumn(stores, listing);
 }
 
+document.getElementById("zoom").addEventListener("click", closeZoom);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeZoom();
 });

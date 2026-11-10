@@ -19,7 +19,6 @@ function listingApi() {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify(readMock(root)));
       });
-      for (const path of WATCHED) server.watcher.add(join(root, path));
       const reload = (file) => {
         const path = relative(root, file);
         if (WATCHED.some((watched) => path === watched || path.startsWith(`${watched}/`))) {
