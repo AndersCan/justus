@@ -48,7 +48,9 @@ function buildPhone({ parent, pw, ratio, landscape, capture, tileText }) {
     img.src = capture.src;
     img.alt = "";
   } else {
-    element("div", "tile", screen).textContent = tileText;
+    const tile = element("div", "tile", screen);
+    tile.style.fontSize = `${0.08 * pw}px`;
+    tile.textContent = tileText;
   }
   const camera = element("div", "camera", phone);
   const dot = 0.035 * pw;
