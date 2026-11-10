@@ -188,6 +188,8 @@ class StoreCaptures {
     if (!opened) fail("invite page did not open", "Copy link")
     capture("invite")
 
+    // App lock is only usable on a phone with a screen lock: set a PIN for the Settings capture and clear it after.
+    device.executeShellCommand("locksettings set-pin 1234")
     // The App lock card appears after a status read, and the tap on Settings can land before the web view
     // binds its handlers: on a miss go to Photos and back to Settings.
     var locked = false
@@ -224,6 +226,7 @@ class StoreCaptures {
     // Without a screen lock the card reads "Set a screen lock in your phone's Settings" and the switch is off limits.
     if (device.hasObject(By.text(Pattern.compile("Set a screen lock.*")))) fail("App lock is unavailable", "Set a screen lock")
     capture("settings")
+    device.executeShellCommand("locksettings clear --old 1234")
 
     // Help is a row below App lock, possibly under the fold.
     repeat(4) {
