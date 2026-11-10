@@ -676,6 +676,41 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "V1r: a peer one protocol behind that closes the link at once is still flagged as Someone",
+    async run(net, t) {
+      const behind = await net.peer("Behind", undefined, { peerProtocol: PEER_PROTOCOL - 1 });
+      const current = await net.peer("Current");
+      const created = await behind.store.createFolder("Shared");
+      if (created[0]) throw created[0];
+      const { shareKey } = created[1].folder;
+      current.store.join(shareKey, "Shared").catch(() => {});
+      const st = await eventually(
+        () => current.store.status(),
+        (s) => s.peersBehind.length > 0,
+        "the older peer flagged on the current peer",
+        20_000,
+      );
+      t.eq(st.peersBehind, ["Behind"], "the current peer names the older one");
+    },
+  },
+  {
+    name: "V1r: a peer one protocol behind (has the version channel) is named on the current peer",
+    async run(net, t) {
+      const behind = await net.peer("Behind", undefined, { peerProtocol: PEER_PROTOCOL - 1 });
+      const current = await net.peer("Current");
+      const created = await behind.store.createFolder("Shared");
+      if (created[0]) throw created[0];
+      const { shareKey } = created[1].folder;
+      current.store.join(shareKey, "Shared").catch(() => {});
+      const st = await eventually(
+        () => current.store.status(),
+        (s) => s.peersBehind.length > 0,
+        "any older peer named on the current peer",
+      );
+      t.eq(st.peersBehind, ["Someone"], "it closed before its name arrived");
+    },
+  },
+  {
     name: "V1b: a peer on a newer version is refused and flagged",
     async run(net, t) {
       const ahead = await net.peer("Ahead", undefined, { peerProtocol: PEER_PROTOCOL + 1 });

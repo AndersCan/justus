@@ -3668,7 +3668,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const c = conns.get(connId);
     if (!c || c.noted) return;
     c.noted = true;
-    // Wait for the name while the peer keeps the link open. If it closes first, name no one: a later link asks again.
+    // Wait for the name while the peer keeps the link open. If it closes first, fall back to "Someone".
+    // A read stuck on an unreadable file never sees the link close, so race it.
     const linkGone = async () => {
       while (!closed && conns.has(connId)) await sleep(100);
     };
@@ -3679,12 +3680,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         await sleep(100);
       }
     });
-    const name = await Promise.race([read, linkGone()]).catch(() => undefined);
-    if (
-      name !== undefined &&
-      !peersBehind.includes(name) &&
-      peersBehind.length < MAX_PEERS_BEHIND
-    ) {
+    const found = await Promise.race([read, linkGone()]).catch(() => undefined);
+    if (found === undefined && closed) return;
+    const name = found ?? "Someone";
+    if (!peersBehind.includes(name) && peersBehind.length < MAX_PEERS_BEHIND) {
       peersBehind.push(name);
       deps.onChanged({ cause: "version" });
     }

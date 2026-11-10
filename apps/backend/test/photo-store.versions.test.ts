@@ -228,7 +228,7 @@ describe("peer versions", () => {
     await s.peer.store.close();
   });
 
-  it("an unreadable name holds the link and names no one if the peer closes it", async () => {
+  it("an unreadable name holds the link, and falls back to Someone if the peer closes it", async () => {
     const s = await setup();
     const copy = await s.me.deps.drives.open(s.peerKey, { timeoutMs: 1_000 });
     if (copy[0] || !copy[1]) throw new Error("peer identity drive did not open");
@@ -242,8 +242,8 @@ describe("peer versions", () => {
     expect(phone.network.connectionCount()).toBe(1);
     expect(await behind(s)).toEqual([]);
     await phone.network.close();
-    await new Promise((r) => setTimeout(r, 500));
-    expect(await behind(s)).toEqual([]);
+    await until(async () => (await behind(s)).length > 0);
+    expect(await behind(s)).toEqual(["Someone"]);
     await s.me.store.close();
     await s.peer.store.close();
   }, 20_000);
