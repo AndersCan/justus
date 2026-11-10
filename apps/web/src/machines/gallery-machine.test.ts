@@ -493,6 +493,22 @@ describe("a delete waiting on a load, with other work", () => {
     h.send("REMOVE", { id: "p1", folderId: "f1" });
     g.lands.shift()!();
     await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalledWith("p1", "f1"));
+    expect(h.port.add).toHaveBeenCalled();
+  });
+
+  test("a delete queued next to an upload reloads after it", async () => {
+    const g = gated(() => [[photo("p1")]]);
+    const h = build({ list: g.list });
+    await ready(h);
+    h.send("LOAD");
+    h.send("ADD_MANY", {
+      sources: [{ kind: "file", file: new Blob(["x"]), name: "a.jpg" }],
+      folderId: "f1",
+    });
+    h.send("REMOVE", { id: "p1", folderId: "f1" });
+    g.lands.shift()!();
+    await vi.waitFor(() => expect(h.port.remove).toHaveBeenCalledWith("p1", "f1"));
+    await vi.waitFor(() => expect(h.stateOf()).toBe("loadingPhotos"));
   });
 
   test("a second delete during the load does not replace the first", async () => {
