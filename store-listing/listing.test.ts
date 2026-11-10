@@ -160,4 +160,14 @@ describe("readListing", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("not a PNG image");
   });
+  it("rejects a capture shorter than a PNG header that ends with IEND", () => {
+    const root = fixture(configWith({}));
+    writeFileSync(
+      join(root, "store-listing/captures/android/album.png"),
+      Buffer.from("\x89PNG\r\n\x1a\n\0\0\0\0IEND\xae\x42\x60\x82", "latin1"),
+    );
+    const result = readListing(root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not a PNG image");
+  });
 });
