@@ -975,7 +975,7 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("Viewer · sees every photo, adds none");
+    expect(row.textContent).toContain("Viewer · sees every photo");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
@@ -1416,9 +1416,9 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const rows = [...host.querySelectorAll("li")];
     const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
-    expect(row("Me")?.textContent).toContain("Admin · adds people and photos");
-    expect(row("Nils")?.textContent).toContain("Collaborator · adds photos");
-    expect(row("Zed")?.textContent).toContain("Viewer · sees every photo, adds none");
+    expect(row("Me")?.textContent).toContain("Admin · sees and adds photos");
+    expect(row("Nils")?.textContent).toContain("Collaborator · sees and adds photos");
+    expect(row("Zed")?.textContent).toContain("Viewer · sees every photo");
     for (const r of rows) {
       const nameLine = r.querySelector("p")?.textContent ?? "";
       expect(nameLine).not.toMatch(/Admin|Collaborator|Viewer/);
@@ -1430,7 +1430,7 @@ describe("album member roles", () => {
     people.open();
     const host = document.createElement("div");
     render(albumView("f1"), host);
-    const line = host.querySelector('[data-copy-id="album.collaborator_adds_photos"]');
+    const line = host.querySelector('[data-copy-id="member.role_collaborator"]');
     expect(line?.closest("p")?.classList.contains("truncate")).toBe(false);
   });
 
@@ -1450,7 +1450,7 @@ describe("album member roles", () => {
     expect(captionFor("reader")).toBe("You can see every photo but not add any.");
   });
 
-  test("a waiting joiner sees no role line and no caption", () => {
+  test("a waiting joiner sees the waiting line and no caption", () => {
     syncActor.send(
       statusSeen.create({
         status: {
@@ -1464,6 +1464,7 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
     expect(own?.textContent).not.toMatch(/Admin ·|Collaborator|Viewer ·/);
+    expect(own?.textContent).toContain("Waiting for the Admin to accept you");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(host.textContent).toContain("Waiting for approval");
   });
@@ -1545,10 +1546,10 @@ describe("album holding", () => {
     ]);
     const rows = memberRows(host);
     expect(rows).toHaveLength(3);
-    expect(rows[0]?.textContent).not.toContain("Has ");
-    expect(rows[1]?.textContent).toContain("Has some photos in full");
-    expect(rows[2]?.textContent).toContain("Hasn't said yet which photos they have");
-    expect(host.textContent).toContain("first opened there");
+    expect(rows[0]?.textContent).not.toContain("on their phone");
+    expect(rows[1]?.textContent).toContain("· some in full on their phone");
+    expect(rows[2]?.textContent).toContain("· hasn't said yet what's on their phone");
+    expect(host.textContent).not.toContain("A phone gets a photo");
   });
 
   test("the Members card shows one line, then the people, then what the lines mean", async () => {
@@ -1560,15 +1561,16 @@ describe("album holding", () => {
     expect(caption.compareDocumentPosition(ul) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const after = ul.nextElementSibling!;
     expect(after.tagName).toBe("P");
-    expect(after.textContent).toContain("Connected means they have Justus open");
-    expect(after.textContent).toContain("first opened there");
+    expect(after.textContent?.trim()).toBe(
+      "Connected means they have Justus open and your phone can reach them right now.",
+    );
     expect(section.textContent).not.toContain("Viewers see every photo");
   });
 
   test("an album with no photos says nothing about holdings", async () => {
     const host = await open([]);
-    expect(host.textContent).not.toContain("Has ");
-    expect(host.textContent).not.toContain("first opened there");
+    expect(host.textContent).not.toContain("on their phone");
+    expect(host.textContent).not.toContain("A phone gets a photo");
   });
 
   test("solo album: the caption does not point at lines that are not there", async () => {
@@ -1590,20 +1592,94 @@ describe("album holding", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const rows = memberRows(host);
-    expect(rows.some((r) => /Has /.test(r.textContent ?? ""))).toBe(false);
-    expect(host.textContent).not.toContain("these lines are what each phone last told yours");
+    expect(rows.some((r) => /on their phone/.test(r.textContent ?? ""))).toBe(false);
+  });
+
+  test("a member's role and phone are one line", async () => {
+    const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
+    const lines = [...memberRows(host)[1].querySelectorAll("p")].filter((p) =>
+      p.textContent?.includes("in full on their phone"),
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0].textContent).toMatch(/^\S.* · sees .* · some in full on their phone$/);
+    expect(lines[0].classList.contains("truncate")).toBe(false);
+  });
+
+  test("repro 662: own row line is the role part only, with and without photos", async () => {
+    for (const photos of [[photo("a", "f1", true)], []]) {
+      const host = await open(photos);
+      const own = memberRows(host)[0];
+      const line = own.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
+      expect(line.textContent?.trim()).toBe("Admin · sees and adds photos");
+    }
+  });
+
+  test("repro 662: a Viewer row says none, then some, on their phone (plan #490 Try it)", async () => {
+    const withViewer = {
+      ...status,
+      members: [status.members[0], { ...status.members[1], viewer: true }],
+      folder: { ...status.folder, members: 2 },
+    } as unknown as SyncStatus;
+    const photos = (kimHas: boolean) => [
+      photo("a", "f1", kimHas),
+      photo("b", "f1", false),
+      photo("c", "f1", false),
+    ];
+    vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(false) }] as never);
+    syncActor.send(statusSeen.create({ status: withViewer }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const line = () =>
+      memberRows(host)[1]
+        .querySelector('[data-copy-id="member.role_viewer"]')!
+        .closest("p")!
+        .textContent?.trim();
+    expect(line()).toBe("Viewer · sees every photo · none in full on their phone yet");
+    vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
+    await gallery.load();
+    await vi.waitFor(() =>
+      expect(line()).toBe("Viewer · sees every photo · some in full on their phone"),
+    );
+  });
+
+  test("an Admin row seen by a collaborator also says what their phone holds", async () => {
+    const asMember = {
+      ...status,
+      members: [
+        { ...status.members[0], admin: false },
+        { ...status.members[1], admin: true },
+      ],
+      folder: { ...status.folder, role: "member", members: 2 },
+    } as unknown as SyncStatus;
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      { photos: [photo("a", "f1", false)] },
+    ] as never);
+    syncActor.send(statusSeen.create({ status: asMember }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const line = memberRows(host)[1]
+      .querySelector('[data-copy-id="member.role_admin"]')!
+      .closest("p")!;
+    expect(line.textContent?.trim()).toBe(
+      "Admin · sees and adds photos · none in full on their phone yet",
+    );
   });
 
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];
-    expect(kim?.textContent).toContain("Has some photos in full");
+    expect(kim?.textContent).toContain("some in full on their phone");
     vi.mocked(gateway.list).mockResolvedValue([
       null,
       { photos: [photo("a", "f1", true), photo("b", "f1", true)] },
     ] as never);
     await gallery.load();
-    await vi.waitFor(() => expect(kim?.textContent).toContain("Has every photo in full"));
+    await vi.waitFor(() => expect(kim?.textContent).toContain("all in full on their phone"));
     expect(memberRows(host)[1]).toBe(kim);
   });
 });

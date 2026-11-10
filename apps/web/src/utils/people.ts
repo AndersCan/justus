@@ -19,10 +19,10 @@ export type Person = {
   /** Their seat in the album's palette, written by the Admin. Unset until they have one. */
   color?: number;
   admin: boolean;
-  /** Accepted as a Viewer: sees every photo, adds none. */
+  /** Accepted as a Viewer: sees every photo, adds no photos. */
   viewer: boolean;
   /** What the row's line says this person can do. The own row follows the
-   * album; "waiting" is the own row before the Admin accepts, and shows no line. */
+   * album; "waiting" is the own row before the Admin accepts, and shows the waiting line. */
   role: "admin" | "collaborator" | "viewer" | "waiting";
   you: boolean;
   connected: boolean;

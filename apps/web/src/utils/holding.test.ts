@@ -62,19 +62,17 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "silent" }, 0)).toBeUndefined();
   });
   it("silent", () => {
-    expect(holdingLine({ kind: "silent" }, 3)).toBe("Hasn't said yet which photos they have");
+    expect(holdingLine({ kind: "silent" }, 3)).toBe("hasn't said yet what's on their phone");
   });
   it("everything held says every photo", () => {
-    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("Has every photo in full");
-    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("Has every photo in full");
+    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("all in full on their phone");
+    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("all in full on their phone");
   });
-  it("part held says some and where to look, never a count", () => {
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe(
-      "Has some photos in full. Open a photo to see which.",
-    );
+  it("part held says some, never a count", () => {
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("some in full on their phone");
   });
   it("absent or zero means none yet", () => {
-    expect(holdingLine(undefined, 4)).toBe("Has no photos in full yet");
-    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("Has no photos in full yet");
+    expect(holdingLine(undefined, 4)).toBe("none in full on their phone yet");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("none in full on their phone yet");
   });
 });

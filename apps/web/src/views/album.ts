@@ -301,16 +301,17 @@ export function removeDetail(name: string, viewer: boolean): string {
   return copy("album.won_t_see_photos_added", { name, added });
 }
 
-function roleLine(role: PeopleVm["people"][number]["role"]) {
+function memberLine(role: PeopleVm["people"][number]["role"], phone: string | undefined) {
+  const tail = phone === undefined ? null : ` · ${phone}`;
   switch (role) {
     case "admin":
-      return html`<p class="text-xs text-muted">${t("album.admin_adds_people_and_photos")}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_admin")}${tail}</p>`;
     case "collaborator":
-      return html`<p class="text-xs text-muted">${t("album.collaborator_adds_photos")}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_collaborator")}${tail}</p>`;
     case "viewer":
-      return html`<p class="text-xs text-muted">${t("album.viewer_sees_every_photo_adds")}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_viewer")}${tail}</p>`;
     case "waiting":
-      return null;
+      return html`<p class="text-xs text-muted">${t("member.waiting_for_admin")}</p>`;
   }
 }
 
@@ -336,7 +337,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
         ${p.name}${p.you ? copy("album.you") : ""}
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${roleLine(p.role)}
+      ${memberLine(p.role, line)}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -356,7 +357,6 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
         ></span>
         ${p.presence}
       </p>
-      ${line === undefined ? null : html`<p class="truncate text-xs text-muted">${line}</p>`}
       ${
         tappable && !p.friend
           ? html`<p class="truncate text-xs font-medium text-accent">
@@ -598,13 +598,7 @@ function membersSection(vm: PeopleVm, id: string) {
             (p) => memberRow(vm, p, holding),
           )}
         </ul>
-        <p class="mt-2 text-xs text-muted">
-          ${t("album.connected_means_they_have_justus")}${
-            holding.total > 0 && vm.people.some((p) => !p.you)
-              ? html` ${t("album.a_phone_gets_a_photo_when")}`
-              : null
-          }
-        </p>`;
+        <p class="mt-2 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>`;
     })}
   </section>`;
 }
