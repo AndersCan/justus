@@ -11,8 +11,10 @@ const broken = join(repo, "assets/sample-photos/zz-not-a-photo.jpg");
 const captures = join(repo, "store-listing/captures/android");
 const names = ["album", "invite", "photo", "settings", "help"];
 
-async function writeCaptures(missing: string[]) {
+async function writeCaptures() {
   mkdirSync(captures, { recursive: true });
+  const missing = names.filter((name) => !existsSync(join(captures, `${name}.png`)));
+  if (missing.length === 0) return missing;
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1080, height: 2160 } });
   for (const name of missing) {
@@ -20,14 +22,19 @@ async function writeCaptures(missing: string[]) {
     await page.screenshot({ path: join(captures, `${name}.png`) });
   }
   await browser.close();
+  return missing;
+}
+
+function removeWritten(written: string[]) {
+  for (const name of written) rmSync(join(captures, `${name}.png`), { force: true });
 }
 
 describe("flow photo", () => {
   it("fails the render when flowPhoto exists but is not an image", async () => {
     const original = readFileSync(configFile, "utf8");
-    const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
+    let written: string[] = [];
     try {
-      await writeCaptures(names.filter((_, at) => !hadCaptures[at]));
+      written = await writeCaptures();
       writeFileSync(broken, "not a jpeg");
       writeFileSync(
         configFile,
@@ -42,16 +49,14 @@ describe("flow photo", () => {
     } finally {
       writeFileSync(configFile, original);
       rmSync(broken, { force: true });
-      names.forEach((name, at) => {
-        if (!hadCaptures[at]) rmSync(join(captures, `${name}.png`), { force: true });
-      });
+      removeWritten(written);
     }
   }, 60_000);
 
   it("draws the coral path in each of the first three images", async () => {
-    const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
+    let written: string[] = [];
     try {
-      await writeCaptures(names.filter((_, at) => !hadCaptures[at]));
+      written = await writeCaptures();
       const run = spawnSync("node", ["store-listing/render.mjs", "--store", "play"], {
         cwd: repo,
         encoding: "utf8",
@@ -91,26 +96,22 @@ describe("flow photo", () => {
       await browser.close();
       for (const n of counts) expect(n).toBeGreaterThan(1000);
     } finally {
-      names.forEach((name, at) => {
-        if (!hadCaptures[at]) rmSync(join(captures, `${name}.png`), { force: true });
-      });
+      removeWritten(written);
     }
   }, 120_000);
 
   it("keeps a capture that already exists when it fills in the missing ones", async () => {
     const album = join(captures, "album.png");
     const saved = existsSync(album) ? readFileSync(album) : undefined;
-    const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
+    let written: string[] = [];
     try {
       mkdirSync(captures, { recursive: true });
       const real = readFileSync(join(repo, "assets/brand/justus-wordmark-dark.png"));
       writeFileSync(album, real);
-      await writeCaptures(names.filter((name) => !existsSync(join(captures, `${name}.png`))));
+      written = await writeCaptures();
       expect(readFileSync(album).equals(real)).toBe(true);
     } finally {
-      names.forEach((name, at) => {
-        if (!hadCaptures[at]) rmSync(join(captures, `${name}.png`), { force: true });
-      });
+      removeWritten(written);
       if (saved) writeFileSync(album, saved);
       else rmSync(album, { force: true });
     }
