@@ -975,7 +975,7 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("Viewer · sees every photo");
+    expect(row.textContent).toContain("Viewer");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
@@ -1416,9 +1416,9 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const rows = [...host.querySelectorAll("li")];
     const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
-    expect(row("Me")?.textContent).toContain("Admin · sees and adds photos");
-    expect(row("Nils")?.textContent).toContain("Collaborator · sees and adds photos");
-    expect(row("Zed")?.textContent).toContain("Viewer · sees every photo");
+    expect(row("Me")?.textContent).toContain("Admin");
+    expect(row("Nils")?.textContent).toContain("Collaborator");
+    expect(row("Zed")?.textContent).toContain("Viewer");
     for (const r of rows) {
       const nameLine = r.querySelector("p")?.textContent ?? "";
       expect(nameLine).not.toMatch(/Admin|Collaborator|Viewer/);
@@ -1547,8 +1547,8 @@ describe("album holding", () => {
     const rows = memberRows(host);
     expect(rows).toHaveLength(3);
     expect(rows[0]?.textContent).not.toContain("on their phone");
-    expect(rows[1]?.textContent).toContain("· some in full on their phone");
-    expect(rows[2]?.textContent).toContain("· hasn't said yet what's on their phone");
+    expect(rows[1]?.textContent).toContain("· 2 in full on their phone");
+    expect(rows[2]?.textContent).toContain("· their phone hasn't said yet");
     expect(host.textContent).not.toContain("A phone gets a photo");
   });
 
@@ -1601,7 +1601,7 @@ describe("album holding", () => {
       p.textContent?.includes("in full on their phone"),
     );
     expect(lines).toHaveLength(1);
-    expect(lines[0].textContent).toMatch(/^\S.* · sees .* · some in full on their phone$/);
+    expect(lines[0].textContent).toMatch(/^\S+ · \d+ in full on their phone$/);
     expect(lines[0].classList.contains("truncate")).toBe(false);
   });
 
@@ -1610,7 +1610,7 @@ describe("album holding", () => {
       const host = await open(photos);
       const own = memberRows(host)[0];
       const line = own.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
-      expect(line.textContent?.trim()).toBe("Admin · sees and adds photos");
+      expect(line.textContent?.trim()).toBe("Admin");
     }
   });
 
@@ -1636,12 +1636,10 @@ describe("album holding", () => {
         .querySelector('[data-copy-id="member.role_viewer"]')!
         .closest("p")!
         .textContent?.trim();
-    expect(line()).toBe("Viewer · sees every photo · none in full on their phone yet");
+    expect(line()).toBe("Viewer · none in full on their phone");
     vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
     await gallery.load();
-    await vi.waitFor(() =>
-      expect(line()).toBe("Viewer · sees every photo · some in full on their phone"),
-    );
+    await vi.waitFor(() => expect(line()).toBe("Viewer · 1 in full on their phone"));
   });
 
   test("an Admin row seen by a collaborator also says what their phone holds", async () => {
@@ -1665,15 +1663,13 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_admin"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe(
-      "Admin · sees and adds photos · none in full on their phone yet",
-    );
+    expect(line.textContent?.trim()).toBe("Admin · none in full on their phone");
   });
 
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];
-    expect(kim?.textContent).toContain("some in full on their phone");
+    expect(kim?.textContent).toContain("1 in full on their phone");
     vi.mocked(gateway.list).mockResolvedValue([
       null,
       { photos: [photo("a", "f1", true), photo("b", "f1", true)] },

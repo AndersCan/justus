@@ -214,7 +214,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const bToasts = await recordToasts(b);
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
-  const row = members.locator("li", { hasText: "Viewer · sees every photo" });
+  const row = members.locator("li", { has: a.locator('[data-copy-id="member.role_viewer"]') });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await expect(row).toContainText("connected", { timeout: 30_000 });
 

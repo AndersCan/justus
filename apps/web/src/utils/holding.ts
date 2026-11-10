@@ -1,5 +1,6 @@
 import type { Photo } from "@justus/core";
 import { copy } from "../copy/copy";
+import { holdersSheetRows } from "./holders";
 
 /** What one person's phone holds of an album, as it last told this one. */
 export type Holding = { kind: "count"; held: number } | { kind: "silent" };
@@ -11,29 +12,29 @@ export type AlbumHolding = {
   byKey: ReadonlyMap<string, Holding>;
 };
 
-/** Counts, per person, how many of an album's photos their phone holds. */
+/** Per person: on how many of the album's photos the holders sheet lists them under "Has the full photo".
+ * Silent only when no sheet lists them there and some sheet lists them as not said yet. */
 export function albumHolding(photos: readonly Photo[], folderId: string): AlbumHolding {
-  const byKey = new Map<string, Holding>();
+  const held = new Map<string, number>();
+  const unsure = new Set<string>();
   let total = 0;
   for (const photo of photos) {
-    const holders = photo.holders;
-    if (photo.folderId !== folderId || holders === undefined) continue;
+    if (photo.folderId !== folderId || photo.holders === undefined) continue;
     total += 1;
-    for (const m of holders.others) {
-      const prev = byKey.get(m.key);
-      if (prev?.kind === "silent") continue;
-      byKey.set(m.key, { kind: "count", held: (prev?.held ?? 0) + 1 });
-    }
-    for (const m of holders.unsure) byKey.set(m.key, { kind: "silent" });
+    const rows = holdersSheetRows(photo.holders);
+    for (const m of rows.others) held.set(m.key, (held.get(m.key) ?? 0) + 1);
+    for (const m of rows.unsure) unsure.add(m.key);
   }
+  const byKey = new Map<string, Holding>();
+  for (const key of unsure) byKey.set(key, { kind: "silent" });
+  for (const [key, n] of held) byKey.set(key, { kind: "count", held: n });
   return { total, byKey };
 }
 
 /** The phone part of another person's member line, or undefined when there is nothing to say (total 0). Your own row has none. */
 export function holdingLine(h: Holding | undefined, total: number): string | undefined {
   if (total === 0) return undefined;
-  if (h?.kind === "silent") return copy("holding.silent");
-  const held = h?.held ?? 0;
-  if (held === 0) return copy("holding.none");
-  return held >= total ? copy("holding.all") : copy("holding.some");
+  const held = h?.kind === "count" ? h.held : 0;
+  if (held > 0) return held >= total ? copy("holding.all") : copy("holding.some", { n: held });
+  return h?.kind === "silent" ? copy("holding.silent") : copy("holding.none");
 }

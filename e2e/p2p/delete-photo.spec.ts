@@ -6,6 +6,7 @@
  *   pnpm test:e2e-p2p -g "deletes only their own photo"
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
+import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
 
@@ -92,6 +93,29 @@ async function askToJoin(b, link, album) {
   await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
 }
 
+async function expectBenLine(a: Page, text: string | RegExp) {
+  const original = a.viewportSize();
+  await a.setViewportSize({ width: 360, height: 800 });
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  const line = a
+    .locator('[data-copy-id="member.role_collaborator"]')
+    .locator("xpath=ancestor::p[1]");
+  await expect(line).toContainText(text, { timeout: 60_000 });
+  expect(
+    await line.evaluate(
+      (el) => el.offsetHeight < 1.5 * parseFloat(getComputedStyle(el).lineHeight),
+    ),
+  ).toBe(true);
+  await a
+    .getByRole("link", { name: /See photos in this album/ })
+    .first()
+    .click();
+  if (original) await a.setViewportSize(original);
+}
+
 test("a member deletes only their own photo, the Admin's delete closes Ben's open view, and both deletes leave both phones", async ({
   instancePages,
 }) => {
@@ -124,6 +148,8 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
+  await expectBenLine(a, "Collaborator · 2 in full on their phone");
+
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
   const anaLine = a.getByRole("button", { name: /show who has this photo$/ });
@@ -145,17 +171,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("button", { name: "Close" }).click();
 
   // Ben opened every photo: Ana's members page says his phone has all of them.
-  await a
-    .getByRole("link", { name: /Invite & members/ })
-    .first()
-    .click();
-  await expect(
-    a.locator("li", { hasText: /all in full on their phone/ }).filter({ hasNotText: "(you)" }),
-  ).toHaveCount(1, { timeout: 60_000 });
-  await a
-    .getByRole("link", { name: /See photos in this album/ })
-    .first()
-    .click();
+  await expectBenLine(a, "Collaborator · all in full on their phone");
 
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });

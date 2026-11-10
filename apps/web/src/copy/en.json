@@ -2877,7 +2877,7 @@
     "screen": ""
   },
   "holding.silent": {
-    "text": "hasn't said yet what's on their phone",
+    "text": "their phone hasn't said yet",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -2891,14 +2891,14 @@
     "screen": ""
   },
   "holding.some": {
-    "text": "some in full on their phone",
+    "text": "{n} in full on their phone",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.none": {
-    "text": "none in full on their phone yet",
+    "text": "none in full on their phone",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4249,21 +4249,21 @@
     "screen": ""
   },
   "member.role_admin": {
-    "text": "Admin · sees and adds photos",
+    "text": "Admin",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_collaborator": {
-    "text": "Collaborator · sees and adds photos",
+    "text": "Collaborator",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_viewer": {
-    "text": "Viewer · sees every photo",
+    "text": "Viewer",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
