@@ -110,9 +110,9 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   const label = button.dataset.label ?? button.textContent ?? "";
   button.dataset.label = label;
   button.textContent = copy("invite.copied");
-  const hint = button.parentElement?.parentElement?.querySelector<HTMLElement>(
-    "[data-invite-hint] [data-copy-id]",
-  );
+  const hint = button.parentElement?.parentElement
+    ?.querySelector("[data-invite-hint]")
+    ?.querySelector<HTMLElement>("[data-copy-id]");
   if (hint) {
     hint.dataset.text = hint.dataset.text ?? hint.textContent ?? "";
     hint.textContent = copy("invite.copied_paste_it");

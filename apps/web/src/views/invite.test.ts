@@ -65,6 +65,7 @@ const copyButton = (host: HTMLElement) =>
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   document.body.replaceChildren();
 });
 
@@ -119,7 +120,6 @@ describe("invite card send hint", () => {
     expect(copyButton(host)!.textContent!.trim()).toBe("Copy link");
     expect(copyButton(host)!.className).toContain("ui-btn-primary");
     expect(host.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
-    vi.unstubAllGlobals();
   });
 
   test("a member sees no line", () => {
