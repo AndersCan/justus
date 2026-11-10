@@ -91,7 +91,6 @@ import {
   parseFriendMessage,
   type FriendMessage,
   type EarlierFile,
-  type Answer,
   parseDeviceName,
   parseEarlier,
   parseRemoved,

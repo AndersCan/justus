@@ -334,11 +334,10 @@ async function waitReady(options: { hub: FakeHub; key: string }): Promise<void> 
 /** A read-only view of a replica's files at a version; reads follow the live drive's closing. */
 function makeCopy(options: {
   live: Drive;
-  replica: Replica;
   version: number;
   files: Map<string, StoredFile>;
 }): Drive {
-  const { live, replica, version, files } = options;
+  const { live, version, files } = options;
   const readOnly = (): never => {
     throw new Error("read-only copy");
   };
@@ -494,7 +493,6 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       }
       const copy = makeCopy({
         live,
-        replica,
         version,
         files: replica.history[version] ?? new Map(),
       });
