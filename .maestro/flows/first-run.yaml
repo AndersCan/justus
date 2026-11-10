@@ -9,7 +9,7 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "Skip"
     timeout: 60000
-- assertVisible: "No server in the middle"
+- assertVisible: "Photos go straight to your friends"
 - tapOn:
     text: "Skip"
     retryTapIfNoChange: false
@@ -19,7 +19,7 @@ appId: no.cankode.justus
     text: "Back"
     waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
-    visible: "No server in the middle"
+    visible: "Photos go straight to your friends"
     timeout: 10000
 - tapOn:
     text: "Skip"
