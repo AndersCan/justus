@@ -96,4 +96,23 @@ describe("flow photo", () => {
       });
     }
   }, 120_000);
+
+  it("keeps a capture that already exists when it fills in the missing ones", async () => {
+    const album = join(captures, "album.png");
+    const saved = existsSync(album) ? readFileSync(album) : undefined;
+    const hadCaptures = names.map((name) => existsSync(join(captures, `${name}.png`)));
+    try {
+      mkdirSync(captures, { recursive: true });
+      const real = readFileSync(join(repo, "assets/brand/justus-wordmark-dark.png"));
+      writeFileSync(album, real);
+      await writeCaptures(names.filter((name) => !existsSync(join(captures, `${name}.png`))));
+      expect(readFileSync(album).equals(real)).toBe(true);
+    } finally {
+      names.forEach((name, at) => {
+        if (!hadCaptures[at]) rmSync(join(captures, `${name}.png`), { force: true });
+      });
+      if (saved) writeFileSync(album, saved);
+      else rmSync(album, { force: true });
+    }
+  }, 60_000);
 });
