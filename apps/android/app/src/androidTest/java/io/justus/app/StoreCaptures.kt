@@ -214,7 +214,7 @@ class StoreCaptures {
     // The drag ends with a stationary segment so the page does not fling past the App lock card.
     val x = device.displayWidth / 2
     val from = device.displayHeight * 3 / 4
-    device.swipe(arrayOf(Point(x, from), Point(x, from - 760), Point(x, from - 760)), 40)
+    device.swipe(arrayOf(Point(x, from), Point(x, from - 360), Point(x, from - 360)), 40)
     Thread.sleep(500)
     var lockShown = false
     for (attempt in 1..10) {
