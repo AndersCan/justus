@@ -1,4 +1,5 @@
 import type { FolderSummary } from "@justus/core";
+import { arrivalFocus } from "./arrival-focus";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
@@ -775,7 +776,11 @@ function albumBody(
   >
     ${back}
     <div class="flex items-center justify-between gap-3">
-      <h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight text-fg">
+      <h1
+        class="min-w-0 truncate text-2xl font-semibold tracking-tight text-fg outline-none"
+        tabindex="-1"
+        ${arrivalFocus(id)}
+      >
         ${status.folder.name}
       </h1>
       <div class="flex shrink-0 items-center gap-1">

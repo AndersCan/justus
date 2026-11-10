@@ -18,6 +18,9 @@ import {
   roleAndCount,
 } from "./albums";
 
+const focusOnArrival = vi.hoisted(() => vi.fn());
+vi.mock("./arrival-focus", () => ({ focusOnArrival, arrivalFocus: () => undefined }));
+
 const mock = vi.hoisted(() => ({
   folders: vi.fn(),
   requests: vi.fn(),
@@ -135,6 +138,7 @@ describe("albums wiring", () => {
     open("/sharing");
     folders.create("Trip");
     await vi.waitFor(() => expect(currentPage()).toEqual({ route: "album", params: { id: "n" } }));
+    expect(focusOnArrival).toHaveBeenCalledWith("n");
   });
 
   test("creating an album from Photos leaves the landing to Photos", async () => {

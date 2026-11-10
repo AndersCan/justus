@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { focusOnArrival } from "./arrival-focus";
 import { watch } from "@mantaq/lit";
 import {
   FOLDERS_STATES,
@@ -112,6 +113,7 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
     !error &&
     currentPage()?.route === "welcome"
   ) {
+    if (activeId) focusOnArrival(activeId);
     open(activeId ? `/albums/${activeId}` : "/", { replace: true });
   }
 });

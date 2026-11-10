@@ -1,4 +1,5 @@
 import { html } from "lit-html";
+import { focusOnArrival } from "./arrival-focus";
 import type { AskSummary, DeletedAlbum, FolderSummary, OfferSummary } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
@@ -76,6 +77,7 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
     !error &&
     currentPage()?.route === "sharing"
   ) {
+    if (activeId) focusOnArrival(activeId);
     open(activeId ? `/sharing/${activeId}` : "/sharing");
   }
 });

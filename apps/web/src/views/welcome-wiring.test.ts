@@ -3,13 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 const route = vi.hoisted(() => ({ current: "welcome" as string | undefined }));
 const open = vi.hoisted(() => vi.fn());
 const folderList = vi.hoisted(() => vi.fn());
+const createFolder = vi.hoisted(() => vi.fn());
+const focusOnArrival = vi.hoisted(() => vi.fn());
 
+vi.mock("./arrival-focus", () => ({ focusOnArrival, arrivalFocus: () => undefined }));
 vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("../gateway", () => ({
   gateway: {
     lock: { status: vi.fn(), setEnabled: vi.fn() },
     setName: vi.fn(),
     folders: folderList,
+    createFolder,
   },
 }));
 vi.mock("../machines/router-machine", async (importOriginal) => ({
@@ -50,5 +54,15 @@ describe("welcome listener", () => {
     folders.refresh();
     await vi.waitFor(() => expect(released).toHaveBeenCalled());
     released.mockRestore();
+  });
+
+  it("asks the new album's page to take focus when the first album is created", async () => {
+    folderList.mockResolvedValue([null, { folders: [], activeFolderId: null }]);
+    createFolder.mockResolvedValue([null, { folder: { ...album, role: "creator" } }]);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).not.toBe("albumsNotLoaded"));
+    folders.create("M");
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("/albums/a1", { replace: true }));
+    expect(focusOnArrival).toHaveBeenCalledWith("a1");
   });
 });

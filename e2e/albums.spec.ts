@@ -44,6 +44,7 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page.getByRole("heading", { name: "Trip 2026", level: 1 })).toBeVisible({
     timeout: 20_000,
   });
+  await expect(page.getByRole("heading", { name: "Trip 2026", level: 1 })).toBeFocused();
   await expect(page.getByRole("link", { name: "See photos in this album" })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__sawFallback)).toBe(false);
   await expect(page.getByRole("button", { name: "Add photos" })).toBeVisible();
