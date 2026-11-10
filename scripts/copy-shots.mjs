@@ -31,6 +31,19 @@ const BASE = "http://127.0.0.1:8090";
 /** Each scenario opens a page and returns once it has settled. `fresh` skips the welcome-seen flag. */
 const scenarios = {
   welcome: { fresh: true, open: (page) => page.goto("/welcome") },
+  "welcome-card-2": { fresh: true, open: (page) => welcomeStep(page, 1) },
+  "welcome-card-3": { fresh: true, open: (page) => welcomeStep(page, 2) },
+  "welcome-name": { fresh: true, open: (page) => welcomeStep(page, 3) },
+  "start-album": {
+    open: async (page) => {
+      await settle(page, "/albums");
+      await page
+        .getByRole("button", { name: /new album/i })
+        .first()
+        .click();
+      await page.locator('[data-copy-id^="start_album."]').first().waitFor({ timeout: 10_000 });
+    },
+  },
   gallery: { open: (page) => settle(page, "/", "figure img") },
   lightbox: {
     open: async (page) => {
@@ -62,6 +75,17 @@ const scenarios = {
   settings: { open: (page) => page.goto("/settings") },
   help: { open: (page) => page.goto("/help") },
 };
+
+/** Opens the welcome flow and taps Next `taps` times. */
+async function welcomeStep(page, taps) {
+  await page.goto("/welcome");
+  for (let i = 0; i < taps; i++) {
+    const next = page.locator("button.ui-btn-primary[type=button]");
+    if ((await next.count()) === 0) break;
+    await next.click({ force: true });
+    await page.waitForTimeout(300);
+  }
+}
 
 async function settle(page, path, ready) {
   await page.goto(path);

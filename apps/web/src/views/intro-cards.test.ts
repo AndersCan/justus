@@ -4,7 +4,7 @@ import { INTRO_CARDS } from "./intro-cards";
 describe("intro cards", () => {
   test("titles", () => {
     expect(INTRO_CARDS.map((c) => c.title)).toEqual([
-      "No server in the middle",
+      "Photos go straight to your friends",
       "You decide who joins",
     ]);
   });

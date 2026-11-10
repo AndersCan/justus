@@ -15,7 +15,9 @@ test("the intro saves the name and moves on to the choice", async ({ page }) => 
   await page.goto("/");
   await expect(page).toHaveURL(/\/welcome$/);
 
-  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Photos go straight to your friends" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Skip" }).click();
   const name = page.getByLabel("Your name");
   const preview = page.locator("[data-avatar] span");
@@ -32,7 +34,9 @@ test("the intro saves the name and moves on to the choice", async ({ page }) => 
 
 test("two cards, no Skip on the last, Back returns to the card left", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Photos go straight to your friends" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Skip" })).toBeVisible();
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
@@ -44,16 +48,22 @@ test("two cards, no Skip on the last, Back returns to the card left", async ({ p
   await expect(page.getByRole("heading", { name: "You decide who joins" })).toBeVisible();
 
   await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Photos go straight to your friends" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Skip" }).click();
   await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Photos go straight to your friends" }),
+  ).toBeVisible();
 });
 
 test("the tabs stay hidden until the name is saved", async ({ page }) => {
   const tabs = page.getByRole("navigation", { name: "Main" });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "No server in the middle" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Photos go straight to your friends" }),
+  ).toBeVisible();
   await expect(tabs).toHaveCount(0);
   await page.getByRole("button", { name: "Skip" }).click();
   await expect(page.getByLabel("Your name")).toBeVisible();

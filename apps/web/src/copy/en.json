@@ -984,14 +984,14 @@
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": "album"
+    "screen": ""
   },
   "album.viewer_sees_every_photo_adds": {
     "text": "Viewer · sees every photo, adds none",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": "album"
+    "screen": ""
   },
   "album.you_re_the_admin_you_add": {
     "text": "You're the Admin: you add people and photos.",
@@ -1005,14 +1005,14 @@
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": "album"
+    "screen": ""
   },
   "album.you_can_see_every_photo": {
     "text": "You can see every photo but not add any.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
-    "screen": "album"
+    "screen": ""
   },
   "album.friend": {
     "text": "· Friend",
@@ -1204,28 +1204,28 @@
     "screen": "album"
   },
   "album.add_a_member_by_drive": {
-    "text": "Add a member by drive key",
+    "text": "Add a device by its code",
     "status": "draft",
     "where": "Album › Invite & members › heading",
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
   "album.paste_a_device_s_drive": {
-    "text": "Paste a device's drive key and a name to let it add photos without a request.",
+    "text": "Paste a device's code and a name to let it add photos without asking.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
   "album.device_drive_key_hex": {
-    "text": "device drive key (hex)",
+    "text": "device code",
     "status": "draft",
     "where": "Album › Invite & members › input hint",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.device_drive_key": {
-    "text": "Device drive key",
+    "text": "Device code",
     "status": "draft",
     "where": "Album › Invite & members › screen reader label",
     "who": "Album members, whenever they open an album's people",
@@ -1267,7 +1267,7 @@
     "screen": "album"
   },
   "album.peers_reachable": {
-    "text": "Peers reachable",
+    "text": "Devices online",
     "status": "draft",
     "where": "Album › Invite & members › term",
     "who": "Album members, whenever they open an album's people",
@@ -1281,21 +1281,21 @@
     "screen": "album"
   },
   "album.technical_keys_for_troubleshooting_do": {
-    "text": "Technical keys for troubleshooting. Do not share them unless you know what you are doing.",
+    "text": "Codes for troubleshooting. Share them only with someone helping you fix a problem.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": "album"
   },
   "album.discovery_key": {
-    "text": "Discovery key",
+    "text": "Finding code",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.a_one_way_fingerprint_of": {
-    "text": "A one-way fingerprint of your drive key that devices use to find each other. It opens no photos, though someone holding it could see which network addresses are syncing this album.",
+    "text": "Devices use this to find each other. It opens no photos.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1316,7 +1316,7 @@
     "screen": "album"
   },
   "album.share_key": {
-    "text": "Share key",
+    "text": "Access code",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1330,7 +1330,7 @@
     "screen": ""
   },
   "album.your_drive_key": {
-    "text": "Your drive key",
+    "text": "Your device code",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -2055,7 +2055,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "gallery"
+    "screen": "welcome"
   },
   "gallery.date_added": {
     "text": "Date added",
@@ -2076,7 +2076,7 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "gallery"
+    "screen": "welcome"
   },
   "gallery.connected_now": {
     "text": "{connected} connected now",
@@ -2398,14 +2398,14 @@
     "status": "draft",
     "where": "Photos › heading",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "gallery"
+    "screen": "welcome"
   },
   "gallery.refresh": {
     "text": "Refresh",
     "status": "draft",
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "gallery"
+    "screen": "welcome"
   },
   "gallery.all_albums": {
     "text": "← All albums",
@@ -2454,14 +2454,14 @@
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "albums"
+    "screen": "start-album"
   },
   "gallery.new_album": {
     "text": "New album",
     "status": "draft",
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
-    "screen": "albums"
+    "screen": "start-album"
   },
   "gallery.adding_to": {
     "text": "Adding {what} to",
@@ -2695,7 +2695,7 @@
     "screen": ""
   },
   "intro_cards.no_server_in_the_middle": {
-    "text": "No server in the middle",
+    "text": "Photos go straight to your friends",
     "status": "draft",
     "where": "Welcome › Intro cards › text",
     "who": "New people, once, at first launch",
@@ -3147,14 +3147,14 @@
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
-    "screen": "lightbox"
+    "screen": ""
   },
   "lightbox.will_see_it_when_connected": {
     "text": "{list} will see it's gone when connected.",
     "status": "draft",
     "where": "Photo viewer › Deleted toast",
     "who": "People who delete a photo: who added it, or the Admin",
-    "screen": "lightbox"
+    "screen": ""
   },
   "lightbox.delete": {
     "text": "Delete “{name}”?",
@@ -3182,14 +3182,14 @@
     "status": "draft",
     "where": "Photo viewer › who can delete",
     "who": "Viewers and Collaborators",
-    "screen": "lightbox"
+    "screen": ""
   },
   "lightbox.who_deletes_adder_admin": {
     "text": "Only the person who added this and the Admin can delete it.",
     "status": "draft",
     "where": "Photo viewer › who can delete",
     "who": "Viewers and Collaborators",
-    "screen": "lightbox"
+    "screen": ""
   },
   "lightbox.delete_2": {
     "text": "Delete",
@@ -3773,7 +3773,7 @@
     "screen": ""
   },
   "sharing.this_device_presented_a_verified": {
-    "text": "This device presented a verified signed invite receipt.",
+    "text": "This device joined with your invite.",
     "status": "draft",
     "where": "Sharing › tooltip",
     "who": "Everyone who opens the Sharing tab",
@@ -3787,7 +3787,7 @@
     "screen": ""
   },
   "sharing.devices_that_hold_one_of": {
-    "text": "Devices that hold one of your albums. Choosing who gets your photos isn't active yet: today every device with an album's invite receives its photos.",
+    "text": "Devices that have one of your albums. Every device with an album's invite gets its photos.",
     "status": "draft",
     "where": "Sharing › text",
     "who": "Everyone who opens the Sharing tab",
@@ -3882,7 +3882,7 @@
     "status": "draft",
     "where": "Start an album › screen reader label",
     "who": "People creating an album",
-    "screen": ""
+    "screen": "start-album"
   },
   "start_album.album_name_e_g_summer": {
     "text": "Album name, e.g. Summer 2026",
@@ -3903,7 +3903,7 @@
     "status": "draft",
     "where": "Start an album › button",
     "who": "People creating an album",
-    "screen": ""
+    "screen": "start-album"
   },
   "start_album.create_album": {
     "text": "Create album",
@@ -4001,14 +4001,14 @@
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
-    "screen": "welcome"
+    "screen": ""
   },
   "welcome.skip": {
     "text": "Skip",
     "status": "draft",
     "where": "Welcome › button",
     "who": "New people, once, at first launch",
-    "screen": "welcome"
+    "screen": ""
   },
   "welcome.back": {
     "text": "Back",
@@ -4039,7 +4039,7 @@
     "screen": ""
   },
   "welcome.your_name_is_shared_only": {
-    "text": "Your name is shared only with the albums you join. It never goes to a server.",
+    "text": "Only albums you join see your name.",
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
@@ -4123,7 +4123,7 @@
     "screen": ""
   },
   "welcome.something_went_wrong_reload_the": {
-    "text": "Something went wrong. Reload the app to continue.",
+    "text": "Couldn't start Justus. Reload the app.",
     "status": "draft",
     "where": "Welcome › text",
     "who": "New people, once, at first launch",
@@ -4190,14 +4190,14 @@
     "status": "draft",
     "where": "Settings › Friends › heading",
     "who": "People with saved friends",
-    "screen": ""
+    "screen": "settings"
   },
   "settings_friends.empty": {
     "text": "No friends yet. In an album, tap someone in its people to save them as a friend.",
     "status": "draft",
     "where": "Settings › Friends › text",
     "who": "People with saved friends",
-    "screen": ""
+    "screen": "settings"
   },
   "settings_friends.remove": {
     "text": "Remove",
