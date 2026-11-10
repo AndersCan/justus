@@ -3,8 +3,8 @@
   "images": [
     {
       "id": "01_private",
-      "layout": "deviceAngled",
-      "capture": "album",
+      "layout": "deviceLandscape",
+      "capture": "album-landscape",
       "headline": "Private photo sharing"
     },
     {
