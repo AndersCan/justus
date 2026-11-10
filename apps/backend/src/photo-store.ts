@@ -515,6 +515,7 @@ export interface PhotoStore {
   close(): Promise<void>;
 }
 
+const UNKNOWN_BEHIND = "Someone";
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Album name shown until the Admin's `/folder.json` replicates in. */
 const JOINED_PLACEHOLDER_NAME = "Joined folder";
@@ -3670,18 +3671,22 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const c = conns.get(connId);
     if (!c || c.noted) return;
     c.noted = true;
-    const name =
-      (await withTimeout(
-        openPeerOutbox(identity).then(async (drive) => {
-          // The file may not have replicated yet: wait for it.
-          while (!closed) {
-            await drive.update();
-            if ((await readText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
-            await sleep(100);
-          }
-        }),
-        5_000,
-      ).catch(() => undefined)) ?? "Someone";
+    const found = await withTimeout(
+      openPeerOutbox(identity).then(async (drive) => {
+        // The file may not have replicated yet: wait for it.
+        while (!closed) {
+          await drive.update();
+          if ((await readText(drive, DRIVE_PATH_DEVICE)) !== null) return readDeviceName(drive);
+          await sleep(100);
+        }
+      }),
+      5_000,
+    ).catch(() => undefined);
+    const name = found ?? UNKNOWN_BEHIND;
+    // A real name replaces the placeholder an earlier link left when it dropped too soon.
+    if (found !== undefined && peersBehind.includes(UNKNOWN_BEHIND)) {
+      peersBehind.splice(peersBehind.indexOf(UNKNOWN_BEHIND), 1);
+    }
     if (!peersBehind.includes(name) && peersBehind.length < MAX_PEERS_BEHIND) {
       peersBehind.push(name);
       deps.onChanged({ cause: "version" });

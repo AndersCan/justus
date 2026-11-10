@@ -33,6 +33,15 @@ export {
   type SyncStatus,
 } from "./p2p-scenarios.ts";
 
+/**
+ * A phone from before the version channel has no refusal logic, so it never
+ * drops a link on seeing a peer with no version. Without this the emulated
+ * legacy phone hangs up on the current one before the current one has read its name.
+ */
+function legacyNetwork<N extends { drop(conn: number): void }>(network: N, legacy?: boolean): N {
+  return legacy ? { ...network, drop: () => {} } : network;
+}
+
 export async function realNet(): Promise<Net> {
   const testnet = await createTestnet(5);
   const dirs: string[] = [];
@@ -59,13 +68,16 @@ export async function realNet(): Promise<Net> {
       deviceName: name,
       onChanged: (c) => changes.push(c),
       drives,
-      network: createHyperPeerNetwork({
-        bootstrap: testnet.bootstrap,
-        replicate: (conn) => drives.replicate(conn),
-        log: createP2pLog((e: P2pEvent) => events.push(e)),
-        // A legacy phone never opens the version channel.
-        openVersion: opts.legacy ? () => {} : undefined,
-      }),
+      network: legacyNetwork(
+        createHyperPeerNetwork({
+          bootstrap: testnet.bootstrap,
+          replicate: (conn) => drives.replicate(conn),
+          log: createP2pLog((e: P2pEvent) => events.push(e)),
+          // A legacy phone never opens the version channel.
+          openVersion: opts.legacy ? () => {} : undefined,
+        }),
+        opts.legacy,
+      ),
       peerProtocol: opts.peerProtocol,
       isFriend: (identity: string) => opts.friends?.includes(identity) ?? false,
       offerReachMs: opts.offerReachMs,

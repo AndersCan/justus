@@ -665,8 +665,8 @@ export const scenarios: Scenario[] = [
       current.store.join(shareKey, "Shared").catch(() => {});
       const ahead = await eventually(
         () => current.store.status(),
-        (st) => st.peersBehind.length > 0,
-        "peersBehind on the current peer",
+        (st) => st.peersBehind.includes("Behind"),
+        "the older peer's name on the current peer",
       );
       t.eq(ahead.peersBehind, ["Behind"], "the current peer names the older one");
       t.ok(
