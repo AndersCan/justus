@@ -79,6 +79,7 @@ body {
 
 .flow-layer {
   position: absolute;
+  z-index: 1;
   top: 0;
   left: 0;
 }

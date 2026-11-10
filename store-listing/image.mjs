@@ -154,9 +154,9 @@ async function buildFlowCard({ strip, W, H }) {
     borderRadius: 0.02 * W,
   });
   card.alt = "";
-  await new Promise((resolve) => {
+  await new Promise((resolve, reject) => {
     card.onload = resolve;
-    card.onerror = resolve;
+    card.onerror = () => reject(new Error(`flowPhoto ${config.flowPhoto} could not be loaded`));
     card.src = `/assets/sample-photos/${config.flowPhoto}`;
   });
 }
@@ -180,6 +180,7 @@ async function render() {
   place(root, { width: W, height: H });
   const flowIndex = config.images.indexOf(entry);
   let parent = root;
+  let flowStrip;
   if (flowIndex < FLOW_IMAGES) {
     const strip = element("div", "flow-strip", root);
     place(strip, {
@@ -187,10 +188,10 @@ async function render() {
       height: H,
       transform: `translateX(${-flowIndex * W}px)`,
     });
-    buildFlowLayer({ strip, W, H });
     parent = element("div", "flow-box", strip);
     place(parent, { left: flowIndex * W, width: W, height: H });
     await buildFlowCard({ strip, W, H });
+    flowStrip = strip;
   }
   const landscape = entry.layout === "deviceLandscape";
   const capture = await loadImage(
@@ -228,6 +229,7 @@ async function render() {
   });
   place(built.phone, box);
   built.phone.style.zIndex = "0";
+  if (flowStrip) buildFlowLayer({ strip: flowStrip, W, H });
   headline.style.zIndex = "1";
 
   const text = textRect(headline);
