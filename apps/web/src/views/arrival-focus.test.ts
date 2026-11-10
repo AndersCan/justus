@@ -16,8 +16,12 @@ describe("arrival focus", () => {
     const first = draw("a");
     await Promise.resolve();
     expect(document.activeElement).toBe(first);
-    first.blur();
-    expect(draw("a")).not.toBe(document.activeElement);
+    const field = document.createElement("input");
+    document.body.append(field);
+    field.focus();
+    draw("a");
+    await Promise.resolve();
+    expect(document.activeElement).toBe(field);
   });
 
   test("ignores another album", async () => {

@@ -11,6 +11,7 @@ import {
   scopePhotos,
   viewerLine,
 } from "./gallery";
+import { focusOnArrival } from "./arrival-focus";
 import type { PhotoScope } from "../utils/photo-scope";
 
 const hoisted = vi.hoisted(() => ({
@@ -310,6 +311,20 @@ describe("scopeEmptyState for an album", () => {
     const host = draw({ id: "f1", name: "Trip", role: "reader" });
     expect(host.querySelector("h2")?.textContent).toBe("No photos in this album yet.");
     expect(host.querySelector("p")?.textContent).toContain("Photos show up here");
+  });
+});
+
+describe("albumHeader after Create album", () => {
+  test("the album name has focus", async () => {
+    const album = { id: "f1", name: "Trip", role: "creator", members: 1 };
+    const status = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
+    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    focusOnArrival("f1");
+    const host = document.createElement("div");
+    render(albumHeader(page as never, album as never), host);
+    document.body.append(host);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(host.querySelector("h2"));
   });
 });
 
