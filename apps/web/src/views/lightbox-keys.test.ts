@@ -173,3 +173,17 @@ describe("swipe in the lightbox", () => {
     expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
   });
 });
+
+describe("close button in the lightbox", () => {
+  afterEach(() => closeLightbox());
+
+  it("sits below the status bar, at the right", () => {
+    openLightbox(photo);
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    const close = host.querySelector("button[aria-label]") as HTMLElement;
+    const style = close.getAttribute("style") ?? "";
+    expect(style).toContain("margin-top: max(0.75rem, env(safe-area-inset-top))");
+    expect(style).toContain("align-self: flex-end");
+  });
+});

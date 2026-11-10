@@ -144,8 +144,8 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
       @touchend=${onTouchEnd}
     >
       <button
-        class="flex h-11 w-11 items-center justify-center rounded-full text-lg text-white hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-        style="top: max(0.75rem, env(safe-area-inset-top)); right: 0.75rem"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg text-white hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        style="align-self: flex-end; margin-top: max(0.75rem, env(safe-area-inset-top)); margin-right: 0.75rem"
         aria-label=${copy("lightbox.close")}
         @click=${() => closeLightbox()}
       >
