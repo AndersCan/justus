@@ -29,7 +29,7 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
   return { total, byKey };
 }
 
-/** The line under another person, or undefined when there is nothing to say (total 0). Your own row has no line. */
+/** The phone part of another person's member line, or undefined when there is nothing to say (total 0). Your own row has none. */
 export function holdingLine(h: Holding | undefined, total: number): string | undefined {
   if (total === 0) return undefined;
   if (h?.kind === "silent") return copy("holding.silent");

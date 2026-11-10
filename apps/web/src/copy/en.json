@@ -986,27 +986,6 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
-  "album.admin_adds_people_and_photos": {
-    "text": "Admin · adds people and photos",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": "album"
-  },
-  "album.collaborator_adds_photos": {
-    "text": "Collaborator · adds photos",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
-  "album.viewer_sees_every_photo_adds": {
-    "text": "Viewer · sees every photo, adds none",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": ""
-  },
   "album.you_re_the_admin_you_add": {
     "text": "You're the Admin: you add people and photos.",
     "status": "draft",
@@ -1205,13 +1184,6 @@
   },
   "album.connected_means_they_have_justus": {
     "text": "Connected means they have Justus open and your phone can reach them right now.",
-    "status": "draft",
-    "where": "Album › Invite & members › text",
-    "who": "Album members, whenever they open an album's people",
-    "screen": "album"
-  },
-  "album.a_phone_gets_a_photo_when": {
-    "text": "A phone gets a photo in full when it is first opened there; these lines are what each phone last told yours.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -2905,28 +2877,28 @@
     "screen": ""
   },
   "holding.silent": {
-    "text": "Hasn't said yet which photos they have",
+    "text": "hasn't said yet what's on their phone",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.all": {
-    "text": "Has every photo in full",
+    "text": "all in full on their phone",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.some": {
-    "text": "Has some photos in full. Open a photo to see which.",
+    "text": "some in full on their phone",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.none": {
-    "text": "Has no photos in full yet",
+    "text": "none in full on their phone yet",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4484,6 +4456,34 @@
     "status": "draft",
     "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "member.role_admin": {
+    "text": "Admin · sees and adds photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "member.role_collaborator": {
+    "text": "Collaborator · sees and adds photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "member.role_viewer": {
+    "text": "Viewer · sees every photo",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "member.waiting_for_admin": {
+    "text": "Waiting for the Admin to accept you",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
     "screen": ""
   }
 }
