@@ -64,14 +64,17 @@ describe("holdingLine", () => {
   it("silent", () => {
     expect(holdingLine({ kind: "silent" }, 3)).toBe("Hasn't said yet which photos they have");
   });
-  it("counts", () => {
-    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("Has 3 of 3 photos");
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("Has 1 of 12 photos");
+  it("everything held says every photo", () => {
+    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("Has every photo in full");
+    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("Has every photo in full");
   });
-  it("absent means none", () => {
-    expect(holdingLine(undefined, 4)).toBe("Has 0 of 4 photos");
+  it("part held says some and where to look, never a count", () => {
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe(
+      "Has some photos in full. Open a photo to see which.",
+    );
   });
-  it("one photo is singular", () => {
-    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("Has 1 of 1 photo");
+  it("absent or zero means none yet", () => {
+    expect(holdingLine(undefined, 4)).toBe("Has no photos in full yet");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("Has no photos in full yet");
   });
 });

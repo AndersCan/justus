@@ -33,10 +33,11 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
   return { total, you, byKey };
 }
 
-/** The line under a person, or undefined when there is nothing to say (total 0). */
+/** The line under another person, or undefined when there is nothing to say (total 0). Your own row has no line. */
 export function holdingLine(h: Holding | undefined, total: number): string | undefined {
   if (total === 0) return undefined;
   if (h?.kind === "silent") return copy("holding.silent");
   const held = h?.held ?? 0;
-  return copy("holding.count", { held, total });
+  if (held === 0) return copy("holding.none");
+  return held >= total ? copy("holding.all") : copy("holding.some");
 }

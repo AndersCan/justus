@@ -296,10 +296,7 @@ export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "no
 }
 
 function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHolding) {
-  const line = holdingLine(
-    p.you ? { kind: "count", held: holding.you } : holding.byKey.get(p.key),
-    holding.total,
-  );
+  const line = p.you ? undefined : holdingLine(holding.byKey.get(p.key), holding.total);
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${memberBadge(p.name, p.color)}
