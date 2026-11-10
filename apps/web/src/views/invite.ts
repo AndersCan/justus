@@ -605,6 +605,7 @@ export function joinSheet() {
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
         <p class="mt-3 text-sm text-fg">${t("invite.nothing_was_shared_with_you")}</p>
+        <p class="mt-2 text-sm text-muted">${t("invite.you_can_ask_again", { owner })}</p>
         <div class="mt-4 flex justify-end">
           <button class="ui-btn-primary" @click=${() => join.dismissDecline()}>
             ${t("invite.ok")}

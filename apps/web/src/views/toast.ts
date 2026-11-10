@@ -4,7 +4,7 @@ import { gridMotion } from "./grid-motion";
 
 /** Tiny toast system: `toast("Photo removed")`. Renders a stacked
  * container in the bottom-left (safe-area aware); toasts fade out after ~3s,
- * or ~6s when they carry an action (`toast("Added", { action })`); the others
+ * or ~6s when they carry an action (`toast("Added", { action })`); `onClose` runs when the time is up, even after the action was tapped; the others
  * slide into place. */
 
 type ToastAction = { label: string; run: () => void };
@@ -72,10 +72,16 @@ function dismiss(id: number) {
 
 export function toast(
   message: string,
-  options: { action?: ToastAction; duration?: number } = {},
+  options: { action?: ToastAction; duration?: number; onClose?: () => void } = {},
 ): void {
   const id = ++nextId;
   toasts = [...toasts, { id, message, action: options.action }];
   paint();
-  setTimeout(() => dismiss(id), options.duration ?? (options.action ? 6000 : 3200));
+  setTimeout(
+    () => {
+      dismiss(id);
+      options.onClose?.();
+    },
+    options.duration ?? (options.action ? 6000 : 3200),
+  );
 }

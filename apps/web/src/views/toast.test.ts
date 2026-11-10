@@ -139,3 +139,18 @@ describe("toast duration", () => {
     vi.useRealTimers();
   });
 });
+
+describe("toast onClose", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  test("runs when the time is up", () => {
+    const onClose = vi.fn();
+    const run = vi.fn();
+    toast("Declined nils", { action: { label: "Undo", run }, onClose });
+    vi.advanceTimersByTime(5900);
+    expect(onClose).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(200);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

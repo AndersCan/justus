@@ -426,6 +426,10 @@ describe("album join requests", () => {
   afterEach(async () => {
     if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
     await requestsActor.settled();
+    for (const h of requestsActor.snapshot().context.heldDeclines) {
+      vi.mocked(gateway.respond).mockResolvedValueOnce([null, { ok: true }] as never);
+      await requests.sendDecline(h.request.folderId, h.request.requesterKey);
+    }
   });
 
   async function show(list: ReturnType<typeof ask>[]) {
@@ -589,19 +593,85 @@ describe("album join requests", () => {
     await requestsActor.settled();
   });
 
-  test("the decline toast waits for the answer and names who", async () => {
+  const declineToast = () => {
+    const call = vi.mocked(toast).mock.calls.find(([m]) => m.startsWith("Declined"))!;
+    return call[1] as { action: { label: string; run: () => void }; onClose: () => void };
+  };
+
+  test("Decline takes the card away, names who, and sends nothing until the toast closes", async () => {
     vi.mocked(toast).mockClear();
+    vi.mocked(gateway.respond).mockClear();
     const host = await show([ask("nils", true), ask("ola", true)]);
-    let resolve!: (v: unknown) => void;
-    vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (resolve = r)) as never);
     button(host, "Decline")!.click();
-    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
-    expect(toast).not.toHaveBeenCalled();
-    resolve([null, { ok: true }]);
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Declined nils"));
-    expect(toast).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Declined nils", expect.anything()));
+    expect(declineToast().action.label).toBe("Undo");
+    expect(flat(host)).not.toContain("nils wants");
     expect(host.textContent).toContain("ola");
+    expect(gateway.respond).not.toHaveBeenCalled();
+    declineToast().onClose();
+    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", false));
     await requestsActor.settled();
+    expect(flat(host)).not.toContain("nils wants");
+  });
+
+  test("Decline, Undo, then Accept lets the person in and nothing was declined", async () => {
+    vi.mocked(toast).mockClear();
+    vi.mocked(gateway.respond).mockClear();
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().action.run();
+    await vi.waitFor(() => expect(flat(host)).toContain("nils wants"));
+    declineToast().onClose();
+    await requestsActor.settled();
+    expect(gateway.respond).not.toHaveBeenCalled();
+    button(host, "Accept as Viewer")!.click();
+    await vi.waitFor(() =>
+      expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
+    );
+    expect(gateway.respond).toHaveBeenCalledTimes(1);
+    await requestsActor.settled();
+  });
+
+  test("a Decline that cannot be sent brings the card back", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true)]);
+    vi.mocked(gateway.respond).mockResolvedValueOnce([new Error("offline"), null] as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().onClose();
+    await vi.waitFor(() => expect(flat(host)).toContain("nils wants"));
+    expect(toast).toHaveBeenCalledWith("Couldn't send your No to nils. The request is back.");
+    await requestsActor.settled();
+  });
+
+  test("a Decline without a name that cannot be sent says 'them' in lower case", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([{ ...ask("k9", true), requesterName: "" }]);
+    vi.mocked(gateway.respond).mockResolvedValueOnce([new Error("offline"), null] as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().onClose();
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("Couldn't send your No to them. The request is back."),
+    );
+    await requestsActor.settled();
+  });
+
+  test("a Decline answered with 'request cancelled' keeps the card gone, with no failure toast", async () => {
+    vi.mocked(toast).mockClear();
+    const host = await show([ask("nils", true)]);
+    vi.mocked(gateway.respond).mockResolvedValueOnce([
+      { code: "justus.photos/request-cancelled", message: "cancelled" },
+      null,
+    ] as never);
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalled());
+    declineToast().onClose();
+    await requestsActor.settled();
+    await vi.waitFor(() => expect(requestsActor.snapshot().context.heldDeclines).toEqual([]));
+    expect(flat(host)).not.toContain("nils wants");
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("Couldn't send your No"));
   });
 
   test("a failed answer shows why on that card, with no toast; Retry sends it again", async () => {

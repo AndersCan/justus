@@ -20,6 +20,13 @@
     "who": "New people, once",
     "screen": ""
   },
+  "requests.them": {
+    "text": "them",
+    "status": "draft",
+    "where": "Album › Join requests › toast",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
   "requests.they": {
     "text": "They",
     "status": "draft",
@@ -907,6 +914,13 @@
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.couldn_t_send_your_no": {
+    "text": "Couldn't send your No to {requesterName}. The request is back.",
+    "status": "draft",
+    "where": "Album › Join requests › toast",
+    "who": "Admins answering requests",
     "screen": ""
   },
   "album.cancelled_this_request": {
@@ -3133,6 +3147,13 @@
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.you_can_ask_again": {
+    "text": "You can ask {owner} again.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
     "screen": ""
   },
   "invite.the_admin": {
