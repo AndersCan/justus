@@ -296,8 +296,6 @@ function invitePanelBody(
     Object.entries(friends).map(([identity, name]) => ({ identity, name })),
     taken,
   );
-  // One coloured button: Add a friend when a friend can be added, else the link.
-  const linkButton = choices.length === 0 ? "ui-btn-primary" : "ui-btn-ghost";
   const waiting = waitingLine(folder.waitingFor);
   const canShare = canShareInvite();
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
@@ -326,7 +324,7 @@ function invitePanelBody(
         choices.length === 0
           ? null
           : html`<button
-                class="ui-btn-primary mb-1"
+                class="ui-btn-ghost mb-1"
                 @click=${(e: Event) =>
                   openAddFriend(
                     e.currentTarget as HTMLElement,
@@ -371,7 +369,7 @@ function invitePanelBody(
         ${
           canShare
             ? html`<button
-                  class=${linkButton}
+                  class="ui-btn-ghost"
                   ?disabled=${linkBlocked}
                   @click=${() => void shareInvite(folder, myName)}
                 >
@@ -385,7 +383,7 @@ function invitePanelBody(
                   ${t("invite.copy_link")}
                 </button>`
             : html`<button
-                class=${linkButton}
+                class="ui-btn-ghost"
                 ?disabled=${linkBlocked}
                 @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
               >

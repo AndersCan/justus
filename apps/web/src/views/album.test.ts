@@ -7,7 +7,7 @@ import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
-import { folders } from "../machines/folders-machine";
+import { folders, foldersActor } from "../machines/folders-machine";
 import { gateway } from "../gateway";
 import { gallery } from "../machines/gallery-machine";
 import {
@@ -45,6 +45,7 @@ vi.mock("../gateway", () => ({
     takeBackOffer: vi.fn().mockResolvedValue([null, { ok: true }]),
     respond: vi.fn().mockResolvedValue([null, { ok: true }]),
     logs: { view: vi.fn(), clear: vi.fn() },
+    media: { pickMany: vi.fn() },
     list: vi.fn().mockResolvedValue([null, { photos: [] }]),
     add: vi.fn(),
     upload: vi.fn(),
@@ -1510,5 +1511,96 @@ describe("album holding", () => {
     await gallery.load();
     await vi.waitFor(() => expect(kim?.textContent).toContain("Has 2 of 2 photos"));
     expect(memberRows(host)[1]).toBe(kim);
+  });
+});
+
+describe("Add photos on the album page", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const mountWith = (role: string, notice?: unknown) => {
+    syncActor.send(
+      statusSeen.create({
+        status: {
+          ...status,
+          folder: { ...status.folder, role, notice },
+        } as unknown as SyncStatus,
+      }),
+    );
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    return host;
+  };
+
+  test("an Admin gets the page's one coloured button, beside See photos", () => {
+    const host = mountWith("creator");
+    const add = buttonNamed(host, /^Add photos$/)!;
+    expect(add.classList.contains("ui-btn-primary")).toBe(true);
+    expect(
+      [...host.querySelectorAll(".ui-btn-primary")]
+        .filter((b) => !b.closest('li[data-motion-key^="request:"]'))
+        .map((b) => flat(b).trim()),
+    ).toEqual(["Add photos"]);
+    expect(host.textContent).toContain("See photos in this album");
+  });
+
+  test("a Collaborator gets it too", () => {
+    expect(buttonNamed(mountWith("member"), /^Add photos$/)).toBeDefined();
+  });
+
+  test("a Viewer, or someone removed, gets only See photos", () => {
+    for (const host of [mountWith("reader"), mountWith("member", { kind: "removed" })]) {
+      expect(buttonNamed(host, /^Add photos$/)).toBeUndefined();
+      expect(host.textContent).toContain("See photos in this album");
+    }
+  });
+
+  test("on the phone the button picks, adds and opens the album", async () => {
+    (window as { BareShell?: boolean }).BareShell = true;
+    const addMany = vi.spyOn(gallery, "addMany").mockImplementation(() => {});
+    const real = foldersActor.snapshot();
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({
+      ...real,
+      context: { ...real.context, folders: [status.folder] },
+    } as never);
+    vi.mocked(gateway.media.pickMany).mockResolvedValueOnce([
+      undefined,
+      { items: [{ path: "/a.jpg", name: "a.jpg" }] },
+    ] as never);
+    history.pushState(null, "", "/sharing/f1");
+    await gallery.load();
+    const host = mountWith("creator");
+    await vi.waitFor(() => expect(buttonNamed(host, /^Add photos$/)!.disabled).toBe(false));
+    buttonNamed(host, /^Add photos$/)!.click();
+    await vi.waitFor(() => expect(location.pathname).toBe("/albums/f1"));
+    expect(addMany).toHaveBeenCalledTimes(1);
+    (window as { BareShell?: boolean }).BareShell = false;
+  });
+
+  test("a pick adds the photos and opens the album", () => {
+    history.pushState(null, "", "/sharing/f1");
+    const addMany = vi.spyOn(gallery, "addMany").mockImplementation(() => {});
+    const host = mountWith("creator");
+    const input = host.querySelector<HTMLInputElement>("input[type=file]")!;
+    const file = new File(["x"], "a.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { value: [file], configurable: true });
+    input.dispatchEvent(new Event("change"));
+    expect(addMany).toHaveBeenCalledWith([{ kind: "file", file }], "f1");
+    expect(location.pathname).toBe("/albums/f1");
+  });
+});
+
+describe("Add photos waits for the gallery", () => {
+  test("disabled while a batch runs, so a pick is never dropped", async () => {
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const add = () => buttonNamed(host, /^Add photos$/) as HTMLButtonElement;
+    await vi.waitFor(() => expect(add().disabled).toBe(false));
+    vi.mocked(gateway.add).mockReturnValueOnce(new Promise(() => {}) as never);
+    gallery.addMany([{ kind: "path", path: "/a.jpg", name: "a.jpg" }], "f1");
+    await vi.waitFor(() => expect(add().disabled).toBe(true));
   });
 });

@@ -2,7 +2,8 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { foldersActor } from "../machines/folders-machine";
-import { addableAlbum, dropOverlay } from "./gallery";
+import { dropOverlay } from "./gallery";
+import { addableAlbum } from "./photo-picker";
 
 const hoisted = vi.hoisted(() => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },

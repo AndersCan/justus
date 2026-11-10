@@ -16,7 +16,7 @@ import {
   viewerAcceptKeys,
 } from "../machines/requests-machine";
 import { galleryActor, galleryViewModel } from "../machines/gallery-machine";
-import { onPageChange } from "../machines/router-machine";
+import { onPageChange, open } from "../machines/router-machine";
 import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
@@ -33,6 +33,8 @@ import { addFriendSheetView } from "./add-friend-sheet";
 import { friendSheetView, rememberFocus } from "./friend-sheet";
 import { acceptAllSheetView } from "./accept-all-sheet";
 import { toast } from "./toast";
+import { pickerInput, startAdd } from "./photo-picker";
+import { planAdd } from "../utils/add-photos";
 import { gridMotion } from "./grid-motion";
 
 import { copy, t } from "../copy/copy";
@@ -759,9 +761,17 @@ function albumBody(
       </div>
     </div>
     ${roleCaption(status.folder)} ${albumNotice(status.folder.notice, status.folder.name)}
-    <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
-      >${t("album.see_photos_in_this_album")}</a
-    >
+    <div class="flex flex-wrap items-center gap-2">
+      ${
+        status.folder.notice?.kind !== "removed" &&
+        planAdd(id, [status.folder], status).kind === "direct"
+          ? addPhotosButton(id)
+          : null
+      }
+      <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
+        >${t("album.see_photos_in_this_album")}</a
+      >
+    </div>
     ${errorBanner(
       error,
       state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
@@ -785,6 +795,22 @@ function albumBody(
     ${advancedSection(status, settled, busy)} ${friendSheetView()} ${addFriendSheetView()}
     ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}
   </div>`;
+}
+
+/** Add photos: pick for this album, then open it to watch them arrive. Disabled while the
+ * gallery can't take a pick, as on the photos page. */
+function addPhotosButton(id: string) {
+  const after = () => open(`/albums/${id}`);
+  return html`${pickerInput(id, after)}${watch(galleryActor, (g) => {
+    const vm = galleryViewModel(g, null);
+    return html`<button
+      class="ui-btn-primary"
+      ?disabled=${!vm.settled}
+      @click=${() => void startAdd(id, "library", after)}
+    >
+      ${t("album.add_photos")}
+    </button>`;
+  })}`;
 }
 
 /** Leaving the page with the Accept all sheet open closes it, so no other album is left with disabled buttons. */

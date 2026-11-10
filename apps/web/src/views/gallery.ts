@@ -1,9 +1,7 @@
 import { html } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
-import { createRef, ref } from "lit-html/directives/ref.js";
 import type { FolderSummary, JoinRequest, Photo, SyncStatus } from "@justus/core";
-import { gateway } from "../gateway";
 import {
   gallery,
   galleryActor,
@@ -12,7 +10,6 @@ import {
   sourceName,
   type GalleryActor,
   type AddBatch,
-  type AddSource,
 } from "../machines/gallery-machine";
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
@@ -37,6 +34,14 @@ import { errorBanner } from "./error-banner";
 import { startAlbum } from "./start-album";
 import { batchSummary, imageFiles, planAdd } from "../utils/add-photos";
 import { toast } from "./toast";
+import {
+  addableAlbum,
+  addPicked,
+  inNativeShell,
+  pickedVia,
+  pickerInput,
+  startAdd,
+} from "./photo-picker";
 import { adminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
@@ -53,13 +58,6 @@ import { copy, t } from "../copy/copy";
 // hosts have no onShowFileChooser), so the host picks (`justus.media`) and
 // stages the files where the worklet can import them. In a browser the
 // chosen files are posted to the worklet's `POST /photos` route.
-const fileInputRef = createRef<HTMLInputElement>();
-const inNativeShell =
-  typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
-/** Photos are being dragged over the page (browser/desktop only). */
-/** How the running batch was picked, for the "Take another" follow-up. */
-let batchVia: "library" | "camera" = "library";
-
 const foldersNow = () => foldersActor.snapshot().context.folders;
 
 const albumName = (folderId?: string) =>
@@ -72,67 +70,6 @@ async function newAlbum() {
     copy("gallery.create_album"),
   );
   if (id) open(`/albums/${id}`);
-}
-
-/** The album, if photos can go into it; otherwise tells the user why not. */
-export function addableAlbum(folderId: string): string | null {
-  const plan = planAdd(folderId, foldersNow(), syncActor.snapshot().context.status);
-  if (plan.kind === "unknown") {
-    toast(copy("gallery.getting_your_access"));
-    return null;
-  }
-  if (plan.kind === "viewer") {
-    toast(copy("gallery.you_can_view_but_not", { name: plan.album.name }));
-    return null;
-  }
-  if (plan.kind === "pending") {
-    toast(copy("gallery.you_can_add_photos_to", { name: plan.album.name }));
-    return null;
-  }
-  return plan.folderId;
-}
-
-/** Picked photos → the gallery actor's batch for the album on screen. */
-function addPicked(folderId: string, sources: AddSource[], via: "library" | "camera") {
-  if (sources.length === 0) return;
-  if (galleryActor.snapshot().context.batch?.running) {
-    toast(copy("gallery.still_adding_the_last_photos"));
-    return;
-  }
-  batchVia = via;
-  gallery.addMany(sources, folderId);
-}
-
-const cancelled = (err: unknown) =>
-  err instanceof Error && err.message.toLowerCase().includes("cancelled");
-
-/** The native picker (many at once) or camera; null when cancelled. */
-async function pickNative(via: "library" | "camera"): Promise<AddSource[] | null> {
-  if (via === "camera") {
-    const [err, shot] = await gateway.media.capture();
-    if (err || !shot?.path) {
-      if (!cancelled(err)) toast(copy("gallery.couldn_t_use_the_camera"));
-      return null;
-    }
-    return [{ kind: "path", ...shot }];
-  }
-  const [err, result] = await gateway.media.pickMany();
-  if (err || !result?.items?.length) {
-    if (!cancelled(err)) toast(copy("gallery.couldn_t_open_your_photos"));
-    return null;
-  }
-  return result.items.map((item) => ({ kind: "path", ...item }));
-}
-
-async function startAdd(albumId: string, via: "library" | "camera" = "library") {
-  const folderId = addableAlbum(albumId);
-  if (!folderId) return;
-  if (inNativeShell) {
-    const sources = await pickNative(via);
-    if (sources) addPicked(folderId, sources, via);
-    return;
-  }
-  fileInputRef.value?.click();
 }
 
 /** Drag-and-drop and paste (browser/desktop): same batch path as the picker,
@@ -168,7 +105,7 @@ function setDropOverlay(e: DragEvent, hidden: boolean) {
   overlay.classList.toggle("flex", !hidden);
 }
 function dropHandlers(scope: PhotoScope) {
-  if (inNativeShell) return { enter: null, over: null, leave: null, drop: null };
+  if (inNativeShell()) return { enter: null, over: null, leave: null, drop: null };
   return {
     enter: (e: DragEvent) => {
       if (!hasFiles(e)) return;
@@ -206,7 +143,7 @@ function routeScope(): PhotoScope | null {
 }
 
 // Paste a copied image on a Photos page to add it.
-if (typeof document !== "undefined" && !inNativeShell) {
+if (typeof document !== "undefined" && !inNativeShell()) {
   document.addEventListener("paste", (e) => {
     const scope = routeScope();
     const target = e.target as HTMLElement | null;
@@ -227,7 +164,7 @@ galleryActor.on("change", {
     const finished = wasRunning && batch !== null && !batch.running;
     wasRunning = batch?.running ?? false;
     if (!finished || batch.failed.length > 0) return;
-    const camera = batchVia === "camera";
+    const camera = pickedVia() === "camera";
     const scope = routeScope();
     toast(
       batchSummary(batch, albumName(batch.folderId)),
@@ -489,7 +426,7 @@ function addButton(page: PhotosPage, album: FolderSummary) {
 
 /** Native shell only: snap a photo straight into the album. */
 function cameraButton(page: PhotosPage, album: FolderSummary) {
-  if (!inNativeShell) return null;
+  if (!inNativeShell()) return null;
   return html`<button
     class="ui-btn-ghost inline-flex shrink-0 items-center"
     aria-label=${copy("gallery.take_a_photo_for", { name: album.name })}
@@ -544,19 +481,7 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
   }
   const others = album.members - 1;
   return html`<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-    <input
-      ${ref(fileInputRef)}
-      type="file"
-      accept="image/*"
-      multiple
-      class="hidden"
-      @change=${(e: Event) => {
-        const input = e.target as HTMLInputElement;
-        const sources = imageFiles(input.files).map((file): AddSource => ({ kind: "file", file }));
-        addPicked(album.id, sources, "library");
-        input.value = "";
-      }}
-    />
+    ${pickerInput(album.id)}
     <div class="flex min-w-0 max-w-full gap-2">
       ${cameraButton(page, album)} ${addButton(page, album)}
     </div>
