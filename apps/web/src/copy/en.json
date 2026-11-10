@@ -4144,7 +4144,7 @@
     "screen": ""
   },
   "deleted_note.no_longer_shows_kept": {
-    "text": "No longer shown on your phone; its stored copy stays here.",
+    "text": "Your phone still keeps a hidden copy.",
     "status": "draft",
     "where": "Toast › a photo was deleted",
     "who": "People in a shared album, when someone else deletes a photo",
