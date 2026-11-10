@@ -23,15 +23,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export {
-  albumIn,
-  eventually,
-  sharedAlbum,
-  type Net,
-  type Peer,
-  type PhotoChanged,
-  type SyncStatus,
-} from "./p2p-scenarios.ts";
+export { eventually, type Net } from "./p2p-scenarios.ts";
 
 /**
  * A phone from before the version channel has no refusal logic, so it never

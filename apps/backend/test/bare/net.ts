@@ -11,8 +11,6 @@
 import fs from "bare-fs";
 import path from "bare-path";
 import crypto from "bare-crypto";
-import Corestore from "corestore";
-import Hyperdrive from "hyperdrive";
 import Hyperswarm from "hyperswarm";
 import createTestnet from "hyperdht/testnet";
 import {

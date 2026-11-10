@@ -94,15 +94,3 @@ export function pumpStream(source: PumpSource, opts: PumpOptions): Promise<numbe
     out.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
   });
 }
-
-/**
- * Pump a source into a writer produced by `createWriter`, with an optional
- * byte cap. Convenience wrapper around {@link pumpStream}.
- */
-export function pumpToFile(
-  source: PumpSource,
-  createWriter: () => PumpWriter,
-  maxBytes?: number,
-): Promise<number> {
-  return pumpStream(source, { createWriter, maxBytes });
-}
