@@ -99,6 +99,68 @@ function layoutPhone({ layout, store, headlineRect, ratio }) {
   return { pw, box: { left: 0.08 * W, top: headlineRect.bottom + 0.08 * H } };
 }
 
+const FLOW_IMAGES = 3;
+const FLOW_COLOUR = "#FF8A5B";
+
+function flowPath(W, H) {
+  const point = (fx, fy) => `${+(fx * W).toFixed(2)} ${+(fy * H).toFixed(2)}`;
+  return [
+    `M ${point(0.7, 0.62)}`,
+    `C ${point(0.85, 0.62)}, ${point(0.9, 0.56)}, ${point(1.0, 0.56)}`,
+    `S ${point(1.4, 0.48)}, ${point(1.5, 0.5)}`,
+    `S ${point(1.9, 0.44)}, ${point(2.0, 0.44)}`,
+    `S ${point(2.2, 0.4)}, ${point(2.3, 0.4)}`,
+  ].join(" ");
+}
+
+function buildFlowLayer({ strip, W, H }) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "flow-layer");
+  svg.setAttribute("width", String(FLOW_IMAGES * W));
+  svg.setAttribute("height", String(H));
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", flowPath(W, H));
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", FLOW_COLOUR);
+  path.setAttribute("stroke-width", String(0.012 * W));
+  path.setAttribute("stroke-dasharray", `${0.03 * W} ${0.025 * W}`);
+  path.setAttribute("stroke-linecap", "round");
+  svg.append(path);
+  for (const [fx, fy] of [
+    [0.7, 0.62],
+    [2.3, 0.4],
+  ]) {
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", String(fx * W));
+    dot.setAttribute("cy", String(fy * H));
+    dot.setAttribute("r", String(0.01 * W));
+    dot.setAttribute("fill", FLOW_COLOUR);
+    svg.append(dot);
+  }
+  strip.append(svg);
+}
+
+async function buildFlowCard({ strip, W, H }) {
+  const card = element("img", "flow-card", strip);
+  const width = 0.28 * W;
+  const height = (width * 3) / 4;
+  place(card, {
+    width,
+    height,
+    left: W - width / 2,
+    top: 0.56 * H - height / 2,
+    borderWidth: 0.012 * W,
+    borderRadius: 0.02 * W,
+  });
+  card.alt = "";
+  await new Promise((resolve, reject) => {
+    card.onload = resolve;
+    card.onerror = () => reject(new Error(`flowPhoto ${config.flowPhoto} could not be loaded`));
+    card.src = `/assets/sample-photos/${config.flowPhoto}`;
+  });
+}
+
 function textRect(node) {
   const range = document.createRange();
   range.selectNodeContents(node);
@@ -116,6 +178,21 @@ async function render() {
   }
   const { width: W, height: H, margin } = store;
   place(root, { width: W, height: H });
+  const flowIndex = config.images.indexOf(entry);
+  let parent = root;
+  let flowStrip;
+  if (flowIndex < FLOW_IMAGES) {
+    const strip = element("div", "flow-strip", root);
+    place(strip, {
+      width: FLOW_IMAGES * W,
+      height: H,
+      transform: `translateX(${-flowIndex * W}px)`,
+    });
+    parent = element("div", "flow-box", strip);
+    place(parent, { left: flowIndex * W, width: W, height: H });
+    await buildFlowCard({ strip, W, H });
+    flowStrip = strip;
+  }
   const landscape = entry.layout === "deviceLandscape";
   const capture = await loadImage(
     `/store-listing/captures/${store.captureDir}/${entry.capture}.png`,
@@ -130,7 +207,7 @@ async function render() {
     throw new Error("Inter font file could not be loaded (store-listing/fonts)");
   });
   await document.fonts.ready;
-  const headline = element("div", "headline", root);
+  const headline = element("div", "headline", parent);
   headline.textContent = entry.headline;
   const bottomAnchored = entry.layout === "deviceAbove" || entry.layout === "headlineBelow";
   place(headline, {
@@ -143,7 +220,7 @@ async function render() {
   const headlineRect = headline.getBoundingClientRect();
   const { pw, box } = layoutPhone({ layout: entry.layout, store, headlineRect, ratio });
   const built = buildPhone({
-    parent: root,
+    parent,
     pw,
     ratio,
     landscape,
@@ -152,6 +229,7 @@ async function render() {
   });
   place(built.phone, box);
   built.phone.style.zIndex = "0";
+  if (flowStrip) buildFlowLayer({ strip: flowStrip, W, H });
   headline.style.zIndex = "1";
 
   const text = textRect(headline);

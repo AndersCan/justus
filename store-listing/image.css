@@ -69,3 +69,31 @@ body {
   text-align: center;
   background: #2a2640;
 }
+
+.flow-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: linear-gradient(160deg, #5b4fe6 0%, #4b3fd6 45%, #3328a8 100%);
+}
+
+.flow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.flow-box {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+}
+
+.flow-card {
+  position: absolute;
+  z-index: 2;
+  object-fit: cover;
+  border: solid #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  transform: rotate(-6deg);
+}

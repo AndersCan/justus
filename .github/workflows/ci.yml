@@ -43,6 +43,10 @@ jobs:
       - name: Play listing text fits Play's limits
         run: node scripts/check-play-listing.mjs
 
+      # store-listing/flow-photo.test.ts renders with Chromium.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Run test suites
         run: pnpm exec vp run -r test
 
