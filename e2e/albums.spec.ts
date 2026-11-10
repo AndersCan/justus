@@ -47,6 +47,9 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page.getByRole("link", { name: "See photos in this album" })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__sawFallback)).toBe(false);
   await expect(page.getByRole("button", { name: "Add photos" })).toBeVisible();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add photos" }).click();
+  expect((await chooser).isMultiple()).toBe(true);
   await pickPhotos(page, {
     name: "trip.png",
     mimeType: "image/png",

@@ -93,4 +93,25 @@ describe("startAdd in the native shell", () => {
     expect(onAdding).toHaveBeenCalledTimes(1);
     expect(toast).not.toHaveBeenCalled();
   });
+
+  test("a batch already running: the pick does not tell the page", async () => {
+    (window as { BareShell?: boolean }).BareShell = true;
+    const addMany = vi.spyOn(gallery, "addMany").mockImplementation(() => {});
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({
+      context: { folders: [{ id: "f1", name: "Trip", role: "creator", members: 1 }] },
+    } as never);
+    const real = galleryActor.snapshot();
+    vi.spyOn(galleryActor, "snapshot").mockReturnValue({
+      ...real,
+      context: { ...real.context, batch: { running: true } },
+    } as never);
+    const onAdding = vi.fn();
+    hoisted.gateway.media.pickMany.mockResolvedValueOnce([
+      undefined,
+      { items: [{ path: "/a.jpg", name: "a.jpg" }] },
+    ]);
+    await startAdd("f1", "library", onAdding);
+    expect(addMany).not.toHaveBeenCalled();
+    expect(onAdding).not.toHaveBeenCalled();
+  });
 });

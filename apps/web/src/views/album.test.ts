@@ -1578,6 +1578,7 @@ describe("Add photos on the album page", () => {
   });
 
   test("a pick adds the photos and opens the album", () => {
+    history.pushState(null, "", "/sharing/f1");
     const addMany = vi.spyOn(gallery, "addMany").mockImplementation(() => {});
     const host = mountWith("creator");
     const input = host.querySelector<HTMLInputElement>("input[type=file]")!;
