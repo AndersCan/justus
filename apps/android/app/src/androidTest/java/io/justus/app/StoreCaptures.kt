@@ -214,7 +214,9 @@ class StoreCaptures {
     // The drag ends with a stationary segment so the page does not fling past the App lock card.
     val x = device.displayWidth / 2
     val from = device.displayHeight * 3 / 4
-    device.swipe(arrayOf(Point(x, from), Point(x, from - 160), Point(x, from - 160)), 40)
+    // 920 px puts the Appearance card just under the status bar, so the App lock card sits in the part the store frame shows.
+    val drag = 920
+    device.swipe(arrayOf(Point(x, from), Point(x, from - drag / 2), Point(x, from - drag), Point(x, from - drag)), 120)
     Thread.sleep(500)
     var lockShown = false
     for (attempt in 1..10) {
@@ -223,6 +225,9 @@ class StoreCaptures {
       Thread.sleep(1000)
     }
     if (!lockShown) fail("App lock switch not visible before the settings capture", "Require unlock")
+    // The store frame shows only the top ~80% of the capture: the switch must end above that.
+    val switchBottom = device.findObject(By.text(Pattern.compile("Require unlock to open Justus.*")))?.visibleBounds?.bottom ?: Int.MAX_VALUE
+    if (switchBottom > device.displayHeight * 4 / 5) fail("App lock switch is below the store frame (bottom $switchBottom)", "Require unlock")
     // Without a screen lock the card reads "Set a screen lock in your phone's Settings" and the switch is off limits.
     if (device.hasObject(By.text(Pattern.compile("Set a screen lock.*")))) fail("App lock is unavailable", "Set a screen lock")
     capture("settings")
