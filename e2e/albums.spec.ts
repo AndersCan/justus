@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { pickPhotos, pngOf, runColour } from "./add-photos.js";
 
 /**
  * Photos is where you look; Sharing is where you manage. An album created in
@@ -43,12 +44,17 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page.getByRole("heading", { name: "Trip 2026", level: 1 })).toBeVisible({
     timeout: 20_000,
   });
-  const photos = page.getByRole("link", { name: "See photos in this album" });
-  await expect(photos).toBeVisible();
+  await expect(page.getByRole("link", { name: "See photos in this album" })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__sawFallback)).toBe(false);
-  await photos.click();
+  await expect(page.getByRole("button", { name: "Add photos" })).toBeVisible();
+  await pickPhotos(page, {
+    name: "trip.png",
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(3)),
+  });
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Added a photo to Trip 2026")).toBeVisible({ timeout: 20_000 });
   // The e2e worklet seeds sample photos into every new album.
   await expect(page.locator("figure img").first()).toBeAttached({ timeout: 20_000 });
   const inTrip = await page.locator("figure img").count();

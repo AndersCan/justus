@@ -1371,6 +1371,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.add_photos": {
+    "text": "Add photos",
+    "status": "draft",
+    "where": "Album › Invite & members › button",
+    "who": "Admins and Collaborators, on an album's people page",
+    "screen": "album"
+  },
   "album.see_photos_in_this_album": {
     "text": "See photos in this album",
     "status": "draft",
