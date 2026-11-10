@@ -126,7 +126,9 @@ async function render() {
   const usable = capture && !wrongShape;
   const ratio = usable ? capture.naturalHeight / capture.naturalWidth : landscape ? 0.5 : 2;
 
-  await document.fonts.load(`700 ${store.headlineSize}px Inter`);
+  await document.fonts.load(`700 ${store.headlineSize}px Inter`).catch(() => {
+    throw new Error("Inter font file could not be loaded (store-listing/fonts)");
+  });
   await document.fonts.ready;
   const headline = element("div", "headline", root);
   headline.textContent = entry.headline;

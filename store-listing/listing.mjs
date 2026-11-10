@@ -17,8 +17,10 @@ function lineOf(text, needle) {
 
 function pngSize(path) {
   if (!existsSync(path)) return { ok: true, size: undefined };
-  const head = readFileSync(path).subarray(0, 24);
-  const signature = head.length === 24 && head.subarray(1, 4).toString("latin1") === "PNG";
+  const bytes = readFileSync(path);
+  const head = bytes.subarray(0, 24);
+  const ended = bytes.subarray(-8, -4).toString("latin1") === "IEND";
+  const signature = head.length === 24 && head.subarray(1, 4).toString("latin1") === "PNG" && ended;
   if (!signature) return fail(`${path}: not a PNG image`);
   return { ok: true, size: { width: head.readUInt32BE(16), height: head.readUInt32BE(20) } };
 }

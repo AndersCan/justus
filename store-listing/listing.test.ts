@@ -10,7 +10,7 @@ function png(width: number, height: number) {
   Buffer.from("\x89PNG\r\n\x1a\n", "latin1").copy(head);
   head.writeUInt32BE(width, 16);
   head.writeUInt32BE(height, 20);
-  return head;
+  return Buffer.concat([head, Buffer.from("\0\0\0\0IEND\xae\x42\x60\x82", "latin1")]);
 }
 
 function fixture(config: string) {
@@ -133,6 +133,28 @@ describe("readListing", () => {
     writeFileSync(
       join(root, "store-listing/captures/android/album.png"),
       "garbage bytes long enough to read",
+    );
+    const result = readListing(root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not a PNG image");
+  });
+
+  it("rejects a capture shorter than a PNG header", () => {
+    const root = fixture(configWith({}));
+    writeFileSync(
+      join(root, "store-listing/captures/android/album.png"),
+      Buffer.from("\x89PNG\r\n\x1a\n", "latin1"),
+    );
+    const result = readListing(root);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not a PNG image");
+  });
+
+  it("rejects a truncated capture that has a header but no IEND", () => {
+    const root = fixture(configWith({}));
+    writeFileSync(
+      join(root, "store-listing/captures/android/album.png"),
+      png(1080, 2160).subarray(0, 30),
     );
     const result = readListing(root);
     expect(result.ok).toBe(false);
