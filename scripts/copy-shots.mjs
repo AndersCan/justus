@@ -27,10 +27,38 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const enPath = join(root, "apps/web/src/copy/en.json");
 const outDir = join(root, "test-results/copy-shots");
 const BASE = "http://127.0.0.1:8090";
+// No sample album: a phone with an album skips the intro, so the welcome screens live here.
+const EMPTY_BASE = "http://127.0.0.1:8091";
 
-/** Each scenario opens a page and returns once it has settled. `fresh` skips the welcome-seen flag. */
+/**
+ * Each scenario opens a page and returns once it has settled. `fresh` skips the welcome-seen flag
+ * and runs on the empty worklet. `at` is the route the page must end on, so a scenario that gets
+ * redirected fails instead of saving the wrong screen.
+ */
 const scenarios = {
-  welcome: { fresh: true, open: (page) => page.goto("/welcome") },
+  welcome: { fresh: true, at: /\/welcome$/, open: (page) => page.goto("/welcome") },
+  "welcome-card-2": { fresh: true, at: /\/welcome$/, open: (page) => welcomeStep(page, 1) },
+  "welcome-name": { fresh: true, at: /\/welcome$/, open: (page) => welcomeStep(page, 2) },
+  "welcome-start": {
+    fresh: true,
+    at: /\/welcome$/,
+    open: async (page) => {
+      await welcomeStep(page, 2);
+      await page.getByLabel("Your name").fill("Sam");
+      await page.locator("button.ui-btn-primary[type=submit]").click();
+      await page.locator('[data-copy-id="welcome.start_sharing"]').waitFor({ timeout: 10_000 });
+    },
+  },
+  "start-album": {
+    open: async (page) => {
+      await settle(page, "/albums");
+      await page
+        .getByRole("button", { name: /new album/i })
+        .first()
+        .click();
+      await page.locator('[data-copy-id^="start_album."]').first().waitFor({ timeout: 10_000 });
+    },
+  },
   gallery: { open: (page) => settle(page, "/", "figure img") },
   lightbox: {
     open: async (page) => {
@@ -59,9 +87,21 @@ const scenarios = {
   },
   devices: { open: (page) => page.goto("/devices") },
   join: { open: (page) => page.goto("/join") },
+  "not-found": { at: /\/nope$/, open: (page) => page.goto("/nope") },
   settings: { open: (page) => page.goto("/settings") },
   help: { open: (page) => page.goto("/help") },
 };
+
+/** Opens the welcome flow and taps Next `taps` times. */
+async function welcomeStep(page, taps) {
+  await page.goto("/welcome");
+  for (let i = 0; i < taps; i++) {
+    const next = page.locator("button.ui-btn-primary[type=button]");
+    if ((await next.count()) === 0) throw new Error(`welcome: no primary button at tap ${i + 1}`);
+    await next.click({ force: true });
+    await page.waitForTimeout(300);
+  }
+}
 
 async function settle(page, path, ready) {
   await page.goto(path);
@@ -94,9 +134,9 @@ async function startServer() {
 
 /** One scenario at a time: the backend serves one page socket. */
 async function inScenario(browser, name, work) {
-  const { fresh, open } = scenarios[name];
+  const { fresh, open, at } = scenarios[name];
   const context = await browser.newContext({
-    baseURL: BASE,
+    baseURL: fresh ? EMPTY_BASE : BASE,
     deviceScaleFactor: 2,
     viewport: { width: 420, height: 900 },
     storageState: fresh ? { cookies: [], origins: [] } : join(root, "e2e/welcome-seen.json"),
@@ -105,6 +145,9 @@ async function inScenario(browser, name, work) {
     const page = await context.newPage();
     await open(page);
     await page.waitForTimeout(500);
+    if (at && !at.test(new URL(page.url()).pathname)) {
+      throw new Error(`${name}: ended on ${page.url()}, expected ${at}`);
+    }
     return await work(page);
   } finally {
     await context.close();

@@ -4,7 +4,7 @@ import { INTRO_CARDS } from "./intro-cards";
 describe("intro cards", () => {
   test("titles", () => {
     expect(INTRO_CARDS.map((c) => c.title)).toEqual([
-      "No server in the middle",
+      "Photos go straight to your friends",
       "You decide who joins",
     ]);
   });
@@ -13,6 +13,10 @@ describe("intro cards", () => {
     const body = INTRO_CARDS[0]?.body as string;
     expect(body).toContain("straight from your phone");
     expect(body).toContain("Nobody else gets a copy");
+  });
+
+  test("second card promises no per-photo choice, which a Viewer does not get", () => {
+    expect(INTRO_CARDS[1]?.body as string).not.toContain("photos you pick");
   });
 
   test("bodies are plain strings that avoid stale claims", () => {
