@@ -1605,6 +1605,71 @@ describe("album holding", () => {
     expect(lines[0].classList.contains("truncate")).toBe(false);
   });
 
+  test("repro 662: own row line is the role part only, with and without photos", async () => {
+    for (const photos of [[photo("a", "f1", true)], []]) {
+      const host = await open(photos);
+      const own = memberRows(host)[0];
+      const line = own.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
+      expect(line.textContent?.trim()).toBe("Admin · sees and adds photos");
+    }
+  });
+
+  test("repro 662: a Viewer row says none, then some, on their phone (plan #490 Try it)", async () => {
+    const withViewer = {
+      ...status,
+      members: [status.members[0], { ...status.members[1], viewer: true }],
+      folder: { ...status.folder, members: 2 },
+    } as unknown as SyncStatus;
+    const photos = (kimHas: boolean) => [
+      photo("a", "f1", kimHas),
+      photo("b", "f1", false),
+      photo("c", "f1", false),
+    ];
+    vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(false) }] as never);
+    syncActor.send(statusSeen.create({ status: withViewer }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const line = () =>
+      memberRows(host)[1]
+        .querySelector('[data-copy-id="member.role_viewer"]')!
+        .closest("p")!
+        .textContent?.trim();
+    expect(line()).toBe("Viewer · sees every photo · none in full on their phone yet");
+    vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
+    await gallery.load();
+    await vi.waitFor(() =>
+      expect(line()).toBe("Viewer · sees every photo · some in full on their phone"),
+    );
+  });
+
+  test("an Admin row seen by a collaborator also says what their phone holds", async () => {
+    const asMember = {
+      ...status,
+      members: [
+        { ...status.members[0], admin: false },
+        { ...status.members[1], admin: true },
+      ],
+      folder: { ...status.folder, role: "member", members: 2 },
+    } as unknown as SyncStatus;
+    vi.mocked(gateway.list).mockResolvedValue([
+      null,
+      { photos: [photo("a", "f1", false)] },
+    ] as never);
+    syncActor.send(statusSeen.create({ status: asMember }));
+    people.open();
+    await gallery.load();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const line = memberRows(host)[1]
+      .querySelector('[data-copy-id="member.role_admin"]')!
+      .closest("p")!;
+    expect(line.textContent?.trim()).toBe(
+      "Admin · sees and adds photos · none in full on their phone yet",
+    );
+  });
+
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];
