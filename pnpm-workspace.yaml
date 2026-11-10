@@ -14,7 +14,6 @@ catalog:
   "@mantaq/inspect": ^0.31.0
   "@mantaq/lit": ^0.2.1
   "@mantaq/sugar": ^2.1.1
-  "@mantaq/viz": ^0.21.0
   "@mantaq/utils": ^0.0.6
   "@varlock/bumpy": ^1.18.1
   astro: ^7.4.4

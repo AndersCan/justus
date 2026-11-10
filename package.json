@@ -28,7 +28,6 @@
     "@astrojs/mdx": "catalog:",
     "@astrojs/starlight": "catalog:",
     "@mantaq/inspect": "catalog:",
-    "@mantaq/viz": "catalog:",
     "@playwright/test": "catalog:",
     "@varlock/bumpy": "catalog:",
     "astro": "catalog:",
