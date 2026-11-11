@@ -157,7 +157,7 @@ Placeholders: `{name}`, and `{n?one:other}` for plurals. `copy/catalogue.test.ts
 fails on a literal English sentence in views, machines or utils, an unknown id,
 an unused id, or params that do not match the text.
 
-Release builds refuse draft text: `node scripts/check-copy-release.mjs app|store`
+The release workflow no longer runs `check-copy-release.mjs app|store` (issue #681 restores an app-copy gate before production). Run by hand: `node scripts/check-copy-release.mjs app|store`
 fails naming every draft id (`app`: all entries but `store.*`; `store`: the
 `store.*` listing entries plus screenshots without `approved: true` in
 `apps/android/fastlane/store-screenshots.json`; a screenshot missing there counts as
