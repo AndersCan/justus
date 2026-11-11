@@ -186,7 +186,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+ has the full photo\. It stops showing there, but Justus can't erase the copy already stored there\. Deleting can't take it back\./,
+    /.+ has the full photo\. It no longer shows for them\. The copy already on their phone can't be wiped from here\. Deleting can't take it back\./,
   );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
