@@ -2786,7 +2786,7 @@
     "screen": ""
   },
   "invite.may_ask_you_for_these": {
-    "text": "{owner} may ask you for these three words, to check it's really you. Read them out if asked.",
+    "text": "{owner} sees these three words next to your request. If {owner} calls or messages to check it's you, read them out.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -2884,21 +2884,21 @@
     "screen": ""
   },
   "holding.all": {
-    "text": "all in full on their phone",
+    "text": "has every photo in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.some": {
-    "text": "{n} in full on their phone",
+    "text": "has {n} in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.none": {
-    "text": "none in full on their phone",
+    "text": "has none in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4221,7 +4221,7 @@
     "screen": ""
   },
   "full_photo.names_preview": {
-    "text": "{list} only {n?has:have} a small preview. It stops showing there, but Justus can't erase it.",
+    "text": "The photo no longer shows for {list}. The small preview already on {n?their phone:their phones} can't be wiped from here.",
     "status": "draft",
     "where": "Photo viewer › Delete › text, Deleted toast",
     "who": "People who tap the photo's holders or delete a photo",
@@ -4235,7 +4235,7 @@
     "screen": ""
   },
   "lightbox.stops_showing_can_t_erase": {
-    "text": "It stops showing there, but Justus can't erase the {n?copy:copies} already stored there.",
+    "text": "It no longer shows for them. {n?The copy already on their phone:Copies already on their phones} can't be wiped from here.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",

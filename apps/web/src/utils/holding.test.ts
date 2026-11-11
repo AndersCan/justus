@@ -78,8 +78,8 @@ describe("albumHolding", () => {
       [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
       "f1",
     );
-    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("none in full on their phone");
-    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("none in full on their phone");
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has none in full");
+    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has none in full");
   });
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
@@ -95,16 +95,16 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "silent" }, 3)).toBe("their phone hasn't said yet");
   });
   it("everything held says all", () => {
-    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("all in full on their phone");
-    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("all in full on their phone");
+    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("has every photo in full");
+    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has every photo in full");
   });
   it("part held says the count", () => {
-    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("2 in full on their phone");
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("1 in full on their phone");
+    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("has 2 in full");
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("has 1 in full");
   });
   it("absent or zero means none", () => {
-    expect(holdingLine(undefined, 4)).toBe("none in full on their phone");
-    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("none in full on their phone");
+    expect(holdingLine(undefined, 4)).toBe("has none in full");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has none in full");
   });
   it("role and phone part fit a 360 px row (~44 chars of text-xs)", () => {
     const phones = [

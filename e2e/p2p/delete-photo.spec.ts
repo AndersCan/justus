@@ -148,7 +148,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
-  await expectBenLine(a, "Collaborator · 2 in full on their phone");
+  await expectBenLine(a, "Collaborator · has 2 in full");
 
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
@@ -171,7 +171,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("button", { name: "Close" }).click();
 
   // Ben opened every photo: Ana's members page says his phone has all of them.
-  await expectBenLine(a, "Collaborator · all in full on their phone");
+  await expectBenLine(a, "Collaborator · has every photo in full");
 
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });
@@ -186,7 +186,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+ has the full photo\. It stops showing there, but Justus can't erase the copy already stored there\. Deleting can't take it back\./,
+    /.+ has the full photo\. It no longer shows for them\. The copy already on their phone can't be wiped from here\. Deleting can't take it back\./,
   );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
@@ -228,11 +228,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("menuitem", { name: "Delete" }).click();
   const benDialog = b.locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` });
   await expect(benDialog).toContainText(
-    /.+ only (has|have) a small preview\. It stops showing there, but Justus can.t erase it\./,
+    /The photo no longer shows for .+\. The small preview already on their phones? can.t be wiped from here\./,
   );
   await benDialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^\s*Deleted “del-ben\.png”\. .+ only (has|have) a small preview\. It stops showing there, but Justus can.t erase it\.\s*$/,
+    /^\s*Deleted “del-ben\.png”\. The photo no longer shows for .+\. The small preview already on their phones? can.t be wiped from here\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {
