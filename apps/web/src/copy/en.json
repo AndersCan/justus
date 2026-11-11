@@ -2898,7 +2898,14 @@
     "screen": ""
   },
   "holding.none": {
-    "text": "has none in full",
+    "text": "has previews only",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.nothing": {
+    "text": "has no photos yet",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",

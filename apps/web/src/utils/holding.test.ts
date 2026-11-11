@@ -73,14 +73,27 @@ describe("albumHolding", () => {
       if (sheet > 0) expect(r.byKey.get(key)).toEqual({ kind: "count", held: sheet });
     }
   });
-  it("previews or waiting only is none, not silent", () => {
+  it("previews or waiting only : previews reads previews only, waiting reads no photos", () => {
     const r = albumHolding(
       [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
       "f1",
     );
-    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has none in full");
-    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has none in full");
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has previews only");
+    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has no photos yet");
   });
+  it("not said yet wins over previews, in either order", () => {
+    const a = albumHolding(
+      [photo("f1", { previews: [m("z")] }), photo("f1", { unsure: [m("z")] })],
+      "f1",
+    );
+    const b = albumHolding(
+      [photo("f1", { unsure: [m("z")] }), photo("f1", { previews: [m("z")] })],
+      "f1",
+    );
+    expect(a.byKey.get("z")).toEqual({ kind: "silent" });
+    expect(b.byKey.get("z")).toEqual({ kind: "silent" });
+  });
+
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
   });
@@ -103,8 +116,8 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("has 1 in full");
   });
   it("absent or zero means none", () => {
-    expect(holdingLine(undefined, 4)).toBe("has none in full");
-    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has none in full");
+    expect(holdingLine(undefined, 4)).toBe("has no photos yet");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has no photos yet");
   });
   it("role and phone part fit a 360 px row (~44 chars of text-xs)", () => {
     const phones = [
