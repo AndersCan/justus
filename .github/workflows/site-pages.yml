@@ -49,11 +49,8 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Check flows docs
-        run: node scripts/check-flows-site.mjs site-dist
-
       - name: Check the built site
-        run: pnpm exec mantaq-check-site site-dist --base "$SITE_BASE" --links docs/design/sharing-flows.md --site https://anderscan.github.io/justus/
+        run: pnpm exec mantaq-check-site site-dist --base "$SITE_BASE" --overview flows/ --links docs/design/sharing-flows.md --site https://anderscan.github.io/justus/
         env:
           SITE_BASE: ${{ github.event_name == 'pull_request' && format('/justus/pr/{0}', github.event.pull_request.number) || '/justus' }}
 
