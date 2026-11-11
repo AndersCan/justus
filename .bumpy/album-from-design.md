@@ -2,4 +2,4 @@
 "@justus/android": patch
 ---
 
-[user]: The album page has new colours; the orange add button stays the same.
+[user]: Justus has new colours on every screen; the orange add button stays the same.

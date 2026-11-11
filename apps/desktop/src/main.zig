@@ -448,8 +448,8 @@ fn bootstrapScript(a: std.mem.Allocator, handoff: Handoff) ![:0]const u8 {
 
 const page_style =
     \\<style>
-    \\:root { color-scheme: light dark; background: #F6F5FA; color: #14121F; }
-    \\@media (prefers-color-scheme: dark) { :root { background: #0F0D1A; color: #F2F0FA; } }
+    \\:root { color-scheme: light dark; background: #F8FAFC; color: #0F172A; }
+    \\@media (prefers-color-scheme: dark) { :root { background: #020617; color: #F8FAFC; } }
     \\body { font: 15px -apple-system, system-ui, sans-serif; margin: 0; height: 100vh;
     \\  display: flex; flex-direction: column; align-items: center; justify-content: center; }
     \\p { max-width: 36em; text-align: center; opacity: .75; }

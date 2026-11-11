@@ -261,7 +261,7 @@ test("a photo's Delete sits in its More menu and asks first", async ({ page }) =
 
   // Delete asks first; Keep leaves the photo alone.
   await more.click();
-  await expect(item).toHaveCSS("color", "rgb(198, 47, 53)");
+  await expect(item).toHaveCSS("color", "rgb(185, 28, 28)");
   await item.click();
   const dialog = page.getByRole("dialog", { name: /^Delete “.+”\?$/ });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -315,6 +315,6 @@ test.describe("dark", () => {
     const bg = await dialog
       .locator("xpath=ancestor-or-self::*[1]")
       .evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(bg).toBe("rgb(26, 23, 48)");
+    expect(bg).toBe("rgb(15, 23, 42)");
   });
 });
