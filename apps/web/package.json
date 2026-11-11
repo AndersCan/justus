@@ -4,6 +4,9 @@
   "private": true,
   "description": "Justus gallery UI — lit-html + mantaq + UnoCSS.",
   "type": "module",
+  "imports": {
+    "#design/*": "./src/design/*"
+  },
   "scripts": {
     "dev": "vp dev --port 5173 --strictPort",
     "build": "tsc && vp build",

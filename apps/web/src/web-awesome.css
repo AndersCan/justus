@@ -1,4 +1,4 @@
-/* Maps Web Awesome tokens onto Justus's RGB tokens (src/tokens.css), so light, dark
+/* Maps Web Awesome tokens onto Justus's RGB tokens (src/design/justus/tokens/theme.css), so light, dark
    and the in-app theme override follow without a .wa-dark class. */
 :root {
   --wa-color-surface-raised: rgb(var(--surface));

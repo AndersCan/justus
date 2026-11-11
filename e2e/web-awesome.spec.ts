@@ -37,7 +37,7 @@ test.describe("dark", () => {
     await page.goto("/sharing");
     await expectCreateButton(page);
     const canvas = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(canvas).toBe("rgb(15, 13, 26)");
+    expect(canvas).toBe("rgb(2, 6, 23)");
   });
 });
 

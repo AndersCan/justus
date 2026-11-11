@@ -1,6 +1,7 @@
 import { defineConfig, presetUno } from "unocss";
+import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
-// Semantic tokens only. Raw values live in src/tokens.css as CSS variables (space
+// Semantic tokens only. Raw values live in src/design/justus/tokens/theme.css (generated) as CSS variables (space
 // separated RGB) so light/dark switch with `prefers-color-scheme`. Views use
 // bg-canvas / bg-surface / text-fg / text-muted / accent / danger — never a
 // literal color. Green/amber/red `trust-*` is reserved for connection state.
@@ -8,8 +9,6 @@ import { defineConfig, presetUno } from "unocss";
 // `*-fg` for text (the fills are too light for text on white). Text on a solid
 // accent or danger fill is `on-fill`. `brand` (coral) is the wordmark dot only. The one add/create action per screen
 // is a `<wa-button variant="brand">` using the `--action` / `--on-action` tokens.
-const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
-
 export default defineConfig({
   presets: [presetUno()],
   content: {
@@ -20,32 +19,7 @@ export default defineConfig({
       include: [/\.(vue|svelte|[jt]sx|ts|mdx?|astro|elm|php|phtml|marko|html)($|\?)/],
     },
   },
-  theme: {
-    colors: {
-      canvas: token("canvas"),
-      surface: token("surface"),
-      subtle: token("subtle"),
-      line: token("line"),
-      fg: token("fg"),
-      muted: token("muted"),
-      accent: token("accent"),
-      "accent-strong": token("accent-strong"),
-      "accent-soft": token("accent-soft"),
-      "on-fill": token("on-fill"),
-      brand: token("brand"),
-      danger: token("danger"),
-      "danger-fg": token("danger-fg"),
-      ok: token("ok"),
-      "ok-fg": token("ok-fg"),
-      warn: token("warn"),
-      "warn-fg": token("warn-fg"),
-      trust: {
-        green: token("trust-green"),
-        amber: token("trust-amber"),
-        red: token("trust-red"),
-      },
-    },
-  },
+  theme: designTheme,
   shortcuts: {
     "ui-card": "rounded-2xl bg-surface ring-1 ring-line",
     "ui-focus":

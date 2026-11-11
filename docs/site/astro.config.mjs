@@ -40,7 +40,11 @@ export default defineConfig({
         dark: "./assets/brand/justus-wordmark-dark.svg",
         replacesTitle: true,
       },
-      customCss: ["./apps/web/src/tokens.css", "./docs/site/src/styles/brand.css"],
+      customCss: [
+        "./apps/web/src/design/justus/tokens/theme.css",
+        "./apps/web/src/tokens.css",
+        "./docs/site/src/styles/brand.css",
+      ],
       description: "Private photo sharing, directly between devices.",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/AndersCan/justus" }],
       sidebar: [

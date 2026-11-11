@@ -49,6 +49,7 @@ layer, Host, Actor). Use those terms exactly.
   pnpm bumpy add --packages "@justus/android:patch" --message "[user]: Photos you add while offline now send as soon as you are back online."
   ```
 
+- **`apps/web/src/design/` is generated.** Never edit it: change the source in the design repo (`AndersCan/design`) and run `npm run sync -- <this repo>` there. Colours come from `design/justus/tokens/theme.css`; the album page frame from `#design/justus/album/album-full.ts`.
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
 - **All app state is a mantaq actor.** Views read it with `watch(actor, select)`
   from `@mantaq/lit`. For two actors, nest `watch`. Never nest two `watch`es on

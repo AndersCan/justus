@@ -4,10 +4,11 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: {},
+  fmt: { ignorePatterns: ["apps/web/src/design/**"] },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
+    ignorePatterns: ["apps/web/src/design/**"],
     options: { typeAware: true, typeCheck: true },
     // The backend runs in Bare, which lacks these Web globals (#200: a
     // `new TextDecoder()` made every peer record read as missing on devices).
