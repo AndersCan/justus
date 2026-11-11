@@ -207,10 +207,47 @@ else
   run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
 fi
 
+run_maestro() { maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; }
+
+# adb can drop a freshly booted emulator for a moment: Maestro then fails in seconds with
+# "device offline" / DeviceServerDiedException on its first command (justus#654, first attempt of
+# run 42799188001: launchApp failed after 1.3s, adbd logged "connection terminated"). The app was
+# never reached. Only that failure is run again, once; any other failure fails the suite.
+adb_dropped() {
+  local log
+  log="$(find "$OUT_DIR" -name maestro.log -newer "$1" 2>/dev/null | head -n 1)"
+  [[ -n "$log" ]] && grep -q -E 'device offline|DeviceServerDiedException' "$log"
+}
+
+# Poll for the emulator with a deadline (a bare `adb wait-for-device` would hang until the job
+# timeout and skip the diagnostics upload).
+wait_for_adb() {
+  local deadline=$((SECONDS + ${ADB_RETURN_TIMEOUT:-60}))
+  while [[ "$("$ADB" -s "$SERIAL" get-state 2>/dev/null)" != "device" ]]; do
+    if ((SECONDS >= deadline)); then
+      echo "✗ the emulator did not come back after the adb drop."
+      return 1
+    fi
+    sleep 2
+  done
+}
+
+run_maestro_suite() {
+  local started rc
+  started="$(mktemp)"
+  run_maestro && { rm -f "$started"; return 0; }
+  adb_dropped "$started"; rc=$?
+  rm -f "$started"
+  ((rc == 0)) || return 1
+  echo "⚠ adb dropped the emulator during the run — waiting for it, then running once more."
+  wait_for_adb || return 1
+  run_maestro
+}
+
 echo
 echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
-if ! maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; then
+if ! run_maestro_suite; then
   echo
   echo "✗ Maestro suite FAILED — capturing diagnostics..."
   mkdir -p "$OUT_DIR"
