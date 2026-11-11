@@ -54,7 +54,7 @@ export const albumFullExample: AlbumFullProps = {
   </svg>
 </div>`,
   about: html`<p class="text-sm text-muted">You can add photos and invite people.</p>`,
-  actions: html`<div class="flex flex-wrap items-center gap-2"><a class="flex items-center justify-center h-touch py-2-5 px-4 rounded-control bg-accent text-sm font-medium text-on-fill" href="/albums/f1/add">Add photos</a> <a class="flex items-center justify-center h-touch py-2-5 px-4 rounded-control bg-subtle text-sm font-medium text-fg" href="/albums/f1">See photos in this album</a></div>`,
+  actions: html`<div class="flex flex-wrap items-center gap-2"><a class="flex items-center justify-center h-touch py-2-5 px-4 rounded-control bg-action text-sm font-medium text-on-action" href="/albums/f1/add">Add photos</a> <a class="flex items-center justify-center h-touch py-2-5 px-4 rounded-control bg-subtle text-sm font-medium text-fg" href="/albums/f1">See photos in this album</a></div>`,
   problem: html``,
   requests: html`<section class="flex flex-col gap-3 rounded-surface bg-surface p-4">
   <h2 class="text-base font-semibold text-fg">Requests</h2>
