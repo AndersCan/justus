@@ -143,7 +143,7 @@ a build. The first bundle must go through the Play Console UI.
    - Release to production, exclude devices, and use Play App Signing
    - Release apps to testing tracks
    - Manage testing tracks and edit tester lists
-   - Manage store presence (required: every release uploads the listing)
+   - Manage store presence (needed for `fastlane listing`)
 3. Check the key from your Mac (`brew install fastlane` once; the system Ruby
    is too old for the Gemfile):
    ```bash
@@ -183,10 +183,7 @@ a build. The first bundle must go through the Play Console UI.
      **internal** track with a release note made of the `[user]:` lines of that
      version's section in `apps/android/CHANGELOG.md` (`node scripts/release-note.mjs <version>`
      prints it; none → "Bug fixes and improvements."). The run summary shows it;
-   - then uploads the store listing (text, icon, feature graphic) and the
-     four screenshots from the emulator step. If the screenshots are missing,
-     the run warns and Play keeps its previous ones. If the listing upload
-     fails, the build is already on internal and the run turns red.
+   - does not upload the listing or screenshots; run `fastlane listing` for that.
 3. **Smoke-test** the internal build on a real arm64 phone (install from the
    Play internal-testing link).
 4. **Promote to production with a staged rollout**, from `apps/android`:
@@ -215,7 +212,6 @@ full gate, and only then cut a store release.
 | Play: _"Package not found"_ / 403                                     | First upload not done (A6), or the service account lacks permissions (A7).                                    |
 | Play: _"signed with the wrong key"_                                   | The bundle wasn't signed with the registered upload key. Check the keystore secret.                           |
 | Play: target API level error                                          | Bump `compileSdk`/`targetSdk` in `apps/android/app/build.gradle` (A2).                                        |
-| _"Build N is on the internal track, but the listing upload failed"_   | Grant "Manage store presence" (A7), then run `fastlane listing` or cut the next release.                      |
 | Warning: _"Store screenshots failed"_                                 | The emulator step failed; Play kept its old screenshots. Check the `store-screenshots` artifact and step log. |
 | App crashes on launch in release only                                 | A missing native library in the AAR, or a 32-bit device (ekrooh#46).                                          |
 
