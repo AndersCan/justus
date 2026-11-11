@@ -1721,12 +1721,11 @@ describe("Add photos on the album page", () => {
   test("an Admin gets the page's one coloured button, beside See photos", () => {
     const host = mountWith("creator");
     const add = buttonNamed(host, /^Add photos$/)!;
-    expect(add.classList.contains("ui-btn-primary")).toBe(true);
-    expect(
-      [...host.querySelectorAll(".ui-btn-primary")]
-        .filter((b) => !b.closest('li[data-motion-key^="request:"]'))
-        .map((b) => flat(b).trim()),
-    ).toEqual(["Add photos"]);
+    expect(add.classList.contains("ui-btn-action")).toBe(true);
+    expect(add.classList.contains("ui-btn-primary")).toBe(false);
+    expect([...host.querySelectorAll(".ui-btn-action")].map((b) => flat(b).trim())).toEqual([
+      "Add photos",
+    ]);
     expect(host.textContent).toContain("See photos in this album");
   });
 
