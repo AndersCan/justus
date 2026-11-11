@@ -165,7 +165,7 @@ describe("checkCodeLine", () => {
     const host = document.createElement("div");
     render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Anna may ask you for these three words, to check it's really you. Read them out if asked. maple river stone",
+      "Anna sees these three words next to your request. If Anna calls or messages to check it's you, read them out. maple river stone",
     );
     const last = [...host.querySelectorAll("p")].at(-1);
     expect(last?.textContent?.trim()).toBe("maple river stone");
@@ -181,7 +181,7 @@ describe("joinSheet waiting screen", () => {
   };
   test("shows the code stored on this invite's ask", () => {
     const shown = text([{ code: "c1", checkCode: "maple river stone" }]);
-    expect(shown).toContain("may ask you for these three words");
+    expect(shown).toContain("sees these three words next to your request");
     expect(shown).toContain("maple river stone");
     expect(shown.toLowerCase()).not.toContain("check code");
   });

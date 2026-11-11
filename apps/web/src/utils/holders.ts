@@ -71,7 +71,7 @@ export function hasFullPhoto(names: readonly string[]): string {
     : copy("full_photo.names_have", { list: nameList(names), n: names.length });
 }
 
-/** "Ben only has a small preview. It stops showing there, but Justus can't erase it." (plural: "have"); "" for no names. */
+/** "The photo no longer shows for Ben. The small preview already on their phone can't be wiped from here." (plural: "their phones"); "" for no names. */
 export function previewOnly(names: readonly string[]): string {
   return names.length === 0
     ? ""
@@ -91,8 +91,7 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
   const have = (h?.others ?? []).map((m) => m.name);
   const preview = (h?.previews ?? []).map((m) => m.name);
   const lack = (h?.waiting ?? []).map((m) => m.name);
-  const cannot =
-    have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase", { n: have.length });
+  const cannot = have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase");
   const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, have.length) });
   return [gone, hasFullPhoto(have), cannot, previewOnly(preview), lacksFullPhoto(lack), back]
     .filter((x) => x !== "")
