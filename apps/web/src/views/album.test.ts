@@ -1650,7 +1650,7 @@ describe("album holding", () => {
         .querySelector('[data-copy-id="member.role_viewer"]')!
         .closest("p")!
         .textContent?.trim();
-    expect(line()).toBe("Viewer · has none in full");
+    expect(line()).toBe("Viewer · has no photos yet");
     vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
     await gallery.load();
     await vi.waitFor(() => expect(line()).toBe("Viewer · has 1 in full"));
@@ -1677,7 +1677,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_admin"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Admin · has none in full");
+    expect(line.textContent?.trim()).toBe("Admin · has no photos yet");
   });
 
   test("a holders push updates the same row", async () => {

@@ -3,7 +3,7 @@ import { copy } from "../copy/copy";
 import { holdersSheetRows } from "./holders";
 
 /** What one person's phone holds of an album, as it last told this one. */
-export type Holding = { kind: "count"; held: number } | { kind: "silent" };
+export type Holding = { kind: "count"; held: number } | { kind: "silent" } | { kind: "previews" };
 
 export type AlbumHolding = {
   /** Album photos whose holders are known. 0 means: say nothing. */
@@ -17,6 +17,7 @@ export type AlbumHolding = {
 export function albumHolding(photos: readonly Photo[], folderId: string): AlbumHolding {
   const held = new Map<string, number>();
   const unsure = new Set<string>();
+  const previewing = new Set<string>();
   let total = 0;
   for (const photo of photos) {
     if (photo.folderId !== folderId || photo.holders === undefined) continue;
@@ -24,8 +25,10 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
     const rows = holdersSheetRows(photo.holders);
     for (const m of rows.others) held.set(m.key, (held.get(m.key) ?? 0) + 1);
     for (const m of rows.unsure) unsure.add(m.key);
+    for (const m of photo.holders.previews) previewing.add(m.key);
   }
   const byKey = new Map<string, Holding>();
+  for (const key of previewing) byKey.set(key, { kind: "previews" });
   for (const key of unsure) byKey.set(key, { kind: "silent" });
   for (const [key, n] of held) byKey.set(key, { kind: "count", held: n });
   return { total, byKey };
@@ -36,5 +39,6 @@ export function holdingLine(h: Holding | undefined, total: number): string | und
   if (total === 0) return undefined;
   const held = h?.kind === "count" ? h.held : 0;
   if (held > 0) return held >= total ? copy("holding.all") : copy("holding.some", { n: held });
-  return h?.kind === "silent" ? copy("holding.silent") : copy("holding.none");
+  if (h?.kind === "silent") return copy("holding.silent");
+  return h?.kind === "previews" ? copy("holding.none") : copy("holding.nothing");
 }
