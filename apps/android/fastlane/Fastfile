@@ -57,7 +57,7 @@ platform :android do
     UI.message("Release note for #{options[:code]}: #{note}")
   end
 
-  desc "Build and upload to the internal track, then the listing. Options: version_name"
+  desc "Build and upload to the internal track (no listing; run the listing lane for that). Options: version_name"
   lane :internal do |options|
     code = next_version_code
     build(version_code: code, version_name: options[:version_name])
@@ -74,11 +74,6 @@ platform :android do
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
-    begin
-      listing
-    rescue StandardError => e
-      UI.user_error!("Build #{code} is on the internal track, but the listing upload failed: #{e.message}")
-    end
   end
 
   desc "Take the Play listing screenshots on the attached emulator. Options: serial"
