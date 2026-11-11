@@ -25,7 +25,7 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
     const rows = holdersSheetRows(photo.holders);
     for (const m of rows.others) held.set(m.key, (held.get(m.key) ?? 0) + 1);
     for (const m of rows.unsure) unsure.add(m.key);
-    for (const m of photo.holders.previews) previewing.add(m.key);
+    for (const m of rows.previews) previewing.add(m.key);
   }
   const byKey = new Map<string, Holding>();
   for (const key of previewing) byKey.set(key, { kind: "previews" });

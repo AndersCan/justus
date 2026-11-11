@@ -81,6 +81,19 @@ describe("albumHolding", () => {
     expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has previews only");
     expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has no photos yet");
   });
+  it("not said yet wins over previews, in either order", () => {
+    const a = albumHolding(
+      [photo("f1", { previews: [m("z")] }), photo("f1", { unsure: [m("z")] })],
+      "f1",
+    );
+    const b = albumHolding(
+      [photo("f1", { unsure: [m("z")] }), photo("f1", { previews: [m("z")] })],
+      "f1",
+    );
+    expect(a.byKey.get("z")).toEqual({ kind: "silent" });
+    expect(b.byKey.get("z")).toEqual({ kind: "silent" });
+  });
+
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
   });
