@@ -1547,7 +1547,7 @@ describe("album holding", () => {
     const rows = memberRows(host);
     expect(rows).toHaveLength(3);
     expect(rows[0]?.textContent).not.toContain("in full");
-    expect(rows[1]?.textContent).toContain("· has 2 photos in full, previews of the rest");
+    expect(rows[1]?.textContent).toContain("· has 2 in full");
     expect(rows[2]?.textContent).toContain("· their phone hasn't said yet");
     expect(host.textContent).not.toContain("A phone gets a photo");
   });
@@ -1561,9 +1561,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_collaborator"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe(
-      "Collaborator · has 2 photos in full, previews of the rest",
-    );
+    expect(line.textContent?.trim()).toBe("Collaborator · has 2 in full");
   });
 
   test("the Members card shows one line, then the people, then what the lines mean", async () => {
@@ -1614,10 +1612,10 @@ describe("album holding", () => {
   test("a member's role and phone are one line", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const lines = [...memberRows(host)[1].querySelectorAll("p")].filter((p) =>
-      p.textContent?.includes("in full, previews of the rest"),
+      p.textContent?.includes("in full"),
     );
     expect(lines).toHaveLength(1);
-    expect(lines[0].textContent).toMatch(/^\S+ · has \d+ photos? in full, previews of the rest$/);
+    expect(lines[0].textContent).toMatch(/^\S+ · has \d+ in full$/);
     expect(lines[0].classList.contains("truncate")).toBe(false);
   });
 
@@ -1652,12 +1650,10 @@ describe("album holding", () => {
         .querySelector('[data-copy-id="member.role_viewer"]')!
         .closest("p")!
         .textContent?.trim();
-    expect(line()).toBe("Viewer · has previews only");
+    expect(line()).toBe("Viewer · has none in full");
     vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
     await gallery.load();
-    await vi.waitFor(() =>
-      expect(line()).toBe("Viewer · has 1 photo in full, previews of the rest"),
-    );
+    await vi.waitFor(() => expect(line()).toBe("Viewer · has 1 in full"));
   });
 
   test("an Admin row seen by a collaborator also says what their phone holds", async () => {
@@ -1681,13 +1677,13 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_admin"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Admin · has previews only");
+    expect(line.textContent?.trim()).toBe("Admin · has none in full");
   });
 
   test("a holders push updates the same row", async () => {
     const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
     const kim = memberRows(host)[1];
-    expect(kim?.textContent).toContain("has 1 photo in full, previews of the rest");
+    expect(kim?.textContent).toContain("has 1 in full");
     vi.mocked(gateway.list).mockResolvedValue([
       null,
       { photos: [photo("a", "f1", true), photo("b", "f1", true)] },

@@ -2891,14 +2891,14 @@
     "screen": ""
   },
   "holding.some": {
-    "text": "has {n} {n?photo:photos} in full, previews of the rest",
+    "text": "has {n} in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.none": {
-    "text": "has previews only",
+    "text": "has none in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4235,7 +4235,7 @@
     "screen": ""
   },
   "lightbox.stops_showing_can_t_erase": {
-    "text": "It no longer shows for them. Copies already on their phones can't be wiped from here.",
+    "text": "It no longer shows for them. {n?The copy already on their phone:Copies already on their phones} can't be wiped from here.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",

@@ -78,8 +78,8 @@ describe("albumHolding", () => {
       [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
       "f1",
     );
-    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has previews only");
-    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has previews only");
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has none in full");
+    expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has none in full");
   });
   it("empty list", () => {
     expect(albumHolding([], "f1")).toEqual({ total: 0, byKey: new Map() });
@@ -99,22 +99,19 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has every photo in full");
   });
   it("part held says the count", () => {
-    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe(
-      "has 2 photos in full, previews of the rest",
-    );
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe(
-      "has 1 photo in full, previews of the rest",
-    );
+    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("has 2 in full");
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("has 1 in full");
   });
   it("absent or zero means none", () => {
-    expect(holdingLine(undefined, 4)).toBe("has previews only");
-    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has previews only");
+    expect(holdingLine(undefined, 4)).toBe("has none in full");
+    expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has none in full");
   });
-  it("role and phone part fit a 360 px row (~44 chars of text-xs), except the part-held line which wraps", () => {
+  it("role and phone part fit a 360 px row (~44 chars of text-xs)", () => {
     const phones = [
       holdingLine({ kind: "silent" }, 3),
       holdingLine(undefined, 3),
       holdingLine({ kind: "count", held: 3 }, 3),
+      holdingLine({ kind: "count", held: 999 }, 1000),
     ];
     for (const role of [
       "member.role_admin",

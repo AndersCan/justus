@@ -91,7 +91,8 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
   const have = (h?.others ?? []).map((m) => m.name);
   const preview = (h?.previews ?? []).map((m) => m.name);
   const lack = (h?.waiting ?? []).map((m) => m.name);
-  const cannot = have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase");
+  const cannot =
+    have.length === 0 ? "" : copy("lightbox.stops_showing_can_t_erase", { n: have.length });
   const back = copy("lightbox.deleting_can_t_take_back", { k: Math.max(1, have.length) });
   return [gone, hasFullPhoto(have), cannot, previewOnly(preview), lacksFullPhoto(lack), back]
     .filter((x) => x !== "")

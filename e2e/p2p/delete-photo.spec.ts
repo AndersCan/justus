@@ -148,7 +148,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
-  await expectBenLine(a, "Collaborator · has 2 photos in full, previews of the rest");
+  await expectBenLine(a, "Collaborator · has 2 in full");
 
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
