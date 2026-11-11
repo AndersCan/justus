@@ -196,7 +196,6 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
         <div class="rounded-2xl bg-surface p-4 shadow-lg ring-1 ring-line">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="truncate  text-lg text-fg">${photo.name}</div>
               <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
                 <span
                   class=${
@@ -252,9 +251,9 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
                           fill="currentColor"
                           aria-hidden="true"
                         >
-                          <circle cx="5" cy="12" r="2" />
+                          <circle cx="12" cy="5" r="2" />
                           <circle cx="12" cy="12" r="2" />
-                          <circle cx="19" cy="12" r="2" />
+                          <circle cx="12" cy="19" r="2" />
                         </svg>
                       </button>
                       <wa-dropdown-item value="delete" variant="danger" ?disabled=${removing}>
