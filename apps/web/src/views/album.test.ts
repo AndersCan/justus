@@ -1194,15 +1194,21 @@ describe("album requests motion", () => {
       return { finished: Promise.resolve() } as any;
     };
     Element.prototype.getAnimations = (() => []) as any;
-    // The requests card is one row of 56px per request plus its heading.
-    const height = (el: Element) =>
-      el.matches('[data-motion-key="section:requests"]')
-        ? 56 * (1 + el.querySelectorAll("li").length)
-        : 56;
+    // The requests card is one row of 56px per request plus its heading. A
+    // `contents` wrapper has no box of its own: it is as tall as its children.
+    const height = (el: Element): number =>
+      el.classList.contains("contents")
+        ? [...el.children].reduce((n, e) => n + height(e), 0)
+        : el.matches('[data-motion-key="section:requests"]')
+          ? 56 * (1 + el.querySelectorAll("li").length)
+          : 56;
     Element.prototype.getBoundingClientRect = function (this: Element) {
-      const before = this.parentElement ? [...this.parentElement.children].indexOf(this) : 0;
-      const top = this.parentElement
-        ? [...this.parentElement.children].slice(0, before).reduce((n, e) => n + height(e), 0)
+      let box: Element = this;
+      while (box.parentElement?.classList.contains("contents")) box = box.parentElement;
+      const parent = box.parentElement;
+      const before = parent ? [...parent.children].indexOf(box) : 0;
+      const top = parent
+        ? [...parent.children].slice(0, before).reduce((n, e) => n + height(e), 0)
         : 0;
       return { left: 0, top, width: 300, height: height(this) } as any;
     };

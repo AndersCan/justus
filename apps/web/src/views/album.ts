@@ -1,5 +1,6 @@
 import type { FolderSummary } from "@justus/core";
-import { arrivalFocus } from "./arrival-focus";
+import { arrivalFocusWithin } from "./arrival-focus";
+import { renderAlbumFull } from "#design/justus/album/album-full.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
@@ -764,64 +765,55 @@ function albumBody(
       }
     </div>`;
   }
+  const removed = status.folder.notice?.kind === "removed";
   return html`<div
-    class="max-w-2xl space-y-5"
+    class="contents"
     ${gridMotion({ keys: vm.requests.map(requestKey), settle: id })}
+    ${arrivalFocusWithin(id)}
   >
-    ${back}
-    <div class="flex items-center justify-between gap-3">
-      <h1
-        class="min-w-0 truncate text-2xl font-semibold tracking-tight text-fg outline-none"
-        tabindex="-1"
-        ${arrivalFocus(id)}
-      >
-        ${status.folder.name}
-      </h1>
-      <div class="flex shrink-0 items-center gap-1">
+    ${renderAlbumFull({
+      back: copy("album.sharing"),
+      name: status.folder.name,
+      role: removed ? undefined : roleLabel(status.folder.role, status.folder.pending),
+      menu: html`${watch(foldersActor, (fs) =>
+        albumMenu(status, vm.people, !foldersViewModel(fs).settled),
+      )}`,
+      about: html`${roleCaption(status.folder)}
+      ${albumNotice(status.folder.notice, status.folder.name)}`,
+      actions: html`<div class="flex flex-wrap items-center gap-2">
         ${
-          status.folder.notice?.kind === "removed"
-            ? null
-            : html`<span class="rounded-full bg-subtle px-2.5 py-1 text-xs font-semibold text-fg">
-                ${roleLabel(status.folder.role, status.folder.pending)}
-              </span>`
+          !removed && planAdd(id, [status.folder], status).kind === "direct"
+            ? addPhotosButton(id)
+            : null
         }
-        ${watch(foldersActor, (fs) => albumMenu(status, vm.people, !foldersViewModel(fs).settled))}
-      </div>
-    </div>
-    ${roleCaption(status.folder)} ${albumNotice(status.folder.notice, status.folder.name)}
-    <div class="flex flex-wrap items-center gap-2">
-      ${
-        status.folder.notice?.kind !== "removed" &&
-        planAdd(id, [status.folder], status).kind === "direct"
-          ? addPhotosButton(id)
-          : null
-      }
-      <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
-        >${t("album.see_photos_in_this_album")}</a
-      >
-    </div>
-    ${errorBanner(
-      error,
-      state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
-      fatal ? () => window.location.reload() : undefined,
-    )}
-    ${requestsSection(vm, id, reqVm)}
-    <div data-motion-key="section:invite">
-      ${invitePanel(
-        status.folder,
-        status.name,
-        adminName(status),
-        vm.qrShown,
-        () => people.showQr(),
-        status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
-        friends,
-        vm.busy,
-        vm.takeBackError,
-      )}
-    </div>
-    ${status.folder.notice?.kind === "removed" ? null : membersSection(vm, id)}
-    ${advancedSection(status, settled, busy)} ${friendSheetView()} ${addFriendSheetView()}
-    ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}
+        <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
+          >${t("album.see_photos_in_this_album")}</a
+        >
+      </div>`,
+      problem: html`${errorBanner(
+        error,
+        state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
+        fatal ? () => window.location.reload() : undefined,
+      )}`,
+      requests: html`${requestsSection(vm, id, reqVm)}`,
+      invite: html`<div data-motion-key="section:invite">
+        ${invitePanel(
+          status.folder,
+          status.name,
+          adminName(status),
+          vm.qrShown,
+          () => people.showQr(),
+          status.members.flatMap((m) => (m.identity ? [m.identity] : [])),
+          friends,
+          vm.busy,
+          vm.takeBackError,
+        )}
+      </div>`,
+      members: html`${removed ? null : membersSection(vm, id)}`,
+      advanced: html`${advancedSection(status, settled, busy)}`,
+      sheets: html`${friendSheetView()} ${addFriendSheetView()}
+      ${acceptAllSheetView(vm.requests, id, reqVm.acceptAllSheet)}`,
+    })}
   </div>`;
 }
 

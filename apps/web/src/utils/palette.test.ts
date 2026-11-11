@@ -2,20 +2,22 @@ import { describe, expect, it } from "vite-plus/test";
 import { memberColor } from "./palette";
 
 const SEATS = [0, 1, 2, 3, 4].map((seat) => memberColor(seat) ?? "");
-// Light and dark --trust-*, --ok(-fg), --warn(-fg) and --danger(-fg) in tokens.css.
+// Light and dark --trust-*, --ok(-fg), --warn(-fg) and --danger(-fg) in design/justus/tokens/theme.css.
 const STATUS = [
-  "#0E8F82",
-  "#0B7A6F",
-  "#2EC4B2",
-  "#F5A623",
-  "#9A5B00",
-  "#E5484D",
-  "#C62F35",
-  "#FF6B72",
+  "#10B981",
+  "#059669",
+  "#047857",
+  "#FBBF24",
+  "#92400E",
+  "#EF4444",
+  "#DC2626",
+  "#B91C1C",
+  "#34D399",
+  "#F87171",
 ];
-// Light --accent and --accent-strong (brand indigo).
-const ACCENT = ["#4B3FD6", "#3328A8"];
-const DARK_SURFACE = "#1A1730";
+// Light --accent and --accent-strong (indigo).
+const ACCENT = ["#4F46E5", "#4338CA"];
+const DARK_SURFACE = "#0F172A";
 
 function rgb(hex: string): number[] {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
