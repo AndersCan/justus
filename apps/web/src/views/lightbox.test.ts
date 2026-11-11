@@ -1,5 +1,7 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from "vite-plus/test";
-import { openLightbox, closeLightbox, step, deleteFromLightbox } from "./lightbox";
+import { render } from "lit-html";
+import { openLightbox, closeLightbox, step, deleteFromLightbox, lightboxView } from "./lightbox";
 import { confirmAction } from "./confirm";
 import { toast } from "./toast";
 import { lightboxActor } from "../machines/lightbox-machine";
@@ -296,5 +298,23 @@ describe("Delete", () => {
     vi.mocked(confirmAction).mockResolvedValue(false);
     await deleteFromLightbox(b);
     expect(hoisted.gateway.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("the photo card", () => {
+  afterEach(() => {
+    closeLightbox();
+    vi.restoreAllMocks();
+  });
+
+  it("shows the photo, not its file name, and keeps the name as alt text", () => {
+    const p = { ...photo("holiday-001.jpg"), url: "blob:x" };
+    setPhotos([p]);
+    openLightbox(p);
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    expect(host.querySelector("img")?.getAttribute("alt")).toBe("holiday-001.jpg");
+    expect(host.textContent).not.toContain("holiday-001.jpg");
+    render(null, host);
   });
 });
