@@ -824,7 +824,7 @@ function addPhotosButton(id: string) {
   return html`${pickerInput(id, after)}${watch(galleryActor, (g) => {
     const vm = galleryViewModel(g, null);
     return html`<button
-      class="ui-btn-action"
+      class="ui-btn bg-action text-on-action"
       ?disabled=${!vm.settled}
       @click=${() => void startAdd(id, "library", after)}
     >

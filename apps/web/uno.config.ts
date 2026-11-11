@@ -27,7 +27,6 @@ export default defineConfig({
     "ui-btn":
       "ui-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50",
     "ui-btn-primary": "ui-btn bg-accent text-on-fill hover:bg-accent-strong",
-    "ui-btn-action": "ui-btn bg-action text-on-action",
     "ui-btn-ghost": "ui-btn bg-subtle text-fg hover:bg-line",
     "ui-input":
       "min-h-11 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/25",
