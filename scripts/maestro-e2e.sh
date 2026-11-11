@@ -219,13 +219,28 @@ adb_dropped() {
   [[ -n "$log" ]] && grep -q -E 'device offline|DeviceServerDiedException' "$log"
 }
 
+# Poll for the emulator with a deadline (a bare `adb wait-for-device` would hang until the job
+# timeout and skip the diagnostics upload).
+wait_for_adb() {
+  local deadline=$((SECONDS + ${ADB_RETURN_TIMEOUT:-60}))
+  while [[ "$("$ADB" -s "$SERIAL" get-state 2>/dev/null)" != "device" ]]; do
+    if ((SECONDS >= deadline)); then
+      echo "✗ the emulator did not come back after the adb drop."
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 run_maestro_suite() {
-  local started
+  local started rc
   started="$(mktemp)"
-  run_maestro && return 0
-  adb_dropped "$started" || return 1
+  run_maestro && { rm -f "$started"; return 0; }
+  adb_dropped "$started"; rc=$?
+  rm -f "$started"
+  ((rc == 0)) || return 1
   echo "⚠ adb dropped the emulator during the run — waiting for it, then running once more."
-  "$ADB" -s "$SERIAL" wait-for-device
+  wait_for_adb || return 1
   run_maestro
 }
 
