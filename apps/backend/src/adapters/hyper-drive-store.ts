@@ -159,6 +159,34 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
       }
       return result;
     },
+    async clearDeleted({ timeoutMs }): Promise<OpenResult<{ paths: ReadonlySet<string> }>> {
+      try {
+        if (readOnly) throw new Error("read-only copy");
+        if (raw.core.writable) throw new Error("this device writes the drive");
+        if (raw.core.length === 0) throw new Error("the drive has not synced yet");
+        const blobs = await raw.getBlobs();
+        const end: number = blobs ? blobs.core.length : 0;
+        const paths = new Set<string>();
+        const ranges: Array<[number, number]> = [];
+        for await (const e of raw.list("/", { timeout: timeoutMs })) {
+          paths.add(e.key);
+          const blob = e.value?.blob;
+          if (blob) ranges.push([blob.blockOffset, blob.blockOffset + blob.blockLength]);
+        }
+        if (blobs) {
+          ranges.sort((x, y) => x[0] - y[0]);
+          let at = 0;
+          for (const [from, to] of ranges) {
+            if (from > at) await blobs.core.clear(at, Math.min(from, end));
+            at = Math.max(at, to);
+          }
+          if (at < end) await blobs.core.clear(at, end);
+        }
+        return [null, { paths }];
+      } catch (e: unknown) {
+        return [e instanceof Error ? e : new Error(String(e)), null];
+      }
+    },
     async *list(dir): AsyncGenerator<DriveEntry> {
       for await (const e of raw.list(dir)) {
         yield toDriveEntry(e);

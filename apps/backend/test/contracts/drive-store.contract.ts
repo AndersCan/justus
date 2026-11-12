@@ -1081,6 +1081,136 @@ export const cases: DriveCase[] = [
     },
   },
   {
+    name: "D41 clearDeleted returns the paths the latest version has, and the bytes of a deleted file are gone from this device while the others stay",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the delete",
+      );
+      const [err, res] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([err], "clearDeleted");
+      t.eq([...(res?.paths ?? [])].sort(), ["/deleted.json", "/y"], "paths of the latest version");
+      await a.disconnect();
+      const [e2, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e2], "openAt before");
+      t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "x is not on b");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "y is kept");
+    },
+  },
+  {
+    name: "D42 clearDeleted is an error value, clearing nothing, on the owner's own drive and on a never-synced copy",
+    async run(world, t) {
+      const a = await world.node();
+      const own = await a.store.openOwn("folder/x");
+      await own.put("/x", bytes("photo"));
+      const [ownErr] = await own.clearDeleted({ timeoutMs: 500 });
+      t.eq(ownErr instanceof Error, true, "own drive refused");
+      t.eq(await own.readSmall("/x", 10), "photo", "own bytes stay");
+      const b = await world.node();
+      const [e, never] = await b.store.open(own.key, { timeoutMs: 2_000 });
+      if (e || !never) return;
+      const [neverErr] = await never.clearDeleted({ timeoutMs: 500 });
+      t.eq(neverErr instanceof Error, true, "never-synced copy refused");
+    },
+  },
+  {
+    name: "D43 right after a delete arrives, with the owner still connected, clearDeleted fetches the index and succeeds",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      await own.del("/x");
+      const [err, res] = await eventually(
+        () => remote.clearDeleted({ timeoutMs: 10_000 }),
+        (r) => r[0] === null && !r[1]?.paths.has("/x"),
+        "clearDeleted sees the delete",
+      );
+      t.noErr([err], "clearDeleted");
+      t.eq(res?.paths.has("/y"), true, "y listed");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "y readable");
+      void a;
+    },
+  },
+  {
+    name: "R1 clearDeleted on an openAt copy is an error value and clears nothing",
+    async run(world, t) {
+      const { b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the delete",
+      );
+      const [e, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e], "openAt");
+      let result: unknown;
+      try {
+        result = await old?.clearDeleted({ timeoutMs: 500 });
+      } catch (thrown: unknown) {
+        result = `threw ${String(thrown)}`;
+      }
+      t.eq(
+        Array.isArray(result) && result[0] instanceof Error,
+        true,
+        `error value, got ${String(result)}`,
+      );
+      t.eq(
+        await old?.readSmall("/x", 10, { timeoutMs: 500 }),
+        "photo",
+        "x still on b at the old version",
+      );
+    },
+  },
+  {
+    name: "R2 clearDeleted drops the bytes of an overwritten file's older version",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.put("/x", bytes("newer"));
+      await eventually(
+        () => remote.readSmall("/x", 10, { timeoutMs: 500 }),
+        (v) => v === "newer",
+        "b reads the new x",
+      );
+      const [err, res] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([err], "clearDeleted");
+      t.eq(res?.paths.has("/x"), true, "x listed");
+      await a.disconnect();
+      const [e2, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e2], "openAt before");
+      t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "old x is not on b");
+      t.eq(await remote.readSmall("/x", 10, { timeoutMs: 500 }), "newer", "new x kept");
+    },
+  },
+  {
+    name: "R4 clearDeleted drops the bytes of the newest file when it is the one deleted",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/deleted.json");
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the delete",
+      );
+      const [err, res] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([err], "clearDeleted");
+      t.eq([...(res?.paths ?? [])].sort(), ["/x", "/y"], "paths of the latest version");
+      await a.disconnect();
+      const [e2, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e2], "openAt before");
+      t.eq(
+        await old?.readSmall("/deleted.json", 10, { timeoutMs: 500 }),
+        undefined,
+        "newest file is not on b",
+      );
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "y is kept");
+    },
+  },
+  {
     name: "D39 a message sealed for a's box key opens on a, also after a restart, and on no other node",
     async run(world, t) {
       const a = await world.node();
@@ -1124,6 +1254,29 @@ export const cases: DriveCase[] = [
         const [err, out] = await a.store.openSealed(garbage);
         t.ok(err !== null && out === null, `openSealed refuses ${garbage.length} chars`);
       }
+    },
+  },
+];
+
+// The fake replicates in one step, so a failing list can only be made on the real adapter.
+export const realOnlyCases: DriveCase[] = [
+  {
+    name: "R5 clearDeleted is an error value and clears nothing when the new index cannot be fetched",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the delete",
+      );
+      await a.disconnect();
+      const [err] = await remote.clearDeleted({ timeoutMs: 300 });
+      t.eq(err instanceof Error, true, "index not fetched: error value");
+      const [e2, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e2], "openAt before");
+      t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), "photo", "x still on b");
     },
   },
 ];
