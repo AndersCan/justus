@@ -8,6 +8,8 @@ export type DropInput = {
   /** Drives other phones write, live, to sweep: never this phone's own, never a kept (`openAt`) copy. */
   others: ReadonlyArray<{ key: string; drive: Drive }>;
   selfKey: string;
+  /** This phone's own album drive: photos the Admin tombstoned are cleared and deleted from it. */
+  selfDrive: Drive;
   /** Parsed `/removed.json` of the folder drive: "<driveKey>:<id>" -> entry. */
   removed: Readonly<Record<string, unknown>>;
   /** Base names in the album's spool dir; [] when it does not exist. */
@@ -64,6 +66,32 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
         }
       } catch (thrown: unknown) {
         log("error", { where: "dropDeleted", drive: rk.slice(0, 8), err: message(thrown) });
+      }
+    }
+
+    // The Admin deleted this phone's own photo: it leaves the own drive too.
+    const ownIds: string[] = [];
+    for (const tombKey of Object.keys(removed)) {
+      if (tombKey.startsWith(`${selfKey}:`)) ownIds.push(tombKey.slice(selfKey.length + 1));
+    }
+    if (ownIds.length > 0) {
+      try {
+        const entries: string[] = [];
+        for await (const entry of input.selfDrive.list(DRIVE_PATH_PHOTOS)) entries.push(entry.path);
+        for (const entryPath of entries) {
+          const base = entryPath.slice(DRIVE_PATH_PHOTOS.length + 1);
+          const id = ownIds.find((i) => base === i || base.startsWith(`${i}.`));
+          if (id === undefined) continue;
+          const thumb = `${DRIVE_PATH_THUMBS}/${id}.jpg`;
+          await input.selfDrive.clear(entryPath);
+          await input.selfDrive.del(entryPath);
+          await input.selfDrive.clear(thumb).catch(() => {});
+          await input.selfDrive.del(thumb);
+          input.forget(selfKey, id, base.slice(id.length));
+          dropped += 1;
+        }
+      } catch (thrown: unknown) {
+        log("error", { where: "dropDeleted", drive: selfKey.slice(0, 8), err: message(thrown) });
       }
     }
 

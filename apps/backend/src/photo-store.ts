@@ -2882,6 +2882,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await dropDeleted({
         others,
         selfKey,
+        selfDrive: rt.selfDrive,
         removed: await readRemovedIn(rt.folderDrive),
         spoolNames,
         forget: (driveKey, id, ext) => {
@@ -5489,6 +5490,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // Own photo → delete from own drive.
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
+          // Clear first: the bytes leave this phone too, not only the entry.
+          await selfDrive.clear(`${DRIVE_PATH_PHOTOS}/${base}`);
+          await selfDrive.clear(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`).catch(() => {});
           await selfDrive.del(`${DRIVE_PATH_PHOTOS}/${base}`);
           await selfDrive.del(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`);
           forgetPhoto(rt, selfKey, id, base.slice(id.length));

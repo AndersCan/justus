@@ -38,6 +38,7 @@ function run(overrides: Partial<DropInput>) {
   const input: DropInput = {
     others: [],
     selfKey: "self",
+    selfDrive: stubDrive({}),
     removed: {},
     spoolNames: [],
     forget: (k, id, ext) => void forgotten.push(`${k}:${id}${ext}`),
