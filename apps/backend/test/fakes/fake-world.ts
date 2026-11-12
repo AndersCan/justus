@@ -269,6 +269,23 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       clearAllBut(replica, path);
       return [null, { olderVersionsCleared: clearOlderVersions(replica, path) }];
     },
+    async clearDeleted(): Promise<OpenResult<{ paths: ReadonlySet<string> }>> {
+      assertOpen();
+      if (replica.writable) return [new Error("this device writes the drive"), null];
+      if (replica.length === 0) return [new Error("the drive has not synced yet"), null];
+      if (hub.options.unreachable?.(key)) return [new Error("fake drive unreachable"), null];
+      const live = replica.files;
+      replica.history = replica.history.map(
+        (files) =>
+          new Map(
+            [...files].map(([p, file]): [string, StoredFile] => [
+              p,
+              live.has(p) || file.clearedSize !== undefined ? file : clearedCopy(file),
+            ]),
+          ),
+      );
+      return [null, { paths: new Set(live.keys()) }];
+    },
     async *list(dir) {
       assertOpen();
       if (hub.options.unreachable?.(key)) throw new Error("fake drive unreachable");
@@ -357,6 +374,7 @@ function makeCopy(options: {
     del: async () => readOnly(),
     clear: async () => readOnly(),
     keepOnly: async () => readOnly(),
+    clearDeleted: async () => readOnly(),
     async *list(dir) {
       const prefix = dir.endsWith("/") ? dir : `${dir}/`;
       const paths = [...files.keys()].sort((x, y) =>

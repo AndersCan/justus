@@ -1081,6 +1081,59 @@ export const cases: DriveCase[] = [
     },
   },
   {
+    name: "D41 clearDeleted returns the paths the latest version has, and the bytes of a deleted file are gone from this device while the others stay",
+    async run(world, t) {
+      const { a, b, own, remote } = await keeperSetup(world, t);
+      const before = own.version();
+      await own.del("/x");
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the delete",
+      );
+      const [err, res] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([err], "clearDeleted");
+      t.eq([...(res?.paths ?? [])].sort(), ["/deleted.json", "/y"], "paths of the latest version");
+      await a.disconnect();
+      const [e2, old] = await b.store.openAt(own.key, before, { timeoutMs: 2_000 });
+      t.noErr([e2], "openAt before");
+      t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), undefined, "x is not on b");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "y is kept");
+    },
+  },
+  {
+    name: "D42 clearDeleted is an error value, clearing nothing, on the owner's own drive and on a never-synced copy",
+    async run(world, t) {
+      const a = await world.node();
+      const own = await a.store.openOwn("folder/x");
+      await own.put("/x", bytes("photo"));
+      const [ownErr] = await own.clearDeleted({ timeoutMs: 500 });
+      t.eq(ownErr instanceof Error, true, "own drive refused");
+      t.eq(await own.readSmall("/x", 10), "photo", "own bytes stay");
+      const b = await world.node();
+      const [e, never] = await b.store.open(own.key, { timeoutMs: 2_000 });
+      if (e || !never) return;
+      const [neverErr] = await never.clearDeleted({ timeoutMs: 500 });
+      t.eq(neverErr instanceof Error, true, "never-synced copy refused");
+    },
+  },
+  {
+    name: "D43 right after a delete arrives, with the owner still connected, clearDeleted fetches the index and succeeds",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      await own.del("/x");
+      const [err, res] = await eventually(
+        () => remote.clearDeleted({ timeoutMs: 10_000 }),
+        (r) => r[0] === null && !r[1]?.paths.has("/x"),
+        "clearDeleted sees the delete",
+      );
+      t.noErr([err], "clearDeleted");
+      t.eq(res?.paths.has("/y"), true, "y listed");
+      t.eq(await remote.readSmall("/y", 10, { timeoutMs: 500 }), "other", "y readable");
+      void a;
+    },
+  },
+  {
     name: "D39 a message sealed for a's box key opens on a, also after a restart, and on no other node",
     async run(world, t) {
       const a = await world.node();

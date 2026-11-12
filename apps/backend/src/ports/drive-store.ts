@@ -44,6 +44,15 @@ export type Drive = {
    * An error value when `path` or its bytes are not on this device. `openAt` copies throw.
    */
   keepOnly(path: string): Promise<OpenResult<{ olderVersionsCleared: boolean }>>;
+  /**
+   * Deletes this device's copy of the bytes of every file the drive's latest version on this
+   * device no longer has (deleted or overwritten); bytes of files that version has are kept.
+   * Returns every path the latest version has. Waits up to `timeoutMs` for missing parts of the
+   * file index; an error value, clearing nothing, when the index cannot be read in time, when
+   * the drive is empty here (never synced), when this device writes the drive, or on an
+   * `openAt` copy. Safe to run again.
+   */
+  clearDeleted(opts: { timeoutMs: number }): Promise<OpenResult<{ paths: ReadonlySet<string> }>>;
   list(dir: string): AsyncIterable<DriveEntry>;
   createReadStream(path: string): ByteStream;
   /** Fires on a local write and on a replicated append. Returns an unsubscribe. */
