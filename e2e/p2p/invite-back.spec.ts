@@ -54,7 +54,7 @@ async function askToJoin(b, link, album) {
   const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
   await expect(ask).toBeVisible({ timeout: 20_000 });
   await ask.getByRole("button", { name: "Ask to join" }).click();
-  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
+  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
 }
 
 test("Back from the invite page shows Sharing after Ben adds photos", async ({

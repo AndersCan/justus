@@ -109,7 +109,7 @@ async function askToJoin(b, link, album) {
   await expect(ask).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
   await ask.getByRole("button", { name: "Ask to join" }).click();
-  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
+  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
 }
 

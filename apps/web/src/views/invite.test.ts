@@ -165,8 +165,11 @@ describe("checkCodeLine", () => {
     const host = document.createElement("div");
     render(checkCodeLine("maple river stone", "Anna"), host);
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Anna sees these three words next to your request. If Anna calls or messages to check it's you, read them out. maple river stone",
+      "If Anna asks which three words your phone shows, read out these: maple river stone",
     );
+    const ps = [...host.querySelectorAll("p")];
+    expect(ps[0]?.className).toContain("text-muted");
+    expect(ps.at(-1)?.className).not.toContain("text-base");
     const last = [...host.querySelectorAll("p")].at(-1);
     expect(last?.textContent?.trim()).toBe("maple river stone");
   });
@@ -181,9 +184,15 @@ describe("joinSheet waiting screen", () => {
   };
   test("shows the code stored on this invite's ask", () => {
     const shown = text([{ code: "c1", checkCode: "maple river stone" }]);
-    expect(shown).toContain("sees these three words next to your request");
+    expect(shown).toContain("which three words your phone shows");
     expect(shown).toContain("maple river stone");
     expect(shown.toLowerCase()).not.toContain("check code");
+  });
+  test("opens with the done title, before the request text", () => {
+    const shown = text([]);
+    const title = "You're done. Waiting for Anna to let you in.";
+    expect(shown.indexOf(title)).toBeGreaterThanOrEqual(0);
+    expect(shown.indexOf(title)).toBeLessThan(shown.indexOf("Request to join sent to Anna"));
   });
   test("shows no code for another invite's ask", () => {
     const shown = text([{ code: "c2", checkCode: "zoo wrap cat" }]);

@@ -26,7 +26,9 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("dialog", { name: askName })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Ask to join" }).click();
-  const waiting = page.getByRole("dialog", { name: "Waiting for Nils" });
+  const waiting = page.getByRole("dialog", {
+    name: "You're done. Waiting for Nils to let you in.",
+  });
   await expect(waiting).toBeVisible();
   await waiting.getByRole("button", { name: "Cancel request" }).click();
   await expect(waiting).toBeHidden();
