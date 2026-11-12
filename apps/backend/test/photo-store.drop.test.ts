@@ -157,4 +157,27 @@ describe("dropping photos others deleted", () => {
     await s.anna.close();
     await s.nils.close();
   }, 20_000);
+
+  it("the Admin's delete of Nils's photo removes the entry, thumb and spool from Nils's own drive", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "mine.jpg", 5);
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "kept.jpg", 60);
+    const mine = await load(s.nilsDeps, s.nils, "mine.jpg");
+    await load(s.nilsDeps, s.nils, "kept.jpg");
+    expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).toContain(mine.id);
+    const nilsKey = mine.member.key;
+    const [, drive] = await s.nilsDeps.drives.open(nilsKey, { timeoutMs: 1_000 });
+    await until(async () => (await s.anna.list()).some((p) => p.name === "mine.jpg"));
+    await s.anna.remove(mine.id);
+    const paths = async () => {
+      const out: string[] = [];
+      for await (const e of drive!.list("/")) out.push(e.path);
+      return out;
+    };
+    await until(async () => !(await paths()).some((p) => p.includes(mine.id)));
+    expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).not.toContain(mine.id);
+    expect((await paths()).filter((p) => p.startsWith("/photos/")).length).toBe(1);
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
 });

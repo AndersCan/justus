@@ -83,11 +83,12 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
           const id = ownIds.find((i) => base === i || base.startsWith(`${i}.`));
           if (id === undefined) continue;
           const thumb = `${DRIVE_PATH_THUMBS}/${id}.jpg`;
-          await input.selfDrive.clear(entryPath);
-          await input.selfDrive.del(entryPath);
+          // The photo entry goes last: a pass that stops part way finds it again.
           await input.selfDrive.clear(thumb).catch(() => {});
           await input.selfDrive.del(thumb);
           input.forget(selfKey, id, base.slice(id.length));
+          await input.selfDrive.clear(entryPath);
+          await input.selfDrive.del(entryPath);
           dropped += 1;
         }
       } catch (thrown: unknown) {

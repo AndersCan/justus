@@ -124,3 +124,27 @@ describe("dropDeleted", () => {
     expect(r.forgotten).toEqual([]);
   });
 });
+
+describe("own-drive drop after a failure part way", () => {
+  it("a pass that stops after the photo entry still clears the thumb on the next pass", async () => {
+    const entries = new Set(["/photos/x.jpg", "/thumbs/x.jpg"]);
+    let failThumbDel = true;
+    const selfDrive = {
+      async *list(prefix: string) {
+        for (const p of [...entries])
+          if (p.startsWith(prefix)) yield { path: p, size: 1, metadata: {} };
+      },
+      async clear() {},
+      async del(p: string) {
+        if (p.startsWith("/thumbs/") && failThumbDel) {
+          failThumbDel = false;
+          throw new Error("store closed");
+        }
+        entries.delete(p);
+      },
+    } as unknown as Drive;
+    await run({ selfDrive, removed: { "self:x": {} } }).result;
+    await run({ selfDrive, removed: { "self:x": {} } }).result;
+    expect([...entries]).toEqual([]);
+  });
+});
