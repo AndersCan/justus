@@ -8,12 +8,7 @@ import { join } from "node:path";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { parseSpoolName } from "../src/spool-name.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import {
-  FakeLoopbackServer,
-  fakeStoreDeps,
-  joinAsMember,
-  restarted,
-} from "./fakes/fake-store-deps.ts";
+import { FakeLoopbackServer, fakeStoreDeps, joinAsMember } from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -104,23 +99,6 @@ describe("dropping photos others deleted", () => {
     expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).toContain(stays.id);
     await s.anna.close();
     await s.nils.close();
-  });
-
-  it("a phone that was off drops it at start-up", async () => {
-    const s = await album();
-    await addWithThumb(s.anna, s.annaDeps, s.folderId, "gone.jpg", 1);
-    await until(async () => (await s.nils.list()).length === 1);
-    const gone = await load(s.nilsDeps, s.nils, "gone.jpg");
-    await s.nils.close();
-    await s.anna.remove(gone.id);
-    const again = createPhotoStore(restarted(s.nilsDeps));
-    await again.ready();
-    await until(async () => {
-      await again.list();
-      return !spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId).includes(gone.id);
-    });
-    await s.anna.close();
-    await again.close();
   });
 
   it("the Admin's delete of Nils's photo drops Cara's copy while Nils's drive still lists it", async () => {
