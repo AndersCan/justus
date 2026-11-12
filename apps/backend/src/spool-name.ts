@@ -23,3 +23,22 @@ export function spoolNameFor(driveKey: string, id: string, ext: string): string 
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 }
+
+/** Reverses `spoolNameFor`. Reads the token before the first `.`, so a `.tmp` leftover parses too. `undefined` for any other name. */
+export function parseSpoolName(
+  name: string,
+): { driveKey: string; id: string; ext: string } | undefined {
+  const token = name.split(".")[0] ?? "";
+  if (!/^[A-Za-z0-9_-]+$/.test(token)) return undefined;
+  const raw = Buffer.from(token.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+  const first = raw.indexOf(":");
+  if (first <= 0) return undefined;
+  const driveKey = raw.slice(0, first);
+  const rest = raw.slice(first + 1);
+  const second = rest.indexOf(":");
+  if (second < 0) return undefined;
+  const id = rest.slice(0, second);
+  const ext = rest.slice(second + 1);
+  if (spoolNameFor(driveKey, id, ext) !== token) return undefined;
+  return { driveKey, id, ext };
+}
