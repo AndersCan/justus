@@ -111,6 +111,7 @@ import {
   type ViewersFile,
   type RemovedFile,
 } from "./membership/records";
+import { dropDeleted } from "./photos/drop";
 import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
   checkAsk,
@@ -1440,6 +1441,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               }),
             );
         }
+        if (rt) void dropIn(rt);
         if (rt && drive !== rt.selfDrive) {
           void refreshHeld(rt, drive.key, drive).catch((e) =>
             log("error", { where: "refreshHeld", err: errText(e) }),
@@ -1461,6 +1463,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   function armFolderWatchers(rt: FolderRuntime) {
+    void dropIn(rt);
     void startHolding(rt).catch((e) => log("error", { where: "startHolding", err: errText(e) }));
     for (const remove of rt.watcherRemoves) {
       try {
@@ -2772,6 +2775,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (!rt.heldBackfilled) {
       rt.heldBackfilled = true;
+      void dropIn(rt);
       void startHolding(rt)
         .then(() => backfillHeld(rt, listed))
         .catch((e) => log("error", { where: "backfillHeld", err: errText(e) }));
@@ -2830,6 +2834,68 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       "image/jpeg",
     );
     return { url, thumbUrl };
+  }
+
+  /** Drops photos others deleted from this album's cache and storage. One pass at a time per album; never rejects. */
+  const dropRuns = new Map<string, { running: Promise<void>; again: boolean }>();
+  function dropIn(rt: FolderRuntime): Promise<void> {
+    const id = rt.record.id;
+    const active = dropRuns.get(id);
+    if (active) {
+      active.again = true;
+      return active.running;
+    }
+    const run = { again: false, running: Promise.resolve() };
+    run.running = (async () => {
+      do {
+        run.again = false;
+        await dropPass(rt);
+      } while (run.again);
+    })().finally(() => dropRuns.delete(id));
+    dropRuns.set(id, run);
+    return run.running;
+  }
+
+  async function dropPass(rt: FolderRuntime) {
+    try {
+      if (runtimes.get(rt.record.id) !== rt) return;
+      if (rt.record.notice !== undefined) return;
+      const selfKey = selfKeyOf(rt);
+      const others = galleryDrives({
+        role: rt.record.role,
+        folderDrive: rt.folderDrive,
+        selfDrive: rt.selfDrive,
+        memberDrives: rt.memberDrives,
+        removed: false,
+      }).filter(
+        (s) =>
+          s.key !== selfKey &&
+          !rt.keptAt.has(s.key) &&
+          !(rt.record.role === "creator" && s.drive === rt.folderDrive),
+      );
+      let spoolNames: string[] = [];
+      try {
+        spoolNames = fs.readdirSync(spoolDirFor(rt.record.id));
+      } catch {
+        // no spool dir yet
+      }
+      await dropDeleted({
+        others,
+        selfKey,
+        removed: await readRemovedIn(rt.folderDrive),
+        spoolNames,
+        forget: (driveKey, id, ext) => {
+          forgetPhoto(rt, driveKey, id, ext);
+          pruneIndex(id, driveKey);
+        },
+        removeSpool: (name) =>
+          fs.rmSync(path.join(spoolDirFor(rt.record.id), name), { force: true }),
+        log: (event, fields) => log(event, { folder: short(rt.record.id), ...fields }),
+        timeoutMs: 2_000,
+      });
+    } catch (e) {
+      log("error", { where: "dropDeleted", folder: short(rt.record.id), err: errText(e) });
+    }
   }
 
   /** Stop serving a photo that left the album, and drop its cached bytes. */

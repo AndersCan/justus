@@ -212,11 +212,36 @@ export const scenarios: Scenario[] = [
         "the Admin's photo on the Member",
       );
       const [photo] = await admin.store.list();
+      // The Member reads the bytes, so they are on its phone.
+      const [seenOnJoiner] = await joiner.store.list();
+      const [openErr, adminDrive] = await joiner.drives.open(seenOnJoiner.member.key, {
+        timeoutMs: 10_000,
+      });
+      if (openErr) throw openErr;
+      const path = `/photos/${photo.id}.jpg`;
+      t.ok((await adminDrive.readBytes(path))?.length === 3, "the Member holds the photo's bytes");
+      const before = adminDrive.version();
       t.noErr(await admin.store.remove(photo.id), "remove");
       await eventually(
         () => joiner.store.list(),
         (l) => l.length === 0,
         "the removal on the Member",
+      );
+      const passes = () => joiner.events.filter((e) => e.event === "photos.dropped").length;
+      const passesBefore = passes();
+      await eventually(
+        async () => passes(),
+        (n) => n > passesBefore,
+        "the Member's next drop pass",
+      );
+      await admin.stop();
+      const [pastErr, past] = await joiner.drives.openAt(seenOnJoiner.member.key, before, {
+        timeoutMs: 10_000,
+      });
+      if (pastErr) throw pastErr;
+      t.ok(
+        (await past.readSmall(path, 1_000, { timeoutMs: 1_500 })) === undefined,
+        "the Member no longer holds the deleted photo's bytes",
       );
       // A replicated change is pushed as a refresh; the web layer reloads on
       // any cause but "presence" (handle-message.ts), so the cause is not "remove".
