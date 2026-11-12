@@ -280,7 +280,7 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
           new Map(
             [...files].map(([p, file]): [string, StoredFile] => [
               p,
-              live.has(p) || file.clearedSize !== undefined ? file : clearedCopy(file),
+              live.get(p) === file || file.clearedSize !== undefined ? file : clearedCopy(file),
             ]),
           ),
       );
@@ -374,7 +374,7 @@ function makeCopy(options: {
     del: async () => readOnly(),
     clear: async () => readOnly(),
     keepOnly: async () => readOnly(),
-    clearDeleted: async () => readOnly(),
+    clearDeleted: async () => [new Error("read-only copy"), null],
     async *list(dir) {
       const prefix = dir.endsWith("/") ? dir : `${dir}/`;
       const paths = [...files.keys()].sort((x, y) =>

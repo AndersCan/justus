@@ -1,4 +1,4 @@
-import { cases } from "./contracts/drive-store.contract.ts";
+import { cases, realOnlyCases } from "./contracts/drive-store.contract.ts";
 import { fakeDriveWorlds } from "./fakes/fake-world.ts";
 import { makeCheck } from "./p2p-scenarios.ts";
 import { realDriveWorlds } from "./real-peers.ts";
@@ -13,7 +13,7 @@ describe("real", () => {
     await worlds.destroy();
   });
 
-  for (const c of cases) {
+  for (const c of [...cases, ...realOnlyCases]) {
     it(c.name, () => c.run(worlds.world(), makeCheck()), 30_000);
   }
 });
