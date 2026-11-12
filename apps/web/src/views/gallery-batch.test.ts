@@ -22,6 +22,7 @@ describe("add batch toast", () => {
     gallery.addMany([{ kind: "path", path: "/a.jpg", name: "a.jpg" }], "f1");
     await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
     expect(hoisted.toast.mock.calls[0][0]).toContain("Added a photo");
+    expect(hoisted.toast.mock.calls[0][1]).toEqual({});
     await vi.waitFor(() => expect(batchOf()).toBeNull());
 
     hoisted.toast.mockClear();
@@ -31,5 +32,22 @@ describe("add batch toast", () => {
     await galleryActor.settled();
     expect(hoisted.toast).not.toHaveBeenCalled();
     expect(batchOf()?.failed).toHaveLength(1);
+  });
+
+  test("a batch with duplicates stays 10 s with Dismiss", async () => {
+    hoisted.toast.mockClear();
+    hoisted.gateway.list.mockResolvedValue([null, { photos: [photo] }]);
+    gallery.load();
+    await vi.waitFor(() => expect(galleryActor.snapshot().path[0]).toBe("showingPhotos"));
+    hoisted.gateway.add.mockResolvedValueOnce([null, photo]);
+    gallery.addMany([{ kind: "path", path: "/d.jpg", name: "d.jpg" }], "f1");
+    await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
+    expect(hoisted.toast.mock.calls[0][0]).toContain("already");
+    expect(hoisted.toast.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        duration: 10_000,
+        action: expect.objectContaining({ label: "Dismiss" }),
+      }),
+    );
   });
 });

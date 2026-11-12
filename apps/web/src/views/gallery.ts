@@ -156,8 +156,12 @@ if (typeof document !== "undefined" && !inNativeShell()) {
   });
 }
 
-// When a batch ends cleanly, say what happened and clear it; one with
-// failures stays on the page (with Retry) until dismissed.
+/** Long enough to read "· N already there"; the timer still ends it if nobody taps Dismiss. */
+const DUPLICATES_TOAST_MS = 10_000;
+
+// When a batch ends cleanly, say what happened and clear it (a batch with
+// duplicates stays up longer, with Dismiss); one with failures stays on the
+// page (with Retry) until dismissed.
 let wasRunning = false;
 galleryActor.on("change", {
   fn: (snapshot) => {
@@ -167,17 +171,21 @@ galleryActor.on("change", {
     if (!finished || batch.failed.length > 0) return;
     const camera = pickedVia() === "camera";
     const scope = routeScope();
-    toast(
-      batchSummary(batch, albumName(batch.folderId)),
+    const takeAnother =
       camera && scope && batch.folderId
         ? {
-            action: {
-              label: copy("gallery.take_another"),
-              run: () => void startAdd(batch.folderId as string, "camera"),
-            },
+            label: copy("gallery.take_another"),
+            run: () => void startAdd(batch.folderId as string, "camera"),
           }
-        : {},
-    );
+        : undefined;
+    const dismiss = { label: copy("gallery.dismiss"), run: () => {} };
+    const options =
+      batch.duplicates > 0
+        ? { action: takeAnother ?? dismiss, duration: DUPLICATES_TOAST_MS }
+        : takeAnother
+          ? { action: takeAnother }
+          : {};
+    toast(batchSummary(batch, albumName(batch.folderId)), options);
     gallery.dismissBatch();
   },
 });
