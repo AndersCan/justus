@@ -26,7 +26,8 @@ export const designTheme = {
     "on-action": "rgb(var(--on-action) / <alpha-value>)"
   },
   "borderRadius": {
-    "control": "12px"
+    "control": "12px",
+    "surface": "16px"
   },
   "height": {
     "touch": "44px",

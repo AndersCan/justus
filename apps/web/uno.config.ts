@@ -1,6 +1,7 @@
 import { defineConfig, presetUno } from "unocss";
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
+import { sheetClass } from "#design/components/sheet.ts";
 import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
 // Semantic tokens only. Raw values live in src/design/justus/tokens/theme.css (generated) as CSS variables (space
@@ -31,6 +32,8 @@ export default defineConfig({
     "ui-btn-primary": buttonClass({ variant: "primary" }),
     "ui-btn-ghost": buttonClass({ variant: "default" }),
     "ui-input": inputClass(),
+    // The bottom padding clears the iPhone home bar; placing the sheet is app code.
+    "ui-sheet": `${sheetClass()} pb-[max(1.25rem,env(safe-area-inset-bottom))]`,
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
     "ui-chip":
       "inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-fg",
