@@ -905,7 +905,7 @@ describe("roleAndCount", () => {
     expect(roleAndCount({ ...album("a", "reader"), notice: { kind: "removed" } } as never)).toBe(
       "No longer in this album",
     );
-    expect(roleAndCount(album("a", "reader") as never)).toBe("Viewer · 1 member");
+    expect(roleAndCount(album("a", "reader") as never)).toBe("Can only look · 1 member");
   });
 });
 

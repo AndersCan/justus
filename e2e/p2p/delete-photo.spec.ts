@@ -147,7 +147,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+  await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
   // Accepting happens on the members page; the photos are one tap away.
   await a.getByRole("link", { name: "See photos in this album" }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
@@ -169,7 +169,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
-  await expectBenLine(a, "Collaborator · has 2 in full");
+  await expectBenLine(a, "Can add photos · has 2 in full");
 
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
@@ -192,7 +192,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("button", { name: "Close" }).click();
 
   // Ben opened every photo: Ana's members page says his phone has all of them.
-  await expectBenLine(a, "Collaborator · has every photo in full");
+  await expectBenLine(a, "Can add photos · has all in full");
 
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });

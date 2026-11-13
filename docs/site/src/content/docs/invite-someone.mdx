@@ -7,18 +7,18 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 On this page the invite machine runs with a pretend gateway: turning links off always works, and nothing leaves your browser.
 
-| What the person sees                                            | What they do                     | State                           |
-| --------------------------------------------------------------- | -------------------------------- | ------------------------------- |
-| The People sheet with the album's members and an invite QR code | Opens it from the album          | `people.showingPeople`          |
-| A member's card                                                 | Taps a member                    | `friends.showingMember`         |
-| A box to name them                                              | Types a name                     | `friends.namingFriend`          |
-| The name is being saved                                         | Waits                            | `friends.savingFriend`          |
-| "Remove" is being carried out                                   | Removes a member                 | `people.removingMember`         |
-| "Let add photos" is being saved                                 | Anna taps Let add photos on Nils | `people.lettingViewerAddPhotos` |
-| Saving that Nils is a Viewer now                                | Anna taps Make Viewer on Nils    | `people.makingViewer`           |
-| The invite panel: pick how long the link works                  | Picks a time                     | `inviteLink.noLinkYet`          |
-| The link and when it ends                                       | Taps Send or Copy                | `inviteLink.linkMade`           |
-| The links are being turned off                                  | Confirms turning them off        | `inviteLink.turningOff`         |
+| What the person sees                                            | What they do                         | State                           |
+| --------------------------------------------------------------- | ------------------------------------ | ------------------------------- |
+| The People sheet with the album's members and an invite QR code | Opens it from the album              | `people.showingPeople`          |
+| A member's card                                                 | Taps a member                        | `friends.showingMember`         |
+| A box to name them                                              | Types a name                         | `friends.namingFriend`          |
+| The name is being saved                                         | Waits                                | `friends.savingFriend`          |
+| "Remove" is being carried out                                   | Removes a member                     | `people.removingMember`         |
+| "Let add photos" is being saved                                 | Anna taps Let add photos on Nils     | `people.lettingViewerAddPhotos` |
+| Saving that Nils is a Viewer now                                | Anna taps Stop adding photos on Nils | `people.makingViewer`           |
+| The invite panel: pick how long the link works                  | Picks a time                         | `inviteLink.noLinkYet`          |
+| The link and when it ends                                       | Taps Send or Copy                    | `inviteLink.linkMade`           |
+| The links are being turned off                                  | Confirms turning them off            | `inviteLink.turningOff`         |
 
 **An old link with its end time changed.** The ask reaches the Admin's phone, which shows nothing and answers that the link no longer works: `joinRequest.linkExpired` on the joiner's phone.
 

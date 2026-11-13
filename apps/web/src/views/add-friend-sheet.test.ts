@@ -106,14 +106,16 @@ describe("add a friend", () => {
     const host = mount("creator", { i1: "Kari", i2: "ole" });
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
-    const viewers = () => button(host, "Add  as Viewers") as HTMLButtonElement;
+    const viewers = () => button(host, "Add , can only look") as HTMLButtonElement;
     expect(viewers().disabled).toBe(true);
     box(host, "Kari").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari as Viewers")).toBeTruthy());
+    await vi.waitFor(() => expect(button(host, "Add Kari, can only look")).toBeTruthy());
     box(host, "ole").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari and ole as Viewers")).toBeTruthy());
-    expect((button(host, "Add Kari and ole as Viewers") as HTMLButtonElement).disabled).toBe(false);
-    expect(button(host, "Add Kari and ole as Collaborators")).toBeTruthy();
+    await vi.waitFor(() => expect(button(host, "Add Kari and ole, can only look")).toBeTruthy());
+    expect((button(host, "Add Kari and ole, can only look") as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    expect(button(host, "Add Kari and ole, can add photos")).toBeTruthy();
     box(host, "Kari").click();
     box(host, "ole").click();
     await vi.waitFor(() => expect(viewers().disabled).toBe(true));
@@ -152,13 +154,13 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     box(host, "Kari").click();
     box(host, "ole").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari and ole as Viewers")).toBeTruthy());
-    button(host, "Add Kari and ole as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari and ole, can only look")).toBeTruthy());
+    button(host, "Add Kari and ole, can only look")!.click();
     await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledTimes(2));
     expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1", "reader");
     expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i2", "reader");
     await vi.waitFor(() =>
-      expect(toast).toHaveBeenCalledWith("Asked Kari and ole to join as Viewers"),
+      expect(toast).toHaveBeenCalledWith("Asked Kari and ole to join. They can only look."),
     );
     expect(toast).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
@@ -172,15 +174,15 @@ describe("add a friend", () => {
     button(host, "Add a friend")!.click();
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     box(host, "Kari").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari as Collaborators")).toBeTruthy());
+    await vi.waitFor(() => expect(button(host, "Add Kari, can add photos")).toBeTruthy());
     expect(host.querySelector("[role=dialog]")!.getAttribute("aria-label")).toBe(
       "Add a friend to “Lisbon trip”",
     );
     expect(gateway.offerAlbum).not.toHaveBeenCalled();
-    button(host, "Add Kari as Collaborators")!.click();
+    button(host, "Add Kari, can add photos")!.click();
     await vi.waitFor(() => expect(gateway.offerAlbum).toHaveBeenCalledWith("f1", "i1", "member"));
     await vi.waitFor(() =>
-      expect(toast).toHaveBeenCalledWith("Asked Kari to join as Collaborators"),
+      expect(toast).toHaveBeenCalledWith("Asked Kari to join. They can add photos."),
     );
   });
 
@@ -196,8 +198,8 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     box(host, "Kari").click();
     box(host, "ole").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari and ole as Viewers")).toBeTruthy());
-    button(host, "Add Kari and ole as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari and ole, can only look")).toBeTruthy());
+    button(host, "Add Kari and ole, can only look")!.click();
     const dialog = () => host.querySelector<HTMLElement>("[role=dialog]")!;
     await vi.waitFor(() =>
       expect([...dialog().querySelectorAll("li")].map((l) => l.textContent!.trim())).toEqual([
@@ -224,8 +226,8 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     box(host, "Kari").click();
     box(host, "ole").click();
-    await vi.waitFor(() => expect(button(host, "Add Kari and ole as Viewers")).toBeTruthy());
-    button(host, "Add Kari and ole as Viewers")!.click();
+    await vi.waitFor(() => expect(button(host, "Add Kari and ole, can only look")).toBeTruthy());
+    button(host, "Add Kari and ole, can only look")!.click();
     await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari and ole"));
     await vi.waitFor(() =>
       expect(host.querySelector("[role=dialog]")!.contains(document.activeElement)).toBe(true),

@@ -4,9 +4,9 @@ import { adminName } from "./invite";
 
 describe("roleLabel", () => {
   it("uses the plain role words", () => {
-    expect(roleLabel("creator")).toBe("Admin");
-    expect(roleLabel("member")).toBe("Collaborator");
-    expect(roleLabel("reader")).toBe("Viewer");
+    expect(roleLabel("creator")).toBe("Yours");
+    expect(roleLabel("member")).toBe("Can add photos");
+    expect(roleLabel("reader")).toBe("Can only look");
   });
 
   it("calls a pending join a request, not a Viewer", () => {

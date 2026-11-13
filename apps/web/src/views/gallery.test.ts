@@ -264,12 +264,12 @@ describe("viewerLine", () => {
 
   test("names the Admin of the album on screen", () => {
     expect(viewerLine({ status }, { id: "f1" })).toBe(
-      "You're a Viewer: you see every photo here. Maya decides who adds photos.",
+      "You can see every photo but not add any. Maya decides who can add photos.",
     );
   });
 
   test("says The Admin when the status is for another album or missing", () => {
-    const line = "You're a Viewer: you see every photo here. The Admin decides who adds photos.";
+    const line = "You can see every photo but not add any. The Admin decides who can add photos.";
     expect(viewerLine({ status }, { id: "f2" })).toBe(line);
     expect(viewerLine({ status: null }, { id: "f1" })).toBe(line);
   });
@@ -390,7 +390,7 @@ describe("albumAddRow for a reader whose role is not known yet", () => {
       ],
     };
     expect(row(status).text).toBe(
-      "You're a Viewer: you see every photo here. Maya decides who adds photos.",
+      "You can see every photo but not add any. Maya decides who can add photos.",
     );
   });
 });

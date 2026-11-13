@@ -347,7 +347,7 @@ describe("invited friends list", () => {
     });
     expect(host.textContent).toContain("Invited, not in yet");
     expect(host.querySelector("li")?.textContent).toContain("Kari");
-    expect(host.querySelector("li")?.textContent).toContain("Viewer");
+    expect(host.querySelector("li")?.textContent).toContain("Can only look");
     expect(button(host)?.getAttribute("aria-label")).toBe("Take back Kari's invite");
   });
 
@@ -355,7 +355,7 @@ describe("invited friends list", () => {
     const host = mountInvited("creator", [{ identity: "k", role: "member" }], {
       friends: { k: "Kari" },
     });
-    expect(host.querySelector("li")?.textContent).toContain("Collaborator");
+    expect(host.querySelector("li")?.textContent).toContain("Can add photos");
   });
 
   test("a friend without a saved name is Someone you invited", () => {
