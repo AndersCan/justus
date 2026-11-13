@@ -1,10 +1,11 @@
 import { defineConfig } from "vite-plus";
+import { fileURLToPath } from "node:url";
 import UnoCSS from "unocss/vite";
 
 export default defineConfig({
   root: ".",
   base: "/",
-  plugins: [UnoCSS()],
+  plugins: [UnoCSS(fileURLToPath(new URL("./uno.config.ts", import.meta.url)))],
   server: {
     // The dev worklet admits exactly this page origin (`origin=` in
     // apps/backend/scripts/dev.mjs), so the port must not drift.

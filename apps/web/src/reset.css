@@ -1,0 +1,57 @@
+/* Minimal reset (the Uno preset ships no preflight). */
+*,
+::before,
+::after {
+  box-sizing: border-box;
+  border: 0 solid rgb(var(--line));
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+button {
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+img,
+svg {
+  display: block;
+}
+html,
+body {
+  margin: 0;
+  background: rgb(var(--canvas));
+  color: rgb(var(--fg));
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
