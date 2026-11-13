@@ -131,13 +131,24 @@ function maestro(log) {
       file.write(chunk);
       text += chunk.toString();
     };
+    // Maestro can hang after a driver call fails: a healthy walk takes about 4 minutes.
+    const hung = setTimeout(
+      () => {
+        tee("\nMaestro walk hung: killing it\n");
+        child.kill("SIGKILL");
+      },
+      10 * 60 * 1000,
+    );
     child.stdout.on("data", tee);
     child.stderr.on("data", tee);
     child.on("error", (error) => {
       tee(`${error.message}\n`);
       file.end(() => resolve({ status: 1, text }));
     });
-    child.on("close", (code) => file.end(() => resolve({ status: code ?? 1, text })));
+    child.on("close", (code) => {
+      clearTimeout(hung);
+      file.end(() => resolve({ status: code ?? 1, text }));
+    });
   });
 }
 
@@ -148,8 +159,9 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log(`Maestro walk (${name}), attempt ${attempt}`);
   const result = await maestro(path.join(out, `maestro-attempt-${attempt}.txt`));
   status = result.status;
-  if (status === 0 || !result.text.includes("driver not ready in time")) break;
-  console.log("The Maestro iOS driver did not start: trying once more");
+  const driverFailed = ["driver not ready in time", "XCTPerformOnMainRunLoop", "Maestro walk hung"];
+  if (status === 0 || !driverFailed.some((text) => result.text.includes(text))) break;
+  console.log("The Maestro iOS driver failed: trying once more");
 }
 stopIosDriver();
 
