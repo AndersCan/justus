@@ -78,10 +78,10 @@ test("Back from the invite page shows Sharing after Ben adds photos", async ({
   const link = await copyInviteLink(a);
   await askToJoin(b, link, album);
   await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+  await a.getByRole("button", { name: "Accept, can only look", exact: true }).click();
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
-  const row = members.locator("li", { hasText: "Viewer" });
+  const row = members.locator("li", { hasText: "Can only look" });
   await expect(row).toBeVisible({ timeout: 60_000 });
   await row.getByRole("button", { name: /^Let .* add photos$/ }).click();
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({

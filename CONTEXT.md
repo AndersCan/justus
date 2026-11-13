@@ -92,21 +92,21 @@ _Avoid_: e2e encrypted (misleading), end-to-end encrypted
 
 The code terms above are precise; the UI uses plainer ones. Never show the left column to users.
 
-| Code / docs term | User sees                      | Notes                                                                                      |
-| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| Folder           | **Album**                      | Create, share, join an album. There is no separate local "albums" feature.                 |
-| Creator          | **Admin** ("started by Maya")  | Manages who is in. One per album, not transferable yet. Can delete others' photos for all. |
-| Member           | **Collaborator**               | Can add photos. The Admin picks Viewer or Collaborator on Accept.                          |
-| Remove (photo)   | **Delete**                     | The adder or the Admin. Gone for everyone; no undo.                                        |
-| Reader           | **Viewer**                     | Sees every photo, adds none.                                                               |
-| Archive (album)  | **Archive**                    | This phone only; Restore from Archived.                                                    |
-| Leave (album)    | **Leave album**                | Member or Viewer; needs a new invite to come back.                                         |
-| Delete (album)   | **Delete album**               | Admin only; gone from every phone; no undo.                                                |
-| Check code       | **three words**                | Shown on the request and the waiting screen. Never "check code" on screen.                 |
-| Share key        | **Invite**                     | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                 |
-| Registry         | _(hidden)_                     |                                                                                            |
-| Profile          | **Profile**                    | Display name (required) + auto colour/initials. Local; shared only with albums you join.   |
-| Peer connection  | **Connected** (never "online") | Only who your device can reach right now. Others show "last seen".                         |
+| Code / docs term | User sees                                                                             | Notes                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Folder           | **Album**                                                                             | Create, share, join an album. There is no separate local "albums" feature.                                                                                                             |
+| Creator          | **Yours** (chip), "Started this album" (people list), "You made this album" (caption) | Manages who is in. One per album, not transferable yet. Can delete others' photos for all. Never "Admin" on screen, except "the Admin" as a fallback when the owner's name is unknown. |
+| Member           | **Can add photos**                                                                    | Picked on Accept: "Accept, can add photos".                                                                                                                                            |
+| Remove (photo)   | **Delete**                                                                            | The adder or the Admin. Gone for everyone; no undo.                                                                                                                                    |
+| Reader           | **Can only look**                                                                     | Sees every photo, adds none.                                                                                                                                                           |
+| Archive (album)  | **Archive**                                                                           | This phone only; Restore from Archived.                                                                                                                                                |
+| Leave (album)    | **Leave album**                                                                       | Member or Viewer; needs a new invite to come back.                                                                                                                                     |
+| Delete (album)   | **Delete album**                                                                      | Admin only; gone from every phone; no undo.                                                                                                                                            |
+| Check code       | **three words**                                                                       | Shown on the request and the waiting screen. Never "check code" on screen.                                                                                                             |
+| Share key        | **Invite**                                                                            | Copyable link or QR. Opens nothing; the person asks and the Admin accepts.                                                                                                             |
+| Registry         | _(hidden)_                                                                            |                                                                                                                                                                                        |
+| Profile          | **Profile**                                                                           | Display name (required) + auto colour/initials. Local; shared only with albums you join.                                                                                               |
+| Peer connection  | **Connected** (never "online")                                                        | Only who your device can reach right now. Others show "last seen".                                                                                                                     |
 
 **Holding record**:
 `/holding.json` and `/held/<id>` in a phone's own album drive: the photos it has a full copy of. A claim the phone makes; it never expires; only that phone withdraws it, by leaving, or once removed, by deleting the album from the phone. Every listed photo carries `holders`, worked out from these records.

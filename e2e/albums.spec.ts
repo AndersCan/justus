@@ -23,7 +23,7 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible();
   const list = page.getByRole("list", { name: "Your albums" });
   await expect(list.getByRole("listitem")).toHaveCount(1, { timeout: 20_000 });
-  await expect(list.getByText(/Admin · 1 member/)).toBeVisible();
+  await expect(list.getByText(/Yours · 1 member/)).toBeVisible();
   const seedName = (
     await list.locator('a[aria-label^="Invite & members of "] span').first().innerText()
   ).trim();

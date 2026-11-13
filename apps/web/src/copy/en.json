@@ -539,14 +539,14 @@
     "screen": ""
   },
   "people.someone_not_in_your_friends": {
-    "text": "Someone not in your friends typed a friend's name. Ask which three words their phone shows before you accept.",
+    "text": "Someone not in your friends typed a friend's name. Ask which three words their phone shows. Decline if they differ.",
     "status": "draft",
     "where": "Album › Members › text",
     "who": "Album members",
     "screen": ""
   },
   "people.not_sure_who_it_is": {
-    "text": "Not sure who it is? Ask them which three words their phone shows.",
+    "text": "Not sure who it is? Ask them which three words their phone shows. Decline if they differ.",
     "status": "draft",
     "where": "Album › Members › text",
     "who": "Album members",
@@ -637,28 +637,28 @@
     "screen": ""
   },
   "add_friend_sheet.add_as_viewers": {
-    "text": "Add {names} as Viewers",
+    "text": "Add {names}, can only look",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
     "screen": ""
   },
   "add_friend_sheet.add_as_collaborators": {
-    "text": "Add {names} as Collaborators",
+    "text": "Add {names}, can add photos",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
     "screen": ""
   },
   "add_friend_sheet.asked_to_join_as_viewers": {
-    "text": "Asked {names} to join as Viewers",
+    "text": "Asked {names} to join. They can only look.",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
     "screen": ""
   },
   "add_friend_sheet.asked_to_join_as_collaborators": {
-    "text": "Asked {names} to join as Collaborators",
+    "text": "Asked {names} to join. They can add photos.",
     "status": "draft",
     "where": "Album › Invite & members › Add a friend",
     "who": "The album's Admin",
@@ -882,28 +882,28 @@
     "screen": ""
   },
   "album.is_a_viewer_now": {
-    "text": "{name} is a Viewer now",
+    "text": "{name} can only look now",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.they_re_a_viewer_now": {
-    "text": "They're a Viewer now",
+    "text": "They can only look now",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.is_in_as_a_viewer": {
-    "text": "{requesterName} is in as a Viewer",
+    "text": "{requesterName} is in and can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.is_in_as_a_collaborator": {
-    "text": "{requesterName} is in as a Collaborator",
+    "text": "{requesterName} is in and can add photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -952,14 +952,14 @@
     "screen": ""
   },
   "album.1_person_is_in_as": {
-    "text": "1 person is in as a Viewer",
+    "text": "1 person is in and can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.people_are_in_as_viewers": {
-    "text": "{count} people are in as Viewers",
+    "text": "{count} people are in and can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -987,7 +987,7 @@
     "screen": ""
   },
   "album.you_re_the_admin_you_add": {
-    "text": "You're the Admin: you add people and photos.",
+    "text": "You made this album. You decide who joins.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1029,14 +1029,14 @@
     "screen": ""
   },
   "album.make_a_viewer": {
-    "text": "Make {name} a Viewer",
+    "text": "Stop {name} adding photos",
     "status": "draft",
     "where": "Album › Invite & members › button",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "album.make_a_viewer_2": {
-    "text": "Make {name} a Viewer?",
+    "text": "Stop {name} adding photos?",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1050,14 +1050,14 @@
     "screen": ""
   },
   "album.keep_as_collaborator": {
-    "text": "Keep as Collaborator",
+    "text": "Keep adding photos",
     "status": "draft",
     "where": "Make Viewer confirm dialog › button that backs out",
     "who": "The Admin making a Collaborator a Viewer",
     "screen": ""
   },
   "album.make_viewer": {
-    "text": "Make Viewer",
+    "text": "Stop adding photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1106,7 +1106,7 @@
     "screen": ""
   },
   "album.accept_as_viewer": {
-    "text": "Accept as Viewer",
+    "text": "Accept, can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1120,7 +1120,7 @@
     "screen": ""
   },
   "album.accept_as_collaborator": {
-    "text": "Accept as Collaborator",
+    "text": "Accept, can add photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1162,7 +1162,7 @@
     "screen": ""
   },
   "album.accept_all_as_viewers": {
-    "text": "Accept all {count} as Viewers",
+    "text": "Accept all {count}, can only look",
     "status": "draft",
     "where": "Album › Invite & members › button",
     "who": "Album members, whenever they open an album's people",
@@ -1176,7 +1176,7 @@
     "screen": "album"
   },
   "album.everyone_in_the_album_sees": {
-    "text": "Everyone in the album sees this list. Collaborators add photos; Viewers only see them.",
+    "text": "Everyone in the album sees this list.",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
@@ -1407,21 +1407,21 @@
     "screen": ""
   },
   "albums.admin": {
-    "text": "Admin",
+    "text": "Yours",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
     "screen": ""
   },
   "albums.collaborator": {
-    "text": "Collaborator",
+    "text": "Can add photos",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
     "screen": ""
   },
   "albums.viewer": {
-    "text": "Viewer",
+    "text": "Can only look",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
@@ -2079,7 +2079,7 @@
     "screen": ""
   },
   "gallery.only_you_so_far_invite": {
-    "text": "Only you so far. Invite someone to share",
+    "text": "Only you so far",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
@@ -2149,7 +2149,7 @@
     "screen": ""
   },
   "gallery.you_re_a_viewer_you": {
-    "text": "You're a Viewer: you see every photo here. {who} decides who adds photos.",
+    "text": "You can see every photo but not add any. {who} decides who can add photos.",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
@@ -2604,7 +2604,7 @@
     "screen": ""
   },
   "help.the_admin_is_the_person": {
-    "text": "The Admin is the person who started the album. They decide who joins, and they can remove people, and let Viewers add photos.",
+    "text": "The Admin is the person who started the album. They decide who joins, and they can remove people, and let people who can only look add photos.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -2625,7 +2625,7 @@
     "screen": ""
   },
   "help.the_admin_chooses_when_they": {
-    "text": "The Admin chooses when they accept someone. A Viewer sees every photo in the album, older ones too, and can't add any. A Collaborator can add photos too.",
+    "text": "The Admin chooses when they accept someone. Someone who can only look sees every photo in the album, older ones too, and can't add any. Someone who can add photos can add their own too.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -2653,7 +2653,7 @@
     "screen": ""
   },
   "help.whoever_added_a_photo_can": {
-    "text": "Whoever added a photo can delete it, and so can the Admin. Collaborators can't delete other people's photos, and Viewers can't delete anything.",
+    "text": "Whoever added a photo can delete it, and so can the Admin. People who can add photos can't delete other people's photos, and people who can only look can't delete anything.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -3206,7 +3206,7 @@
     "screen": ""
   },
   "lightbox.who_deletes_viewer": {
-    "text": "Viewers can't delete photos.",
+    "text": "You can only look, so you can't delete photos.",
     "status": "draft",
     "where": "Photo viewer › who can delete",
     "who": "Viewers and Collaborators",
@@ -4074,28 +4074,28 @@
     "screen": ""
   },
   "role_toast.made_you_a_viewer": {
-    "text": "{name} made you a Viewer in {album}",
+    "text": "{name} stopped you adding photos to {album}",
     "status": "draft",
     "where": "Toast › your role changed",
     "who": "Collaborators and Viewers, when the Admin changes their role",
     "screen": ""
   },
   "role_toast.the_admin_made_you_a_viewer": {
-    "text": "The Admin made you a Viewer in {album}",
+    "text": "The Admin stopped you adding photos to {album}",
     "status": "draft",
     "where": "Toast › your role changed",
     "who": "Collaborators and Viewers, when the Admin changes their role",
     "screen": ""
   },
   "role_toast.made_you_a_collaborator": {
-    "text": "{name} made you a Collaborator in {album}",
+    "text": "{name} let you add photos to {album}",
     "status": "draft",
     "where": "Toast › your role changed",
     "who": "Collaborators and Viewers, when the Admin changes their role",
     "screen": ""
   },
   "role_toast.the_admin_made_you_a_collaborator": {
-    "text": "The Admin made you a Collaborator in {album}",
+    "text": "The Admin let you add photos to {album}",
     "status": "draft",
     "where": "Toast › your role changed",
     "who": "Collaborators and Viewers, when the Admin changes their role",
@@ -4172,7 +4172,7 @@
     "screen": ""
   },
   "album.accept_all_sheet_title": {
-    "text": "Accept these {count} people as Viewers?",
+    "text": "Accept these {count} people? They can only look.",
     "status": "draft",
     "where": "Album › Join requests › Accept all sheet",
     "who": "Admins answering requests",
@@ -4186,7 +4186,7 @@
     "screen": ""
   },
   "album.accept_all_sheet_confirm": {
-    "text": "Accept {count} as Viewers",
+    "text": "Accept {count}, can only look",
     "status": "draft",
     "where": "Album › Join requests › Accept all sheet",
     "who": "Admins answering requests",
@@ -4256,28 +4256,28 @@
     "screen": ""
   },
   "member.role_admin": {
-    "text": "Admin",
+    "text": "Started this album",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_collaborator": {
-    "text": "Collaborator",
+    "text": "Can add photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_viewer": {
-    "text": "Viewer",
+    "text": "Can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.waiting_for_admin": {
-    "text": "Waiting for the Admin to accept you",
+    "text": "Waiting to be let in",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",

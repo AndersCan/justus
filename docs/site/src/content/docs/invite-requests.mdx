@@ -7,14 +7,14 @@ import Machine from "@mantaq/inspect/astro/Machine.astro";
 
 Two people, two phones. Nils is the Admin; Kari is a saved friend. Both phones must have Justus open.
 
-| Moment                                  | Nils (Admin) sees                                                                                               | Kari sees                                                                                              |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Nils taps "Add a friend"                | His saved friends who are not in the album, each with a tick box `addFriend.choosingFriends`                    | Nothing                                                                                                |
-| Nils ticks Kari and Ole                 | "Add Kari and Ole as Viewers" or "Add Kari and Ole as Collaborators" `addFriend.choosingFriends`                | Nothing                                                                                                |
-| Nils taps "Add Kari and Ole as Viewers" | "Asking Kari and Ole…" and "If someone doesn't have Justus open, their invite waits." `addFriend.askingFriends` | Nothing yet                                                                                            |
-| Both phones take the invite             | "Asked Kari and Ole to join as Viewers"; the sheet closes `addFriend.showingPeopleWithAddFriend`                | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
-| Kari taps Join                          | Nothing to do: no Accept step                                                                                   | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
-| Nils's phone answers                    | Kari under Members, as a Viewer                                                                                 | The album opens, and says she is a Viewer `friendOffer.showingFriendOffers`                            |
+| Moment                                      | Nils (Admin) sees                                                                                               | Kari sees                                                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Nils taps "Add a friend"                    | His saved friends who are not in the album, each with a tick box `addFriend.choosingFriends`                    | Nothing                                                                                                |
+| Nils ticks Kari and Ole                     | "Add Kari and Ole, can only look" or "Add Kari and Ole, can add photos" `addFriend.choosingFriends`             | Nothing                                                                                                |
+| Nils taps "Add Kari and Ole, can only look" | "Asking Kari and Ole…" and "If someone doesn't have Justus open, their invite waits." `addFriend.askingFriends` | Nothing yet                                                                                            |
+| Both phones take the invite                 | "Asked Kari and Ole to join. They can only look."; the sheet closes `addFriend.showingPeopleWithAddFriend`      | The album at the top of her albums list, "Nils invited you" and Join `friendOffer.showingFriendOffers` |
+| Kari taps Join                              | Nothing to do: no Accept step                                                                                   | "Joining “&lt;album&gt;”…" `friendOffer.joiningFriendsAlbum`                                           |
+| Nils's phone answers                        | Kari under Members, as a Viewer                                                                                 | The album opens, and says she is a Viewer `friendOffer.showingFriendOffers`                            |
 
 **When it goes wrong.**
 

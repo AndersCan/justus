@@ -79,7 +79,7 @@ const controls = (row: Element) => [...row.querySelectorAll("button")].map((b) =
 const buttonNamed = (host: ParentNode, re: RegExp) =>
   [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => re.test(flat(b).trim()));
 
-describe("Make Viewer", () => {
+describe("Stop adding photos", () => {
   const viewerStatus = {
     ...status,
     members: [
@@ -96,21 +96,21 @@ describe("Make Viewer", () => {
     return host;
   };
 
-  test("a Collaborator row shows Make Nils a Viewer before Remove Nils", () => {
+  test("a Collaborator row shows Stop Nils adding photos before Remove Nils", () => {
     const row = memberRows(open()).find((r) => r.textContent?.includes("Nils"));
-    expect(controls(row!).slice(-2)).toEqual(["Make Nils a Viewer", "Remove Nils"]);
+    expect(controls(row!).slice(-2)).toEqual(["Stop Nils adding photos", "Remove Nils"]);
   });
 
   test("confirm copy names the person", async () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
-    buttonNamed(open(), /^Make Nils a Viewer$/)?.click();
+    buttonNamed(open(), /^Stop Nils adding photos$/)?.click();
     await vi.waitFor(() =>
       expect(confirmAction).toHaveBeenCalledWith({
-        title: "Make Nils a Viewer?",
+        title: "Stop Nils adding photos?",
         detail:
           "Nils keeps seeing every photo but can't add more. The photos Nils already added stay in the album.",
-        confirmLabel: "Make Viewer",
-        cancelLabel: "Keep as Collaborator",
+        confirmLabel: "Stop adding photos",
+        cancelLabel: "Keep adding photos",
       }),
     );
   });
@@ -118,7 +118,7 @@ describe("Make Viewer", () => {
   test("confirming calls makeViewer; cancelling does not", async () => {
     vi.mocked(confirmAction).mockResolvedValueOnce(false);
     const host = open();
-    const button = () => buttonNamed(host, /^Make Nils a Viewer$/);
+    const button = () => buttonNamed(host, /^Stop Nils adding photos$/);
     button()?.click();
     await vi.waitFor(() => expect(confirmAction).toHaveBeenCalled());
     expect(gateway.makeViewer).not.toHaveBeenCalled();
@@ -169,7 +169,7 @@ describe("Make Viewer", () => {
   test("Remove is a red ghost button; the role button is a plain ghost button", () => {
     const host = open();
     const remove = buttonNamed(host, /^Remove Nils$/)!;
-    const role = buttonNamed(host, /^Make Nils a Viewer$/)!;
+    const role = buttonNamed(host, /^Stop Nils adding photos$/)!;
     for (const b of [remove, role]) {
       expect(b.classList.contains("ui-btn-ghost")).toBe(true);
       expect(b.classList.contains("ui-btn-primary")).toBe(false);
@@ -534,12 +534,12 @@ describe("album join requests", () => {
     expect(rowA.textContent).not.toContain("Not your friend");
     expect(host.textContent).toContain("typed a friend's name.");
     expect(host.textContent).not.toContain("Not sure who it is?");
-    expect(button(host, "Accept all 1 as Viewers")).toBeUndefined();
+    expect(button(host, "Accept all 1, can only look")).toBeUndefined();
     expect(
       [...host.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all")),
     ).toBe(false);
     expect(
-      [...host.querySelectorAll("button")].filter((b) => name(b) === "Accept as Viewer"),
+      [...host.querySelectorAll("button")].filter((b) => name(b) === "Accept, can only look"),
     ).toHaveLength(2);
   });
 
@@ -549,32 +549,32 @@ describe("album join requests", () => {
     expect(host.textContent).not.toContain("Not sure who it is?");
   });
 
-  test("an invite request offers Accept as Viewer, Accept as Collaborator and Decline, each with its meaning; Viewer sends reader", async () => {
+  test("an invite request offers Accept, can only look, Accept, can add photos and Decline, each with its meaning; Viewer sends reader", async () => {
     const host = await show([ask("nils", true)]);
     expect(
       [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"] button')].map(name),
-    ).toEqual(["Accept as Viewer", "Accept as Collaborator", "Decline"]);
+    ).toEqual(["Accept, can only look", "Accept, can add photos", "Decline"]);
     expect(host.textContent).toContain("Sees every photo, can't add any");
     expect(host.textContent).toContain("Sees every photo and can add their own");
     expect(host.textContent).not.toContain("A Viewer sees every photo. A Collaborator");
     expect(button(host, "Accept")).toBeUndefined();
-    expect(button(host, "Accept as Viewer")!.className).toContain("ui-btn-primary");
-    for (const n of ["Accept as Collaborator", "Decline"]) {
+    expect(button(host, "Accept, can only look")!.className).toContain("ui-btn-primary");
+    for (const n of ["Accept, can add photos", "Decline"]) {
       expect(button(host, n)!.className).toContain("ui-btn-ghost");
       expect(button(host, n)!.className).not.toContain("ui-btn-primary");
     }
     expect(host.querySelectorAll('li[data-motion-key^="request:"] .ui-btn-primary')).toHaveLength(
       1,
     );
-    button(host, "Accept as Viewer")!.click();
+    button(host, "Accept, can only look")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
     );
   });
 
-  test("Accept as Collaborator sends the member role", async () => {
+  test("Accept, can add photos sends the member role", async () => {
     const host = await show([ask("nils", true)]);
-    button(host, "Accept as Collaborator")!.click();
+    button(host, "Accept, can add photos")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "member"),
     );
@@ -585,11 +585,11 @@ describe("album join requests", () => {
     const host = await show([ask("nils", true)]);
     let resolve!: (v: unknown) => void;
     vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (resolve = r)) as never);
-    button(host, "Accept as Viewer")!.click();
+    button(host, "Accept, can only look")!.click();
     await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
     expect(toast).not.toHaveBeenCalled();
     resolve([null, { ok: true }]);
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in as a Viewer"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
     expect(toast).toHaveBeenCalledTimes(1);
     await requestsActor.settled();
   });
@@ -626,7 +626,7 @@ describe("album join requests", () => {
     declineToast().onClose();
     await requestsActor.settled();
     expect(gateway.respond).not.toHaveBeenCalled();
-    button(host, "Accept as Viewer")!.click();
+    button(host, "Accept, can only look")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
     );
@@ -684,7 +684,7 @@ describe("album join requests", () => {
     const card = (k: string) =>
       [...host.querySelectorAll("li")].find((li) => flat(li).includes(`${k} wants`))!;
     [...card("nils").querySelectorAll("button")]
-      .find((b) => name(b) === "Accept as Viewer")!
+      .find((b) => name(b) === "Accept, can only look")!
       .click();
     await vi.waitFor(() =>
       expect(card("nils").textContent).toContain(
@@ -695,7 +695,7 @@ describe("album join requests", () => {
     expect(card("ola").querySelector("[role=alert]")).toBeNull();
     expect(toast).not.toHaveBeenCalled();
     [...card("nils").querySelectorAll("button")].find((b) => name(b) === "Retry")!.click();
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in as a Viewer"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
     expect(gateway.respond).toHaveBeenCalledTimes(2);
     expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
     await requestsActor.settled();
@@ -712,12 +712,12 @@ describe("album join requests", () => {
     const flagged = rows.filter((r) => r.textContent?.includes("Declined earlier"));
     expect(flagged).toHaveLength(1);
     expect(flagged[0]!.textContent).toContain("bo");
-    expect(button(host, "Accept all 2 as Viewers")).toBeDefined();
+    expect(button(host, "Accept all 2, can only look")).toBeDefined();
   });
 
-  test("two invite requests show Accept all 2 as Viewers below the list", async () => {
+  test("two invite requests show Accept all 2, can only look below the list", async () => {
     const host = await show([ask("nils", true), ask("ola", true)]);
-    const all = button(host, "Accept all 2 as Viewers")!;
+    const all = button(host, "Accept all 2, can only look")!;
     expect(all).toBeDefined();
     expect(
       host.querySelector("ul")!.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -740,12 +740,12 @@ describe("album join requests", () => {
     vi.mocked(gateway.respond).mockImplementation(
       () => new Promise((r) => resolvers.push(r)) as never,
     );
-    button(host, "Accept all 2 as Viewers")!.click();
-    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
-    button(host, "Accept 2 as Viewers")!.click();
+    button(host, "Accept all 2, can only look")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2, can only look")).toBeDefined());
+    button(host, "Accept 2, can only look")!.click();
     await vi.waitFor(() => expect(resolvers).toHaveLength(1));
     await vi.waitFor(() => {
-      expect(button(host, "Accept all 2 as Viewers")?.disabled).toBe(true);
+      expect(button(host, "Accept all 2, can only look")?.disabled).toBe(true);
       const rowButtons = [
         ...host.querySelectorAll<HTMLButtonElement>('li[data-motion-key^="request:"] button'),
       ];
@@ -755,7 +755,7 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(resolvers).toHaveLength(2));
     expect(toast).not.toHaveBeenCalled();
     resolvers[1]([null, { ok: true }]);
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in and can only look"));
     expect(toast).toHaveBeenCalledTimes(1);
     expect(vi.mocked(gateway.respond).mock.calls).toEqual([
       ["f1", "nils", true, "reader"],
@@ -772,16 +772,16 @@ describe("album join requests", () => {
       .mockResolvedValueOnce([null, { ok: true }] as never)
       .mockResolvedValueOnce([new Error("invoke timeout for x"), null] as never)
       .mockResolvedValueOnce([null, { ok: true }] as never);
-    button(host, "Accept all 2 as Viewers")!.click();
-    await vi.waitFor(() => expect(button(host, "Accept 2 as Viewers")).toBeDefined());
-    button(host, "Accept 2 as Viewers")!.click();
+    button(host, "Accept all 2, can only look")!.click();
+    await vi.waitFor(() => expect(button(host, "Accept 2, can only look")).toBeDefined());
+    button(host, "Accept 2, can only look")!.click();
     await vi.waitFor(() => expect(button(host, "Retry")).toBeDefined());
     expect(host.querySelector("[role=alert]")?.textContent).toContain(
       "Couldn't connect. Check your internet and try again.",
     );
     expect(toast).not.toHaveBeenCalled();
     button(host, "Retry")!.click();
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in as Viewers"));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("2 people are in and can only look"));
     expect(toast).toHaveBeenCalledTimes(1);
     await requestsActor.settled();
   });
@@ -792,12 +792,12 @@ describe("album join requests", () => {
       ask("nils", true, "maple river stone"),
       ask("ola", true, "lamp ocean tiger"),
     ]);
-    button(host, "Accept all 2 as Viewers")!.click();
+    button(host, "Accept all 2, can only look")!.click();
     await vi.waitFor(() =>
       expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
     );
     const dialog = host.querySelector('[role=dialog][aria-label^="Accept these"]')!;
-    expect(dialog.getAttribute("aria-label")).toBe("Accept these 2 people as Viewers?");
+    expect(dialog.getAttribute("aria-label")).toBe("Accept these 2 people? They can only look.");
     expect(flat(dialog)).toContain("nils");
     expect(flat(dialog)).toContain("ola");
     expect(flat(dialog)).toContain("Asked");
@@ -811,17 +811,19 @@ describe("album join requests", () => {
   const sheetOf = (host: HTMLElement) =>
     host.querySelector('[role=dialog][aria-label^="Accept these"]');
   const openSheet = async (host: HTMLElement, n: number) => {
-    button(host, `Accept all ${n} as Viewers`)!.click();
+    button(host, `Accept all ${n}, can only look`)!.click();
     await vi.waitFor(() => expect(sheetOf(host)).not.toBeNull());
   };
 
   test("a sheet with three people says three and lists them", async () => {
     const host = await show([ask("nils", true), ask("ola", true), ask("kim", true)]);
-    await vi.waitFor(() => expect(button(host, "Accept all 3 as Viewers")).toBeDefined());
+    await vi.waitFor(() => expect(button(host, "Accept all 3, can only look")).toBeDefined());
     await openSheet(host, 3);
-    expect(sheetOf(host)!.getAttribute("aria-label")).toBe("Accept these 3 people as Viewers?");
+    expect(sheetOf(host)!.getAttribute("aria-label")).toBe(
+      "Accept these 3 people? They can only look.",
+    );
     expect(sheetOf(host)!.querySelectorAll("li")).toHaveLength(3);
-    expect(buttonNamed(sheetOf(host)!, /^Accept 3 as Viewers$/)).toBeDefined();
+    expect(buttonNamed(sheetOf(host)!, /^Accept 3, can only look$/)).toBeDefined();
     await requestsActor.settled();
   });
 
@@ -844,11 +846,11 @@ describe("album join requests", () => {
     await vi.waitFor(() =>
       expect(document.activeElement).toBe(host.querySelector("[data-accept-all-cancel]")),
     );
-    const accept = buttonNamed(sheetOf(host)!, /^Accept 2 as Viewers$/)!;
+    const accept = buttonNamed(sheetOf(host)!, /^Accept 2, can only look$/)!;
     accept.focus();
     syncActor.send(statusSeen.create({ status }));
     await new Promise((r) => setTimeout(r, 20));
-    expect(flat(document.activeElement!).trim()).toBe("Accept 2 as Viewers");
+    expect(flat(document.activeElement!).trim()).toBe("Accept 2, can only look");
     await requestsActor.settled();
   });
 
@@ -902,7 +904,7 @@ describe("album join requests", () => {
   ])("%s closes the Accept all sheet, lets nobody in and keeps both cards", async (_n, close) => {
     vi.mocked(gateway.respond).mockClear();
     const host = await show([ask("nils", true), ask("ola", true)]);
-    button(host, "Accept all 2 as Viewers")!.click();
+    button(host, "Accept all 2, can only look")!.click();
     await vi.waitFor(() =>
       expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
     );
@@ -923,9 +925,9 @@ describe("album join requests", () => {
         .find((li) => flat(li).includes(`${k} wants`))!
         .querySelectorAll("button");
     [...decline("nils")].find((b) => name(b) === "Decline")!.click();
-    await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeDefined());
+    await vi.waitFor(() => expect(button(host, "Accept all 2, can only look")).toBeDefined());
     [...decline("ola")].find((b) => name(b) === "Decline")!.click();
-    await vi.waitFor(() => expect(button(host, "Accept all 2 as Viewers")).toBeUndefined());
+    await vi.waitFor(() => expect(button(host, "Accept all 2, can only look")).toBeUndefined());
     expect(
       [...host.querySelectorAll("button")].some((b) => name(b)?.startsWith("Accept all")),
     ).toBe(false);
@@ -934,8 +936,8 @@ describe("album join requests", () => {
   });
 
   test("acceptAllToast: singular and plural", () => {
-    expect(acceptAllToast(1)).toBe("1 person is in as a Viewer");
-    expect(acceptAllToast(13)).toBe("13 people are in as Viewers");
+    expect(acceptAllToast(1)).toBe("1 person is in and can only look");
+    expect(acceptAllToast(13)).toBe("13 people are in and can only look");
   });
 
   test("answerToast: a No names who was declined; Viewer, Collaborator and plain Accept wording", () => {
@@ -945,15 +947,17 @@ describe("album join requests", () => {
     expect(answerToast({ ...a, approve: false, requesterName: copy("requests.they") })).toBe(
       "Declined that request",
     );
-    expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe("Nils is in as a Viewer");
-    expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in as a Collaborator");
+    expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe(
+      "Nils is in and can only look",
+    );
+    expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in and can add photos");
     expect(answerToast(a)).toBe("Nils is in");
   });
 
   test("a plain request keeps a single Accept that sends the member role", async () => {
     const host = await show([ask("ola", false)]);
     expect(host.textContent).not.toContain("Sees every photo");
-    expect(button(host, "Accept as Viewer")).toBeUndefined();
+    expect(button(host, "Accept, can only look")).toBeUndefined();
     button(host, "Accept")!.click();
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "ola", true, "member"),
@@ -975,7 +979,7 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("Viewer");
+    expect(row.textContent).toContain("Can only look");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
@@ -1422,12 +1426,12 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const rows = [...host.querySelectorAll("li")];
     const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
-    expect(row("Me")?.textContent).toContain("Admin");
-    expect(row("Nils")?.textContent).toContain("Collaborator");
-    expect(row("Zed")?.textContent).toContain("Viewer");
+    expect(row("Me")?.textContent).toContain("Started this album");
+    expect(row("Nils")?.textContent).toContain("Can add photos");
+    expect(row("Zed")?.textContent).toContain("Can only look");
     for (const r of rows) {
       const nameLine = r.querySelector("p")?.textContent ?? "";
-      expect(nameLine).not.toMatch(/Admin|Collaborator|Viewer/);
+      expect(nameLine).not.toMatch(/Started this album|Can add photos|Can only look/);
     }
   });
 
@@ -1451,7 +1455,7 @@ describe("album member roles", () => {
       render(albumView("f1"), host);
       return host.querySelector('[data-copy-id^="album.you_"]')?.textContent;
     };
-    expect(captionFor("creator")).toBe("You're the Admin: you add people and photos.");
+    expect(captionFor("creator")).toBe("You made this album. You decide who joins.");
     expect(captionFor("member")).toBe("You can add photos.");
     expect(captionFor("reader")).toBe("You can see every photo but not add any.");
   });
@@ -1469,8 +1473,8 @@ describe("album member roles", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
-    expect(own?.textContent).not.toMatch(/Admin ·|Collaborator|Viewer ·/);
-    expect(own?.textContent).toContain("Waiting for the Admin to accept you");
+    expect(own?.textContent).not.toMatch(/Started this album|Can add photos|Can only look/);
+    expect(own?.textContent).toContain("Waiting to be let in");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(host.textContent).toContain("Waiting for approval");
   });
@@ -1508,7 +1512,7 @@ describe("removed from the album", () => {
     expect(host.querySelector("[role=status]")?.textContent?.trim()).toBe(
       "You're no longer in Trip.",
     );
-    expect(host.textContent).not.toContain("Viewer");
+    expect(host.textContent).not.toContain("Can only look");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(memberRows(host)).toHaveLength(0);
   });
@@ -1567,7 +1571,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_collaborator"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Collaborator · has 2 in full");
+    expect(line.textContent?.trim()).toBe("Can add photos · has 2 in full");
   });
 
   test("the Members card shows one line, then the people, then what the lines mean", async () => {
@@ -1575,9 +1579,7 @@ describe("album holding", () => {
     const section = host.querySelector('[data-motion-key="section:members"]')!;
     const ul = section.querySelector("ul")!;
     const caption = section.querySelector("p")!;
-    expect(caption.textContent?.trim()).toBe(
-      "Everyone in the album sees this list. Collaborators add photos; Viewers only see them.",
-    );
+    expect(caption.textContent?.trim()).toBe("Everyone in the album sees this list.");
     expect(caption.compareDocumentPosition(ul) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const after = ul.nextElementSibling!;
     expect(after.tagName).toBe("P");
@@ -1621,7 +1623,7 @@ describe("album holding", () => {
       p.textContent?.includes("in full"),
     );
     expect(lines).toHaveLength(1);
-    expect(lines[0].textContent).toMatch(/^\S+ · has \d+ in full$/);
+    expect(lines[0].textContent).toMatch(/^[^·]+ · has \d+ in full$/);
     expect(lines[0].classList.contains("truncate")).toBe(false);
   });
 
@@ -1630,7 +1632,7 @@ describe("album holding", () => {
       const host = await open(photos);
       const own = memberRows(host)[0];
       const line = own.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
-      expect(line.textContent?.trim()).toBe("Admin");
+      expect(line.textContent?.trim()).toBe("Started this album");
     }
   });
 
@@ -1656,10 +1658,10 @@ describe("album holding", () => {
         .querySelector('[data-copy-id="member.role_viewer"]')!
         .closest("p")!
         .textContent?.trim();
-    expect(line()).toBe("Viewer · has no photos yet");
+    expect(line()).toBe("Can only look · has no photos yet");
     vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
     await gallery.load();
-    await vi.waitFor(() => expect(line()).toBe("Viewer · has 1 in full"));
+    await vi.waitFor(() => expect(line()).toBe("Can only look · has 1 in full"));
   });
 
   test("an Admin row seen by a collaborator also says what their phone holds", async () => {
@@ -1683,7 +1685,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_admin"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Admin · has no photos yet");
+    expect(line.textContent?.trim()).toBe("Started this album · has no photos yet");
   });
 
   test("a holders push updates the same row", async () => {

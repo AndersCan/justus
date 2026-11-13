@@ -82,7 +82,7 @@ test("B archives and restores A's album without A noticing; A deletes it and it 
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept as Collaborator", exact: true }).click();
+  await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
 
   await openAlbumPage(b, ALBUM);

@@ -18,24 +18,24 @@ const change = (over: Partial<RoleChangeIn>): RoleChangeIn => ({
 
 describe("roleToastText", () => {
   test("a demotion names the Admin", () => {
-    expect(roleToastText(change({})).text).toBe("Anna made you a Viewer in Summer");
+    expect(roleToastText(change({})).text).toBe("Anna stopped you adding photos to Summer");
   });
 
   test("a promotion names the Admin", () => {
     expect(roleToastText(change({ from: "reader", to: "member" })).text).toBe(
-      "Anna made you a Collaborator in Summer",
+      "Anna let you add photos to Summer",
     );
   });
 
   test("without a name, a demotion says the Admin", () => {
     expect(roleToastText(change({ adminName: undefined })).text).toBe(
-      "The Admin made you a Viewer in Summer",
+      "The Admin stopped you adding photos to Summer",
     );
   });
 
   test("without a name, a promotion says the Admin", () => {
     expect(roleToastText(change({ from: "reader", to: "member", adminName: undefined })).text).toBe(
-      "The Admin made you a Collaborator in Summer",
+      "The Admin let you add photos to Summer",
     );
   });
 });
@@ -43,7 +43,7 @@ describe("roleToastText", () => {
 describe("roleToast.changed", () => {
   test("shows the message", () => {
     roleToast.changed(change({}));
-    expect(toast).toHaveBeenLastCalledWith("Anna made you a Viewer in Summer");
+    expect(toast).toHaveBeenLastCalledWith("Anna stopped you adding photos to Summer");
   });
 
   test("a change to the same role shows nothing", () => {
