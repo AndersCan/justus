@@ -119,4 +119,110 @@ describe("dropping photos others deleted", () => {
     await s.nils.close();
     await cara.close();
   }, 20_000);
+
+  it("the Admin's delete of Nils's photo leaves Nils's own drive, bytes and listing", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "mine.jpg", 5);
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "kept.jpg", 60);
+    const mine = (await find(s.nils, "mine.jpg"))!;
+    const nilsKey = mine.member.key;
+    const [, drive] = await s.nilsDeps.drives.open(nilsKey, { timeoutMs: 1_000 });
+    const before = drive!.version();
+    await until(async () => (await s.anna.list()).some((p) => p.name === "mine.jpg"));
+    await s.anna.remove(mine.id);
+    await until(async () => (await find(s.nils, "mine.jpg")) === undefined);
+    await until(async () => {
+      const [, past] = await s.nilsDeps.drives.openAt(nilsKey, before, { timeoutMs: 500 });
+      return (
+        (await past!.readSmall(`/photos/${mine.id}.jpg`, 100, { timeoutMs: 200 })) === undefined
+      );
+    });
+    expect(await find(s.nils, "kept.jpg")).toBeDefined();
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+
+  it("deleting your own photo clears its bytes from your phone", async () => {
+    const s = await album();
+    await addWithThumb(s.anna, s.annaDeps, s.folderId, "mine.jpg", 5);
+    const mine = (await find(s.anna, "mine.jpg"))!;
+    const annaKey = mine.member.key;
+    const [, drive] = await s.annaDeps.drives.open(annaKey, { timeoutMs: 1_000 });
+    const before = drive!.version();
+    await s.anna.remove(mine.id);
+    const [, past] = await s.annaDeps.drives.openAt(annaKey, before, { timeoutMs: 500 });
+    expect(
+      await past!.readSmall(`/photos/${mine.id}.jpg`, 100, { timeoutMs: 200 }),
+    ).toBeUndefined();
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+
+  it("the Admin's delete of Nils's photo removes the entry, thumb and spool from Nils's own drive", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "mine.jpg", 5);
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "kept.jpg", 60);
+    const mine = await load(s.nilsDeps, s.nils, "mine.jpg");
+    await load(s.nilsDeps, s.nils, "kept.jpg");
+    expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).toContain(mine.id);
+    const nilsKey = mine.member.key;
+    const [, drive] = await s.nilsDeps.drives.open(nilsKey, { timeoutMs: 1_000 });
+    await until(async () => (await s.anna.list()).some((p) => p.name === "mine.jpg"));
+    await s.anna.remove(mine.id);
+    const paths = async () => {
+      const out: string[] = [];
+      for await (const e of drive!.list("/")) out.push(e.path);
+      return out;
+    };
+    await until(async () => !(await paths()).some((p) => p.includes(mine.id)));
+    expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).not.toContain(mine.id);
+    expect((await paths()).filter((p) => p.startsWith("/photos/")).length).toBe(1);
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+});
+
+describe("thumbnail bytes leave the phone", () => {
+  it("the Admin's delete of Nils's photo clears the thumbnail bytes from Nils's drive", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "mine.jpg", 5);
+    const mine = (await find(s.nils, "mine.jpg"))!;
+    const nilsKey = mine.member.key;
+    const [, drive] = await s.nilsDeps.drives.open(nilsKey, { timeoutMs: 1_000 });
+    const before = drive!.version();
+    const [, then] = await s.nilsDeps.drives.openAt(nilsKey, before, { timeoutMs: 500 });
+    expect(await then!.readBytes(`/thumbs/${mine.id}.jpg`)).toBeDefined();
+    await until(async () => (await s.anna.list()).some((p) => p.name === "mine.jpg"));
+    await s.anna.remove(mine.id);
+    await until(async () => {
+      const [, past] = await s.nilsDeps.drives.openAt(nilsKey, before, { timeoutMs: 500 });
+      return (
+        (await past!.readSmall(`/photos/${mine.id}.jpg`, 100, { timeoutMs: 200 })) === undefined
+      );
+    });
+    const [, past] = await s.nilsDeps.drives.openAt(nilsKey, before, { timeoutMs: 500 });
+    expect(
+      await past!.readSmall(`/thumbs/${mine.id}.jpg`, 100, { timeoutMs: 200 }),
+    ).toBeUndefined();
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
+
+  it("deleting your own photo clears its thumbnail bytes", async () => {
+    const s = await album();
+    await addWithThumb(s.anna, s.annaDeps, s.folderId, "mine.jpg", 5);
+    const mine = (await find(s.anna, "mine.jpg"))!;
+    const annaKey = mine.member.key;
+    const [, drive] = await s.annaDeps.drives.open(annaKey, { timeoutMs: 1_000 });
+    const before = drive!.version();
+    const [, then] = await s.annaDeps.drives.openAt(annaKey, before, { timeoutMs: 500 });
+    expect(await then!.readBytes(`/thumbs/${mine.id}.jpg`)).toBeDefined();
+    await s.anna.remove(mine.id);
+    const [, past] = await s.annaDeps.drives.openAt(annaKey, before, { timeoutMs: 500 });
+    expect(
+      await past!.readSmall(`/thumbs/${mine.id}.jpg`, 100, { timeoutMs: 200 }),
+    ).toBeUndefined();
+    await s.anna.close();
+    await s.nils.close();
+  }, 20_000);
 });

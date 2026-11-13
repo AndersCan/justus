@@ -48,6 +48,8 @@ type Replica = {
   listeners: Set<() => void>;
   /** Set by `keepOnly`: the one path whose bytes this replica holds, now and in later versions. */
   keptOnly?: string;
+  /** Files whose bytes `clear` dropped on this device: older versions that hold them read as cleared. */
+  clearedHere?: Set<StoredFile>;
   /** The path the last write put; undefined when the last write was a delete. */
   lastPut?: string;
 };
@@ -119,6 +121,17 @@ function clearedCopy(file: StoredFile): StoredFile {
     metadata: file.metadata,
     clearedSize: file.clearedSize ?? file.bytes.length,
   };
+}
+
+function withoutClearedBytes(
+  replica: Replica,
+  files: Map<string, StoredFile>,
+): Map<string, StoredFile> {
+  const cleared = replica.clearedHere;
+  if (!cleared) return files;
+  return new Map(
+    [...files].map(([p, f]): [string, StoredFile] => [p, cleared.has(f) ? clearedCopy(f) : f]),
+  );
 }
 
 /** Replaces the replica's maps with new ones that hold only `path`'s bytes; the shared maps are never mutated. */
@@ -252,11 +265,8 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       assertOpen();
       const file = replica.files.get(path);
       if (!file) return;
-      replica.files.set(path, {
-        bytes: new Uint8Array(),
-        metadata: file.metadata,
-        clearedSize: file.clearedSize ?? file.bytes.length,
-      });
+      (replica.clearedHere ??= new Set()).add(file);
+      replica.files.set(path, clearedCopy(file));
       replicateKey({ hub, key });
     },
     async keepOnly(path): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
@@ -512,7 +522,7 @@ export function createFakeDriveStore(options: { hub: FakeHub; node: FakeNode }):
       const copy = makeCopy({
         live,
         version,
-        files: replica.history[version] ?? new Map(),
+        files: withoutClearedBytes(replica, replica.history[version] ?? new Map()),
       });
       copies.set(copy, live);
       return [null, copy];
