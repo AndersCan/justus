@@ -1,0 +1,63 @@
+appId: no.cankode.justus
+---
+# iPad only (outside config.yaml's flows/*.yaml glob, so Android never runs it): Send invite link must
+# open the share menu as a popover without crashing the app. scripts/maestro-ios.mjs --ipad runs it.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 90000
+- tapOn:
+    text: "Skip"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Skip"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Your name"
+    waitToSettleTimeoutMs: 500
+- inputText: "M"
+- pressKey: Enter
+# A Simulator with Face ID enrolled shows the lock card; the walk declines it.
+- runFlow:
+    when:
+      visible: "Lock Justus?"
+    commands:
+      - tapOn:
+          text: "Not now"
+          waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Start sharing"
+    timeout: 20000
+- tapOn:
+    text: "Album name"
+    waitToSettleTimeoutMs: 500
+- inputText: "M"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "No photos in this album yet."
+    timeout: 20000
+- tapOn:
+    text: "Invite & members"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Invite people"
+    timeout: 15000
+- tapOn:
+    text: "Send invite link"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+# The popover floats over a still-visible page, so detect the menu's own Copy action
+# (full match: "Copy invite link" does not match).
+- extendedWaitUntil:
+    visible: "Copy"
+    timeout: 15000
+- takeScreenshot: .maestro/out/ipad-share-sheet
+# A tap outside the centred popover closes it; the page must still be there afterwards.
+- tapOn:
+    point: "50%,5%"
+- extendedWaitUntil:
+    visible: "Send invite link"
+    timeout: 15000

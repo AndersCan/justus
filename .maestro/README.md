@@ -52,3 +52,14 @@ state. First after wiping the app's cache dir (as Settings → Clear cache does)
 times the relaunched worklet must reopen the album "M" from `first-run.yaml` out of the store.
 The UI cannot show this: the intro-seen flag lives in web storage keyed by the loopback port,
 which changes every launch.
+
+## iOS
+
+`node scripts/maestro-ios.mjs` walks `flows/first-run.yaml` on an iPhone Simulator
+(`ios-device` workflow, `workflow_dispatch`); `--ipad` walks `ios/ipad-share.yaml` on an iPad
+Simulator. Keep both platform branches of `first-run.yaml` in step when its text changes.
+
+- iPad: Send invite link opens the share menu as a popover over a still-visible page, so the flow
+  waits for the menu's own `Copy` action (not `notVisible` on our page) and closes it with a tap
+  outside. The script fails the run if a `Justus*.ips` crash report appeared during it.
+- `ios/` is outside `config.yaml`'s `flows/*.yaml` glob, so Android never runs the iPad flow.
