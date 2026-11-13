@@ -19,9 +19,8 @@ function afterText(albums: readonly DeletedPhotos[]): string {
   const only = albums.length === 1 ? albums[0]?.photos : undefined;
   const one = only?.length === 1 ? only[0] : undefined;
   const held = one?.held;
-  if (held === true) return copy("deleted_note.no_longer_shows_kept");
-  if (held === false && one?.preview === true)
-    return copy("deleted_note.only_a_preview_had_reached");
+  if (held === true || (held === false && one?.preview === true))
+    return copy("deleted_note.removed_from_your_phone");
   if (held === false) return copy("deleted_note.never_arrived");
   return copy("deleted_note.no_longer_shows");
 }

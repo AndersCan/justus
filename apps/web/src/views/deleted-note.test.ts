@@ -50,11 +50,11 @@ describe("deletedNoteText", () => {
   test.each([
     [
       [photo({ deletedBy: "Ada", held: true })],
-      "Ada deleted “Sunset” from Trip. Your phone still keeps a hidden copy.",
+      "Ada deleted “Sunset” from Trip. It's removed from your phone.",
     ],
     [
       [photo({ deletedBy: "Ada", mine: true, held: true })],
-      "Ada deleted your photo “Sunset” from Trip. Your phone still keeps a hidden copy.",
+      "Ada deleted your photo “Sunset” from Trip. It's removed from your phone.",
     ],
     [
       [photo({ deletedBy: "Ada", held: false })],
@@ -62,7 +62,7 @@ describe("deletedNoteText", () => {
     ],
     [
       [photo({ deletedBy: "Ada", held: false, preview: true })],
-      "Ada deleted “Sunset” from Trip. Only a preview had reached your phone. It's no longer shown.",
+      "Ada deleted “Sunset” from Trip. It's removed from your phone.",
     ],
     [
       [photo({ deletedBy: "Ada", preview: true })],
