@@ -15,11 +15,17 @@ let nextId = 0;
 let host: HTMLDivElement | null = null;
 
 function ensureHost(): HTMLDivElement {
-  if (host) return host;
+  // Inside the open sheet, else the sheet's modal would make toasts untappable.
+  const parent = [...document.querySelectorAll("dialog[open]")].at(-1) ?? document.body;
+  if (host) {
+    if (host.parentElement !== parent) parent.appendChild(host);
+    return host;
+  }
   host = document.createElement("div");
+  host.dataset.toastHost = "";
   host.className =
     "pointer-events-none fixed bottom-20 left-4 z-50 md:bottom-4 px-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))]";
-  document.body.appendChild(host);
+  parent.appendChild(host);
   return host;
 }
 
