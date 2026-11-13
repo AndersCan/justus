@@ -14,6 +14,8 @@ import {
 } from "../machines/gallery-machine";
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
+import { friendsActor } from "../machines/friends-machine";
+import { requestRowOf } from "../utils/people";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
@@ -694,10 +696,37 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
   `;
 }
 
+/** Who is waiting to join this album, with a link to the card that answers them. */
+function requestLine(album: FolderSummary, name: string) {
+  return html`<p
+    class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg"
+    data-request-line
+  >
+    ${t("gallery.name_wants_to_join", { name })}
+    <a
+      class="ui-focus inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong"
+      href="/sharing/${album.id}"
+      >${t("ask_toast.review")}</a
+    >
+  </p>`;
+}
+
 export function albumHeader(page: PhotosPage, album: FolderSummary) {
   const status = page.status?.folder.id === album.id ? page.status : null;
-  const waiting =
-    album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id).length : 0;
+  const here = album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id) : [];
+  const waiting = here.length;
+  const oldest = here.reduce<(typeof here)[number] | undefined>(
+    (first, r) => (first === undefined || r.requestedAt < first.requestedAt ? r : first),
+    undefined,
+  );
+  const slot =
+    album.notice?.kind === "removed"
+      ? null
+      : oldest !== undefined
+        ? requestLine(album, requestRowOf(oldest, friendsActor.snapshot().context.friends).name)
+        : status
+          ? presenceStrip(status, page.lastSync)
+          : null;
   return html`
     <div class="space-y-2" data-motion-key="section:album">
       <a class="text-sm text-muted hover:text-fg" href="/albums">${t("gallery.all_albums")}</a>
@@ -725,8 +754,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           }
         </a>
       </div>
-      ${status && album.notice?.kind !== "removed" ? presenceStrip(status, page.lastSync) : null}
-      ${albumAddRow(page, album)}
+      ${slot} ${albumAddRow(page, album)}
     </div>
   `;
 }

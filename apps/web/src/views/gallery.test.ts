@@ -468,3 +468,67 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
     expect(buttons).not.toContain("Copy invite link");
   });
 });
+
+describe("albumHeader join request line", () => {
+  const album = { id: "f1", name: "Trip", role: "creator", members: 1 };
+  const alone = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
+  const ask = { folderId: "f1", folderName: "Trip", requesterName: "Ben" };
+  const draw_ = (over: {
+    album?: Record<string, unknown>;
+    status?: unknown;
+    requests?: unknown[];
+  }) => {
+    const a = over.album ?? album;
+    const host = document.createElement("div");
+    const page = {
+      status: "status" in over ? over.status : alone,
+      folders: [a],
+      requests: over.requests ?? [ask],
+      lastSync: Date.now(),
+    };
+    render(albumHeader(page as never, a as never), host);
+    return { host, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
+  };
+
+  test("the Admin sees who wants to join and a Review link, not the alone line", () => {
+    const { host, text } = draw_({});
+    expect(text).toContain("Ben wants to join");
+    expect(text).not.toContain("Only you so far");
+    const link = host.querySelector("[data-request-line] a");
+    expect(link?.textContent).toBe("Review");
+    expect(link?.getAttribute("href")).toBe("/sharing/f1");
+  });
+
+  test("the line shows without a sync status", () => {
+    expect(draw_({ status: null }).text).toContain("Ben wants to join");
+  });
+
+  test("names the oldest request of this album only", () => {
+    const other = { ...ask, folderId: "f2", requesterName: "Zed" };
+    const second = { ...ask, requesterName: "Cy" };
+    const { text } = draw_({ requests: [other, ask, second] });
+    expect(text).toContain("Ben wants to join");
+    expect(text).not.toContain("Zed");
+  });
+
+  test("a request for another album changes nothing", () => {
+    const { host, text } = draw_({ requests: [{ ...ask, folderId: "f2" }] });
+    expect(host.querySelector("[data-request-line]")).toBeNull();
+    expect(text).toContain("Only you so far");
+  });
+
+  test("a reader sees no request line", () => {
+    const { host, text } = draw_({ album: { ...album, role: "reader" } });
+    expect(host.querySelector("[data-request-line]")).toBeNull();
+    expect(text).toContain("Only you so far");
+  });
+
+  test("a removed album shows no request line", () => {
+    const { host } = draw_({ album: { ...album, notice: { kind: "removed" } } });
+    expect(host.querySelector("[data-request-line]")).toBeNull();
+  });
+
+  test("with no request the usual presence line shows", () => {
+    expect(draw_({ requests: [] }).text).toContain("Only you so far");
+  });
+});
