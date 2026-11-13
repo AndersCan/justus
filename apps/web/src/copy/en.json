@@ -3192,7 +3192,7 @@
     "screen": ""
   },
   "lightbox.deleting_can_t_take_back": {
-    "text": "Deleting can't take {k?it:them} back.",
+    "text": "Copies saved outside Justus can't be taken back.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",
@@ -4221,7 +4221,7 @@
     "screen": ""
   },
   "full_photo.names_preview": {
-    "text": "The photo no longer shows for {list}. The small preview already on {n?their phone:their phones} can't be wiped from here.",
+    "text": "The photo no longer shows for {list}.",
     "status": "draft",
     "where": "Photo viewer › Delete › text, Deleted toast",
     "who": "People who tap the photo's holders or delete a photo",

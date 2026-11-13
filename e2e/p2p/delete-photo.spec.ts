@@ -9,6 +9,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const ALBUM = "Delete trip";
 const ANA = "del-ana.png";
@@ -40,6 +42,24 @@ async function createAlbum(a, name, file, colour) {
   await expect(a.getByRole("button", { name: `View ${file}` }).locator("img")).toBeAttached({
     timeout: 20_000,
   });
+}
+
+// Photo ids in one album's photo cache on an instance (spool names are base64url "driveKey:id:ext").
+function spoolIds(storageDir, folderId) {
+  let names = [];
+  try {
+    names = readdirSync(join(storageDir, "cache", "photos", folderId));
+  } catch {
+    return [];
+  }
+  const ids = new Set();
+  for (const name of names) {
+    const token = name.split(".")[0] ?? "";
+    const raw = Buffer.from(token.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const parts = raw.split(":");
+    if (parts.length >= 3) ids.add(parts[1]);
+  }
+  return [...ids];
 }
 
 // Every toast a page shows, each counted once.
@@ -118,6 +138,7 @@ async function expectBenLine(a: Page, text: string | RegExp) {
 
 test("a member deletes only their own photo, the Admin's delete closes Ben's open view, and both deletes leave both phones", async ({
   instancePages,
+  instances,
 }) => {
   test.setTimeout(200_000);
   const [a, b] = instancePages;
@@ -178,6 +199,9 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
 
   const aToasts = await recordToasts(a);
   const bToasts = await recordToasts(b);
+  const benFolder = new URL(b.url()).pathname.split("/").filter(Boolean)[1];
+  const benIdsBefore = spoolIds(instances[1].storageDir, benFolder);
+  expect(benIdsBefore.length).toBeGreaterThan(0);
 
   // The Admin deletes Ana's photo: Ben's open view closes by itself.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
@@ -186,7 +210,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+ has the full photo\. It's removed from their phone the next time they open Justus\. Deleting can't take it back\./,
+    /.+ has the full photo\. It's removed from their phone the next time they open Justus\. Copies saved outside Justus can.t be taken back\./,
   );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
@@ -203,6 +227,10 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
       ),
     )
     .toHaveLength(1);
+  // Ben's photo cache has one photo fewer: the note's "removed from your phone" holds.
+  await expect
+    .poll(() => spoolIds(instances[1].storageDir, benFolder).length, { timeout: 60_000 })
+    .toBe(benIdsBefore.length - 1);
 
   // Ana's phone shows Ben's photo as a preview only once its thumbnail has loaded.
   await expect
@@ -226,11 +254,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("menuitem", { name: "Delete" }).click();
   const benDialog = b.locator("wa-dialog[open]", { hasText: `Delete “${BEN}”?` });
   await expect(benDialog).toContainText(
-    /The photo no longer shows for .+\. The small preview already on their phones? can.t be wiped from here\./,
+    /The photo no longer shows for .+\. It's removed from their phones? the next time they open Justus\./,
   );
   await benDialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
-    /^\s*Deleted “del-ben\.png”\. The photo no longer shows for .+\. The small preview already on their phones? can.t be wiped from here\.\s*$/,
+    /^\s*Deleted “del-ben\.png”\. The photo no longer shows for .+\.\s*$/,
   );
   await expect(b.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${BEN}` })).toHaveCount(0, {

@@ -145,13 +145,15 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledTimes(2);
     expect(confirmAction).toHaveBeenCalledWith({
       title: "Delete “a”?",
-      detail: "It will be gone from the album for everyone. Deleting can't take it back.",
+      detail:
+        "It will be gone from the album for everyone. Copies saved outside Justus can't be taken back.",
       confirmLabel: "Delete",
       tone: "danger",
     });
     expect(confirmAction).toHaveBeenCalledWith({
       title: "Delete “b”?",
-      detail: "It will be gone from the album for everyone. Deleting can't take it back.",
+      detail:
+        "It will be gone from the album for everyone. Copies saved outside Justus can't be taken back.",
       confirmLabel: "Delete",
       tone: "danger",
     });
@@ -173,7 +175,7 @@ describe("Delete", () => {
     expect(confirmAction).toHaveBeenCalledWith(
       expect.objectContaining({
         detail:
-          "It will be gone from the album for everyone. Nils has the full photo. It's removed from their phone the next time they open Justus. Deleting can't take it back.",
+          "It will be gone from the album for everyone. Nils has the full photo. It's removed from their phone the next time they open Justus. Copies saved outside Justus can't be taken back.",
       }),
     );
   });
