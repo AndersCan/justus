@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import { ref } from "lit-html/directives/ref.js";
 import { modalDialog } from "./modal-dialog";
@@ -122,5 +122,76 @@ describe("modalDialog", () => {
     render(null, host);
     await tick();
     expect(document.activeElement).toBe(other);
+  });
+
+  it("waits for a disabled opener to be enabled, then focuses it", async () => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await tick();
+    opener.blur(); // a browser drops focus from a button that becomes disabled
+    opener.disabled = true;
+    render(null, host);
+    await tick();
+    opener.disabled = false;
+    await tick();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("leaves focus alone when it moved elsewhere while the opener was disabled", async () => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    const other = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await tick();
+    opener.disabled = true;
+    render(null, host);
+    await tick();
+    other.focus();
+    opener.disabled = false;
+    await tick();
+    expect(document.activeElement).toBe(other);
+  });
+
+  async function closeWithDisabledOpener() {
+    const opener = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    opener.blur();
+    opener.disabled = true;
+    render(null, host);
+    await Promise.resolve();
+    return opener;
+  }
+
+  it("still focuses an opener enabled just before 5 s", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const opener = await closeWithDisabledOpener();
+      vi.advanceTimersByTime(4999);
+      opener.disabled = false;
+      await Promise.resolve();
+      expect(document.activeElement).toBe(opener);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops waiting for a disabled opener after 5 s", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const opener = await closeWithDisabledOpener();
+      vi.advanceTimersByTime(5000);
+      opener.disabled = false;
+      await Promise.resolve();
+      expect(document.activeElement).toBe(document.body);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

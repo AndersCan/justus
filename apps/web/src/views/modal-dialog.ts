@@ -1,3 +1,23 @@
+/** Focus `el`; a disabled button cannot take focus, so wait (up to 5 s) for it to be enabled, unless focus has gone elsewhere. */
+function focusWhenEnabled(el: Element | undefined) {
+  if (!(el instanceof HTMLElement) || !el.isConnected) return;
+  if (!(el instanceof HTMLButtonElement) || !el.disabled) {
+    el.focus();
+    return;
+  }
+  const watch = new MutationObserver(() => {
+    if (!el.isConnected || el.disabled) return;
+    stop();
+    if (document.activeElement === document.body || document.activeElement === null) el.focus();
+  });
+  const timer = setTimeout(() => stop(), 5000);
+  function stop() {
+    watch.disconnect();
+    clearTimeout(timer);
+  }
+  watch.observe(el, { attributes: true, attributeFilter: ["disabled"] });
+}
+
 /** A sheet as a native modal dialog. Make one callback per sheet module, never one per render:
  *   const sheetModal = modalDialog();
  *   html`<dialog class="ui-sheet-dialog" aria-label=${title} ${ref(sheetModal)}>
@@ -44,9 +64,7 @@ export function modalDialog(returnFocus?: () => Element | undefined): (el?: Elem
     if (toasts) document.body.appendChild(toasts);
     if (dialog.open) dialog.close();
     const back = returnFocus?.() ?? opener;
-    queueMicrotask(() => {
-      if (back instanceof HTMLElement && back.isConnected) back.focus();
-    });
+    queueMicrotask(() => focusWhenEnabled(back));
   }
 
   return (el) => {

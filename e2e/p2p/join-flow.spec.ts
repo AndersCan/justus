@@ -803,6 +803,10 @@ test("A accepts B and C in one tap as Viewers: both land, A's waiting list is em
   await expect(
     a.getByRole("dialog", { name: "Accept these 2 people? They can only look." }),
   ).toBeVisible();
+  await a.keyboard.press("Escape");
+  await expect(a.getByRole("dialog")).toHaveCount(0);
+  await expect(allLink).toBeFocused();
+  await allLink.click();
   await a.getByRole("button", { name: "Accept 2, can only look", exact: true }).click();
   await expect(a.getByText("2 people are in and can only look")).toBeVisible({ timeout: 30_000 });
   await expect(a.getByText(/wants to join/)).toHaveCount(0);
