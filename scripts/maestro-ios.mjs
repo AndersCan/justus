@@ -13,6 +13,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,6 +105,26 @@ if (run("xcrun", ["simctl", "bootstatus", udid, "-b"]).status !== 0) fail("Simul
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
+// iPhone: enrol a Face ID so the first-run card offers App lock, and serve /match for the flow.
+let face = null;
+if (!ipad) {
+  const enrolment = "com.apple.BiometricKit.enrollmentChanged";
+  const notify = (args) => run("xcrun", ["simctl", "spawn", udid, "notifyutil", ...args]);
+  notify(["-s", enrolment, "1"]);
+  notify(["-p", enrolment]);
+  const state = capture("xcrun", ["simctl", "spawn", udid, "notifyutil", "-g", enrolment]);
+  if (!String(state.stdout).trim().endsWith("1")) fail(`Face ID enrolment did not take on ${udid}`);
+  face = createServer((request, response) => {
+    const posted =
+      request.url === "/match" &&
+      notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0;
+    if (posted) console.log("face: match");
+    response.writeHead(posted ? 200 : 404).end(posted ? "match" : "not found");
+  });
+  await new Promise((resolve) => face.listen(0, "127.0.0.1", resolve));
+  console.log(`Face ID enrolled, helper on port ${face.address().port}`);
+}
+
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
 // "driver not ready in time"; that kills the next try's driver, so stop it first.
 function stopIosDriver() {
@@ -126,10 +147,15 @@ function maestro(log) {
   return new Promise((resolve) => {
     const file = createWriteStream(log);
     let text = "";
-    const child = spawn("maestro", ["--device", udid, "test", "--test-output-dir", out, flow], {
-      cwd: root,
-      env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
-    });
+    const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
+    const child = spawn(
+      "maestro",
+      ["--device", udid, "test", ...faceArgs, "--test-output-dir", out, flow],
+      {
+        cwd: root,
+        env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
+      },
+    );
     const tee = (chunk) => {
       process.stdout.write(chunk);
       file.write(chunk);
@@ -168,6 +194,7 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log("The Maestro iOS driver failed: trying once more");
 }
 stopIosDriver();
+face?.close();
 
 // A crash during the run is a failure even when the flow passed.
 const reports = path.join(homedir(), "Library/Logs/DiagnosticReports");
