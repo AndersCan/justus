@@ -32,7 +32,7 @@ appId: no.cankode.justus
 # Submit with Enter, not "Continue": the keyboard can cover the button.
 - pressKey: Enter
 # The phone has PIN 1111 (set by scripts/maestro-e2e.sh): the first-run card turns App lock on.
-# iOS: the card is hidden without Face ID enrolled, so the walk goes straight to "Start sharing".
+# iOS: the Simulator shows the card too, but has no lock to enable: the walk declines it.
 - runFlow:
     when:
       platform: Android
@@ -48,6 +48,16 @@ appId: no.cankode.justus
       - extendedWaitUntil:
           visible: "App lock is on"
           timeout: 15000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible: "Lock Justus?"
+          timeout: 20000
+      - tapOn:
+          text: "Not now"
+          waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
     visible: "Start sharing"
     timeout: 20000
