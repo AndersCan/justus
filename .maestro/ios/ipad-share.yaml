@@ -12,10 +12,6 @@ appId: no.cankode.justus
     retryTapIfNoChange: false
     waitToSettleTimeoutMs: 500
 - tapOn:
-    text: "Skip"
-    retryTapIfNoChange: false
-    waitToSettleTimeoutMs: 500
-- tapOn:
     text: "Your name"
     waitToSettleTimeoutMs: 500
 - inputText: "M"
