@@ -22,6 +22,10 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // The phones share state, so a failed test leaves albums and requests behind that fail
+  // every later test too (main run 43334639556: 8 more timeouts, 30 minutes). Stop at the
+  // first failure and its retry so the red shows the test that broke.
+  maxFailures: process.env.CI ? 2 : 0,
   reporter: "list",
   globalSetup: resolve(here, "e2e/hub/global-setup.mjs"),
   globalTeardown: resolve(here, "e2e/hub/global-teardown.mjs"),
