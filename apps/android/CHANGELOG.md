@@ -72,7 +72,7 @@
 - _(patch)_
   [user]: Deleting a photo now says plainly that a friend with only a small preview keeps that preview, which stops showing.
 - _(patch)_
-  [user]: The members list no longer says "Has 1 of 3 photos". It says whether each friend has all in full, some of them, or none yet, and your own row stays quiet.
+  [user]: The members list no longer says "Has 1 of 3 photos". It says whether each friend has every photo in full, some of them, or none yet, and your own row stays quiet.
 - _(patch)_
   [user]: After you create an album, Add photos is the only coloured button on its page, and screen readers start on the album's name. Copy invite link and Send invite link are plain.
 - _(patch)_ [user]: The close button on a photo no longer sits over the clock and battery at the top of the screen.
