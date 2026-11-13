@@ -2,4 +2,4 @@
 "@justus/android": minor
 ---
 
-[user]: New album now opens as a proper dialog: Tab stays inside it, Escape or a tap outside closes it, and the dimmed background no longer blurs.
+[user]: New album no longer closes when you select the name and let go outside the box, and the dimmed background no longer blurs.

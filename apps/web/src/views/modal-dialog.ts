@@ -3,7 +3,7 @@
  *   html`<dialog class="ui-sheet-dialog" aria-label=${title} ${ref(sheetModal)}>
  *          <div class="justus-sheet ui-sheet">…<button data-dismiss>Cancel</button>…</div></dialog>`
  * `data-dismiss`: the button Escape and a tap outside the panel press; none, or disabled,
- * means the sheet cannot be dismissed now. `autofocus`: where focus goes when it opens.
+ * means the sheet cannot be dismissed now. `autofocus`: where focus goes when it opens (showModal does it).
  * `returnFocus` names where focus goes on close; the element focused on open otherwise. */
 export function modalDialog(returnFocus?: () => Element | undefined): (el?: Element) => void {
   let current: HTMLDialogElement | undefined;
@@ -12,7 +12,7 @@ export function modalDialog(returnFocus?: () => Element | undefined): (el?: Elem
 
   function dismiss(dialog: HTMLDialogElement) {
     const button = dialog.querySelector("[data-dismiss]");
-    if (button instanceof HTMLButtonElement && !button.disabled) button.click();
+    if (button instanceof HTMLButtonElement) button.click();
   }
 
   function onCancel(e: Event) {
@@ -33,21 +33,14 @@ export function modalDialog(returnFocus?: () => Element | undefined): (el?: Elem
   function open(dialog: HTMLDialogElement) {
     if (current !== dialog || !dialog.isConnected || dialog.open) return;
     dialog.showModal();
-    const field = dialog.querySelector("[autofocus]");
-    if (field instanceof HTMLElement) field.focus();
-    if (field instanceof HTMLInputElement) field.select();
   }
 
   function close(dialog: HTMLDialogElement) {
-    dialog.removeEventListener("cancel", onCancel);
-    dialog.removeEventListener("pointerdown", onPointerDown);
-    dialog.removeEventListener("click", onClick);
     // Toasts shown in the sheet stay on screen after it goes.
     const toasts = dialog.querySelector("[data-toast-host]");
     if (toasts) document.body.appendChild(toasts);
     if (dialog.open) dialog.close();
     const back = returnFocus?.() ?? opener;
-    opener = undefined;
     queueMicrotask(() => {
       if (back instanceof HTMLElement && back.isConnected) back.focus();
     });

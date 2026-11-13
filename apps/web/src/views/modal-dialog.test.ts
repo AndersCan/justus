@@ -96,4 +96,31 @@ describe("modalDialog", () => {
     render(null, host);
     expect(document.body.querySelector("[data-toast-host]")?.textContent).toContain("Asked Kari");
   });
+
+  it("a toast host made before the sheet opened moves into the sheet for the next toast", async () => {
+    toast("Saved");
+    expect(document.body.querySelector(":scope > [data-toast-host]")).not.toBeNull();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await tick();
+    const dialog = host.querySelector("dialog")!;
+    toast("Asked Kari to join");
+    expect(dialog.querySelector("[data-toast-host]")?.textContent).toContain("Asked Kari");
+  });
+
+  it("returnFocus names where focus goes on close, over the opener", async () => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    const other = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(
+      host,
+      modalDialog(() => other),
+      () => {},
+    );
+    await tick();
+    render(null, host);
+    await tick();
+    expect(document.activeElement).toBe(other);
+  });
 });
