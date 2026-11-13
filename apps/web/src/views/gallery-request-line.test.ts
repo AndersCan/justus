@@ -33,12 +33,14 @@ describe("albumHeader join request line: who it names", () => {
     expect(line).not.toContain("phone");
   });
 
-  test("with two waiting, the oldest ask is named, whatever the list order", () => {
+  test("with two waiting, the line counts them and names neither", () => {
     const line = draw([
       { folderId: "f1", folderName: "Trip", requesterName: "Cy", requestedAt: 2_000 },
       { folderId: "f1", folderName: "Trip", requesterName: "Ben", requestedAt: 1_000 },
     ]);
-    expect(line).toContain("Ben wants to join");
+    expect(line).toContain("2 people want to join");
+    expect(line).not.toContain("Ben");
+    expect(line).not.toContain("Cy");
   });
 
   test("with two others connected, the line replaces the connected line", () => {

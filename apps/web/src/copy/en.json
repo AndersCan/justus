@@ -2078,6 +2078,13 @@
     "who": "Admins, inside an album someone asked to join",
     "screen": ""
   },
+  "gallery.someone_wants_to_join": {
+    "text": "Someone not in your friends wants to join",
+    "status": "draft",
+    "where": "Photos › album › someone asks to join",
+    "who": "Admins, inside an album someone asked to join",
+    "screen": ""
+  },
   "gallery.only_you_so_far_invite": {
     "text": "Only you so far",
     "status": "draft",
