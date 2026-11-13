@@ -16,6 +16,7 @@ import {
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readEnrolled, setEnrolled, startFaceHelper } from "./maestro-ios-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -104,6 +105,12 @@ if (run("xcrun", ["simctl", "bootstatus", udid, "-b"]).status !== 0) fail("Simul
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
+// Face ID: enrol a face so the first-run card offers App lock, and serve /match for the flow.
+const wasEnrolled = await readEnrolled(udid);
+if (!(await setEnrolled(udid, true))) fail(`Face ID enrolment did not take on ${udid}`);
+const face = await startFaceHelper(udid);
+console.log(`Face ID enrolled (was ${wasEnrolled ? 1 : 0}), helper on port ${face.port}`);
+
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
 // "driver not ready in time"; that kills the next try's driver, so stop it first.
 function stopIosDriver() {
@@ -126,10 +133,14 @@ function maestro(log) {
   return new Promise((resolve) => {
     const file = createWriteStream(log);
     let text = "";
-    const child = spawn("maestro", ["--device", udid, "test", "--test-output-dir", out, flow], {
-      cwd: root,
-      env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
-    });
+    const child = spawn(
+      "maestro",
+      ["--device", udid, "test", "-e", `FACE=${face.port}`, "--test-output-dir", out, flow],
+      {
+        cwd: root,
+        env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
+      },
+    );
     const tee = (chunk) => {
       process.stdout.write(chunk);
       file.write(chunk);
@@ -168,6 +179,9 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log("The Maestro iOS driver failed: trying once more");
 }
 stopIosDriver();
+// Put the Simulator's enrolment back, and stop the helper.
+face.close();
+await setEnrolled(udid, wasEnrolled);
 
 // A crash during the run is a failure even when the flow passed.
 const reports = path.join(homedir(), "Library/Logs/DiagnosticReports");
