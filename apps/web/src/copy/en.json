@@ -2751,7 +2751,7 @@
     "screen": ""
   },
   "invite.copied_paste_it": {
-    "text": "Copied. Paste it into a chat to send it.",
+    "text": "Copied. Now open your messages app, paste the link and send it to the person you want.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
