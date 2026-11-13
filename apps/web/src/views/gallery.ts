@@ -43,7 +43,7 @@ import {
   pickerInput,
   startAdd,
 } from "./photo-picker";
-import { adminName, waitingForAdmin } from "./invite";
+import { adminName, inviteRow, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
@@ -489,19 +489,34 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
     return html`<p class="text-sm text-muted">${t("gallery.you_can_add_photos_once")}</p>`;
   }
   const others = album.members - 1;
-  return html`<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+  const status = page.status?.folder.id === album.id ? page.status : undefined;
+  const inviteHere =
+    others <= 0 &&
+    status !== undefined &&
+    status.folder.role === "creator" &&
+    status.folder.invite !== undefined;
+  const row = html`<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
     ${pickerInput(album.id)}
     <div class="flex min-w-0 max-w-full gap-2">
       ${cameraButton(page, album)} ${addButton(page, album)}
     </div>
-    <p class="text-xs text-muted">
-      ${
-        others > 0
-          ? copy("gallery.only_the_people_in_this", { members: album.members })
-          : copy("gallery.only_you_until_you_invite")
-      }
-    </p>
+    ${
+      inviteHere
+        ? null
+        : html`<p class="text-xs text-muted">
+            ${
+              others > 0
+                ? copy("gallery.only_the_people_in_this", { members: album.members })
+                : copy("gallery.only_you_until_you_invite")
+            }
+          </p>`
+    }
   </div>`;
+  if (!inviteHere) return row;
+  return html`${row}
+    <div class="mt-2">
+      ${inviteRow(status.folder, status.name, t("gallery.only_you_until_you_invite"))}
+    </div>`;
 }
 
 /** The strip's motion key while it shows, so the page can slide around it. */
