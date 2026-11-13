@@ -72,5 +72,5 @@ jobs:
         if: ${{ success() && matrix.kind == 'ipad' }}
         with:
           name: ios-device-ipad-shots
-          path: .maestro/out/*.png
+          path: .maestro/out/**/ipad-share-sheet.png
           retention-days: 14

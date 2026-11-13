@@ -54,11 +54,10 @@ function pickSimulator() {
     .filter((name) => name.includes("SimRuntime.iOS-"))
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   for (const runtime of runtimes) {
-    const matches = list.devices[runtime].filter(
-      (device) =>
-        ipad
-          ? device.name.startsWith("iPad")
-          : device.name.startsWith("iPhone") && !device.name.includes("SE"),
+    const matches = list.devices[runtime].filter((device) =>
+      ipad
+        ? device.name.startsWith("iPad")
+        : device.name.startsWith("iPhone") && !device.name.includes("SE"),
     );
     const booted = matches.find((device) => device.state === "Booted");
     const chosen = booted ?? matches[0];
