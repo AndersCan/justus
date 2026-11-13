@@ -13,18 +13,15 @@ import {
 } from "../membership/records";
 import { copyAlbumEntries } from "../rotate-album";
 import { liveOwed, type OwedOffers } from "../membership/offers";
+import { errText, type P2pLog } from "../p2p-log.ts";
+import { readRecord } from "../membership/join.ts";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 const DRIVE_PATH_FOLDER = "/folder.json";
 const DRIVE_PATH_MEMBERS = "/members.json";
 const DRIVE_PATH_REMOVED = "/removed.json";
-/** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
-const MAX_RECORD_BYTES = 1024 * 1024;
 
-export type AlbumLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
+export type AlbumLog = P2pLog;
 
 export type AlbumError =
   | { kind: "write-failed"; message: string }
@@ -32,27 +29,6 @@ export type AlbumError =
   | { kind: "rotate-failed"; message: string };
 /** The repo's error tuple (ADR 0002 decision 8). */
 export type AlbumResult<T> = [AlbumError, null] | [null, T];
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
-
-async function readText(
-  drive: Drive,
-  options: { path: string; log: AlbumLog },
-): Promise<string | null> {
-  const { path, log } = options;
-  try {
-    return (await drive.readSmall(path, MAX_RECORD_BYTES)) ?? null;
-  } catch (thrown: unknown) {
-    log("error", { where: "drive.read", drive: short(drive.key), path, err: errText(thrown) });
-    return null;
-  }
-}
 
 /** Opens the new album's own drive (namespace `folder/<id>`, never the identity
  * drive) and writes who made it and its name. */
@@ -80,7 +56,7 @@ export async function albumNameUpdate(
 ): Promise<string | undefined> {
   const { role, current, log } = options;
   if (role === "creator") return undefined;
-  const name = parseFolderName(await readText(folderDrive, { path: DRIVE_PATH_FOLDER, log }));
+  const name = parseFolderName(await readRecord(folderDrive, { path: DRIVE_PATH_FOLDER, log }));
   if (name === "" || name === current) return undefined;
   return name;
 }
@@ -165,7 +141,7 @@ export async function removeAlbumMember(
   options: { memberKey: string; log: AlbumLog },
 ): Promise<AlbumResult<RegistryFile>> {
   const { memberKey, log } = options;
-  const registry = parseRegistry(await readText(folderDrive, { path: DRIVE_PATH_MEMBERS, log }));
+  const registry = parseRegistry(await readRecord(folderDrive, { path: DRIVE_PATH_MEMBERS, log }));
   if (!registry.members[memberKey]) {
     return [{ kind: "no-such-member", message: "No such member" }, null];
   }
@@ -221,13 +197,13 @@ export async function rotateAlbum(
     const target = await drives.openOwn(`album/${record.id}`);
     fresh = target;
     await copyAlbumEntries(old, target);
-    const registry = parseRegistry(await readText(old, { path: DRIVE_PATH_MEMBERS, log }));
+    const registry = parseRegistry(await readRecord(old, { path: DRIVE_PATH_MEMBERS, log }));
     const earlier = Object.values(registry.members)
       .filter((m) => m.key !== target.key)
       .map((m) => ({ key: m.key, name: m.name }));
     const keys = new Set(earlier.map((e) => e.key));
     const removed = Object.fromEntries(
-      Object.entries(parseRemoved(await readText(old, { path: DRIVE_PATH_REMOVED, log }))).filter(
+      Object.entries(parseRemoved(await readRecord(old, { path: DRIVE_PATH_REMOVED, log }))).filter(
         ([id]) => keys.has(id.split(":")[0]),
       ),
     );

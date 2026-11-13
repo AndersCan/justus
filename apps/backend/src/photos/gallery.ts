@@ -7,6 +7,8 @@ import type { Drive } from "../ports/drive-store";
 import { RENDITION_EXT, type Role } from "@justus/core";
 import { deriveGallery, type DerivedPhoto, type DriveScan } from "../gallery-order";
 import { parseDeviceName, parseRemoved, type RemovedFile } from "../membership/records";
+import { errText, short, type P2pLog } from "../p2p-log.ts";
+import { readRecord } from "../membership/join.ts";
 
 export const DRIVE_PATH_PHOTOS = "/photos";
 /** Thumbnails, one per photo, at `/thumbs/<id>.jpg`. Kept out of `/photos` so
@@ -17,10 +19,7 @@ const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
 const MAX_RECORD_BYTES = 1024 * 1024;
 
-export type GalleryLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
+export type GalleryLog = P2pLog;
 
 /** The drives an album holds on this device. */
 export type AlbumDrives = {
@@ -66,27 +65,6 @@ export type AddedPhoto = Omit<DerivedPhoto, "memberName">;
 export type GalleryError = { kind: "write-failed"; message: string };
 /** The repo's error tuple (ADR 0002 decision 8). */
 export type GalleryResult<T> = [GalleryError, null] | [null, T];
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
-
-async function readText(
-  drive: Drive,
-  options: { path: string; log: GalleryLog },
-): Promise<string | null> {
-  const { path, log } = options;
-  try {
-    return (await drive.readSmall(path, MAX_RECORD_BYTES)) ?? null;
-  } catch (thrown: unknown) {
-    log("error", { where: "drive.read", drive: short(drive.key), path, err: errText(thrown) });
-    return null;
-  }
-}
 
 /**
  * The drives whose `/photos` make up the gallery for this device's role:
@@ -160,7 +138,7 @@ export async function listGallery(
   for (const { key, drive } of sources) {
     names.set(
       key,
-      memberName(key) ?? parseDeviceName(await readText(drive, { path: DRIVE_PATH_DEVICE, log })),
+      memberName(key) ?? parseDeviceName(await readRecord(drive, { path: DRIVE_PATH_DEVICE, log })),
     );
   }
   return {

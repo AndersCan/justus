@@ -6,6 +6,7 @@ import type { PhotoHolders, PhotoMember } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
 import { isHexKey } from "../membership/records";
 import type { GalleryLog } from "./gallery";
+import { errText } from "../p2p-log.ts";
 
 export const HOLDING_PATH = "/holding.json";
 export const HELD_DIR = "/held";
@@ -27,10 +28,6 @@ export type HeldReport =
   | { kind: "silent" };
 export type HoldersError = { kind: "write-failed"; message: string };
 export type HoldersResult<T> = [HoldersError, null] | [null, T];
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
 
 /** The path of a photo's entry, or undefined for an id that is not safe to use. */
 export function heldPath(id: string): string | undefined {

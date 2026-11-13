@@ -14,23 +14,13 @@ import {
   type Answer,
   type LinkTime,
 } from "./records";
+import { errText, short, type P2pLog } from "../p2p-log.ts";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES. */
 const MAX_RECORD_BYTES = 1024 * 1024;
 
-export type AnswerLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
+export type AnswerLog = P2pLog;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
