@@ -4256,21 +4256,21 @@
     "screen": ""
   },
   "member.role_admin": {
-    "text": "Started this album",
+    "text": "Started it",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_collaborator": {
-    "text": "Can add photos",
+    "text": "Adds photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_viewer": {
-    "text": "Can only look",
+    "text": "Looks only",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",

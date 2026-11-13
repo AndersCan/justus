@@ -119,7 +119,7 @@ describe("holdingLine", () => {
     expect(holdingLine(undefined, 4)).toBe("has no photos yet");
     expect(holdingLine({ kind: "count", held: 0 }, 4)).toBe("has no photos yet");
   });
-  it("role and phone part fit a 360 px row (~48 chars of text-xs)", () => {
+  it("role and phone part fit a 360 px row (~42 chars of text-xs)", () => {
     const phones = [
       holdingLine({ kind: "silent" }, 3),
       holdingLine(undefined, 3),
@@ -131,6 +131,6 @@ describe("holdingLine", () => {
       "member.role_collaborator",
       "member.role_viewer",
     ] as const)
-      for (const phone of phones) expect(`${copy(role)} · ${phone}`.length).toBeLessThanOrEqual(48);
+      for (const phone of phones) expect(`${copy(role)} · ${phone}`.length).toBeLessThanOrEqual(42);
   });
 });

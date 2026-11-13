@@ -979,7 +979,7 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("Can only look");
+    expect(row.textContent).toContain("Looks only");
     expect(row.textContent).toContain("connected");
     expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
     expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
@@ -1426,12 +1426,12 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const rows = [...host.querySelectorAll("li")];
     const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
-    expect(row("Me")?.textContent).toContain("Started this album");
-    expect(row("Nils")?.textContent).toContain("Can add photos");
-    expect(row("Zed")?.textContent).toContain("Can only look");
+    expect(row("Me")?.textContent).toContain("Started it");
+    expect(row("Nils")?.textContent).toContain("Adds photos");
+    expect(row("Zed")?.textContent).toContain("Looks only");
     for (const r of rows) {
       const nameLine = r.querySelector("p")?.textContent ?? "";
-      expect(nameLine).not.toMatch(/Started this album|Can add photos|Can only look/);
+      expect(nameLine).not.toMatch(/Started it|Adds photos|Looks only/);
     }
   });
 
@@ -1473,7 +1473,7 @@ describe("album member roles", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
-    expect(own?.textContent).not.toMatch(/Started this album|Can add photos|Can only look/);
+    expect(own?.textContent).not.toMatch(/Started it|Adds photos|Looks only/);
     expect(own?.textContent).toContain("Waiting to be let in");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(host.textContent).toContain("Waiting for approval");
@@ -1512,7 +1512,7 @@ describe("removed from the album", () => {
     expect(host.querySelector("[role=status]")?.textContent?.trim()).toBe(
       "You're no longer in Trip.",
     );
-    expect(host.textContent).not.toContain("Can only look");
+    expect(host.textContent).not.toContain("Looks only");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(memberRows(host)).toHaveLength(0);
   });
@@ -1571,7 +1571,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_collaborator"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Can add photos · has 2 in full");
+    expect(line.textContent?.trim()).toBe("Adds photos · has 2 in full");
   });
 
   test("the Members card shows one line, then the people, then what the lines mean", async () => {
@@ -1632,7 +1632,7 @@ describe("album holding", () => {
       const host = await open(photos);
       const own = memberRows(host)[0];
       const line = own.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
-      expect(line.textContent?.trim()).toBe("Started this album");
+      expect(line.textContent?.trim()).toBe("Started it");
     }
   });
 
@@ -1658,10 +1658,10 @@ describe("album holding", () => {
         .querySelector('[data-copy-id="member.role_viewer"]')!
         .closest("p")!
         .textContent?.trim();
-    expect(line()).toBe("Can only look · has no photos yet");
+    expect(line()).toBe("Looks only · has no photos yet");
     vi.mocked(gateway.list).mockResolvedValue([null, { photos: photos(true) }] as never);
     await gallery.load();
-    await vi.waitFor(() => expect(line()).toBe("Can only look · has 1 in full"));
+    await vi.waitFor(() => expect(line()).toBe("Looks only · has 1 in full"));
   });
 
   test("an Admin row seen by a collaborator also says what their phone holds", async () => {
@@ -1685,7 +1685,7 @@ describe("album holding", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_admin"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("Started this album · has no photos yet");
+    expect(line.textContent?.trim()).toBe("Started it · has no photos yet");
   });
 
   test("a holders push updates the same row", async () => {
