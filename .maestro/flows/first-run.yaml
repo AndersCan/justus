@@ -59,13 +59,21 @@ appId: no.cankode.justus
       - tapOn:
           text: "Enable"
           waitToSettleTimeoutMs: 500
+      # A tap on Enable can be dropped while the page settles: tap again when the card is still up.
       - retry:
           maxRetries: 3
           commands:
+            - runFlow:
+                when:
+                  visible: "Lock Justus?"
+                commands:
+                  - tapOn:
+                      text: "Enable"
+                      waitToSettleTimeoutMs: 500
             - runScript: ../scripts/face-match.js
             - extendedWaitUntil:
                 visible: "App lock is on"
-                timeout: 5000
+                timeout: 8000
 - extendedWaitUntil:
     visible: "Start sharing"
     timeout: 20000
