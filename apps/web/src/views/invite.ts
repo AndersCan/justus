@@ -120,7 +120,7 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
   setTimeout(() => {
     button.textContent = label;
     if (hint) hint.textContent = hint.dataset.text ?? "";
-  }, 2000);
+  }, 6000);
 }
 
 /** Copies the album's current link and says whether it worked; used by the toast after a removal. */
