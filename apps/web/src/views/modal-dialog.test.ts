@@ -123,4 +123,35 @@ describe("modalDialog", () => {
     await tick();
     expect(document.activeElement).toBe(other);
   });
+
+  it("waits for a disabled opener to be enabled, then focuses it", async () => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await tick();
+    opener.blur(); // a browser drops focus from a button that becomes disabled
+    opener.disabled = true;
+    render(null, host);
+    await tick();
+    opener.disabled = false;
+    await tick();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("leaves focus alone when it moved elsewhere while the opener was disabled", async () => {
+    const opener = document.body.appendChild(document.createElement("button"));
+    const other = document.body.appendChild(document.createElement("button"));
+    opener.focus();
+    const host = document.body.appendChild(document.createElement("div"));
+    sheet(host, modalDialog(), () => {});
+    await tick();
+    opener.disabled = true;
+    render(null, host);
+    await tick();
+    other.focus();
+    opener.disabled = false;
+    await tick();
+    expect(document.activeElement).toBe(other);
+  });
 });

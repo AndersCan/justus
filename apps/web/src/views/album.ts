@@ -566,6 +566,7 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
       keys.length >= 2
         ? html`<button
             class="ui-focus mt-2 inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong disabled:pointer-events-none disabled:opacity-50"
+            data-accept-all
             ?disabled=${reqVm.responding || reqVm.loading}
             @click=${() => requests.acceptAllAsViewers(id, keys)}
           >

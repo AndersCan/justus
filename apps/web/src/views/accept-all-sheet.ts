@@ -9,7 +9,9 @@ import { modalDialog } from "./modal-dialog";
 
 type Rows = ReturnType<typeof peopleViewModel>["requests"];
 
-const acceptAllModal = modalDialog();
+// The Accept all button is disabled by the tap that opens this sheet, so the browser has
+// already dropped focus from it: name it, or focus would land on <body> when the sheet closes.
+const acceptAllModal = modalDialog(() => document.querySelector("[data-accept-all]") ?? undefined);
 
 /** The sheet Accept all opens: names everyone it will let in, with their check codes. Nobody is answered until Accept. */
 export function acceptAllSheetView(
