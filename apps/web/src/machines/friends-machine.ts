@@ -100,7 +100,10 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
               emit(
                 loaded.create({ friends: (result as { friends: Friend[] } | null)?.friends ?? [] }),
               ),
-            (message) => emit(loadFailed.create({ message })),
+            (message) => {
+              console.error("friends: could not load", message);
+              emit(loadFailed.create({ message }));
+            },
           ),
       });
       /** The friends are known, so the sheet can open. */
@@ -118,10 +121,7 @@ export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }
       m.on(loadingFriends, {
         event: loadFailed,
         to: [friendSheetClosed],
-        handler: (e) => {
-          console.error("friends: could not load", e.payload.message);
-          return { state: friendSheetClosed };
-        },
+        handler: () => ({ state: friendSheetClosed }),
       });
 
       /** The person taps a member and the friend sheet opens for them. */
