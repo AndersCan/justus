@@ -286,6 +286,45 @@ export function invitePanel(
   });
 }
 
+function linkBlockedFor(folder: FolderSummary, view: InviteLinkView) {
+  return view.state === "turningOff" || folder.invite?.code === view.offCode;
+}
+
+function inviteButtons(folder: FolderSummary, myName: string, blocked: boolean) {
+  const copyClick = (e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement);
+  return html`<div class="flex flex-wrap gap-2">
+    ${
+      canShareInvite()
+        ? html`<button
+              class="ui-btn-ghost"
+              ?disabled=${blocked}
+              @click=${() => void shareInvite(folder, myName)}
+            >
+              ${t("invite.send_invite_link")}
+            </button>
+            <button class="ui-btn-ghost" ?disabled=${blocked} @click=${copyClick}>
+              ${t("invite.copy_link")}
+            </button>`
+        : html`<button class="ui-btn-ghost" ?disabled=${blocked} @click=${copyClick}>
+            ${t("invite.copy_invite_link")}
+          </button>`
+    }
+  </div>`;
+}
+
+/** The album's Send/Copy buttons with a line under them that Copy turns into the
+ * "Copied…" hint. Admin only: renders nothing for anyone else or without an invite code. */
+export function inviteRow(folder: FolderSummary, myName: string, line: unknown) {
+  if (folder.role !== "creator" || !folder.invite) return null;
+  return watch(
+    inviteLinkActor,
+    (snapshot) => html`<div>
+      ${inviteButtons(folder, myName, linkBlockedFor(folder, inviteLinkViewOf(snapshot)))}
+      <p class="mt-1 text-xs text-muted" data-invite-hint>${line}</p>
+    </div>`,
+  );
+}
+
 function invitePanelBody(
   folder: FolderSummary,
   myName: string,
@@ -305,12 +344,11 @@ function invitePanelBody(
     taken,
   );
   const waiting = waitingLine(folder.waitingFor);
-  const canShare = canShareInvite();
   const link = expiresAt === null ? null : inviteLinkFor(folder, myName, expiresAt);
   // Until the album shows its new code, a fresh link would carry the one just turned off.
   const linksOff = view.offFolderId === folder.id;
   const replaced = view.replacedFolderId === folder.id;
-  const linkBlocked = view.state === "turningOff" || folder.invite?.code === view.offCode;
+  const linkBlocked = linkBlockedFor(folder, view);
   return html`
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("invite.invite_people")}</h2>
@@ -373,32 +411,7 @@ function invitePanelBody(
               ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
             </p>`
       }
-      <div class="flex flex-wrap gap-2">
-        ${
-          canShare
-            ? html`<button
-                  class="ui-btn-ghost"
-                  ?disabled=${linkBlocked}
-                  @click=${() => void shareInvite(folder, myName)}
-                >
-                  ${t("invite.send_invite_link")}
-                </button>
-                <button
-                  class="ui-btn-ghost"
-                  ?disabled=${linkBlocked}
-                  @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
-                >
-                  ${t("invite.copy_link")}
-                </button>`
-            : html`<button
-                class="ui-btn-ghost"
-                ?disabled=${linkBlocked}
-                @click=${(e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement)}
-              >
-                ${t("invite.copy_invite_link")}
-              </button>`
-        }
-      </div>
+      ${inviteButtons(folder, myName, linkBlocked)}
       ${
         linkBlocked
           ? null

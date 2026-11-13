@@ -2,8 +2,16 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
+import { t } from "../copy/copy";
 import { inviteLink } from "../machines/sharing/invite-link";
-import { checkCodeLine, friendNamesLine, invitePanel, joinSheet, waitingLine } from "./invite";
+import {
+  checkCodeLine,
+  friendNamesLine,
+  inviteRow,
+  invitePanel,
+  joinSheet,
+  waitingLine,
+} from "./invite";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -67,6 +75,48 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.replaceChildren();
+});
+
+describe("invite row", () => {
+  const mountRow = (role: string, withInvite = true) => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const f = { ...folder(role), ...(withInvite ? {} : { invite: undefined }) } as FolderSummary;
+    render(inviteRow(f, "Nils", t("gallery.only_you_until_you_invite")), host);
+    return host;
+  };
+  const labels = (host: HTMLElement) =>
+    [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
+
+  test("the Admin gets the Copy button on the web", () => {
+    expect(labels(mountRow("creator"))).toEqual(["Copy invite link"]);
+  });
+
+  test("the Admin gets Send and Copy where the app can share", () => {
+    vi.stubGlobal("navigator", { ...navigator, share: vi.fn() });
+    expect(labels(mountRow("creator"))).toEqual(["Send invite link", "Copy link"]);
+  });
+
+  test("Copy swaps the line for the pasted hint, then restores both", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => {}) },
+      configurable: true,
+    });
+    const host = mountRow("creator");
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(copyButton(host)!.textContent).toBe("Copied ✓");
+    expect(host.textContent).toContain("Copied. Now open your messages app");
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(copyButton(host)!.textContent!.trim()).toBe("Copy invite link");
+    expect(host.textContent).toContain("Only you, until you invite someone.");
+  });
+
+  test("a reader or a missing invite code renders no button", () => {
+    expect(mountRow("reader").querySelectorAll("button")).toHaveLength(0);
+    expect(mountRow("creator", false).querySelectorAll("button")).toHaveLength(0);
+  });
 });
 
 describe("invite card send hint", () => {
