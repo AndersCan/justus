@@ -19,32 +19,36 @@ export type ButtonProps = {
 }
 
 const base =
-  "relative inline-flex transition duration-fast ease-standard items-center justify-center gap-2 border border-solid font-medium rounded-control cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+  "inline-flex items-center justify-center gap-2 font-medium rounded-control cursor-pointer select-none transition duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-0 active:scale-98 disabled:pointer-events-none disabled:opacity-50"
 
 const fills: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-on-fill border-transparent hover:opacity-90 active:opacity-80",
-  default: "bg-subtle text-fg border-transparent hover:bg-line active:bg-line",
-  invisible: "bg-transparent text-fg border-transparent hover:bg-subtle active:bg-line",
-  danger: "bg-danger-fg text-on-fill border-transparent hover:opacity-90 active:opacity-80",
-  link: "bg-transparent text-accent border-transparent hover:underline",
-  inactive: "bg-surface text-muted border-line opacity-60 cursor-not-allowed",
+  primary: "bg-accent text-on-fill hover:bg-accent-strong",
+  default: "bg-subtle text-fg hover:bg-line",
+  invisible: "bg-transparent text-fg hover:bg-subtle",
+  danger: "bg-danger-fg text-on-fill hover:opacity-90",
+  link: "bg-transparent text-accent hover:underline",
+  inactive: "bg-surface text-muted border border-solid border-line opacity-60 cursor-not-allowed",
 }
 
+// min-h, not h: apps put these classes on buttons with two-line labels.
 const sizes: Record<ButtonSize, string> = {
-  small: "h-tab px-2 text-xs",
-  medium: "h-touch px-3 text-sm",
-  large: "h-touch px-4 text-base",
+  small: "min-h-tab px-2 text-xs",
+  medium: "min-h-touch px-4 py-2.5 text-sm",
+  large: "min-h-touch px-4 py-2.5 text-base",
 }
 
-// Primer dims a disabled button and drops its hover; aria-disabled keeps a loading button focusable.
-const disabledClasses = "opacity-60 cursor-not-allowed"
+export type ButtonLook = { variant: ButtonVariant; size?: ButtonSize; block?: boolean }
+
+/** The classes button() puts on its <button>; apps put them on their own <a>, <label> or form <button>. */
+export function buttonClass(look: ButtonLook): string {
+  const classes = [base, fills[look.variant], sizes[look.size ?? "medium"]]
+  if (look.block === true) classes.push("w-full")
+  return classes.join(" ")
+}
 
 export function button(props: ButtonProps): TemplateResult {
-  const size = props.size ?? "medium"
   const unavailable = props.loading === true
-  const classes = [base, fills[props.variant], sizes[size]]
-  if (props.block === true) classes.push("w-full")
-  if (props.disabled === true) classes.push(disabledClasses)
+  const classes = ["relative", buttonClass(props)]
   if (props.class !== undefined) classes.push(props.class)
   return html`<button
     type="button"

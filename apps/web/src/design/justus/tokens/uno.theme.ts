@@ -32,6 +32,10 @@ export const designTheme = {
     "touch": "44px",
     "tab": "36px"
   },
+  "minHeight": {
+    "touch": "44px",
+    "tab": "36px"
+  },
   "duration": {
     "fast": "var(--duration-fast)"
   }
