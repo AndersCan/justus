@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Walks .maestro/flows/first-run.yaml on an iPhone Simulator: builds the Debug app,
-// boots the first available Simulator, installs, and runs Maestro (up to the share menu).
+// Walks .maestro/flows/first-run.yaml on an iPhone Simulator (up to the share menu), or with
+// --ipad .maestro/ios/ipad-share.yaml on an iPad Simulator. Builds the Debug app, boots the
+// first available Simulator, installs, and runs Maestro.
 // CI glue for .github/workflows/ios-device.yml; the green run is its test.
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -17,7 +18,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const flow = ".maestro/flows/first-run.yaml";
+const ipad = process.argv.includes("--ipad");
+const flow = ipad ? ".maestro/ios/ipad-share.yaml" : ".maestro/flows/first-run.yaml";
 const derived = path.join(root, "apps/ios/build/dd");
 const app = path.join(derived, "Build/Products/Debug-iphonesimulator/Justus.app");
 const out = path.join(root, ".maestro/out");
@@ -42,8 +44,8 @@ if (capture("which", ["maestro"]).status !== 0) {
   fail("maestro not on PATH: install Maestro 2.12.1");
 }
 
-// The newest iOS runtime's first available iPhone, an already booted one first.
-// iPhone SE models have Touch ID, not Face ID.
+// The newest iOS runtime's first available iPhone (or iPad with --ipad), an already booted one
+// first. iPhone SE models have Touch ID, not Face ID.
 function pickSimulator() {
   const list = JSON.parse(
     capture("xcrun", ["simctl", "list", "devices", "available", "-j"]).stdout,
@@ -52,8 +54,10 @@ function pickSimulator() {
     .filter((name) => name.includes("SimRuntime.iOS-"))
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   for (const runtime of runtimes) {
-    const matches = list.devices[runtime].filter(
-      (device) => device.name.startsWith("iPhone") && !device.name.includes("SE"),
+    const matches = list.devices[runtime].filter((device) =>
+      ipad
+        ? device.name.startsWith("iPad")
+        : device.name.startsWith("iPhone") && !device.name.includes("SE"),
     );
     const booted = matches.find((device) => device.state === "Booted");
     const chosen = booted ?? matches[0];
@@ -63,7 +67,7 @@ function pickSimulator() {
 }
 
 const device = pickSimulator();
-if (!device) fail("no iPhone Simulator: install an iOS runtime");
+if (!device) fail(`no ${ipad ? "iPad" : "iPhone"} Simulator: install an iOS runtime`);
 const { udid, name } = device;
 console.log(`Simulator: ${name} (${udid})`);
 

@@ -1,6 +1,7 @@
 name: ios-device
 
-# Walks the first-run flow on an iPhone Simulator, up to the share menu.
+# Walks the first-run flow on an iPhone Simulator, up to the share menu, and opens the share
+# menu on an iPad Simulator.
 on:
   workflow_dispatch:
 
@@ -8,8 +9,18 @@ permissions:
   contents: read
 
 jobs:
-  iphone:
-    name: iPhone first-run
+  device:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: iphone
+            name: iPhone first-run
+            flag: ""
+          - kind: ipad
+            name: iPad share sheet
+            flag: --ipad
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -46,13 +57,20 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
 
-      - name: Maestro walk (iPhone)
+      - name: Maestro walk (${{ matrix.kind }})
         timeout-minutes: 30
-        run: node scripts/maestro-ios.mjs
+        run: node scripts/maestro-ios.mjs ${{ matrix.flag }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() }}
         with:
-          name: ios-device-iphone
+          name: ios-device-${{ matrix.kind }}
           path: .maestro/out
+          retention-days: 14
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ success() && matrix.kind == 'ipad' }}
+        with:
+          name: ios-device-ipad-shots
+          path: .maestro/out/**/ipad-share-sheet.png
           retention-days: 14
