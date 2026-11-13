@@ -172,3 +172,30 @@ describe("renderJoinSheet when the owner's name is not known", () => {
     );
   });
 });
+
+describe("renderJoinSheet picks the start or mid form for every owner line", () => {
+  const P = "the person who invited you";
+  const C = "The person who invited you";
+  const textOf = (state: JoinView["state"]) => {
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet({ state, invite: { ...invite, ownerName: "" }, error: "" }, actions),
+      div,
+    );
+    return (div.textContent ?? "").replace(/\s+/g, " ").trim();
+  };
+
+  test.each([
+    ["linkTurnedOffByAdmin", `${C} turned off this link.`, `Ask ${P} for a new link`],
+    ["linkReplacedByAdmin", `${C} replaced this link`, `Ask ${P} for the new link.`],
+    ["albumDeletedByAdmin", `${C} deleted this album`, ""],
+    ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],
+    ["waitingForAdminToAccept", `Request to join sent to ${P}.`, ""],
+    ["waitingForYouToUpdate", `It reaches ${P} once both phones`, ""],
+    ["linkExpired", `Ask ${P} for a new one.`, ""],
+  ] as const)("%s reads %j and %j", (state, first, second) => {
+    const text = textOf(state);
+    expect(text).toContain(first);
+    expect(text).toContain(second);
+  });
+});

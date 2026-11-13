@@ -564,3 +564,11 @@ describe("pendingCard", () => {
     expect(pendingCard(null)).toBeNull();
   });
 });
+
+describe("checkCodeLine with a request saved by an older version", () => {
+  test("reads the stored stand-in as the person who invited you", () => {
+    const host = document.createElement("div");
+    render(checkCodeLine("maple river stone", "the Admin"), host);
+    expect(host.textContent).toContain("If the person who invited you asks which three words");
+  });
+});
