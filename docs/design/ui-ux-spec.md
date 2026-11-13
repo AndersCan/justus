@@ -94,13 +94,13 @@ there are several. Joining or creating lands in that album.
 
 ### 2.2 The five lessons (in-app training set)
 
-| #                           | Trigger                                              | Lesson (copy sketch)                                                                                                                                                                                  | Visual                                  |
-| --------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| L1 **No server**            | end of Welcome                                       | "There is no website behind justus. Your photos move device-to-device. If this app vanished tomorrow, your photos would not."                                                                         | crossed-out-cloud motif                 |
-| L2 **Peers hold your data** | first successful share to a peer                     | "Maya's device now holds this photo too. Anyone with the folder can see everything in it — share accordingly."                                                                                        | folder card with peer avatars appearing |
-| L3 **Offline-first**        | first offline capture / sync-pending state           | "You're offline — fine. Your photo is saved here and marked ⏳ _waiting_. It travels next time you're near a peer who has the folder."                                                                | sync-pending chip animating to ✓        |
-| L4 **Eventual consistency** | first observed cross-peer edit/delete reconciliation | "Devices compare notes when they meet. Last change wins, and the activity log shows what happened."                                                                                                   | two timelines converging                |
-| L5 **Who can see what**     | first new member approved                            | "Nils can now add photos to _Spain 2026_. Like everyone with the invite link, Nils sees every photo, past and future." **⚠ open:** per-photo grants would change this copy; tracked in issue #25/#30. | membership roster                       |
+| #                           | Trigger                                              | Lesson (copy sketch)                                                                                                                   | Visual                                  |
+| --------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| L1 **No server**            | end of Welcome                                       | "There is no website behind justus. Your photos move device-to-device. If this app vanished tomorrow, your photos would not."          | crossed-out-cloud motif                 |
+| L2 **Peers hold your data** | first successful share to a peer                     | "Maya's device now holds this photo too. Anyone with the folder can see everything in it — share accordingly."                         | folder card with peer avatars appearing |
+| L3 **Offline-first**        | first offline capture / sync-pending state           | "You're offline — fine. Your photo is saved here and marked ⏳ _waiting_. It travels next time you're near a peer who has the folder." | sync-pending chip animating to ✓        |
+| L4 **Eventual consistency** | first observed cross-peer edit/delete reconciliation | "Devices compare notes when they meet. Last change wins, and the activity log shows what happened."                                    | two timelines converging                |
+| L5 **Who can see what**     | first new member approved                            | "Nils can now add photos to _Spain 2026_. Like everyone with the invite link, Nils sees every photo, past and future."                 | membership roster                       |
 
 ### 2.3 Joining an album
 
@@ -189,6 +189,5 @@ photos) carries the color; chrome stays quiet.
 
 ## 4. Not yet built
 
-Tracked as GitHub issues, not specs: grant ledger and receipts UX (#25, #30),
-person identity (`person-identity-spec.md`, #31), the audit screen ("Where are
-my photos?"), people/search.
+Tracked as GitHub issues, not specs: the audit screen ("Where are my photos?"),
+people/search.
