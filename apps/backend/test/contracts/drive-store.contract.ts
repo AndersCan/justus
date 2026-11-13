@@ -1302,4 +1302,37 @@ export const realOnlyCases: DriveCase[] = [
       t.noErr([after], "clears once nothing is reading");
     },
   },
+  {
+    name: "R7 a read that starts while clearDeleted waits is held back until the clear is over",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      await own.put("/z", bytes("zzz"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the new index",
+      );
+      const [first] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([first], "index fetched while connected");
+      await a.disconnect();
+      await remote.clear("/z");
+      await remote.clear("/y");
+      const early = remote.readSmall("/z", 10, { timeoutMs: 1_500 });
+      await new Promise((r) => setTimeout(r, 50));
+      const clearing = remote.clearDeleted({ timeoutMs: 5_000 });
+      await new Promise((r) => setTimeout(r, 300));
+      const late = remote.readSmall("/y", 10, { timeoutMs: 3_000 });
+      const [err] = await clearing;
+      const clearedAt = Date.now();
+      t.noErr([err], "clears once the early read ends");
+      await late;
+      await early;
+      const waitedAfterClear = Date.now() - clearedAt;
+      t.eq(
+        waitedAfterClear >= 2_500,
+        true,
+        "the late read began after the clear, not during the wait",
+      );
+    },
+  },
 ];

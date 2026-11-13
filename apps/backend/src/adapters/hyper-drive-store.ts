@@ -209,20 +209,22 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
         }
         if (blobs) {
           ranges.sort((x, y) => x[0] - y[0]);
-          if (!(await readsDone(timeoutMs))) throw new Error("reads are under way");
-          const clear = (async () => {
+          while (clearing) await clearing;
+          let release = () => {};
+          clearing = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          try {
+            if (!(await readsDone(timeoutMs))) throw new Error("reads are under way");
             let at = 0;
             for (const [from, to] of ranges) {
               if (from > at) await blobs.core.clear(at, Math.min(from, end));
               at = Math.max(at, to);
             }
             if (at < end) await blobs.core.clear(at, end);
-          })();
-          clearing = clear.catch(() => {});
-          try {
-            await clear;
           } finally {
             clearing = undefined;
+            release();
           }
         }
         return [null, { paths }];
