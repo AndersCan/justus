@@ -1,7 +1,9 @@
 import { html, type TemplateResult } from "lit-html";
+import { ref } from "lit-html/directives/ref.js";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
 import { copy, t } from "../copy/copy";
+import { modalDialog } from "./modal-dialog";
 
 export type JoinSheetActions = {
   dismissExpired(): void;
@@ -55,23 +57,12 @@ function stoppedSheet(
   }
 }
 
-function sheet(label: string, body: unknown, onDismiss: () => void) {
-  return html`
-    <div
-      class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-      @click=${onDismiss}
-    >
-      <div
-        class="justus-sheet ui-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label=${label}
-        @click=${(e: Event) => e.stopPropagation()}
-      >
-        ${body}
-      </div>
-    </div>
-  `;
+const joinModal = modalDialog();
+
+function sheet(label: string, body: unknown) {
+  return html`<dialog class="ui-sheet-dialog" aria-label=${label} ${ref(joinModal)}>
+    <div class="justus-sheet ui-sheet">${body}</div>
+  </dialog>`;
 }
 
 /** The joiner's screens: ask, waiting, not accepted. Draws from the view alone, so it can be previewed.
@@ -98,11 +89,15 @@ export function renderJoinSheet(
       html`<h3 class="break-words text-base font-semibold text-fg">${EXPIRED_LINK}</h3>
         <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${() => actions.dismissExpired()}>
+          <button
+            class="ui-btn-primary"
+            data-dismiss
+            autofocus
+            @click=${() => actions.dismissExpired()}
+          >
             ${t("invite.ok")}
           </button>
         </div>`,
-      () => actions.dismissExpired(),
     );
   }
   const stopped = stoppedSheet(state, owner);
@@ -113,20 +108,23 @@ export function renderJoinSheet(
         ${stopped.askedLine ? lines.asked : null}
         <p class="mt-3 text-sm text-fg">${stopped.body}</p>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-primary" @click=${() => actions.closeStoppedLink()}>
+          <button
+            class="ui-btn-primary"
+            data-dismiss
+            autofocus
+            @click=${() => actions.closeStoppedLink()}
+          >
             ${t("invite.close")}
           </button>
         </div>`,
-      () => actions.closeStoppedLink(),
     );
   }
   if (state === "checkingLink") {
     const title = copy("join_request.checking_owner_s_link", { owner });
-    // Ends by itself within seconds, so there is no button and the backdrop does nothing.
+    // Ends by itself within seconds, so there is no button and nothing dismisses it.
     return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>`,
-      () => {},
     );
   }
   if (state === "decidingToAsk" || state === "sendingRequest") {
@@ -138,16 +136,19 @@ export function renderJoinSheet(
         <p class="mt-3 text-sm text-fg">${t("invite.will_see_your_name_and", { owner })}</p>
         ${error ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" ?disabled=${sending} @click=${() => actions.notNow()}>
+          <button
+            class="ui-btn-ghost"
+            data-dismiss
+            autofocus
+            ?disabled=${sending}
+            @click=${() => actions.notNow()}
+          >
             ${t("invite.not_now")}
           </button>
           <button class="ui-btn-primary" ?disabled=${sending} @click=${() => actions.askToJoin()}>
             ${sending ? copy("invite.asking") : copy("invite.ask_to_join_2")}
           </button>
         </div>`,
-      () => {
-        if (!sending) actions.notNow();
-      },
     );
   }
   if (state === "waitingForAdminToAccept" || state === "waitingForYouToUpdate") {
@@ -170,11 +171,15 @@ export function renderJoinSheet(
           <button class="ui-btn-ghost" @click=${() => actions.cancelRequest()}>
             ${t("invite.cancel_request")}
           </button>
-          <button class="ui-btn-primary" @click=${() => actions.closeWaiting()}>
+          <button
+            class="ui-btn-primary"
+            data-dismiss
+            autofocus
+            @click=${() => actions.closeWaiting()}
+          >
             ${t("invite.close")}
           </button>
         </div>`,
-      () => actions.closeWaiting(),
     );
   }
   const title = copy("invite.didn_t_accept_your_request", { owner });
@@ -184,10 +189,14 @@ export function renderJoinSheet(
       <p class="mt-3 text-sm text-fg">${t("invite.nothing_was_shared_with_you")}</p>
       <p class="mt-2 text-sm text-muted">${t("invite.you_can_ask_again", { owner })}</p>
       <div class="mt-4 flex justify-end">
-        <button class="ui-btn-primary" @click=${() => actions.dismissDecline()}>
+        <button
+          class="ui-btn-primary"
+          data-dismiss
+          autofocus
+          @click=${() => actions.dismissDecline()}
+        >
           ${t("invite.ok")}
         </button>
       </div>`,
-    () => actions.dismissDecline(),
   );
 }

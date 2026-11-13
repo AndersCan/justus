@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { Photo, PhotoHolders } from "@justus/core";
 import { holdersRow, holdersSheet } from "./photo-holders";
@@ -73,9 +73,24 @@ describe("holdersSheet", () => {
     expect(el.textContent).toContain("Hasn't said yet");
     expect(el.textContent).toContain("No longer in this album");
     expect(el.textContent).toContain("Arriving…");
-    expect(el.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
-      "Who has this photo",
-    );
+    expect(el.querySelector("dialog")?.getAttribute("aria-label")).toBe("Who has this photo");
+  });
+});
+
+describe("holdersSheet dismiss", () => {
+  it("Escape and a tap outside press Close", () => {
+    const el = draw(holdersSheet(photo(h({})), []));
+    document.body.append(el);
+    const close = el.querySelector<HTMLButtonElement>("button[data-dismiss]")!;
+    const pressed = vi.fn();
+    close.addEventListener("click", pressed);
+    const dialog = el.querySelector("dialog")!;
+    dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    expect(pressed).toHaveBeenCalledTimes(1);
+    dialog.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    dialog.click();
+    expect(pressed).toHaveBeenCalledTimes(2);
+    el.remove();
   });
 });
 

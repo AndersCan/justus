@@ -6,20 +6,21 @@ import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
 import { nameList, type Person } from "../utils/people";
 import { memberBadge } from "./avatar";
+import { modalDialog } from "./modal-dialog";
 
 import { copy, t } from "../copy/copy";
 /** The "who has this photo" row on photo detail, and the sheet it opens. */
 
 const ROW_ATTR = "data-holders-row";
+const holdersModal = modalDialog(() => document.querySelector(`[${ROW_ATTR}]`) ?? undefined);
 
 export function openHolders(): void {
   lightboxActor.send(lightboxEvents.holdersOpened.create());
 }
 
-/** Close the sheet and put focus back on the row that opened it. */
+/** Close the sheet; focus goes back to the row that opened it. */
 export function closeHolders(): void {
   lightboxActor.send(lightboxEvents.holdersClosed.create());
-  queueMicrotask(() => document.querySelector<HTMLElement>(`[${ROW_ATTR}]`)?.focus());
 }
 
 /** A row at least 44px tall; long lines wrap rather than get cut. */
@@ -80,17 +81,12 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
     ...others.map((r) => r.name),
     ...(rows.youArriving ? [] : [copy("photo_holders.you_in_a_sentence")]),
   ];
-  return html`<div
-    class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-    @click=${closeHolders}
+  return html`<dialog
+    class="ui-sheet-dialog"
+    aria-label=${copy("photo_holders.who_has_this_photo")}
+    ${ref(holdersModal)}
   >
-    <div
-      class="justus-sheet ui-sheet"
-      role="dialog"
-      aria-modal="true"
-      aria-label=${copy("photo_holders.who_has_this_photo")}
-      @click=${(e: Event) => e.stopPropagation()}
-    >
+    <div class="justus-sheet ui-sheet">
       <h3 class="text-base font-semibold text-fg">${t("photo_holders.who_has_this_photo")}</h3>
       <div class="max-h-[60vh] overflow-y-auto">
         ${
@@ -162,14 +158,10 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
         }
       </div>
       <div class="mt-4 flex justify-end">
-        <button
-          class="ui-btn-ghost"
-          ${ref((el) => el instanceof HTMLElement && queueMicrotask(() => el.focus()))}
-          @click=${closeHolders}
-        >
+        <button class="ui-btn-ghost" data-dismiss autofocus @click=${closeHolders}>
           ${t("photo_holders.close")}
         </button>
       </div>
     </div>
-  </div>`;
+  </dialog>`;
 }
