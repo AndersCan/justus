@@ -148,22 +148,22 @@ describe("deleteDetail", () => {
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(
-      `${gone} Nils has the full photo. It no longer shows for them. The copy already on their phone can't be wiped from here. Deleting can't take it back.`,
+      `${gone} Nils has the full photo. It's removed from their phone the next time they open Justus. Deleting can't take it back.`,
     );
   });
   it("names two phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya")] }))).toBe(
-      `${gone} Nils and Maya have the full photo. It no longer shows for them. Copies already on their phones can't be wiped from here. Deleting can't take them back.`,
+      `${gone} Nils and Maya have the full photo. It's removed from their phones the next time they open Justus. Deleting can't take them back.`,
     );
   });
   it("names three phones", () => {
     expect(deleteDetail(h({ others: [m("Nils"), m("Maya"), m("Ben")] }))).toBe(
-      `${gone} Nils, Maya and Ben have the full photo. It no longer shows for them. Copies already on their phones can't be wiped from here. Deleting can't take them back.`,
+      `${gone} Nils, Maya and Ben have the full photo. It's removed from their phones the next time they open Justus. Deleting can't take them back.`,
     );
   });
   it("names who has it and who does not", () => {
     expect(deleteDetail(h({ others: [m("Ben")], waiting: [m("Cy")] }))).toBe(
-      `${gone} Ben has the full photo. It no longer shows for them. The copy already on their phone can't be wiped from here. Cy doesn't have the full photo. Deleting can't take it back.`,
+      `${gone} Ben has the full photo. It's removed from their phone the next time they open Justus. Cy doesn't have the full photo. Deleting can't take it back.`,
     );
   });
   it("names only who lacks it", () => {
@@ -244,7 +244,7 @@ describe("previews", () => {
       `${gone} The photo no longer shows for Ben. The small preview already on their phone can't be wiped from here. Deleting can't take it back.`,
     );
     expect(deleteDetail(h({ others: [m("Ben")], previews: [m("Cy")], waiting: [m("Dan")] }))).toBe(
-      `${gone} Ben has the full photo. It no longer shows for them. The copy already on their phone can't be wiped from here. The photo no longer shows for Cy. The small preview already on their phone can't be wiped from here. Dan doesn't have the full photo. Deleting can't take it back.`,
+      `${gone} Ben has the full photo. It's removed from their phone the next time they open Justus. The photo no longer shows for Cy. The small preview already on their phone can't be wiped from here. Dan doesn't have the full photo. Deleting can't take it back.`,
     );
   });
   it("the toast says who only has a preview, and who finds out when connected", () => {

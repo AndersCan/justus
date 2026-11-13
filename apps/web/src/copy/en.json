@@ -2653,7 +2653,7 @@
     "screen": ""
   },
   "help.deleting_a_photo_takes_it": {
-    "text": "Deleting a photo takes it out of the album for everyone. Phones that already have it may keep a copy, and when the Admin deletes someone else's photo, it stays on that person's phone.",
+    "text": "Deleting a photo takes it out of the album for everyone. It's removed from their phones the next time they open Justus. Copies saved outside Justus can't be taken back.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -4150,15 +4150,8 @@
     "who": "People in a shared album, when someone else deletes a photo",
     "screen": ""
   },
-  "deleted_note.no_longer_shows_kept": {
-    "text": "Your phone still keeps a hidden copy.",
-    "status": "draft",
-    "where": "Toast › a photo was deleted",
-    "who": "People in a shared album, when someone else deletes a photo",
-    "screen": ""
-  },
-  "deleted_note.only_a_preview_had_reached": {
-    "text": "Only a preview had reached your phone. It's no longer shown.",
+  "deleted_note.removed_from_your_phone": {
+    "text": "It's removed from your phone.",
     "status": "draft",
     "where": "Toast › a photo was deleted",
     "who": "People in a shared album, when someone else deletes a photo",
@@ -4242,7 +4235,7 @@
     "screen": ""
   },
   "lightbox.stops_showing_can_t_erase": {
-    "text": "It no longer shows for them. {n?The copy already on their phone:Copies already on their phones} can't be wiped from here.",
+    "text": "It's removed from {n?their phone:their phones} the next time they open Justus.",
     "status": "draft",
     "where": "Photo viewer › Delete › text",
     "who": "People who delete a photo: who added it, or the Admin",

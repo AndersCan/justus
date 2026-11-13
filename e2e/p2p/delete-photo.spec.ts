@@ -186,7 +186,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${ANA}”?` });
   await expect(a.getByText(`Delete “${ANA}”?`)).toBeVisible();
   await expect(dialog).toContainText(
-    /.+ has the full photo\. It no longer shows for them\. The copy already on their phone can't be wiped from here\. Deleting can't take it back\./,
+    /.+ has the full photo\. It's removed from their phone the next time they open Justus\. Deleting can't take it back\./,
   );
   await dialog.locator("wa-button", { hasText: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
@@ -199,9 +199,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await bToasts()).filter((t) =>
-        /^.+ deleted “del-ana\.png” from Delete trip\. Your phone still keeps a hidden copy\.$/.test(
-          t,
-        ),
+        /^.+ deleted “del-ana\.png” from Delete trip\. It's removed from your phone\.$/.test(t),
       ),
     )
     .toHaveLength(1);
@@ -241,9 +239,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await aToasts()).filter((t) =>
-        /^.+ deleted “del-ben\.png” from Delete trip\. Only a preview had reached your phone\. It's no longer shown\.$/.test(
-          t,
-        ),
+        /^.+ deleted “del-ben\.png” from Delete trip\. It's removed from your phone\.$/.test(t),
       ),
     )
     .toHaveLength(1);
@@ -263,7 +259,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect
     .poll(async () =>
       (await bToasts()).filter((t) =>
-        /^.+ deleted your photo “del-ben2\.png” from Delete trip\. Your phone still keeps a hidden copy\.$/.test(
+        /^.+ deleted your photo “del-ben2\.png” from Delete trip\. It's removed from your phone\.$/.test(
           t,
         ),
       ),
