@@ -1,5 +1,6 @@
 import { defineConfig, presetUno } from "unocss";
 import { buttonClass } from "#design/components/button.ts";
+import { inputClass } from "#design/components/input.ts";
 import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
 // Semantic tokens only. Raw values live in src/design/justus/tokens/theme.css (generated) as CSS variables (space
@@ -29,8 +30,7 @@ export default defineConfig({
       "ui-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50",
     "ui-btn-primary": buttonClass({ variant: "primary" }),
     "ui-btn-ghost": buttonClass({ variant: "default" }),
-    "ui-input":
-      "min-h-11 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-fg outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/25",
+    "ui-input": inputClass(),
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
     "ui-chip":
       "inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-fg",
