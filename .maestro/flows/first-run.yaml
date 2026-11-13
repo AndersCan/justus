@@ -119,9 +119,10 @@ appId: no.cankode.justus
           visible: "Copy"
           timeout: 15000
       - takeScreenshot: .maestro/out/ios-share-sheet
-      # The iPhone sheet has no "Close" text: a tap on the page above it dismisses it.
+      # The iPhone sheet has no "Close" text and a tap on the page above it did not dismiss it:
+      # Copy is an action that closes the sheet on its own.
       - tapOn:
-          point: "50%,5%"
+          text: "Copy"
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
