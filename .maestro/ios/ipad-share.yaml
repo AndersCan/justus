@@ -45,11 +45,11 @@ appId: no.cankode.justus
     text: "Send invite link"
     retryTapIfNoChange: false
     waitToSettleTimeoutMs: 500
-# The popover floats over a still-visible page, so detect the menu's own Copy action
-# (full match: "Copy invite link" does not match).
-- extendedWaitUntil:
-    visible: "Copy"
-    timeout: 15000
+# The popover floats over a still-visible page and Maestro cannot read its text on iPadOS 26 (the
+# screenshot shows Copy, but "Copy" is not in the hierarchy), so the proof is: the menu opens, the
+# app is still there afterwards, and scripts/maestro-ios.mjs finds no crash report.
+- waitForAnimationToEnd:
+    timeout: 5000
 - takeScreenshot: .maestro/out/ipad-share-sheet
 # A tap outside the centred popover closes it; the page must still be there afterwards.
 - tapOn:

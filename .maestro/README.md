@@ -59,7 +59,8 @@ which changes every launch.
 (`ios-device` workflow, `workflow_dispatch`); `--ipad` walks `ios/ipad-share.yaml` on an iPad
 Simulator. Keep both platform branches of `first-run.yaml` in step when its text changes.
 
-- iPad: Send invite link opens the share menu as a popover over a still-visible page, so the flow
-  waits for the menu's own `Copy` action (not `notVisible` on our page) and closes it with a tap
-  outside. The script fails the run if a `Justus*.ips` crash report appeared during it.
+- iPad: Send invite link opens the share menu as a popover over a still-visible page, so
+  `notVisible` on our page cannot work, and Maestro cannot read the popover's text (`Copy` is on
+  screen but not in the hierarchy). The flow screenshots the menu, closes it with a tap outside and
+  checks the page is back. The script fails the run if a `Justus*.ips` crash report appeared during it.
 - `ios/` is outside `config.yaml`'s `flows/*.yaml` glob, so Android never runs the iPad flow.
