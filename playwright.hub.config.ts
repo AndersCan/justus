@@ -22,15 +22,20 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // The phones share state, so a failed test leaves albums and requests behind that fail
-  // every later test too (main run 43334639556: 8 more timeouts, 30 minutes). Stop at the
-  // first failure and its retry so the red shows the test that broke.
-  maxFailures: process.env.CI ? 2 : 0,
+  // A test that stalls runs to its full timeout and so does every later test that uses the
+  // same phone (main run 43334639556: 8 timeouts, 30 minutes, cancelled before any error
+  // printed). Playwright counts a failure only after the last retry, so 1 stops the run
+  // after the first test that fails its retry too.
+  maxFailures: process.env.CI ? 1 : 0,
   reporter: "list",
   globalSetup: resolve(here, "e2e/hub/global-setup.mjs"),
   globalTeardown: resolve(here, "e2e/hub/global-teardown.mjs"),
   use: {
     trace: "retain-on-failure",
+    // A stuck click or page load fails in seconds and names its step, instead of waiting
+    // out the whole test timeout.
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
 });
