@@ -19,6 +19,8 @@ const RELOAD_ALBUM = "Reload trip";
 const RELOAD_PHOTO = "hub-reload.png";
 const REASK_ALBUM = "Second try";
 const REASK_PHOTO = "hub-reask.png";
+const LINE_ALBUM = "Line trip";
+const LINE_PHOTO = "hub-line.png";
 
 // The local DHT needs 5 nodes (apps/backend/scripts/local-dht.mjs): on 3, an idle
 // album creator cannot NAT-sample enough nodes, aborts the joiner's holepunch,
@@ -122,6 +124,28 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   expect(await b.evaluate(() => (window as unknown as { __sawViewer: boolean }).__sawViewer)).toBe(
     false,
   );
+});
+
+test("A sees B's request on the album page, Review opens the card, Accept lets B in", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  await skipIntro([a, b]);
+  await createAlbum(a, LINE_ALBUM, LINE_PHOTO, 61);
+  const albumUrl = a.url();
+  const link = await copyInviteLink(a);
+  await a.goto(albumUrl);
+  await expect(a.locator("[data-request-line]")).toHaveCount(0);
+  await askToJoin(b, link, LINE_ALBUM);
+  const line = a.locator("[data-request-line]");
+  await expect(line).toContainText("wants to join", { timeout: 60_000 });
+  await line.getByRole("link", { name: "Review" }).click();
+  await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
+  await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+  await expect(b.getByRole("button", { name: `View ${LINE_PHOTO}` }).locator("img")).toBeAttached({
+    timeout: 60_000,
+  });
 });
 
 const LONG_NAME = "Alexandra Montgomery-Featherstonehaugh";
