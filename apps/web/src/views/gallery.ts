@@ -45,7 +45,8 @@ import {
   pickerInput,
   startAdd,
 } from "./photo-picker";
-import { adminName, inviteRow, waitingForAdmin } from "./invite";
+import { ownerShown } from "../utils/invite-link";
+import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
@@ -488,7 +489,14 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary, waiting = fa
     return html`<p class="text-sm text-muted">${viewerLine(page, album)}</p>`;
   }
   if (plan.kind === "pending") {
-    return html`<p class="text-sm text-muted">${t("gallery.you_can_add_photos_once")}</p>`;
+    return html`<p class="text-sm text-muted">
+      ${t("gallery.you_can_add_photos_once", {
+        owner: ownerShown(
+          page.status?.folder.id === album.id ? knownAdminName(page.status) : "",
+          "mid",
+        ),
+      })}
+    </p>`;
   }
   const others = album.members - 1;
   const status = page.status?.folder.id === album.id ? page.status : undefined;

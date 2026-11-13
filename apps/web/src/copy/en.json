@@ -105,7 +105,7 @@
     "screen": ""
   },
   "join_request.checking_owner_s_link": {
-    "text": "Checking {owner}'s link…",
+    "text": "Checking the link from {owner}…",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -343,7 +343,7 @@
     "screen": ""
   },
   "error.you_can_t_add_photos": {
-    "text": "You can't add photos here until the Admin approves you.",
+    "text": "You can't add photos to this album yet.",
     "status": "draft",
     "where": "Error messages › text",
     "who": "Anyone when an action fails",
@@ -531,11 +531,18 @@
     "who": "People sending or opening an invite",
     "screen": ""
   },
-  "invite_link.the_admin": {
-    "text": "the Admin",
+  "invite_link.the_person_who_invited_you": {
+    "text": "the person who invited you",
     "status": "draft",
     "where": "Invite & join › text",
-    "who": "People sending or opening an invite",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "invite_link.the_person_who_invited_you_2": {
+    "text": "The person who invited you",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
     "screen": ""
   },
   "people.someone_not_in_your_friends": {
@@ -1960,7 +1967,7 @@
     "screen": ""
   },
   "gallery.you_can_add_photos_to": {
-    "text": "You can add photos to “{name}” once the Admin approves you",
+    "text": "You can add photos to “{name}” once {owner} lets you in",
     "status": "draft",
     "where": "Photos › toast",
     "who": "Everyone, on the Photos tab and inside an album",
@@ -2170,7 +2177,7 @@
     "screen": ""
   },
   "gallery.you_can_add_photos_once": {
-    "text": "You can add photos once the Admin approves you.",
+    "text": "You can add photos once {owner} lets you in.",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
@@ -3122,7 +3129,7 @@
     "screen": ""
   },
   "invite.request_to_join_sent_to": {
-    "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. {owner} must be online too: keep Justus open on both phones.",
+    "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. They must be online too: keep Justus open on both phones.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",
@@ -3158,13 +3165,6 @@
   },
   "invite.you_can_look_but_not": {
     "text": "You can look, but not add photos yet.",
-    "status": "draft",
-    "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
-    "screen": ""
-  },
-  "invite.the_admin_who_started_this": {
-    "text": "The Admin, who started this album,",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",

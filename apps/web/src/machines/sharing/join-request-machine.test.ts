@@ -10,7 +10,6 @@ import {
   GARBLED_LINK,
   NOTHING_COPIED,
   SEND_FAILED,
-  oldLinkMessage,
   createJoinRequestActor,
   type AskSummary,
   type JoinPort,
@@ -99,10 +98,12 @@ describe("openLink", () => {
     expect(error(s)).toBe("This link no longer works. Ask Nils for a new invite link.");
   });
 
-  test("an old link without a hint names the Admin", async () => {
+  test("an old link without a hint is told to ask the person who invited you", async () => {
     const s = setup();
     await s.send("openLink", { text: `justus://join/${"a".repeat(64)}` });
-    expect(error(s)).toBe(oldLinkMessage("the Admin"));
+    expect(error(s)).toBe(
+      "This link no longer works. Ask the person who invited you for a new invite link.",
+    );
   });
 
   test.each([["own"], ["member"]] as const)(

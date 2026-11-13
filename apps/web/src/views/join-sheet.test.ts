@@ -123,3 +123,79 @@ describe("renderJoinSheet", () => {
     expect(at("linkStoppedForUnknownReason")).not.toContain("ASKED");
   });
 });
+
+describe("renderJoinSheet when the owner's name is not known", () => {
+  const states = labels.map(([state]) => state);
+  const drawFor = (state: JoinView["state"], ownerName: string) => {
+    const div = document.createElement("div");
+    render(renderJoinSheet({ state, invite: { ...invite, ownerName }, error: "" }, actions), div);
+    return div;
+  };
+
+  test.each(
+    states.flatMap(
+      (s) =>
+        [
+          [s, ""],
+          [s, "the Admin"],
+        ] as const,
+    ),
+  )("%s with name %j never says Admin", (state, ownerName) => {
+    const text = drawFor(state, ownerName).textContent ?? "";
+    expect(text).not.toContain("Admin");
+    expect(
+      drawFor(state, ownerName).querySelector("dialog")?.getAttribute("aria-label"),
+    ).not.toContain("Admin");
+  });
+
+  test("the checking line names the person who invited you", () => {
+    expect(drawFor("checkingLink", "").querySelector("dialog")?.getAttribute("aria-label")).toBe(
+      "Checking the link from the person who invited you…",
+    );
+  });
+
+  test("a stopped link starts its title with a capital", () => {
+    expect(drawFor("linkTurnedOffByAdmin", "").querySelector("h3")?.textContent).toBe(
+      "The person who invited you turned off this link.",
+    );
+  });
+
+  test("the ask sheet starts its body with a capital", () => {
+    expect(drawFor("decidingToAsk", "the Admin").querySelector("p")?.textContent).toContain(
+      "The person who invited you will see your name",
+    );
+  });
+
+  test("a mid-sentence line uses the lowercase form", () => {
+    expect(drawFor("waitingForAdminToAccept", "").textContent).toContain(
+      "Waiting for the person who invited you to let you in.",
+    );
+  });
+});
+
+describe("renderJoinSheet picks the start or mid form for every owner line", () => {
+  const P = "the person who invited you";
+  const C = "The person who invited you";
+  const textOf = (state: JoinView["state"]) => {
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet({ state, invite: { ...invite, ownerName: "" }, error: "" }, actions),
+      div,
+    );
+    return (div.textContent ?? "").replace(/\s+/g, " ").trim();
+  };
+
+  test.each([
+    ["linkTurnedOffByAdmin", `${C} turned off this link.`, `Ask ${P} for a new link`],
+    ["linkReplacedByAdmin", `${C} replaced this link`, `Ask ${P} for the new link.`],
+    ["albumDeletedByAdmin", `${C} deleted this album`, ""],
+    ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],
+    ["waitingForAdminToAccept", `Request to join sent to ${P}.`, ""],
+    ["waitingForYouToUpdate", `It reaches ${P} once both phones`, ""],
+    ["linkExpired", `Ask ${P} for a new one.`, ""],
+  ] as const)("%s reads %j and %j", (state, first, second) => {
+    const text = textOf(state);
+    expect(text).toContain(first);
+    expect(text).toContain(second);
+  });
+});

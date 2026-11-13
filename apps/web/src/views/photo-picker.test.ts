@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
-import { addPicked, pickerInput, startAdd } from "./photo-picker";
+import { addPicked, addableAlbum, pickerInput, startAdd } from "./photo-picker";
 import { foldersActor } from "../machines/folders-machine";
+import { syncActor } from "../machines/sync-machine";
 import { gallery, galleryActor } from "../machines/gallery-machine";
 import { toast } from "./toast";
 
@@ -113,5 +114,30 @@ describe("startAdd in the native shell", () => {
     await startAdd("f1", "library", onAdding);
     expect(addMany).not.toHaveBeenCalled();
     expect(onAdding).not.toHaveBeenCalled();
+  });
+});
+
+describe("addableAlbum on a pending album", () => {
+  test("names the person who invited you when the Admin is not known", () => {
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({
+      context: { folders: [{ id: "f1", name: "Trip", role: "reader", pending: true, members: 2 }] },
+    } as never);
+    expect(addableAlbum("f1")).toBeNull();
+    expect(toast).toHaveBeenCalledWith(
+      "You can add photos to “Trip” once the person who invited you lets you in",
+    );
+  });
+});
+
+describe("addableAlbum on a pending album whose Admin is known", () => {
+  test("names the Admin from this album's member list", () => {
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({
+      context: { folders: [{ id: "f1", name: "Trip", role: "reader", pending: true, members: 2 }] },
+    } as never);
+    vi.spyOn(syncActor, "snapshot").mockReturnValue({
+      context: { status: { folder: { id: "f1" }, members: [{ name: "Ada", admin: true }] } },
+    } as never);
+    expect(addableAlbum("f1")).toBeNull();
+    expect(toast).toHaveBeenCalledWith("You can add photos to “Trip” once Ada lets you in");
   });
 });

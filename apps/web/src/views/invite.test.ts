@@ -10,6 +10,7 @@ import {
   inviteRow,
   invitePanel,
   joinSheet,
+  pendingCard,
   waitingLine,
 } from "./invite";
 
@@ -528,7 +529,7 @@ describe("joinSheet update screen", () => {
     const host = document.createElement("div");
     render(joinSheet(), host);
     view.mockRestore();
-    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe("Checking Anna's link…");
+    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe("Checking the link from Anna…");
     expect(host.querySelectorAll("button")).toHaveLength(0);
   });
 
@@ -538,5 +539,36 @@ describe("joinSheet update screen", () => {
     const text = host.textContent?.replace(/\s+/g, " ") ?? "";
     expect(text).toContain("Request to join sent");
     expect(text).not.toContain("Update Justus to join");
+  });
+});
+
+describe("pendingCard", () => {
+  const status = (name: string, pending = true) =>
+    ({ folder: { id: "f1", pending }, members: [{ name, admin: true }] }) as never;
+  const text = (s: never) => {
+    const host = document.createElement("div");
+    render(pendingCard(s), host);
+    return host.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  };
+
+  test("names the Admin", () => {
+    expect(text(status("Ada"))).toContain("Ada needs to open Justus");
+  });
+  test("an Admin with no name yet reads as the person who invited you", () => {
+    expect(text(status("Unknown device"))).toContain(
+      "The person who invited you needs to open Justus",
+    );
+  });
+  test("is nothing when the album is not pending", () => {
+    expect(pendingCard(status("Ada", false))).toBeNull();
+    expect(pendingCard(null)).toBeNull();
+  });
+});
+
+describe("checkCodeLine with a request saved by an older version", () => {
+  test("reads the stored stand-in as the person who invited you", () => {
+    const host = document.createElement("div");
+    render(checkCodeLine("maple river stone", "the Admin"), host);
+    expect(host.textContent).toContain("If the person who invited you asks which three words");
   });
 });

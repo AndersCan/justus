@@ -5,6 +5,8 @@ import { foldersActor } from "../machines/folders-machine";
 import { gallery, galleryActor, type AddSource } from "../machines/gallery-machine";
 import { syncActor } from "../machines/sync-machine";
 import { imageFiles, planAdd } from "../utils/add-photos";
+import { ownerShown } from "../utils/invite-link";
+import { knownAdminName } from "./invite";
 import { copy } from "../copy/copy";
 import { toast } from "./toast";
 
@@ -39,7 +41,14 @@ export function addableAlbum(folderId: string): string | null {
     return null;
   }
   if (plan.kind === "pending") {
-    toast(copy("gallery.you_can_add_photos_to", { name: plan.album.name }));
+    const status = syncActor.snapshot().context.status;
+    const admin = status?.folder.id === folderId ? knownAdminName(status) : "";
+    toast(
+      copy("gallery.you_can_add_photos_to", {
+        name: plan.album.name,
+        owner: ownerShown(admin, "mid"),
+      }),
+    );
     return null;
   }
   return plan.folderId;
