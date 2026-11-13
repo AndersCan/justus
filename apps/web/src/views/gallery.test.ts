@@ -497,8 +497,6 @@ describe("albumHeader join request line", () => {
     const link = host.querySelector("[data-request-line] a");
     expect(link?.textContent).toBe("Review");
     expect(link?.getAttribute("href")).toBe("/sharing/f1");
-    const id = link?.getAttribute("aria-describedby") ?? "";
-    expect(host.querySelector(`#${id}`)?.textContent).toContain("Ben wants to join");
   });
 
   test("the line shows without a sync status", () => {

@@ -702,13 +702,10 @@ function requestLine(album: FolderSummary, name: string) {
     class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg"
     data-request-line
   >
-    <span id="request-line-${album.id}" data-copy-id="gallery.name_wants_to_join"
-      >${t("gallery.name_wants_to_join", { name })}</span
-    >
+    ${t("gallery.name_wants_to_join", { name })}
     <a
       class="ui-focus inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong"
       href="/sharing/${album.id}"
-      aria-describedby="request-line-${album.id}"
       >${t("ask_toast.review")}</a
     >
   </p>`;
@@ -718,7 +715,10 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
   const status = page.status?.folder.id === album.id ? page.status : null;
   const here = album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id) : [];
   const waiting = here.length;
-  const [oldest] = here;
+  const oldest = here.reduce<(typeof here)[number] | undefined>(
+    (first, r) => (first === undefined || r.requestedAt < first.requestedAt ? r : first),
+    undefined,
+  );
   const slot =
     album.notice?.kind === "removed"
       ? null
