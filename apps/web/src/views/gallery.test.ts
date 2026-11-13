@@ -451,6 +451,18 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
     expect(text).toContain(line);
   });
 
+  test("Collaborator whose list still counts one: no invite button, line kept", () => {
+    const { buttons, text } = row(album("member", 1), statusOf("f1", "member"));
+    expect(buttons).not.toContain("Copy invite link");
+    expect(text).toContain(line);
+  });
+
+  test("buttons come from the open album's status, not the list entry", () => {
+    const { invite: _invite, ...listEntry } = album("creator", 1);
+    const { buttons } = row(listEntry as never, statusOf("f1", "creator"));
+    expect(buttons).toContain("Copy invite link");
+  });
+
   test("reader alone: no invite button", () => {
     const { buttons } = row(album("reader", 1), statusOf("f1", "reader"));
     expect(buttons).not.toContain("Copy invite link");
