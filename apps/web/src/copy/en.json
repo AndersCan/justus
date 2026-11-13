@@ -2071,6 +2071,13 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.name_wants_to_join": {
+    "text": "{name} wants to join",
+    "status": "draft",
+    "where": "Photos › album › someone asks to join",
+    "who": "Admins, inside an album someone asked to join",
+    "screen": ""
+  },
   "gallery.only_you_so_far_invite": {
     "text": "Only you so far. Invite someone to share",
     "status": "draft",
