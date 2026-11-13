@@ -33,8 +33,11 @@ const protocol = new MessageProtocol({
 
 type Header = Record<string, any>;
 
-/** Runs lock.setEnabled through a worklet runtime whose host answers after 31 s. */
-async function runPromptAnsweredAfter31s(plugin: ReturnType<typeof createLockPluginStub>) {
+/** Runs lock.setEnabled through a worklet runtime whose host answers after delayMs. */
+async function runPromptAnsweredAfter(
+  plugin: ReturnType<typeof createLockPluginStub>,
+  delayMs: number,
+) {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const ipc = Object.assign(new EventEmitter(), {
     write: vi.fn((_data: unknown) => true),
@@ -71,8 +74,8 @@ async function runPromptAnsweredAfter31s(plugin: ReturnType<typeof createLockPlu
     ],
   });
   const hostInvoke = await nextSent("HOST_INVOKE_REQUEST");
-  // The person looks at the Face ID prompt for 31 s, then confirms.
-  await vi.advanceTimersByTimeAsync(31_000);
+  // The person looks at the Face ID prompt for delayMs, then confirms.
+  await vi.advanceTimersByTimeAsync(delayMs);
   send({
     type: "HOST_INVOKE_RESPONSE",
     requestId: hostInvoke.requestId,
@@ -92,10 +95,18 @@ describe("lock plugin stub", () => {
   });
 
   test("a host answer after 31 s resolves lock.setEnabled", async () => {
-    const response = await runPromptAnsweredAfter31s(createLockPluginStub());
+    const response = await runPromptAnsweredAfter(createLockPluginStub(), 31_000);
     expect(response.requestId).toBe("r1");
     expect(response.error).toBeUndefined();
     expect(response.result).toEqual({ enabled: true });
+  });
+
+  test("the host leg waits the prompt's 300 s, no more", async () => {
+    const early = await runPromptAnsweredAfter(createLockPluginStub(), 299_000);
+    expect(early.error).toBeUndefined();
+    expect(early.result).toEqual({ enabled: true });
+    const late = await runPromptAnsweredAfter(createLockPluginStub(), 301_000);
+    expect(JSON.stringify(late.error)).toContain("TIMEOUT");
   });
 
   test("without hostTimeoutMs the same answer fails with TIMEOUT", async () => {
@@ -105,7 +116,7 @@ describe("lock plugin stub", () => {
       { status: lockSpecs.status, setEnabled },
       { capabilities: ["lock"] },
     );
-    const response = await runPromptAnsweredAfter31s(plugin as never);
+    const response = await runPromptAnsweredAfter(plugin as never, 31_000);
     expect(JSON.stringify(response.error)).toContain("TIMEOUT");
   });
 });
