@@ -2,11 +2,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { VirtualClock } from "@mantaq/core";
+import { requestRowOf } from "../utils/people";
 import { createGalleryActor } from "../machines/gallery-machine";
 import {
   albumAddRow,
   albumHeader,
   missingAlbumText,
+  requestLineText,
   scopeEmptyState,
   scopePhotos,
   viewerLine,
@@ -422,6 +424,19 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
   };
   const line = "Only you, until you invite someone.";
 
+  test("a waiting request drops the alone line but keeps Copy and its hint slot", () => {
+    const a = album("creator", 1);
+    const host = document.createElement("div");
+    render(
+      albumAddRow({ status: statusOf("f1", "creator"), folders: [a] } as never, a as never, true),
+      host,
+    );
+    const buttons = [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(buttons).toContain("Copy invite link");
+    expect(host.textContent).not.toContain(line);
+    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
+  });
+
   test("alone creator gets the invite button after Add photos and one line", () => {
     const { buttons, text } = row(album("creator", 1), statusOf("f1", "creator"));
     expect(buttons.filter((b) => b === "Copy invite link")).toHaveLength(1);
@@ -469,6 +484,29 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
   });
 });
 
+describe("requestLineText", () => {
+  const say = (name: string, friends: Record<string, string>, waiting = 1) => {
+    const host = document.createElement("div");
+    const row = requestRowOf({ folderId: "f1", requesterName: name } as never, friends);
+    render(requestLineText(row, waiting), host);
+    return host.textContent?.replace(/\s+/g, " ") ?? "";
+  };
+
+  test("one asker is named", () => {
+    expect(say("Ben", {})).toBe("Ben wants to join");
+  });
+
+  test("a name that copies a friend is hidden", () => {
+    const text = say(" mum ", { id1: "Mum" });
+    expect(text).toBe("Someone not in your friends wants to join");
+    expect(text.toLowerCase()).not.toContain("mum");
+  });
+
+  test("several askers are counted, not named", () => {
+    expect(say("Mum", { id1: "Mum" }, 2)).toBe("2 people want to join");
+  });
+});
+
 describe("albumHeader join request line", () => {
   const album = { id: "f1", name: "Trip", role: "creator", members: 1 };
   const alone = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
@@ -507,8 +545,18 @@ describe("albumHeader join request line", () => {
     const other = { ...ask, folderId: "f2", requesterName: "Zed" };
     const second = { ...ask, requesterName: "Cy" };
     const { text } = draw_({ requests: [other, ask, second] });
-    expect(text).toContain("Ben wants to join");
+    expect(text).toContain("2 people want to join");
     expect(text).not.toContain("Zed");
+  });
+
+  test("a waiting request keeps the line about the other people", () => {
+    const { text } = draw_({ album: { ...album, members: 3 }, status: null });
+    expect(text).toContain("Only the 3 people");
+  });
+
+  test("a waiting request hides the alone line", () => {
+    const { text } = draw_({ album: { ...album, members: 1 }, status: null });
+    expect(text).not.toContain("Only you, until you invite someone.");
   });
 
   test("a request for another album changes nothing", () => {

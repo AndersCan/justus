@@ -1,4 +1,4 @@
-import { html } from "lit-html";
+import { html, type TemplateResult } from "lit-html";
 import { arrivalFocus } from "./arrival-focus";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
@@ -15,7 +15,7 @@ import {
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { friendsActor } from "../machines/friends-machine";
-import { requestRowOf } from "../utils/people";
+import { requestRowOf, type RequestRow } from "../utils/people";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
@@ -474,7 +474,7 @@ export function viewerLine(page: { status: SyncStatus | null }, album: { id: str
 
 /** The album's add row: the picker, the camera, and who gets the photos. Or,
  * when this device can't add here, why not. */
-export function albumAddRow(page: PhotosPage, album: FolderSummary) {
+export function albumAddRow(page: PhotosPage, album: FolderSummary, waiting = false) {
   if (album.notice?.kind === "removed") {
     return html`<p class="text-sm text-muted">
       ${t("gallery.you_re_no_longer_in", { name: album.name })}
@@ -503,7 +503,7 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
       ${cameraButton(page, album)} ${addButton(page, album)}
     </div>
     ${
-      inviteHere
+      inviteHere || (waiting && others <= 0)
         ? null
         : html`<p class="text-xs text-muted">
             ${
@@ -517,7 +517,14 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
   if (!inviteHere) return row;
   return html`${row}
     <div class="mt-2">
-      ${inviteRow(status.folder, status.name, t("gallery.only_you_until_you_invite"))}
+      ${inviteRow(
+        status.folder,
+        status.name,
+        // Empty while a request waits; Copy still writes its hint here.
+        waiting && others <= 0
+          ? html`<span data-copy-id></span>`
+          : t("gallery.only_you_until_you_invite"),
+      )}
     </div>`;
 }
 
@@ -696,13 +703,20 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
   `;
 }
 
+/** What the album's join line says: the oldest asker by name unless it copies a friend's name, or the count when several wait. */
+export function requestLineText(oldest: RequestRow, waiting: number): TemplateResult {
+  if (waiting > 1) return t("ask_toast.people_want_to_join", { count: waiting });
+  if (oldest.clash !== undefined) return t("gallery.someone_wants_to_join");
+  return t("gallery.name_wants_to_join", { name: oldest.name });
+}
+
 /** Who is waiting to join this album, with a link to the card that answers them. */
-function requestLine(album: FolderSummary, name: string) {
+function requestLine(album: FolderSummary, text: TemplateResult) {
   return html`<p
     class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg"
     data-request-line
   >
-    ${t("gallery.name_wants_to_join", { name })}
+    ${text}
     <a
       class="ui-focus inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong"
       href="/sharing/${album.id}"
@@ -723,7 +737,10 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
     album.notice?.kind === "removed"
       ? null
       : oldest !== undefined
-        ? requestLine(album, requestRowOf(oldest, friendsActor.snapshot().context.friends).name)
+        ? requestLine(
+            album,
+            requestLineText(requestRowOf(oldest, friendsActor.snapshot().context.friends), waiting),
+          )
         : status
           ? presenceStrip(status, page.lastSync)
           : null;
@@ -754,7 +771,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           }
         </a>
       </div>
-      ${slot} ${albumAddRow(page, album)}
+      ${slot} ${albumAddRow(page, album, waiting > 0)}
     </div>
   `;
 }
