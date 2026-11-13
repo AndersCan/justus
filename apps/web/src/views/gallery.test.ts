@@ -394,3 +394,77 @@ describe("albumAddRow for a reader whose role is not known yet", () => {
     );
   });
 });
+
+describe("albumAddRow invite buttons while the Admin is alone", () => {
+  const album = (role: string, members: number) => ({
+    id: "f1",
+    name: "Trip",
+    role,
+    members,
+    invite: { code: "c", owner: "o" },
+  });
+  const statusOf = (id: string, role: string, withInvite = true) => ({
+    name: "Nils",
+    members: [],
+    folder: {
+      id,
+      name: "Trip",
+      role,
+      members: 1,
+      ...(withInvite ? { invite: { code: "c", owner: "o" } } : {}),
+    },
+  });
+  const row = (a: ReturnType<typeof album>, status: unknown) => {
+    const host = document.createElement("div");
+    render(albumAddRow({ status, folders: [a] } as never, a as never), host);
+    const buttons = [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    return { buttons, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
+  };
+  const line = "Only you, until you invite someone.";
+
+  test("alone creator gets the invite button after Add photos and one line", () => {
+    const { buttons, text } = row(album("creator", 1), statusOf("f1", "creator"));
+    expect(buttons.filter((b) => b === "Copy invite link")).toHaveLength(1);
+    expect(buttons.indexOf("Copy invite link")).toBeGreaterThan(
+      buttons.findIndex((b) => b?.includes("Add photos")),
+    );
+    expect(text.split(line)).toHaveLength(2);
+  });
+
+  test("with a second person there is no invite button", () => {
+    const { buttons, text } = row(album("creator", 2), statusOf("f1", "creator"));
+    expect(buttons).not.toContain("Copy invite link");
+    expect(text).toContain("Only the 2 people in this album get them.");
+  });
+
+  test("status for another album or none: no button, line shown", () => {
+    for (const status of [statusOf("other", "creator"), null]) {
+      const { buttons, text } = row(album("creator", 1), status);
+      expect(buttons).not.toContain("Copy invite link");
+      expect(text).toContain(line);
+    }
+  });
+
+  test("creator without an invite: no button", () => {
+    const { buttons, text } = row(album("creator", 1), statusOf("f1", "creator", false));
+    expect(buttons).not.toContain("Copy invite link");
+    expect(text).toContain(line);
+  });
+
+  test("Collaborator whose list still counts one: no invite button, line kept", () => {
+    const { buttons, text } = row(album("member", 1), statusOf("f1", "member"));
+    expect(buttons).not.toContain("Copy invite link");
+    expect(text).toContain(line);
+  });
+
+  test("buttons come from the open album's status, not the list entry", () => {
+    const { invite: _invite, ...listEntry } = album("creator", 1);
+    const { buttons } = row(listEntry as never, statusOf("f1", "creator"));
+    expect(buttons).toContain("Copy invite link");
+  });
+
+  test("reader alone: no invite button", () => {
+    const { buttons } = row(album("reader", 1), statusOf("f1", "reader"));
+    expect(buttons).not.toContain("Copy invite link");
+  });
+});

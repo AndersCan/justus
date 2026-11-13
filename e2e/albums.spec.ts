@@ -58,6 +58,10 @@ test("a new album made in Sharing opens its invite page; All shows every photo; 
   });
   await expect(page).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Trip 2026" })).toBeVisible({ timeout: 20_000 });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click();
+  await expect(page.getByText(/Copied\. Now open your messages app/)).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^justus:\/\/join\?/);
   await expect(page.getByText("Added a photo to Trip 2026")).toBeVisible({ timeout: 20_000 });
   // A new album gets the same sample photos as the seed album, plus the one added above.
   const inTrip = total + 1;
