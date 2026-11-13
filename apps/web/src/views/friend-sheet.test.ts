@@ -71,7 +71,7 @@ describe("friend sheet Rename", () => {
 });
 
 describe("friend sheet as a dialog", () => {
-  async function openFrom() {
+  async function openFrom(identity = BEN) {
     hoisted.list.mockResolvedValue([null, { friends: [{ identity: BEN, name: "Ben B" }] }]);
     vi.resetModules();
     const { friendSheetView, rememberFocus } = await import("./friend-sheet");
@@ -81,7 +81,7 @@ describe("friend sheet as a dialog", () => {
     const row = document.createElement("button");
     document.body.append(row);
     rememberFocus(row);
-    friends.open({ identity: BEN, ownName: "Someone" });
+    friends.open({ identity, ownName: "Someone" });
     const host = document.createElement("div");
     document.body.append(host);
     render(friendSheetView(), host);
@@ -100,6 +100,14 @@ describe("friend sheet as a dialog", () => {
   test("opens with focus on the primary button", async () => {
     const { host } = await openFrom();
     expect(document.activeElement).toBe(host.querySelector("[data-friend-primary]"));
+    document.body.replaceChildren();
+  });
+
+  test("for someone who is not a friend, opens with focus on Add to friends", async () => {
+    const { host } = await openFrom(CAL);
+    const primary = host.querySelector("[data-friend-primary]");
+    expect(primary?.textContent?.trim()).toBe("Add to friends");
+    expect(document.activeElement).toBe(primary);
     document.body.replaceChildren();
   });
 
