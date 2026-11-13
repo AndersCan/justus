@@ -1,1 +1,1 @@
-{ "app": "justus", "out": "apps/web/src/design", "screens": ["album/album-full"] }
+{ "app": "justus", "out": "apps/web/src/design", "screens": ["album/album-full"], "components": ["button"] }
