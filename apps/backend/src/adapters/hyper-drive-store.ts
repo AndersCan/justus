@@ -62,6 +62,37 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
   /** The live download of the file index that `keepOnly` runs, and the block it starts from. */
   let liveIndex: { from: number; range: { destroy(): void } } | undefined;
   let growthWatched = false;
+  /** Reads under way, and the clear of stored bytes that holds new reads back. A clear that overlaps a read can leave the read waiting for a block for good. */
+  const reading = new Set<Promise<unknown>>();
+  let clearing: Promise<unknown> | undefined;
+  async function whileReading<T>(read: () => Promise<T>): Promise<T> {
+    while (clearing) await clearing;
+    const running = read();
+    const tracked = running.then(
+      () => {},
+      () => {},
+    );
+    reading.add(tracked);
+    try {
+      return await running;
+    } finally {
+      reading.delete(tracked);
+    }
+  }
+  /** True when no read is under way, waiting at most `timeoutMs` for the ones that are. */
+  async function readsDone(timeoutMs: number): Promise<boolean> {
+    if (reading.size === 0) return true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    });
+    const done = Promise.allSettled(reading).then(() => true);
+    try {
+      return await Promise.race([done, timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   /** True when `path` is the only file and the last write put it; then every block between the header and that write is cleared. The header is already local: `getBlobs` read it. */
   async function clearOlderVersions(path: string): Promise<boolean> {
@@ -80,6 +111,25 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     if (liveIndex && (!cleared || liveIndex.from === from)) return;
     liveIndex?.range.destroy();
     liveIndex = { from, range: raw.core.download({ start: from, end: -1 }) };
+  }
+
+  async function readSmallNow(
+    path: string,
+    maxBytes: number,
+    opts: { timeoutMs: number } | undefined,
+  ): Promise<string | undefined> {
+    const readOpts = opts ? { timeout: opts.timeoutMs } : undefined;
+    const node = await raw.entry(path, readOpts);
+    const size = node?.value?.blob?.byteLength;
+    if (typeof size === "number" && size > maxBytes) return undefined;
+    /** A blob nobody can serve inside the timeout reads as missing, like an absent path. */
+    const bytes = await raw.get(path, readOpts).catch((e: unknown) => {
+      if (opts && (e as { code?: string })?.code === "REQUEST_TIMEOUT") return undefined;
+      throw e;
+    });
+    if (bytes === null || bytes === undefined || bytes.byteLength > maxBytes) return undefined;
+    // Not TextDecoder: Bare has no global one (#201).
+    return Buffer.from(bytes).toString("utf8");
   }
 
   async function keepPath(path: string): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
@@ -120,24 +170,8 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
   return {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
-    async readSmall(path, maxBytes, opts) {
-      const readOpts = opts ? { timeout: opts.timeoutMs } : undefined;
-      const node = await raw.entry(path, readOpts);
-      const size = node?.value?.blob?.byteLength;
-      if (typeof size === "number" && size > maxBytes) return undefined;
-      /** A blob nobody can serve inside the timeout reads as missing, like an absent path. */
-      const bytes = await raw.get(path, readOpts).catch((e: unknown) => {
-        if (opts && (e as { code?: string })?.code === "REQUEST_TIMEOUT") return undefined;
-        throw e;
-      });
-      if (bytes === null || bytes === undefined || bytes.byteLength > maxBytes) return undefined;
-      // Not TextDecoder: Bare has no global one (#201).
-      return Buffer.from(bytes).toString("utf8");
-    },
-    async readBytes(path) {
-      const bytes = await raw.get(path);
-      return bytes ?? undefined;
-    },
+    readSmall: (path, maxBytes, opts) => whileReading(() => readSmallNow(path, maxBytes, opts)),
+    readBytes: (path) => whileReading(async () => (await raw.get(path)) ?? undefined),
     async put(path, bytes, opts) {
       if (readOnly) readOnlyCopy();
       await raw.put(path, Buffer.from(bytes), opts?.metadata ? { metadata: opts.metadata } : {});
@@ -175,12 +209,21 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
         }
         if (blobs) {
           ranges.sort((x, y) => x[0] - y[0]);
-          let at = 0;
-          for (const [from, to] of ranges) {
-            if (from > at) await blobs.core.clear(at, Math.min(from, end));
-            at = Math.max(at, to);
+          if (!(await readsDone(timeoutMs))) throw new Error("reads are under way");
+          const clear = (async () => {
+            let at = 0;
+            for (const [from, to] of ranges) {
+              if (from > at) await blobs.core.clear(at, Math.min(from, end));
+              at = Math.max(at, to);
+            }
+            if (at < end) await blobs.core.clear(at, end);
+          })();
+          clearing = clear.catch(() => {});
+          try {
+            await clear;
+          } finally {
+            clearing = undefined;
           }
-          if (at < end) await blobs.core.clear(at, end);
         }
         return [null, { paths }];
       } catch (e: unknown) {

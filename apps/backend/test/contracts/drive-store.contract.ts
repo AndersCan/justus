@@ -1279,4 +1279,27 @@ export const realOnlyCases: DriveCase[] = [
       t.eq(await old?.readSmall("/x", 10, { timeoutMs: 500 }), "photo", "x still on b");
     },
   },
+  {
+    name: "R6 clearDeleted is an error value and clears nothing while a read of the drive is still waiting for its bytes; once the read ends it clears",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      await own.put("/x", bytes("newer"));
+      await own.put("/z", bytes("zzz"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the new index",
+      );
+      const [first] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([first], "index fetched while connected");
+      await a.disconnect();
+      await remote.clear("/z");
+      const waiting = remote.readSmall("/z", 10, { timeoutMs: 1_500 });
+      const [err] = await remote.clearDeleted({ timeoutMs: 200 });
+      t.eq(err?.message, "reads are under way", "refused while a read waits");
+      await waiting;
+      const [after] = await remote.clearDeleted({ timeoutMs: 2_000 });
+      t.noErr([after], "clears once nothing is reading");
+    },
+  },
 ];
