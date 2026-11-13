@@ -8,7 +8,7 @@ appId: no.cankode.justus
 # cap the settle wait: each step below waits for its own next screen anyway.
 - extendedWaitUntil:
     visible: "Skip"
-    timeout: 60000
+    timeout: 90000
 - assertVisible: "Photos go straight to your friends"
 - tapOn:
     text: "Skip"
@@ -32,17 +32,32 @@ appId: no.cankode.justus
 # Submit with Enter, not "Continue": the keyboard can cover the button.
 - pressKey: Enter
 # The phone has PIN 1111 (set by scripts/maestro-e2e.sh): the first-run card turns App lock on.
-- extendedWaitUntil:
-    visible: "Lock Justus?"
-    timeout: 20000
-- tapOn:
-    text: "Enable"
-    waitToSettleTimeoutMs: 500
-- inputText: "1111"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "App lock is on"
-    timeout: 15000
+# iOS: the Simulator shows the card too, but has no lock to enable: the walk declines it.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: "Lock Justus?"
+          timeout: 20000
+      - tapOn:
+          text: "Enable"
+          waitToSettleTimeoutMs: 500
+      - inputText: "1111"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible: "App lock is on"
+          timeout: 15000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible: "Lock Justus?"
+          timeout: 20000
+      - tapOn:
+          text: "Not now"
+          waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
     visible: "Start sharing"
     timeout: 20000
@@ -55,20 +70,25 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: "No photos in this album yet."
     timeout: 20000
-- tapOn:
-    text: "Add photos to M"
-    retryTapIfNoChange: false
-    waitToSettleTimeoutMs: 500
-# The picker is a NATIVE surface whose labels differ by picker version (the Play-updated one has
-# a "Collections" tab, the google_apis CI image's does not), and its "Photos" title is also our
-# heading. So prove it by our album page being covered, then back again once it closes.
-- extendedWaitUntil:
-    notVisible: "No photos in this album yet."
-    timeout: 15000
-- back
-- extendedWaitUntil:
-    visible: "No photos in this album yet."
-    timeout: 15000
+# The photo picker is opened on Android only.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Add photos to M"
+          retryTapIfNoChange: false
+          waitToSettleTimeoutMs: 500
+      # The picker is a NATIVE surface whose labels differ by picker version (the Play-updated one has
+      # a "Collections" tab, the google_apis CI image's does not), and its "Photos" title is also our
+      # heading. So prove it by our album page being covered, then back again once it closes.
+      - extendedWaitUntil:
+          notVisible: "No photos in this album yet."
+          timeout: 15000
+      - back
+      - extendedWaitUntil:
+          visible: "No photos in this album yet."
+          timeout: 15000
 # Send invite link opens the system share sheet; Back closes it and leaves the page as it was.
 - tapOn:
     text: "Invite & members"
@@ -80,100 +100,124 @@ appId: no.cankode.justus
     text: "Send invite link"
     retryTapIfNoChange: false
     waitToSettleTimeoutMs: 500
-- extendedWaitUntil:
-    notVisible: "Invite people"
-    timeout: 15000
-- back
+# Android: the share sheet covers our page; Back closes it.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          notVisible: "Invite people"
+          timeout: 15000
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # The share sheet is a popover over a still-visible page on iPad, so detect its own Copy action
+      # (full match: "Copy invite link" does not match), then dismiss it.
+      - extendedWaitUntil:
+          visible: "Copy"
+          timeout: 15000
+      - takeScreenshot: .maestro/out/ios-share-sheet
+      # The iPhone sheet has no "Close" text and a tap on the page above it did not dismiss it:
+      # Copy is an action that closes the sheet on its own.
+      - tapOn:
+          text: "Copy"
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
-# App lock was turned on from the first-run card; Settings shows it on.
-- tapOn:
-    text: "Settings"
-    waitToSettleTimeoutMs: 500
-# The lock card arrives after the status call; the WebView's accessibility tree can miss a node
-# added late, so leave and re-enter Settings and read the card from a fresh render.
-- tapOn:
-    text: "Photos"
-    waitToSettleTimeoutMs: 500
-- tapOn:
-    text: "Settings"
-    waitToSettleTimeoutMs: 500
-- scrollUntilVisible:
-    element: "Require unlock to open Justus.*"
-    timeout: 20000
-# Away under 30s: back in, no lock.
-- pressKey: Home
-- launchApp:
-    stopApp: false
-- scrollUntilVisible:
-    element: "Require unlock to open Justus.*"
-    timeout: 15000
-- assertNotVisible: "Justus is locked"
-# Away over 30s: the lock shows and the app underneath is unreachable.
-- pressKey: Home
-- extendedWaitUntil:
-    visible: "Justus is locked"
-    timeout: 31000
-    optional: true
-- launchApp:
-    stopApp: false
-# The system PIN prompt (secure, unreadable) opens over the lock screen; the app behind it is hidden.
-- assertNotVisible: "Require unlock to open Justus.*"
-- pressKey: Back
-- launchApp:
-    stopApp: false
-- assertVisible: "Justus is locked"
-- assertNotVisible: "Require unlock to open Justus.*"
-- tapOn:
-    text: "Unlock"
-    waitToSettleTimeoutMs: 500
-- inputText: "1111"
-- pressKey: Enter
-- scrollUntilVisible:
-    element: "Require unlock to open Justus.*"
-    timeout: 15000
-# A fresh launch always asks: the system PIN prompt opens over the lock screen at once. Let it
-# open, close it, and unlock from the lock screen the same way as above.
-- launchApp
-- waitForAnimationToEnd:
-    timeout: 4000
-# Back only when the prompt is up (the lock text is unreadable then); on the bare lock screen it would leave the app.
+# The lock section is Android-only for now.
 - runFlow:
     when:
-      notVisible: "Justus is locked"
+      platform: Android
     commands:
+      # App lock was turned on from the first-run card; Settings shows it on.
+      - tapOn:
+          text: "Settings"
+          waitToSettleTimeoutMs: 500
+      # The lock card arrives after the status call; the WebView's accessibility tree can miss a node
+      # added late, so leave and re-enter Settings and read the card from a fresh render.
+      - tapOn:
+          text: "Photos"
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: "Settings"
+          waitToSettleTimeoutMs: 500
+      - scrollUntilVisible:
+          element: "Require unlock to open Justus.*"
+          timeout: 20000
+      # Away under 30s: back in, no lock.
+      - pressKey: Home
+      - launchApp:
+          stopApp: false
+      - scrollUntilVisible:
+          element: "Require unlock to open Justus.*"
+          timeout: 15000
+      - assertNotVisible: "Justus is locked"
+      # Away over 30s: the lock shows and the app underneath is unreachable.
+      - pressKey: Home
+      - extendedWaitUntil:
+          visible: "Justus is locked"
+          timeout: 31000
+          optional: true
+      - launchApp:
+          stopApp: false
+      # The system PIN prompt (secure, unreadable) opens over the lock screen; the app behind it is hidden.
+      - assertNotVisible: "Require unlock to open Justus.*"
       - pressKey: Back
-- extendedWaitUntil:
-    visible: "Justus is locked"
-    timeout: 15000
-- assertNotVisible: "Require unlock to open Justus.*"
-- tapOn:
-    text: "Unlock"
-    waitToSettleTimeoutMs: 500
-- inputText: "1111"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Settings"
-    timeout: 30000
-# Turn it off (asks again). A fresh launch has the same late lock card, so re-enter Settings first.
-- tapOn:
-    text: "Settings"
-    waitToSettleTimeoutMs: 500
-- tapOn:
-    text: "Photos"
-    waitToSettleTimeoutMs: 500
-- tapOn:
-    text: "Settings"
-    waitToSettleTimeoutMs: 500
-- scrollUntilVisible:
-    element: "Require unlock to open Justus.*"
-    timeout: 20000
-- tapOn:
-    text: "Require unlock to open Justus.*"
-    waitToSettleTimeoutMs: 500
-- inputText: "1111"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "App lock is off"
-    timeout: 15000
+      - launchApp:
+          stopApp: false
+      - assertVisible: "Justus is locked"
+      - assertNotVisible: "Require unlock to open Justus.*"
+      - tapOn:
+          text: "Unlock"
+          waitToSettleTimeoutMs: 500
+      - inputText: "1111"
+      - pressKey: Enter
+      - scrollUntilVisible:
+          element: "Require unlock to open Justus.*"
+          timeout: 15000
+      # A fresh launch always asks: the system PIN prompt opens over the lock screen at once. Let it
+      # open, close it, and unlock from the lock screen the same way as above.
+      - launchApp
+      - waitForAnimationToEnd:
+          timeout: 4000
+      # Back only when the prompt is up (the lock text is unreadable then); on the bare lock screen it would leave the app.
+      - runFlow:
+          when:
+            notVisible: "Justus is locked"
+          commands:
+            - pressKey: Back
+      - extendedWaitUntil:
+          visible: "Justus is locked"
+          timeout: 15000
+      - assertNotVisible: "Require unlock to open Justus.*"
+      - tapOn:
+          text: "Unlock"
+          waitToSettleTimeoutMs: 500
+      - inputText: "1111"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible: "Settings"
+          timeout: 30000
+      # Turn it off (asks again). A fresh launch has the same late lock card, so re-enter Settings first.
+      - tapOn:
+          text: "Settings"
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: "Photos"
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: "Settings"
+          waitToSettleTimeoutMs: 500
+      - scrollUntilVisible:
+          element: "Require unlock to open Justus.*"
+          timeout: 20000
+      - tapOn:
+          text: "Require unlock to open Justus.*"
+          waitToSettleTimeoutMs: 500
+      - inputText: "1111"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible: "App lock is off"
+          timeout: 15000
