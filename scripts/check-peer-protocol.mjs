@@ -17,7 +17,8 @@ export function firstSection(breakingMd) {
   const start = breakingMd.search(/^## /m);
   if (start === -1) return undefined;
   const rest = breakingMd.slice(start);
-  const next = rest.slice(3).search(/^## /m);
+  const afterHeading = rest.slice(3);
+  const next = afterHeading.search(/^## /m);
   const section = next === -1 ? rest : rest.slice(0, next + 3);
   const newline = section.indexOf("\n");
   const heading = newline === -1 ? section : section.slice(0, newline);
@@ -29,13 +30,27 @@ export function firstSection(breakingMd) {
 
 /** The newest `vX.Y.Z` tag by number; other tags are ignored. */
 export function latestRelease(tags) {
-  const versions = tags
-    .filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag))
-    .map((tag) => ({ tag, parts: tag.slice(1).split(".").map(Number) }));
-  versions.sort(
-    (a, b) => b.parts[0] - a.parts[0] || b.parts[1] - a.parts[1] || b.parts[2] - a.parts[2],
-  );
-  return versions[0]?.tag;
+  let best;
+  let bestParts = [];
+  for (const tag of tags) {
+    if (!/^v\d+\.\d+\.\d+$/.test(tag)) continue;
+    const numbers = tag.slice(1);
+    const parts = numbers.split(".");
+    let newer = best === undefined;
+    for (let index = 0; index < 3 && !newer; index++) {
+      const here = Number(parts[index]);
+      const there = bestParts[index];
+      if (here !== there) {
+        newer = here > there;
+        break;
+      }
+    }
+    if (newer) {
+      best = tag;
+      bestParts = parts.map(Number);
+    }
+  }
+  return best;
 }
 
 /**
@@ -51,7 +66,7 @@ export function problems({ protocol, top, released }) {
       `BREAKING.md's first section says peer protocol ${top.protocol}, but ${VERSIONS_FILE} has PEER_PROTOCOL = ${protocol}. Make them the same.`,
     ];
   }
-  if (released && released.protocol === protocol && released.top?.body !== top.body) {
+  if (released.protocol === protocol && released.top?.body !== top.body) {
     return [
       `Peer protocol ${protocol} already shipped in ${released.tag}. A change to a file on a drive needs a new one: set PEER_PROTOCOL = ${protocol + 1} in ${VERSIONS_FILE} and add "## Unreleased · peer protocol ${protocol + 1}" above the first section in BREAKING.md.`,
     ];
@@ -59,7 +74,7 @@ export function problems({ protocol, top, released }) {
   return [];
 }
 
-function git(root, args) {
+function git({ root, args }) {
   return execFileSync("git", args, {
     cwd: root,
     encoding: "utf8",
@@ -67,9 +82,9 @@ function git(root, args) {
   });
 }
 
-function gitShow(root, tag, file) {
+function gitShow({ root, tag, file }) {
   try {
-    return git(root, ["show", `${tag}:${file}`]);
+    return git({ root, args: ["show", `${tag}:${file}`] });
   } catch {
     return undefined;
   }
@@ -77,7 +92,7 @@ function gitShow(root, tag, file) {
 
 function main() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const tag = latestRelease(git(root, ["tag", "-l", "v*"]).split("\n"));
+  const tag = latestRelease(git({ root, args: ["tag", "-l", "v*"] }).split("\n"));
   if (tag === undefined) {
     console.error(
       "check-peer-protocol: No release tags found. Fetch them (git fetch --tags) and run again.",
@@ -86,10 +101,10 @@ function main() {
   }
   const protocol = protocolOf(fs.readFileSync(path.join(root, VERSIONS_FILE), "utf8"));
   const top = firstSection(fs.readFileSync(path.join(root, "BREAKING.md"), "utf8"));
-  const oldBreaking = gitShow(root, tag, "BREAKING.md");
+  const oldBreaking = gitShow({ root, tag, file: "BREAKING.md" });
   const released = {
     tag,
-    protocol: protocolOf(gitShow(root, tag, VERSIONS_FILE)),
+    protocol: protocolOf(gitShow({ root, tag, file: VERSIONS_FILE })),
     top: oldBreaking === undefined ? undefined : firstSection(oldBreaking),
   };
   const found = problems({ protocol, top, released });
