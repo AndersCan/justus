@@ -93,6 +93,46 @@ test("New album in Photos names the album in place and opens it", async ({ page 
   await expect(page.getByRole("heading", { name: "Garden" })).toBeVisible({ timeout: 20_000 });
 });
 
+test("New album is a real dialog: focus stays inside, a drag out keeps it, Escape and an outside tap close it", async ({
+  page,
+}) => {
+  await page.goto("/albums");
+  const opener = page.getByRole("button", { name: "New album" });
+  await opener.click();
+  const sheet = page.getByRole("dialog", { name: "Start an album" });
+  await expect(sheet.getByLabel("Album name")).toBeFocused();
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Tab");
+    // Past the last control Chromium may hand focus to its own chrome (body); never to the page behind.
+    expect(
+      await sheet.evaluate((d) => {
+        const at = document.activeElement;
+        return at === document.body || d.contains(at);
+      }),
+    ).toBe(true);
+  }
+
+  await sheet.getByLabel("Album name").fill("Ga");
+  const field = (await sheet.getByLabel("Album name").boundingBox())!;
+  await page.mouse.move(field.x + 10, field.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(5, 5);
+  await page.mouse.up();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByLabel("Album name")).toHaveValue("Ga");
+
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(opener).toBeFocused();
+
+  await opener.click();
+  await expect(sheet).toBeVisible();
+  const scrim = await sheet.evaluate((d) => getComputedStyle(d, "::backdrop").backgroundColor);
+  expect(scrim).toBe("rgba(0, 0, 0, 0.4)");
+  await page.mouse.click(5, 5);
+  await expect(sheet).toBeHidden();
+});
+
 test("reloading an album or its Invite & members page shows it again", async ({ page }) => {
   const missing: string[] = [];
   page.on("response", (r) => {

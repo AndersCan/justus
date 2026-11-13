@@ -1,4 +1,5 @@
 import { html, render } from "lit-html";
+import { ref } from "lit-html/directives/ref.js";
 import {
   FOLDERS_STATES,
   folders,
@@ -8,6 +9,9 @@ import {
 import { onStateChange } from "../machines/actor-utils";
 
 import { copy, t } from "../copy/copy";
+import { modalDialog } from "./modal-dialog";
+
+const albumModal = modalDialog();
 /** "Start an album" sheet, for "New album" and "Start an album" in Photos.
  * Resolves the new album's name, or
  * null on Cancel / Escape / backdrop tap. Same overlay pattern as
@@ -16,31 +20,20 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
   return new Promise((resolve) => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const close = (result: string | null) => {
-      document.removeEventListener("keydown", onKey);
       render(null, host);
       host.remove();
-      previouslyFocused?.focus();
       resolve(result);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close(null);
-    };
-    document.addEventListener("keydown", onKey);
     render(
       html`
-        <div
-          class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-          @click=${() => close(null)}
+        <dialog
+          class="ui-sheet-dialog"
+          aria-label=${copy("start_album.start_an_album")}
+          ${ref(albumModal)}
         >
           <form
             class="justus-sheet ui-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label=${copy("start_album.start_an_album")}
-            @click=${(e: Event) => e.stopPropagation()}
             @submit=${(e: SubmitEvent) => {
               e.preventDefault();
               const input = (e.target as HTMLFormElement).querySelector("input");
@@ -56,19 +49,19 @@ function askAlbumName(detail: string, confirmLabel: string): Promise<string | nu
               aria-label=${copy("start_album.album_name")}
               maxlength="60"
               required
+              autofocus
             />
             <div class="mt-4 flex justify-end gap-2">
-              <button class="ui-btn-ghost" type="button" @click=${() => close(null)}>
+              <button class="ui-btn-ghost" type="button" data-dismiss @click=${() => close(null)}>
                 ${t("start_album.cancel")}
               </button>
               <wa-button variant="brand" type="submit">${confirmLabel}</wa-button>
             </div>
           </form>
-        </div>
+        </dialog>
       `,
       host,
     );
-    host.querySelector<HTMLInputElement>("input")?.focus();
   });
 }
 
