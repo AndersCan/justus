@@ -2,8 +2,11 @@
 
 Newest first. A change that breaks saved data, links, the peer protocol or the
 app's backend API adds an entry here in the same PR, and raises the version it
-breaks (`apps/backend/src/versions.ts`). Any change to a file on a drive raises
-`PEER_PROTOCOL`.
+breaks (`apps/backend/src/versions.ts`). A change to a file on a drive needs a
+peer protocol no release has shipped: when the first section's protocol is
+already in a release tag, raise `PEER_PROTOCOL` and start a new first section
+`## Unreleased · peer protocol N+1`. `node scripts/check-peer-protocol.mjs`
+checks this.
 
 ## Unreleased · peer protocol 4
 

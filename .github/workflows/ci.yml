@@ -20,6 +20,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       # pnpm 11.22.0 matches pnpm-lock.yaml; node 22.18 is the project minimum.
@@ -42,6 +43,9 @@ jobs:
 
       - name: Play listing text fits Play's limits
         run: node scripts/check-play-listing.mjs
+
+      - name: Peer protocol matches what releases shipped
+        run: node scripts/check-peer-protocol.mjs
 
       # store-listing/flow-photo.test.ts renders with Chromium.
       - name: Install Playwright Chromium
