@@ -1,6 +1,8 @@
 import { html, render } from "lit-html";
 
-import { t } from "../copy/copy";
+import { button } from "#design/components/button.ts";
+
+import { copy } from "../copy/copy";
 /** Warm confirmation dialog. Resolves true when the confirm button is
  * pressed, false on Keep / Escape / backdrop tap / close. Renders into its own
  * host so the calling view keeps its DOM untouched. */
@@ -48,28 +50,27 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
         >
           <h3 class="break-words text-base font-semibold text-fg">${options.title}</h3>
           ${options.detail ? html`<p class="text-sm text-muted">${options.detail}</p>` : null}
-          <wa-button slot="footer" appearance="filled" autofocus @click=${() => finish(false)}>
-            ${options.cancelLabel ?? t("confirm.keep")}
-          </wa-button>
-          <wa-button
-            slot="footer"
-            variant=${options.tone === "danger" ? "danger" : "neutral"}
-            appearance="accent"
-            @click=${() => finish(true)}
-          >
-            ${options.confirmLabel}
-          </wa-button>
+          <div slot="footer" class="flex flex-wrap justify-end gap-2">
+            ${button({
+              label: options.cancelLabel ?? copy("confirm.keep"),
+              variant: "default",
+              size: "large",
+              onClick: () => finish(false),
+            })}
+            ${button({
+              label: options.confirmLabel,
+              variant: options.tone === "danger" ? "danger" : "primary",
+              size: "large",
+              onClick: () => finish(true),
+            })}
+          </div>
         </wa-dialog>
       `,
       host,
     );
-    // The dialog's own autofocus can run before the buttons are upgraded.
-    void customElements.whenDefined("wa-button").then(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() =>
-          host.querySelector<HTMLElement>("wa-button[autofocus]")?.focus(),
-        );
-      });
+    // The dialog's own autofocus can run before it is upgraded.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => host.querySelector<HTMLElement>("[slot=footer]>button")?.focus());
     });
   });
 }

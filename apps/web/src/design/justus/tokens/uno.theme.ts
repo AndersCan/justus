@@ -24,5 +24,15 @@ export const designTheme = {
     "brand": "rgb(var(--brand) / <alpha-value>)",
     "action": "rgb(var(--action) / <alpha-value>)",
     "on-action": "rgb(var(--on-action) / <alpha-value>)"
+  },
+  "borderRadius": {
+    "control": "12px"
+  },
+  "height": {
+    "touch": "44px",
+    "tab": "36px"
+  },
+  "duration": {
+    "fast": "var(--duration-fast)"
   }
 }

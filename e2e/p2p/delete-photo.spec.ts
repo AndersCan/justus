@@ -162,7 +162,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(dialog).toContainText(
     /.+ has the full photo\. It's removed from their phone the next time they open Justus\. Copies saved outside Justus can.t be taken back\./,
   );
-  await dialog.locator("wa-button", { hasText: "Delete" }).click();
+  await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(a.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("button", { name: `View ${ANA}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(a.getByRole("status").filter({ hasText: `Deleted “${ANA}”.` })).toHaveText(
@@ -206,7 +206,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(benDialog).toContainText(
     /The photo no longer shows for .+\. It's removed from their phones? the next time they open Justus\./,
   );
-  await benDialog.locator("wa-button", { hasText: "Delete" }).click();
+  await benDialog.getByRole("button", { name: "Delete" }).click();
   await expect(b.getByRole("status").filter({ hasText: `Deleted “${BEN}”.` })).toHaveText(
     /^\s*Deleted “del-ben\.png”\. The photo no longer shows for .+\.\s*$/,
   );
@@ -228,7 +228,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await a.getByRole("menuitem", { name: "Delete" }).click();
   await a
     .locator("wa-dialog[open]", { hasText: `Delete “${BEN2}”?` })
-    .locator("wa-button", { hasText: "Delete" })
+    .getByRole("button", { name: "Delete" })
     .click();
   await expect(a.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, { timeout: 20_000 });
   await expect(b.getByRole("button", { name: `View ${BEN2}` })).toHaveCount(0, {
