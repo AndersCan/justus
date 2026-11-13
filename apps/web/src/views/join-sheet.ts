@@ -62,7 +62,7 @@ function sheet(label: string, body: unknown, onDismiss: () => void) {
       @click=${onDismiss}
     >
       <div
-        class="justus-sheet w-full max-w-sm rounded-t-2xl bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl ring-1 ring-line sm:rounded-2xl"
+        class="justus-sheet ui-sheet"
         role="dialog"
         aria-modal="true"
         aria-label=${label}
