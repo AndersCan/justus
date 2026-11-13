@@ -71,7 +71,7 @@ async function askToJoin(b, link, album) {
   await expect(ask).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0);
   await ask.getByRole("button", { name: "Ask to join" }).click();
-  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toBeVisible({ timeout: 20_000 });
+  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0);
 }
 
@@ -96,7 +96,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
   await expect(asked).toHaveCount(0);
   const codeSpan = b
-    .getByRole("dialog", { name: /^Waiting for / })
+    .getByRole("dialog", { name: /^You're done\. / })
     .getByText(/^[a-z]+ [a-z]+ [a-z]+$/);
   await expect(codeSpan).toBeVisible({ timeout: 20_000 });
   const code = (await codeSpan.textContent())!;
@@ -517,7 +517,7 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
       .getByText("Your request wasn't answered."),
   ).toHaveCount(0);
   await expect(b.getByRole("dialog", { name: "Ask to join “Off trip”?" })).toHaveCount(0);
-  await expect(b.getByRole("dialog", { name: /^Waiting for / })).toHaveCount(0);
+  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toHaveCount(0);
   await b.getByRole("button", { name: "Close", exact: true }).click();
   await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
 
@@ -592,7 +592,7 @@ test("B asks from the first-run screen, closes the waiting sheet, A accepts, B o
   const ask = b.getByRole("dialog", { name: `Ask to join “${ALBUM}”?` });
   await expect(ask).toBeVisible({ timeout: 20_000 });
   await ask.getByRole("button", { name: "Ask to join" }).click();
-  const waiting = b.getByRole("dialog", { name: /^Waiting for / });
+  const waiting = b.getByRole("dialog", { name: /^You're done\. / });
   await expect(waiting).toBeVisible({ timeout: 20_000 });
   await waiting.getByRole("button", { name: "Close" }).first().click();
   await expect(b.getByRole("dialog")).toHaveCount(0);
@@ -630,7 +630,7 @@ test("B reloads while waiting, A declines, B sees the decline on Photos", async 
   const link = await copyInviteLink(a);
   await askToJoin(b, link, RELOAD_ALBUM);
   await b
-    .getByRole("dialog", { name: /^Waiting for / })
+    .getByRole("dialog", { name: /^You're done\. / })
     .getByRole("button", { name: "Close" })
     .first()
     .click();

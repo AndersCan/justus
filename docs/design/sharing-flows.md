@@ -29,13 +29,13 @@ Nils (Admin) made "Spain 2026" and wants Maya to see and add photos.
 **Maya's side**
 
 1. Opens the link. Sees "Join Spain 2026? Started by Nils. 1 person." and the existing consent text: "You'll see every photo in this album, old and new, and a copy is kept on this phone. People in the album can see when you have Justus open."
-2. Taps **Ask to join**. Sees "Waiting for Nils".
+2. Taps **Ask to join**. Sees "You're done. Waiting for Nils to let you in."
 3. After 30 seconds: "Nils's phone needs Justus open to let you in."
 4. Accepted: "You're in. You can add photos." (Collaborator) or "You're in. You can look, but not add photos." (Viewer).
 
 **Failure paths**
 
-- _Nils's phone is closed._ Maya stays on "Waiting for Nils" with the hint above. The request is delivered when his phone is next open. Nothing is lost, but nothing moves either. Cost of the new design: Viewers also need the Admin's phone open (today only adding photos does).
+- _Nils's phone is closed._ Maya stays on "You're done. Waiting for Nils to let you in." with the hint above. The request is delivered when his phone is next open. Nothing is lost, but nothing moves either. Cost of the new design: Viewers also need the Admin's phone open (today only adding photos does).
 - _Link expired._ Maya sees "This link has expired. Ask Nils for a new one." No request reaches Nils.
 - _Link cancelled._ Same screen and same text as expired.
 - _Declined._ Maya sees "Nils did not accept your request." Nothing is shared.

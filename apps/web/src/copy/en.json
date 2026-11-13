@@ -2786,7 +2786,7 @@
     "screen": ""
   },
   "invite.may_ask_you_for_these": {
-    "text": "{owner} sees these three words next to your request. If {owner} calls or messages to check it's you, read them out.",
+    "text": "If {owner} asks which three words your phone shows, read out these:",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -3086,11 +3086,11 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
-  "invite.waiting_for": {
-    "text": "Waiting for {owner}",
+  "invite.you_re_done": {
+    "text": "You're done. Waiting for {owner} to let you in.",
     "status": "draft",
     "where": "Invite & join › text",
-    "who": "Admins sending invites; people joining by a link",
+    "who": "People joining by a link",
     "screen": ""
   },
   "invite.update_justus_to_join": {
