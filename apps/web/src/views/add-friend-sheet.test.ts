@@ -7,6 +7,12 @@ import { addFriendSheetView } from "./add-friend-sheet";
 import { invitePanel } from "./invite";
 import { toast } from "./toast";
 
+/** A press and release on the dim area: the dialog itself is the target. */
+function tapOutside(dialog: Element) {
+  dialog.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  dialog.dispatchEvent(new Event("click", { bubbles: true }));
+}
+
 vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("../gateway", () => ({
   gateway: {
@@ -63,6 +69,40 @@ const primaries = (h: HTMLElement) =>
 beforeEach(() => {
   document.body.replaceChildren();
   addFriend.closePicker();
+});
+
+describe("add a friend as a dialog", () => {
+  test("focus goes back to Add a friend even when the tap did not focus it", async () => {
+    const host = mount("creator", { i1: "Kari" });
+    const add = button(host, "Add a friend")!;
+    (document.activeElement as HTMLElement | null)?.blur();
+    add.click();
+    await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
+    await Promise.resolve();
+    expect(document.activeElement).toBe(add);
+  });
+
+  test("the who-was-asked list puts focus on Close and Escape closes it", async () => {
+    const { gateway } = await import("../gateway");
+    vi.mocked(gateway.offerAlbum).mockReset();
+    vi.mocked(gateway.offerAlbum).mockImplementation(async () => [
+      null,
+      { ok: true, waiting: true },
+    ]);
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
+    box(host, "Kari").click();
+    await vi.waitFor(() => expect(button(host, "Add Kari, can only look")).toBeTruthy());
+    button(host, "Add Kari, can only look")!.click();
+    await vi.waitFor(() => expect(host.querySelector("[data-add-friend-primary]")).toBeTruthy());
+    await Promise.resolve();
+    expect(document.activeElement).toBe(host.querySelector("[data-add-friend-primary]"));
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
+  });
 });
 
 describe("add a friend", () => {
@@ -134,12 +174,10 @@ describe("add a friend", () => {
     add.click();
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     await vi.waitFor(() =>
-      expect(host.querySelector("[role=dialog]")!.contains(document.activeElement)).toBe(true),
+      expect(host.querySelector("dialog")!.contains(document.activeElement)).toBe(true),
     );
-    document.activeElement!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
     await Promise.resolve();
     expect(document.activeElement).toBe(add);
   });
@@ -163,7 +201,7 @@ describe("add a friend", () => {
       expect(toast).toHaveBeenCalledWith("Asked Kari and ole to join. They can only look."),
     );
     expect(toast).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
   });
 
   test("a Collaborator is asked with member", async () => {
@@ -175,7 +213,7 @@ describe("add a friend", () => {
     await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
     box(host, "Kari").click();
     await vi.waitFor(() => expect(button(host, "Add Kari, can add photos")).toBeTruthy());
-    expect(host.querySelector("[role=dialog]")!.getAttribute("aria-label")).toBe(
+    expect(host.querySelector("dialog")!.getAttribute("aria-label")).toBe(
       "Add a friend to “Lisbon trip”",
     );
     expect(gateway.offerAlbum).not.toHaveBeenCalled();
@@ -200,7 +238,7 @@ describe("add a friend", () => {
     box(host, "ole").click();
     await vi.waitFor(() => expect(button(host, "Add Kari and ole, can only look")).toBeTruthy());
     button(host, "Add Kari and ole, can only look")!.click();
-    const dialog = () => host.querySelector<HTMLElement>("[role=dialog]")!;
+    const dialog = () => host.querySelector<HTMLElement>("dialog")!;
     await vi.waitFor(() =>
       expect([...dialog().querySelectorAll("li")].map((l) => l.textContent!.trim())).toEqual([
         "Asked Kari.",
@@ -212,7 +250,21 @@ describe("add a friend", () => {
     ]);
     expect(toast).not.toHaveBeenCalled();
     button(dialog(), "Close")!.click();
-    await vi.waitFor(() => expect(host.querySelector("[role=dialog]")).toBeNull());
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
+  });
+
+  test("Escape while asking keeps the sheet", async () => {
+    const host = mount("creator", { i1: "Kari", i2: "ole" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
+    box(host, "Kari").click();
+    await vi.waitFor(() => expect(button(host, "Add Kari, can only look")).toBeTruthy());
+    button(host, "Add Kari, can only look")!.click();
+    await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari"));
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await Promise.resolve();
+    expect(host.querySelector("dialog")).not.toBeNull();
+    expect(host.textContent).toContain("Asking Kari");
   });
 
   test("backdrop click is ignored while asking", async () => {
@@ -230,11 +282,11 @@ describe("add a friend", () => {
     button(host, "Add Kari and ole, can only look")!.click();
     await vi.waitFor(() => expect(host.textContent).toContain("Asking Kari and ole"));
     await vi.waitFor(() =>
-      expect(host.querySelector("[role=dialog]")!.contains(document.activeElement)).toBe(true),
+      expect(host.querySelector("dialog")!.contains(document.activeElement)).toBe(true),
     );
-    (host.querySelector("[role=dialog]")!.parentElement as HTMLElement).click();
+    tapOutside(host.querySelector("dialog")!);
     await Promise.resolve();
-    expect(host.querySelector("[role=dialog]")).not.toBeNull();
+    expect(host.querySelector("dialog")).not.toBeNull();
     expect(document.activeElement).not.toBe(opener);
     expect(host.textContent).toContain("If someone doesn't have Justus open, their invite waits.");
   });

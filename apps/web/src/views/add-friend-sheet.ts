@@ -1,4 +1,5 @@
 import { html, nothing } from "lit-html";
+import { ref } from "lit-html/directives/ref.js";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { addFriend, addFriendActor } from "../machines/sharing/add-friend";
@@ -9,9 +10,11 @@ import type {
 } from "../machines/sharing/add-friend-machine";
 import { nameList } from "../utils/people";
 import { toast } from "./toast";
+import { modalDialog } from "./modal-dialog";
 
 import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
+const addFriendModal = modalDialog(() => opener ?? undefined);
 
 onOutput(addFriendActor, (e) => {
   const { names, role } = e.payload as { names: string[]; role: FriendRole };
@@ -40,22 +43,6 @@ export function openAddFriend(
 
 function closeSheet() {
   addFriend.closePicker();
-  const el = opener;
-  opener = null;
-  queueMicrotask(() => el?.isConnected && el.focus());
-}
-
-function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") closeSheet();
-}
-
-function focusInSheet() {
-  setTimeout(() => {
-    const el =
-      document.querySelector<HTMLElement>("[data-add-friend-primary]") ??
-      document.querySelector<HTMLElement>("[data-add-friend-dialog]");
-    if (el && document.activeElement !== el) el.focus();
-  }, 0);
 }
 
 function roleButton(
@@ -88,8 +75,20 @@ function answerLine(a: FriendAnswer) {
     : copy("add_friend_sheet.couldn_t_reach_ask_to", { name: a.name });
 }
 
+/** The sheet stays open between states, so autofocus has no say when Close or the asking line appears. */
+function focusButton(el?: Element) {
+  if (el instanceof HTMLElement) queueMicrotask(() => el.focus());
+}
+
 const closeButton = html`<div class="mt-4 flex justify-end">
-  <button class="ui-btn-primary" data-add-friend-primary @click=${closeSheet}>
+  <button
+    class="ui-btn-primary"
+    data-add-friend-primary
+    data-dismiss
+    autofocus
+    ${ref(focusButton)}
+    @click=${closeSheet}
+  >
     ${t("add_friend_sheet.close")}
   </button>
 </div>`;
@@ -122,6 +121,7 @@ export function addFriendSheetView() {
                   type="checkbox"
                   class="h-5 w-5 shrink-0"
                   data-add-friend-primary=${i === 0 ? "" : nothing}
+                  ?autofocus=${i === 0}
                   .checked=${ticked.includes(c.identity)}
                   @change=${() => addFriend.toggleFriend(c.identity)}
                 />
@@ -146,10 +146,17 @@ export function addFriendSheetView() {
           )}
         </div>
         <div class="mt-4 flex justify-end">
-          <button class="ui-btn-ghost" @click=${closeSheet}>${t("add_friend_sheet.close")}</button>
+          <button class="ui-btn-ghost" data-dismiss @click=${closeSheet}>
+            ${t("add_friend_sheet.close")}
+          </button>
         </div>`;
     } else if (state === "askingFriends") {
-      body = html`<div class="mt-3 flex items-center gap-3" role="status">
+      body = html`<div
+        class="mt-3 flex items-center gap-3"
+        role="status"
+        tabindex="-1"
+        ${ref(focusButton)}
+      >
         <span
           class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-fg motion-reduce:animate-none"
         ></span>
@@ -168,24 +175,11 @@ export function addFriendSheetView() {
     } else {
       return null;
     }
-    focusInSheet();
-    return html`<div
-      class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-      @click=${() => state !== "askingFriends" && closeSheet()}
-      @keydown=${onKey}
-    >
-      <div
-        class="justus-sheet ui-sheet"
-        role="dialog"
-        tabindex="-1"
-        data-add-friend-dialog
-        aria-modal="true"
-        aria-label=${title}
-        @click=${(e: Event) => e.stopPropagation()}
-      >
+    return html`<dialog class="ui-sheet-dialog" aria-label=${title} ${ref(addFriendModal)}>
+      <div class="justus-sheet ui-sheet">
         <h3 class="break-words text-base font-semibold text-fg">${title}</h3>
         ${body}
       </div>
-    </div>`;
+    </dialog>`;
   });
 }

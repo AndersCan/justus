@@ -33,6 +33,9 @@ export function modalDialog(returnFocus?: () => Element | undefined): (el?: Elem
   function open(dialog: HTMLDialogElement) {
     if (current !== dialog || !dialog.isConnected || dialog.open) return;
     dialog.showModal();
+    // Browsers focus it already; happy-dom does not.
+    const first = dialog.querySelector("[autofocus]");
+    if (first instanceof HTMLElement && !dialog.contains(document.activeElement)) first.focus();
   }
 
   function close(dialog: HTMLDialogElement) {
