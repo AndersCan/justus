@@ -64,7 +64,7 @@ let touchStart: { x: number; y: number } | null = null;
 // no photo is open.
 if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => {
-    if (document.querySelector("wa-dropdown[open], wa-dialog[open]")) return;
+    if (document.querySelector("wa-dropdown[open], wa-dialog[open], dialog[open]")) return;
     if (!lightboxActor.snapshot().context.photo) return;
     if (lightboxActor.snapshot().path[0] === "showingWhoHasThisPhoto") {
       if (e.key === "Escape") closeHolders();

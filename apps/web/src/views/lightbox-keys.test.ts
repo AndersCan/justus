@@ -42,6 +42,22 @@ describe("Escape in the lightbox", () => {
   });
 });
 
+describe("Escape in a sheet over the photo", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    closeLightbox();
+  });
+
+  it("does not close the photo when a sheet such as Ask to join is open", () => {
+    openLightbox(photo);
+    const dialog = document.createElement("dialog");
+    dialog.setAttribute("open", "");
+    document.body.append(dialog);
+    escape();
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("a");
+  });
+});
+
 describe("holders sheet in the lightbox", () => {
   afterEach(() => {
     closeLightbox();
@@ -66,7 +82,7 @@ describe("holders sheet in the lightbox", () => {
     openHolders();
     const el = document.createElement("div");
     render(lightboxView(), el);
-    const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
+    const fill = el.querySelector("dialog li span[style]")?.getAttribute("style");
     expect(fill).toBe(`background:${memberColor(0)}`);
   });
 
@@ -88,7 +104,7 @@ describe("holders sheet in the lightbox", () => {
     openHolders();
     const el = document.createElement("div");
     render(lightboxView(), el);
-    const fill = el.querySelector('[role="dialog"] li span[style]')?.getAttribute("style");
+    const fill = el.querySelector("dialog li span[style]")?.getAttribute("style");
     expect(fill).toBeUndefined();
   });
 });

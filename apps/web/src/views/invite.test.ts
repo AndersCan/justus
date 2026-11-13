@@ -493,7 +493,9 @@ describe("joinSheet update screen", () => {
       );
       button?.click();
       expect(close).toHaveBeenCalledTimes(1);
-      host.querySelector<HTMLElement>(".justus-backdrop")?.click();
+      const dialog = host.querySelector<HTMLElement>("dialog");
+      dialog?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      dialog?.click();
       expect(close).toHaveBeenCalledTimes(2);
       close.mockRestore();
     });

@@ -68,13 +68,12 @@ const motionStyle = document.createElement("style");
 motionStyle.textContent = `
   @keyframes justus-rise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
   @keyframes justus-fade { from { opacity: 0; } }
-  .justus-backdrop { animation: justus-fade 180ms ease-out; }
   .justus-sheet { animation: justus-rise 260ms cubic-bezier(.22,1,.36,1); }
   .justus-toast { animation: justus-rise 240ms cubic-bezier(.22,1,.36,1); }
   .justus-log-line { animation: justus-fade 200ms ease-out; }
   .justus-holders-text { animation: justus-fade 180ms ease-out; }
   @media (prefers-reduced-motion: reduce) {
-    .justus-backdrop, .justus-sheet, .justus-toast, .justus-log-line, .justus-holders-text { animation: none; }
+    .justus-sheet, .justus-toast, .justus-log-line, .justus-holders-text { animation: none; }
   }
 `;
 document.head.appendChild(motionStyle);

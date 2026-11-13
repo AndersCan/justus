@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { copy } from "../copy/copy";
 import type { JoinView } from "../machines/sharing/join-request";
@@ -53,13 +53,51 @@ function draw(state: JoinView["state"]) {
 
 describe("renderJoinSheet", () => {
   test.each(noSheet)("%s draws no sheet", (state) => {
-    expect(draw(state).querySelectorAll("[role=dialog]")).toHaveLength(0);
+    expect(draw(state).querySelectorAll("dialog")).toHaveLength(0);
   });
 
   test.each(labels)("%s draws its sheet", (state, label) => {
-    const dialogs = draw(state).querySelectorAll("[role=dialog]");
+    const dialogs = draw(state).querySelectorAll("dialog");
     expect(dialogs).toHaveLength(1);
     expect(dialogs[0]?.getAttribute("aria-label")).toBe(label);
+  });
+
+  test("Not now is the dismiss button only while it is enabled", () => {
+    const notNow = vi.fn();
+    const sheetFor = (state: JoinView["state"]) => {
+      const div = document.createElement("div");
+      document.body.append(div);
+      render(renderJoinSheet({ state, invite, error: "" }, { ...actions, notNow }), div);
+      return div;
+    };
+    const deciding = sheetFor("decidingToAsk");
+    deciding.querySelector("dialog")?.dispatchEvent(new Event("cancel", { cancelable: true }));
+    expect(notNow).toHaveBeenCalledTimes(1);
+    const sending = sheetFor("sendingRequest");
+    sending.querySelector("dialog")?.dispatchEvent(new Event("cancel", { cancelable: true }));
+    expect(notNow).toHaveBeenCalledTimes(1);
+  });
+
+  test("waiting backs out with Close, never Cancel request", () => {
+    const closeWaiting = vi.fn();
+    const cancelRequest = vi.fn();
+    const div = document.createElement("div");
+    document.body.append(div);
+    render(
+      renderJoinSheet(
+        { state: "waitingForAdminToAccept", invite, error: "" },
+        { ...actions, closeWaiting, cancelRequest },
+      ),
+      div,
+    );
+    div.querySelector("dialog")?.dispatchEvent(new Event("cancel", { cancelable: true }));
+    expect(closeWaiting).toHaveBeenCalledTimes(1);
+    expect(cancelRequest).not.toHaveBeenCalled();
+  });
+
+  test("checking the link has nothing to dismiss it", () => {
+    const div = draw("checkingLink");
+    expect(div.querySelector("[data-dismiss]")).toBeNull();
   });
 
   test("lines appear only where given", () => {
