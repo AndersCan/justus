@@ -43,7 +43,6 @@ out even though the text is on screen.
 - `Require unlock to open Justus`: the Settings switch (page-unique). Tapping it opens the system credential prompt.
 - `Justus is locked`, `Unlock`: the native lock screen. While it shows, the WebView is invisible, so no web text (`Settings`, the switch) is in the accessibility tree.
 - Toasts: `App lock is on`, `App lock is off`.
-- iOS: `scripts/maestro-ios.mjs` enrols Face ID on the Simulator and serves `/match` on the port in `FACE`; the flow's iOS branches run `scripts/face-match.js` inside a `retry` (a match posted before the prompt is up is dropped) instead of typing the PIN. The Face ID prompt hides the app text (like the PIN prompt), so the iOS branches wait for the prompt (`Face ID`) rather than `Justus is locked`. It restores the Simulator's enrolment afterwards. Keep both branches when editing the lock steps.
 
 ## Survive check
 

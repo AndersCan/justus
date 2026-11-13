@@ -70,6 +70,9 @@ appId: no.cankode.justus
                   - tapOn:
                       text: "Enable"
                       waitToSettleTimeoutMs: 500
+            - extendedWaitUntil:
+                visible: "Face ID"
+                timeout: 8000
             - runScript: ../scripts/face-match.js
             # The "App lock is on" toast is gone before the slow iOS hierarchy reads it: the next page proves the match.
             - extendedWaitUntil:
@@ -309,6 +312,9 @@ appId: no.cankode.justus
           when:
             platform: iOS
           commands:
+            - extendedWaitUntil:
+                visible: "Face ID"
+                timeout: 15000
             - retry:
                 maxRetries: 3
                 commands:
