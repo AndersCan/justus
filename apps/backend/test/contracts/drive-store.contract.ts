@@ -1335,4 +1335,39 @@ export const realOnlyCases: DriveCase[] = [
       );
     },
   },
+  {
+    name: "R8 a second clearDeleted that starts while the first waits does not clear under a read the first let through",
+    async run(world, t) {
+      const { a, own, remote } = await keeperSetup(world, t);
+      await own.put("/z", bytes("zzz"));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b has the new index",
+      );
+      const [first] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.noErr([first], "index fetched while connected");
+      await a.disconnect();
+      await remote.clear("/z");
+      await remote.clear("/y");
+      const early = remote.readSmall("/z", 10, { timeoutMs: 800 });
+      await new Promise((r) => setTimeout(r, 50));
+      const one = remote.clearDeleted({ timeoutMs: 5_000 });
+      await new Promise((r) => setTimeout(r, 50));
+      let lateDone = false;
+      const late = remote.readSmall("/y", 10, { timeoutMs: 2_000 }).finally(() => {
+        lateDone = true;
+      });
+      await new Promise((r) => setTimeout(r, 100));
+      const [err] = await remote.clearDeleted({ timeoutMs: 5_000 });
+      t.eq(
+        err !== null || lateDone,
+        true,
+        "the second clear waits for the read the first let through",
+      );
+      await one;
+      await late;
+      await early;
+    },
+  },
 ];
