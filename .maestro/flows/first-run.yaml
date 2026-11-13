@@ -154,8 +154,20 @@ appId: no.cankode.justus
           timeout: 20000
       # Away under 30s: back in, no lock.
       - pressKey: Home
-      - launchApp:
-          stopApp: false
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - launchApp:
+                stopApp: false
+      # iOS: launchApp does not bring a backgrounded Justus back, so tap its home screen icon.
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                text: "Justus"
+                waitToSettleTimeoutMs: 500
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000
@@ -166,8 +178,20 @@ appId: no.cankode.justus
           visible: "Justus is locked"
           timeout: 31000
           optional: true
-      - launchApp:
-          stopApp: false
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - launchApp:
+                stopApp: false
+      # iOS: launchApp does not bring a backgrounded Justus back, so tap its home screen icon.
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                text: "Justus"
+                waitToSettleTimeoutMs: 500
       # The system PIN prompt (secure, unreadable) opens over the lock screen on Android; the app behind it is hidden.
       - runFlow:
           when:
