@@ -2884,14 +2884,14 @@
     "screen": ""
   },
   "holding.silent": {
-    "text": "their phone hasn't said yet",
+    "text": "phone hasn't said yet",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.all": {
-    "text": "has every photo in full",
+    "text": "has all in full",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4256,21 +4256,21 @@
     "screen": ""
   },
   "member.role_admin": {
-    "text": "Started it",
+    "text": "Started this album",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_collaborator": {
-    "text": "Adds photos",
+    "text": "Can add photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_viewer": {
-    "text": "Looks only",
+    "text": "Can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",

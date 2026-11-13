@@ -142,7 +142,7 @@ test("A sees B's request on the album page, Review opens the card, Accept lets B
   await expect(line).toContainText("wants to join", { timeout: 60_000 });
   await line.getByRole("link", { name: "Review" }).click();
   await expect(a).toHaveURL(/\/sharing\/[^/]+$/);
-  await a.getByRole("button", { name: "Accept as Viewer", exact: true }).click();
+  await a.getByRole("button", { name: "Accept, can only look", exact: true }).click();
   await expect(b.getByRole("button", { name: `View ${LINE_PHOTO}` }).locator("img")).toBeAttached({
     timeout: 60_000,
   });

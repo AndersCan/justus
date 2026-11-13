@@ -105,11 +105,11 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "silent" }, 0)).toBeUndefined();
   });
   it("silent", () => {
-    expect(holdingLine({ kind: "silent" }, 3)).toBe("their phone hasn't said yet");
+    expect(holdingLine({ kind: "silent" }, 3)).toBe("phone hasn't said yet");
   });
   it("everything held says all", () => {
-    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("has every photo in full");
-    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has every photo in full");
+    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("has all in full");
+    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has all in full");
   });
   it("part held says the count", () => {
     expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("has 2 in full");
