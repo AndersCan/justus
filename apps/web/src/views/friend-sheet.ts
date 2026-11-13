@@ -88,7 +88,7 @@ export function friendSheetView() {
           id="friend-name"
           data-friend-name
           autofocus
-          ${ref(focusName)}
+          ${ref(busy ? undefined : focusName)}
           class="ui-input mt-1 w-full"
           maxlength="40"
           placeholder=${copy("friend_sheet.their_name")}

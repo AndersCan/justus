@@ -71,6 +71,40 @@ beforeEach(() => {
   addFriend.closePicker();
 });
 
+describe("add a friend as a dialog", () => {
+  test("focus goes back to Add a friend even when the tap did not focus it", async () => {
+    const host = mount("creator", { i1: "Kari" });
+    const add = button(host, "Add a friend")!;
+    (document.activeElement as HTMLElement | null)?.blur();
+    add.click();
+    await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
+    await Promise.resolve();
+    expect(document.activeElement).toBe(add);
+  });
+
+  test("the who-was-asked list puts focus on Close and Escape closes it", async () => {
+    const { gateway } = await import("../gateway");
+    vi.mocked(gateway.offerAlbum).mockReset();
+    vi.mocked(gateway.offerAlbum).mockImplementation(async () => [
+      null,
+      { ok: true, waiting: true },
+    ]);
+    const host = mount("creator", { i1: "Kari" });
+    button(host, "Add a friend")!.click();
+    await vi.waitFor(() => expect(box(host, "Kari")).toBeTruthy());
+    box(host, "Kari").click();
+    await vi.waitFor(() => expect(button(host, "Add Kari, can only look")).toBeTruthy());
+    button(host, "Add Kari, can only look")!.click();
+    await vi.waitFor(() => expect(host.querySelector("[data-add-friend-primary]")).toBeTruthy());
+    await Promise.resolve();
+    expect(document.activeElement).toBe(host.querySelector("[data-add-friend-primary]"));
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() => expect(host.querySelector("dialog")).toBeNull());
+  });
+});
+
 describe("add a friend", () => {
   test("no saved friends: no Add a friend button and no 'Or send a link'", () => {
     const host = mount("creator");
