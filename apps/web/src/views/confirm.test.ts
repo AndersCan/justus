@@ -3,7 +3,8 @@ import { afterEach, expect, test } from "vite-plus/test";
 
 import { confirmAction } from "./confirm";
 
-const buttons = () => [...document.querySelectorAll("wa-button")].map((b) => b.textContent?.trim());
+const buttons = () =>
+  [...document.querySelectorAll("[slot=footer] button")].map((b) => b.textContent?.trim());
 
 afterEach(() => {
   document.body.innerHTML = "";

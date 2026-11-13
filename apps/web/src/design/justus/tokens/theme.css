@@ -82,3 +82,15 @@
 :root[data-theme="light"] {
   color-scheme: light;
 }
+:root {
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-enter: cubic-bezier(0, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0s;
+    --duration-normal: 0s;
+  }
+}
