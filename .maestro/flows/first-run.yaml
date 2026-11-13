@@ -114,13 +114,14 @@ appId: no.cankode.justus
       platform: iOS
     commands:
       # The share sheet is a popover over a still-visible page on iPad, so detect its own Copy action
-      # (full match: "Copy invite link" does not match), then close it.
+      # (full match: "Copy invite link" does not match), then dismiss it.
       - extendedWaitUntil:
           visible: "Copy"
           timeout: 15000
+      - takeScreenshot: .maestro/out/ios-share-sheet
+      # The iPhone sheet has no "Close" text: a tap on the page above it dismisses it.
       - tapOn:
-          text: "Close"
-          waitToSettleTimeoutMs: 500
+          point: "50%,5%"
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
