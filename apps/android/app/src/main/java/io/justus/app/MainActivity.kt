@@ -264,7 +264,11 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-        registry.register("justus.lock", "lock.setEnabled") { args, _, respond ->
+        registry.register(
+            "justus.lock",
+            "lock.setEnabled",
+            HostPluginRegistry.INTERACTIVE_TIMEOUT_MS,
+        ) { args, _, respond ->
             mainHandler.post {
                 val fail = { msg: String ->
                     respond(HostPluginRegistry.HostInvokeOutcome.Fail(ErrorCodes.HOST_ERROR, msg))

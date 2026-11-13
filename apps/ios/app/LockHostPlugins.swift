@@ -10,7 +10,10 @@ func registerLockHostPlugins(_ registry: HostPluginRegistry, lock: AppLockContro
       respond(.ok(["available": secure, "enabled": secure && readLockPref()]))
     }
   }
-  registry.register(pluginId: "justus.lock", event: "lock.setEnabled") { args, _, respond in
+  registry.register(
+    pluginId: "justus.lock", event: "lock.setEnabled",
+    timeout: HostPluginRegistry.userMediatedInvokeTimeout
+  ) { args, _, respond in
     Task { @MainActor in
       let old = readLockPref()
       let requested = args?["enabled"] as? Bool

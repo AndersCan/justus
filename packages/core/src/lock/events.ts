@@ -23,6 +23,7 @@ export const lockSpecs = {
     name: "lock.setEnabled",
     args: {} as { enabled: boolean },
     result: {} as { enabled: boolean },
+    hostTimeoutMs: LOCK_PROMPT_TIMEOUT_MS,
   },
 } as const satisfies Record<string, EventSpec<any, any>>;
 
