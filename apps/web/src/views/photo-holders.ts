@@ -11,8 +11,7 @@ import { modalDialog } from "./modal-dialog";
 import { copy, t } from "../copy/copy";
 /** The "who has this photo" row on photo detail, and the sheet it opens. */
 
-const ROW_ATTR = "data-holders-row";
-const holdersModal = modalDialog(() => document.querySelector(`[${ROW_ATTR}]`) ?? undefined);
+const holdersModal = modalDialog(() => document.querySelector("[data-holders-row]") ?? undefined);
 
 export function openHolders(): void {
   lightboxActor.send(lightboxEvents.holdersOpened.create());
@@ -41,7 +40,7 @@ export function holdersRow(photo: Photo) {
   }
   return html`<button
     class="ui-focus -mx-2 mt-3 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg border-t border-line px-2 py-1 hover:bg-subtle"
-    ${ROW_ATTR}
+    data-holders-row
     aria-label=${copy("photo_holders.show_who_has_this_photo", { text })}
     @click=${openHolders}
   >

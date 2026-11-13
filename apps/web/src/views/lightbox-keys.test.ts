@@ -48,7 +48,7 @@ describe("Escape in a sheet over the photo", () => {
     closeLightbox();
   });
 
-  it("does not close the photo when Who has this photo is open", () => {
+  it("does not close the photo when a sheet such as Ask to join is open", () => {
     openLightbox(photo);
     const dialog = document.createElement("dialog");
     dialog.setAttribute("open", "");
