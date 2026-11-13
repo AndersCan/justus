@@ -75,7 +75,7 @@ describe("invite card send hint", () => {
     expect(host.textContent).toContain(LINE);
   });
 
-  test("the line stays after Copy turns back", async () => {
+  test("without a share menu, the line stays after Copy turns back", async () => {
     vi.useFakeTimers();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn(async () => {}) },
@@ -86,7 +86,9 @@ describe("invite card send hint", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(copyButton(host)!.textContent).toBe("Copied ✓");
-    expect(host.textContent).toContain("Copied. Paste it into a chat to send it.");
+    expect(host.textContent).toContain(
+      "Copied. Now open your messages app, paste the link and send it to the person you want.",
+    );
     expect(host.textContent).not.toContain(LINE);
     await vi.advanceTimersByTimeAsync(3000);
     expect(copyButton(host)!.textContent!.trim()).toBe(label);
