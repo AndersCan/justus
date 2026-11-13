@@ -52,11 +52,3 @@ state. First after wiping the app's cache dir (as Settings → Clear cache does)
 times the relaunched worklet must reopen the album "M" from `first-run.yaml` out of the store.
 The UI cannot show this: the intro-seen flag lives in web storage keyed by the loopback port,
 which changes every launch.
-
-## iOS
-
-`.github/workflows/ios-device.yml` (dispatch only) runs the same `first-run.yaml` on an iPhone
-Simulator through `scripts/maestro-ios.mjs`, up to the share menu. iOS branches use
-`runFlow: when: platform: iOS`; the Android branches keep their steps. The iOS walk skips the
-App lock steps and the photo picker. Any `hideKeyboard` must be Android-only. On iOS the share
-sheet is detected by its own "Copy" action and closed with "Close".

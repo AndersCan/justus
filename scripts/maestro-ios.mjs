@@ -1,9 +1,17 @@
 #!/usr/bin/env node
-// Walks .maestro/flows/first-run.yaml on an iPhone or iPad Simulator: builds the Debug app,
+// Walks .maestro/flows/first-run.yaml on an iPhone Simulator: builds the Debug app,
 // boots the first available Simulator, installs, and runs Maestro (up to the share menu).
 // CI glue for .github/workflows/ios-device.yml; the green run is its test.
-import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import {
+  cpSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,7 +67,7 @@ if (!device) fail("no iPhone Simulator: install an iOS runtime");
 const { udid, name } = device;
 console.log(`Simulator: ${name} (${udid})`);
 
-if (process.env.JUSTUS_IOS_SKIP_BUILD !== "1") {
+{
   if (run("node", ["apps/ios/scripts/build-ios.mjs"]).status !== 0) fail("build-ios.mjs failed");
   let resolved = false;
   for (let attempt = 1; attempt <= 4 && !resolved; attempt++) {
@@ -97,8 +105,40 @@ if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install f
 function stopIosDriver() {
   run("pkill", ["-f", `xcodebuild.*${udid}`]);
   run("xcrun", ["simctl", "terminate", udid, driverId]);
-  // pkill does not wait: give the old xcodebuild a moment to go before the next driver starts.
-  spawnSync("sleep", ["5"]);
+  // pkill does not wait: poll until the old xcodebuild is gone before the next driver starts.
+  for (let waited = 0; waited < 30; waited++) {
+    if (capture("pgrep", ["-f", `xcodebuild.*${udid}`]).status !== 0) {
+      console.log("Old iOS driver gone");
+      return;
+    }
+    spawnSync("sleep", ["1"]);
+  }
+  console.log("Old iOS driver still running");
+}
+
+// Stream Maestro's output to the job log and the attempt file as it arrives, so a hung step
+// or a cancelled job still shows where it stopped.
+function maestro(log) {
+  return new Promise((resolve) => {
+    const file = createWriteStream(log);
+    let text = "";
+    const child = spawn("maestro", ["--device", udid, "test", "--test-output-dir", out, flow], {
+      cwd: root,
+      env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
+    });
+    const tee = (chunk) => {
+      process.stdout.write(chunk);
+      file.write(chunk);
+      text += chunk.toString();
+    };
+    child.stdout.on("data", tee);
+    child.stderr.on("data", tee);
+    child.on("error", (error) => {
+      tee(`${error.message}\n`);
+      file.end(() => resolve({ status: 1, text }));
+    });
+    child.on("close", (code) => file.end(() => resolve({ status: code ?? 1, text })));
+  });
 }
 
 mkdirSync(out, { recursive: true });
@@ -106,18 +146,9 @@ let status = 1;
 for (let attempt = 1; attempt <= 2; attempt++) {
   stopIosDriver();
   console.log(`Maestro walk (${name}), attempt ${attempt}`);
-  const log = path.join(out, `maestro-attempt-${attempt}.txt`);
-  const result = spawnSync("maestro", ["--device", udid, "test", "--test-output-dir", out, flow], {
-    cwd: root,
-    encoding: "utf8",
-    env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  const text = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  process.stdout.write(text);
-  writeFileSync(log, text);
-  status = result.status ?? 1;
-  if (status === 0 || !text.includes("driver not ready in time")) break;
+  const result = await maestro(path.join(out, `maestro-attempt-${attempt}.txt`));
+  status = result.status;
+  if (status === 0 || !result.text.includes("driver not ready in time")) break;
   console.log("The Maestro iOS driver did not start: trying once more");
 }
 stopIosDriver();

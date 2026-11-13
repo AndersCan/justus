@@ -99,9 +99,6 @@ appId: no.cankode.justus
           notVisible: "Invite people"
           timeout: 15000
       - back
-      - extendedWaitUntil:
-          visible: "Send invite link"
-          timeout: 15000
 - runFlow:
     when:
       platform: iOS
