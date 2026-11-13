@@ -28,6 +28,12 @@ import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/shari
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
 
+/** A press and release on the dim area: the dialog itself is the target. */
+function tapOutside(dialog: Element) {
+  dialog.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  dialog.dispatchEvent(new Event("click", { bubbles: true }));
+}
+
 vi.mock("./toast", () => ({ toast: vi.fn() }));
 vi.mock("./confirm", () => ({ confirmAction: vi.fn().mockResolvedValue(true) }));
 
@@ -794,9 +800,9 @@ describe("album join requests", () => {
     ]);
     button(host, "Accept all 2, can only look")!.click();
     await vi.waitFor(() =>
-      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+      expect(host.querySelector('dialog[aria-label^="Accept these"]')).not.toBeNull(),
     );
-    const dialog = host.querySelector('[role=dialog][aria-label^="Accept these"]')!;
+    const dialog = host.querySelector('dialog[aria-label^="Accept these"]')!;
     expect(dialog.getAttribute("aria-label")).toBe("Accept these 2 people? They can only look.");
     expect(flat(dialog)).toContain("nils");
     expect(flat(dialog)).toContain("ola");
@@ -808,8 +814,7 @@ describe("album join requests", () => {
     await requestsActor.settled();
   });
 
-  const sheetOf = (host: HTMLElement) =>
-    host.querySelector('[role=dialog][aria-label^="Accept these"]');
+  const sheetOf = (host: HTMLElement) => host.querySelector('dialog[aria-label^="Accept these"]');
   const openSheet = async (host: HTMLElement, n: number) => {
     button(host, `Accept all ${n}, can only look`)!.click();
     await vi.waitFor(() => expect(sheetOf(host)).not.toBeNull());
@@ -890,27 +895,23 @@ describe("album join requests", () => {
       "Escape",
       (host: HTMLElement) =>
         host
-          .querySelector('[role=dialog][aria-label^="Accept these"]')!
-          .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+          .querySelector('dialog[aria-label^="Accept these"]')!
+          .dispatchEvent(new Event("cancel", { cancelable: true })),
     ],
     [
       "a tap outside",
-      (host: HTMLElement) =>
-        (
-          host.querySelector('[role=dialog][aria-label^="Accept these"]')!
-            .parentElement as HTMLElement
-        ).click(),
+      (host: HTMLElement) => tapOutside(host.querySelector('dialog[aria-label^="Accept these"]')!),
     ],
   ])("%s closes the Accept all sheet, lets nobody in and keeps both cards", async (_n, close) => {
     vi.mocked(gateway.respond).mockClear();
     const host = await show([ask("nils", true), ask("ola", true)]);
     button(host, "Accept all 2, can only look")!.click();
     await vi.waitFor(() =>
-      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).not.toBeNull(),
+      expect(host.querySelector('dialog[aria-label^="Accept these"]')).not.toBeNull(),
     );
     close(host);
     await vi.waitFor(() =>
-      expect(host.querySelector('[role=dialog][aria-label^="Accept these"]')).toBeNull(),
+      expect(host.querySelector('dialog[aria-label^="Accept these"]')).toBeNull(),
     );
     await requestsActor.settled();
     expect(gateway.respond).not.toHaveBeenCalled();

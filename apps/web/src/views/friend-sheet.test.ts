@@ -47,4 +47,25 @@ describe("friend sheet Rename", () => {
     const input = host.querySelector<HTMLInputElement>("[data-friend-name]");
     expect(input?.value).toBe("Ben B");
   });
+
+  test("Escape while saving keeps the sheet and the draft", async () => {
+    hoisted.rename.mockReturnValue(new Promise(() => {}));
+    const { host, friendsActor } = await open(BEN);
+    document.body.append(host);
+    (host.querySelector("[data-friend-primary]") as HTMLButtonElement).click();
+    await friendsActor.settled();
+    const input = host.querySelector<HTMLInputElement>("[data-friend-name]")!;
+    input.value = "Benny";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await friendsActor.settled();
+    (host.querySelector(".ui-btn-primary:not([disabled])") as HTMLButtonElement).click();
+    await vi.waitFor(() =>
+      expect(host.querySelector("[data-friend-name]")?.hasAttribute("disabled")).toBe(true),
+    );
+    host.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await Promise.resolve();
+    expect(host.querySelector("dialog")).not.toBeNull();
+    expect(host.querySelector<HTMLInputElement>("[data-friend-name]")?.value).toBe("Benny");
+    host.remove();
+  });
 });

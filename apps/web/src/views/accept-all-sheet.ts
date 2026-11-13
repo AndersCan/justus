@@ -5,17 +5,11 @@ import { requests, requestsViewModel } from "../machines/requests-machine";
 import type { peopleViewModel } from "../machines/people-machine";
 import { copy, t } from "../copy/copy";
 import { requestIdentity } from "./album";
+import { modalDialog } from "./modal-dialog";
 
 type Rows = ReturnType<typeof peopleViewModel>["requests"];
 
-const focused = new WeakSet<Element>();
-
-/** Focus lands on Cancel once per opening; a later re-render must not pull it back from Accept. */
-function focusCancel(el?: Element) {
-  if (!(el instanceof HTMLElement) || focused.has(el)) return;
-  focused.add(el);
-  queueMicrotask(() => el.focus());
-}
+const acceptAllModal = modalDialog();
 
 /** The sheet Accept all opens: names everyone it will let in, with their check codes. Nobody is answered until Accept. */
 export function acceptAllSheetView(
@@ -30,20 +24,8 @@ export function acceptAllSheetView(
   });
   const count = sheet.requesterKeys.length;
   const title = copy("album.accept_all_sheet_title", { count });
-  return html`<div
-    class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-    @click=${() => requests.cancelAcceptAll()}
-    @keydown=${(e: KeyboardEvent) => {
-      if (e.key === "Escape") requests.cancelAcceptAll();
-    }}
-  >
-    <div
-      class="justus-sheet ui-sheet"
-      role="dialog"
-      aria-modal="true"
-      aria-label=${title}
-      @click=${(e: Event) => e.stopPropagation()}
-    >
+  return html`<dialog class="ui-sheet-dialog" aria-label=${title} ${ref(acceptAllModal)}>
+    <div class="justus-sheet ui-sheet">
       <h3 class="break-words text-base font-semibold text-fg">${title}</h3>
       <ul role="list" class="mt-3 max-h-[50vh] space-y-2 overflow-y-auto">
         ${repeat(
@@ -59,7 +41,8 @@ export function acceptAllSheetView(
         <button
           class="ui-btn-ghost"
           data-accept-all-cancel
-          ${ref(focusCancel)}
+          data-dismiss
+          autofocus
           @click=${() => requests.cancelAcceptAll()}
         >
           ${t("album.accept_all_sheet_cancel")}
@@ -69,5 +52,5 @@ export function acceptAllSheetView(
         </button>
       </div>
     </div>
-  </div>`;
+  </dialog>`;
 }

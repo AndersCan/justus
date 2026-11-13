@@ -1,11 +1,14 @@
 import { html } from "lit-html";
+import { ref } from "lit-html/directives/ref.js";
 import { friendSheetOf, friends, friendsActor } from "../machines/friends-machine";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { toast } from "./toast";
+import { modalDialog } from "./modal-dialog";
 
 import { copy, t } from "../copy/copy";
 let opener: HTMLElement | null = null;
+const friendModal = modalDialog(() => opener ?? undefined);
 
 /** Remember the row that opened the sheet so focus can go back to it. */
 export function rememberFocus(el: HTMLElement) {
@@ -23,21 +26,14 @@ onOutput(friendsActor, (e) => {
 
 function closeSheet() {
   friends.close();
-  const el = opener;
-  opener = null;
-  queueMicrotask(() => el?.isConnected && el.focus());
 }
 
-function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") closeSheet();
-}
-
-function focusOnRender(selector: string) {
+/** The sheet stays open between states, so autofocus has no say when the name field appears. */
+function focusName(el?: Element) {
+  if (!(el instanceof HTMLInputElement)) return;
   queueMicrotask(() => {
-    const el = document.querySelector<HTMLInputElement | HTMLButtonElement>(selector);
-    if (!el || document.activeElement === el) return;
     el.focus();
-    if (el instanceof HTMLInputElement) el.select();
+    el.select();
   });
 }
 
@@ -59,15 +55,17 @@ export function friendSheetView() {
     const busy = sheet.state === "savingFriend";
     let body;
     if (sheet.state === "showingMember") {
-      focusOnRender("[data-friend-primary]");
       body = html` ${known !== undefined ? html`<p class="mt-1 text-sm text-muted">${t("friend_sheet.saved_as_a_friend_2")}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" @click=${closeSheet}>${t("friend_sheet.close")}</button>
+          <button class="ui-btn-ghost" data-dismiss @click=${closeSheet}>
+            ${t("friend_sheet.close")}
+          </button>
           ${
             known === undefined
               ? html`<button
                   class="ui-btn-primary"
                   data-friend-primary
+                  autofocus
                   @click=${() => friends.add()}
                 >
                   ${t("friend_sheet.add_to_friends")}
@@ -75,6 +73,7 @@ export function friendSheetView() {
               : html`<button
                   class="ui-btn-primary"
                   data-friend-primary
+                  autofocus
                   @click=${() => friends.rename()}
                 >
                   ${t("friend_sheet.rename")}
@@ -82,13 +81,14 @@ export function friendSheetView() {
           }
         </div>`;
     } else {
-      focusOnRender("[data-friend-name]");
       body = html` <label class="mt-3 block text-sm font-medium text-fg" for="friend-name"
           >${t("friend_sheet.name")}</label
         >
         <input
           id="friend-name"
           data-friend-name
+          autofocus
+          ${ref(focusName)}
           class="ui-input mt-1 w-full"
           maxlength="40"
           placeholder=${copy("friend_sheet.their_name")}
@@ -109,7 +109,7 @@ export function friendSheetView() {
         </p>
         ${sheet.error ? html`<p class="mt-1 text-xs text-danger-fg" role="alert">${sheet.error}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" ?disabled=${busy} @click=${closeSheet}>
+          <button class="ui-btn-ghost" data-dismiss ?disabled=${busy} @click=${closeSheet}>
             ${t("friend_sheet.cancel")}
           </button>
           <button
@@ -121,21 +121,11 @@ export function friendSheetView() {
           </button>
         </div>`;
     }
-    return html`<div
-      class="justus-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-      @click=${closeSheet}
-      @keydown=${onKey}
-    >
-      <div
-        class="justus-sheet ui-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label=${title}
-        @click=${(e: Event) => e.stopPropagation()}
-      >
+    return html`<dialog class="ui-sheet-dialog" aria-label=${title} ${ref(friendModal)}>
+      <div class="justus-sheet ui-sheet">
         <h3 class="break-words text-base font-semibold text-fg">${title}</h3>
         ${body}
       </div>
-    </div>`;
+    </dialog>`;
   });
 }
