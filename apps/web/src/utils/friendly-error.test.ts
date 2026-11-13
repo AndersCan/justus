@@ -6,7 +6,9 @@ describe("friendlyError", () => {
     expect(friendlyError("Share key must be a 64-char hex key")).toBe(
       "That invite link doesn't look right. Check you copied all of it.",
     );
-    expect(friendlyError("Readers cannot add photos")).toMatch(/until the Admin approves you/);
+    expect(friendlyError("Readers cannot add photos")).toBe(
+      "You can't add photos to this album yet.",
+    );
     expect(friendlyError("Only the creator can respond to requests")).toMatch(/^Only the Admin/);
   });
 

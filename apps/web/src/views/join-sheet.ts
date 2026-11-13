@@ -3,6 +3,7 @@ import { ref } from "lit-html/directives/ref.js";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
 import { copy, t } from "../copy/copy";
+import { ownerShown } from "../utils/invite-link";
 import { modalDialog } from "./modal-dialog";
 
 export type JoinSheetActions = {
@@ -26,23 +27,24 @@ export type JoinSheetLines = {
 function stoppedSheet(
   state: string,
   owner: string,
+  Owner: string,
 ): { title: string; body: string; askedLine: boolean } | null {
   switch (state) {
     case "linkTurnedOffByAdmin":
       return {
-        title: copy("join_request.owner_turned_off_this_link", { owner }),
+        title: copy("join_request.owner_turned_off_this_link", { owner: Owner }),
         body: copy("join_request.ask_owner_for_a_new_link", { owner }),
         askedLine: true,
       };
     case "linkReplacedByAdmin":
       return {
-        title: copy("join_request.owner_replaced_this_link", { owner }),
+        title: copy("join_request.owner_replaced_this_link", { owner: Owner }),
         body: copy("join_request.ask_owner_for_the_new_link", { owner }),
         askedLine: true,
       };
     case "albumDeletedByAdmin":
       return {
-        title: copy("join_request.owner_deleted_this_album", { owner }),
+        title: copy("join_request.owner_deleted_this_album", { owner: Owner }),
         body: copy("join_request.nothing_to_join_any_more"),
         askedLine: false,
       };
@@ -82,12 +84,14 @@ export function renderJoinSheet(
     !invite
   )
     return null;
-  const owner = invite.ownerName;
+  const name = invite.ownerName;
+  const owner = ownerShown(name, "mid");
+  const Owner = ownerShown(name, "start");
   if (state === "linkExpired") {
     return sheet(
       EXPIRED_LINK,
       html`<h3 class="break-words text-base font-semibold text-fg">${EXPIRED_LINK}</h3>
-        <p class="mt-3 text-sm text-fg">${expiredBody(owner)}</p>
+        <p class="mt-3 text-sm text-fg">${expiredBody(name)}</p>
         <div class="mt-4 flex justify-end">
           <button
             class="ui-btn-primary"
@@ -100,7 +104,7 @@ export function renderJoinSheet(
         </div>`,
     );
   }
-  const stopped = stoppedSheet(state, owner);
+  const stopped = stoppedSheet(state, owner, Owner);
   if (stopped) {
     return sheet(
       stopped.title,
@@ -133,7 +137,7 @@ export function renderJoinSheet(
     return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
-        <p class="mt-3 text-sm text-fg">${t("invite.will_see_your_name_and", { owner })}</p>
+        <p class="mt-3 text-sm text-fg">${t("invite.will_see_your_name_and", { owner: Owner })}</p>
         ${error ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>` : null}
         <div class="mt-4 flex justify-end gap-2">
           <button
@@ -182,7 +186,7 @@ export function renderJoinSheet(
         </div>`,
     );
   }
-  const title = copy("invite.didn_t_accept_your_request", { owner });
+  const title = copy("invite.didn_t_accept_your_request", { owner: Owner });
   return sheet(
     title,
     html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>

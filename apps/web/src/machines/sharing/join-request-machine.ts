@@ -1,7 +1,7 @@
 import { Actor, event, state } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
 import { runInvoke } from "../actor-utils";
-import { parseInviteLink } from "../../utils/invite-link";
+import { ownerShown, parseInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
 import type { LinkOffWhy } from "@justus/core";
 
@@ -41,9 +41,10 @@ export type JoinPort = {
 
 export const GARBLED_LINK = copy("join_request.that_invite_doesn_t_look");
 export const oldLinkMessage = (ownerName: string) =>
-  copy("join_request.this_link_no_longer_works", { ownerName });
+  copy("join_request.this_link_no_longer_works", { ownerName: ownerShown(ownerName, "mid") });
 export const EXPIRED_LINK = copy("join_request.this_invite_link_has_expired");
-export const expiredBody = (owner: string) => copy("join_request.ask_for_a_new_one", { owner });
+export const expiredBody = (owner: string) =>
+  copy("join_request.ask_for_a_new_one", { owner: ownerShown(owner, "mid") });
 export const NOTHING_COPIED = copy("join_request.nothing_copied_yet");
 export const SEND_FAILED = copy("join_request.couldn_t_send_your_request");
 

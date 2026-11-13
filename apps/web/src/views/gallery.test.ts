@@ -397,6 +397,25 @@ describe("albumAddRow for a reader whose role is not known yet", () => {
   });
 });
 
+describe("albumAddRow for a pending album", () => {
+  const album = { id: "f1", name: "Trip", role: "reader", pending: true, members: 2 };
+  const text = (status: unknown) => {
+    const host = document.createElement("div");
+    render(albumAddRow({ status, folders: [album] } as never, album as never), host);
+    return host.textContent?.replace(/\s+/g, " ").trim();
+  };
+
+  test("names the Admin once the member list has them", () => {
+    const status = { folder: { id: "f1" }, members: [{ name: "Ada", admin: true }] };
+    expect(text(status)).toBe("You can add photos once Ada lets you in.");
+  });
+
+  test("names the person who invited you when the status is for another album", () => {
+    const status = { folder: { id: "f2" }, members: [{ name: "Ada", admin: true }] };
+    expect(text(status)).toBe("You can add photos once the person who invited you lets you in.");
+  });
+});
+
 describe("albumAddRow invite buttons while the Admin is alone", () => {
   const album = (role: string, members: number) => ({
     id: "f1",

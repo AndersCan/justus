@@ -18,7 +18,7 @@ import { friendsActor } from "../machines/friends-machine";
 import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open, type AppPage } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
-import { parseInviteLink } from "../utils/invite-link";
+import { ownerShown, parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
 import { deletedNoticeText } from "./notices";
@@ -305,7 +305,7 @@ function askRow(ask: AskSummary) {
       ? copy("albums.not_accepted")
       : ask.status === "linkOff"
         ? copy("albums.link_no_longer_works")
-        : copy("albums.waiting_for_to_accept", { ownerName: ask.ownerName });
+        : copy("albums.waiting_for_to_accept", { ownerName: ownerShown(ask.ownerName, "mid") });
   const muted = ask.status !== "waiting";
   return html`
     <li data-motion-key=${"ask:" + ask.code}>

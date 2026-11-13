@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
-import { MAX_HINT, buildInviteLink, inviteLinkFromAddress, parseInviteLink } from "./invite-link";
+import {
+  MAX_HINT,
+  buildInviteLink,
+  inviteLinkFromAddress,
+  ownerShown,
+  parseInviteLink,
+} from "./invite-link";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -16,7 +22,7 @@ describe("parseInviteLink", () => {
     const parsed = parseInviteLink(`justus://join?i=${A.toUpperCase()}&o=${B.toUpperCase()}`);
     expect(parsed).toEqual({
       kind: "invite",
-      invite: { code: A, owner: B, album: "this album", ownerName: "the Admin" },
+      invite: { code: A, owner: B, album: "this album", ownerName: "" },
     });
   });
 
@@ -53,7 +59,7 @@ describe("parseInviteLink old links", () => {
   });
 
   test("falls back without a hint", () => {
-    expect(parseInviteLink(`justus://join/${A}`)).toEqual({ kind: "old", ownerName: "the Admin" });
+    expect(parseInviteLink(`justus://join/${A}`)).toEqual({ kind: "old", ownerName: "" });
   });
 
   test("finds it inside a message", () => {
@@ -126,5 +132,26 @@ describe("inviteLinkFromAddress", () => {
     expect(inviteLinkFromAddress("/welcome", search)).toBeUndefined();
     expect(inviteLinkFromAddress("/join", "")).toBeUndefined();
     expect(inviteLinkFromAddress("/join", `?i=${code}`)).toBeUndefined();
+  });
+});
+
+describe("ownerShown", () => {
+  test.each([
+    ["Ada", "mid", "Ada"],
+    ["ada", "start", "ada"],
+    ["", "mid", "the person who invited you"],
+    ["  ", "start", "The person who invited you"],
+    ["the Admin", "start", "The person who invited you"],
+    ["the Admin", "mid", "the person who invited you"],
+  ] as const)("%j at %s reads %j", (name, at, shown) => {
+    expect(ownerShown(name, at)).toBe(shown);
+  });
+
+  test("a web address without a name round-trips to an unknown owner", () => {
+    const link = inviteLinkFromAddress("/join", `?i=${A}&o=${B}`);
+    expect(parseInviteLink(link ?? "")).toMatchObject({
+      kind: "invite",
+      invite: { ownerName: "" },
+    });
   });
 });

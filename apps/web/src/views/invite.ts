@@ -1,12 +1,12 @@
 import { html } from "lit-html";
-import type { FolderSummary, InvitedFriend } from "@justus/core";
+import type { FolderSummary, InvitedFriend, SyncStatus } from "@justus/core";
 import { watch } from "@mantaq/lit";
 import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import { people } from "../machines/people-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { foldersActor } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
-import { buildInviteLink } from "../utils/invite-link";
+import { buildInviteLink, ownerShown } from "../utils/invite-link";
 import { qrPath } from "../utils/qr";
 import { linkEndText } from "../utils/time";
 import {
@@ -158,8 +158,9 @@ function qrCode(link: string) {
 }
 
 /** The joiner's three words, optional, shown only if the Admin asks, in the waiting dialog and on the update screen; null until the stored ask has them. */
-export function checkCodeLine(code: string | undefined, owner: string) {
+export function checkCodeLine(code: string | undefined, ownerName: string) {
   if (!code) return null;
+  const owner = ownerShown(ownerName, "mid");
   return html`<p class="mt-3 text-sm text-muted">${t("invite.may_ask_you_for_these", { owner })}</p>
     <p class="mt-1 text-sm font-semibold text-fg">${code}</p>`;
 }
@@ -476,32 +477,38 @@ export function joinSheet() {
 }
 
 /** Who to name when waiting on the Admin: their name once known, else the role. */
-export function adminName(status: { members: { admin: boolean; name: string }[] } | null): string {
+export function adminName(status: AdminStatus | null | undefined): string {
+  return knownAdminName(status) || copy("invite.the_admin");
+}
+
+type AdminStatus = { members: { admin: boolean; name: string }[] };
+
+/** The Admin's name from the album's member list, or "" when the list has none yet. */
+export function knownAdminName(status: AdminStatus | null | undefined): string {
   const name = status?.members.find((m) => m.admin)?.name;
-  return name && name !== "Unknown device" ? name : copy("invite.the_admin");
+  return name && name !== "Unknown device" ? name : "";
 }
 
 /** Shown on an album this device joined and the Admin hasn't approved yet:
  * it can already see the photos, but not add any. */
 export function waitingForAdmin() {
-  return watch(syncActor, (s) => {
-    const status = s.context.status;
-    const admin = adminName(status);
-    return status?.folder?.pending
-      ? html`<div
-          class="ui-card flex items-center gap-3 border-l-4 border-l-warn p-4"
-          role="status"
-        >
-          <span
-            class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
-          ></span>
-          <p class="text-sm text-fg">
-            <span class="font-semibold">${t("invite.you_can_look_but_not")}</span>
-            ${t("invite.needs_to_open_justus_to", { admin: admin === "the Admin" ? copy("invite.the_admin_who_started_this") : admin })}
-          </p>
-        </div>`
-      : null;
-  });
+  return watch(syncActor, (s) => pendingCard(s.context.status));
+}
+
+/** The warn card for a pending album, or null when the album is not pending. */
+export function pendingCard(status: SyncStatus | null) {
+  const admin = ownerShown(knownAdminName(status), "start");
+  return status?.folder?.pending
+    ? html`<div class="ui-card flex items-center gap-3 border-l-4 border-l-warn p-4" role="status">
+        <span
+          class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-warn motion-reduce:animate-none"
+        ></span>
+        <p class="text-sm text-fg">
+          <span class="font-semibold">${t("invite.you_can_look_but_not")}</span>
+          ${t("invite.needs_to_open_justus_to", { admin })}
+        </p>
+      </div>`
+    : null;
 }
 
 /** Invites that reach the app from outside: a link opened by the host at cold

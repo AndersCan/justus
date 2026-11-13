@@ -219,6 +219,14 @@ describe("pending asks", () => {
     );
   });
 
+  test("a stored ask from an older version reads as the person who invited you", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load(["a"], [{ ...ask("waiting"), ownerName: "the Admin" }]);
+    expect(host.textContent).toContain("Waiting for the person who invited you to accept");
+    expect(host.textContent).not.toContain("Admin");
+  });
+
   test("the albums panel still lists waiting and declined rows", async () => {
     const host = document.createElement("div");
     render(albumsPanel(), host);
