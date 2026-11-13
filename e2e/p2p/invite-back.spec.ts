@@ -11,12 +11,7 @@
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
-
-async function skipIntro(pages) {
-  for (const page of pages) {
-    await page.addInitScript(() => localStorage.setItem("justus:welcome-seen", "1"));
-  }
-}
+import { copyInviteLink, skipIntro } from "./steps";
 
 // Counts the sync pushes ("add") a page has received. Call before any goto.
 function addPushes(page) {
@@ -29,22 +24,6 @@ function addPushes(page) {
     ),
   );
   return () => texts.filter((t) => t.includes('"cause":"add"')).length;
-}
-
-async function copyInviteLink(a) {
-  await a.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await a
-    .getByRole("link", { name: /Invite & members/ })
-    .first()
-    .click();
-  await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
-  await expect
-    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^justus:\/\/join\?/);
-  const link = await a.evaluate(() => navigator.clipboard.readText());
-  expect(link).toMatch(/^justus:\/\/join\?/);
-  expect(link).toMatch(/[?&]e=\d+/);
-  return link;
 }
 
 async function askToJoin(b, link, album) {
