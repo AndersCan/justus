@@ -5,15 +5,13 @@
  */
 import type { Drive, IdentityProof } from "../ports/drive-store";
 import { isTextJSON, verifiedDeviceIdentity, parseDeviceSwarmKey } from "../membership/records";
+import { errText, short, type P2pLog } from "../p2p-log.ts";
 
 const DRIVE_PATH_DEVICE = "/device.json";
 /** Same cap as membership/join's MAX_PEER_JSON_BYTES: peers control these bytes. */
 const MAX_RECORD_BYTES = 1024 * 1024;
 
-export type PresenceLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
+export type PresenceLog = P2pLog;
 
 export type Presence = {
   /** Live connections per peer key; one peer can hold several. */
@@ -35,14 +33,6 @@ export type MemberPresence = { connected: boolean; lastSeenAt?: number; identity
 export type PeerDown = "still-connected" | "unknown-peer-down" | "member-down";
 
 export type DeviceSource = { memberKey: string; drive: Drive };
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
 
 export function createPresence(options: { lastSeen: [string, number][] }): Presence {
   return {

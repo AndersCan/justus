@@ -14,9 +14,9 @@ import {
 } from "../membership/records";
 import { copyFormer, copyHeld } from "../photos/holders";
 import { copyAlbumEntries } from "../rotate-album";
-import type { AlbumLog, AlbumPorts, AlbumResult } from "./albums";
-
-const MAX_RECORD_BYTES = 1024 * 1024;
+import type { AlbumPorts, AlbumResult } from "./albums";
+import { errText } from "../p2p-log.ts";
+import { readRecord } from "../membership/join.ts";
 
 /** How many earlier drives one album lists. */
 export const MAX_EARLIER = MAX_EARLIER_ENTRIES;
@@ -29,19 +29,6 @@ export type MovedAlbum = {
   earlier: EarlierEntry[];
   moves: number;
 };
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
-
-async function readText(drive: Drive, path: string, log: AlbumLog): Promise<string | null> {
-  try {
-    return (await drive.readSmall(path, MAX_RECORD_BYTES)) ?? null;
-  } catch (thrown: unknown) {
-    log("error", { where: "drive.read", path, err: errText(thrown) });
-    return null;
-  }
-}
 
 export async function moveAlbum(
   ports: Pick<AlbumPorts, "log"> & { drives: DriveStore },
@@ -81,9 +68,9 @@ export async function moveAlbum(
 
     const keys = new Set(earlier.map((e) => e.key));
     const removed = Object.fromEntries(
-      Object.entries(parseRemoved(await readText(oldDrive, "/removed.json", log))).filter(([id]) =>
-        keys.has(id.split(":")[0]),
-      ),
+      Object.entries(
+        parseRemoved(await readRecord(oldDrive, { path: "/removed.json", log })),
+      ).filter(([id]) => keys.has(id.split(":")[0])),
     );
     const earlierFile: EarlierFile = { version: 1, earlier };
     await target.put("/device.json", await device(target.key));

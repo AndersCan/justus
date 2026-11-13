@@ -14,7 +14,11 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { checkPhotoChanged, checkPhotoResult, photoResultSchemas } from "../src/contract.ts";
+import {
+  checkPhotoChanged,
+  checkPhotoResult,
+  photoResultSchemas,
+} from "../../../packages/core/src/photos/contract.ts";
 import { createPhotosPlugin } from "../src/photos-plugin.ts";
 import type { PhotoStore } from "../src/photo-store.ts";
 import { eventually, realNet } from "./real-peers.ts";

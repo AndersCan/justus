@@ -7,16 +7,13 @@ import type { JoinRequest } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
 import { DRIVE_PATH_MEMBERS, DRIVE_PATH_VIEWERS, type JoinError } from "./join";
 import type { RegistryFile, ViewersFile } from "./records";
+import { errText } from "../p2p-log.ts";
 
 export type ViewerError =
   | JoinError
   | { kind: "no-such-viewer"; message: string }
   | { kind: "no-such-member"; message: string };
 export type ViewerResult<T> = [ViewerError, null] | [null, T];
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
 
 /** Admin only: lists `requesterKey` as a Viewer. The name comes from their
  * request, else "New member". The inputs are not changed. */

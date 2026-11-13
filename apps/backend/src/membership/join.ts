@@ -20,6 +20,7 @@ import {
   type RequestsFile,
   type ViewersFile,
 } from "./records";
+import { errText, short, type P2pLog } from "../p2p-log.ts";
 
 export const DRIVE_PATH_MEMBERS = "/members.json";
 export const DRIVE_PATH_VIEWERS = "/viewers.json";
@@ -33,10 +34,7 @@ export const MAX_PEER_JSON_BYTES = 1024 * 1024;
 /** A peer record that is not on this device and cannot be fetched (the peer left) reads as missing after this long; the next poll retries. */
 const PEER_READ_TIMEOUT_MS = 5_000;
 
-export type JoinLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
+export type JoinLog = P2pLog;
 
 export type JoinPorts = {
   drives: DriveStore;
@@ -69,14 +67,6 @@ export type FoundJoinRequests = {
   /** Requester keys listed by more than one outbox: dropped (anyone can write any key into their own outbox). */
   ambiguous: string[];
 };
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
 
 /** Reads a small text record, or null when missing, unreadable, or larger
  * than {@link MAX_PEER_JSON_BYTES}. */

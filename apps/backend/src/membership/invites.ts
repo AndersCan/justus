@@ -16,17 +16,14 @@ import {
   type ChannelMessage,
   type RequestsFile,
 } from "./records";
+import { errText, type P2pLog } from "../p2p-log.ts";
+import { readRecord } from "./join.ts";
 
 const DRIVE_PATH_REQUESTS = "/requests.json";
 /** The Admin's identity drive lists the links she turned off here (hashed). */
 export const DRIVE_PATH_LINKS = "/links.json";
-/** Same cap as membership/join's MAX_PEER_JSON_BYTES. */
-const MAX_RECORD_BYTES = 1024 * 1024;
 
-export type InviteLog = (
-  event: string,
-  fields?: Record<string, string | number | boolean | undefined>,
-) => void;
+export type InviteLog = P2pLog;
 
 export type InviteError =
   | { kind: "write-failed"; message: string }
@@ -34,27 +31,6 @@ export type InviteError =
   | { kind: "unreachable"; message: string };
 /** The repo's error tuple (ADR 0002 decision 8). */
 export type InviteResult<T> = [InviteError, null] | [null, T];
-
-function short(hex: string): string {
-  return hex.slice(0, 8);
-}
-
-function errText(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
-}
-
-async function readText(
-  drive: Drive,
-  options: { path: string; log: InviteLog },
-): Promise<string | null> {
-  const { path, log } = options;
-  try {
-    return (await drive.readSmall(path, MAX_RECORD_BYTES)) ?? null;
-  } catch (thrown: unknown) {
-    log("error", { where: "drive.read", drive: short(drive.key), path, err: errText(thrown) });
-    return null;
-  }
-}
 
 export type AskCheck<A> =
   | { kind: "invalid" }
@@ -120,7 +96,7 @@ export async function fileInviteAsk(
 ): Promise<InviteResult<undefined>> {
   const { sealedKey, code, requesterName, requestedAt, log } = options;
   try {
-    const text = await readText(identityDrive, { path: DRIVE_PATH_REQUESTS, log });
+    const text = await readRecord(identityDrive, { path: DRIVE_PATH_REQUESTS, log });
     const file: RequestsFile = (text && parseRequestsFile(text)) || { version: 1, requests: {} };
     file.requests[`invite:${code}`] = {
       sealedKey,
