@@ -331,7 +331,7 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
   test.setTimeout(240_000);
   const [a, b, c] = instancePages;
   await skipIntro([a, b, c]);
-  const album = "Back trip";
+  const album = `Back trip ${Date.now().toString(36)}`;
   await createAlbum(a, album, PHOTO, 31);
   const link = await copyInviteLink(a);
   await askToJoin(b, link, album);
