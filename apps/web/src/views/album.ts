@@ -151,11 +151,7 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
     @wa-select=${(e: CustomEvent<{ item: { value: string } }>) =>
       void chooseAlbumAction(e.detail.item.value, status, people)}
   >
-    <button
-      slot="trigger"
-      class="ui-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fg hover:bg-subtle"
-      aria-label=${copy("album.more_options")}
-    >
+    <button slot="trigger" class="ui-icon-btn" aria-label=${copy("album.more_options")}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <circle cx="12" cy="5" r="2" />
         <circle cx="12" cy="12" r="2" />

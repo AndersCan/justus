@@ -57,10 +57,12 @@ export function tab(props: TabProps): TemplateResult {
   >${props.label}${counter(props)}</button>`
 }
 
+export const variants = { state: Object.keys(states) as TabState[] }
+
+export const sample = { id: "albums-tab", panel: "albums-panel", label: "Albums" } satisfies Omit<TabProps, keyof typeof variants>
+
 export const examples: Example[] = [
-  { label: "selected", render: () => tab({ id: "albums-tab", panel: "albums-panel", label: "Albums", state: "selected" }) },
-  { label: "unselected", render: () => tab({ id: "people-tab", panel: "people-panel", label: "People", state: "unselected" }) },
-  { label: "unselected · count", render: () => tab({ id: "requests-tab", panel: "requests-panel", label: "Requests", state: "unselected", count: "3" }) },
-  { label: "selected · count", render: () => tab({ id: "requests-tab", panel: "requests-panel", label: "Requests", state: "selected", count: "3" }) },
-  { label: "unselected · loading count", render: () => tab({ id: "requests-tab", panel: "requests-panel", label: "Requests", state: "unselected", countLoading: true }) },
+  { label: "unselected · count", render: () => tab({ ...sample, state: "unselected", count: "3" }) },
+  { label: "selected · count", render: () => tab({ ...sample, state: "selected", count: "3" }) },
+  { label: "unselected · loading count", render: () => tab({ ...sample, state: "unselected", countLoading: true }) },
 ]

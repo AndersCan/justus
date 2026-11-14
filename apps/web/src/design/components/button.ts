@@ -62,16 +62,15 @@ export function button(props: ButtonProps): TemplateResult {
       : props.label}</button>`
 }
 
+/** The gallery draws one cell per variant × size, each with `sample` for the other props; keys are Button's prop names, values come from the records above. */
+export const variants = {
+  variant: Object.keys(fills) as ButtonVariant[],
+  size: Object.keys(sizes) as ButtonSize[],
+}
+
+export const sample = { label: "Save" } satisfies Omit<ButtonProps, keyof typeof variants>
+
 export const examples: Example[] = [
-  { label: "primary", render: () => button({ label: "Save", variant: "primary" }) },
-  { label: "default", render: () => button({ label: "Cancel", variant: "default" }) },
-  { label: "danger", render: () => button({ label: "Remove", variant: "danger" }) },
-  { label: "invisible", render: () => button({ label: "Not now", variant: "invisible" }) },
-  { label: "link", render: () => button({ label: "Learn more", variant: "link" }) },
-  { label: "inactive", render: () => button({ label: "Save", variant: "inactive" }) },
-  { label: "small", render: () => button({ label: "Save", variant: "primary", size: "small" }) },
-  { label: "medium", render: () => button({ label: "Save", variant: "primary", size: "medium" }) },
-  { label: "large", render: () => button({ label: "Save", variant: "primary", size: "large" }) },
   { label: "block", render: () => button({ label: "Save", variant: "primary", block: true }) },
   { label: "disabled", render: () => button({ label: "Save", variant: "primary", disabled: true }) },
   { label: "loading", render: () => button({ label: "Save", variant: "primary", loading: true }) },

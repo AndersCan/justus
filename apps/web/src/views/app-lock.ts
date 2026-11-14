@@ -75,9 +75,7 @@ export function appLockSection() {
         role="switch"
         aria-checked=${on ? "true" : "false"}
         ?disabled=${disabled}
-        class="ui-focus flex w-full items-center justify-between gap-4 rounded-xl px-3 py-2.5 text-left text-sm font-medium ring-1 transition disabled:opacity-50 ${
-          on ? "bg-accent/10 text-accent ring-accent" : "bg-subtle text-fg ring-line"
-        }"
+        class="flex w-full items-center justify-between gap-4 text-left ${on ? "ui-radio-card-checked" : "ui-radio-card"}"
         @click=${() => void toggleAppLock()}
       >
         <span>${t("app_lock.require_unlock_to_open_justus")}</span>
