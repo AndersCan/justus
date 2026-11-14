@@ -123,6 +123,13 @@ if (invite) {
 }
 run("xcrun", ["simctl", "boot", udid]); // fails harmlessly when already booted
 if (run("xcrun", ["simctl", "bootstatus", udid, "-b"]).status !== 0) fail("Simulator did not boot");
+if (invite) {
+  // Safari's first launch on an erased Simulator can outlast the 10 s the Simulator waits when
+  // opening a URL: start it once and quit it so the walk's openLink meets a warm Safari.
+  run("xcrun", ["simctl", "launch", udid, "com.apple.mobilesafari"]);
+  spawnSync("sleep", ["5"]);
+  run("xcrun", ["simctl", "terminate", udid, "com.apple.mobilesafari"]);
+}
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
@@ -135,7 +142,26 @@ if (!ipad) {
   notify(["-p", enrolment]);
   const state = capture("xcrun", ["simctl", "spawn", udid, "notifyutil", "-g", enrolment]);
   if (!String(state.stdout).trim().endsWith("1")) fail(`Face ID enrolment did not take on ${udid}`);
+  const publicDir = path.join(root, "docs/site/public");
+  const types = { ".html": "text/html", ".js": "text/javascript" };
   face = createServer((request, response) => {
+    // --invite: serve docs/site/public under /justus/ on this port, as GitHub Pages does.
+    const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    if (invite && pathname.startsWith("/justus/")) {
+      const relative = pathname.slice("/justus/".length);
+      const file = path.join(
+        publicDir,
+        relative.endsWith("/") ? `${relative}index.html` : relative,
+      );
+      const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
+      const found = inside && existsSync(file) && statSync(file).isFile();
+      response.writeHead(
+        found ? 200 : 404,
+        found ? { "content-type": types[path.extname(file)] ?? "text/plain" } : {},
+      );
+      response.end(found ? readFileSync(file) : "not found");
+      return;
+    }
     const posted =
       request.url === "/match" &&
       notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0;
@@ -144,27 +170,6 @@ if (!ipad) {
   });
   await new Promise((resolve) => face.listen(0, "127.0.0.1", resolve));
   console.log(`Face ID enrolled, helper on port ${face.address().port}`);
-}
-
-// --invite: serve docs/site/public under /justus/ on loopback, as GitHub Pages does.
-let site = null;
-if (invite) {
-  const publicDir = path.join(root, "docs/site/public");
-  const types = { ".html": "text/html", ".js": "text/javascript", ".svg": "image/svg+xml" };
-  site = createServer((request, response) => {
-    const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
-    const relative = pathname.startsWith("/justus/") ? pathname.slice("/justus/".length) : "";
-    const file = path.join(publicDir, relative.endsWith("/") ? `${relative}index.html` : relative);
-    const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
-    if (!inside || !existsSync(file) || !statSync(file).isFile()) {
-      response.writeHead(404).end("not found");
-      return;
-    }
-    response.writeHead(200, { "content-type": types[path.extname(file)] ?? "text/plain" });
-    response.end(readFileSync(file));
-  });
-  await new Promise((resolve) => site.listen(0, "127.0.0.1", resolve));
-  console.log(`Invite page served on port ${site.address().port}`);
 }
 
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
@@ -190,7 +195,7 @@ function maestro(log) {
     const file = createWriteStream(log);
     let text = "";
     const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
-    const pageArgs = site ? ["-e", `PAGE=http://127.0.0.1:${site.address().port}`] : [];
+    const pageArgs = invite ? ["-e", `PAGE=http://127.0.0.1:${face.address().port}`] : [];
     const child = spawn(
       "maestro",
       ["--device", udid, "test", ...faceArgs, ...pageArgs, "--test-output-dir", out, flow],
@@ -238,7 +243,6 @@ for (let attempt = 1; attempt <= 2; attempt++) {
 }
 stopIosDriver();
 face?.close();
-site?.close();
 
 // A crash during the run is a failure even when the flow passed.
 const reports = path.join(homedir(), "Library/Logs/DiagnosticReports");
