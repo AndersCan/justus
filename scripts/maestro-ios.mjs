@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Walks .maestro/flows/first-run.yaml on an iPhone Simulator (up to the share menu), or with
-// --ipad .maestro/ios/ipad-share.yaml on an iPad Simulator. Builds the Debug app, boots the
+// --ipad .maestro/ios/ipad-share.yaml on an iPad Simulator, or with --invite
+// .maestro/ios/invite-page.yaml (Safari, the invite page, then the app). Builds the Debug app, boots the
 // first available Simulator, installs, and runs Maestro.
 // CI glue for .github/workflows/ios-device.yml; the green run is its test.
 import { spawn, spawnSync } from "node:child_process";
@@ -10,6 +11,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -20,7 +22,12 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
-const flow = ipad ? ".maestro/ios/ipad-share.yaml" : ".maestro/flows/first-run.yaml";
+const invite = process.argv.includes("--invite");
+const flow = ipad
+  ? ".maestro/ios/ipad-share.yaml"
+  : invite
+    ? ".maestro/ios/invite-page.yaml"
+    : ".maestro/flows/first-run.yaml";
 const derived = path.join(root, "apps/ios/build/dd");
 const app = path.join(derived, "Build/Products/Debug-iphonesimulator/Justus.app");
 const out = path.join(root, ".maestro/out");
@@ -100,8 +107,29 @@ console.log(`Simulator: ${name} (${udid})`);
 }
 if (!existsSync(app)) fail(`Justus.app not found at ${app}`);
 
+if (invite) {
+  // Safari's first-run tip covers the page and Maestro cannot see it: hide all tips in Safari's
+  // defaults on an erased Simulator, before Safari's first launch, then boot again so it reads them.
+  run("xcrun", ["simctl", "shutdown", udid]);
+  run("xcrun", ["simctl", "erase", udid]);
+  run("xcrun", ["simctl", "boot", udid]);
+  run("xcrun", ["simctl", "bootstatus", udid, "-b"]);
+  const hide = ["spawn", udid, "defaults", "write", "com.apple.mobilesafari"];
+  if (
+    run("xcrun", ["simctl", ...hide, "com.apple.TipKit.HideAllTips", "-bool", "true"]).status !== 0
+  )
+    fail("could not hide Safari's tips");
+  run("xcrun", ["simctl", "shutdown", udid]);
+}
 run("xcrun", ["simctl", "boot", udid]); // fails harmlessly when already booted
 if (run("xcrun", ["simctl", "bootstatus", udid, "-b"]).status !== 0) fail("Simulator did not boot");
+if (invite) {
+  // Safari's first launch on an erased Simulator can outlast the 10 s the Simulator waits when
+  // opening a URL: start it once and quit it so the walk's openLink meets a warm Safari.
+  run("xcrun", ["simctl", "launch", udid, "com.apple.mobilesafari"]);
+  spawnSync("sleep", ["20"]);
+  run("xcrun", ["simctl", "terminate", udid, "com.apple.mobilesafari"]);
+}
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
@@ -114,7 +142,26 @@ if (!ipad) {
   notify(["-p", enrolment]);
   const state = capture("xcrun", ["simctl", "spawn", udid, "notifyutil", "-g", enrolment]);
   if (!String(state.stdout).trim().endsWith("1")) fail(`Face ID enrolment did not take on ${udid}`);
+  const publicDir = path.join(root, "docs/site/public");
+  const types = { ".html": "text/html", ".js": "text/javascript" };
   face = createServer((request, response) => {
+    // --invite: serve docs/site/public under /justus/ on this port, as GitHub Pages does.
+    const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    if (invite && pathname.startsWith("/justus/")) {
+      const relative = pathname.slice("/justus/".length);
+      const file = path.join(
+        publicDir,
+        relative.endsWith("/") ? `${relative}index.html` : relative,
+      );
+      const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
+      const found = inside && existsSync(file) && statSync(file).isFile();
+      response.writeHead(
+        found ? 200 : 404,
+        found ? { "content-type": types[path.extname(file)] ?? "text/plain" } : {},
+      );
+      response.end(found ? readFileSync(file) : "not found");
+      return;
+    }
     const posted =
       request.url === "/match" &&
       notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0;
@@ -148,9 +195,10 @@ function maestro(log) {
     const file = createWriteStream(log);
     let text = "";
     const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
+    const pageArgs = invite ? ["-e", `PAGE=http://127.0.0.1:${face.address().port}`] : [];
     const child = spawn(
       "maestro",
-      ["--device", udid, "test", ...faceArgs, "--test-output-dir", out, flow],
+      ["--device", udid, "test", ...faceArgs, ...pageArgs, "--test-output-dir", out, flow],
       {
         cwd: root,
         env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
@@ -189,9 +237,14 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log(`Maestro walk (${name}), attempt ${attempt}`);
   const result = await maestro(path.join(out, `maestro-attempt-${attempt}.txt`));
   status = result.status;
-  const driverFailed = ["driver not ready in time", "XCTPerformOnMainRunLoop", "Maestro walk hung"];
+  const driverFailed = [
+    "driver not ready in time",
+    "XCTPerformOnMainRunLoop",
+    "Maestro walk hung",
+    "Simulator device failed to open", // Safari still starting when openLink asked for it
+  ];
   if (status === 0 || !driverFailed.some((text) => result.text.includes(text))) break;
-  console.log("The Maestro iOS driver failed: trying once more");
+  console.log("The Maestro walk hit a driver or Safari-start failure: trying once more");
 }
 stopIosDriver();
 face?.close();
