@@ -160,6 +160,23 @@ describe("invite page in a browser", () => {
     }
   });
 
+  it("wraps a long name inside the accept line", async () => {
+    const { browser, page } = await open(`i=${A}&o=${B}&n=Garden&a=${"Bartholomew".repeat(8)}`);
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const sizes = await page.evaluate(() => {
+        const line = document.getElementById("accept-line")!;
+        return {
+          line: line.scrollWidth <= line.clientWidth,
+          page: document.documentElement.scrollWidth <= window.innerWidth,
+        };
+      });
+      expect(sizes).toEqual({ line: true, page: true });
+    } finally {
+      await browser.close();
+    }
+  });
+
   it("hides the button when the key is missing", async () => {
     const { browser, page } = await open(`i=javascript:alert(1)&o=${B}`);
     try {
