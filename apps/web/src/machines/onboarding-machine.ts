@@ -88,7 +88,6 @@ const appLockTurnedOn = event("APP_LOCK_TURNED_ON")();
 const appLockLeftOff = event("APP_LOCK_LEFT_OFF")();
 /** The phone's prompt failed: App lock stays off and the person sees why. */
 const appLockFailed = event("APP_LOCK_FAILED")<{ message: string }>();
-/** The name was saved; the app records it as the person's name. */
 
 const APP_LOCK_FAILED_MESSAGE = copy("onboarding.couldn_t_turn_on_app");
 

@@ -1,5 +1,4 @@
 import type { Clock } from "@mantaq/core";
-import { classifyInvite } from "../utils/classify-invite";
 import { createAppLockActor } from "./app-lock-machine";
 import { createFoldersActor, wireFoldersToSync } from "./folders-machine";
 import { createFriendsActor } from "./friends-machine";
@@ -29,16 +28,7 @@ export function createJustus(options: { clock: Clock }) {
   const people = createPeopleActor({ clock });
   const requests = createRequestsActor({ clock });
   const reach = createReachActor({ clock });
-  const join = createJoinRequestActor({
-    clock,
-    known: (invite) =>
-      classifyInvite(
-        invite.code,
-        folders.snapshot().context.folders,
-        folders.snapshot().context.asks,
-      ),
-    asked: (code) => folders.snapshot().context.asks.find((a) => a.code === code),
-  });
+  const join = createJoinRequestActor({ clock });
   wireOnboardingToFolders(onboarding, folders);
   wireFoldersToSync(folders, sync);
   wireReachToSync(reach, sync);
