@@ -242,7 +242,7 @@ describe("holdersSheet previews", () => {
     expect(el.textContent).not.toContain("Can still get it from");
     expect(el.textContent).not.toContain("Doesn't have the full photo");
   });
-  it("keeps 'Can still get it from' under 'Doesn't have' and Ben under 'Only has a preview'", () => {
+  it("keeps 'Can still get it from' under 'Doesn't have' and Ben under 'Seen, not opened'", () => {
     const el = draw(holdersSheet(photo(h({ previews: [m("Ben")], waiting: [m("Cy")] })), []));
     expect(headings(el)).toEqual(["full_photo.has", "full_photo.only_preview", "full_photo.lacks"]);
     const lists = el.querySelectorAll("ul");

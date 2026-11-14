@@ -22,7 +22,7 @@ const photo = (folderId: string, holders: Partial<PhotoHolders>): Photo =>
 
 describe("privacy copy states only what is true", () => {
   // PhotoHolders.waiting: "phone said what it holds, without this photo or its preview".
-  it("a member with no photo and no preview is not told 'has previews only'", () => {
+  it("a member with no photo and no preview is not told 'seen, not opened'", () => {
     const r = albumHolding([photo("f1", { waiting: [m("w")] })], "f1");
     expect(holdingLine(r.byKey.get("w"), r.total)).not.toContain("previews");
   });
