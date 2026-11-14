@@ -442,6 +442,7 @@ describe("album join requests", () => {
   });
 
   afterEach(async () => {
+    requests.forgetAccepted();
     if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
     await requestsActor.settled();
     for (const h of requestsActor.snapshot().context.heldDeclines) {
@@ -616,6 +617,73 @@ describe("album join requests", () => {
     await vi.waitFor(() =>
       expect(gateway.respond).toHaveBeenCalledWith("f1", "nils", true, "reader"),
     );
+  });
+
+  const acceptedSection = (host: HTMLElement) =>
+    host.querySelector<HTMLElement>('[data-motion-key="section:accepted"]');
+
+  test("after Accept the card says who is in, with a primary See photos to the photos", async () => {
+    const host = await show([ask("nils", true)]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const card = acceptedSection(host)!;
+    expect(card.textContent).toContain("nils is in");
+    const link = card.querySelector("a")!;
+    expect(link.textContent?.trim()).toBe("See photos");
+    expect(link.getAttribute("href")).toBe("/albums/f1");
+    expect(link.className).toContain("ui-btn-primary");
+    expect(link.className).not.toContain("ui-btn-ghost");
+  });
+
+  test("the card names a saved friend by your name for them", async () => {
+    friends.open({ identity: "id-ben", ownName: "Ben" });
+    friends.add();
+    friends.type("Dad");
+    friends.save();
+    await friendsActor.settled();
+    const host = await show([
+      { ...ask("a", true), requesterName: "Ben", requesterIdentity: "id-ben" },
+    ]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    expect(acceptedSection(host)!.textContent).toContain("Dad is in");
+  });
+
+  test("See photos is ghost while another request waits", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const link = acceptedSection(host)!.querySelector("a")!;
+    expect(link.className).toContain("ui-btn-ghost");
+    expect(link.className).not.toContain("ui-btn-primary");
+  });
+
+  test("no card shows before an Accept or after a Decline", async () => {
+    const host = await show([ask("nils", true)]);
+    expect(acceptedSection(host)).toBeNull();
+    button(host, "Decline")!.click();
+    await vi.waitFor(() => expect(host.textContent).not.toContain("wants to join"));
+    expect(acceptedSection(host)).toBeNull();
+  });
+
+  test("another album's page shows no card", async () => {
+    const host = await show([ask("nils", true)]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const other = document.createElement("div");
+    render(albumView("f9"), other);
+    await requestsActor.settled();
+    expect(acceptedSection(other)).toBeNull();
+  });
+
+  test("leaving the page removes the card", async () => {
+    open("/");
+    const host = await show([ask("nils", true)]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    open("/help");
+    await vi.waitFor(() => expect(acceptedSection(host)).toBeNull());
+    open("/");
   });
 
   test("Accept, can add photos sends the member role", async () => {
