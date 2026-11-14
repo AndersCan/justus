@@ -651,6 +651,24 @@ describe("album join requests", () => {
     open("/");
   });
 
+  test("a second Accept also moves focus to See photos", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    document.body.append(host);
+    button(host, "Accept, can only look")!.focus();
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const link = acceptedSection(host)!.querySelector("a")!;
+    await vi.waitFor(() => expect(document.activeElement).toBe(link));
+    await vi.waitFor(() => expect(button(host, "Accept, can only look")).toBeTruthy());
+    button(host, "Accept, can only look")!.focus();
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)!.textContent).toContain("ola"));
+    await requestsActor.settled();
+    expect(document.activeElement).toBe(acceptedSection(host)!.querySelector("a"));
+    host.remove();
+    open("/");
+  });
+
   test("the card comes after the requests section", async () => {
     const host = await show([ask("nils", true), ask("ola", true)]);
     button(host, "Accept, can only look")!.click();
