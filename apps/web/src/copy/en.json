@@ -2891,14 +2891,21 @@
     "screen": ""
   },
   "holding.all": {
-    "text": "has all in full",
+    "text": "has all {total} photos",
+    "status": "draft",
+    "where": "Album › people",
+    "who": "Everyone in an album",
+    "screen": ""
+  },
+  "holding.the_photo": {
+    "text": "has the photo",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
     "screen": ""
   },
   "holding.some": {
-    "text": "has {n} in full",
+    "text": "has {n} of {total} photos",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",

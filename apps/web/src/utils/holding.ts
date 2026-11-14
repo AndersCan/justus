@@ -38,7 +38,9 @@ export function albumHolding(photos: readonly Photo[], folderId: string): AlbumH
 export function holdingLine(h: Holding | undefined, total: number): string | undefined {
   if (total === 0) return undefined;
   const held = h?.kind === "count" ? h.held : 0;
-  if (held > 0) return held >= total ? copy("holding.all") : copy("holding.some", { n: held });
+  if (held >= total)
+    return total === 1 ? copy("holding.the_photo") : copy("holding.all", { total });
+  if (held > 0) return copy("holding.some", { n: held, total });
   if (h?.kind === "silent") return copy("holding.silent");
   return h?.kind === "previews" ? copy("holding.none") : copy("holding.nothing");
 }
