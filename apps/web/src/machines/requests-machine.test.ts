@@ -188,6 +188,30 @@ describe("requests machine factory", () => {
     expect(actor.snapshot().context).toBe(before.context);
   });
 
+  test("leaving the page forgets who was let in while a reload or a failed answer is on screen", async () => {
+    const { actor, port } = setup();
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true, "reader"));
+    await actor.settled();
+    port.respond.mockResolvedValueOnce([new Error("invoke timeout"), null] as never);
+    actor.send(respond("f1", "k2", true, "reader"));
+    await actor.settled();
+    expect(actor.state.name).toBe("couldNotSendAnswer");
+    expect(actor.snapshot().context.accepted?.requesterKey).toBe("k1");
+    actor.send({ type: "FORGET_ACCEPTED" } as never);
+    expect(actor.snapshot().context.accepted).toBeNull();
+
+    actor.send(retry());
+    await actor.settled();
+    expect(actor.snapshot().context.accepted?.requesterKey).toBe("k2");
+    port.requests.mockImplementationOnce(() => new Promise(() => {}));
+    actor.send(refresh());
+    expect(actor.state.name).toBe("loadingRequests");
+    actor.send({ type: "FORGET_ACCEPTED" } as never);
+    expect(actor.snapshot().context.accepted).toBeNull();
+  });
+
   test("a failed answer is kept: the view model names it and nothing is announced", async () => {
     const { actor } = setup({ respond: async () => [new Error("invoke timeout"), null] });
     const sent: string[] = [];
