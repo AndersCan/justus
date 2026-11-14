@@ -1,7 +1,9 @@
 import { defineConfig, presetUno } from "unocss";
+import { errorBannerActionClass, errorBannerClass } from "#design/components/error-banner.ts";
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
 import { sheetClass, sheetScrimClass } from "#design/components/sheet.ts";
+import { toastActionClass, toastClass } from "#design/components/toast.ts";
 import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
 // Semantic tokens only. Raw values live in src/design/justus/tokens/theme.css (generated) as CSS variables (space
@@ -36,6 +38,11 @@ export default defineConfig({
     // A sheet is a <dialog> filling the screen; its panel sits at the bottom on phones, centred from sm.
     "ui-sheet-dialog": `fixed inset-0 m-0 h-full max-h-none w-full max-w-none overflow-y-auto overscroll-contain border-0 bg-transparent p-0 text-fg [&[open]]:flex flex-col items-center backdrop:(${sheetScrimClass()})`,
     "ui-sheet": `${sheetClass()} pb-[max(1.25rem,env(safe-area-inset-bottom))] mt-auto sm:mb-auto`,
+    // The toast host ignores taps, so each toast takes them back; placing toasts is app code.
+    "ui-toast": `${toastClass()} pointer-events-auto`,
+    "ui-toast-action": toastActionClass(),
+    "ui-error-banner": errorBannerClass(),
+    "ui-error-banner-action": errorBannerActionClass(),
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
     "ui-chip":
       "inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-fg",
