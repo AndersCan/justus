@@ -60,6 +60,7 @@ export function createLightboxActor(options: { clock: Clock }) {
         to: [showingPhotoAlone],
         handler: () => ({ state: showingPhotoAlone }),
       });
+      /** A tap on the photo alone brings its controls back. */
       m.on(showingPhotoAlone, {
         event: photoTapped,
         to: [showingPhoto],

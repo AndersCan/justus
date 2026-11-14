@@ -416,3 +416,37 @@ describe("tapping the photo", () => {
     expect(controls(el)).toBe("shown");
   });
 });
+
+describe("the viewer's buttons", () => {
+  afterEach(() => {
+    closeLightbox();
+    document.body.innerHTML = "";
+  });
+
+  const mount = () => {
+    const photos = [photo("a"), photo("b"), photo("c")];
+    setPhotos(photos);
+    openLightbox(photos[0]);
+    const el = document.createElement("div");
+    document.body.append(el);
+    render(lightboxView(), el);
+    return el;
+  };
+  const press = (el: Element, label: string) =>
+    (el.querySelector(`button[aria-label="${label}"]`) as HTMLElement).click();
+
+  it("Close closes the photo", () => {
+    const el = mount();
+    press(el, "Close");
+    expect(lightboxActor.snapshot().context.photo).toBeUndefined();
+  });
+
+  it("Next steps forward and Previous steps back", () => {
+    const el = mount();
+    press(el, "Next photo");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
+    press(el, "Previous photo");
+    press(el, "Previous photo");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
+  });
+});
