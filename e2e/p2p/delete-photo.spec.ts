@@ -127,7 +127,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(anaLine).toContainText("On its way to the people you let in", {
     timeout: 20_000,
   });
-  const lightboxImage = a.locator("div.fixed img");
+  const lightboxImage = a.locator('div.fixed [data-part="photo"] > img:not([data-part])');
   const before = await lightboxImage.boundingBox();
 
   // Ben (a member) has no menu on Ana's photo.

@@ -25,11 +25,6 @@ html[data-vt-photo] [data-vt="album"] {
   view-transition-name: photo;
 }
 
-[data-photo-tile][data-vt="photo"] img {
-  filter: none;
-  transition: none;
-}
-
 ::view-transition-group(photo) {
   animation-duration: var(--duration-normal);
   animation-timing-function: var(--easing-standard);

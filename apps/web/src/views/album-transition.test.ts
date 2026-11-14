@@ -223,3 +223,26 @@ describe("photoSwap", () => {
     expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(false);
   });
 });
+
+test("a close started during the open keeps the page marked when the open is skipped", async () => {
+  reduceMotion(false);
+  const finishes: (() => void)[] = [];
+  (document as Doc).startViewTransition = vi.fn((cb: () => void) => {
+    cb();
+    return {
+      ready: Promise.resolve(),
+      finished: new Promise<void>((resolve) => finishes.push(resolve)),
+    };
+  });
+  tile();
+  photoSwap("/a", "open", () => {});
+  photoSwap("/a", "close", () => {});
+  finishes[0]();
+  await new Promise((r) => setTimeout(r));
+  expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(true);
+  expect(document.querySelector("[data-photo-tile]")?.getAttribute("data-vt")).toBe("photo");
+  finishes[1]();
+  await new Promise((r) => setTimeout(r));
+  expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(false);
+  expect(document.querySelectorAll("[data-photo-tile][data-vt]")).toHaveLength(0);
+});
