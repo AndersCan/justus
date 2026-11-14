@@ -1,5 +1,4 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
-import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
@@ -472,9 +471,18 @@ export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort 
 
 export const peopleActor = createPeopleActor({ clock: RealClock() });
 
-onOutput(peopleActor, (e) => {
-  if (e.type === "sheetOpened" || e.type === "SHEET_OPENED") requests.refresh();
-});
+export type PeopleActor = ReturnType<typeof createPeopleActor>;
+
+/** Opening the People sheet asks for the latest join requests. */
+export function wirePeopleToRequests(people: PeopleActor, target: { refresh(): void }): () => void {
+  return people.on("output", {
+    fn: (e) => {
+      if (e.type === "SHEET_OPENED") target.refresh();
+    },
+  });
+}
+
+wirePeopleToRequests(peopleActor, requests);
 
 export const people = {
   makeViewer: (folderId: string, memberKey: string) =>

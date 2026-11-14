@@ -156,8 +156,6 @@ const retry = event("RETRY")();
 /** Another part of the app reports the name the backend holds for this device. */
 export const nameSeen = event("NAME_SEEN")<{ name: string }>();
 
-/** The other album is open and the app's sync status should follow it. */
-const switchedTo = event("SWITCHED_TO")<{ status: SyncStatus }>();
 /** The new name was saved and should be shown everywhere. */
 const renamed = event("RENAMED")<{ name: string }>();
 
@@ -326,7 +324,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
       renameFailed,
       albumChangeFailed,
     ],
-    outputs: [switchedTo, renamed],
+    outputs: [statusSeen, renamed],
     states: [
       albumsNotLoaded,
       loadingAlbums,
@@ -585,7 +583,7 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             activeId: e.payload.status.folder.id,
             error: null,
           });
-          return { state: showingAlbums, emit: [switchedTo.create({ status: e.payload.status })] };
+          return { state: showingAlbums, emit: [statusSeen.create({ status: e.payload.status })] };
         },
       });
       /** Opening the album failed: the previous album stays open and the person sees why. */
@@ -774,7 +772,7 @@ export type FoldersActor = ReturnType<typeof createFoldersActor>;
 export function wireFoldersToSync(folders: FoldersActor, sync: SyncActor): () => void {
   const offOutput = folders.on("output", {
     fn: (e) => {
-      if (e.type === switchedTo.type) {
+      if (e.type === statusSeen.type) {
         sync.send(statusSeen.create({ status: (e.payload as { status: SyncStatus }).status }));
       }
     },
