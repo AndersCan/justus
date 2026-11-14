@@ -30,11 +30,7 @@ export function themeSetting() {
           role="radio"
           aria-checked=${o.value === theme ? "true" : "false"}
           title=${o.hint}
-          class="ui-focus rounded-xl px-3 py-2.5 text-sm font-medium ring-1 transition ${
-            o.value === theme
-              ? "bg-accent/10 text-accent ring-accent"
-              : "bg-subtle text-fg ring-line hover:bg-line"
-          }"
+          class=${o.value === theme ? "ui-radio-card-checked" : "ui-radio-card"}
           @click=${() => {
             prefs.setTheme(o.value);
           }}
@@ -65,11 +61,7 @@ export function densitySetting() {
           type="button"
           role="radio"
           aria-checked=${o.value === density ? "true" : "false"}
-          class="ui-focus rounded-xl px-3 py-2.5 text-sm font-medium ring-1 transition ${
-            o.value === density
-              ? "bg-accent/10 text-accent ring-accent"
-              : "bg-subtle text-fg ring-line hover:bg-line"
-          }"
+          class=${o.value === density ? "ui-radio-card-checked" : "ui-radio-card"}
           @click=${() => {
             prefs.setDensity(o.value);
           }}

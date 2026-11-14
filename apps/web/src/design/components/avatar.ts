@@ -41,9 +41,8 @@ export function avatar(props: AvatarProps): TemplateResult {
   return html`<span role="img" aria-label=${props.name} class=${classes.join(" ")}><span aria-hidden="true">${props.initials}</span></span>`
 }
 
-export const examples: Example[] = [
-  { label: "sm", render: () => avatar({ initials: "NK", name: "Nils K", size: "sm" }) },
-  { label: "md", render: () => avatar({ initials: "NK", name: "Nils K", size: "md" }) },
-  { label: "lg", render: () => avatar({ initials: "NK", name: "Nils K", size: "lg" }) },
-  { label: "square", render: () => avatar({ initials: "NK", name: "Nils K", size: "md", square: true }) },
-]
+export const variants = { size: Object.keys(sizes) as AvatarSize[] }
+
+export const sample = { initials: "NK", name: "Nils K" } satisfies Omit<AvatarProps, keyof typeof variants>
+
+export const examples: Example[] = [{ label: "square", render: () => avatar({ ...sample, size: "md", square: true }) }]

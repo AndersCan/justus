@@ -62,10 +62,12 @@ const four: PresenceDotProps[] = [
   { tone: "red", label: "Lee, offline" },
 ]
 
+export const variants = { variant: Object.keys(rows) as PresenceDotsVariant[] }
+
+export const sample = { label: "4 people", dots: four } satisfies Omit<PresenceDotsProps, keyof typeof variants>
+
 export const examples: Example[] = [
-  { label: "cascade", render: () => presenceDots({ label: "4 people", dots: four }) },
-  { label: "stack", render: () => presenceDots({ label: "4 people", dots: four, variant: "stack" }) },
-  { label: "cascade · align right", render: () => presenceDots({ label: "4 people", dots: four, alignRight: true }) },
-  { label: "stack · align right", render: () => presenceDots({ label: "4 people", dots: four, variant: "stack", alignRight: true }) },
+  { label: "cascade · align right", render: () => presenceDots({ ...sample, alignRight: true }) },
+  { label: "stack · align right", render: () => presenceDots({ ...sample, variant: "stack", alignRight: true }) },
   { label: "single", render: () => presenceDots({ label: "1 person", dots: four.slice(0, 1) }) },
 ]

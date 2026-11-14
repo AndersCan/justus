@@ -241,7 +241,7 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
                     >
                       <button
                         slot="trigger"
-                        class="ui-focus flex h-11 w-11 items-center justify-center rounded-full text-fg hover:bg-subtle"
+                        class="ui-icon-btn"
                         aria-label=${copy("lightbox.more_options")}
                       >
                         <svg

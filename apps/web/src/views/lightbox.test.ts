@@ -6,12 +6,13 @@ import { confirmAction } from "./confirm";
 import { toast } from "./toast";
 import { lightboxActor } from "../machines/lightbox-machine";
 import { galleryActor, gallery } from "../machines/gallery-machine";
+import { folders } from "../machines/folders-machine";
 import { syncActor } from "../machines/sync-machine";
 import { friendsActor } from "../machines/friends-machine";
 import type { Photo } from "@justus/core";
 
 const hoisted = vi.hoisted(() => ({
-  gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
+  gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn(), folders: vi.fn() },
 }));
 vi.mock("../gateway", () => ({ gateway: hoisted.gateway }));
 vi.mock("./confirm", () => ({ confirmAction: vi.fn(async () => true) }));
@@ -317,6 +318,25 @@ describe("the photo card", () => {
     render(lightboxView(), host);
     expect(host.querySelector("img")?.getAttribute("alt")).toBe("holiday-001.jpg");
     expect(host.textContent).not.toContain("holiday-001.jpg");
+    render(null, host);
+  });
+
+  it("draws its More options as the round icon button", async () => {
+    const p = { ...photo("a"), folderId: "f", mine: true };
+    vi.spyOn(galleryActor, "snapshot").mockReturnValue({
+      context: { photos: [p] },
+      path: [],
+    } as never);
+    hoisted.gateway.folders.mockResolvedValue([
+      null,
+      { folders: [{ id: "f", name: "F", role: "creator" }], activeFolderId: null },
+    ]);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    openLightbox(p);
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    expect(host.querySelector("[aria-label='More options']")?.className).toBe("ui-icon-btn");
     render(null, host);
   });
 });

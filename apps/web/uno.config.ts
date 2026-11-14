@@ -3,6 +3,8 @@ import { avatarClass, avatarSizeClass } from "#design/components/avatar.ts";
 import { presenceDotsClass, presenceDotsItemClass } from "#design/components/presence-dots.ts";
 import { requestCardClass } from "#design/components/request-card.ts";
 import { errorBannerActionClass, errorBannerClass } from "#design/components/error-banner.ts";
+import { iconButtonClass } from "#design/components/icon-button.ts";
+import { radioCardsItemClass } from "#design/components/radio-cards.ts";
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
 import { sheetClass, sheetScrimClass } from "#design/components/sheet.ts";
@@ -65,6 +67,10 @@ export default defineConfig({
     "ui-tab": `${tabClass("unselected")} transition`,
     "ui-tab-selected": `${tabClass("selected")} transition`,
     "ui-tab-badge": tabBadgeClass("primary"),
+    "ui-icon-btn": iconButtonClass({ variant: "ghost", color: "gray", size: "3", radius: "full" }),
+    // justus animates its own choice cards; motion is app code.
+    "ui-radio-card": `${radioCardsItemClass({ checked: false, size: "1" })} transition`,
+    "ui-radio-card-checked": `${radioCardsItemClass({ checked: true, size: "1" })} transition`,
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
   },
 });

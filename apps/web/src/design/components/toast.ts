@@ -47,19 +47,9 @@ export function toast(props: ToastProps): TemplateResult {
   </div>`
 }
 
-const variantMessages: Record<ToastVariant, string> = {
-  brand: "Nils joined Summer 2026",
-  success: "Photo added to Summer 2026",
-  warning: "Storage is almost full",
-  danger: "Couldn't add the photo",
-  neutral: "Photo added to Summer 2026",
-}
+/** The gallery draws one cell per variant; add a key to `fills` and a new cell appears. */
+export const variants = { variant: Object.keys(fills) as ToastVariant[] }
 
-export const examples: Example[] = [
-  { label: "with action", render: () => toast({ message: "Photo added to Summer 2026", action: "Undo" }) },
-  { label: "without action", render: () => toast({ message: "Photo added to Summer 2026" }) },
-  ...(Object.keys(fills) as ToastVariant[]).map((variant) => ({
-    label: variant,
-    render: () => toast({ message: variantMessages[variant], variant }),
-  })),
-]
+export const sample = { message: "Photo added to Summer 2026" } satisfies Omit<ToastProps, keyof typeof variants>
+
+export const examples: Example[] = [{ label: "with action", render: () => toast({ ...sample, action: "Undo" }) }]
