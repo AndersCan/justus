@@ -140,6 +140,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
     () => (window as unknown as { __nobodyAt: number | null }).__nobodyAt,
   );
   expect(nobodyAt === null || nobodyAt - openedAt >= 13_000).toBe(true);
+  await expect(b.getByText("1 connected now")).toBeVisible({ timeout: 30_000 });
 });
 
 test("A sees B's request on the album page, Review opens the card, Accept lets B in", async ({

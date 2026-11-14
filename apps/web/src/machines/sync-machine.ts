@@ -162,6 +162,12 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
           },
         });
       }
+      /** A reload asked while a check is running: the running check may have read the album before the news (the Admin connecting) landed, so it starts again. */
+      m.on(checkingAlbum, {
+        event: refresh,
+        to: [checkingAlbum],
+        handler: () => ({ state: checkingAlbum }),
+      });
       /** A reload after an error starts and the error message goes away. */
       m.on(couldNotCheckAlbum, {
         event: refresh,

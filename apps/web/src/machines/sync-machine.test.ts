@@ -42,6 +42,23 @@ describe("sync factory", () => {
     expect(ctx(actor).error).toBeNull();
   });
 
+  test("a refresh asked while a check is running reads the album again, and the older read is dropped", async () => {
+    const before = { ...statusOf(), members: [{ connected: false }] } as unknown as SyncStatus;
+    const after = { ...statusOf(), members: [{ connected: true }] } as unknown as SyncStatus;
+    let answerFirst: (v: unknown) => void = () => {};
+    const status = vi
+      .fn()
+      .mockReturnValueOnce(new Promise((resolve) => (answerFirst = resolve)))
+      .mockResolvedValue([null, after]);
+    const { actor } = build({ status });
+    send(actor, "REFRESH");
+    send(actor, "REFRESH");
+    answerFirst([null, before]);
+    await vi.waitFor(() => expect(stateOf(actor)).toBe("showingAlbum"));
+    expect(status).toHaveBeenCalledTimes(2);
+    expect(ctx(actor).status).toEqual(after);
+  });
+
   test("a failed refresh shows the error and retry clears it", async () => {
     const status = vi
       .fn()
