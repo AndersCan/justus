@@ -24,7 +24,7 @@ describe("privacy copy states only what is true", () => {
   // PhotoHolders.waiting: "phone said what it holds, without this photo or its preview".
   it("a member with no photo and no preview is not told 'seen, not opened'", () => {
     const r = albumHolding([photo("f1", { waiting: [m("w")] })], "f1");
-    expect(holdingLine(r.byKey.get("w"), r.total)).not.toContain("previews");
+    expect(holdingLine(r.byKey.get("w"), r.total)).not.toContain("seen");
   });
   it("a member holding one photo, with no preview of the other, is not told 'previews of the rest'", () => {
     const r = albumHolding(
