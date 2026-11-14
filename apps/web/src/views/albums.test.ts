@@ -342,11 +342,13 @@ describe("Join tab", () => {
     submit(host, goodLink);
     await vi.waitFor(() => expect(button().textContent).toContain("Checking the link…"));
     expect(button().getAttribute("aria-disabled")).toBe("true");
+    expect(button().disabled).toBe(false);
     expect(paste().disabled).toBe(false);
     expect(input.readOnly).toBe(true);
     check.resolve([undefined, { turnedOff: false }]);
     await vi.waitFor(() => expect(button().textContent).toContain("Asking…"));
     expect(button().getAttribute("aria-disabled")).toBe("true");
+    expect(button().disabled).toBe(false);
     send.resolve([undefined, {}]);
     await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
     expect(input.readOnly).toBe(false);
