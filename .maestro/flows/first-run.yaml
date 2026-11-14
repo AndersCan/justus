@@ -204,10 +204,24 @@ appId: no.cankode.justus
             platform: iOS
           commands:
             - runScript: ../scripts/away.js
-      - extendedWaitUntil:
-          visible: "Justus is locked"
-          timeout: 31000
-          optional: true
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - extendedWaitUntil:
+                visible: "Justus is locked"
+                timeout: 31000
+                optional: true
+      # iOS: Maestro reads the app under Settings and can report "Justus is locked" at once, which ended
+      # this wait after 1 s and left the app unlocked. Wait out the 30 s on something never on screen.
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - extendedWaitUntil:
+                visible: "No such text, wait out the 30 s"
+                timeout: 31000
+                optional: true
       - runFlow:
           when:
             platform: Android
