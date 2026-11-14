@@ -2,6 +2,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
 import { VirtualClock } from "@mantaq/core";
 import {
+  backTo,
   createRouterActor,
   currentPage,
   onPageChange,
@@ -151,5 +152,44 @@ describe("browser wiring", () => {
       route: "photoAlbum",
       params: { id: "z" },
     });
+  });
+});
+
+describe("backTo", () => {
+  test("open records where it came from", () => {
+    history.replaceState(null, "", "/ALBUMS/");
+    open("/albums/a");
+    expect(history.state).toEqual({ from: "/albums" });
+  });
+
+  test("goes back, without pushing, when the previous entry is the path", () => {
+    history.replaceState(null, "", "/albums");
+    open("/albums/a");
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    const push = vi.spyOn(history, "pushState");
+    backTo("/ALBUMS/");
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+    back.mockRestore();
+    push.mockRestore();
+  });
+
+  test("opens the path when there is no history state", () => {
+    history.replaceState(null, "", "/albums/a");
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    backTo("/albums");
+    expect(back).not.toHaveBeenCalled();
+    expect(currentPage()?.route).toBe("photoAlbums");
+    back.mockRestore();
+  });
+
+  test("opens the path when the previous entry is another page", () => {
+    history.replaceState(null, "", "/help");
+    open("/albums/a");
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    backTo("/albums");
+    expect(back).not.toHaveBeenCalled();
+    expect(currentPage()?.route).toBe("photoAlbums");
+    back.mockRestore();
   });
 });

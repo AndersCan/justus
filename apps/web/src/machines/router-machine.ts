@@ -106,8 +106,15 @@ function sync(): void {
 export function open(path: string, o?: { replace?: boolean }): void {
   if (new URL(path, location.href).href === location.href) return;
   if (o?.replace) history.replaceState(null, "", path);
-  else history.pushState(null, "", path);
+  else history.pushState({ from: normalize(location.pathname) }, "", path);
   sync();
+}
+
+/** Goes back when the previous entry is `path`, so Back does not return here; otherwise opens it. */
+export function backTo(path: string): void {
+  const from = (history.state as { from?: string } | null)?.from;
+  if (from === normalize(path)) history.back();
+  else open(path);
 }
 
 /** Calls `fn` whenever the page changes. Not called on subscribe. */
@@ -126,7 +133,7 @@ export function onPageChange(
   });
 }
 
-function ownLink(e: MouseEvent): HTMLAnchorElement | undefined {
+export function ownLink(e: MouseEvent): HTMLAnchorElement | undefined {
   if (e.defaultPrevented || e.button !== 0) return undefined;
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return undefined;
   const link = (e.target as Element | null)?.closest?.("a");

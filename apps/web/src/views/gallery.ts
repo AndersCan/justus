@@ -22,7 +22,7 @@ import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
 import { unreachableMember } from "../utils/reach-hint";
-import { currentPage, open } from "../machines/router-machine";
+import { backTo, currentPage, open, ownLink } from "../machines/router-machine";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
   addTargets,
@@ -81,6 +81,20 @@ async function newAlbum() {
 
 /** Drag-and-drop and paste (browser/desktop): same batch path as the picker,
  * and only into the album on screen. */
+/** "All albums" steps back when the album was opened from the grid, so Back does not reopen it. */
+function allAlbumsLink() {
+  return html`<a
+    class="text-sm text-muted hover:text-fg"
+    href="/albums"
+    @click=${(e: MouseEvent) => {
+      if (!ownLink(e)) return;
+      e.preventDefault();
+      backTo("/albums");
+    }}
+    >${t("gallery.all_albums")}</a
+  >`;
+}
+
 function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefined) {
   const images = imageFiles(files);
   if (images.length === 0) {
@@ -772,7 +786,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           : null;
   return html`
     <div class="space-y-2" data-motion-key="section:album">
-      <a class="text-sm text-muted hover:text-fg" href="/albums">${t("gallery.all_albums")}</a>
+      ${allAlbumsLink()}
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2
           class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg outline-none"
@@ -845,9 +859,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
         scope.kind === "album"
           ? album
             ? albumHeader(page, album)
-            : html`<a class="text-sm text-muted hover:text-fg" href="/albums"
-                  >${t("gallery.all_albums")}</a
-                >
+            : html`${allAlbumsLink()}
                 <p class="text-muted">${missingAlbumText(page)}</p>`
           : null
       }
