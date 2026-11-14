@@ -3,6 +3,7 @@ import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "#design/justus/album/album-full.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
+import { ref } from "lit-html/directives/ref.js";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
@@ -588,6 +589,16 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
+const focused = new WeakSet<Element>();
+/** Accept removes the focused button: put focus on the card's link once. */
+function focusOnce(el: Element | undefined) {
+  if (!(el instanceof HTMLElement) || focused.has(el)) return;
+  focused.add(el);
+  queueMicrotask(() => {
+    if (el.isConnected) el.focus({ preventScroll: true });
+  });
+}
+
 /** After Accept: who is in, and a button to the photos. Primary only while no other request waits, so the page has one primary action. */
 function acceptedCard(
   id: string,
@@ -601,6 +612,7 @@ function acceptedCard(
   return html`<section class="ui-card p-5" data-motion-key="section:accepted">
     <p class="text-sm text-fg">${t("album.name_is_in", { name })}</p>
     <a
+      ${ref(focusOnce)}
       class="${vm.requests.length > 0 ? "ui-btn-ghost" : "ui-btn-primary"} mt-3 inline-flex items-center"
       href="/albums/${encodeURIComponent(id)}"
       >${t("album.see_photos")}</a

@@ -246,10 +246,14 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   await a.setViewportSize({ width: 390, height: 844 });
   await card.getByRole("button", { name: "Retry" }).click();
   const isIn = a.locator(`[data-motion-key="section:accepted"]`);
-  await expect(isIn).toContainText(" is in");
+  await expect(isIn).toContainText(/\S is in/);
   await expect(isIn).toBeVisible({ timeout: 15_000 });
   await expect(a.locator("[data-member-key]")).toHaveCount(2);
   await expect(a.locator(".justus-toast")).toHaveCount(0);
+  await a.getByRole("link", { name: "See photos", exact: true }).click();
+  await expect(a).toHaveURL(/\/albums\/[^/]+$/);
+  await a.goBack();
+  await expect(a.locator(`[data-motion-key="section:accepted"]`)).toHaveCount(0);
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");

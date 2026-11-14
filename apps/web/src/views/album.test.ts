@@ -635,6 +635,32 @@ describe("album join requests", () => {
     expect(link.className).not.toContain("ui-btn-ghost");
   });
 
+  test("focus moves to See photos after Accept, and stays through a re-render", async () => {
+    const host = await show([ask("nils", true)]);
+    document.body.append(host);
+    button(host, "Accept, can only look")!.focus();
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const link = acceptedSection(host)!.querySelector("a")!;
+    await vi.waitFor(() => expect(document.activeElement).toBe(link));
+    host.append(document.createElement("button"));
+    (host.querySelector("button:last-child") as HTMLElement).focus();
+    await requestsActor.settled();
+    expect(document.activeElement).not.toBe(link);
+    host.remove();
+    open("/");
+  });
+
+  test("the card comes after the requests section", async () => {
+    const host = await show([ask("nils", true), ask("ola", true)]);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(acceptedSection(host)).not.toBeNull());
+    const req = host.querySelector('li[data-motion-key^="request:"]')!;
+    expect(
+      req.compareDocumentPosition(acceptedSection(host)!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   test("the card names a saved friend by your name for them", async () => {
     friends.open({ identity: "id-ben", ownName: "Ben" });
     friends.add();
@@ -674,6 +700,25 @@ describe("album join requests", () => {
     render(albumView("f9"), other);
     await requestsActor.settled();
     expect(acceptedSection(other)).toBeNull();
+  });
+
+  test("an Accept that lands after you opened another album shows no card on that album", async () => {
+    const host = await show([ask("nils", true)]);
+    let answer!: (v: unknown) => void;
+    vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+    button(host, "Accept, can only look")!.click();
+    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
+    open("/sharing/f9");
+    const f9 = { ...status, folder: { ...status.folder, id: "f9", name: "Cabin" } };
+    syncActor.send(statusSeen.create({ status: f9 as unknown as SyncStatus }));
+    const other = document.createElement("div");
+    render(albumView("f9"), other);
+    await vi.waitFor(() => expect(other.textContent).toContain("Cabin"));
+    answer([null, { ok: true }]);
+    await vi.waitFor(() => expect(requestsActor.snapshot().context.accepted?.folderId).toBe("f1"));
+    await requestsActor.settled();
+    expect(acceptedSection(other)).toBeNull();
+    open("/");
   });
 
   test("leaving the page removes the card", async () => {
@@ -1811,6 +1856,7 @@ describe("album holding", () => {
 });
 
 describe("Add photos on the album page", () => {
+  beforeEach(() => requests.forgetAccepted());
   afterEach(() => vi.restoreAllMocks());
 
   const mountWith = (role: string, notice?: unknown) => {
