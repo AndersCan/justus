@@ -162,7 +162,7 @@ export function checkCodeLine(code: string | undefined, ownerName: string) {
   if (!code) return null;
   const owner = ownerShown(ownerName, "mid");
   return html`<p class="mt-3 text-sm text-muted">${t("invite.may_ask_you_for_these", { owner })}</p>
-    <p class="mt-1 text-sm font-semibold text-fg">${code}</p>`;
+    <p class="mt-1 break-words text-lg font-semibold text-fg">${code}</p>`;
 }
 
 /** "From your friends: A, B or C. They get the invite in Justus, no link needed." Up to three names, then "or N more". */

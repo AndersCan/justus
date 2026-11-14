@@ -470,7 +470,7 @@ function inviteAccept(
   </button>`;
 }
 
-/** Who is asking: name, Friend tag, warning, real name, when, check code and declined earlier. The card and the sheet share it. */
+/** Who is asking: name, Friend tag, warning, real name, when, three words and declined earlier. The card and the sheet share it. */
 export function requestIdentity(r: PeopleVm["requests"][number], joining: TemplateResult | null) {
   return html` <p class="text-sm text-fg">
       <span class="font-semibold">${r.name}</span>
@@ -485,14 +485,25 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
         : null
     }
     <p class="mt-1 text-xs text-muted">
-      ${t("album.asked", { when: formatRelative(r.requestedAt) })}${
-        r.checkCode
-          ? html` ${t("album.check_code")}
-              <span class="font-semibold text-fg">${r.checkCode}</span>`
-          : ""
-      }
+      ${t("album.asked", { when: formatRelative(r.requestedAt) })}
     </p>
+    ${
+      r.checkCode
+        ? html`<p class="mt-2 text-xs text-muted">
+            ${t("album.check_code")}
+            <span class="block break-words text-lg font-semibold text-fg">${r.checkCode}</span>
+          </p>`
+        : null
+    }
     ${r.declinedEarlier ? html`<p class="mt-1 text-xs font-semibold text-warn-fg">${t("album.declined_earlier")}</p>` : null}`;
+}
+
+/** Under the three words: what to check, or for a name clash, why to be careful. Nothing without words. */
+function checkSentence(r: PeopleVm["requests"][number]) {
+  if (!r.checkCode) return null;
+  return html`<p class="mt-1 text-xs text-muted">
+    ${r.clash ? t("people.someone_not_in_your_friends") : t("album.same_words_on_phone", { name: r.name })}
+  </p>`;
 }
 
 function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {
@@ -500,6 +511,7 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
     requests.respond(r.folderId, r.requesterKey, true, role);
   return html`<li class="ui-request-card" data-motion-key=${requestKey(r)}>
     ${requestIdentity(r, t("album.wants_to_join", { folderName: r.folderName }))}
+    ${checkSentence(r)}
     ${
       r.viaInvite
         ? html`<div class="mt-2 flex flex-col gap-2">
@@ -529,13 +541,13 @@ function requestRow(r: PeopleVm["requests"][number], busy = false, failure: stri
           </div>`
         : html`<div class="mt-2 flex gap-2">
             <button
-              class="ui-btn-ghost"
+              class="ui-btn-ghost flex-1"
               ?disabled=${busy}
               @click=${() => requests.holdDecline(r.folderId, r.requesterKey)}
             >
               ${t("album.decline")}
             </button>
-            <button class="ui-btn-primary" ?disabled=${busy} @click=${accept("member")}>
+            <button class="ui-btn-primary flex-1" ?disabled=${busy} @click=${accept("member")}>
               ${t("album.accept")}
             </button>
           </div>`

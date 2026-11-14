@@ -58,7 +58,8 @@ export default defineConfig({
     "ui-presence-dots": presenceDotsClass(),
     "ui-presence-dot": presenceDotsItemClass(),
     "ui-presence-dot-none": presenceDotsItemClass("neutral"),
-    "ui-request-card": requestCardClass(),
+    // White card so the grey secondary buttons show.
+    "ui-request-card": requestCardClass("classic"),
     "ui-tabs": tabsClass(),
     // justus animates its own tabs; motion is app code.
     "ui-tab": `${tabClass("unselected")} transition`,

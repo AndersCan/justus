@@ -477,7 +477,11 @@ describe("album join requests", () => {
     const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
     expect(flat(rows[0]!)).toContain("Three words maple river stone");
     expect(flat(rows[1]!)).toContain("Three words lamp ocean tiger");
-    expect(host.textContent).toContain("Not sure who it is?");
+    expect(flat(rows[0]!)).toContain("Same words on Ben's phone? Then it's Ben. If not, decline.");
+    expect(flat(rows[1]!)).toContain("Same words on Ben's phone? Then it's Ben. If not, decline.");
+    expect(rows[0]!.querySelector(".text-lg")?.textContent?.trim()).toBe("maple river stone");
+    expect(rows[1]!.querySelector(".text-lg")?.textContent?.trim()).toBe("lamp ocean tiger");
+    expect(host.textContent).not.toContain("Not sure who it is?");
     expect(flat(host).toLowerCase()).not.toContain("check code");
   });
 
@@ -485,10 +489,9 @@ describe("album join requests", () => {
     const host = await show([ask("nils", true, "a b c"), ask("ola", true, "d e f")]);
     const hint =
       [...host.querySelectorAll("p.text-muted")]
-        .map((x) => x.textContent ?? "")
-        .find((t) => t.includes("Not sure who it is?")) ?? "";
-    expect(hint).toContain("2 people asked with your invite link.");
-    expect(hint).toContain("Not sure who it is?");
+        .map((x) => x.textContent?.trim() ?? "")
+        .find((t) => t.includes("people asked")) ?? "";
+    expect(hint).toBe("2 people asked with your invite link. Decline anyone you don't know.");
     const one = await show([ask("nils", true)]);
     expect(one.textContent).not.toContain("people asked with your invite link");
     const mixed = await show([ask("nils", true), ask("ola", false)]);
@@ -508,7 +511,9 @@ describe("album join requests", () => {
     expect(text).toContain("Dad");
     expect(text).toContain("· Friend");
     expect(text).toContain("Ben");
-    expect(text).toMatch(/Asked .+ · Three words maple river stone/);
+    expect(text).toContain("Three words maple river stone");
+    expect(text).not.toContain("· Three words");
+    expect(text).not.toContain("Then it's");
     expect(text).not.toContain("wants to join");
     render(requestIdentity(row, html`wants to join Trip`), host);
     expect(flat(host)).toContain("Dad wants to join Trip");
@@ -549,7 +554,9 @@ describe("album join requests", () => {
     const rowA = rows.find((r) => flat(r).includes("Three words maple river stone"))!;
     expect(rowB.textContent).toContain("Not your friend Dad");
     expect(rowA.textContent).not.toContain("Not your friend");
-    expect(host.textContent).toContain("typed a friend's name.");
+    expect(rowB.textContent).toContain("typed a friend's name.");
+    expect(rowB.textContent).not.toContain("Then it's");
+    expect(rowA.textContent).toContain("Then it's Dad");
     expect(host.textContent).not.toContain("Not sure who it is?");
     expect(button(host, "Accept all 1, can only look")).toBeUndefined();
     expect(
@@ -563,7 +570,29 @@ describe("album join requests", () => {
   test("without codes there is no three words text", async () => {
     const host = await show([ask("nils", true)]);
     expect(host.textContent).not.toContain("Three words");
+    expect(host.textContent).not.toContain("Same words");
     expect(host.textContent).not.toContain("Not sure who it is?");
+  });
+
+  test("a link card has one primary button and Decline looks like the second Accept", async () => {
+    const host = await show([ask("nils", true, "a b c"), ask("ola", true, "d e f")]);
+    const rows = [...host.querySelectorAll<HTMLElement>('li[data-motion-key^="request:"]')];
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.querySelectorAll(".ui-btn-primary")).toHaveLength(1);
+      const by = (text: string) =>
+        [...row.querySelectorAll("button")].find((b) => name(b)?.startsWith(text))!;
+      expect(by("Decline").className).toBe(by("Accept, can add photos").className);
+      expect(by("Decline").className).toContain("w-full");
+    }
+  });
+
+  test("a request not from a link has Decline and Accept sharing the row", async () => {
+    const host = await show([ask("nils", false)]);
+    const row = host.querySelector<HTMLElement>('li[data-motion-key^="request:"]')!;
+    const buttons = [...row.querySelectorAll("button")];
+    expect(buttons.map(name)).toEqual(["Decline", "Accept"]);
+    for (const b of buttons) expect(b.className).toContain("flex-1");
   });
 
   test("an invite request offers Accept, can only look, Accept, can add photos and Decline, each with its meaning; Viewer sends reader", async () => {
@@ -806,6 +835,11 @@ describe("album join requests", () => {
     expect(flat(dialog)).toContain("Asked");
     expect(flat(dialog)).toContain("Three words maple river stone");
     expect(flat(dialog)).toContain("Three words lamp ocean tiger");
+    expect(flat(dialog)).not.toContain("Then it's");
+    expect([...dialog.querySelectorAll(".text-lg")].map((x) => x.textContent?.trim())).toEqual([
+      "maple river stone",
+      "lamp ocean tiger",
+    ]);
     expect(flat(dialog)).toContain("every photo in “Trip”");
     expect(gateway.respond).not.toHaveBeenCalled();
     await requestsActor.settled();
