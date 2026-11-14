@@ -21,6 +21,7 @@ import { gateway } from "../gateway";
 import { join } from "../machines/sharing/join-request";
 import { isLockStatus } from "./app-lock";
 import { toast } from "./toast";
+import { errorBanner } from "./error-banner";
 import { friendlyError } from "../utils/friendly-error";
 import { INTRO_CARDS, INTRO_CARD_COUNT } from "./intro-cards";
 import { wordmark } from "./wordmark";
@@ -264,6 +265,11 @@ export function chooseStep() {
         const vm = foldersViewModel(s);
         const busy = !vm.settled;
         return html`
+          ${errorBanner(
+            vm.state === "couldNotLoadAlbums" || vm.fatal ? vm.error : null,
+            vm.state === "couldNotLoadAlbums" && !vm.fatal ? () => folders.retry() : undefined,
+            vm.fatal ? () => window.location.reload() : undefined,
+          )}
           <form
             class="ui-card space-y-3 p-5"
             @submit=${(e: SubmitEvent) => {
@@ -292,7 +298,7 @@ export function chooseStep() {
             >
               ${vm.state === "creatingAlbum" ? copy("welcome.creating") : copy("welcome.create_an_album")}
             </wa-button>
-            ${vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
+            ${vm.state === "couldNotCreateAlbum" && vm.error ? html`<p class="text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
           </form>
         `;
       })}
