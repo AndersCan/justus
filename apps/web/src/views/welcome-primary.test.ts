@@ -78,11 +78,34 @@ describe("Start sharing screen", () => {
   test("a failed Create shows the red line under Create and no banner", async () => {
     const host = document.createElement("div");
     document.body.append(host);
+    vi.mocked(gateway.folders).mockResolvedValueOnce([
+      null,
+      { folders: [], asks: [], offers: [] },
+    ] as never);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
     vi.mocked(gateway.createFolder).mockResolvedValueOnce([new Error("disk full"), null] as never);
     render(chooseStep(), host);
     folders.create("Trip");
     await vi.waitFor(() => expect(host.querySelector(".text-danger-fg")).not.toBeNull());
     expect(host.querySelector(".text-danger-fg")!.textContent).toBe("This phone is out of space.");
+    expect(host.querySelector(".ui-error-banner")).toBeNull();
+  });
+
+  test("a failed name save elsewhere leaves no red line under Create", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    vi.mocked(gateway.folders).mockResolvedValueOnce([
+      null,
+      { folders: [], asks: [], offers: [] },
+    ] as never);
+    folders.refresh();
+    await vi.waitFor(() => expect(folders.state()).toBe("showingAlbums"));
+    vi.mocked(gateway.setName).mockResolvedValueOnce([new Error("disk full"), null] as never);
+    folders.rename("Robin");
+    await vi.waitFor(() => expect(folders.state()).toBe("couldNotSaveName"));
+    render(chooseStep(), host);
+    expect(host.querySelector(".text-danger-fg")).toBeNull();
     expect(host.querySelector(".ui-error-banner")).toBeNull();
   });
 
