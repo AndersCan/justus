@@ -1,6 +1,8 @@
 import type { SyncStatus } from "@justus/core";
 
 import { copy } from "../copy/copy";
+/** How long an album says it is connecting, with nobody reachable, before it says nobody is connected. */
+export const CONNECTING_FOR_MS = 15_000;
 /** How long every other member must stay unreachable before the hint shows. */
 export const REACH_HINT_AFTER_MS = 30_000;
 
