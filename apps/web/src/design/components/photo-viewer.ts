@@ -16,6 +16,8 @@ export type PhotoViewerProps = {
   /** Drawn only when given, from the sm breakpoint up. */
   previous?: PhotoViewerStep
   next?: PhotoViewerStep
+  /** Drawn under the photo until the photo paints, e.g. the grid's thumbnail. No layer when absent. */
+  placeholder?: string
   /** The bottom bar's content. No bar when absent. */
   info?: TemplateResult
   /** A click on the photo only; clicks on the controls and the info bar never reach it. */
@@ -41,7 +43,8 @@ export function photoViewer(props: PhotoViewerProps): TemplateResult {
   const next = props.next
   return html`<div data-theme="dark" data-controls=${props.controls} class=${props.class === undefined ? root : `${root} ${props.class}`}>
     <div data-part="photo" class="absolute inset-0 flex touch-none select-none items-center justify-center" @click=${props.onPhotoTap}>
-      <img class="h-full w-full object-contain" src=${props.src} alt=${props.alt} referrerpolicy="no-referrer" draggable="false">
+      ${props.placeholder === undefined ? "" : html`<img data-part="placeholder" class="absolute inset-0 h-full w-full object-contain" src=${props.placeholder} alt="" aria-hidden="true" referrerpolicy="no-referrer" draggable="false">`}
+      <img class="relative h-full w-full object-contain" src=${props.src} alt=${props.alt} referrerpolicy="no-referrer" draggable="false">
     </div>
     <div data-part="top" class="pointer-events-none absolute inset-x-0 top-0 flex justify-end pt-[env(safe-area-inset-top)]">
       <div class="pointer-events-auto p-3 ${shown}">${chip({ icon: close, label: props.closeLabel, onClick: props.onClose })}</div>

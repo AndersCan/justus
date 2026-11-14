@@ -307,7 +307,10 @@ test.describe("photo alone", () => {
     await page.locator("figure").first().click();
     const viewer = page.locator("[data-controls]");
     await expect(viewer).toHaveAttribute("data-controls", "shown", { timeout: 20_000 });
-    const image = await page.locator("div.fixed img").boundingBox();
+    await expect(page.locator("html[data-vt-photo]")).toHaveCount(0);
+    const image = await page
+      .locator('div.fixed [data-part="photo"] > img:not([data-part])')
+      .boundingBox();
     expect(image).toMatchObject({ x: 0, y: 0, width: 320, height: 568 });
 
     await page.mouse.click(160, 250);

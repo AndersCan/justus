@@ -297,6 +297,7 @@ function photoTile(photo: Photo, within: Photo[]) {
   return html`
     <figure
       data-motion-key=${photoKey(photo)}
+      data-photo-tile=${photoKey(photo)}
       class="group relative m-0 cursor-pointer overflow-hidden bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-inset"
       role="button"
       tabindex="0"

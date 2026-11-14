@@ -450,3 +450,54 @@ describe("the viewer's buttons", () => {
     expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
   });
 });
+
+describe("the photo grows and shrinks", () => {
+  type Doc = { startViewTransition?: unknown };
+  afterEach(() => {
+    closeLightbox();
+    delete (document as Doc).startViewTransition;
+    document.body.replaceChildren();
+    vi.restoreAllMocks();
+  });
+
+  it("renders the viewer inside the open update and removes it inside the close update", () => {
+    window.matchMedia = (() => ({ matches: false })) as never;
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(lightboxView(), host);
+    const figure = document.createElement("figure");
+    figure.dataset.photoTile = "/a";
+    document.body.append(figure);
+    const seen: boolean[] = [];
+    const afterUpdate: (string | null)[] = [];
+    let closing = false;
+    (document as Doc).startViewTransition = (cb: () => void) => {
+      cb();
+      seen.push(
+        closing
+          ? host.querySelector("[data-lightbox]") === null
+          : host.querySelector("[data-lightbox] [data-part=photo]") !== null,
+      );
+      if (closing) afterUpdate.push(figure.getAttribute("data-vt"));
+      return { ready: Promise.resolve(), finished: Promise.resolve() };
+    };
+    openLightbox(photo("a"));
+    expect(seen).toEqual([true]);
+    closing = true;
+    closeLightbox();
+    expect(seen).toEqual([true, true]);
+    expect(afterUpdate).toEqual(["photo"]);
+    render(null, host);
+  });
+
+  it("draws the grid's thumbnail under the photo, and nothing when there is none", () => {
+    const host = document.createElement("div");
+    render(lightboxView(), host);
+    openLightbox({ ...photo("a"), thumbUrl: "blob:t" });
+    expect(host.querySelector("[data-part=placeholder]")?.getAttribute("src")).toBe("blob:t");
+    closeLightbox();
+    openLightbox(photo("b"));
+    expect(host.querySelector("[data-part=placeholder]")).toBeNull();
+    render(null, host);
+  });
+});
