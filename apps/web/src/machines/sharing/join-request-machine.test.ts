@@ -486,6 +486,82 @@ describe("declined", () => {
   });
 });
 
+describe("ask again", () => {
+  const declined = async (options: Parameters<typeof setup>[0] = {}) => {
+    const s = await waitingSetup(options);
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    s.outputs.length = 0;
+    return s;
+  };
+
+  test("sends the same request again and waits, without removing the ask", async () => {
+    const sent: JoinInvite[] = [];
+    const s = await declined({
+      port: { ask: async (invite) => (sent.push(invite), [undefined, {}]) },
+    });
+    sent.length = 0;
+    await s.send("askAgain");
+    expect(sent).toEqual([INVITE]);
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("waits for an update when the phones differ", async () => {
+    const s = await declined({
+      asked: () => ({ ...ask("waiting"), whoMustUpdate: "you" }),
+    });
+    await s.send("askAgain");
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("a failed send returns to the declined screen with the error, and Ask again retries", async () => {
+    let fail = false;
+    const s = await declined({
+      port: { ask: async () => (fail ? [new Error("down"), null] : [undefined, {}]) },
+    });
+    fail = true;
+    await s.send("askAgain");
+    expect(s.actor.state.name).toBe("declinedByAdmin");
+    expect(error(s)).toBe(SEND_FAILED);
+    fail = false;
+    await s.send("askAgain");
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(error(s)).toBe("");
+  });
+
+  test("Not now after a failed send removes the ask and clears the error", async () => {
+    let fail = false;
+    const s = await declined({
+      port: { ask: async () => (fail ? [new Error("down"), null] : [undefined, {}]) },
+    });
+    fail = true;
+    await s.send("askAgain");
+    await s.send("dismissDecline");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(error(s)).toBe("");
+    expect(s.outputs).toEqual([{ type: "dismissDeclinedAsk", payload: { code: INVITE.code } }]);
+  });
+
+  test("an accept while sending again opens the album", async () => {
+    let hold: Promise<void> | undefined;
+    const s = await declined({
+      port: {
+        ask: async () => {
+          await hold;
+          return [undefined, {}];
+        },
+      },
+    });
+    let release = () => {};
+    hold = new Promise<void>((r) => (release = r));
+    s.actor.send({ type: "askAgain" } as never);
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+    release();
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
+  });
+});
+
 describe("link states", () => {
   test("a link after an unusable link opens its screen", async () => {
     const s = setup();
@@ -999,6 +1075,17 @@ test("Maya: asks and is declined", async () => {
   expect(actor.state.name).toBe("declinedByAdmin");
 });
 
+test("Ana is declined and asks again in one tap", async () => {
+  const actor = await drive(async (send) => {
+    await send("openLink", { text: LINK });
+    await send("askToJoin");
+    await send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    await send("askAgain");
+    await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
+  });
+  expect(actor.state.name).toBe("joinedAlbum");
+});
+
 test("Maya: reopens her ask while waiting", async () => {
   const actor = await drive(async (send) => {
     await send("openLink", { text: LINK });
@@ -1304,6 +1391,7 @@ describe("joiner design", () => {
         { text: "nope" },
         { text: "" },
         { text: buildInviteLink({ ...INVITE, expiresAt: 1 }) },
+        { text: `  ${LINK}  ` },
       ],
       openLink: [
         { text: LINK },

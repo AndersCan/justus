@@ -3079,6 +3079,13 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.ask_again": {
+    "text": "Ask again",
+    "status": "draft",
+    "where": "Invite & join › button",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "invite.asking": {
     "text": "Asking…",
     "status": "draft",

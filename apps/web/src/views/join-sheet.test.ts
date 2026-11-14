@@ -22,6 +22,7 @@ const actions = {
   cancelRequest: nothing,
   closeWaiting: nothing,
   dismissDecline: nothing,
+  askAgain: nothing,
 };
 
 const noSheet: JoinView["state"][] = [
@@ -40,6 +41,7 @@ const labels: [JoinView["state"], string][] = [
   ["waitingForAdminToAccept", copy("invite.you_re_done", { owner })],
   ["waitingForYouToUpdate", copy("invite.update_justus_to_join", { album: invite.album })],
   ["declinedByAdmin", copy("invite.didn_t_accept_your_request", { owner })],
+  ["sendingRequestAgain", copy("invite.didn_t_accept_your_request", { owner })],
   ["linkExpired", EXPIRED_LINK],
   ["linkTurnedOffByAdmin", copy("join_request.owner_turned_off_this_link", { owner })],
   ["linkReplacedByAdmin", copy("join_request.owner_replaced_this_link", { owner })],
@@ -78,6 +80,57 @@ describe("renderJoinSheet", () => {
     const sending = sheetFor("sendingRequest");
     sending.querySelector("dialog")?.dispatchEvent(new Event("cancel", { cancelable: true }));
     expect(notNow).toHaveBeenCalledTimes(1);
+  });
+
+  test("the declined sheet offers Not now and Ask again, and Ask again is the primary", () => {
+    const askAgain = vi.fn();
+    const dismissDecline = vi.fn();
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet(
+        { state: "declinedByAdmin", invite, error: "" },
+        { ...actions, askAgain, dismissDecline },
+      ),
+      div,
+    );
+    const buttons = [...div.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Not now", "Ask again"]);
+    expect(buttons[0]?.hasAttribute("data-dismiss")).toBe(true);
+    expect(buttons[0]?.hasAttribute("autofocus")).toBe(true);
+    expect(buttons[1]?.className).toBe("ui-btn-primary");
+    buttons[1]?.click();
+    expect(askAgain).toHaveBeenCalledTimes(1);
+    buttons[0]?.click();
+    expect(dismissDecline).toHaveBeenCalledTimes(1);
+    expect(div.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  test("while Ask again is sending, both buttons are disabled and the title stays", () => {
+    const askAgain = vi.fn();
+    const dismissDecline = vi.fn();
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet(
+        { state: "sendingRequestAgain", invite, error: "" },
+        { ...actions, askAgain, dismissDecline },
+      ),
+      div,
+    );
+    const buttons = [...div.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Not now", "Ask again"]);
+    expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
+    expect(div.querySelector("h3")?.textContent).toBe(
+      copy("invite.didn_t_accept_your_request", { owner }),
+    );
+    const declined = document.createElement("div");
+    render(renderJoinSheet({ state: "declinedByAdmin", invite, error: "" }, actions), declined);
+    expect([...declined.querySelectorAll("button")].map((b) => b.disabled)).toEqual([false, false]);
+  });
+
+  test("a failed Ask again shows its error on the declined sheet", () => {
+    const div = document.createElement("div");
+    render(renderJoinSheet({ state: "declinedByAdmin", invite, error: "Nope." }, actions), div);
+    expect(div.querySelector('[role="alert"]')?.textContent).toBe("Nope.");
   });
 
   test("waiting backs out with Close, never Cancel request", () => {
@@ -192,6 +245,7 @@ describe("renderJoinSheet picks the start or mid form for every owner line", () 
     ["linkReplacedByAdmin", `${C} replaced this link`, `Ask ${P} for the new link.`],
     ["albumDeletedByAdmin", `${C} deleted this album`, ""],
     ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],
+    ["sendingRequestAgain", `${C} didn't accept your request.`, `You can ask ${P} again.`],
     ["waitingForAdminToAccept", `Request to join sent to ${P}.`, ""],
     ["waitingForYouToUpdate", `It reaches ${P} once both phones`, ""],
     ["linkExpired", `Ask ${P} for a new one.`, ""],

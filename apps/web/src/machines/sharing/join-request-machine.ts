@@ -80,6 +80,8 @@ const checkingLink = state("checkingLink")<JoinInvite>();
 const checkingPastedLink = state("checkingPastedLink")<JoinInvite>();
 /** The paste box's button reads "Asking…" while the request is handed over. No sheet. */
 const sendingPastedRequest = state("sendingPastedRequest")<JoinInvite>();
+/** The declined request goes out again; the declined screen stays. */
+const sendingRequestAgain = state("sendingRequestAgain")<JoinInvite>();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
 const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 /** The request is being sent; the buttons are disabled. */
@@ -129,8 +131,10 @@ export const askToJoin = event("askToJoin")();
 export const notNow = event("notNow")();
 /** The joiner closes the waiting screen; the request stays. */
 export const closeWaiting = event("closeWaiting")();
-/** The joiner taps OK on the declined screen. */
+/** The joiner taps "Not now" on the declined screen. */
 export const dismissDecline = event("dismissDecline")();
+/** The joiner taps "Ask again" on the declined screen. */
+export const askAgain = event("askAgain")();
 /** The joiner taps OK on the expired screen. */
 export const dismissExpired = event("dismissExpired")();
 /** The joiner taps "Cancel request" on the waiting screen. */
@@ -259,6 +263,7 @@ export function createJoinRequestActor(options: {
       closeWaiting,
       cancelRequest,
       dismissDecline,
+      askAgain,
       dismissExpired,
       closeStoppedLink,
       requestAnswered,
@@ -276,6 +281,7 @@ export function createJoinRequestActor(options: {
       checkingPastedLink,
       decidingToAsk,
       sendingRequest,
+      sendingRequestAgain,
       sendingPastedRequest,
       waitingForAdminToAccept,
       waitingForYouToUpdate,
@@ -483,6 +489,7 @@ export function createJoinRequestActor(options: {
         checkingPastedLink,
         decidingToAsk,
         sendingRequest,
+        sendingRequestAgain,
         sendingPastedRequest,
         linkExpired,
         ...stoppedStates,
@@ -625,6 +632,12 @@ export function createJoinRequestActor(options: {
         sends: [requestSent, requestFailed],
         fn: sendFn,
       });
+      /** The declined request is handed to the phone's sharing layer again; it replaces the declined one. */
+      m.effect(sendingRequestAgain, {
+        name: "sendRequestAgain",
+        sends: [requestSent, requestFailed],
+        fn: sendFn,
+      });
       /** The request from the paste box is handed to the phone's sharing layer. */
       m.effect(sendingPastedRequest, {
         name: "sendPastedRequest",
@@ -638,6 +651,24 @@ export function createJoinRequestActor(options: {
         handler: (_e, { actor }) => {
           const invite = actor.snapshot().payload as JoinInvite;
           return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        },
+      });
+      /** The declined request is on its way again. */
+      m.on(sendingRequestAgain, {
+        event: requestSent,
+        to: [waitingForAdminToAccept, waitingForYouToUpdate],
+        handler: (_e, { actor }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        },
+      });
+      /** The send failed: back to the declined screen, with the error shown. */
+      m.on(sendingRequestAgain, {
+        event: requestFailed,
+        to: [declinedByAdmin],
+        handler: (e, { actor, context }) => {
+          context.set({ error: e.payload.message });
+          return { state: declinedByAdmin.create(actor.snapshot().payload as JoinInvite) };
         },
       });
       /** The send failed: back to the question, with the error shown. */
@@ -715,16 +746,30 @@ export function createJoinRequestActor(options: {
         });
       }
 
-      /** The joiner acknowledges the answer. */
+      /** "Ask again": the same request goes out again. */
+      m.on(declinedByAdmin, {
+        event: askAgain,
+        to: [sendingRequestAgain],
+        handler: (_e, { actor, context }) => {
+          context.set({ error: "" });
+
+          return { state: sendingRequestAgain.create(actor.snapshot().payload as JoinInvite) };
+        },
+      });
+      /** "Not now": the request comes off this phone. */
       m.on(declinedByAdmin, {
         event: dismissDecline,
         to: [noInviteOpen],
-        handler: (_e, { actor }) => ({
-          state: noInviteOpen,
-          emit: [
-            dismissDeclinedAsk.create({ code: (actor.snapshot().payload as JoinInvite).code }),
-          ],
-        }),
+        handler: (_e, { actor, context }) => {
+          context.set({ error: "" });
+
+          return {
+            state: noInviteOpen,
+            emit: [
+              dismissDeclinedAsk.create({ code: (actor.snapshot().payload as JoinInvite).code }),
+            ],
+          };
+        },
       });
     },
   });

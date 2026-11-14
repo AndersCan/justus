@@ -29,6 +29,7 @@ Walks of the joiner's side:
 - [Joe opens Tom's link during the welcome and asks once his name is saved](?machine=joinRequest&run=Joe%20opens%20Tom's%20link%20during%20the%20welcome%20and%20asks%20once%20his%20name%20is%20saved)
 - [Maya asks on an older Justus, and is told to update first](?machine=joinRequest&run=Maya%20asks%20on%20an%20older%20Justus%2C%20and%20is%20told%20to%20update%20first)
 - [Joe taps Paste with nothing copied](?machine=joinRequest&run=Joe%20taps%20Paste%20with%20nothing%20copied)
+- [Ana is declined and asks again in one tap](?machine=joinRequest&run=Ana%20is%20declined%20and%20asks%20again%20in%20one%20tap)
 
 Walks of the Admin's side:
 
@@ -52,7 +53,7 @@ Albums joined by key before invite links existed show "Waiting for approval" unt
 | The Admin's answer could not be sent; no message is shown | `requests.couldNotSendAnswer`                                                                                  |
 | The Admin could not add the person                        | `sync.couldNotAddMember`                                                                                       |
 
-**Asking again.** A declined person can ask again with the same or a new link; the Admin answers the new ask. The Admin stops this by turning off the invite link or letting it expire.
+**Asking again.** A declined person taps Ask again on the declined screen, or pastes the same or a new link; the Admin answers the new ask. The Admin stops this by turning off the invite link or letting it expire.
 
 <Machine src="apps/web/src/machines/sharing/join-request-machine.ts" />
 

@@ -471,7 +471,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
   });
 });
 
-test("B asks by link, A declines, B taps OK and the row goes, B asks again, A accepts, B sees the photo", async ({
+test("B asks by link, A declines, B taps Ask again, A sees Declined earlier and accepts, B sees the photo", async ({
   instancePages,
 }) => {
   test.setTimeout(240_000);
@@ -486,13 +486,8 @@ test("B asks by link, A declines, B taps OK and the row goes, B asks again, A ac
 
   await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
   await expect(b.locator("img")).toHaveCount(0);
-  await b.getByRole("button", { name: "OK" }).click();
-  await expect(a.getByText(`wants to join “${REASK_ALBUM}”`)).toHaveCount(0);
-  await b.goto("/sharing");
-  await expect(b.getByText("Not accepted")).toHaveCount(0, { timeout: 20_000 });
-  await expect(b.getByRole("button", { name: `View ${REASK_PHOTO}` })).toHaveCount(0);
-
-  await askToJoin(b, link, REASK_ALBUM);
+  await b.getByRole("button", { name: "Ask again", exact: true }).click();
+  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
   await expect(a.getByText(`wants to join “${REASK_ALBUM}”`)).toBeVisible({ timeout: 60_000 });
   await expect(a.locator("li", { hasText: `wants to join “${REASK_ALBUM}”` })).toContainText(
     "Declined earlier",
@@ -676,7 +671,7 @@ test("B reloads while waiting, A declines, B sees the decline on Photos", async 
   await a.getByRole("button", { name: "Decline" }).click();
 
   await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
-  await b.getByRole("button", { name: "OK" }).click();
+  await b.getByRole("button", { name: "Not now", exact: true }).click();
   await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${RELOAD_PHOTO}` })).toHaveCount(0);
 });
