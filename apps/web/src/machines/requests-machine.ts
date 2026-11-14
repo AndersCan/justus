@@ -84,7 +84,7 @@ export const requestCancelledBeforeAnswer = event("REQUEST_CANCELLED_BEFORE_ANSW
 }>();
 /** The answer could not be sent. */
 const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
-/** The Yes or No went through; the view thanks the Admin with who is in and how. */
+/** The Yes or No went through; the view scrolls to the new member row (Accept) or toasts the outcome (Decline). */
 export const answerSent = event("ANSWER_SENT")<{
   requesterKey: string;
   requesterName: string;
