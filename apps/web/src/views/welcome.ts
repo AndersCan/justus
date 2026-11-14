@@ -177,9 +177,7 @@ function cardsStep(card: number) {
 
 function avatar(name: string, size: "lg" | "sm" = "lg") {
   return html`<span
-    class="inline-flex items-center justify-center rounded-full font-semibold text-white ${
-      size === "lg" ? "h-16 w-16 text-xl" : "h-8 w-8 text-xs"
-    }"
+    class="ui-avatar ${size === "lg" ? "ui-avatar-lg" : "h-8 w-8 text-xs"}"
     style="background:${avatarColor(name)}"
     aria-hidden="true"
     >${initialsOf(name)}</span

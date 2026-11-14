@@ -494,7 +494,7 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
 function requestRow(r: PeopleVm["requests"][number], busy = false, failure: string | null = null) {
   const accept = (role: "reader" | "member") => () =>
     requests.respond(r.folderId, r.requesterKey, true, role);
-  return html`<li class="rounded-xl bg-subtle p-3" data-motion-key=${requestKey(r)}>
+  return html`<li class="ui-request-card" data-motion-key=${requestKey(r)}>
     ${requestIdentity(r, t("album.wants_to_join", { folderName: r.folderName }))}
     ${
       r.viaInvite

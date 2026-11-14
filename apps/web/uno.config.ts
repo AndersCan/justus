@@ -1,4 +1,7 @@
 import { defineConfig, presetUno } from "unocss";
+import { avatarClass, avatarSizeClass } from "#design/components/avatar.ts";
+import { presenceDotsClass, presenceDotsItemClass } from "#design/components/presence-dots.ts";
+import { requestCardClass } from "#design/components/request-card.ts";
 import { errorBannerActionClass, errorBannerClass } from "#design/components/error-banner.ts";
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
@@ -46,6 +49,16 @@ export default defineConfig({
     "ui-toast-action": toastActionClass(),
     "ui-error-banner": errorBannerClass(),
     "ui-error-banner-action": errorBannerActionClass(),
+    // An avatar's or dot's background is the person's colour, set by the view.
+    "ui-avatar": avatarClass({ fill: "coloured" }),
+    "ui-avatar-outline": avatarClass({ fill: "outline" }),
+    "ui-avatar-photo": avatarClass({ fill: "photo" }),
+    "ui-avatar-md": avatarSizeClass("md"),
+    "ui-avatar-lg": avatarSizeClass("lg"),
+    "ui-presence-dots": presenceDotsClass(),
+    "ui-presence-dot": presenceDotsItemClass(),
+    "ui-presence-dot-none": presenceDotsItemClass("neutral"),
+    "ui-request-card": requestCardClass(),
     "ui-tabs": tabsClass(),
     // justus animates its own tabs; motion is app code.
     "ui-tab": `${tabClass("unselected")} transition`,

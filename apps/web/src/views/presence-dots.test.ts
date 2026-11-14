@@ -134,11 +134,18 @@ describe("presence dots colour", () => {
     expect(a).toBe(`background:${memberColor(1)};`);
     expect(b).toBe(`background:${memberColor(2)};`);
   });
+  test("a member with a colour gets a filled dot, not the hollow one", () => {
+    const host = document.createElement("div");
+    render(presenceDots([k1], "f1"), host);
+    const dot = host.querySelector("[data-motion-key] > span")!;
+    expect(dot.className.split(" ")).toContain("ui-presence-dot");
+    expect(dot.className).not.toContain("ui-presence-dot-none");
+  });
   test("a member without a colour gets a hollow dot with no style", () => {
     const host = document.createElement("div");
     render(presenceDots([member("k9", "Zed")], "f1"), host);
     const dot = host.querySelector("[data-motion-key] > span")!;
     expect(dot.hasAttribute("style")).toBe(false);
-    expect(dot.className).toContain("border-muted");
+    expect(dot.className).toContain("ui-presence-dot-none");
   });
 });

@@ -195,7 +195,7 @@ describe("holdersSheet colours", () => {
     const rows = [...el.querySelectorAll("li")];
     expect(fillOf(rows[1])).toBeUndefined();
     expect(fillOf(rows[2])).toBeUndefined();
-    expect(rows[2].querySelector("span[aria-hidden]")?.className).toContain("ring-line");
+    expect(rows[2].querySelector("span[aria-hidden]")?.className).toContain("ui-avatar-outline");
   });
   it("shows a hasn't-said-yet keyed row with its Members name and colour", () => {
     const el = draw(holdersSheet(photo(h({ unsure: [{ key: "k2", name: "Old" }] })), people));

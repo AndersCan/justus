@@ -215,6 +215,16 @@ describe("album people", () => {
     expect(fills).toEqual([0, 1, 2].map((c) => `background:${memberColor(c)}`));
   });
 
+  test("a member with a colour has a filled avatar, not the outline", () => {
+    syncActor.send(statusSeen.create({ status }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const badge = memberRows(host)[1].querySelector("span[aria-hidden]")!;
+    expect(badge.className.split(" ")).toContain("ui-avatar");
+    expect(badge.className).not.toContain("ui-avatar-outline");
+  });
+
   test("a member without a colour has an outlined avatar and no style", () => {
     const members = status.members.map((m, i) => (i === 1 ? { ...m, color: undefined } : m));
     syncActor.send(statusSeen.create({ status: { ...status, members } }));
@@ -223,7 +233,7 @@ describe("album people", () => {
     render(albumView("f1"), host);
     const badge = memberRows(host)[1].querySelector("span[aria-hidden]")!;
     expect(badge.getAttribute("style")).toBeNull();
-    expect(badge.className).toContain("ring-line");
+    expect(badge.className).toContain("ui-avatar-outline");
   });
 
   test("naming a friend changes that row's label and keeps every row element", async () => {

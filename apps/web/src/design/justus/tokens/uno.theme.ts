@@ -29,9 +29,19 @@ export const designTheme: Record<string, Record<string, string | [string, string
     "control": "12px",
     "surface": "16px"
   },
+  "width": {
+    "avatar.sm": "24px",
+    "avatar.md": "36px",
+    "avatar.lg": "64px",
+    "dot": "12px"
+  },
   "height": {
     "touch": "44px",
-    "tab": "36px"
+    "tab": "36px",
+    "avatar.sm": "24px",
+    "avatar.md": "36px",
+    "avatar.lg": "64px",
+    "dot": "12px"
   },
   "minHeight": {
     "touch": "44px",

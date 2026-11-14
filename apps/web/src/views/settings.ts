@@ -34,7 +34,7 @@ function pictureRow(name: string) {
   return watch(
     prefsActor,
     ({ context: { picture } }) => html`<div class="mb-4 flex items-center gap-4">
-      ${avatarBadge(name || "?", picture, "h-16 w-16 text-xl")}
+      ${avatarBadge(name || "?", picture, "ui-avatar-lg")}
       <div class="flex flex-wrap gap-2">
         <label class="ui-btn-ghost cursor-pointer">
           ${picture ? copy("settings.change_picture") : copy("settings.add_picture")}
