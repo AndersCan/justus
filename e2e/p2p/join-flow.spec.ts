@@ -59,10 +59,10 @@ async function copyInviteLink(a) {
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^justus:\/\/join\?/);
+    .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   const link = await a.evaluate(() => navigator.clipboard.readText());
-  expect(link).toMatch(/^justus:\/\/join\?/);
-  expect(link).toMatch(/[?&]e=\d+/);
+  expect(link).toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
+  expect(link).toMatch(/[#&]e=\d+/);
   return link;
 }
 
@@ -438,7 +438,7 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^justus:\/\/join\?/);
+    .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
   expect(newLink).not.toBe(link);
   await expect(replaced).toHaveCount(0);
@@ -574,9 +574,9 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   });
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^justus:\/\/join\?/);
+    .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
-  expect(newLink).toMatch(/^justus:\/\/join\?/);
+  expect(newLink).toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   expect(newLink).not.toBe(link);
   await askToJoin(b, newLink, "Off trip");
   await expect(a.getByText("wants to join “Off trip”")).toBeVisible({ timeout: 60_000 });

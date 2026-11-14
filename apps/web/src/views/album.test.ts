@@ -1141,7 +1141,9 @@ describe("album viewer rows", () => {
     options.action.run();
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Invite link copied"));
     expect(gateway.saveInviteLink).toHaveBeenCalledWith("f1", expect.any(Number));
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("justus://join"));
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("https://anderscan.github.io/justus/join/#i="),
+    );
   });
 
   test("Copy new link on another album's page says it could not copy", async () => {
