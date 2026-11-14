@@ -10,6 +10,14 @@ appId: no.cankode.justus
     visible: "Skip"
     timeout: 90000
 - openLink: "${PAGE}/justus/join/#i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Garden&a=Tom"
+# Safari's first-run tooltip hides the page from Maestro until it is dismissed.
+- runFlow:
+    when:
+      visible: "dismiss popup"
+    commands:
+      - tapOn:
+          text: "dismiss popup"
+          waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
     visible: "Open in Justus"
     timeout: 30000
