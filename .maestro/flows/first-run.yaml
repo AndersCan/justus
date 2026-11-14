@@ -133,16 +133,25 @@ appId: no.cankode.justus
     when:
       platform: iOS
     commands:
-      # The share sheet is a popover over a still-visible page on iPad, so detect its own Copy action
-      # (full match: "Copy invite link" does not match), then dismiss it.
+      # The sheet's own backdrop ("dismiss popup") is there as soon as the sheet is: on CI the iPhone sheet
+      # can stay blank (no Copy action ever drawn), so Copy is not the signal that the sheet is up.
       - extendedWaitUntil:
-          visible: "Copy"
+          visible: "dismiss popup"
           timeout: 15000
       - takeScreenshot: .maestro/out/ios-share-sheet
-      # The iPhone sheet has no "Close" text and a tap on the page above it did not dismiss it:
-      # Copy is an action that closes the sheet on its own.
-      - tapOn:
-          text: "Copy"
+      # Copy closes the sheet on its own; a blank sheet is closed by its backdrop.
+      - runFlow:
+          when:
+            visible: "Copy"
+          commands:
+            - tapOn:
+                text: "Copy"
+      - runFlow:
+          when:
+            visible: "dismiss popup"
+          commands:
+            - tapOn:
+                text: "dismiss popup"
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
