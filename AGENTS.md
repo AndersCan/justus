@@ -50,6 +50,7 @@ layer, Host, Actor). Use those terms exactly.
   ```
 
 - **`apps/web/src/design/` is generated.** Never edit it: change the source in the design repo (`AndersCan/design`) and run `npm run sync -- <this repo>` there. Colours come from `design/justus/tokens/theme.css`; the album page frame from `#design/justus/album/album-full.ts`.
+- **Shared components come from design.** Buttons, inputs, sheets, toasts, tabs, avatars, dots and cards use the `ui-*` shortcuts in `apps/web/uno.config.ts` built from `#design/components/`; `apps/web/src/design-drift.test.ts` fails on one drawn by hand and names the class to use.
 - **CI is the judge.** A local run is a hint, not proof. Push and read the result.
 - **All app state is a mantaq actor.** Views read it with `watch(actor, select)`
   from `@mantaq/lit`. For two actors, nest `watch`. Never nest two `watch`es on
