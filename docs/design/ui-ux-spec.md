@@ -146,14 +146,12 @@ time-based; the app does not try to detect the network type.
 - The header shows a chip next to the connection indicator: **"● 3 of 5
   connected"**. Tapping it opens the album's **People** sheet.
 - Wording is **connected**, never "online": it means "your device can reach
-  them right now". Others show "last seen 2h ago" (`GrantRecord.lastSeenAt`).
-  The sheet explains this in one line. Your own device always counts.
+  them right now". Others show "last seen 2h ago". The sheet
+  explains this in one line. Your own device always counts.
 - Sheet contents: members (name, connected / last seen, "started by" marking
   the Admin), **Invite**, and for the Admin pending requests and Remove.
   Pending requests also badge the chip. This replaces the Requests tab.
 - Presence is visible to all members and is disclosed in the join consent.
-- **⚠ needs backend work:** `status.peers` is a swarm-wide connection count; a
-  per-member map built on `GrantRecord.online` is needed.
 
 ## 3. Visual system (implemented)
 
@@ -166,8 +164,8 @@ photos) carries the color; chrome stays quiet.
   create button uses `--action` (deep coral `#BD4A22`, white text).
   App icons for iOS and desktop: `node scripts/render-app-icons.mjs`; Android
   and Play art: `apps/android/scripts/render-store-art.mjs`.
-- **Tokens** are CSS variables in `apps/web/src/tokens.css`, exposed as Uno
-  colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
+- **Tokens** are CSS variables in `apps/web/src/design/justus/tokens/theme.css`,
+  exposed as Uno colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
   `muted`, `accent`, `accent-strong`, `accent-soft` (selected items, chips),
   `on-fill` (text on a solid accent/danger fill), `brand`, `danger`, `ok`,
   `warn`, and `danger-fg`/`ok-fg`/`warn-fg` for status text (the fill shades
@@ -175,7 +173,7 @@ photos) carries the color; chrome stays quiet.
 - **Trust colors** (`trust-green/amber/red`) are reserved for connection state.
   Their only consumer is the connection indicator.
 - **Components** are Uno shortcuts: `ui-card`, `ui-btn`, `ui-btn-primary`,
-  `ui-btn-ghost`, `ui-input`, `ui-label`, `ui-chip`.
+  `ui-btn-ghost`, `ui-input`, `ui-label`.
 - **Shell:** left rail at `md+` with the wordmark, bottom tab bar below it.
   No top bar on mobile; a canvas-colored strip covers the status-bar inset. Primary routes: Photos, Albums
   (the shared albums list), Sharing, Settings; Help is a row in Settings.
