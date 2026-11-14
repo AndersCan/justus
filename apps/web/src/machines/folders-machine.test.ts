@@ -226,13 +226,13 @@ describe("folders factory", () => {
     expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);
   });
 
-  test("switch emits switchedTo with the new status", async () => {
+  test("switch emits statusSeen with the new status", async () => {
     const status = { folder: { id: "f3" }, name: "Ann" };
     const { actor, outputs, gw } = await loaded({
       setActive: vi.fn().mockResolvedValue([null, status]),
     });
     send(actor, "SET_ACTIVE", { folderId: "f3" });
-    await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["SWITCHED_TO"]));
+    await vi.waitFor(() => expect(outputs.map((o) => o.type)).toEqual(["STATUS_SEEN"]));
     expect(outputs[0]!.payload).toEqual({ status });
     expect(ctx(actor).activeId).toBe("f3");
     expect(ctx(actor).folders.map((f) => f.id)).toEqual(["f1"]);

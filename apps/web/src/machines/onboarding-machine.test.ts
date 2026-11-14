@@ -162,7 +162,7 @@ describe("onboarding actor factory", () => {
     expect(setName).toHaveBeenCalledWith("Maya");
     expect(actor.state.name).toBe("choosingCreateOrJoin");
     expect(actor.snapshot().done).toBe(true);
-    expect(outputs.map((o) => [o.type, o.payload])).toEqual([["NAME_SAVED", { name: "Maya" }]]);
+    expect(outputs.map((o) => [o.type, o.payload])).toEqual([["NAME_SEEN", { name: "Maya" }]]);
   });
 
   test("a retry clears the earlier error", async () => {
@@ -214,7 +214,7 @@ describe("onboarding App lock offer", () => {
     readLock(actor, true, false);
     await saveName(actor);
     expect(actor.state.name).toBe("offeringAppLock");
-    expect(outputs.map((o) => o.type)).toEqual(["NAME_SAVED"]);
+    expect(outputs.map((o) => o.type)).toEqual(["NAME_SEEN"]);
   });
 
   test("without a status the offer is skipped", async () => {

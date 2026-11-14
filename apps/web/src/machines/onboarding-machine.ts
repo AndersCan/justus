@@ -3,7 +3,7 @@ import type { LockStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
 import { INTRO_CARD_COUNT } from "../views/intro-cards";
-import { foldersActor, nameSeen } from "./folders-machine";
+import { foldersActor, nameSeen, type FoldersActor } from "./folders-machine";
 
 import { copy } from "../copy/copy";
 /**
@@ -89,7 +89,6 @@ const appLockLeftOff = event("APP_LOCK_LEFT_OFF")();
 /** The phone's prompt failed: App lock stays off and the person sees why. */
 const appLockFailed = event("APP_LOCK_FAILED")<{ message: string }>();
 /** The name was saved; the app records it as the person's name. */
-const nameSaved = event("NAME_SAVED")<{ name: string }>();
 
 const APP_LOCK_FAILED_MESSAGE = copy("onboarding.couldn_t_turn_on_app");
 
@@ -117,7 +116,7 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
   return Actor({
     inputs: [next, back, skip, editName, saveProfile, lockStatusRead, turnOnAppLock, skipAppLock],
     internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff, appLockFailed],
-    outputs: [nameSaved],
+    outputs: [nameSeen],
     states: [
       showingIntroCards,
       askingForName,
@@ -224,7 +223,7 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
           const offer = current.lock?.available === true && current.lock.enabled === false;
           return {
             state: offer ? offeringAppLock : choosingCreateOrJoin,
-            emit: [nameSaved.create({ name: e.payload.name })],
+            emit: [nameSeen.create({ name: e.payload.name })],
           };
         },
       });
@@ -303,14 +302,21 @@ export function createOnboardingActor(options: { clock: Clock; gateway?: Onboard
 
 export const onboardingActor = createOnboardingActor({ clock: RealClock() });
 
-onboardingActor.on("output", {
-  fn: (e) => {
-    const payload = e.payload;
-    if (typeof payload !== "object" || payload === null || !("name" in payload)) return;
-    if (typeof payload.name === "string")
-      foldersActor.send(nameSeen.create({ name: payload.name }));
-  },
-});
+export type OnboardingActor = ReturnType<typeof createOnboardingActor>;
+
+/** A saved name goes to folders, which shows it as the person's own. */
+export function wireOnboardingToFolders(
+  onboarding: OnboardingActor,
+  folders: FoldersActor,
+): () => void {
+  return onboarding.on("output", {
+    fn: (e) => {
+      if (e.type === nameSeen.type) folders.send(nameSeen.create(e.payload as { name: string }));
+    },
+  });
+}
+
+wireOnboardingToFolders(onboardingActor, foldersActor);
 
 export const onboarding = {
   state: () => nameOf(onboardingActor.snapshot()),
