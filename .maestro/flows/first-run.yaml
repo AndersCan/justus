@@ -165,27 +165,45 @@ appId: no.cankode.justus
           element: "Require unlock to open Justus.*"
           timeout: 20000
       # Away under 30s: back in, no lock.
-      - pressKey: Home
+      # iOS: the Simulator opens Settings over Justus (the driver's Home key press hangs it on CI).
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - pressKey: Home
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - runScript: ../scripts/away.js
       - runFlow:
           when:
             platform: Android
           commands:
             - launchApp:
                 stopApp: false
-      # iOS: launchApp does not bring a backgrounded Justus back, so tap its home screen icon.
+      # iOS: launchApp does not bring a backgrounded Justus back, so the Simulator opens it.
       - runFlow:
           when:
             platform: iOS
           commands:
-            - tapOn:
-                text: "Justus"
-                waitToSettleTimeoutMs: 500
+            - runScript: ../scripts/back.js
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000
       - assertNotVisible: "Justus is locked"
       # Away over 30s: the lock shows and the app underneath is unreachable.
-      - pressKey: Home
+      # iOS: the Simulator opens Settings over Justus (the driver's Home key press hangs it on CI).
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - pressKey: Home
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - runScript: ../scripts/away.js
       - extendedWaitUntil:
           visible: "Justus is locked"
           timeout: 31000
@@ -196,14 +214,12 @@ appId: no.cankode.justus
           commands:
             - launchApp:
                 stopApp: false
-      # iOS: launchApp does not bring a backgrounded Justus back, so tap its home screen icon.
+      # iOS: launchApp does not bring a backgrounded Justus back, so the Simulator opens it.
       - runFlow:
           when:
             platform: iOS
           commands:
-            - tapOn:
-                text: "Justus"
-                waitToSettleTimeoutMs: 500
+            - runScript: ../scripts/back.js
       # The system PIN prompt (secure, unreadable) opens over the lock screen on Android; the app behind it is hidden.
       - runFlow:
           when:

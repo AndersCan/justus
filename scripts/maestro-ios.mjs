@@ -162,11 +162,17 @@ if (!ipad) {
       response.end(found ? readFileSync(file) : "not found");
       return;
     }
-    const posted =
-      request.url === "/match" &&
-      notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0;
-    if (posted) console.log("face: match");
-    response.writeHead(posted ? 200 : 404).end(posted ? "match" : "not found");
+    // /away puts Justus in the background by opening Settings, /back opens Justus again. The walk
+    // asks the Simulator, not the XCTest driver: the driver's Home key press left it waiting on a
+    // screenshot that timed out and killed the driver.
+    const actions = {
+      "/match": () => notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0,
+      "/away": () => run("xcrun", ["simctl", "launch", udid, "com.apple.Preferences"]).status === 0,
+      "/back": () => run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0,
+    };
+    const done = actions[request.url ?? ""]?.() ?? false;
+    if (done) console.log(`helper: ${request.url}`);
+    response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
   });
   await new Promise((resolve) => face.listen(0, "127.0.0.1", resolve));
   console.log(`Face ID enrolled, helper on port ${face.address().port}`);
