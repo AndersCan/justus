@@ -3,7 +3,7 @@ import type { JoinRequest } from "@justus/core";
 import { copy } from "../copy/copy";
 import { friendsActor } from "../machines/friends-machine";
 import { requestsActor, requestsArrived } from "../machines/requests-machine";
-import { currentPage, open, type AppPage } from "../machines/router-machine";
+import { currentPage, onPageChange, open, type AppPage } from "../machines/router-machine";
 import { requestRowOf } from "../utils/people";
 import { toast } from "./toast";
 
@@ -32,10 +32,26 @@ export function askToast(
   return { text, path };
 }
 
+let shown: { path: string; close: () => void } | undefined;
+
+/** Raises the ask toast for newly arrived requests; opening its album closes it. */
+export function raiseAsk(requests: JoinRequest[]): void {
+  const ask = askToast(requests, currentPage(), friendsActor.snapshot().context.friends);
+  if (!ask) return;
+  const close = toast(ask.text, {
+    action: { label: copy("ask_toast.review"), run: () => open(ask.path) },
+  });
+  shown = { path: ask.path, close };
+}
+
 onOutput(requestsActor, (e) => {
   if (e.type !== requestsArrived.type) return;
-  const { requests } = e.payload as { requests: JoinRequest[] };
-  const shown = askToast(requests, currentPage(), friendsActor.snapshot().context.friends);
-  if (!shown) return;
-  toast(shown.text, { action: { label: copy("ask_toast.review"), run: () => open(shown.path) } });
+  raiseAsk((e.payload as { requests: JoinRequest[] }).requests);
+});
+
+onPageChange((page) => {
+  if (!shown || page?.route !== "album") return;
+  if (shown.path !== `/sharing/${encodeURIComponent(page.params.id)}`) return;
+  shown.close();
+  shown = undefined;
 });

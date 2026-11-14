@@ -72,10 +72,11 @@ function dismiss(id: number) {
   paint();
 }
 
+/** Shows a toast. Returns a function that removes it at once; `onClose` still runs when its time is up. */
 export function toast(
   message: string,
   options: { action?: ToastAction; duration?: number; onClose?: () => void } = {},
-): void {
+): () => void {
   const id = ++nextId;
   toasts = [...toasts, { id, message, action: options.action }];
   paint();
@@ -86,4 +87,5 @@ export function toast(
     },
     options.duration ?? (options.action ? 6000 : 3200),
   );
+  return () => dismiss(id);
 }

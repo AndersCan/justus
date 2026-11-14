@@ -77,3 +77,9 @@ describe("askToast", () => {
     });
   });
 });
+
+describe("askToast with the page not known yet", () => {
+  test("names the ask", () => {
+    expect(askToast([ask("Maya")], undefined, {})?.text).toBe("Maya wants to join “Spain”");
+  });
+});

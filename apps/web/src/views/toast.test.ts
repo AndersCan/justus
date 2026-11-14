@@ -154,3 +154,21 @@ describe("toast onClose", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("toast early close", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  test("closing a toast early removes it at once; the timer later does nothing more; onClose still runs at the time", () => {
+    const onClose = vi.fn();
+    const close = toast("Leaving early", { onClose });
+    const text = () => document.body.textContent ?? "";
+    expect(text()).toContain("Leaving early");
+    close();
+    expect(text()).not.toContain("Leaving early");
+    expect(onClose).not.toHaveBeenCalled();
+    toast("Another");
+    vi.advanceTimersByTime(3300);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
