@@ -287,9 +287,6 @@ test.describe("holders", () => {
     await page.locator("figure").first().click();
     const row = page.getByRole("button", { name: /show who has this photo$/ });
     await expect(row).toContainText("Only on your phone", { timeout: 20_000 });
-    const image = await page.locator("div.fixed img").boundingBox();
-    const card = await row.boundingBox();
-    expect(image && card && image.y + image.height <= card.y).toBe(true);
 
     await row.click();
     const sheet = page.getByRole("dialog", { name: "Who has this photo" });
@@ -297,6 +294,34 @@ test.describe("holders", () => {
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 5_000 });
+  });
+});
+
+test.describe("photo alone", () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  test("a tap on the photo hides the controls and a second brings them back", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("figure").first()).toBeAttached({ timeout: 20_000 });
+    await page.locator("figure").first().click();
+    const viewer = page.locator("[data-controls]");
+    await expect(viewer).toHaveAttribute("data-controls", "shown", { timeout: 20_000 });
+    const image = await page.locator("div.fixed img").boundingBox();
+    expect(image).toMatchObject({ x: 0, y: 0, width: 320, height: 568 });
+
+    await page.mouse.click(160, 250);
+    await expect(viewer).toHaveAttribute("data-controls", "hidden");
+    await expect(page.getByRole("button", { name: "Close" })).toBeHidden();
+    await page.mouse.click(160, 250);
+    await expect(viewer).toHaveAttribute("data-controls", "shown");
+
+    await page.getByRole("button", { name: "More options" }).click();
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    await page.mouse.click(160, 250);
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeHidden();
+    await expect(viewer).toHaveAttribute("data-controls", "shown");
+
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Close" })).toHaveCount(0, { timeout: 5_000 });
   });

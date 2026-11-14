@@ -21,6 +21,7 @@ import { deleteDetail, deletedMessage } from "../utils/holders";
 import { buildPeople } from "../utils/people";
 import { friendsActor } from "../machines/friends-machine";
 import { syncActor } from "../machines/sync-machine";
+import { photoViewer } from "#design/components/photo-viewer.ts";
 import { holdersRow, holdersSheet, closeHolders } from "./photo-holders";
 
 import { copy, t } from "../copy/copy";
@@ -53,18 +54,31 @@ galleryActor.on("change", {
   },
 });
 
-// A swipe must not also fire the backdrop's click (browsers synthesize a
+// A swipe must not also fire the photo's click (browsers synthesize a
 // click after touchend on the touched element).
 let suppressClickUntil = 0;
 // Module scope: a status update re-renders the body mid-swipe and must not drop the gesture.
 let touchStart: { x: number; y: number } | null = null;
+
+const MENU_OR_DIALOG = "wa-dropdown[open], wa-dialog[open], dialog[open]";
+// A tap that only closes the ⋮ menu must not hide the controls: the menu is still open at pointerdown.
+let pressStartedOverMenu = false;
+
+function notePress() {
+  pressStartedOverMenu = document.querySelector(MENU_OR_DIALOG) !== null;
+}
+
+function tapPhoto() {
+  if (Date.now() < suppressClickUntil || pressStartedOverMenu) return;
+  lightboxActor.send(lightboxEvents.photoTapped.create());
+}
 
 // The web unit suite runs in node (no DOM) and must stay import-safe, so only
 // wire the global key handler where a document exists. The handler no-ops when
 // no photo is open.
 if (typeof document !== "undefined") {
   document.addEventListener("keydown", (e) => {
-    if (document.querySelector("wa-dropdown[open], wa-dialog[open], dialog[open]")) return;
+    if (document.querySelector(MENU_OR_DIALOG)) return;
     if (!lightboxActor.snapshot().context.photo) return;
     if (lightboxActor.snapshot().path[0] === "showingWhoHasThisPhoto") {
       if (e.key === "Escape") closeHolders();
@@ -123,7 +137,7 @@ export async function deleteFromLightbox(photo: Photo) {
   gallery.remove(photo.id, photo.folderId);
 }
 
-function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
+function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>, hidden: boolean) {
   const adderFill = memberColor(people.find((p) => p.key === photo.member.key)?.color);
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
@@ -140,151 +154,115 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>) {
       step(dx < 0 ? 1 : -1);
     }
   };
+  const info = html`
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+          <span
+            class=${
+              adderFill === undefined
+                ? "inline-block h-2.5 w-2.5 rounded-full border border-muted bg-surface"
+                : "inline-block h-2.5 w-2.5 rounded-full"
+            }
+            style=${adderFill === undefined ? nothing : `background:${adderFill};`}
+          ></span>
+          <span class="truncate">${photo.member.name}</span>
+          <span>·</span>
+          <span title="${formatFullDate(photo.addedAt)}"
+            >${t("lightbox.added", { when: formatRelative(photo.addedAt) })}</span
+          >
+        </div>
+        ${
+          photo.takenAt
+            ? html`<div class="mt-0.5 text-xs text-muted">
+                ${t("lightbox.taken", { date: formatFullDate(takenTime(photo)) })}
+              </div>`
+            : null
+        }
+        ${watch(foldersActor, (f) => {
+          const why = whyNoDelete(
+            photo,
+            f.context.folders.find((x) => x.id === photo.folderId),
+          );
+          if (why === undefined) return null;
+          return html`<div class="mt-0.5 text-xs text-muted">
+            ${why === "viewer" ? t("lightbox.who_deletes_viewer") : t("lightbox.who_deletes_adder_admin")}
+          </div>`;
+        })}
+      </div>
+      ${watch(foldersActor, (f) =>
+        canRemove(photo, roleFor(photo, f.context.folders))
+          ? watch(galleryActor, (s) => {
+              const removing = galleryViewModel(s, null).state === "removingPhoto";
+              return html`<wa-dropdown
+                placement="top-end"
+                @wa-select=${(e: CustomEvent<{ item: { value: string } }>) => {
+                  if (e.detail.item.value === "delete") void deleteFromLightbox(photo);
+                }}
+              >
+                <button
+                  slot="trigger"
+                  class="ui-icon-btn"
+                  aria-label=${copy("lightbox.more_options")}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="5" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="12" cy="19" r="2" />
+                  </svg>
+                </button>
+                <wa-dropdown-item value="delete" variant="danger" ?disabled=${removing}>
+                  <svg
+                    slot="icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                  ${removing ? copy("lightbox.deleting") : copy("lightbox.delete_2")}
+                </wa-dropdown-item>
+              </wa-dropdown>`;
+            })
+          : null,
+      )}
+    </div>
+    ${holdersRow(photo)}
+  `;
   return html`
     <div
-      class="fixed inset-0 z-30 flex touch-pan-y flex-col bg-black/80 backdrop-blur-sm"
-      @click=${() => {
-        if (Date.now() < suppressClickUntil) return;
-        closeLightbox();
-      }}
+      class="fixed inset-0 z-30 touch-pan-y"
+      @pointerdown=${notePress}
       @touchstart=${onTouchStart}
       @touchend=${onTouchEnd}
     >
-      <button
-        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg text-white hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-        style="align-self: flex-end; margin-top: max(0.75rem, env(safe-area-inset-top)); margin-right: 0.75rem"
-        aria-label=${copy("lightbox.close")}
-        @click=${() => closeLightbox()}
-      >
-        ✕
-      </button>
-
-      <button
-        class="absolute left-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
-        aria-label=${copy("lightbox.previous_photo")}
-        @click=${(e: Event) => {
-          e.stopPropagation();
-          step(-1);
-        }}
-      >
-        ‹
-      </button>
-      <button
-        class="absolute right-1 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-surface/90 px-3 py-2 text-fg shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:block"
-        aria-label=${copy("lightbox.next_photo")}
-        @click=${(e: Event) => {
-          e.stopPropagation();
-          step(1);
-        }}
-      >
-        ›
-      </button>
-
-      <div class="flex flex-1 items-center justify-center p-4">
-        <img
-          class="max-h-[min(72vh,calc(100dvh-17rem))] max-w-full rounded-2xl object-contain shadow-2xl"
-          src="${photo.url}"
-          alt="${photo.name}"
-          referrerpolicy="no-referrer"
-        />
-      </div>
-
-      <div
-        class="mx-auto w-full max-w-2xl px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        @click=${(e: Event) => e.stopPropagation()}
-      >
-        <div class="rounded-2xl bg-surface p-4 shadow-lg ring-1 ring-line">
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
-                <span
-                  class=${
-                    adderFill === undefined
-                      ? "inline-block h-2.5 w-2.5 rounded-full border border-muted bg-surface"
-                      : "inline-block h-2.5 w-2.5 rounded-full"
-                  }
-                  style=${adderFill === undefined ? nothing : `background:${adderFill};`}
-                ></span>
-                <span class="truncate">${photo.member.name}</span>
-                <span>·</span>
-                <span title="${formatFullDate(photo.addedAt)}"
-                  >${t("lightbox.added", { when: formatRelative(photo.addedAt) })}</span
-                >
-              </div>
-              ${
-                photo.takenAt
-                  ? html`<div class="mt-0.5 text-xs text-muted">
-                      ${t("lightbox.taken", { date: formatFullDate(takenTime(photo)) })}
-                    </div>`
-                  : null
-              }
-              ${watch(foldersActor, (f) => {
-                const why = whyNoDelete(
-                  photo,
-                  f.context.folders.find((x) => x.id === photo.folderId),
-                );
-                if (why === undefined) return null;
-                return html`<div class="mt-0.5 text-xs text-muted">
-                  ${why === "viewer" ? t("lightbox.who_deletes_viewer") : t("lightbox.who_deletes_adder_admin")}
-                </div>`;
-              })}
-            </div>
-            ${watch(foldersActor, (f) =>
-              canRemove(photo, roleFor(photo, f.context.folders))
-                ? watch(galleryActor, (s) => {
-                    const removing = galleryViewModel(s, null).state === "removingPhoto";
-                    return html`<wa-dropdown
-                      placement="top-end"
-                      @wa-select=${(e: CustomEvent<{ item: { value: string } }>) => {
-                        if (e.detail.item.value === "delete") void deleteFromLightbox(photo);
-                      }}
-                    >
-                      <button
-                        slot="trigger"
-                        class="ui-icon-btn"
-                        aria-label=${copy("lightbox.more_options")}
-                      >
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="5" r="2" />
-                          <circle cx="12" cy="12" r="2" />
-                          <circle cx="12" cy="19" r="2" />
-                        </svg>
-                      </button>
-                      <wa-dropdown-item value="delete" variant="danger" ?disabled=${removing}>
-                        <svg
-                          slot="icon"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                        ${removing ? copy("lightbox.deleting") : copy("lightbox.delete_2")}
-                      </wa-dropdown-item>
-                    </wa-dropdown>`;
-                  })
-                : null,
-            )}
-          </div>
-          ${holdersRow(photo)}
-        </div>
-      </div>
+      ${photoViewer({
+        src: photo.url,
+        alt: photo.name,
+        controls: hidden ? "hidden" : "shown",
+        closeLabel: copy("lightbox.close"),
+        onClose: () => closeLightbox(),
+        previous: { label: copy("lightbox.previous_photo"), onClick: () => step(-1) },
+        next: { label: copy("lightbox.next_photo"), onClick: () => step(1) },
+        info,
+        onPhotoTap: tapPhoto,
+      })}
     </div>
   `;
 }
@@ -295,7 +273,7 @@ export function lightboxView() {
     if (!photo) return null;
     return watch(syncActor, (sync) => {
       const people = peopleIn(sync.context.status, photo.folderId);
-      return html`${lightboxBody(photo, people)}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
+      return html`${lightboxBody(photo, people, s.path[0] === "showingPhotoAlone")}${s.path[0] === "showingWhoHasThisPhoto" ? holdersSheet(photo, people) : null}`;
     });
   });
 }

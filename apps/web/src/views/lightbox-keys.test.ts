@@ -193,13 +193,10 @@ describe("swipe in the lightbox", () => {
 describe("close button in the lightbox", () => {
   afterEach(() => closeLightbox());
 
-  it("sits below the status bar, at the right", () => {
+  it("sits in the viewer's top bar", () => {
     openLightbox(photo);
     const host = document.createElement("div");
     render(lightboxView(), host);
-    const close = host.querySelector("button[aria-label]") as HTMLElement;
-    const style = close.getAttribute("style") ?? "";
-    expect(style).toContain("margin-top: max(0.75rem, env(safe-area-inset-top))");
-    expect(style).toContain("align-self: flex-end");
+    expect(host.querySelector('[data-part="top"] button[aria-label="Close"]')).not.toBeNull();
   });
 });

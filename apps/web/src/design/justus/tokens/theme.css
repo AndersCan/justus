@@ -53,7 +53,7 @@
     color-scheme: dark;
   }
 }
-:root[data-theme="dark"] {
+:root[data-theme="dark"], [data-theme="dark"] {
   --canvas: 2 6 23;
   --surface: 15 23 42;
   --subtle: 30 41 59;
