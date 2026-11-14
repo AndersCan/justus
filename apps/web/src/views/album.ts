@@ -3,6 +3,8 @@ import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "#design/justus/album/album-full.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
+import { ref } from "lit-html/directives/ref.js";
+import { keyed } from "lit-html/directives/keyed.js";
 import { watch } from "@mantaq/lit";
 import { onOutput } from "@mantaq/sugar";
 import { friends, friendsActor } from "../machines/friends-machine";
@@ -25,7 +27,7 @@ import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
-import { nameList, requestsHint, type Person } from "../utils/people";
+import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
 import { formatRelative } from "../utils/time";
 import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
@@ -287,8 +289,7 @@ onOutput(requestsActor, (e) => {
   }
   if (e.type !== answerSent.type) return;
   const a = e.payload as { requesterKey: string; requesterName: string; approve: boolean };
-  if (a.approve) revealMember(a.requesterKey);
-  else toast(declinedToast(a.requesterName));
+  if (!a.approve) toast(declinedToast(a.requesterName));
 });
 
 /** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
@@ -589,6 +590,36 @@ function requestsSection(vm: PeopleVm, id: string, reqVm: ReturnType<typeof requ
   </section>`;
 }
 
+/** Accept removes the focused button: put focus on the card's link. */
+function focusOnce(el: Element | undefined) {
+  if (!(el instanceof HTMLElement)) return;
+  queueMicrotask(() => el.focus({ preventScroll: true }));
+}
+
+/** After Accept: who is in, and a button to the photos. Primary only while no other request waits, so the page has one primary action. */
+function acceptedCard(
+  id: string,
+  vm: PeopleVm,
+  reqVm: ReturnType<typeof requestsViewModel>,
+  friends: Record<string, string>,
+) {
+  const accepted = reqVm.accepted;
+  if (accepted === null || accepted.folderId !== id) return null;
+  const name = requestRowOf(accepted, friends).name;
+  return keyed(
+    accepted.requesterKey,
+    html`<section class="ui-card p-5" data-motion-key="section:accepted">
+      <p class="text-sm text-fg">${t("album.name_is_in", { name })}</p>
+      <a
+        ${ref(focusOnce)}
+        class="${vm.requests.length > 0 ? "ui-btn-ghost" : "ui-btn-primary"} mt-3 inline-flex items-center"
+        href="/albums/${encodeURIComponent(id)}"
+        >${t("album.see_photos")}</a
+      >
+    </section>`,
+  );
+}
+
 const NO_HOLDING: AlbumHolding = { total: 0, byKey: new Map() };
 
 function membersSection(vm: PeopleVm, id: string) {
@@ -808,7 +839,7 @@ function albumBody(
         state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,
         fatal ? () => window.location.reload() : undefined,
       )}`,
-      requests: html`${requestsSection(vm, id, reqVm)}`,
+      requests: html`${requestsSection(vm, id, reqVm)}${acceptedCard(id, vm, reqVm, friends)}`,
       invite: html`<div data-motion-key="section:invite">
         ${invitePanel(
           status.folder,
@@ -848,6 +879,7 @@ function addPhotosButton(id: string) {
 
 /** Leaving the page with the Accept all sheet open closes it, so no other album is left with disabled buttons. */
 onPageChange(() => {
+  requests.forgetAccepted();
   if (requests.state() === "confirmingAcceptAll") requests.cancelAcceptAll();
 });
 

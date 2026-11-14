@@ -4303,5 +4303,19 @@
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
+  },
+  "album.name_is_in": {
+    "text": "{name} is in",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
+    "screen": ""
+  },
+  "album.see_photos": {
+    "text": "See photos",
+    "status": "draft",
+    "where": "Album › Join requests › link",
+    "who": "Admins answering requests",
+    "screen": ""
   }
 }
