@@ -127,7 +127,7 @@ if (invite) {
   // Safari's first launch on an erased Simulator can outlast the 10 s the Simulator waits when
   // opening a URL: start it once and quit it so the walk's openLink meets a warm Safari.
   run("xcrun", ["simctl", "launch", udid, "com.apple.mobilesafari"]);
-  spawnSync("sleep", ["5"]);
+  spawnSync("sleep", ["20"]);
   run("xcrun", ["simctl", "terminate", udid, "com.apple.mobilesafari"]);
 }
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
@@ -237,9 +237,14 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   console.log(`Maestro walk (${name}), attempt ${attempt}`);
   const result = await maestro(path.join(out, `maestro-attempt-${attempt}.txt`));
   status = result.status;
-  const driverFailed = ["driver not ready in time", "XCTPerformOnMainRunLoop", "Maestro walk hung"];
+  const driverFailed = [
+    "driver not ready in time",
+    "XCTPerformOnMainRunLoop",
+    "Maestro walk hung",
+    "Simulator device failed to open", // Safari still starting when openLink asked for it
+  ];
   if (status === 0 || !driverFailed.some((text) => result.text.includes(text))) break;
-  console.log("The Maestro iOS driver failed: trying once more");
+  console.log("The Maestro walk hit a driver or Safari-start failure: trying once more");
 }
 stopIosDriver();
 face?.close();
