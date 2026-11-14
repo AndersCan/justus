@@ -74,7 +74,9 @@ appId: no.cankode.justus
                 visible: "Face ID"
                 timeout: 8000
             - runScript: ../scripts/face-match.js
-            # The "App lock is on" toast is gone before the slow iOS hierarchy reads it: the next page proves the match.
+            - extendedWaitUntil:
+                visible: "App lock is on"
+                timeout: 5000
             - extendedWaitUntil:
                 visible: "Start sharing"
                 timeout: 8000
