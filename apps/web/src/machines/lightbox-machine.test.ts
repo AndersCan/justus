@@ -211,3 +211,74 @@ describe("lightbox machine: who has this photo", () => {
     expect(state(a)).toBe("showingPhoto");
   });
 });
+
+describe("lightbox machine: photo alone", () => {
+  const tap = (a: ReturnType<typeof make>) => a.send(lightboxEvents.photoTapped.create());
+  const path = (a: ReturnType<typeof make>) => a.snapshot().path[0];
+  const ps = [photo("a"), photo("b"), photo("c")];
+
+  test("a tap hides the controls and a second tap brings them back", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    tap(a);
+    expect(path(a)).toBe("showingPhotoAlone");
+    tap(a);
+    expect(path(a)).toBe("showingPhoto");
+  });
+
+  test("a tap with no photo open does nothing", () => {
+    const a = make();
+    tap(a);
+    expect(path(a)).toBe("noPhotoOpen");
+  });
+
+  test("the sheet does not open while the controls are hidden", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    tap(a);
+    a.send(lightboxEvents.holdersOpened.create());
+    expect(path(a)).toBe("showingPhotoAlone");
+  });
+
+  test("a tap does nothing while the sheet is open", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    a.send(lightboxEvents.holdersOpened.create());
+    tap(a);
+    expect(path(a)).toBe("showingWhoHasThisPhoto");
+  });
+
+  test("stepping while alone stays alone; stepping from the sheet shows the controls", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    tap(a);
+    step(a, 1, ps);
+    expect(path(a)).toBe("showingPhotoAlone");
+    expect(id(a)).toBe("b");
+    tap(a);
+    a.send(lightboxEvents.holdersOpened.create());
+    step(a, 1, ps);
+    expect(path(a)).toBe("showingPhoto");
+  });
+
+  test("opening a photo shows its controls", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    tap(a);
+    open(a, ps[1], ps);
+    expect(path(a)).toBe("showingPhoto");
+    expect(id(a)).toBe("b");
+  });
+
+  test("closing and a photo deleted elsewhere close from alone", () => {
+    const a = make();
+    open(a, ps[0], ps);
+    tap(a);
+    a.send(lightboxEvents.closed.create());
+    expect(path(a)).toBe("noPhotoOpen");
+    open(a, ps[0], ps);
+    tap(a);
+    a.send(lightboxEvents.photoListChanged.create({ photos: [ps[1]] }));
+    expect(path(a)).toBe("noPhotoOpen");
+  });
+});

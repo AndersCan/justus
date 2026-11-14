@@ -340,3 +340,79 @@ describe("the photo card", () => {
     render(null, host);
   });
 });
+
+describe("tapping the photo", () => {
+  afterEach(() => {
+    closeLightbox();
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  const mount = () => {
+    const photos = [photo("a"), photo("b")];
+    setPhotos(photos);
+    openLightbox(photos[0]);
+    const el = document.createElement("div");
+    document.body.append(el);
+    render(lightboxView(), el);
+    return el;
+  };
+  const controls = (el: Element) =>
+    el.querySelector("[data-controls]")?.getAttribute("data-controls");
+  const tapPhoto = (el: Element) =>
+    (el.querySelector('[data-part="photo"]') as HTMLElement).click();
+
+  it("hides the controls and shows them again, keeping the photo open", () => {
+    const el = mount();
+    expect(controls(el)).toBe("shown");
+    tapPhoto(el);
+    expect(controls(el)).toBe("hidden");
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("a");
+    tapPhoto(el);
+    expect(controls(el)).toBe("shown");
+  });
+
+  it("ignores a tap on the info bar", () => {
+    const el = mount();
+    (el.querySelector('[data-part="info"]') as HTMLElement).click();
+    expect(controls(el)).toBe("shown");
+  });
+
+  it("ignores a tap that only closes the menu", () => {
+    const el = mount();
+    const menu = document.createElement("wa-dropdown");
+    menu.setAttribute("open", "");
+    document.body.append(menu);
+    el.firstElementChild?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    menu.remove();
+    tapPhoto(el);
+    expect(controls(el)).toBe("shown");
+    el.firstElementChild?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    tapPhoto(el);
+    expect(controls(el)).toBe("hidden");
+  });
+
+  it("keeps the controls hidden while stepping with the keys", () => {
+    const el = mount();
+    tapPhoto(el);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    expect(lightboxActor.snapshot().context.photo?.id).toBe("b");
+    expect(controls(el)).toBe("hidden");
+  });
+
+  // Last: a swipe suppresses taps for 350 ms, module-wide.
+  it("ignores the click that follows a swipe", () => {
+    const el = mount();
+    const root = el.firstElementChild as Element;
+    const touch = (type: string, x: number) => {
+      const e = new Event(type, { bubbles: true });
+      const list = [{ clientX: x, clientY: 0 }];
+      Object.assign(e, { touches: list, changedTouches: list });
+      root.dispatchEvent(e);
+    };
+    touch("touchstart", 300);
+    touch("touchend", 100);
+    tapPhoto(el);
+    expect(controls(el)).toBe("shown");
+  });
+});

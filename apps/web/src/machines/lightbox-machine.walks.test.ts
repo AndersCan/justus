@@ -52,3 +52,14 @@ test("The open photo is deleted on another phone, and the viewer closes", async 
   expect(actor.state.name).toBe("noPhotoOpen");
   expect(actor.snapshot().context.photo).toBeUndefined();
 });
+
+test("Anna taps the photo to see it alone, then taps again for its controls", async () => {
+  const actor = make({ clock: VirtualClock() });
+  actor.send({ type: "OPEN", payload: { photo: beach, within: photos } });
+  actor.send({ type: "TAP_PHOTO" });
+  await actor.settled();
+  expect(actor.state.name).toBe("showingPhotoAlone");
+  actor.send({ type: "TAP_PHOTO" });
+  await actor.settled();
+  expect(actor.state.name).toBe("showingPhoto");
+});

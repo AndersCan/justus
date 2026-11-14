@@ -16,6 +16,9 @@ const stepped = event("STEP")<{ dir: 1 | -1; photos: Photo[] }>();
 /** The album's photos were loaded again; a photo deleted elsewhere is no longer in them. */
 const photoListChanged = event("PHOTO_LIST_CHANGED")<{ photos: Photo[] }>();
 
+/** The photo itself was tapped: its controls hide, or come back. */
+const photoTapped = event("TAP_PHOTO")();
+
 /** The "Who has this photo" sheet was opened over the photo. */
 const holdersOpened = event("OPEN_HOLDERS")();
 /** The "Who has this photo" sheet was closed. */
@@ -23,22 +26,24 @@ const holdersClosed = event("CLOSE_HOLDERS")();
 
 /** No photo is open. */
 const noPhotoOpen = state("noPhotoOpen")();
-/** A photo is open full-screen. */
+/** A photo is open full-screen with its controls. */
 const showingPhoto = state("showingPhoto")();
+/** A photo is open full-screen, its controls hidden. */
+const showingPhotoAlone = state("showingPhotoAlone")();
 /** A photo is open with the sheet of who has it over it. */
 const showingWhoHasThisPhoto = state("showingWhoHasThisPhoto")();
 
 export function createLightboxActor(options: { clock: Clock }) {
   return Actor({
-    inputs: [opened, closed, stepped, photoListChanged, holdersOpened, holdersClosed],
+    inputs: [opened, closed, stepped, photoListChanged, holdersOpened, holdersClosed, photoTapped],
     internal: [],
     outputs: [],
-    states: [noPhotoOpen, showingPhoto, showingWhoHasThisPhoto],
+    states: [noPhotoOpen, showingPhoto, showingPhotoAlone, showingWhoHasThisPhoto],
     initial: noPhotoOpen,
     clock: options.clock,
     context: { photo: undefined, sequence: undefined } as LightboxContext,
     setup: (m) => {
-      for (const at of [noPhotoOpen, showingPhoto, showingWhoHasThisPhoto]) {
+      for (const at of [noPhotoOpen, showingPhoto, showingPhotoAlone, showingWhoHasThisPhoto]) {
         /** Opening a photo works from any state; it also replaces the open photo. */
         m.on(at, {
           event: opened,
@@ -49,6 +54,17 @@ export function createLightboxActor(options: { clock: Clock }) {
           },
         });
       }
+      /** A tap on the photo hides the controls; another brings them back. */
+      m.on(showingPhoto, {
+        event: photoTapped,
+        to: [showingPhotoAlone],
+        handler: () => ({ state: showingPhotoAlone }),
+      });
+      m.on(showingPhotoAlone, {
+        event: photoTapped,
+        to: [showingPhoto],
+        handler: () => ({ state: showingPhoto }),
+      });
       /** The holders row is tapped: the sheet listing which phones hold the photo opens. */
       m.on(showingPhoto, {
         event: holdersOpened,
@@ -61,7 +77,7 @@ export function createLightboxActor(options: { clock: Clock }) {
         to: [showingPhoto],
         handler: () => ({ state: showingPhoto }),
       });
-      for (const at of [showingPhoto, showingWhoHasThisPhoto]) {
+      for (const at of [showingPhoto, showingPhotoAlone, showingWhoHasThisPhoto]) {
         /** Closing forgets the photo and its grid. */
         m.on(at, {
           event: closed,
@@ -93,10 +109,10 @@ export function createLightboxActor(options: { clock: Clock }) {
             return {};
           },
         });
-        /** Stepping stays open and closes the sheet; a photo that is no longer in the list is left as it is. */
+        /** Stepping stays open and closes the sheet, and keeps the controls hidden; a photo that is no longer in the list is left as it is. */
         m.on(at, {
           event: stepped,
-          to: [showingPhoto],
+          to: [showingPhoto, showingPhotoAlone],
           handler: (e, opts) => {
             const c = opts.context.get();
             const { photos, dir } = e.payload;
@@ -105,7 +121,7 @@ export function createLightboxActor(options: { clock: Clock }) {
             const i = photos.findIndex((p) => samePhoto(p, current));
             if (i === -1) return {};
             opts.context.set({ ...c, photo: photos[(i + dir + photos.length) % photos.length] });
-            return { state: showingPhoto };
+            return { state: at === showingPhotoAlone ? showingPhotoAlone : showingPhoto };
           },
         });
       }
@@ -122,4 +138,5 @@ export const lightboxEvents = {
   photoListChanged,
   holdersOpened,
   holdersClosed,
+  photoTapped,
 };

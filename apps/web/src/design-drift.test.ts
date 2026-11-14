@@ -30,10 +30,6 @@ const KNOWN_HAND_DRAWN: Record<string, { count: number; what: string }> = {
     count: 3,
     what: "sort switch, album tile link, add-photos tile",
   },
-  "views/lightbox.ts": {
-    count: 3,
-    what: "photo-viewer close button and photo arrows: drawn on the photo, design's icon button has no on-photo colour",
-  },
   "views/photo-holders.ts": { count: 1, what: "holders row button" },
   "views/settings.ts": { count: 1, what: "settings card link" },
 };
