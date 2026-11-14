@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 4
 
+- **A phone takes a deleted photo out of its holding record** (`/held/<id>` and `/previewed/<id>` are deleted when its screen stops listing the photo). Who: internal testers on a protocol-4 build from before this change: after a delete, the Admin's phone says "No word yet" for their phone. Do: update Justus.
 - **Invite links are web links** (`https://anderscan.github.io/justus/join/#…`; `justus://join?…` still works). Who: testers on builds from before this change: pasting a new link says it doesn't look right. Do: tap Open in Justus on the link's page, or update Justus.
 - **Phones note the photos they showed as a preview** (`/previewed/<id>` on each phone's album drive). Who: internal testers on a protocol-4 build from before this change: their phone shows as not having a photo it showed as a preview. Do: update Justus.
 - **Each person has a colour seat** (`/members.json` and `/viewers.json` entries gain an optional `"color"`, written by the Admin's phone). Who: internal testers on a protocol-4 build from before this change. Their colours disagree with updated phones, and an Admin on such a build writes people without a seat until it updates. Do: update Justus.

@@ -26,6 +26,7 @@ import {
   markPreviewed,
   readFormer,
   readHeld,
+  unmarkHeld,
   type HeldReport,
 } from "../../src/photos/holders.ts";
 
@@ -816,5 +817,37 @@ describe("former people when the list cannot be read", () => {
     const [err] = await addFormer(drive, { name: "Dan", ids: ids("p3") }, log);
     expect(err?.kind).toBe("write-failed");
     expect(await drive.readSmall(FORMER_PATH, 1_000_000)).toBe(newer);
+  });
+});
+
+describe("unmarkHeld", () => {
+  it("deletes the full copy and the preview entries, and leaves others", async () => {
+    const [drive] = await twoDrives();
+    await markHeld(drive, "p1");
+    await markPreviewed(drive, "p1");
+    await markHeld(drive, "p2");
+    expect(await unmarkHeld(drive, "p1")).toEqual([null, true]);
+    expect(await drive.readSmall(`${HELD_DIR}/p1`, 10)).toBeUndefined();
+    expect(await drive.readSmall(`${PREVIEWED_DIR}/p1`, 10)).toBeUndefined();
+    expect(await drive.readSmall(`${HELD_DIR}/p2`, 10)).toBe("1");
+  });
+
+  it("returns false for an id that is not safe to use", async () => {
+    const [drive] = await twoDrives();
+    expect(await unmarkHeld(drive, "../x")).toEqual([null, false]);
+  });
+});
+
+describe("unmarkHeld errors", () => {
+  it("returns an error value when the delete fails", async () => {
+    const [drive] = await twoDrives();
+    const broken: Drive = {
+      ...drive,
+      del: async () => {
+        throw new Error("disk full");
+      },
+    };
+    const [err] = await unmarkHeld(broken, "p1");
+    expect(err?.kind).toBe("write-failed");
   });
 });

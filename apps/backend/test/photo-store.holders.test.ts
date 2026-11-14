@@ -943,3 +943,84 @@ describe("who has each photo", () => {
     }, 30_000);
   });
 });
+
+describe("a deleted photo leaves the phone's holding record", () => {
+  /** Nils's screen lists the album again, as it does on each push. */
+  const nilsLists = (s: Album) => async () => void (await s.nils.store.list(s.nilsFolderId));
+
+  async function nilsRecord(s: Album) {
+    const shareKey = (await s.nils.store.folders()).folders.find(
+      (f) => f.id === s.nilsFolderId,
+    )!.shareKey;
+    const drive = await s.nils.deps.drives.openOwn(`member/${shareKey}`);
+    return {
+      held: async (id: string) => (await drive.readSmall(`/held/${id}`, 10)) !== undefined,
+      previewed: async (id: string) =>
+        (await drive.readSmall(`/previewed/${id}`, 10)) !== undefined,
+    };
+  }
+
+  it("a full copy is deleted from Nils's record when Anna deletes the photo", async () => {
+    const s = await album();
+    const photo = (await s.nilsPhoto())!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await until(async () => (await s.nilsPhoto())!.holders!.here);
+    const record = await nilsRecord(s);
+    expect(await record.held(photo.id)).toBe(true);
+    const before = s.nils.pushes.length;
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(async () => (await nilsLists(s)(), !(await record.held(photo.id))));
+    expect(await record.held(photo.id)).toBe(false);
+    const pushed = s.nils.pushes.slice(before) as {
+      cause: string;
+      deleted?: { photos: { held?: boolean }[] };
+    }[];
+    await until(() => s.nils.pushes.some((p) => p.cause === "deleted"));
+    const deleted = (s.nils.pushes as typeof pushed).find((p) => p.cause === "deleted")!;
+    expect(deleted.deleted!.photos[0]!.held).toBe(true);
+    await s.close();
+  });
+
+  it("a preview is deleted from Nils's record when Anna deletes the photo", async () => {
+    const s = await album();
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    const record = await nilsRecord(s);
+    await until(() => record.previewed(thumbed.id));
+    expect(await record.previewed(thumbed.id)).toBe(true);
+    await s.anna.store.remove((await s.annaPhotoNamed("thumbed.jpg")).id);
+    await until(async () => (await nilsLists(s)(), !(await record.previewed(thumbed.id))));
+    expect(await record.previewed(thumbed.id)).toBe(false);
+    await s.close();
+  });
+
+  it("opening the old route afterwards does not record the photo again", async () => {
+    const s = await album();
+    const photo = (await s.nilsPhoto())!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    const record = await nilsRecord(s);
+    await until(() => record.held(photo.id));
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(async () => (await nilsLists(s)(), !(await record.held(photo.id))));
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await sleep(300);
+    expect(await record.held(photo.id)).toBe(false);
+    await s.close();
+  });
+
+  it("a photo Nils kept stays in his record when another is deleted", async () => {
+    const s = await album();
+    await s.anna.store.addBytes("keep.jpg", new Uint8Array([7, 7, 7, 7]));
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
+    const all = await s.nils.store.list(s.nilsFolderId);
+    for (const p of all) await s.nils.server.getForTest(new URL(p.url).pathname);
+    const record = await nilsRecord(s);
+    const keep = all.find((p) => p.name === "keep.jpg")!;
+    const gone = all.find((p) => p.name === "sunset.jpg")!;
+    await until(async () => (await record.held(keep.id)) && (await record.held(gone.id)));
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(async () => (await nilsLists(s)(), !(await record.held(gone.id))));
+    expect(await record.held(keep.id)).toBe(true);
+    await s.close();
+  });
+});

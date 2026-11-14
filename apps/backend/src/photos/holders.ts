@@ -67,6 +67,18 @@ export async function markPreviewed(drive: Drive, id: string): Promise<HoldersRe
   }
 }
 
+/** Takes the photo out of this phone's record, full copy and preview. False when the id is not safe to use. */
+export async function unmarkHeld(drive: Drive, id: string): Promise<HoldersResult<boolean>> {
+  if (!SAFE_ID.test(id)) return [null, false];
+  try {
+    await drive.del(`${HELD_DIR}/${id}`);
+    await drive.del(`${PREVIEWED_DIR}/${id}`);
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
 function parseVersion(text: string): number | undefined {
   try {
     const parsed: unknown = JSON.parse(text);
