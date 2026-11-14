@@ -235,19 +235,17 @@ export function declinedToast(requesterName: string): string {
     : copy("album.declined_unnamed");
 }
 
-/** The toast after an answer went through: who is in and how, or who was declined. */
-export function answerToast(a: {
-  requesterName: string;
-  approve: boolean;
-  role: "reader" | "member";
-  viaInvite: boolean;
-}): string {
-  if (!a.approve) return declinedToast(a.requesterName);
-  if (a.role === "reader")
-    return copy("album.is_in_as_a_viewer", { requesterName: a.requesterName });
-  return a.viaInvite
-    ? copy("album.is_in_as_a_collaborator", { requesterName: a.requesterName })
-    : copy("album.is_in", { requesterName: a.requesterName });
+/** After Accept the card leaves and the new row can sit below the fold: bring the row to the middle of the screen and focus it. The row can arrive after the answer, so wait for it. */
+export function revealMember(key: string, tries = 60): void {
+  const row = [...document.querySelectorAll<HTMLElement>("[data-member-key]")].find(
+    (el) => el.dataset.memberKey === key,
+  );
+  if (row) {
+    row.scrollIntoView({ block: "center" });
+    row.focus({ preventScroll: true });
+    return;
+  }
+  if (tries > 0) setTimeout(() => revealMember(key, tries - 1), 100);
 }
 
 /** The one toast after Accept all: how many are in. */
@@ -292,8 +290,9 @@ onOutput(requestsActor, (e) => {
     return;
   }
   if (e.type !== answerSent.type) return;
-  const text = answerToast(e.payload as Parameters<typeof answerToast>[0]);
-  if (text) toast(text);
+  const a = e.payload as { requesterKey: string; requesterName: string; approve: boolean };
+  if (a.approve) revealMember(a.requesterKey);
+  else toast(declinedToast(a.requesterName));
 });
 
 /** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */
@@ -369,7 +368,12 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
   const controls = vm.isAdmin && !p.you && !p.admin;
   const roleButtonClass =
     "ui-btn-ghost min-w-0 flex-1 basis-40 justify-start text-left [overflow-wrap:anywhere]";
-  return html`<li class="py-2" data-motion-key=${p.key}>
+  return html`<li
+    class="py-2 outline-none"
+    data-motion-key=${p.key}
+    data-member-key=${p.key}
+    tabindex="-1"
+  >
     ${
       tappable
         ? html`<button

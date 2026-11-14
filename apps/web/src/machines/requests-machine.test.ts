@@ -161,8 +161,8 @@ describe("requests machine factory", () => {
     actor.send(respond("f1", "k2", false));
     await actor.settled();
     expect(sent).toEqual([
-      { requesterName: "k1", approve: true, role: "reader", viaInvite: true },
-      { requesterName: "k2", approve: false, role: "member", viaInvite: false },
+      { requesterKey: "k1", requesterName: "k1", approve: true, role: "reader", viaInvite: true },
+      { requesterKey: "k2", requesterName: "k2", approve: false, role: "member", viaInvite: false },
     ]);
   });
 

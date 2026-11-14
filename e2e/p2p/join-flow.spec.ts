@@ -218,11 +218,16 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
 
   const card = a.locator("li", { hasText: `wants to join “${album}”` });
   await expect(card.getByRole("alert")).toContainText("Couldn't connect", { timeout: 40_000 });
-  await expect(a.getByText(/is in and can only look/)).toHaveCount(0);
+  await expect(a.locator("[data-member-key]")).toHaveCount(1);
   expect(b.url()).not.toMatch(/\/albums\//);
   blockAnswer = false;
+  // A phone: the new row lands below the fold unless Accept brings it up.
+  await a.setViewportSize({ width: 390, height: 844 });
   await card.getByRole("button", { name: "Retry" }).click();
-  await expect(a.getByText(/is in and can only look/)).toBeVisible({ timeout: 15_000 });
+  const newRow = a.locator("[data-member-key]").nth(1);
+  await expect(newRow).toBeInViewport({ ratio: 1, timeout: 15_000 });
+  await expect(newRow).toBeFocused();
+  await expect(a.locator(".justus-toast")).toHaveCount(0);
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
