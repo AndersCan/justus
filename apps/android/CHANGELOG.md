@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0
+
+<sub>2026-11-13</sub>
+
+- _(minor)_ [user]: A photo someone deletes now leaves your phone's storage the next time Justus syncs it.
+- _(minor)_
+  [user]: New album no longer closes when you select the name and let go outside the box, and the dimmed background no longer blurs.
+- _(minor)_
+  [user]: Accept all, Add a friend and a friend's sheet no longer close when you select text and let go outside the box, and keyboard focus stays inside them.
+- _(minor)_
+  [user]: Ask to join and Who has this photo no longer close when you select text and let go outside the box, and keyboard focus stays inside them. Escape in Ask to join no longer closes the photo behind.
+- _(patch)_ [user]: Justus has new colours on every screen; the orange add button stays the same.
+- _(patch)_ [user]: Add photos on an album's page is now orange, like the add button on your photos.
+- _(patch)_
+  [user]: When some photos you add were already in the album, the toast saying so stays up long enough to read, with Dismiss.
+- _(patch)_ [user]: A photo the album's Admin deletes now also leaves the phone of the person who added it.
+- _(patch)_ [user]: The delete message says the photo leaves other people's phones, and they see it was removed from theirs.
+- _(patch)_ [user]: After Ask to join, the dialog says you're done; your three words are there only if the Admin asks.
+- _(patch)_ [user]: After you copy an invite link, the message now tells you to open your messages app, paste the link and send it.
+- _(patch)_ [user]: While you are the only one in an album, Send invite link and Copy link sit right under Add photos on its page.
+- _(patch)_ [user]: When someone asks to join an album, its page says so under the title, with Review to answer.
+- _(patch)_ [user]: Albums say what people can do ("can only look", "can add photos") instead of Admin, Viewer and Collaborator.
+- _(patch)_
+  [user]: When people ask to join an album, its page counts them, hides names that copy a friend's, and no longer says you are alone.
+- _(patch)_ [user]: After you close Accept all, keyboard focus goes back to the Accept all button.
+- _(patch)_ [user]: While you wait to join an album, Justus names the person who invited you instead of "the Admin".
+
 ## 0.3.0
 
 <sub>2026-11-11</sub>

@@ -1,6 +1,6 @@
 {
   "name": "@justus/backend",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Justus Bare worklet backend — photo store, p2p sync, justus.photos plugin.",
   "type": "module",
