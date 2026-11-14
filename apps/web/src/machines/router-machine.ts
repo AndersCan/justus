@@ -1,4 +1,5 @@
 import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { albumSwap } from "../views/album-transition";
 
 /**
  * Which page is on screen. The URL is the source of truth; the machine holds
@@ -99,7 +100,10 @@ export function currentPage(): AppPage | undefined {
 }
 
 function sync(): void {
-  routerActor.send(navigated.create({ page: parsePath(location.pathname) }));
+  const to = parsePath(location.pathname);
+  albumSwap(currentPage(), to, () =>
+    routerActor.send(navigated.create({ page: parsePath(location.pathname) })),
+  );
 }
 
 /** Goes to `path`, adding a history entry (or replacing the current one). No-op on the current URL. */

@@ -193,3 +193,28 @@ describe("backTo", () => {
     back.mockRestore();
   });
 });
+
+describe("album transition", () => {
+  test("Back before the opening transition applies still lands on the grid", () => {
+    const pending: (() => void)[] = [];
+    const doc = document as { startViewTransition?: unknown };
+    doc.startViewTransition = (cb: () => void) => {
+      pending.push(cb);
+      return { ready: Promise.resolve(), finished: Promise.resolve() };
+    };
+    window.matchMedia = (() => ({ matches: false })) as never;
+    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    try {
+      history.replaceState(null, "", "/albums");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      open("/albums/a1");
+      history.replaceState(null, "", "/albums");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      for (const cb of pending) cb();
+      expect(currentPage()?.route).toBe("photoAlbums");
+    } finally {
+      delete doc.startViewTransition;
+      vi.restoreAllMocks();
+    }
+  });
+});
