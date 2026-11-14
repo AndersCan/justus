@@ -79,8 +79,6 @@ async function newAlbum() {
   if (id) open(`/albums/${id}`);
 }
 
-/** Drag-and-drop and paste (browser/desktop): same batch path as the picker,
- * and only into the album on screen. */
 /** "All albums" steps back when the album was opened from the grid, so Back does not reopen it. */
 function allAlbumsLink() {
   return html`<a
@@ -95,6 +93,8 @@ function allAlbumsLink() {
   >`;
 }
 
+/** Drag-and-drop and paste (browser/desktop): same batch path as the picker,
+ * and only into the album on screen. */
 function addDropped(scope: PhotoScope, files: FileList | File[] | null | undefined) {
   const images = imageFiles(files);
   if (images.length === 0) {
