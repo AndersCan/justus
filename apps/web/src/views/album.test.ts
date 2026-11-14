@@ -16,7 +16,8 @@ import {
   albumMenuItems,
   removedDeleteSheet,
   albumView,
-  answerToast,
+  declinedToast,
+  revealMember,
   deleteSheet,
   leaveDetail,
   requestIdentity,
@@ -596,20 +597,6 @@ describe("album join requests", () => {
     );
   });
 
-  test("the accept toast waits for the answer", async () => {
-    vi.mocked(toast).mockClear();
-    const host = await show([ask("nils", true)]);
-    let resolve!: (v: unknown) => void;
-    vi.mocked(gateway.respond).mockReturnValueOnce(new Promise((r) => (resolve = r)) as never);
-    button(host, "Accept, can only look")!.click();
-    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
-    expect(toast).not.toHaveBeenCalled();
-    resolve([null, { ok: true }]);
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
-    expect(toast).toHaveBeenCalledTimes(1);
-    await requestsActor.settled();
-  });
-
   const declineToast = () => {
     const call = vi.mocked(toast).mock.calls.find(([m]) => m.startsWith("Declined"))!;
     return call[1] as { action: { label: string; run: () => void }; onClose: () => void };
@@ -711,8 +698,8 @@ describe("album join requests", () => {
     expect(card("ola").querySelector("[role=alert]")).toBeNull();
     expect(toast).not.toHaveBeenCalled();
     [...card("nils").querySelectorAll("button")].find((b) => name(b) === "Retry")!.click();
-    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
-    expect(gateway.respond).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalledTimes(2));
+    expect(toast).not.toHaveBeenCalled();
     expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
     await requestsActor.settled();
     await vi.waitFor(() => expect(card("nils")).toBeUndefined());
@@ -951,18 +938,24 @@ describe("album join requests", () => {
     expect(acceptAllToast(13)).toBe("13 people are in and can only look");
   });
 
-  test("answerToast: a No names who was declined; Viewer, Collaborator and plain Accept wording", () => {
-    const a = { requesterName: "Nils", approve: true, role: "member" as const, viaInvite: false };
-    expect(answerToast({ ...a, approve: false })).toBe("Declined Nils");
-    expect(answerToast({ ...a, approve: false, requesterName: "" })).toBe("Declined that request");
-    expect(answerToast({ ...a, approve: false, requesterName: copy("requests.they") })).toBe(
-      "Declined that request",
-    );
-    expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe(
-      "Nils is in and can only look",
-    );
-    expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in and can add photos");
-    expect(answerToast(a)).toBe("Nils is in");
+  test("declinedToast names who was declined", () => {
+    expect(declinedToast("Nils")).toBe("Declined Nils");
+    expect(declinedToast("")).toBe("Declined that request");
+    expect(declinedToast(copy("requests.they"))).toBe("Declined that request");
+  });
+
+  test("revealMember scrolls the accepted row to the middle and focuses it, waiting for a late row", async () => {
+    const row = document.createElement("li");
+    row.dataset.memberKey = "k9";
+    row.tabIndex = -1;
+    const scroll = vi.fn();
+    row.scrollIntoView = scroll;
+    revealMember("k9", 5);
+    expect(scroll).not.toHaveBeenCalled();
+    document.body.append(row);
+    await vi.waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "center" }));
+    expect(document.activeElement).toBe(row);
+    row.remove();
   });
 
   test("a plain request keeps a single Accept that sends the member role", async () => {

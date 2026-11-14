@@ -86,6 +86,7 @@ export const requestCancelledBeforeAnswer = event("REQUEST_CANCELLED_BEFORE_ANSW
 const respondFailed = event("RESPOND_FAILED")<{ message: string }>();
 /** The Yes or No went through; the view thanks the Admin with who is in and how. */
 export const answerSent = event("ANSWER_SENT")<{
+  requesterKey: string;
   requesterName: string;
   approve: boolean;
   role: "reader" | "member";
@@ -625,6 +626,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             state: showingRequests,
             emit: [
               answerSent.create({
+                requesterKey: e.payload.requesterKey,
                 requesterName: request?.requesterName ?? copy("requests.they"),
                 approve: pending.approve,
                 role: pending.role,
