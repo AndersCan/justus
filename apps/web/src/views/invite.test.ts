@@ -234,6 +234,7 @@ describe("checkCodeLine", () => {
     expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "If Anna asks which three words your phone shows, read out these: maple river stone",
     );
+    expect(host.querySelector("p.text-lg")?.textContent?.trim()).toBe("maple river stone");
     const ps = [...host.querySelectorAll("p")];
     expect(ps[0]?.className).toContain("text-muted");
     expect(ps.at(-1)?.className).not.toContain("text-base");

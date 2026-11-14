@@ -548,14 +548,7 @@
   "people.someone_not_in_your_friends": {
     "text": "Someone not in your friends typed a friend's name. Ask which three words their phone shows. Decline if they differ.",
     "status": "draft",
-    "where": "Album › Members › text",
-    "who": "Album members",
-    "screen": ""
-  },
-  "people.not_sure_who_it_is": {
-    "text": "Not sure who it is? Ask them which three words their phone shows. Decline if they differ.",
-    "status": "draft",
-    "where": "Album › Members › text",
+    "where": "Album › Join requests › text",
     "who": "Album members",
     "screen": ""
   },
@@ -1106,10 +1099,17 @@
     "screen": ""
   },
   "album.check_code": {
-    "text": "· Three words",
+    "text": "Three words",
     "status": "draft",
-    "where": "Album › Invite & members › text",
+    "where": "Album › Join requests › text",
     "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.same_words_on_phone": {
+    "text": "Same words on {name}'s phone? Then it's {name}. If not, decline.",
+    "status": "draft",
+    "where": "Album › Join requests › text",
+    "who": "Admins answering requests",
     "screen": ""
   },
   "album.accept_as_viewer": {

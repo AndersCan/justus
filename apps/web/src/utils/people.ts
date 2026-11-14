@@ -73,17 +73,10 @@ export function requestRowOf(r: JoinRequest, friends: Record<string, string>): R
   };
 }
 
-/** The line above the requests: how many asked by link (at 2 or more), then ask for the check code. */
+/** The line above the requests: how many asked by link, from 2 up. Each card carries its own check. */
 export function requestsHint(rows: RequestRow[]): string {
   const links = rows.filter((r) => r.viaInvite === true).length;
-  const rest = rows.some((r) => r.clash !== undefined)
-    ? copy("people.someone_not_in_your_friends")
-    : rows.some((r) => r.checkCode)
-      ? copy("people.not_sure_who_it_is")
-      : "";
-  if (links < 2) return rest;
-  const count = copy("album.people_asked_with_link", { count: links });
-  return rest === "" ? count : `${count} ${rest}`;
+  return links < 2 ? "" : copy("album.people_asked_with_link", { count: links });
 }
 
 /** Presence line for one member. Wording is "connected", never "online". */
