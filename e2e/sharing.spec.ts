@@ -27,12 +27,6 @@ test("text that is not a link says so under the box until you type", async ({ pa
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("Join has one button for asking, named Ask to join", async ({ page }) => {
-  await page.goto("/join");
-  await expect(page.getByRole("button", { name: "Ask to join", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
-});
-
 test("a waiting request can be cancelled and asked again", async ({ page }) => {
   const code = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
     "",

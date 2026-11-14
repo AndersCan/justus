@@ -500,43 +500,39 @@ export function createJoinRequestActor(options: {
         });
       }
 
+      const checkFn = ({
+        signal,
+        emit,
+        state: current,
+      }: {
+        signal: AbortSignal;
+        emit: (e: ReturnType<typeof linkChecked.create>) => void;
+        state: { payload: unknown };
+      }) =>
+        runInvoke(
+          signal,
+          () =>
+            port.checkLink?.(current.payload as JoinInvite) ??
+            Promise.resolve([undefined, { turnedOff: false }] as [unknown, unknown]),
+          (r) =>
+            emit(
+              linkChecked.create({
+                turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
+              }),
+            ),
+          () => emit(linkChecked.create({ turnedOff: false })),
+        );
       /** The owner's phone is asked whether the link is off. Nothing is sent, and no failure is shown: not knowing leads to the question. */
       m.effect(checkingLink, {
         name: "checkLink",
         sends: [linkChecked],
-        fn: ({ signal, emit, state: current }) =>
-          runInvoke(
-            signal,
-            () =>
-              port.checkLink?.(current.payload as JoinInvite) ??
-              Promise.resolve([undefined, { turnedOff: false }] as [unknown, unknown]),
-            (r) =>
-              emit(
-                linkChecked.create({
-                  turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
-                }),
-              ),
-            () => emit(linkChecked.create({ turnedOff: false })),
-          ),
+        fn: checkFn,
       });
-      /** The same check for a pasted link; no failure is shown, not knowing leads to the send. */
+      /** The same check for a pasted link; the answer is handled under the box. */
       m.effect(checkingPastedLink, {
         name: "checkPastedLink",
         sends: [linkChecked],
-        fn: ({ signal, emit, state: current }) =>
-          runInvoke(
-            signal,
-            () =>
-              port.checkLink?.(current.payload as JoinInvite) ??
-              Promise.resolve([undefined, { turnedOff: false }] as [unknown, unknown]),
-            (r) =>
-              emit(
-                linkChecked.create({
-                  turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
-                }),
-              ),
-            () => emit(linkChecked.create({ turnedOff: false })),
-          ),
+        fn: checkFn,
       });
       /** Off: the link is refused before any question. Anything else: today's question. */
       m.on(checkingLink, {
@@ -572,8 +568,7 @@ export function createJoinRequestActor(options: {
       m.on(sendingPastedRequest, {
         event: requestSent,
         to: [waitingForAdminToAccept, waitingForYouToUpdate],
-        handler: (_e, { actor, context }) => {
-          context.set({ error: "" });
+        handler: (_e, { actor }) => {
           const invite = actor.snapshot().payload as JoinInvite;
           return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
         },
@@ -607,29 +602,34 @@ export function createJoinRequestActor(options: {
         handler: () => ({ state: noInviteOpen }),
       });
 
+      const sendFn = ({
+        signal,
+        emit,
+        state: current,
+      }: {
+        signal: AbortSignal;
+        emit: (
+          e: ReturnType<typeof requestSent.create> | ReturnType<typeof requestFailed.create>,
+        ) => void;
+        state: { payload: unknown };
+      }) =>
+        runInvoke(
+          signal,
+          () => port.ask(current.payload as JoinInvite),
+          () => emit(requestSent.create()),
+          () => emit(requestFailed.create({ message: SEND_FAILED })),
+        );
       /** The request is handed to the phone's sharing layer. */
       m.effect(sendingRequest, {
         name: "sendRequest",
         sends: [requestSent, requestFailed],
-        fn: ({ signal, emit, state: current }) =>
-          runInvoke(
-            signal,
-            () => port.ask(current.payload as JoinInvite),
-            () => emit(requestSent.create()),
-            () => emit(requestFailed.create({ message: SEND_FAILED })),
-          ),
+        fn: sendFn,
       });
       /** The request from the paste box is handed to the phone's sharing layer. */
       m.effect(sendingPastedRequest, {
         name: "sendPastedRequest",
         sends: [requestSent, requestFailed],
-        fn: ({ signal, emit, state: current }) =>
-          runInvoke(
-            signal,
-            () => port.ask(current.payload as JoinInvite),
-            () => emit(requestSent.create()),
-            () => emit(requestFailed.create({ message: SEND_FAILED })),
-          ),
+        fn: sendFn,
       });
       /** The request is on its way: "Waiting for <Admin>". */
       m.on(sendingRequest, {

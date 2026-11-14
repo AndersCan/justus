@@ -341,12 +341,12 @@ describe("Join tab", () => {
     expect(button().textContent).toContain("Ask to join");
     submit(host, goodLink);
     await vi.waitFor(() => expect(button().textContent).toContain("Checking the link…"));
-    expect(button().disabled).toBe(true);
+    expect(button().getAttribute("aria-disabled")).toBe("true");
     expect(paste().disabled).toBe(false);
     expect(input.readOnly).toBe(true);
     check.resolve([undefined, { turnedOff: false }]);
     await vi.waitFor(() => expect(button().textContent).toContain("Asking…"));
-    expect(button().disabled).toBe(true);
+    expect(button().getAttribute("aria-disabled")).toBe("true");
     send.resolve([undefined, {}]);
     await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
     expect(input.readOnly).toBe(false);
@@ -1060,5 +1060,19 @@ describe("primary button follows the invite box", () => {
     expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
     expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
     expect(scope.querySelector("[data-create-album]")!.hasAttribute("appearance")).toBe(false);
+  });
+
+  test("the box the app clears after a request makes Create primary again", async () => {
+    const scope = mountScope();
+    const input = scope.querySelector("input")!;
+    input.value = link;
+    input.dispatchEvent(new Event("input"));
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
+    join.reopenRequest({ ...ask("waiting"), askedAt: 0 } as never);
+    await vi.waitFor(() => expect(input.value).toBe(""));
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
+    join.closeWaiting();
+    scope.remove();
   });
 });

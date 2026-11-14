@@ -524,7 +524,8 @@ function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
             class="${rivalsCreate ? "ui-btn-ghost" : "ui-btn-primary"} flex-1"
             data-join-continue
             type="submit"
-            ?disabled=${busy || !settled || pasting}
+            ?disabled=${busy || !settled}
+            aria-disabled=${pasting ? "true" : "false"}
           >
             ${
               checking

@@ -1355,7 +1355,7 @@ test("Maya: closes the waiting screen and Nils declines", async () => {
   expect(actor.state.name).toBe("declinedByAdmin");
 });
 
-test("Ben taps a link Ada turned off and is told before asking", async () => {
+test("Ben opens a link Ada turned off and is told at Continue", async () => {
   const actor = await drive(
     async (send) => {
       await send("openLink", { text: LINK });
@@ -1368,21 +1368,6 @@ test("Ben taps a link Ada turned off and is told before asking", async () => {
     },
   );
   expect(actor.state.name).toBe("linkTurnedOffByAdmin");
-});
-
-test("Ben pastes a link Ada turned off and is told under the box", async () => {
-  const actor = await drive(
-    async (send) => {
-      await send("askWithPastedLink", { text: LINK });
-    },
-    {
-      port: {
-        ask: async () => [undefined, {}],
-        checkLink: async () => [undefined, { turnedOff: true }],
-      },
-    },
-  );
-  expect(actor.state.name).toBe("showingLinkProblem");
 });
 
 test("Ben opens a working link and is asked to join after the check", async () => {
@@ -1590,5 +1575,81 @@ describe("the update screen stays put", () => {
     const s = await onUpdateScreen();
     await s.send("openLink", { text: "nope" });
     expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+});
+
+describe("pasted link: branches the review found untested", () => {
+  test("a check that fails still sends the pasted request", async () => {
+    const asks: JoinInvite[] = [];
+    const s = setup({
+      port: {
+        checkLink: async () => [{ code: "X" }, null],
+        ask: async (i) => (asks.push(i), [undefined, {}]),
+      },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toEqual([INVITE]);
+  });
+
+  test("a check answer without turnedOff true still sends", async () => {
+    const asks: JoinInvite[] = [];
+    const s = setup({
+      port: {
+        checkLink: async () => [undefined, {}],
+        ask: async (i) => (asks.push(i), [undefined, {}]),
+      },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toHaveLength(1);
+  });
+
+  test("a mark on the stored ask opens the update screen after a pasted send", async () => {
+    const s = setup({
+      asked: (code) =>
+        code === INVITE.code ? { ...ask("waiting"), whoMustUpdate: "you" } : undefined,
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("a known marked request opens the update screen from the paste box", async () => {
+    const s = setup({
+      known: { kind: "waiting" },
+      asked: () => ({ ...ask("waiting"), whoMustUpdate: "you" }),
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("after an album opened, the next pasted link is asked", async () => {
+    const asks: JoinInvite[] = [];
+    const other = { ...INVITE, code: "e".repeat(64) };
+    const s = setup({
+      known: (i) => (i.code === INVITE.code ? { kind: "member", folderId: "f1" } : { kind: "new" }),
+      port: { ask: async (i) => (asks.push(i), [undefined, {}]) },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    await s.send("askWithPastedLink", { text: buildInviteLink(other) });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toEqual([other]);
+  });
+
+  test("a garbled tapped link during the pasted check keeps the check", async () => {
+    const s = setup({
+      port: {
+        checkLink: () => new Promise(() => {}),
+        ask: async () => [undefined, {}],
+      },
+    });
+    s.actor.send({ type: "askWithPastedLink", payload: { text: LINK } } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    s.actor.send({ type: "openLink", payload: { text: "nope" } } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    expect(payload(s)).toEqual(INVITE);
   });
 });
