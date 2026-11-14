@@ -13,6 +13,8 @@ import {
   welcomeEnded,
   pasteFoundNothing,
   askToJoin,
+  askWithPastedLink,
+  linkEdited,
   cancelRequest,
   closeStoppedLink,
   closeWaiting,
@@ -25,25 +27,30 @@ import {
   type RequestAnswer,
 } from "./join-request-machine";
 
+export const JOIN_STATES = [
+  "noInviteOpen",
+  "showingLinkProblem",
+  "joinedAlbum",
+  "checkingLink",
+  "checkingPastedLink",
+  "decidingToAsk",
+  "showingWelcome",
+  "holdingInviteUntilWelcomeEnds",
+  "sendingRequest",
+  "sendingPastedRequest",
+  "waitingForAdminToAccept",
+  "waitingForYouToUpdate",
+  "declinedByAdmin",
+  "linkExpired",
+  "linkTurnedOffByAdmin",
+  "linkReplacedByAdmin",
+  "albumDeletedByAdmin",
+  "linkStoppedForUnknownReason",
+] as const;
+
 /** What the join screens draw: which screen, whose album, and any error. */
 export type JoinView = {
-  state:
-    | "noInviteOpen"
-    | "showingLinkProblem"
-    | "joinedAlbum"
-    | "checkingLink"
-    | "decidingToAsk"
-    | "showingWelcome"
-    | "holdingInviteUntilWelcomeEnds"
-    | "sendingRequest"
-    | "waitingForAdminToAccept"
-    | "waitingForYouToUpdate"
-    | "declinedByAdmin"
-    | "linkExpired"
-    | "linkTurnedOffByAdmin"
-    | "linkReplacedByAdmin"
-    | "albumDeletedByAdmin"
-    | "linkStoppedForUnknownReason";
+  state: (typeof JOIN_STATES)[number];
   invite: JoinInvite | null;
   error: string;
 };
@@ -140,6 +147,10 @@ export const join = {
   openLink: (text: string) => joinActor.send(openLink.create({ text })),
   /** A tapped request row in the albums list. */
   reopenRequest: (row: AskSummary) => joinActor.send(reopenRequest.create({ ask: row })),
+  /** "Ask to join" under the paste box. */
+  askWithPastedLink: (text: string) => joinActor.send(askWithPastedLink.create({ text })),
+  /** The text in the paste box changed. */
+  linkEdited: () => joinActor.send(linkEdited.create()),
   askToJoin: () => joinActor.send(askToJoin.create()),
   notNow: () => joinActor.send(notNow.create()),
   cancelRequest: () => joinActor.send(cancelRequest.create()),

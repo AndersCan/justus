@@ -48,6 +48,24 @@ export const expiredBody = (owner: string) =>
 export const NOTHING_COPIED = copy("join_request.nothing_copied_yet");
 export const SEND_FAILED = copy("join_request.couldn_t_send_your_request");
 
+/** The one line under the paste box for a link that stopped working: what happened, then what to do. */
+export function stoppedLine(why: LinkOffWhy | undefined, ownerName: string): string {
+  const Owner = ownerShown(ownerName, "start");
+  const owner = ownerShown(ownerName, "mid");
+  switch (why) {
+    case "turnedOff":
+      return `${copy("join_request.owner_turned_off_this_link", { owner: Owner })} ${copy("join_request.ask_owner_for_a_new_link", { owner })}`;
+    case "replaced":
+      return `${copy("join_request.owner_replaced_this_link", { owner: Owner })} ${copy("join_request.ask_owner_for_the_new_link", { owner })}`;
+    case "albumDeleted":
+      return `${copy("join_request.owner_deleted_this_album", { owner: Owner })} ${copy("join_request.nothing_to_join_any_more")}`;
+    case "expired":
+      return `${EXPIRED_LINK} ${expiredBody(ownerName)}`;
+    default:
+      return `${copy("join_request.this_invite_link_no_longer")} ${expiredBody(ownerName)}`;
+  }
+}
+
 /** No invite is open. */
 const noInviteOpen = state("noInviteOpen")();
 /** The first-run welcome is on screen and no invite link is waiting. */
@@ -58,6 +76,10 @@ const holdingInviteUntilWelcomeEnds = state("holdingInviteUntilWelcomeEnds")<Joi
 const showingLinkProblem = state("showingLinkProblem")();
 /** "Checking <owner>'s link…": the owner's phone is asked whether the link was turned off, for at most a few seconds. Nothing is sent. */
 const checkingLink = state("checkingLink")<JoinInvite>();
+/** The paste box's button reads "Checking the link…": the owner's phone is asked whether the link was turned off, for at most a few seconds. No sheet; nothing is sent. */
+const checkingPastedLink = state("checkingPastedLink")<JoinInvite>();
+/** The paste box's button reads "Asking…" while the request is handed over. No sheet. */
+const sendingPastedRequest = state("sendingPastedRequest")<JoinInvite>();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
 const decidingToAsk = state("decidingToAsk")<JoinInvite>();
 /** The request is being sent; the buttons are disabled. */
@@ -97,6 +119,10 @@ export const pasteFoundNothing = event("pasteFoundNothing")();
 export const openLink = event("openLink")<{ text: string }>();
 /** The joiner taps a request row in the albums list. */
 export const reopenRequest = event("reopenRequest")<{ ask: AskSummary }>();
+/** The joiner taps "Ask to join" under the paste box. */
+export const askWithPastedLink = event("askWithPastedLink")<{ text: string }>();
+/** The joiner changed the text in the paste box. */
+export const linkEdited = event("linkEdited")();
 /** The joiner taps "Ask to join". */
 export const askToJoin = event("askToJoin")();
 /** The joiner taps "Not now". */
@@ -199,12 +225,34 @@ export function createJoinRequestActor(options: {
     return { state: checkingLink.create(invite) };
   }
 
+  /** The screen a link pasted under the box opens: like `screenFor`, but a stopped link says so under the box and a new one is checked with no sheet. */
+  function pastedScreenFor(invite: JoinInvite, context: { set(next: JoinContext): void }) {
+    const found = classify(invite);
+    if (found.kind === "own" || found.kind === "member") {
+      return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
+    }
+    if (found.kind === "waiting") {
+      return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+    }
+    if (found.kind === "stopped") {
+      context.set({ error: stoppedLine(found.why, invite.ownerName) });
+      return { state: showingLinkProblem };
+    }
+    if (hasEnded(invite, clock.now())) {
+      context.set({ error: stoppedLine("expired", invite.ownerName) });
+      return { state: showingLinkProblem };
+    }
+    return { state: checkingPastedLink.create(invite) };
+  }
+
   return Actor({
     inputs: [
       welcomeStarted,
       welcomeEnded,
       pasteFoundNothing,
       openLink,
+      askWithPastedLink,
+      linkEdited,
       reopenRequest,
       askToJoin,
       notNow,
@@ -225,8 +273,10 @@ export function createJoinRequestActor(options: {
       showingLinkProblem,
       joinedAlbum,
       checkingLink,
+      checkingPastedLink,
       decidingToAsk,
       sendingRequest,
+      sendingPastedRequest,
       waitingForAdminToAccept,
       waitingForYouToUpdate,
       declinedByAdmin,
@@ -242,6 +292,7 @@ export function createJoinRequestActor(options: {
         showingLinkProblem,
         joinedAlbum,
         checkingLink,
+        checkingPastedLink,
         decidingToAsk,
         waitingForAdminToAccept,
         waitingForYouToUpdate,
@@ -256,6 +307,7 @@ export function createJoinRequestActor(options: {
             showingLinkProblem,
             joinedAlbum,
             checkingLink,
+            checkingPastedLink,
             decidingToAsk,
             waitingForAdminToAccept,
             waitingForYouToUpdate,
@@ -295,6 +347,46 @@ export function createJoinRequestActor(options: {
           },
         });
       }
+
+      for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum]) {
+        /** "Ask to join" under the paste box: no dialog; problems show under the box. Dropped while a check or send runs. */
+        m.on(from, {
+          event: askWithPastedLink,
+          to: [
+            showingLinkProblem,
+            joinedAlbum,
+            checkingPastedLink,
+            waitingForAdminToAccept,
+            waitingForYouToUpdate,
+          ],
+          handler: (e, { context }) => {
+            const text = e.payload.text;
+            const parsed = parseInviteLink(text);
+            if (parsed.kind !== "invite") {
+              context.set({
+                error:
+                  text.trim() === ""
+                    ? NOTHING_COPIED
+                    : parsed.kind === "old"
+                      ? oldLinkMessage(parsed.ownerName)
+                      : GARBLED_LINK,
+              });
+              return { state: showingLinkProblem };
+            }
+            context.set({ error: "" });
+            return pastedScreenFor(parsed.invite, context);
+          },
+        });
+      }
+      /** Typing in the box clears the problem under it. */
+      m.on(showingLinkProblem, {
+        event: linkEdited,
+        to: [noInviteOpen],
+        handler: (_e, { context }) => {
+          context.set({ error: "" });
+          return { state: noInviteOpen };
+        },
+      });
 
       /** The first-run welcome opens. */
       m.on(noInviteOpen, {
@@ -388,8 +480,10 @@ export function createJoinRequestActor(options: {
 
       for (const from of [
         checkingLink,
+        checkingPastedLink,
         decidingToAsk,
         sendingRequest,
+        sendingPastedRequest,
         linkExpired,
         ...stoppedStates,
       ]) {
@@ -425,6 +519,25 @@ export function createJoinRequestActor(options: {
             () => emit(linkChecked.create({ turnedOff: false })),
           ),
       });
+      /** The same check for a pasted link; no failure is shown, not knowing leads to the send. */
+      m.effect(checkingPastedLink, {
+        name: "checkPastedLink",
+        sends: [linkChecked],
+        fn: ({ signal, emit, state: current }) =>
+          runInvoke(
+            signal,
+            () =>
+              port.checkLink?.(current.payload as JoinInvite) ??
+              Promise.resolve([undefined, { turnedOff: false }] as [unknown, unknown]),
+            (r) =>
+              emit(
+                linkChecked.create({
+                  turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
+                }),
+              ),
+            () => emit(linkChecked.create({ turnedOff: false })),
+          ),
+      });
       /** Off: the link is refused before any question. Anything else: today's question. */
       m.on(checkingLink, {
         event: linkChecked,
@@ -434,6 +547,44 @@ export function createJoinRequestActor(options: {
           return e.payload.turnedOff
             ? { state: linkTurnedOffByAdmin.create(invite) }
             : { state: decidingToAsk.create(invite) };
+        },
+      });
+
+      /** Off or ended: the link is refused under the box. Anything else: the request goes out. */
+      m.on(checkingPastedLink, {
+        event: linkChecked,
+        to: [showingLinkProblem, sendingPastedRequest],
+        handler: (e, { actor, context }) => {
+          const invite = actor.snapshot().payload as JoinInvite;
+          const why = e.payload.turnedOff
+            ? "turnedOff"
+            : hasEnded(invite, clock.now())
+              ? "expired"
+              : undefined;
+          if (why !== undefined) {
+            context.set({ error: stoppedLine(why, invite.ownerName) });
+            return { state: showingLinkProblem };
+          }
+          return { state: sendingPastedRequest.create(invite) };
+        },
+      });
+      /** The request is on its way: "Waiting for <Admin>". */
+      m.on(sendingPastedRequest, {
+        event: requestSent,
+        to: [waitingForAdminToAccept, waitingForYouToUpdate],
+        handler: (_e, { actor, context }) => {
+          context.set({ error: "" });
+          const invite = actor.snapshot().payload as JoinInvite;
+          return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        },
+      });
+      /** The send failed: the box keeps the link and says so under it. */
+      m.on(sendingPastedRequest, {
+        event: requestFailed,
+        to: [showingLinkProblem],
+        handler: (e, { context }) => {
+          context.set({ error: e.payload.message });
+          return { state: showingLinkProblem };
         },
       });
 
@@ -459,6 +610,18 @@ export function createJoinRequestActor(options: {
       /** The request is handed to the phone's sharing layer. */
       m.effect(sendingRequest, {
         name: "sendRequest",
+        sends: [requestSent, requestFailed],
+        fn: ({ signal, emit, state: current }) =>
+          runInvoke(
+            signal,
+            () => port.ask(current.payload as JoinInvite),
+            () => emit(requestSent.create()),
+            () => emit(requestFailed.create({ message: SEND_FAILED })),
+          ),
+      });
+      /** The request from the paste box is handed to the phone's sharing layer. */
+      m.effect(sendingPastedRequest, {
+        name: "sendPastedRequest",
         sends: [requestSent, requestFailed],
         fn: ({ signal, emit, state: current }) =>
           runInvoke(
@@ -589,6 +752,8 @@ function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown
   switch (snap.path[0]) {
     case "checkingLink":
       return checkingLink.create(invite);
+    case "checkingPastedLink":
+      return checkingPastedLink.create(invite);
     case "decidingToAsk":
       return decidingToAsk.create(invite);
     case "waitingForAdminToAccept":

@@ -84,7 +84,7 @@
     "screen": ""
   },
   "join_request.that_invite_doesn_t_look": {
-    "text": "That invite doesn't look right. Check you copied all of it.",
+    "text": "That doesn't look like a Justus invite link. Copy the whole message from your chat, then tap Paste.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -1708,7 +1708,7 @@
     "screen": "welcome-start"
   },
   "albums.got_an_invite_link_from": {
-    "text": "Got an invite link from someone? Paste it here to ask to join their album.",
+    "text": "Got an invite link from someone? Paste it here to ask to join their album. They'll see your name and can accept or decline.",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
@@ -1742,11 +1742,18 @@
     "who": "Everyone, every time they open Your albums",
     "screen": "welcome-start"
   },
-  "albums.continue": {
-    "text": "Continue",
+  "albums.ask_to_join": {
+    "text": "Ask to join",
     "status": "draft",
     "where": "Your albums › button",
     "who": "Everyone, every time they open Your albums",
+    "screen": "welcome-start"
+  },
+  "albums.checking_the_link": {
+    "text": "Checking the link…",
+    "status": "draft",
+    "where": "Your albums › button, while the owner's phone is asked",
+    "who": "People joining by a pasted link",
     "screen": "welcome-start"
   },
   "albums.tap_an_album_to_invite": {
@@ -3096,7 +3103,7 @@
   "invite.asking": {
     "text": "Asking…",
     "status": "draft",
-    "where": "Invite & join › text",
+    "where": "Invite & join › text, and the paste box button",
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },

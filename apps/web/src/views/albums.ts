@@ -11,7 +11,7 @@ import {
   foldersViewModel,
 } from "../machines/folders-machine";
 import { SYNC_STATES, syncActor, syncViewModel } from "../machines/sync-machine";
-import { join, joinActor, joinViewOf } from "../machines/sharing/join-request";
+import { JOIN_STATES, join, joinActor, joinViewOf } from "../machines/sharing/join-request";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { friendOffer, friendOfferActor } from "../machines/sharing/friend-offer";
 import { friendsActor } from "../machines/friends-machine";
@@ -450,22 +450,12 @@ function newAlbumSection(view: FoldersViewModel) {
   `;
 }
 
-/** The "doesn't look right" message for a pasted link that could not be read. */
-export function joinError() {
-  return watch(joinActor, (s) => {
-    const { state, error } = joinViewOf(s);
-    return state === "showingLinkProblem" && error
-      ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
-      : null;
-  });
-}
-
-/** True when the pasted text is an invite link: then Continue is the next step, not Create an album. */
+/** True when the pasted text is an invite link: then "Ask to join" is the next step, not Create an album. */
 export function hasInviteLink(text: string): boolean {
   return parseInviteLink(text).kind === "invite";
 }
 
-/** Swaps which button is primary inside `scope`: Continue when an invite is pasted, else Create. */
+/** Swaps which button is primary inside `scope`: "Ask to join" when an invite is pasted, else Create. */
 export function applyPrimaryButtons(scope: ParentNode, invite: boolean) {
   const next = scope.querySelector("[data-join-continue]");
   next?.classList.toggle("ui-btn-primary", invite);
@@ -481,31 +471,40 @@ function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
     <section class="ui-card p-5">
       <h2 class="ui-label mb-1">${t("albums.join_with_an_invite_link")}</h2>
       <p class="mb-3 text-sm text-fg">${t("albums.got_an_invite_link_from")}</p>
-      <form
+      ${joinForm(settled, busy, rivalsCreate)}
+    </section>
+  `;
+}
+
+/** The paste box, its buttons and the problem line. One template for every join state, so the primary class `applyPrimaryButtons` sets survives a re-render. */
+function joinForm(settled: boolean, busy: boolean, rivalsCreate: boolean) {
+  return watch(joinActor, (s) => {
+    const { state, error } = joinViewOf(s);
+    const checking = state === "checkingPastedLink";
+    const pasting = checking || state === "sendingPastedRequest";
+    return html`<form
         class="flex flex-col gap-2 sm:flex-row"
         @submit=${(e: SubmitEvent) => {
           e.preventDefault();
           const input = (e.target as HTMLFormElement).querySelector("input") as HTMLInputElement;
-          const text = input.value;
-          join.openLink(text);
-          if (hasInviteLink(text)) {
-            input.value = "";
-            input.dispatchEvent(new Event("input"));
-          }
+          join.askWithPastedLink(input.value);
         }}
       >
         <input
           class="ui-input flex-1"
+          data-join-input
           placeholder=${copy("albums.paste_the_invite_link")}
           aria-label=${copy("albums.invite_link")}
           spellcheck="false"
           autocapitalize="none"
           autocomplete="off"
           autocorrect="off"
+          ?readonly=${pasting}
           @input=${(e: Event) => {
             const input = e.currentTarget as HTMLInputElement;
             const scope = input.closest("[data-invite-scope]");
             if (scope) applyPrimaryButtons(scope, hasInviteLink(input.value));
+            join.linkEdited();
           }}
         />
         <div class="flex gap-2">
@@ -525,16 +524,43 @@ function joinSection(settled: boolean, busy: boolean, rivalsCreate: boolean) {
             class="${rivalsCreate ? "ui-btn-ghost" : "ui-btn-primary"} flex-1"
             data-join-continue
             type="submit"
-            ?disabled=${busy || !settled}
+            ?disabled=${busy || !settled || pasting}
           >
-            ${t("albums.continue")}
+            ${
+              checking
+                ? t("albums.checking_the_link")
+                : pasting
+                  ? t("invite.asking")
+                  : t("albums.ask_to_join")
+            }
           </button>
         </div>
       </form>
-      ${joinError()}
-    </section>
-  `;
+      ${
+        state === "showingLinkProblem" && error
+          ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>`
+          : null
+      }`;
+  });
 }
+
+/** Empties every paste box once the request is on its way. */
+export function clearPasteBoxes(root: ParentNode) {
+  for (const input of root.querySelectorAll<HTMLInputElement>("[data-join-input]")) {
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+  }
+}
+
+onStateChange(joinActor, JOIN_STATES, (next) => {
+  if (
+    next === "waitingForAdminToAccept" ||
+    next === "waitingForYouToUpdate" ||
+    next === "joinedAlbum"
+  ) {
+    clearPasteBoxes(document);
+  }
+});
 
 /** Sharing → Your albums: every album with its people, plus starting a new one. */
 export function albumsPanel() {
@@ -585,7 +611,7 @@ export function pendingAsks() {
 }
 
 /** Sharing → Join: paste an invite to ask into someone's album. */
-/** `rivalsCreate`: a Create an album button sits beside it, so Continue is primary only once a link is pasted. */
+/** `rivalsCreate`: a Create an album button sits beside it, so "Ask to join" is primary only once a link is pasted. */
 export function joinPanel(rivalsCreate = false) {
   return watch(syncActor, (s) => {
     const syncVm = syncViewModel(s);

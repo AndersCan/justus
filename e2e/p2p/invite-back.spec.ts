@@ -26,13 +26,10 @@ function addPushes(page) {
   return () => texts.filter((t) => t.includes('"cause":"add"')).length;
 }
 
-async function askToJoin(b, link, album) {
+async function askToJoin(b, link, _album) {
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Continue", exact: true }).click();
-  const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
-  await expect(ask).toBeVisible({ timeout: 20_000 });
-  await ask.getByRole("button", { name: "Ask to join" }).click();
+  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
   await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
 }
 
