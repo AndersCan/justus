@@ -18,7 +18,7 @@ test("copyInviteLink waits for this album's link, not the one already on the cli
   await skipIntro([a]);
   await createAlbum(a, "Clip old", "clip-old.png", 61);
   const old = await copyInviteLink(a);
-  expect(new URL(old).searchParams.get("n")).toBe("Clip old");
+  expect(new URLSearchParams(new URL(old).hash.slice(1)).get("n")).toBe("Clip old");
 
   await createAlbum(a, "Clip new", "clip-new.png", 62);
   // A busy CI runner: the app writes the link a moment after the tap.
@@ -28,5 +28,5 @@ test("copyInviteLink waits for this album's link, not the one already on the cli
       new Promise((r) => setTimeout(r, 1_000)).then(() => write(t));
   });
   const link = await copyInviteLink(a);
-  expect(new URL(link).searchParams.get("n")).toBe("Clip new");
+  expect(new URLSearchParams(new URL(link).hash.slice(1)).get("n")).toBe("Clip new");
 });

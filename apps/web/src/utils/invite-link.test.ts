@@ -10,6 +10,62 @@ import {
 const A = "a".repeat(64);
 const B = "b".repeat(64);
 
+describe("the https invite link", () => {
+  const invite = { code: A, owner: B, album: "Lisbon & co #1", ownerName: "Nils", expiresAt: 5000 };
+
+  test("is built on the page address with the invite after the #", () => {
+    expect(buildInviteLink(invite)).toMatch(
+      /^https:\/\/anderscan\.github\.io\/justus\/join\/#i=a{64}&o=b{64}&e=5&n=/,
+    );
+  });
+
+  test("reads back to the same invite", () => {
+    expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
+  });
+
+  test("is found inside a message", () => {
+    const link = buildInviteLink({ ...invite, expiresAt: undefined, album: "Lisbon" });
+    expect(parseInviteLink(`Join! ${link} thanks`)).toEqual({
+      kind: "invite",
+      invite: { code: A, owner: B, album: "Lisbon", ownerName: "Nils" },
+    });
+  });
+
+  test("still reads the justus:// form", () => {
+    expect(parseInviteLink(`justus://join?i=${A}&o=${B}&n=Lisbon`).kind).toBe("invite");
+  });
+
+  test("without a # is garbled", () => {
+    expect(parseInviteLink("https://anderscan.github.io/justus/join/")).toEqual({
+      kind: "garbled",
+    });
+  });
+
+  test("reads the page address without a trailing slash", () => {
+    expect(parseInviteLink(`https://anderscan.github.io/justus/join#i=${A}&o=${B}`).kind).toBe(
+      "invite",
+    );
+  });
+
+  test("reads the page address in upper case", () => {
+    expect(parseInviteLink(`HTTPS://AndersCan.GitHub.io/justus/join/#i=${A}&o=${B}`).kind).toBe(
+      "invite",
+    );
+  });
+
+  test("on another site is garbled", () => {
+    expect(parseInviteLink(`https://evil.example/justus/join/#i=${A}&o=${B}`)).toEqual({
+      kind: "garbled",
+    });
+  });
+
+  test("a web address /join?… becomes the https link", () => {
+    expect(inviteLinkFromAddress("/join", `?i=${A}&o=${B}`)).toBe(
+      buildInviteLink({ code: A, owner: B, album: "this album", ownerName: "" }),
+    );
+  });
+});
+
 describe("parseInviteLink", () => {
   test("finds the link inside a message", () => {
     expect(parseInviteLink(`Join! justus://join?i=${A}&o=${B}&n=Lisbon&a=Nils thanks`)).toEqual({

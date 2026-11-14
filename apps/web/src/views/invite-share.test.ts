@@ -53,7 +53,7 @@ describe("Send invite link in the store apps", () => {
     await shareInvite(folder, "Nils");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]![0]).toMatch(
-      /^Ask to join my Justus album “Lisbon trip”: justus:\/\/join\?/,
+      /^Ask to join my Justus album “Lisbon trip”: https:\/\/anderscan\.github\.io\/justus\/join\/#/,
     );
     expect(writeText).not.toHaveBeenCalled();
   });

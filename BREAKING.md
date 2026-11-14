@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 4
 
+- **Invite links are web links** (`https://anderscan.github.io/justus/join/#…`; `justus://join?…` still works). Who: testers on builds from before this change: pasting a new link says it doesn't look right. Do: tap Open in Justus on the link's page, or update Justus.
 - **Phones note the photos they showed as a preview** (`/previewed/<id>` on each phone's album drive). Who: internal testers on a protocol-4 build from before this change: their phone shows as not having a photo it showed as a preview. Do: update Justus.
 - **Each person has a colour seat** (`/members.json` and `/viewers.json` entries gain an optional `"color"`, written by the Admin's phone). Who: internal testers on a protocol-4 build from before this change. Their colours disagree with updated phones, and an Admin on such a build writes people without a seat until it updates. Do: update Justus.
 - **An album from before 2026-10-28 is cleared off the phone's identity drive** after it moved. Who: testers whose first album predates #195. Do: nothing.

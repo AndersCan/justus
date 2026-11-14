@@ -23,6 +23,9 @@ export const MAX_HINT = 80;
 const FALLBACK_ALBUM = copy("invite_link.this_album");
 const HEX64 = /^[0-9a-f]{64}$/i;
 const SECONDS = /^\d{1,12}$/;
+/** The page people open from a chat. The invite sits after the "#", which browsers never send. */
+export const INVITE_PAGE = "https://anderscan.github.io/justus/join/";
+const PAGE_LINK = /https:\/\/anderscan\.github\.io\/justus\/join\/?#([^\s]*)/i;
 const LINK = /justus:\/\/join\?([^\s]*)/i;
 const OLD_LINK = /justus:\/\/join\/[0-9a-f]{64}(?![0-9a-f])(?:\?([^\s]*))?/i;
 
@@ -45,6 +48,7 @@ export function ownerShown(name: string, at: "start" | "mid"): string {
   return name;
 }
 
+/** docs/site/public/join/join.js reads this link; scripts/join-page.test.ts pins both. */
 export function buildInviteLink(invite: JoinInvite): string {
   const params = new URLSearchParams({
     i: invite.code.toLowerCase(),
@@ -53,12 +57,12 @@ export function buildInviteLink(invite: JoinInvite): string {
     n: invite.album,
     a: invite.ownerName,
   });
-  return `justus://join?${params.toString()}`;
+  return `${INVITE_PAGE}#${params.toString()}`;
 }
 
-/** Finds an invite link anywhere in the text. Old-style links are `old`; bare keys are garbled. */
+/** Finds an invite link anywhere in the text: the https page link or `justus://join?`. Old-style links are `old`; bare keys are garbled. */
 export function parseInviteLink(text: string): ParsedInvite {
-  const match = LINK.exec(text);
+  const match = PAGE_LINK.exec(text) ?? LINK.exec(text);
   if (!match) {
     const old = OLD_LINK.exec(text);
     if (!old) return { kind: "garbled" };
@@ -85,7 +89,7 @@ export function parseInviteLink(text: string): ParsedInvite {
   };
 }
 
-/** The invite link a web address carries: `/join?i=…&o=…` reads as the same link text a phone app hands over. Anything else: undefined. */
+/** The invite link a web address carries: `/join?i=…&o=…` reads as the https invite link the app hands out. Anything else: undefined. */
 export function inviteLinkFromAddress(pathname: string, search: string): string | undefined {
   if (pathname.toLowerCase().replace(/\/$/, "") !== "/join") return undefined;
   if (!search.startsWith("?")) return undefined;
