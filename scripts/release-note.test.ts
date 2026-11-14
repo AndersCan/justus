@@ -84,3 +84,11 @@ test("the script fails for a version with no changelog section and rejects a bad
   const bad = spawnSync("node", ["scripts/release-note.mjs", "oops"], { encoding: "utf8" });
   expect(bad.status).toBe(2);
 });
+
+test("reads [user] lines after vp fmt turns *(patch)* into _(patch)_", () => {
+  const formatted =
+    "## 0.4.0\n\n- _(minor)_ [user]: A deleted photo leaves your phone.\n- _(patch)_ Tidy CI.\n";
+  expect(userLines(changelogSection(formatted, "0.4.0"))).toEqual([
+    "A deleted photo leaves your phone.",
+  ]);
+});
