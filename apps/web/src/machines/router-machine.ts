@@ -101,7 +101,9 @@ export function currentPage(): AppPage | undefined {
 
 function sync(): void {
   const to = parsePath(location.pathname);
-  albumSwap(currentPage(), to, () => routerActor.send(navigated.create({ page: to })));
+  albumSwap(currentPage(), to, () =>
+    routerActor.send(navigated.create({ page: parsePath(location.pathname) })),
+  );
 }
 
 /** Goes to `path`, adding a history entry (or replacing the current one). No-op on the current URL. */

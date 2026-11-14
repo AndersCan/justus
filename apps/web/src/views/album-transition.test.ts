@@ -108,3 +108,28 @@ describe("albumSwap", () => {
     expect(apply).toHaveBeenCalledTimes(1);
   });
 });
+
+test("opening names the tapped card, not another one", () => {
+  reduceMotion(false);
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const other = document.createElement("a");
+  other.dataset.albumCard = "b2";
+  document.body.append(other);
+  const el = card();
+  const seen: (string | null)[] = [];
+  (document as Doc).startViewTransition = (cb: () => void) => {
+    seen.push(other.getAttribute("data-vt"), el.getAttribute("data-vt"));
+    cb();
+    return { ready: Promise.resolve(), finished: Promise.resolve() };
+  };
+  albumSwap(grid, page, () => {});
+  expect(seen).toEqual([null, "album"]);
+});
+
+test("the grid scroll is restored after the grid is back on screen", () => {
+  reduceMotion(false);
+  const order: string[] = [];
+  vi.spyOn(window, "scrollTo").mockImplementation(() => void order.push("scroll"));
+  albumSwap(page, grid, () => order.push("apply"));
+  expect(order).toEqual(["apply", "scroll"]);
+});

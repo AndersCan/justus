@@ -44,3 +44,15 @@ test("the album card grows into its page and shrinks back; Reduce motion has no 
   await expect(page).toHaveURL(/\/albums$/);
   expect(await calls()).toEqual([]);
 });
+
+test("Back right after tapping an album lands on the grid", async ({ page }) => {
+  await page.goto("/albums");
+  const card = page.locator("[data-album-card]").first();
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  await card.click();
+  await page.evaluate(() => history.back());
+  await expect(page).toHaveURL(/\/albums$/);
+  await page.waitForTimeout(1500);
+  await expect(page.getByRole("link", { name: "All albums" })).toHaveCount(0);
+  await expect(page.locator("[data-album-card]").first()).toBeVisible();
+});
