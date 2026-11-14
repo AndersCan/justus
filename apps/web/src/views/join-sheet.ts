@@ -201,11 +201,16 @@ export function renderJoinSheet(
           class="ui-btn-ghost"
           data-dismiss
           autofocus
+          ?disabled=${state === "sendingRequestAgain"}
           @click=${() => actions.dismissDecline()}
         >
           ${t("invite.not_now")}
         </button>
-        <button class="ui-btn-primary" @click=${() => actions.askAgain()}>
+        <button
+          class="ui-btn-primary"
+          ?disabled=${state === "sendingRequestAgain"}
+          @click=${() => actions.askAgain()}
+        >
           ${copy("invite.ask_again")}
         </button>
       </div>`,

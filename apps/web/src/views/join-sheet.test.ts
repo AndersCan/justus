@@ -105,6 +105,28 @@ describe("renderJoinSheet", () => {
     expect(div.querySelector('[role="alert"]')).toBeNull();
   });
 
+  test("while Ask again is sending, both buttons are disabled and the title stays", () => {
+    const askAgain = vi.fn();
+    const dismissDecline = vi.fn();
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet(
+        { state: "sendingRequestAgain", invite, error: "" },
+        { ...actions, askAgain, dismissDecline },
+      ),
+      div,
+    );
+    const buttons = [...div.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Not now", "Ask again"]);
+    expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
+    expect(div.querySelector("h3")?.textContent).toBe(
+      copy("invite.didn_t_accept_your_request", { owner }),
+    );
+    const declined = document.createElement("div");
+    render(renderJoinSheet({ state: "declinedByAdmin", invite, error: "" }, actions), declined);
+    expect([...declined.querySelectorAll("button")].map((b) => b.disabled)).toEqual([false, false]);
+  });
+
   test("a failed Ask again shows its error on the declined sheet", () => {
     const div = document.createElement("div");
     render(renderJoinSheet({ state: "declinedByAdmin", invite, error: "Nope." }, actions), div);
@@ -223,6 +245,7 @@ describe("renderJoinSheet picks the start or mid form for every owner line", () 
     ["linkReplacedByAdmin", `${C} replaced this link`, `Ask ${P} for the new link.`],
     ["albumDeletedByAdmin", `${C} deleted this album`, ""],
     ["declinedByAdmin", `${C} didn't accept your request.`, `You can ask ${P} again.`],
+    ["sendingRequestAgain", `${C} didn't accept your request.`, `You can ask ${P} again.`],
     ["waitingForAdminToAccept", `Request to join sent to ${P}.`, ""],
     ["waitingForYouToUpdate", `It reaches ${P} once both phones`, ""],
     ["linkExpired", `Ask ${P} for a new one.`, ""],
