@@ -1,6 +1,9 @@
 // @ts-check
 // Reads the invite link after the "#". apps/web/src/utils/invite-link.ts builds it and
 // scripts/join-page.test.ts pins the two together: change one, change the other.
+// ACCEPT_LINE is pinned to en.json join_page.* by the same test.
+
+export const ACCEPT_LINE = "{owner} will get your request and has to accept it.";
 
 const HEX64 = /^[0-9a-f]{64}$/i;
 
@@ -55,6 +58,12 @@ export function showInvitePage(doc, page) {
   open.hidden = false;
   after.textContent = "Nothing happened? Justus isn't on this phone yet. Get it below.";
   for (const el of doc.querySelectorAll(".owner")) el.textContent = who;
+  const line = doc.getElementById("accept-line");
+  if (line) {
+    const name = page.owner === "" ? "The person who invited you" : page.owner;
+    line.textContent = ACCEPT_LINE.replace("{owner}", () => name);
+    line.hidden = false;
+  }
 }
 
 if (typeof document !== "undefined") showInvitePage(document, readInvitePage(location.hash));

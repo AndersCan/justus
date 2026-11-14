@@ -122,6 +122,11 @@ describe("invite page in a browser", () => {
         "Nothing happened? Justus isn't on this phone yet. Get it below.",
       );
       expect(await page.locator("ol li").first().textContent()).toContain("ask Tom how to join");
+      expect(await page.locator("#open + #accept-line").count()).toBe(1);
+      expect(await page.locator("#accept-line").isVisible()).toBe(true);
+      expect(await page.locator("#accept-line").textContent()).toBe(
+        "Tom will get your request and has to accept it.",
+      );
       expect(requests.map((r) => r.url).sort()).toEqual([
         `${ORIGIN}join/`,
         `${ORIGIN}join/join.js`,
@@ -138,13 +143,17 @@ describe("invite page in a browser", () => {
 
   it("writes names as text only", async () => {
     const { browser, page, dialogs } = await open(
-      `i=${A}&o=${B}&n=${encodeURIComponent("<img src=x onerror=alert(1)>")}&a=Tom`,
+      `i=${A}&o=${B}&n=${encodeURIComponent("<img src=x onerror=alert(1)>")}&a=${encodeURIComponent("<img src=x onerror=alert(1)>")}`,
     );
     try {
       expect(await page.locator("#heading").textContent()).toContain(
         "<img src=x onerror=alert(1)>",
       );
       expect(await page.locator("#heading img").count()).toBe(0);
+      expect(await page.locator("#accept-line").textContent()).toMatch(
+        /^<img src=x onerror=alert\(1\)> will get/,
+      );
+      expect(await page.locator("#accept-line img").count()).toBe(0);
       expect(dialogs).toEqual([]);
     } finally {
       await browser.close();
@@ -157,6 +166,8 @@ describe("invite page in a browser", () => {
       expect(await page.locator("#open").isVisible()).toBe(false);
       expect(await page.locator("#open").getAttribute("href")).toBeNull();
       expect(await page.locator("#after-open").textContent()).toContain("missing a part");
+      expect(await page.locator("#accept-line").isVisible()).toBe(false);
+      expect(await page.locator("#accept-line").textContent()).toBe("");
     } finally {
       await browser.close();
     }
@@ -183,10 +194,38 @@ describe("invite page without a name", () => {
       expect(await page.locator("ol li").first().textContent()).toContain(
         "ask the person who invited you how to join",
       );
+      expect(await page.locator("#accept-line").textContent()).toBe(
+        "The person who invited you will get your request and has to accept it.",
+      );
+      await page.goto(`${ORIGIN}join/#i=${A}&o=${B}&n=Garden&a=${encodeURIComponent("$&")}`);
+      await page.reload();
+      expect(await page.locator("#accept-line").textContent()).toBe(
+        "$& will get your request and has to accept it.",
+      );
     } finally {
       await browser.close();
     }
   });
+});
+
+describe("join page words", () => {
+  const en: Record<string, { text: string; status: string }> = JSON.parse(
+    readFileSync(join(import.meta.dirname, "../apps/web/src/copy/en.json"), "utf8"),
+  );
+  const source = readFileSync(join(publicDir, "join/join.js"), "utf8");
+  const ids = Object.keys(en).filter((id) => id.startsWith("join_page."));
+  it("has at least one entry", () => {
+    expect(ids.length).toBeGreaterThan(0);
+  });
+  for (const id of ids) {
+    it(`keeps ${id} equal in join.js`, () => {
+      expect(["draft", "approved"]).toContain(en[id].status);
+      expect(
+        source.includes(JSON.stringify(en[id].text)),
+        `join.js must hold the exact text of en.json ${id}; change both`,
+      ).toBe(true);
+    });
+  }
 });
 
 describe("index.html", () => {
