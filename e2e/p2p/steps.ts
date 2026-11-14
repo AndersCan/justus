@@ -31,6 +31,7 @@ export async function copyInviteLink(a) {
     .getByRole("link", { name: /Invite & members/ })
     .first()
     .click();
+  await a.evaluate(() => navigator.clipboard.writeText(""));
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
