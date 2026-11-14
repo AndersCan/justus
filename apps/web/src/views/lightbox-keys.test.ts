@@ -220,6 +220,12 @@ describe("swipe in the lightbox", () => {
     it("ignores a mostly sideways swipe", () => {
       expect(swipe([300, 100], [180, 190])?.id).toBe(photo.id);
     });
+    it("closes when down is more than sideways, even under 1.5 times", () => {
+      expect(swipe([100, 100], [200, 220])).toBeUndefined();
+    });
+    it("ignores a swipe of exactly 80 px down", () => {
+      expect(swipe([100, 100], [100, 180])?.id).toBe(photo.id);
+    });
   });
 });
 
