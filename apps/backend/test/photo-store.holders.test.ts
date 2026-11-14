@@ -26,12 +26,17 @@ async function until(done: () => boolean | Promise<boolean>, ms = 4_000): Promis
 function watched(
   deps: ReturnType<typeof fakeStoreDeps>,
   heldPuts: string[],
-  quiet: { on: boolean; previews: boolean },
+  quiet: { on: boolean; previews: boolean; delFails: boolean },
 ) {
   {
     const openOwn = deps.drives.openOwn.bind(deps.drives);
     deps.drives.openOwn = async (namespace?: string) => {
       const drive = await openOwn(namespace);
+      const del = drive.del.bind(drive);
+      drive.del = async (path: string, ...rest: unknown[]) => {
+        if (quiet.delFails && path.startsWith("/held/")) throw new Error("disk full");
+        return (del as (...a: unknown[]) => Promise<void>)(path, ...rest);
+      };
       const put = drive.put.bind(drive);
       drive.put = async (path: string, body: Uint8Array, opts?: Parameters<Drive["put"]>[2]) => {
         if (path.startsWith("/held/")) {
@@ -79,9 +84,11 @@ function phone(
     deviceName,
     server,
     onChanged: (e) => pushes.push(e as { cause: string }),
+    log: (e: { event: string; fields: Record<string, unknown> }) => logs.push(e),
   });
   const heldPuts: string[] = [];
-  const quiet = { on: false, previews: false };
+  const quiet = { on: false, previews: false, delFails: false };
+  const logs: { event: string; fields: Record<string, unknown> }[] = [];
   watched(deps, heldPuts, quiet);
   if (options.oldApp) {
     // A phone from before holding records: its writes to them are lost.
@@ -97,7 +104,7 @@ function phone(
     };
   }
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { deps, server, pushes, heldPuts, quiet, store: createPhotoStore(deps) };
+  return { deps, server, pushes, heldPuts, quiet, logs, store: createPhotoStore(deps) };
 }
 
 async function album(options: { viewer?: boolean; oldApp?: boolean } = {}) {
@@ -870,6 +877,24 @@ describe("who has each photo", () => {
     await s.close();
   }, 20_000);
 
+  it("an Admin tombstoning Cleo's photo takes it out of Nils's record", async () => {
+    const s = await threePhones();
+    await s.cleo.store.addBytes("cleo.jpg", new Uint8Array([9, 9, 9]));
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
+    const photo = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "cleo.jpg")!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    const shareKey = (await s.nils.store.folders()).folders[0]!.shareKey;
+    const drive = await s.nils.deps.drives.openOwn(`member/${shareKey}`);
+    const held = async () => (await drive.readSmall(`/held/${photo.id}`, 10)) !== undefined;
+    await until(held);
+    await until(async () => (await s.anna.store.list(s.folderId)).length === 2);
+    const annaSees = (await s.anna.store.list(s.folderId)).find((p) => p.name === "cleo.jpg")!;
+    expect((await s.anna.store.remove(annaSees.id))[0]).toBeNull();
+    await until(async () => (await s.nils.store.list(s.nilsFolderId), !(await held())));
+    expect(await held()).toBe(false);
+    await s.close();
+  }, 20_000);
+
   describe("copyDeleted from a removed phone", () => {
     const identityOf = (s: { store: { debugState(): unknown } }) =>
       (s.store.debugState() as { identityDrive: string }).identityDrive;
@@ -994,17 +1019,23 @@ describe("a deleted photo leaves the phone's holding record", () => {
     await s.close();
   });
 
-  it("opening the old route afterwards does not record the photo again", async () => {
+  it("a failing delete of the holding record is logged", async () => {
     const s = await album();
     const photo = (await s.nilsPhoto())!;
     await s.nils.server.getForTest(new URL(photo.url).pathname);
     const record = await nilsRecord(s);
     await until(() => record.held(photo.id));
+    s.nils.quiet.delFails = true;
     await s.anna.store.remove((await s.annaPhoto()).id);
-    await until(async () => (await nilsLists(s)(), !(await record.held(photo.id))));
-    await s.nils.server.getForTest(new URL(photo.url).pathname);
-    await sleep(300);
-    expect(await record.held(photo.id)).toBe(false);
+    await until(
+      async () => (
+        await nilsLists(s)(),
+        s.nils.logs.some((l) => l.fields.where === "holding.unmark")
+      ),
+    );
+    expect(s.nils.logs.find((l) => l.fields.where === "holding.unmark")!.fields.err).toContain(
+      "disk full",
+    );
     await s.close();
   });
 
@@ -1021,6 +1052,33 @@ describe("a deleted photo leaves the phone's holding record", () => {
     await s.anna.store.remove((await s.annaPhoto()).id);
     await until(async () => (await nilsLists(s)(), !(await record.held(gone.id))));
     expect(await record.held(keep.id)).toBe(true);
+    await s.close();
+  });
+
+  it("opening the full photo of a preview-only photo afterwards does not record it", async () => {
+    const s = await album();
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    const record = await nilsRecord(s);
+    await until(() => record.previewed(thumbed.id));
+    await s.anna.store.remove((await s.annaPhotoNamed("thumbed.jpg")).id);
+    await until(async () => (await nilsLists(s)(), !(await record.previewed(thumbed.id))));
+    await s.nils.server.getForTest(new URL(thumbed.url).pathname);
+    await sleep(300);
+    expect(await record.held(thumbed.id)).toBe(false);
+    await s.close();
+  });
+
+  it("opening the preview of a photo Nils never opened afterwards does not record it", async () => {
+    const s = await album();
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    const record = await nilsRecord(s);
+    await s.anna.store.remove((await s.annaPhotoNamed("thumbed.jpg")).id);
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 1);
+    await sleep(300);
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    await sleep(300);
+    expect(await record.previewed(thumbed.id)).toBe(false);
     await s.close();
   });
 });
