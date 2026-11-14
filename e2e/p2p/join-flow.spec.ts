@@ -133,6 +133,8 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
     false,
   );
   // With Admin unreachable the album says "Connecting to …" for 15 s; "Nobody" may only follow that wait.
+  // Read the probe only after the wait has passed, or an early "Nobody" would not have shown yet.
+  await b.waitForTimeout(Math.max(0, openedAt + 17_000 - Date.now()));
   const nobodyAt = await b.evaluate(
     () => (window as unknown as { __nobodyAt: number | null }).__nobodyAt,
   );
