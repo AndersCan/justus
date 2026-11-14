@@ -151,6 +151,11 @@ if (invite) {
   });
   await new Promise((resolve) => site.listen(0, "127.0.0.1", resolve));
   console.log(`Invite page served on port ${site.address().port}`);
+  // Safari shows a first-run tip on its first launch that covers the page, so open and close it once
+  // here: the walk's own openLink is then Safari's second launch.
+  run("xcrun", ["simctl", "openurl", udid, `http://127.0.0.1:${site.address().port}/justus/`]);
+  spawnSync("sleep", ["5"]);
+  run("xcrun", ["simctl", "terminate", udid, "com.apple.mobilesafari"]);
 }
 
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
