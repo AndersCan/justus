@@ -77,6 +77,21 @@ describe("readLockForOnboarding", () => {
     await readLockForOnboarding(() => ok({ available: "yes" }) as never);
     expect(lock()).toEqual({ available: true, enabled: false });
   });
+
+  it("logs what the phone said, so a skipped offer can be told from no screen lock", async () => {
+    vi.stubGlobal("window", { BareShell: true });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await readLockForOnboarding(() => ok({ available: true, enabled: false }));
+    expect(info).toHaveBeenCalledWith("[welcome] lock status", true, false);
+    expect(warn).not.toHaveBeenCalled();
+    await readLockForOnboarding(() => Promise.resolve([new Error("x"), null]) as never);
+    await readLockForOnboarding(() => ok({ available: "yes" }) as never);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0]?.[1]).toBe("x");
+    expect(warn.mock.calls[1]?.[1]).toBe("malformed");
+    vi.restoreAllMocks();
+  });
 });
 
 describe("finishing the welcome", () => {

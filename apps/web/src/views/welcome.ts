@@ -100,7 +100,15 @@ onStateChange(onboardingActor, ONBOARDING_STATES, (state, prev) => {
 export async function readLockForOnboarding(load = gateway.lock.status) {
   if ((window as { BareShell?: boolean }).BareShell !== true) return;
   const [err, status] = await load();
-  if (!err && isLockStatus(status)) onboarding.lockStatusRead(status);
+  if (!err && isLockStatus(status)) {
+    console.info("[welcome] lock status", status.available, status.enabled);
+    onboarding.lockStatusRead(status);
+    return;
+  }
+  console.warn(
+    "[welcome] lock status unreadable, App lock offer skipped",
+    err?.message ?? "malformed",
+  );
 }
 
 // Creating an album finishes onboarding: open it once the create lands, so the
