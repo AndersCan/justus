@@ -18,12 +18,11 @@ async function settle(page: Page) {
 }
 
 test("picking several photos adds them all to the album on screen", async ({ page }) => {
-  const { album, before } = await settle(page);
+  const { before } = await settle(page);
 
   await pickPhotos(page, [png("batch-1.png", 1), png("batch-2.png", 2), png("batch-3.png", 3)]);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await expect(page.getByText(`Added 3 photos to ${album}`)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("figure img")).toHaveCount(before + 3, { timeout: 20_000 });
   for (const name of ["batch-1.png", "batch-2.png", "batch-3.png"]) {
     const img = page.getByRole("button", { name: `View ${name}` }).locator("img");
@@ -73,7 +72,6 @@ test("dropping photos onto an album adds them there without asking", async ({ pa
   await target.dispatchEvent("drop", { dataTransfer: transfer });
 
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText(`Added a photo to ${name}`)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("figure img")).toHaveCount(before + 1, { timeout: 20_000 });
   await expect(page.getByText(/^Drop to add/)).toBeHidden();
 });

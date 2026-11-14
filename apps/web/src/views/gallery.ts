@@ -182,13 +182,14 @@ galleryActor.on("change", {
           }
         : undefined;
     const dismiss = { label: copy("gallery.dismiss"), run: () => {} };
-    const options =
-      batch.duplicates > 0
-        ? { action: takeAnother ?? dismiss, duration: DUPLICATES_TOAST_MS }
-        : takeAnother
-          ? { action: takeAnother }
-          : {};
-    toast(batchSummary(batch, albumName(batch.folderId)), options);
+    if (batch.duplicates > 0) {
+      toast(batchSummary(batch, albumName(batch.folderId)), {
+        action: takeAnother ?? dismiss,
+        duration: DUPLICATES_TOAST_MS,
+      });
+    } else if (takeAnother) {
+      toast(batchSummary(batch, albumName(batch.folderId)), { action: takeAnother });
+    }
     gallery.dismissBatch();
   },
 });
