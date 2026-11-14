@@ -13,7 +13,6 @@ import {
   declineHeld,
   declineNotSent,
   requestCancelledBeforeAnswer,
-  answerSent,
   requests,
   requestsActor,
   requestsViewModel,
@@ -235,21 +234,6 @@ export function declinedToast(requesterName: string): string {
     : copy("album.declined_unnamed");
 }
 
-/** The toast after an answer went through: who is in and how, or who was declined. */
-export function answerToast(a: {
-  requesterName: string;
-  approve: boolean;
-  role: "reader" | "member";
-  viaInvite: boolean;
-}): string {
-  if (!a.approve) return declinedToast(a.requesterName);
-  if (a.role === "reader")
-    return copy("album.is_in_as_a_viewer", { requesterName: a.requesterName });
-  return a.viaInvite
-    ? copy("album.is_in_as_a_collaborator", { requesterName: a.requesterName })
-    : copy("album.is_in", { requesterName: a.requesterName });
-}
-
 /** The one toast after Accept all: how many are in. */
 export function acceptAllToast(count: number): string {
   return count === 1
@@ -291,9 +275,6 @@ onOutput(requestsActor, (e) => {
     toast(copy("album.cancelled_this_request", { requesterName }));
     return;
   }
-  if (e.type !== answerSent.type) return;
-  const text = answerToast(e.payload as Parameters<typeof answerToast>[0]);
-  if (text) toast(text);
 });
 
 /** The Remove confirm text. A Viewer added no photos, so that clause is dropped. */

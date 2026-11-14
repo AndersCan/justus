@@ -20,10 +20,10 @@ describe("add batch toast", () => {
     await vi.waitFor(() => expect(galleryActor.snapshot().path[0]).toBe("showingPhotos"));
     hoisted.gateway.add.mockResolvedValueOnce([null, photo]);
     gallery.addMany([{ kind: "path", path: "/a.jpg", name: "a.jpg" }], "f1");
-    await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
-    expect(hoisted.toast.mock.calls[0][0]).toContain("Added a photo");
-    expect(hoisted.toast.mock.calls[0][1]).toEqual({});
+    await vi.waitFor(() => expect(hoisted.gateway.add).toHaveBeenCalled());
+    await galleryActor.settled();
     await vi.waitFor(() => expect(batchOf()).toBeNull());
+    expect(hoisted.toast).not.toHaveBeenCalled();
 
     hoisted.toast.mockClear();
     hoisted.gateway.add.mockResolvedValueOnce([{ message: "boom" }, null]);
