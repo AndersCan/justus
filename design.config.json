@@ -2,5 +2,5 @@
   "app": "justus",
   "out": "apps/web/src/design",
   "screens": ["album/album-full"],
-  "components": ["button", "input", "sheet", "toast", "error-banner"]
+  "components": ["button", "input", "sheet", "toast", "error-banner", "tabs", "tab", "tab-badge"]
 }
