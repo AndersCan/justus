@@ -12,6 +12,7 @@ import {
   welcomeStarted,
   welcomeEnded,
   pasteFoundNothing,
+  askAgain,
   askToJoin,
   askWithPastedLink,
   linkEdited,
@@ -37,6 +38,7 @@ export const JOIN_STATES = [
   "showingWelcome",
   "holdingInviteUntilWelcomeEnds",
   "sendingRequest",
+  "sendingRequestAgain",
   "sendingPastedRequest",
   "waitingForAdminToAccept",
   "waitingForYouToUpdate",
@@ -156,6 +158,7 @@ export const join = {
   cancelRequest: () => joinActor.send(cancelRequest.create()),
   closeWaiting: () => joinActor.send(closeWaiting.create()),
   dismissDecline: () => joinActor.send(dismissDecline.create()),
+  askAgain: () => joinActor.send(askAgain.create()),
   dismissExpired: () => joinActor.send(dismissExpired.create()),
   closeStoppedLink: () => joinActor.send(closeStoppedLink.create()),
   /** The Admin's answer reached this phone. */

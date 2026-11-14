@@ -22,6 +22,7 @@ const actions = {
   cancelRequest: nothing,
   closeWaiting: nothing,
   dismissDecline: nothing,
+  askAgain: nothing,
 };
 
 const noSheet: JoinView["state"][] = [
@@ -40,6 +41,7 @@ const labels: [JoinView["state"], string][] = [
   ["waitingForAdminToAccept", copy("invite.you_re_done", { owner })],
   ["waitingForYouToUpdate", copy("invite.update_justus_to_join", { album: invite.album })],
   ["declinedByAdmin", copy("invite.didn_t_accept_your_request", { owner })],
+  ["sendingRequestAgain", copy("invite.didn_t_accept_your_request", { owner })],
   ["linkExpired", EXPIRED_LINK],
   ["linkTurnedOffByAdmin", copy("join_request.owner_turned_off_this_link", { owner })],
   ["linkReplacedByAdmin", copy("join_request.owner_replaced_this_link", { owner })],
@@ -78,6 +80,35 @@ describe("renderJoinSheet", () => {
     const sending = sheetFor("sendingRequest");
     sending.querySelector("dialog")?.dispatchEvent(new Event("cancel", { cancelable: true }));
     expect(notNow).toHaveBeenCalledTimes(1);
+  });
+
+  test("the declined sheet offers Not now and Ask again, and Ask again is the primary", () => {
+    const askAgain = vi.fn();
+    const dismissDecline = vi.fn();
+    const div = document.createElement("div");
+    render(
+      renderJoinSheet(
+        { state: "declinedByAdmin", invite, error: "" },
+        { ...actions, askAgain, dismissDecline },
+      ),
+      div,
+    );
+    const buttons = [...div.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Not now", "Ask again"]);
+    expect(buttons[0]?.hasAttribute("data-dismiss")).toBe(true);
+    expect(buttons[0]?.hasAttribute("autofocus")).toBe(true);
+    expect(buttons[1]?.className).toBe("ui-btn-primary");
+    buttons[1]?.click();
+    expect(askAgain).toHaveBeenCalledTimes(1);
+    buttons[0]?.click();
+    expect(dismissDecline).toHaveBeenCalledTimes(1);
+    expect(div.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  test("a failed Ask again shows its error on the declined sheet", () => {
+    const div = document.createElement("div");
+    render(renderJoinSheet({ state: "declinedByAdmin", invite, error: "Nope." }, actions), div);
+    expect(div.querySelector('[role="alert"]')?.textContent).toBe("Nope.");
   });
 
   test("waiting backs out with Close, never Cancel request", () => {

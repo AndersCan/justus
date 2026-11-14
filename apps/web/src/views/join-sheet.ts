@@ -14,6 +14,7 @@ export type JoinSheetActions = {
   cancelRequest(): void;
   closeWaiting(): void;
   dismissDecline(): void;
+  askAgain(): void;
 };
 
 export type JoinSheetLines = {
@@ -194,14 +195,18 @@ export function renderJoinSheet(
     html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
       <p class="mt-3 text-sm text-fg">${t("invite.nothing_was_shared_with_you")}</p>
       <p class="mt-2 text-sm text-muted">${t("invite.you_can_ask_again", { owner })}</p>
-      <div class="mt-4 flex justify-end">
+      ${error ? html`<p class="mt-2 text-xs text-danger-fg" role="alert">${error}</p>` : null}
+      <div class="mt-4 flex justify-end gap-2">
         <button
-          class="ui-btn-primary"
+          class="ui-btn-ghost"
           data-dismiss
           autofocus
           @click=${() => actions.dismissDecline()}
         >
-          ${t("invite.ok")}
+          ${t("invite.not_now")}
+        </button>
+        <button class="ui-btn-primary" @click=${() => actions.askAgain()}>
+          ${copy("invite.ask_again")}
         </button>
       </div>`,
   );

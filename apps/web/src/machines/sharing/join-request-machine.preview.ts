@@ -16,6 +16,7 @@ const actions = {
   cancelRequest: nothing,
   closeWaiting: nothing,
   dismissDecline: nothing,
+  askAgain: nothing,
 };
 
 /** The join sheet for one state of the walk, without the albums list (no check code, no "wasn't answered" line). */

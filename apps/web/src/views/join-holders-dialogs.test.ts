@@ -23,6 +23,7 @@ function actionsWith() {
     cancelRequest: vi.fn(),
     closeWaiting: vi.fn(),
     dismissDecline: vi.fn(),
+    askAgain: vi.fn(),
   };
 }
 
@@ -39,7 +40,7 @@ describe("join sheet: Escape and a tap outside press each state's button", () =>
   });
   const cases: [JoinView["state"], keyof ReturnType<typeof actionsWith>, string][] = [
     ["linkExpired", "dismissExpired", "OK"],
-    ["declinedByAdmin", "dismissDecline", "OK"],
+    ["declinedByAdmin", "dismissDecline", "Not now"],
     ["linkTurnedOffByAdmin", "closeStoppedLink", "Close"],
     ["decidingToAsk", "notNow", "Not now"],
     ["waitingForAdminToAccept", "closeWaiting", "Close"],
