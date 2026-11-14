@@ -754,7 +754,7 @@ describe("album join requests", () => {
     expect(
       host.querySelector("ul")!.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(all.className).toContain("ui-link");
+    expect(all.className).toBe("ui-link mt-2 disabled:pointer-events-none disabled:opacity-50");
     expect(all.className).not.toContain("ui-btn");
     expect(host.textContent).not.toContain("They can see the photos");
     for (const list of [[ask("nils", true)], [ask("nils", true), ask("ola", false)]]) {
