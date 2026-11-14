@@ -73,12 +73,12 @@ describe("albumHolding", () => {
       if (sheet > 0) expect(r.byKey.get(key)).toEqual({ kind: "count", held: sheet });
     }
   });
-  it("previews or waiting only : previews reads previews only, waiting reads no photos", () => {
+  it("previews or waiting only : previews reads seen, not opened, waiting reads no photos", () => {
     const r = albumHolding(
       [photo("f1", { previews: [m("p")] }), photo("f1", { waiting: [m("w")] })],
       "f1",
     );
-    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("has previews only");
+    expect(holdingLine(r.byKey.get("p"), r.total)).toBe("seen, not opened");
     expect(holdingLine(r.byKey.get("w"), r.total)).toBe("has no photos yet");
   });
   it("not said yet wins over previews, in either order", () => {

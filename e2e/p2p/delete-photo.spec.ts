@@ -196,7 +196,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await b.getByRole("button", { name: `View ${BEN}` }).click();
   await b.getByRole("button", { name: /show who has this photo$/ }).click();
   const sheet = b.getByRole("dialog", { name: "Who has this photo" });
-  await expect(sheet).toContainText("Only has a preview", { timeout: 60_000 });
+  await expect(sheet).toContainText("Seen, not opened", { timeout: 60_000 });
   await b.keyboard.press("Escape");
 
   // Ben deletes his own photo through the menu; it leaves both phones.

@@ -2926,7 +2926,7 @@
     "screen": ""
   },
   "holding.none": {
-    "text": "has previews only",
+    "text": "seen, not opened",
     "status": "draft",
     "where": "Album › people",
     "who": "Everyone in an album",
@@ -4235,7 +4235,7 @@
     "screen": ""
   },
   "full_photo.only_preview": {
-    "text": "Only has a preview",
+    "text": "Seen, not opened",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › heading",
     "who": "People who tap the photo's holders or delete a photo",
