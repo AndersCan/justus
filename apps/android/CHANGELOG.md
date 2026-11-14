@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.4.0
+
+<sub>2026-11-14</sub>
+
+- _(minor)_ [user]: A photo someone deletes now leaves your phone's storage the next time Justus syncs it.
+- _(minor)_
+  [user]: New album no longer closes when you select the name and let go outside the box, and the dimmed background no longer blurs.
+- _(minor)_
+  [user]: Accept all, Add a friend and a friend's sheet no longer close when you select text and let go outside the box, and keyboard focus stays inside them.
+- _(minor)_
+  [user]: Ask to join and Who has this photo no longer close when you select text and let go outside the box, and keyboard focus stays inside them. Escape in Ask to join no longer closes the photo behind.
+- _(minor)_ [user]: Copy invite link and Send invite link give a web link that opens a page with an Open in Justus button.
+- _(minor)_ [user]: Opening an album grows its card into the page, and Back shrinks it into the card again.
+- _(patch)_ [user]: Justus has new colours on every screen; the orange add button stays the same.
+- _(patch)_ [user]: Add photos on an album's page is now orange, like the add button on your photos.
+- _(patch)_
+  [user]: When some photos you add were already in the album, the toast saying so stays up long enough to read, with Dismiss.
+- _(patch)_ [user]: A photo the album's Admin deletes now also leaves the phone of the person who added it.
+- _(patch)_ [user]: The delete message says the photo leaves other people's phones, and they see it was removed from theirs.
+- _(patch)_ [user]: After Ask to join, the dialog says you're done; your three words are there only if the Admin asks.
+- _(patch)_ [user]: After you copy an invite link, the message now tells you to open your messages app, paste the link and send it.
+- _(patch)_ [user]: While you are the only one in an album, Send invite link and Copy link sit right under Add photos on its page.
+- _(patch)_ [user]: When someone asks to join an album, its page says so under the title, with Review to answer.
+- _(patch)_ [user]: Albums say what people can do ("can only look", "can add photos") instead of Admin, Viewer and Collaborator.
+- _(patch)_
+  [user]: When people ask to join an album, its page counts them, hides names that copy a friend's, and no longer says you are alone.
+- _(patch)_ [user]: After you close Accept all, keyboard focus goes back to the Accept all button.
+- _(patch)_ [user]: While you wait to join an album, Justus names the person who invited you instead of "the Admin".
+- _(patch)_ [user]: Turning on App lock now waits for you to finish Face ID or your passcode instead of timing out after 30 seconds.
+- _(patch)_
+  [user]: Paste an invite link and tap Ask to join once: the request goes straight out, and a link that no longer works says so under the box.
+- _(patch)_ [user]: A friend who has seen a photo but not opened it now reads "seen, not opened" instead of "has previews only".
+- _(patch)_ [user]: Adding photos no longer pops up a message that repeats what is already on screen.
+- _(patch)_
+  [user]: After you accept someone, the screen takes you to their new place in the members list instead of showing a message.
+- _(patch)_ [user]: A join request shows the person's three words in large type, and Decline is a button as easy to press as Accept.
+- _(patch)_ [user]: After a decline, "Ask again" sends the same request again; no need to paste the link.
+- _(patch)_
+  [user]: Start sharing no longer shows an error under Create an album you did not tap; if albums fail to load, a banner says so with Retry.
+- _(patch)_
+  [user]: Each person's line in an album's members list now says plainly how many of the album's photos their phone has, for example "has all 3 photos" or "has 2 of 5 photos".
+- _(patch)_
+  [user]: A newly opened album says "Connecting to …" for its first 15 seconds with nobody online, instead of "Nobody connected right now".
+- _(patch)_
+  [user]: An album you have just joined now shows "1 connected now" as soon as the album's owner is online, instead of staying on "Nobody connected right now".
+- _(patch)_ [user]: A photo now fills the screen. Tap it to see only the photo, tap again to bring the buttons back.
+- _(patch)_ [user]: Swipe down on a photo to close it.
+- _(patch)_ [user]: The "wants to join" message goes away when you open that album.
+- _(patch)_ [user]: After you accept someone, the album says they are in, with a button to see the photos.
+- _(patch)_
+  [user]: After you open an album from Albums, "All albums" takes you back a step, so the Back button no longer reopens it.
+
 ## 0.3.0
 
 <sub>2026-11-11</sub>
