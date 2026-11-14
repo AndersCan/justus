@@ -14,7 +14,7 @@ export const PLAY_LIMIT = 500;
 export const CHANGELOG = "apps/android/CHANGELOG.md";
 
 // bumpy writes "- *(minor)* [user]: …" or, for a multi-line body, indented lines.
-const USER_LINE = /^\s*(?:-\s+)?(?:\*\([a-z]+\)\*\s+)?\[user\]:\s*(.+?)\s*$/i;
+const USER_LINE = /^\s*(?:-\s+)?(?:[*_]\([a-z]+\)[*_]\s+)?\[user\]:\s*(.+?)\s*$/i;
 
 /** Returns the body of the `## <version>` section ("v0.3.0" is "0.3.0"), or undefined when there is none. */
 export function changelogSection(changelog, version) {
