@@ -12,7 +12,7 @@ import {
   type GalleryActor,
   type AddBatch,
 } from "../machines/gallery-machine";
-import { connectingToOf, reachActor } from "../machines/reach-hint-machine";
+import { connectionGivenUp, reachActor } from "../machines/reach-hint-machine";
 import { presenceDotClass } from "#design/components/presence-dot.ts";
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
@@ -21,6 +21,7 @@ import { requestRowOf, type RequestRow } from "../utils/people";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
+import { unreachableMember } from "../utils/reach-hint";
 import { currentPage, open } from "../machines/router-machine";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
@@ -763,7 +764,13 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
             requestLineText(requestRowOf(oldest, friendsActor.snapshot().context.friends), waiting),
           )
         : status
-          ? watch(reachActor, (r) => presenceStrip(status, page.lastSync, connectingToOf(r)))
+          ? watch(reachActor, (r) =>
+              presenceStrip(
+                status,
+                page.lastSync,
+                connectionGivenUp(r) ? undefined : unreachableMember(status) || undefined,
+              ),
+            )
           : null;
   return html`
     <div class="space-y-2" data-motion-key="section:album">

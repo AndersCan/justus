@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach, afterEach } from "vite-plus/tes
 import type { SyncStatus } from "@justus/core";
 import { VirtualClock } from "@mantaq/core";
 import {
-  connectingToOf,
+  connectionGivenUp,
   createReachActor,
   reachActor,
   reachHintOf,
@@ -105,13 +105,13 @@ describe("reach actor on a virtual clock", () => {
   test("connecting lasts 15 seconds, then the wait for the hint carries on", async () => {
     const { clock, actor } = setup();
     actor.send(unreachable("Maya"));
-    expect(connectingToOf(actor.snapshot())).toBe("Maya");
+    expect(connectionGivenUp(actor.snapshot())).toBe(false);
     clock.advance(CONNECTING_FOR_MS - 1);
     expect(actor.state.name).toBe("tryingToReachMembers");
     clock.advance(1);
     await actor.settled();
     expect(actor.state.name).toBe("waitingBeforeWifiHint");
-    expect(connectingToOf(actor.snapshot())).toBeUndefined();
+    expect(connectionGivenUp(actor.snapshot())).toBe(true);
   });
 
   test("repeated unreachable updates do not delay either timer", async () => {
@@ -136,14 +136,7 @@ describe("reach actor on a virtual clock", () => {
     actor.send(unreachable("Maya"));
     actor.send(reached());
     expect(actor.state.name).toBe("noWifiHint");
-    expect(connectingToOf(actor.snapshot())).toBeUndefined();
-  });
-
-  test("no known name means nothing to connect to", () => {
-    const { actor } = setup();
-    actor.send(unreachable(""));
-    expect(actor.state.name).toBe("tryingToReachMembers");
-    expect(connectingToOf(actor.snapshot())).toBeUndefined();
+    expect(connectionGivenUp(actor.snapshot())).toBe(false);
   });
 
   test("the name updates while trying and in the hint", async () => {
