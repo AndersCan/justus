@@ -104,6 +104,9 @@ console.log(`Simulator: ${name} (${udid})`);
     "CODE_SIGNING_ALLOWED=NO",
   ]);
   if (build.status !== 0) fail("xcodebuild failed");
+  // The build leaves its daemons resident; on the 7 GB runner they starve the Simulator and Maestro's first launch hangs.
+  for (const daemon of ["XCBBuildService", "SWBBuildService", "swift-build"])
+    spawnSync("pkill", ["-x", daemon]);
 }
 if (!existsSync(app)) fail(`Justus.app not found at ${app}`);
 
