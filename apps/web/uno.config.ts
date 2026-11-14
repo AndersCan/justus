@@ -3,6 +3,9 @@ import { errorBannerActionClass, errorBannerClass } from "#design/components/err
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
 import { sheetClass, sheetScrimClass } from "#design/components/sheet.ts";
+import { tabBadgeClass } from "#design/components/tab-badge.ts";
+import { tabClass } from "#design/components/tab.ts";
+import { tabsClass } from "#design/components/tabs.ts";
 import { toastActionClass, toastClass } from "#design/components/toast.ts";
 import { designTheme } from "#design/justus/tokens/uno.theme.ts";
 
@@ -43,6 +46,11 @@ export default defineConfig({
     "ui-toast-action": toastActionClass(),
     "ui-error-banner": errorBannerClass(),
     "ui-error-banner-action": errorBannerActionClass(),
+    "ui-tabs": tabsClass(),
+    // justus animates its own tabs; motion is app code.
+    "ui-tab": `${tabClass("unselected")} transition`,
+    "ui-tab-selected": `${tabClass("selected")} transition`,
+    "ui-tab-badge": tabBadgeClass("primary"),
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
     "ui-chip":
       "inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-fg",

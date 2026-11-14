@@ -771,7 +771,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           ${
             waiting > 0
               ? html`<span
-                  class="rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-4 text-on-fill"
+                  class="ui-tab-badge"
                   aria-label=${copy("gallery.waiting_for_approval", { waiting })}
                   >${waiting}</span
                 >`
