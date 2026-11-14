@@ -664,6 +664,8 @@ describe("album join requests", () => {
     button(host, "Accept, can only look")!.click();
     await vi.waitFor(() => expect(acceptedSection(host)!.textContent).toContain("ola"));
     await requestsActor.settled();
+    // A new card per person: lit calls ref(focusOnce) again only for a new element.
+    expect(acceptedSection(host)!.querySelector("a")).not.toBe(link);
     expect(document.activeElement).toBe(acceptedSection(host)!.querySelector("a"));
     host.remove();
     open("/");
