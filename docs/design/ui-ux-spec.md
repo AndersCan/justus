@@ -164,9 +164,8 @@ photos) carries the color; chrome stays quiet.
   create button uses `--action` (deep coral `#BD4A22`, white text).
   App icons for iOS and desktop: `node scripts/render-app-icons.mjs`; Android
   and Play art: `apps/android/scripts/render-store-art.mjs`.
-- **Tokens** are CSS variables in `apps/web/src/design/justus/tokens/theme.css`
-  (colours) and `apps/web/src/tokens.css`, exposed as Uno
-  colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
+- **Tokens** are CSS variables in `apps/web/src/design/justus/tokens/theme.css`,
+  exposed as Uno colors in `uno.config.ts`: `canvas`, `surface`, `subtle`, `line`, `fg`,
   `muted`, `accent`, `accent-strong`, `accent-soft` (selected items, chips),
   `on-fill` (text on a solid accent/danger fill), `brand`, `danger`, `ok`,
   `warn`, and `danger-fg`/`ok-fg`/`warn-fg` for status text (the fill shades
