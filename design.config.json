@@ -14,6 +14,8 @@
     "avatar",
     "presence-dot",
     "presence-dots",
-    "request-card"
+    "request-card",
+    "icon-button",
+    "radio-cards"
   ]
 }
