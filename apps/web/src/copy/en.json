@@ -902,6 +902,27 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.is_in_as_a_viewer": {
+    "text": "{requesterName} is in and can only look",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_in_as_a_collaborator": {
+    "text": "{requesterName} is in and can add photos",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
+  "album.is_in": {
+    "text": "{requesterName} is in",
+    "status": "draft",
+    "where": "Album › Invite & members › text",
+    "who": "Album members, whenever they open an album's people",
+    "screen": ""
+  },
   "album.couldn_t_send_your_no": {
     "text": "Couldn't send your No to {requesterName}. The request is back.",
     "status": "draft",

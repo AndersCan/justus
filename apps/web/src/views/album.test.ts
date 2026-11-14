@@ -3,6 +3,7 @@ import { focusOnArrival } from "./arrival-focus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { html, render } from "lit-html";
 import type { SyncStatus } from "@justus/core";
+import { copy } from "../copy/copy";
 import { friends, friendsActor } from "../machines/friends-machine";
 import { people, peopleActor } from "../machines/people-machine";
 import { statusSeen, syncActor } from "../machines/sync-machine";
@@ -15,6 +16,7 @@ import {
   albumMenuItems,
   removedDeleteSheet,
   albumView,
+  answerToast,
   deleteSheet,
   leaveDetail,
   requestIdentity,
@@ -594,7 +596,7 @@ describe("album join requests", () => {
     );
   });
 
-  test("accepting shows no toast, and the card stays until the answer", async () => {
+  test("the accept toast waits for the answer", async () => {
     vi.mocked(toast).mockClear();
     const host = await show([ask("nils", true)]);
     let resolve!: (v: unknown) => void;
@@ -603,8 +605,8 @@ describe("album join requests", () => {
     await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalled());
     expect(toast).not.toHaveBeenCalled();
     resolve([null, { ok: true }]);
-    await requestsActor.settled();
-    expect(toast).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
+    expect(toast).toHaveBeenCalledTimes(1);
     await requestsActor.settled();
   });
 
@@ -709,9 +711,8 @@ describe("album join requests", () => {
     expect(card("ola").querySelector("[role=alert]")).toBeNull();
     expect(toast).not.toHaveBeenCalled();
     [...card("nils").querySelectorAll("button")].find((b) => name(b) === "Retry")!.click();
-    await vi.waitFor(() => expect(gateway.respond).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() => expect(card("nils")).toBeUndefined());
-    expect(toast).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("nils is in and can only look"));
+    expect(gateway.respond).toHaveBeenCalledTimes(2);
     expect(gateway.respond).toHaveBeenLastCalledWith("f1", "nils", true, "reader");
     await requestsActor.settled();
     await vi.waitFor(() => expect(card("nils")).toBeUndefined());
@@ -948,6 +949,20 @@ describe("album join requests", () => {
   test("acceptAllToast: singular and plural", () => {
     expect(acceptAllToast(1)).toBe("1 person is in and can only look");
     expect(acceptAllToast(13)).toBe("13 people are in and can only look");
+  });
+
+  test("answerToast: a No names who was declined; Viewer, Collaborator and plain Accept wording", () => {
+    const a = { requesterName: "Nils", approve: true, role: "member" as const, viaInvite: false };
+    expect(answerToast({ ...a, approve: false })).toBe("Declined Nils");
+    expect(answerToast({ ...a, approve: false, requesterName: "" })).toBe("Declined that request");
+    expect(answerToast({ ...a, approve: false, requesterName: copy("requests.they") })).toBe(
+      "Declined that request",
+    );
+    expect(answerToast({ ...a, role: "reader", viaInvite: true })).toBe(
+      "Nils is in and can only look",
+    );
+    expect(answerToast({ ...a, viaInvite: true })).toBe("Nils is in and can add photos");
+    expect(answerToast(a)).toBe("Nils is in");
   });
 
   test("a plain request keeps a single Accept that sends the member role", async () => {
