@@ -69,7 +69,7 @@ test("a saved name reaches folders, a sync status reaches folders and reach, an 
       } as never,
     }),
   );
-  expect(made.reach.snapshot().path[0]).toBe("waitingBeforeWifiHint");
+  expect(made.reach.snapshot().path[0]).toBe("tryingToReachMembers");
 
   expect(made.requests.snapshot().path[0]).toBe("requestsNotLoaded");
   made.people.send({ type: "OPEN" } as never);

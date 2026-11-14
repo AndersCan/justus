@@ -13,7 +13,16 @@
         },
         {
           "kind": "advance",
-          "ms": 30000
+          "ms": 15000
+        },
+        {
+          "kind": "event",
+          "event": "CONNECTING_TIMED_OUT",
+          "payload": {}
+        },
+        {
+          "kind": "advance",
+          "ms": 15000
         },
         {
           "kind": "event",

@@ -12,6 +12,8 @@ import {
   type GalleryActor,
   type AddBatch,
 } from "../machines/gallery-machine";
+import { connectionGivenUp, reachActor } from "../machines/reach-hint-machine";
+import { presenceDotClass } from "#design/components/presence-dot.ts";
 import { syncActor } from "../machines/sync-machine";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { friendsActor } from "../machines/friends-machine";
@@ -19,6 +21,7 @@ import { requestRowOf, type RequestRow } from "../utils/people";
 import { requestsActor } from "../machines/requests-machine";
 import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
+import { unreachableMember } from "../utils/reach-hint";
 import { currentPage, open } from "../machines/router-machine";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
@@ -382,7 +385,11 @@ export function scopePhotos(
   });
 }
 
-function presenceStrip(status: SyncStatus, lastSync: number | null) {
+export function presenceStrip(
+  status: SyncStatus,
+  lastSync: number | null,
+  connectingTo: string | undefined,
+) {
   const alone = status.members.length <= 1;
   const others = status.members.length - 1;
   // Members first, self at index 0 (always "connected" to itself).
@@ -390,16 +397,24 @@ function presenceStrip(status: SyncStatus, lastSync: number | null) {
   // `peers` counts any swarm connection (not only members), so presence is
   // read from the member list.
   const online = connected > 0;
+  const connecting = !online && !alone && connectingTo !== undefined;
   const dotLabel = online
     ? copy("gallery.connected_now", { connected })
     : alone
       ? copy("gallery.only_you_so_far_invite")
-      : copy("gallery.nobody_connected_right_now");
-  const dotPulse = online || alone ? "" : "animate-pulse motion-reduce:animate-none";
+      : connecting
+        ? connectingTo
+          ? copy("gallery.connecting_to", { name: connectingTo })
+          : copy("gallery.connecting")
+        : copy("gallery.nobody_connected_right_now");
+  const dotPulse = online || alone || connecting ? "" : "animate-pulse motion-reduce:animate-none";
+  const dotClass = connecting
+    ? presenceDotClass("neutral", "md")
+    : `h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-warn"}`;
   return html`
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
       <span class="inline-flex items-center gap-1.5">
-        <span class="h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-warn"} ${dotPulse}"></span>
+        <span class="${dotClass} ${dotPulse}"></span>
         ${dotLabel}
       </span>
       ${others > 0 ? html`<span>${t("gallery.shared_with_other", { others })}</span>` : null}
@@ -751,7 +766,13 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
             requestLineText(requestRowOf(oldest, friendsActor.snapshot().context.friends), waiting),
           )
         : status
-          ? presenceStrip(status, page.lastSync)
+          ? watch(reachActor, (r) =>
+              presenceStrip(
+                status,
+                page.lastSync,
+                connectionGivenUp(r) ? undefined : (unreachableMember(status) ?? undefined),
+              ),
+            )
           : null;
   return html`
     <div class="space-y-2" data-motion-key="section:album">
