@@ -65,7 +65,5 @@ export default defineConfig({
     "ui-tab-selected": `${tabClass("selected")} transition`,
     "ui-tab-badge": tabBadgeClass("primary"),
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
-    "ui-chip":
-      "inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-fg",
   },
 });
