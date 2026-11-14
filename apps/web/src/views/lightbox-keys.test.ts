@@ -188,6 +188,45 @@ describe("swipe in the lightbox", () => {
     touch("touchend", 100);
     expect(lightboxActor.snapshot().context.photo?.id).toBe("c");
   });
+
+  describe("down", () => {
+    const swipe = (from: [number, number], to: [number, number]) => {
+      const photos = [photo];
+      vi.spyOn(galleryActor, "snapshot").mockReturnValue({ context: { photos } } as never);
+      openLightbox(photo);
+      const el = document.createElement("div");
+      render(lightboxView(), el);
+      const root = el.firstElementChild as Element;
+      const touch = (type: string, [x, y]: [number, number]) => {
+        const e = new Event(type, { bubbles: true });
+        const list = [{ clientX: x, clientY: y }];
+        Object.assign(e, { touches: list, changedTouches: list });
+        root.dispatchEvent(e);
+      };
+      touch("touchstart", from);
+      touch("touchend", to);
+      return lightboxActor.snapshot().context.photo;
+    };
+
+    it("closes on a long swipe down", () => {
+      expect(swipe([100, 100], [100, 220])).toBeUndefined();
+    });
+    it("ignores a short swipe down", () => {
+      expect(swipe([100, 100], [100, 140])?.id).toBe(photo.id);
+    });
+    it("ignores a swipe up", () => {
+      expect(swipe([100, 300], [100, 180])?.id).toBe(photo.id);
+    });
+    it("ignores a mostly sideways swipe", () => {
+      expect(swipe([300, 100], [180, 190])?.id).toBe(photo.id);
+    });
+    it("closes when down is more than sideways, even under 1.5 times", () => {
+      expect(swipe([100, 100], [200, 220])).toBeUndefined();
+    });
+    it("ignores a swipe of exactly 80 px down", () => {
+      expect(swipe([100, 100], [100, 180])?.id).toBe(photo.id);
+    });
+  });
 });
 
 describe("close button in the lightbox", () => {

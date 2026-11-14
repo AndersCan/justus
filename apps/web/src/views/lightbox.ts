@@ -152,6 +152,8 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>, hidden:
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       suppressClickUntil = Date.now() + 350;
       step(dx < 0 ? 1 : -1);
+    } else if (dy > 80 && dy > Math.abs(dx)) {
+      closeLightbox();
     }
   };
   const info = html`
