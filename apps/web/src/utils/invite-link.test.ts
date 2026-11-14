@@ -41,6 +41,18 @@ describe("the https invite link", () => {
     });
   });
 
+  test("reads the page address without a trailing slash", () => {
+    expect(parseInviteLink(`https://anderscan.github.io/justus/join#i=${A}&o=${B}`).kind).toBe(
+      "invite",
+    );
+  });
+
+  test("reads the page address in upper case", () => {
+    expect(parseInviteLink(`HTTPS://AndersCan.GitHub.io/justus/join/#i=${A}&o=${B}`).kind).toBe(
+      "invite",
+    );
+  });
+
   test("on another site is garbled", () => {
     expect(parseInviteLink(`https://evil.example/justus/join/#i=${A}&o=${B}`)).toEqual({
       kind: "garbled",

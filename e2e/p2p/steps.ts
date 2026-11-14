@@ -35,10 +35,10 @@ export async function copyInviteLink(a) {
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^justus:\/\/join\?/);
+    .toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
   const link = await a.evaluate(() => navigator.clipboard.readText());
-  expect(link).toMatch(/^justus:\/\/join\?/);
-  expect(link).toMatch(/[?&]e=\d+/);
+  expect(link).toMatch(/^https:\/\/anderscan\.github\.io\/justus\/join\/#i=/);
+  expect(link).toMatch(/[#&]e=\d+/);
   return link;
 }
 
