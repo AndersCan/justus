@@ -478,6 +478,8 @@ describe("album join requests", () => {
     expect(flat(rows[1]!)).toContain("Three words lamp ocean tiger");
     expect(flat(rows[0]!)).toContain("Same words on Ben's phone? Then it's Ben. If not, decline.");
     expect(flat(rows[1]!)).toContain("Same words on Ben's phone? Then it's Ben. If not, decline.");
+    expect(rows[0]!.querySelector(".text-lg")?.textContent?.trim()).toBe("maple river stone");
+    expect(rows[1]!.querySelector(".text-lg")?.textContent?.trim()).toBe("lamp ocean tiger");
     expect(host.textContent).not.toContain("Not sure who it is?");
     expect(flat(host).toLowerCase()).not.toContain("check code");
   });
@@ -580,7 +582,16 @@ describe("album join requests", () => {
       const by = (text: string) =>
         [...row.querySelectorAll("button")].find((b) => name(b)?.startsWith(text))!;
       expect(by("Decline").className).toBe(by("Accept, can add photos").className);
+      expect(by("Decline").className).toContain("w-full");
     }
+  });
+
+  test("a request not from a link has Decline and Accept sharing the row", async () => {
+    const host = await show([ask("nils", false)]);
+    const row = host.querySelector<HTMLElement>('li[data-motion-key^="request:"]')!;
+    const buttons = [...row.querySelectorAll("button")];
+    expect(buttons.map(name)).toEqual(["Decline", "Accept"]);
+    for (const b of buttons) expect(b.className).toContain("flex-1");
   });
 
   test("an invite request offers Accept, can only look, Accept, can add photos and Decline, each with its meaning; Viewer sends reader", async () => {
@@ -838,6 +849,10 @@ describe("album join requests", () => {
     expect(flat(dialog)).toContain("Three words maple river stone");
     expect(flat(dialog)).toContain("Three words lamp ocean tiger");
     expect(flat(dialog)).not.toContain("Then it's");
+    expect([...dialog.querySelectorAll(".text-lg")].map((x) => x.textContent?.trim())).toEqual([
+      "maple river stone",
+      "lamp ocean tiger",
+    ]);
     expect(flat(dialog)).toContain("every photo in “Trip”");
     expect(gateway.respond).not.toHaveBeenCalled();
     await requestsActor.settled();
