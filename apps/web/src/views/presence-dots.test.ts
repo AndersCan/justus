@@ -139,6 +139,6 @@ describe("presence dots colour", () => {
     render(presenceDots([member("k9", "Zed")], "f1"), host);
     const dot = host.querySelector("[data-motion-key] > span")!;
     expect(dot.hasAttribute("style")).toBe(false);
-    expect(dot.className).toContain("border-muted");
+    expect(dot.className).toContain("ui-presence-dot-none");
   });
 });

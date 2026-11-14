@@ -33,7 +33,7 @@ export function acceptAllSheetView(
         ${repeat(
           listed,
           (r) => r.requesterKey,
-          (r) => html`<li class="rounded-xl bg-subtle p-3">${requestIdentity(r, null)}</li>`,
+          (r) => html`<li class="ui-request-card">${requestIdentity(r, null)}</li>`,
         )}
       </ul>
       <p class="mt-3 text-sm text-muted">

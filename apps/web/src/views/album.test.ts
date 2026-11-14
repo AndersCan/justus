@@ -223,7 +223,7 @@ describe("album people", () => {
     render(albumView("f1"), host);
     const badge = memberRows(host)[1].querySelector("span[aria-hidden]")!;
     expect(badge.getAttribute("style")).toBeNull();
-    expect(badge.className).toContain("ring-line");
+    expect(badge.className).toContain("ui-avatar-outline");
   });
 
   test("naming a friend changes that row's label and keeps every row element", async () => {
