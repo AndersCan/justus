@@ -16,6 +16,8 @@
     "presence-dots",
     "request-card",
     "icon-button",
-    "radio-cards"
+    "radio-cards",
+    "badge",
+    "link"
   ]
 }

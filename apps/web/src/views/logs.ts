@@ -267,9 +267,7 @@ function logsBody(ctx: {
             : available.map(
                 (s) => html`
                   <button
-                    class="rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      sources.includes(s) ? "bg-accent-soft text-accent" : "bg-subtle text-fg"
-                    }"
+                    class=${sources.includes(s) ? "ui-chip-on" : "ui-chip"}
                     @click=${() => c.toggleSource(s)}
                     aria-pressed=${sources.includes(s)}
                   >

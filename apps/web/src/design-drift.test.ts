@@ -22,19 +22,18 @@ const APP_SHORTCUTS: Record<string, string> = {
 /** Hand-drawn controls that stay until design has the component, counted per file. */
 const KNOWN_HAND_DRAWN: Record<string, { count: number; what: string }> = {
   "views/album.ts": {
-    count: 3,
-    what: "link-style button, show/hide key toggle, coral add button",
+    count: 2,
+    what: "show/hide key toggle, coral add button",
   },
   "views/albums.ts": { count: 1, what: "album row button" },
   "views/gallery.ts": {
-    count: 4,
-    what: "filter chip, link-style button, album tile link, add-photos tile",
+    count: 3,
+    what: "sort switch, album tile link, add-photos tile",
   },
   "views/lightbox.ts": {
     count: 3,
     what: "photo-viewer close button and photo arrows: drawn on the photo, design's icon button has no on-photo colour",
   },
-  "views/logs.ts": { count: 1, what: "filter chip" },
   "views/photo-holders.ts": { count: 1, what: "holders row button" },
   "views/settings.ts": { count: 1, what: "settings card link" },
 };

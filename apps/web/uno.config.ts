@@ -5,6 +5,8 @@ import { requestCardClass } from "#design/components/request-card.ts";
 import { errorBannerActionClass, errorBannerClass } from "#design/components/error-banner.ts";
 import { iconButtonClass } from "#design/components/icon-button.ts";
 import { radioCardsItemClass } from "#design/components/radio-cards.ts";
+import { badgeClass } from "#design/components/badge.ts";
+import { linkClass } from "#design/components/link.ts";
 import { buttonClass } from "#design/components/button.ts";
 import { inputClass } from "#design/components/input.ts";
 import { sheetClass, sheetScrimClass } from "#design/components/sheet.ts";
@@ -71,6 +73,11 @@ export default defineConfig({
     // justus animates its own choice cards; motion is app code.
     "ui-radio-card": `${radioCardsItemClass({ checked: false, size: "1" })} transition`,
     "ui-radio-card-checked": `${radioCardsItemClass({ checked: true, size: "1" })} transition`,
+    // Filter chips: Radix's soft badge, grey off and indigo on.
+    "ui-chip": badgeClass({ variant: "soft", color: "gray", size: "2", radius: "full" }),
+    "ui-chip-on": badgeClass({ variant: "soft", color: "accent", size: "2", radius: "full" }),
+    // A link standing alone gets the 44px tap height; that is app layout.
+    "ui-link": `${linkClass({ size: "2", weight: "bold", underline: "always" })} inline-flex min-h-11 items-center`,
     "ui-label": "text-xs font-semibold uppercase tracking-wider text-muted",
   },
 });
