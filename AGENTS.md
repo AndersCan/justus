@@ -165,6 +165,6 @@ fails naming every draft id (`app`: all entries but `store.*`; `store`: the
 `apps/android/fastlane/store-screenshots.json`; a screenshot missing there counts as
 unapproved, and approval is by name, so reset it to false when re-recording). `fastlane listing` runs `store`;
 `fastlane internal` does not upload the listing. Keep `store.*` text equal to the fastlane
-metadata files (the catalogue test checks).
+metadata files (the catalogue test checks). `join_page.*` text lives in `docs/site/public/join/join.js` too; `scripts/join-page.test.ts` keeps the two equal.
 
 Before drafting or changing text, read `docs/voice.md`: what the owner has rejected and chosen so far.

@@ -4317,5 +4317,12 @@
     "where": "Album › Join requests › link",
     "who": "Admins answering requests",
     "screen": ""
+  },
+  "join_page.will_get_your_request": {
+    "text": "{owner} will get your request and has to accept it.",
+    "status": "draft",
+    "where": "Join page (site) › text",
+    "who": "People opening an invite link",
+    "screen": ""
   }
 }

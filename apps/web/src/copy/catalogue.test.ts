@@ -92,7 +92,9 @@ describe("copy catalogue", () => {
 
   it("uses every id", () => {
     const used = new Set(uses.map((u) => u.id));
-    expect(Object.keys(en).filter((id) => !used.has(id) && !id.startsWith("store."))).toEqual([]);
+    // join_page.* lives in docs/site/public/join/join.js, pinned by scripts/join-page.test.ts
+    const outside = (id: string) => id.startsWith("store.") || id.startsWith("join_page.");
+    expect(Object.keys(en).filter((id) => !used.has(id) && !outside(id))).toEqual([]);
   });
 
   it("keeps the store listing files and their store.* entries in step", () => {
