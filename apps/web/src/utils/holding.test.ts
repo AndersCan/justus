@@ -108,12 +108,12 @@ describe("holdingLine", () => {
     expect(holdingLine({ kind: "silent" }, 3)).toBe("phone hasn't said yet");
   });
   it("everything held says all", () => {
-    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("has all in full");
-    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has all in full");
+    expect(holdingLine({ kind: "count", held: 3 }, 3)).toBe("has all 3 photos");
+    expect(holdingLine({ kind: "count", held: 1 }, 1)).toBe("has the photo");
   });
   it("part held says the count", () => {
-    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("has 2 in full");
-    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("has 1 in full");
+    expect(holdingLine({ kind: "count", held: 2 }, 3)).toBe("has 2 of 3 photos");
+    expect(holdingLine({ kind: "count", held: 1 }, 12)).toBe("has 1 of 12 photos");
   });
   it("absent or zero means none", () => {
     expect(holdingLine(undefined, 4)).toBe("has no photos yet");
@@ -123,8 +123,8 @@ describe("holdingLine", () => {
     const phones = [
       holdingLine({ kind: "silent" }, 3),
       holdingLine(undefined, 3),
-      holdingLine({ kind: "count", held: 3 }, 3),
-      holdingLine({ kind: "count", held: 999 }, 1000),
+      holdingLine({ kind: "count", held: 100 }, 100),
+      holdingLine({ kind: "count", held: 99 }, 100),
     ];
     for (const role of [
       "member.role_admin",
