@@ -30,6 +30,8 @@ const noSheet: JoinView["state"][] = [
   "joinedAlbum",
   "showingWelcome",
   "holdingInviteUntilWelcomeEnds",
+  "checkingPastedLink",
+  "sendingPastedRequest",
 ];
 const labels: [JoinView["state"], string][] = [
   ["checkingLink", copy("join_request.checking_owner_s_link", { owner })],

@@ -27,18 +27,27 @@ const mock = vi.hoisted(() => ({
   status: vi.fn(),
   joinOffer: vi.fn(),
   createFolder: vi.fn(),
+  ask: vi.fn(),
+  linkTurnedOff: vi.fn(),
 }));
 vi.mock("../gateway", () => ({
   gateway: {
     folders: mock.folders,
     requests: mock.requests,
     status: mock.status,
-    ask: vi.fn(),
+    ask: mock.ask,
+    linkTurnedOff: mock.linkTurnedOff,
     joinOffer: mock.joinOffer,
     createFolder: mock.createFolder,
     logs: { view: vi.fn(), clear: vi.fn() },
   },
 }));
+
+// A sheet an earlier test left open would swallow the next paste, so every test starts with none.
+beforeEach(() => {
+  join.reopenRequest({ ...ask("waiting"), askedAt: 0 } as never);
+  join.closeWaiting();
+});
 
 const album = (id: string, role = "creator") => ({
   id,
@@ -267,22 +276,99 @@ describe("Join tab", () => {
     return input;
   };
 
-  test("Continue with an invite link empties the box", async () => {
+  const goodLink = buildInviteLink({
+    code: "a".repeat(64),
+    owner: "b".repeat(64),
+    album: "Trip",
+    ownerName: "Nils",
+  });
+  const deferred = <T>() => {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => (resolve = r));
+    return { promise, resolve };
+  };
+
+  test("Ask to join keeps the box until the request is sent, then clears it", async () => {
     const host = document.createElement("div");
+    document.body.append(host);
     render(joinPanel(), host);
-    const link = buildInviteLink({
-      code: "a".repeat(64),
-      owner: "b".repeat(64),
-      album: "Trip",
-      ownerName: "Nils",
-    });
-    const input = submit(host, link);
+    const send = deferred<[unknown, unknown]>();
+    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: false }]);
+    mock.ask.mockReturnValue(send.promise);
+    const input = submit(host, goodLink);
+    expect(input.value).toBe(goodLink);
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("sendingPastedRequest"));
+    expect(input.value).toBe(goodLink);
+    send.resolve([undefined, {}]);
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
     expect(input.value).toBe("");
-    expect(joinActor.snapshot().path[0]).toBe("decidingToAsk");
-    join.notNow();
+    join.closeWaiting();
+    host.remove();
   });
 
-  test("Continue is primary only once an invite link is pasted", () => {
+  test.each([
+    [
+      "an album you are in opens",
+      () => join.requestAnswered({ code: "c9", answer: "accepted", folderId: "f1" }),
+    ],
+    [
+      "the update screen shows",
+      () => join.reopenRequest({ ...ask("waiting"), askedAt: 0, whoMustUpdate: "you" } as never),
+    ],
+  ])("the box clears when %s", async (_name, go) => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    render(joinPanel(), host);
+    const input = host.querySelector<HTMLInputElement>("input")!;
+    input.value = goodLink;
+    go();
+    await vi.waitFor(() => expect(input.value).toBe(""));
+    join.closeWaiting();
+    host.remove();
+  });
+
+  test("the button reads Ask to join, Checking the link…, Asking…; box and buttons lock", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const check = deferred<[unknown, unknown]>();
+    const send = deferred<[unknown, unknown]>();
+    mock.linkTurnedOff.mockReturnValue(check.promise);
+    mock.ask.mockReturnValue(send.promise);
+    const button = () => host.querySelector<HTMLButtonElement>("button[type='submit']")!;
+    const paste = () =>
+      host.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!;
+    const input = host.querySelector<HTMLInputElement>("input[aria-label='Invite link']")!;
+    expect(button().textContent).toContain("Ask to join");
+    submit(host, goodLink);
+    await vi.waitFor(() => expect(button().textContent).toContain("Checking the link…"));
+    expect(button().getAttribute("aria-disabled")).toBe("true");
+    expect(button().disabled).toBe(false);
+    expect(paste().disabled).toBe(false);
+    expect(input.readOnly).toBe(true);
+    check.resolve([undefined, { turnedOff: false }]);
+    await vi.waitFor(() => expect(button().textContent).toContain("Asking…"));
+    expect(button().getAttribute("aria-disabled")).toBe("true");
+    expect(button().disabled).toBe(false);
+    send.resolve([undefined, {}]);
+    await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
+    expect(input.readOnly).toBe(false);
+    join.closeWaiting();
+  });
+
+  test("a link its owner turned off says so under the box and keeps the text", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: true }]);
+    const input = submit(host, goodLink);
+    await vi.waitFor(() => expect(host.querySelector("[role=alert]")).not.toBeNull());
+    expect(host.querySelector("[role=alert]")!.textContent).toBe(
+      "Nils turned off this link. Ask Nils for a new link if you still want to join.",
+    );
+    expect(input.value).toBe(goodLink);
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  test("Ask to join is primary only once an invite link is pasted", () => {
     const scope = document.createElement("div");
     scope.setAttribute("data-invite-scope", "");
     scope.innerHTML = '<wa-button variant="brand" data-create-album></wa-button>';
@@ -313,19 +399,35 @@ describe("Join tab", () => {
     expect(create.hasAttribute("appearance")).toBe(false);
   });
 
-  test("on the join tab alone Continue stays primary", () => {
+  test("on the join tab alone Ask to join stays primary", () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
     expect(host.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
   });
 
-  test("Continue with a garbled link keeps the text", async () => {
+  test("Ask to join with a garbled link keeps the text; typing removes the line", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
     const input = submit(host, "not a link");
     expect(input.value).toBe("not a link");
     expect(joinActor.snapshot().path[0]).toBe("showingLinkProblem");
-    join.notNow();
+    await vi.waitFor(() => expect(host.querySelector("[role=alert]")).not.toBeNull());
+    expect(host.querySelector("[role=alert]")!.className).toContain("text-xs");
+    input.value = "not a link2";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(host.querySelector("[role=alert]")).toBeNull());
+  });
+
+  test("the button stays primary after a problem re-render with a good link in the box", async () => {
+    const host = document.createElement("div");
+    render(joinPanel(), host);
+    const input = host.querySelector<HTMLInputElement>("input")!;
+    submit(host, "not a link");
+    await vi.waitFor(() => expect(host.querySelector("[role=alert]")).not.toBeNull());
+    input.value = goodLink;
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(host.querySelector("[role=alert]")).toBeNull());
+    expect(host.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
   });
 });
 
@@ -345,7 +447,7 @@ describe("Photos page wiring", () => {
 });
 
 describe("join card", () => {
-  test("has the invite input, a Paste button and a Continue button", async () => {
+  test("has the invite input, a Paste button and an Ask to join button", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
     await vi.waitFor(() =>
@@ -354,7 +456,10 @@ describe("join card", () => {
     expect(host.querySelector("button[aria-label='Paste from clipboard']")?.textContent).toContain(
       "Paste",
     );
-    expect(host.querySelector("button[type='submit']")?.textContent).toContain("Continue");
+    expect(host.querySelector("button[type='submit']")?.textContent).toContain("Ask to join");
+    expect([...host.querySelectorAll("button")].map((b) => b.textContent?.trim())).not.toContain(
+      "Continue",
+    );
     expect(host.querySelectorAll("section")).toHaveLength(1);
   });
 
@@ -387,7 +492,7 @@ describe("join card", () => {
     vi.unstubAllGlobals();
   });
 
-  test("Continue is enabled once sync has settled", async () => {
+  test("Ask to join is enabled once sync has settled", async () => {
     const { sync, syncActor } = await import("../machines/sync-machine");
     const host = document.createElement("div");
     render(joinPanel(), host);
@@ -937,7 +1042,7 @@ describe("primary button follows the invite box", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  test("Paste with an invite copied makes Continue primary", async () => {
+  test("Paste with an invite copied makes Ask to join primary", async () => {
     const scope = mountScope();
     vi.stubGlobal("navigator", { clipboard: { readText: async () => link } });
     scope.querySelector<HTMLButtonElement>("button[aria-label='Paste from clipboard']")!.click();
@@ -947,16 +1052,29 @@ describe("primary button follows the invite box", () => {
     expect(scope.querySelector("[data-create-album]")!.getAttribute("appearance")).toBe("filled");
   });
 
-  test("clearing the box after Continue makes Create primary again", () => {
+  test("clearing the box after Ask to join makes Create primary again", () => {
     const scope = mountScope();
     const input = scope.querySelector("input")!;
     input.value = link;
     input.dispatchEvent(new Event("input"));
-    scope.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
-    expect(input.value).toBe("");
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
     expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
     expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
     expect(scope.querySelector("[data-create-album]")!.hasAttribute("appearance")).toBe(false);
-    join.notNow();
+  });
+
+  test("the box the app clears after a request makes Create primary again", async () => {
+    const scope = mountScope();
+    const input = scope.querySelector("input")!;
+    input.value = link;
+    input.dispatchEvent(new Event("input"));
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-primary");
+    join.reopenRequest({ ...ask("waiting"), askedAt: 0 } as never);
+    await vi.waitFor(() => expect(input.value).toBe(""));
+    expect(scope.querySelector("[data-join-continue]")!.className).toContain("ui-btn-ghost");
+    expect(scope.querySelector("[data-create-album]")!.getAttribute("variant")).toBe("brand");
+    join.closeWaiting();
+    scope.remove();
   });
 });

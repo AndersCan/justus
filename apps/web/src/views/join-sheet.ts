@@ -81,6 +81,8 @@ export function renderJoinSheet(
     state === "holdingInviteUntilWelcomeEnds" ||
     state === "showingLinkProblem" ||
     state === "joinedAlbum" ||
+    state === "checkingPastedLink" ||
+    state === "sendingPastedRequest" ||
     !invite
   )
     return null;

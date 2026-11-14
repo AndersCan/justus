@@ -226,7 +226,7 @@
       "steps": [
         {
           "kind": "event",
-          "event": "openLink",
+          "event": "askWithPastedLink",
           "payload": {
             "text": "justus://join?i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Spain+2026&a=Nils"
           }
@@ -237,11 +237,6 @@
           "payload": {
             "turnedOff": false
           }
-        },
-        {
-          "kind": "event",
-          "event": "askToJoin",
-          "payload": {}
         },
         {
           "kind": "event",

@@ -2,6 +2,7 @@ import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
+import type { VizRun } from "@mantaq/viz";
 import { describe, expect, test } from "vite-plus/test";
 import { buildInviteLink } from "../../utils/invite-link";
 import type { JoinInvite } from "../../utils/invite-link";
@@ -11,6 +12,7 @@ import {
   NOTHING_COPIED,
   SEND_FAILED,
   createJoinRequestActor,
+  oldLinkMessage,
   type AskSummary,
   type JoinPort,
   type Known,
@@ -716,6 +718,236 @@ describe("pasteFoundNothing", () => {
   });
 });
 
+describe("askWithPastedLink", () => {
+  const OFF = "Nils turned off this link. Ask Nils for a new link if you still want to join.";
+  const EXPIRED = "This invite link has expired. Ask Nils for a new one.";
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  /** A port whose check and send wait until the test lets them go. */
+  function heldPort(turnedOff = false) {
+    const asks: JoinInvite[] = [];
+    const release: { check: () => void; send: (result?: [unknown, unknown]) => void } = {
+      check: () => {},
+      send: () => {},
+    };
+    const port: JoinPort = {
+      checkLink: () =>
+        new Promise((resolve) => {
+          release.check = () => resolve([undefined, { turnedOff }]);
+        }),
+      ask: (invite) =>
+        new Promise((resolve) => {
+          asks.push(invite);
+          release.send = (result = [undefined, {}]) => resolve(result);
+        }),
+    };
+    return { port, asks, release };
+  }
+  const paste = (s: Setup, text = LINK) =>
+    s.actor.send({ type: "askWithPastedLink", payload: { text } } as never);
+
+  test("a new link is checked, sent and waited on with no question between", async () => {
+    const { port, asks, release } = heldPort();
+    const s = setup({ port });
+    const seen: string[] = [];
+    s.actor.on("change", { fn: (snap) => seen.push(snap.path[0] as string) });
+    paste(s);
+    await tick();
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    release.check();
+    await tick();
+    expect(s.actor.state.name).toBe("sendingPastedRequest");
+    release.send();
+    await tick();
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(seen).not.toContain("decidingToAsk");
+    expect(seen).not.toContain("checkingLink");
+    expect(asks).toEqual([INVITE]);
+    expect(error(s)).toBe("");
+  });
+
+  test.each(["checkingPastedLink", "sendingPastedRequest"])(
+    "a second tap during %s sends nothing more",
+    async (during) => {
+      const { port, asks, release } = heldPort();
+      const s = setup({ port });
+      paste(s);
+      await tick();
+      if (during === "sendingPastedRequest") {
+        release.check();
+        await tick();
+      }
+      expect(s.actor.state.name).toBe(during);
+      paste(s);
+      await tick();
+      expect(s.actor.state.name).toBe(during);
+      release.check();
+      await tick();
+      release.send();
+      await tick();
+      expect(asks).toHaveLength(1);
+      expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    },
+  );
+
+  test("empty text says nothing was copied", async () => {
+    const s = setup();
+    await s.send("askWithPastedLink", { text: "  " });
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(NOTHING_COPIED);
+  });
+
+  test("text that is not a link says so", async () => {
+    const s = setup();
+    await s.send("askWithPastedLink", { text: "hello" });
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(GARBLED_LINK);
+  });
+
+  test("an old link names its owner", async () => {
+    const s = setup();
+    await s.send("askWithPastedLink", { text: `justus://join/${INVITE.code}?n=Lisbon&a=Nils` });
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(oldLinkMessage("Nils"));
+  });
+
+  test("a link that has ended says so and sends nothing", async () => {
+    const asks: JoinInvite[] = [];
+    let checks = 0;
+    const s = setup({
+      port: {
+        ask: async (i) => (asks.push(i), [undefined, {}]),
+        checkLink: async () => (checks++, [undefined, { turnedOff: false }]),
+      },
+    });
+    s.clock.advance(600_000);
+    await s.send("askWithPastedLink", { text: buildInviteLink({ ...INVITE, expiresAt: 600_000 }) });
+    expect(checks).toBe(0);
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(EXPIRED);
+    expect(asks).toEqual([]);
+  });
+
+  test("a link that ends during the check says so and sends nothing", async () => {
+    const { port, asks, release } = heldPort();
+    const s = setup({ port });
+    paste(s, buildInviteLink({ ...INVITE, expiresAt: 600_000 }));
+    await tick();
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    s.clock.advance(600_000);
+    release.check();
+    await tick();
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(EXPIRED);
+    expect(asks).toEqual([]);
+  });
+
+  test("a link its owner turned off is refused under the box and sends nothing", async () => {
+    const { port, asks, release } = heldPort(true);
+    const s = setup({ port });
+    paste(s);
+    await tick();
+    release.check();
+    await tick();
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(OFF);
+    expect(asks).toEqual([]);
+  });
+
+  test.each([
+    ["turnedOff", "Nils turned off this link. Ask Nils for a new link if you still want to join."],
+    ["replaced", "Nils replaced this link. Ask Nils for the new link."],
+    ["albumDeleted", "Nils deleted this album. There is nothing to join any more."],
+    ["expired", "This invite link has expired. Ask Nils for a new one."],
+    [undefined, "This invite link no longer works. Ask Nils for a new one."],
+  ] as const)("a link this phone knows stopped (%s) says so under the box", async (why, line) => {
+    const asks: JoinInvite[] = [];
+    const s = setup({
+      known: { kind: "stopped", why },
+      port: { ask: async (i) => (asks.push(i), [undefined, {}]) },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(line);
+    expect(asks).toEqual([]);
+    expect(s.outputs).toEqual([]);
+  });
+
+  test("a failed send says so under the box, and the next tap sends again", async () => {
+    let calls = 0;
+    const s = setup({
+      port: { ask: async () => (++calls === 1 ? [{ code: "X" }, null] : [undefined, {}]) },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("showingLinkProblem");
+    expect(error(s)).toBe(SEND_FAILED);
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(calls).toBe(2);
+    expect(error(s)).toBe("");
+  });
+
+  test.each(["own", "member"] as const)("a link to an album already %s opens it", async (kind) => {
+    const s = setup({ known: { kind, folderId: "f1" } });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
+  });
+
+  test("a link already asked through opens the waiting screen", async () => {
+    const s = setup({ known: { kind: "waiting" } });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+  });
+
+  test("a link tapped during the check wins", async () => {
+    const { port, release } = heldPort();
+    const s = setup({
+      port,
+      known: (i) => (i.code === "c".repeat(64) ? { kind: "waiting" } : { kind: "new" }),
+    });
+    paste(s);
+    await tick();
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    await s.send("openLink", { text: buildInviteLink({ ...INVITE, code: "c".repeat(64) }) });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    release.check();
+    await tick();
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+  });
+
+  test.each(["checkingPastedLink", "sendingPastedRequest"])(
+    "an accept for another request during %s opens that album",
+    async (during) => {
+      const { port, release } = heldPort();
+      const s = setup({ port });
+      paste(s);
+      await tick();
+      if (during === "sendingPastedRequest") {
+        release.check();
+        await tick();
+      }
+      expect(s.actor.state.name).toBe(during);
+      await s.send("requestAnswered", { code: "d".repeat(64), answer: "accepted", folderId: "f9" });
+      expect(s.actor.state.name).toBe("joinedAlbum");
+      expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f9" } }]);
+    },
+  );
+
+  test("typing after a problem clears it; elsewhere the edit is dropped", async () => {
+    const s = setup();
+    await s.send("askWithPastedLink", { text: "hello" });
+    await s.send("linkEdited");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    expect(error(s)).toBe("");
+    await s.send("linkEdited");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+    await s.send("openLink", { text: LINK });
+    await s.send("linkEdited");
+    expect(s.actor.state.name).toBe("decidingToAsk");
+  });
+});
+
 const make = recordRuns(createJoinRequestActor);
 const ROW = (status: AskSummary["status"]) => ask(status);
 
@@ -734,8 +966,7 @@ async function drive(
 
 test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
   const actor = await drive(async (send) => {
-    await send("openLink", { text: LINK });
-    await send("askToJoin");
+    await send("askWithPastedLink", { text: LINK });
     await send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
   });
   expect(actor.state.name).toBe("joinedAlbum");
@@ -1033,6 +1264,29 @@ describe("joiner design", () => {
     create: () => createJoinRequestActor({ clock: VirtualClock() }),
     tests: [
       {
+        name: "Maya opens Nils's link and asks",
+        steps: [
+          { kind: "event" as const, event: "openLink", payload: { text: LINK } },
+          { kind: "event" as const, event: "askToJoin", payload: null },
+        ],
+      },
+      {
+        name: "Maya pastes Nils's link and asks",
+        steps: [{ kind: "event" as const, event: "askWithPastedLink", payload: { text: LINK } }],
+      },
+      {
+        name: "Maya's ask meets a deleted album",
+        steps: [
+          { kind: "event" as const, event: "openLink", payload: { text: LINK } },
+          { kind: "event" as const, event: "askToJoin", payload: null },
+          {
+            kind: "event" as const,
+            event: "requestAnswered",
+            payload: { code: INVITE.code, answer: "linkOff", why: "albumDeleted" },
+          },
+        ],
+      },
+      {
         name: "Maya opens Nils's link after it ended",
         steps: [
           { kind: "advance" as const, ms: 600_000 },
@@ -1043,8 +1297,14 @@ describe("joiner design", () => {
           },
         ],
       },
-    ],
+    ] as VizRun[],
     payloads: {
+      askWithPastedLink: [
+        { text: LINK },
+        { text: "nope" },
+        { text: "" },
+        { text: buildInviteLink({ ...INVITE, expiresAt: 1 }) },
+      ],
       openLink: [
         { text: LINK },
         { text: "nope" },
@@ -1064,6 +1324,7 @@ describe("joiner design", () => {
       ],
       requestAnswered: answers,
       linkChecked: [{ turnedOff: false }, { turnedOff: true }],
+      requestFailed: [{ message: SEND_FAILED }],
     },
   };
   test("has no design errors", () => {
@@ -1314,5 +1575,81 @@ describe("the update screen stays put", () => {
     const s = await onUpdateScreen();
     await s.send("openLink", { text: "nope" });
     expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+});
+
+describe("pasted link: branches the review found untested", () => {
+  test("a check that fails still sends the pasted request", async () => {
+    const asks: JoinInvite[] = [];
+    const s = setup({
+      port: {
+        checkLink: async () => [{ code: "X" }, null],
+        ask: async (i) => (asks.push(i), [undefined, {}]),
+      },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toEqual([INVITE]);
+  });
+
+  test("a check answer without turnedOff true still sends", async () => {
+    const asks: JoinInvite[] = [];
+    const s = setup({
+      port: {
+        checkLink: async () => [undefined, {}],
+        ask: async (i) => (asks.push(i), [undefined, {}]),
+      },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toHaveLength(1);
+  });
+
+  test("a mark on the stored ask opens the update screen after a pasted send", async () => {
+    const s = setup({
+      asked: (code) =>
+        code === INVITE.code ? { ...ask("waiting"), whoMustUpdate: "you" } : undefined,
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("a known marked request opens the update screen from the paste box", async () => {
+    const s = setup({
+      known: { kind: "waiting" },
+      asked: () => ({ ...ask("waiting"), whoMustUpdate: "you" }),
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForYouToUpdate");
+  });
+
+  test("after an album opened, the next pasted link is asked", async () => {
+    const asks: JoinInvite[] = [];
+    const other = { ...INVITE, code: "e".repeat(64) };
+    const s = setup({
+      known: (i) => (i.code === INVITE.code ? { kind: "member", folderId: "f1" } : { kind: "new" }),
+      port: { ask: async (i) => (asks.push(i), [undefined, {}]) },
+    });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    await s.send("askWithPastedLink", { text: buildInviteLink(other) });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(asks).toEqual([other]);
+  });
+
+  test("a garbled tapped link during the pasted check keeps the check", async () => {
+    const s = setup({
+      port: {
+        checkLink: () => new Promise(() => {}),
+        ask: async () => [undefined, {}],
+      },
+    });
+    s.actor.send({ type: "askWithPastedLink", payload: { text: LINK } } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    s.actor.send({ type: "openLink", payload: { text: "nope" } } as never);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s.actor.state.name).toBe("checkingPastedLink");
+    expect(payload(s)).toEqual(INVITE);
   });
 });

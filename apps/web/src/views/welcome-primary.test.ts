@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("Start sharing screen", () => {
-  test("Create an album is primary until an invite is pasted, then Continue is", async () => {
+  test("Create an album is primary until an invite is pasted, then Ask to join is", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     render(chooseStep(), host);

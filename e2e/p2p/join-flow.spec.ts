@@ -65,14 +65,10 @@ async function copyInviteLink(a) {
   return link;
 }
 
-async function askToJoin(b, link, album) {
+async function askToJoin(b, link, _album) {
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Continue", exact: true }).click();
-  const ask = b.getByRole("dialog", { name: `Ask to join “${album}”?` });
-  await expect(ask).toBeVisible({ timeout: 20_000 });
-  await expect(b.locator("img")).toHaveCount(0);
-  await ask.getByRole("button", { name: "Ask to join" }).click();
+  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
   await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0);
 }
@@ -407,11 +403,11 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
 
   await b.goto("/join");
   await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Continue", exact: true }).click();
-  const off = b.getByRole("dialog", { name: /replaced this link\.$/ });
-  await expect(off).toBeVisible({ timeout: 20_000 });
-  await expect(b.getByRole("dialog", { name: /^Ask to join/ })).toHaveCount(0);
-  await off.getByRole("button", { name: "Close", exact: true }).click();
+  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
+  await expect(b.getByRole("alert")).toHaveText(
+    /^.+ replaced this link\. Ask .+ for the new link\.$/,
+    { timeout: 20_000 },
+  );
 
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).not.toBe(link);
@@ -541,18 +537,12 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await expect(row).toHaveCount(0);
 
   await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(b.getByRole("dialog", { name: /turned off this link\.$/ })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(
-    b
-      .getByRole("dialog", { name: /turned off this link\.$/ })
-      .getByText("Your request wasn't answered."),
-  ).toHaveCount(0);
-  await expect(b.getByRole("dialog", { name: "Ask to join “Off trip”?" })).toHaveCount(0);
-  await expect(b.getByRole("dialog", { name: /^You're done\. / })).toHaveCount(0);
-  await b.getByRole("button", { name: "Close", exact: true }).click();
+  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
+  await expect(b.getByRole("alert")).toHaveText(
+    /^.+ turned off this link\. Ask .+ for a new link if you still want to join\.$/,
+    { timeout: 20_000 },
+  );
+  await expect(b.getByRole("dialog")).toHaveCount(0);
   await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
 
   await a.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click({
@@ -577,7 +567,7 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await expect(b.getByRole("button", { name: /Off trip/ })).toHaveCount(0);
 });
 
-test("A turns off the links before anyone asks: C is told at Continue, never sees Ask to join, and A gets no request", async ({
+test("A turns off the links before anyone asks: C is told under the box, never sees a dialog, and A gets no request", async ({
   instancePages,
 }) => {
   test.setTimeout(150_000);
@@ -591,12 +581,12 @@ test("A turns off the links before anyone asks: C is told at Continue, never see
 
   await c.goto("/join");
   await c.getByLabel("Invite link").fill(link);
-  await c.getByRole("button", { name: "Continue", exact: true }).click();
-  const sheet = c.getByRole("dialog", { name: /turned off this link\.$/ });
-  await expect(sheet).toBeVisible({ timeout: 20_000 });
-  await expect(sheet.getByText("Your request wasn't answered.")).toHaveCount(0);
-  await expect(c.getByRole("dialog", { name: "Ask to join “Closed trip”?" })).toHaveCount(0);
-  await sheet.getByRole("button", { name: "Close", exact: true }).click();
+  await c.getByRole("button", { name: "Ask to join", exact: true }).click();
+  await expect(c.getByRole("alert")).toHaveText(
+    /^.+ turned off this link\. Ask .+ for a new link if you still want to join\.$/,
+    { timeout: 20_000 },
+  );
+  await expect(c.getByRole("dialog")).toHaveCount(0);
   await expect(c.getByRole("button", { name: /Closed trip/ })).toHaveCount(0);
   await expect(a.getByText("wants to join “Closed trip”")).toHaveCount(0);
 });
@@ -622,10 +612,7 @@ test("B asks from the first-run screen, closes the waiting sheet, A accepts, B o
   await b.evaluate((l) => navigator.clipboard.writeText(l), link);
   await b.getByRole("button", { name: "Paste from clipboard" }).click();
   await expect(b.getByLabel("Invite link")).toHaveValue(link);
-  await b.getByRole("button", { name: "Continue", exact: true }).click();
-  const ask = b.getByRole("dialog", { name: `Ask to join “${ALBUM}”?` });
-  await expect(ask).toBeVisible({ timeout: 20_000 });
-  await ask.getByRole("button", { name: "Ask to join" }).click();
+  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
   const waiting = b.getByRole("dialog", { name: /^You're done\. / });
   await expect(waiting).toBeVisible({ timeout: 20_000 });
   await waiting.getByRole("button", { name: "Close" }).first().click();
