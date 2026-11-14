@@ -10,10 +10,6 @@ appId: no.cankode.justus
     visible: "Skip"
     timeout: 90000
 - openLink: "${PAGE}/justus/join/#i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Garden&a=Tom"
-# Safari's first-run tip can still cover the page: close it by its text.
-- tapOn:
-    text: "View Bookmarks.*"
-    optional: true
 - extendedWaitUntil:
     visible: "Open in Justus"
     timeout: 30000

@@ -107,6 +107,20 @@ console.log(`Simulator: ${name} (${udid})`);
 }
 if (!existsSync(app)) fail(`Justus.app not found at ${app}`);
 
+if (invite) {
+  // Safari's first-run tip covers the page and Maestro cannot see it: hide all tips in Safari's
+  // defaults on an erased Simulator, before Safari's first launch, then boot again so it reads them.
+  run("xcrun", ["simctl", "shutdown", udid]);
+  run("xcrun", ["simctl", "erase", udid]);
+  run("xcrun", ["simctl", "boot", udid]);
+  run("xcrun", ["simctl", "bootstatus", udid, "-b"]);
+  const hide = ["spawn", udid, "defaults", "write", "com.apple.mobilesafari"];
+  if (
+    run("xcrun", ["simctl", ...hide, "com.apple.TipKit.HideAllTips", "-bool", "true"]).status !== 0
+  )
+    fail("could not hide Safari's tips");
+  run("xcrun", ["simctl", "shutdown", udid]);
+}
 run("xcrun", ["simctl", "boot", udid]); // fails harmlessly when already booted
 if (run("xcrun", ["simctl", "bootstatus", udid, "-b"]).status !== 0) fail("Simulator did not boot");
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
@@ -151,11 +165,6 @@ if (invite) {
   });
   await new Promise((resolve) => site.listen(0, "127.0.0.1", resolve));
   console.log(`Invite page served on port ${site.address().port}`);
-  // Safari shows a first-run tip on its first launch that covers the page, so open and close it once
-  // here: the walk's own openLink is then Safari's second launch.
-  run("xcrun", ["simctl", "openurl", udid, `http://127.0.0.1:${site.address().port}/justus/`]);
-  spawnSync("sleep", ["5"]);
-  run("xcrun", ["simctl", "terminate", udid, "com.apple.mobilesafari"]);
 }
 
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
