@@ -1,9 +1,15 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from "vite-plus/test";
 import type { SyncStatus } from "@justus/core";
 import { VirtualClock } from "@mantaq/core";
-import { createReachActor, reachActor, reachHintOf, wireReachToSync } from "./reach-hint-machine";
+import {
+  connectingToOf,
+  createReachActor,
+  reachActor,
+  reachHintOf,
+  wireReachToSync,
+} from "./reach-hint-machine";
 import { createSyncActor, statusSeen, syncActor } from "./sync-machine";
-import { REACH_HINT_AFTER_MS } from "../utils/reach-hint";
+import { CONNECTING_FOR_MS, REACH_HINT_AFTER_MS } from "../utils/reach-hint";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -29,7 +35,7 @@ afterEach(() => vi.useRealTimers());
 describe("reach hint", () => {
   test("shows the hint only after about 30s of not reaching anyone", () => {
     setStatus(withPeers(false));
-    expect(reachActor.snapshot().path[0]).toBe("waitingBeforeWifiHint");
+    expect(reachActor.snapshot().path[0]).toBe("tryingToReachMembers");
     expect(hintNow()).toBeNull();
     vi.advanceTimersByTime(REACH_HINT_AFTER_MS - 1);
     expect(hintNow()).toBeNull();
@@ -68,8 +74,9 @@ describe("reach actor on a virtual clock", () => {
   test("the hint appears after the wait", async () => {
     const { clock, actor } = setup();
     actor.send(unreachable("Maya"));
-    expect(actor.state.name).toBe("waitingBeforeWifiHint");
+    expect(actor.state.name).toBe("tryingToReachMembers");
     clock.advance(REACH_HINT_AFTER_MS - 1);
+    await actor.settled();
     expect(actor.state.name).toBe("waitingBeforeWifiHint");
     clock.advance(1);
     await actor.settled();
@@ -93,6 +100,50 @@ describe("reach actor on a virtual clock", () => {
     await actor.settled();
     actor.send(reached());
     expect(actor.state.name).toBe("noWifiHint");
+  });
+
+  test("connecting lasts 15 seconds, then the wait for the hint carries on", async () => {
+    const { clock, actor } = setup();
+    actor.send(unreachable("Maya"));
+    expect(connectingToOf(actor.snapshot())).toBe("Maya");
+    clock.advance(CONNECTING_FOR_MS - 1);
+    expect(actor.state.name).toBe("tryingToReachMembers");
+    clock.advance(1);
+    await actor.settled();
+    expect(actor.state.name).toBe("waitingBeforeWifiHint");
+    expect(connectingToOf(actor.snapshot())).toBeUndefined();
+  });
+
+  test("repeated unreachable updates do not delay either timer", async () => {
+    const { clock, actor } = setup();
+    actor.send(unreachable("Maya"));
+    for (let t = 0; t < CONNECTING_FOR_MS; t += 5_000) {
+      clock.advance(5_000);
+      actor.send(unreachable("Maya"));
+    }
+    await actor.settled();
+    expect(actor.state.name).toBe("waitingBeforeWifiHint");
+    for (let t = CONNECTING_FOR_MS; t < REACH_HINT_AFTER_MS; t += 5_000) {
+      clock.advance(5_000);
+      actor.send(unreachable("Maya"));
+    }
+    await actor.settled();
+    expect(actor.state.name).toBe("showingWifiHint");
+  });
+
+  test("reaching someone while connecting shows nothing", () => {
+    const { actor } = setup();
+    actor.send(unreachable("Maya"));
+    actor.send(reached());
+    expect(actor.state.name).toBe("noWifiHint");
+    expect(connectingToOf(actor.snapshot())).toBeUndefined();
+  });
+
+  test("no known name means nothing to connect to", () => {
+    const { actor } = setup();
+    actor.send(unreachable(""));
+    expect(actor.state.name).toBe("tryingToReachMembers");
+    expect(connectingToOf(actor.snapshot())).toBeUndefined();
   });
 
   test("the name updates while trying and in the hint", async () => {
@@ -120,13 +171,14 @@ describe("wireReachToSync", () => {
 
   test("acts once on the current status when wired", () => {
     const { reach } = wired(async () => [null, null]);
-    expect(reach.state.name).toBe("waitingBeforeWifiHint");
+    expect(reach.state.name).toBe("tryingToReachMembers");
     expect(reachHintOf(reach.snapshot())).toBeNull();
   });
 
   test("an unrelated sync change with the same status keeps the wait running", async () => {
     const { clock, sync, reach } = wired(async () => [new Error("offline"), null]);
     clock.advance(20_000);
+    await reach.settled();
     sync.send({ type: "REFRESH" } as never);
     await sync.settled();
     expect(sync.snapshot().context.error).toBe("offline");

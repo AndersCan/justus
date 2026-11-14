@@ -84,6 +84,13 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
       if (document.body?.textContent?.includes("decides who can add photos")) w.__sawViewer = true;
     }).observe(document, { childList: true, subtree: true, characterData: true });
   });
+  await b.addInitScript(() => {
+    const w = window as unknown as { __sawNobody: boolean };
+    w.__sawNobody = false;
+    new MutationObserver(() => {
+      if (document.body?.textContent?.includes("Nobody connected right now")) w.__sawNobody = true;
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
   await createAlbum(a, ALBUM, PHOTO, 11);
   const link = await copyInviteLink(a);
   await a.getByRole("link", { name: "Photos", exact: true }).click();
@@ -118,6 +125,10 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
     timeout: 60_000,
   });
   expect(await b.evaluate(() => (window as unknown as { __sawViewer: boolean }).__sawViewer)).toBe(
+    false,
+  );
+  await expect(b.getByText("1 connected now")).toBeVisible({ timeout: 60_000 });
+  expect(await b.evaluate(() => (window as unknown as { __sawNobody: boolean }).__sawNobody)).toBe(
     false,
   );
 });

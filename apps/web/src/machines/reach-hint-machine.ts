@@ -1,18 +1,29 @@
 import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
 import type { SyncStatus } from "@justus/core";
-import { REACH_HINT_AFTER_MS, reachHintText, unreachableMember } from "../utils/reach-hint";
+import {
+  CONNECTING_FOR_MS,
+  REACH_HINT_AFTER_MS,
+  reachHintText,
+  unreachableMember,
+} from "../utils/reach-hint";
 import { stateNameOf } from "./actor-utils";
 import { syncActor, type SyncActor } from "./sync-machine";
 
 /**
- * Failed-connection hint: once every other member has stayed unreachable for
- * about 30 seconds, show a calm line suggesting WiFi. Purely time-based.
+ * Failed-connection hint: for the first about 15 seconds with every other
+ * member unreachable the album says it is connecting; after about 30 seconds
+ * it shows a calm line suggesting WiFi. Purely time-based.
  */
 
 type ReachContext = { name: string };
 
-const REACH_STATES = ["noWifiHint", "waitingBeforeWifiHint", "showingWifiHint"] as const;
+const REACH_STATES = [
+  "noWifiHint",
+  "tryingToReachMembers",
+  "waitingBeforeWifiHint",
+  "showingWifiHint",
+] as const;
 
 const nameOf = stateNameOf(REACH_STATES);
 
@@ -21,9 +32,16 @@ export function reachHintOf(s: Snapshot<ReachContext>): string | null {
   return nameOf(s) === "showingWifiHint" ? reachHintText(s.context.name) : null;
 }
 
+/** The name of the member being connected to while the album is in its first wait, else undefined. */
+export function connectingToOf(s: Snapshot<ReachContext>): string | undefined {
+  return nameOf(s) === "tryingToReachMembers" && s.context.name ? s.context.name : undefined;
+}
+
 /** Everyone in the album can be reached, or there is nobody else yet; no hint is shown. */
 const noWifiHint = state("noWifiHint")();
-/** Every other member is out of reach; a short wait runs before a hint appears. */
+/** Every other member is out of reach; the album says it is connecting for a few seconds. */
+const tryingToReachMembers = state("tryingToReachMembers")();
+/** Still nobody reachable after the first wait; a second wait runs before a hint appears. */
 const waitingBeforeWifiHint = state("waitingBeforeWifiHint")();
 /** The wait is over and a calm line suggests checking WiFi. */
 const showingWifiHint = state("showingWifiHint")();
@@ -32,6 +50,8 @@ const showingWifiHint = state("showingWifiHint")();
 const unreachable = event("UNREACHABLE")<{ name: string }>();
 /** Someone in the album can be reached again. */
 const reached = event("REACHED")();
+/** About 15 seconds passed with nobody reachable. */
+const connectingTimedOut = event("CONNECTING_TIMED_OUT")();
 /** About 30 seconds passed with nobody reachable. */
 const due = event("DUE")();
 
@@ -39,59 +59,65 @@ const due = event("DUE")();
 export function createReachActor(options: { clock: Clock }) {
   return Actor({
     inputs: [unreachable, reached],
-    internal: [due],
+    internal: [connectingTimedOut, due],
     outputs: [],
-    states: [noWifiHint, waitingBeforeWifiHint, showingWifiHint],
+    states: [noWifiHint, tryingToReachMembers, waitingBeforeWifiHint, showingWifiHint],
     initial: noWifiHint,
     clock: options.clock,
     context: { name: "" } as ReachContext,
     setup: (m) => {
-      /** Nobody else can be reached: the wait starts and no hint is shown yet. */
+      /** Nobody else can be reached: the first wait starts and no hint is shown yet. */
       m.on(noWifiHint, {
         event: unreachable,
-        to: [waitingBeforeWifiHint],
+        to: [tryingToReachMembers],
         handler: (e, opts) => {
           opts.context.set({ name: e.payload.name });
-          return { state: waitingBeforeWifiHint };
+          return { state: tryingToReachMembers };
         },
       });
-      // Keep the timer running; only the name to mention may change.
-      /** Still nobody reachable: the wait carries on and the member named in the hint may change. */
-      m.on(waitingBeforeWifiHint, {
-        event: unreachable,
-        to: [waitingBeforeWifiHint],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return { state: waitingBeforeWifiHint };
-        },
-      });
-      /** Still nobody reachable: the hint stays up and may name a different member. */
-      m.on(showingWifiHint, {
-        event: unreachable,
-        to: [showingWifiHint],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return { state: showingWifiHint };
-        },
-      });
-      /** Someone is reachable again before the wait ends: nothing is shown. */
-      m.on(waitingBeforeWifiHint, {
-        event: reached,
-        to: [noWifiHint],
-        handler: () => ({ state: noWifiHint }),
-      });
-      /** Someone is reachable again: the WiFi hint goes away. */
-      m.on(showingWifiHint, {
-        event: reached,
-        to: [noWifiHint],
-        handler: () => ({ state: noWifiHint }),
-      });
+      // Returning `{}` keeps the running timer; returning the same state would restart it.
+      /** Still nobody reachable: the wait carries on and the member named may change. */
+      for (const waiting of [tryingToReachMembers, waitingBeforeWifiHint, showingWifiHint]) {
+        m.on(waiting, {
+          event: unreachable,
+          to: [],
+          handler: (e, opts) => {
+            opts.context.set({ name: e.payload.name });
+            return {};
+          },
+        });
+      }
+      /** Someone is reachable again: any wait ends and the WiFi hint goes away. */
+      for (const waiting of [tryingToReachMembers, waitingBeforeWifiHint, showingWifiHint]) {
+        m.on(waiting, {
+          event: reached,
+          to: [noWifiHint],
+          handler: () => ({ state: noWifiHint }),
+        });
+      }
 
-      /** A 30 second wait runs; it is cancelled if someone becomes reachable. */
+      /** A 15 second wait runs; it is cancelled if someone becomes reachable. */
+      m.effect(tryingToReachMembers, {
+        name: "tryingToReachMembers",
+        sends: [connectingTimedOut],
+        fn: (input) =>
+          withTimeout(CONNECTING_FOR_MS, { input, event: () => connectingTimedOut.create() }),
+      });
+      /** Nobody was reachable for the first wait: the album stops saying it is connecting. */
+      m.on(tryingToReachMembers, {
+        event: connectingTimedOut,
+        to: [waitingBeforeWifiHint],
+        handler: () => ({ state: waitingBeforeWifiHint }),
+      });
+      /** The rest of the 30 seconds runs; it is cancelled if someone becomes reachable. */
       m.effect(waitingBeforeWifiHint, {
         name: "waitingBeforeWifiHint",
         sends: [due],
-        fn: (input) => withTimeout(REACH_HINT_AFTER_MS, { input, event: () => due.create() }),
+        fn: (input) =>
+          withTimeout(REACH_HINT_AFTER_MS - CONNECTING_FOR_MS, {
+            input,
+            event: () => due.create(),
+          }),
       });
       /** Nobody was reachable for the whole wait: the WiFi hint appears. */
       m.on(waitingBeforeWifiHint, {
@@ -107,8 +133,8 @@ export const reachActor = createReachActor({ clock: RealClock() });
 
 export type ReachActor = ReturnType<typeof createReachActor>;
 
-/** Feeds the sync status to the reach actor. Each unreachable event can restart
- * the wait, so it acts only when sync holds a new status object, never on an
+/** Feeds the sync status to the reach actor. Each unreachable event is cheap
+ * but pointless to repeat, so it acts only when sync holds a new status object, never on an
  * unrelated change such as an error. It also acts once on the current status. */
 export function wireReachToSync(reach: ReachActor, sync: SyncActor): () => void {
   let lastStatus: SyncStatus | null | undefined;
