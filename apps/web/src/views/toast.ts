@@ -43,16 +43,12 @@ function paint() {
           toasts,
           toastKey,
           (t) => html`
-            <div
-              data-motion-key=${toastKey(t)}
-              class="justus-toast pointer-events-auto flex items-center gap-4 rounded-xl bg-fg px-4 py-3 text-sm text-canvas shadow-lg"
-              role="status"
-            >
+            <div data-motion-key=${toastKey(t)} class="justus-toast ui-toast" role="status">
               <span>${t.message}</span>
               ${
                 t.action
                   ? html`<button
-                      class="ui-focus -my-1 shrink-0 rounded-md px-2 py-1 font-semibold underline-offset-2 hover:underline"
+                      class="ui-toast-action"
                       @click=${() => {
                         dismiss(t.id);
                         t.action?.run();

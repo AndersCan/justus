@@ -12,28 +12,18 @@ export function errorBanner(
   onReload?: () => void,
 ): TemplateResult | null {
   if (!error) return null;
-  return html`<div
-    class="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger-fg"
-    role="alert"
-    title=${error}
-  >
+  return html`<div class="ui-error-banner" role="alert" title=${error}>
     ${friendlyError(error)}
     ${
       onReload
-        ? html`<button
-            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-            @click=${onReload}
-          >
+        ? html`<button class="ui-error-banner-action" @click=${onReload}>
             ${t("error_banner.reload_app")}
           </button>`
         : null
     }
     ${
       onRetry
-        ? html`<button
-            class="ml-2 rounded font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-            @click=${onRetry}
-          >
+        ? html`<button class="ui-error-banner-action" @click=${onRetry}>
             ${t("error_banner.retry")}
           </button>`
         : null
