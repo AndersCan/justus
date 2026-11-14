@@ -107,8 +107,8 @@ function splitVariants(token: string): string[] {
   let from = 0;
   for (let i = 0; i < token.length; i++) {
     const c = token[i];
-    if (c === "[" || c === "(") depth++;
-    else if (c === "]" || c === ")") depth--;
+    if (c === "[") depth++;
+    else if (c === "]") depth--;
     else if (c === ":" && depth === 0) {
       parts.push(token.slice(from, i));
       from = i + 1;
@@ -121,13 +121,9 @@ function splitVariants(token: string): string[] {
 const LOOK = /^(bg|rounded|border|ring|shadow)(-|$)/;
 const NOT_LOOK = new Set(["bg-transparent", "border-0", "ring-0", "rounded-none", "shadow-none"]);
 
-function isLook(token: string, shortcuts: Shortcuts, seen = new Set<string>()): boolean {
+function isLook(token: string, shortcuts: Shortcuts): boolean {
   const local = shortcuts.local.get(token);
-  if (local) {
-    if (seen.has(token)) return false;
-    seen.add(token);
-    return local.some((t) => isLook(t, shortcuts, seen));
-  }
+  if (local) return local.some((t) => isLook(t, shortcuts));
   const parts = splitVariants(token);
   if (parts.slice(0, -1).some((p) => p.includes("focus"))) return false;
   const last = parts[parts.length - 1];
@@ -170,7 +166,7 @@ function elementsIn({ file, src }: Source): Element[] {
     const origin: number[] = [];
     quasis.forEach((q: Ast, i: number) => {
       const raw: string = q.value.raw;
-      for (let k = 0; k < raw.length; k++) origin.push(q.start + k);
+      for (let k = 0; k < raw.length; k++) origin.push(q.start + 1 + k);
       text += raw;
       if (i < expressions.length) {
         origin.push(q.end);
@@ -224,7 +220,6 @@ function driftIn(
     const pasted = shortcuts.design.find(
       (s) =>
         s.classes.length >= 3 &&
-        !e.tokens.includes(s.key) &&
         s.classes.some((c) => isLook(c, shortcuts)) &&
         s.classes.every((c) => e.tokens.includes(c)),
     );
@@ -394,8 +389,85 @@ describe("design drift", () => {
       'import { buttonClass } from "#design/components/button.ts";\nexport default { shortcuts: { "ui-chip": "rounded-full px-2", "ui-b": buttonClass() } };',
       { "ui-chip": "rounded-full px-2", "ui-b": "rounded-xl" },
     );
-    expect(appShortcutProblems(shortcuts).filter((p) => p.includes("ui-chip"))).toEqual([
+    expect(appShortcutProblems(shortcuts)).toEqual([
       "uno.config.ts shortcut ui-chip is drawn in justus, not design. Build it in AndersCan/design, sync it, and call its class function here; or add ui-chip to APP_SHORTCUTS with what design lacks.",
+      "APP_SHORTCUTS lists ui-card, which is no longer a local shortcut: remove it.",
+      "APP_SHORTCUTS lists ui-focus, which is no longer a local shortcut: remove it.",
+      "APP_SHORTCUTS lists ui-btn, which is no longer a local shortcut: remove it.",
+      "APP_SHORTCUTS lists ui-label, which is no longer a local shortcut: remove it.",
+    ]);
+  });
+
+  it("a shortcut is design's when it calls a #design import, named by its first call", () => {
+    const shortcuts = readShortcuts(
+      'import { a } from "#design/components/a.ts";\nimport { b } from "#design/components/b.ts";\nimport { local } from "./local.ts";\nexport default { shortcuts: { "ui-ab": `${a()} ${b()}`, "ui-l": local(), plain: "rounded" } };',
+      { "ui-ab": "rounded bg-x", "ui-l": "rounded", plain: "rounded" },
+    );
+    expect(shortcuts).toEqual({
+      design: [
+        { key: "ui-ab", classes: ["rounded", "bg-x"], fn: "a", source: "#design/components/a.ts" },
+      ],
+      local: new Map([
+        ["ui-l", ["rounded"]],
+        ["plain", ["rounded"]],
+      ]),
+    });
+  });
+
+  it("the line is where the tag starts at the start of a line", () => {
+    expect(driftOf('html`<p>${a}</p>\n<button class="rounded-xl">x</button>\n`').handDrawn).toEqual(
+      [`views/t.ts:2 <button> is drawn by hand (rounded-xl). ${BUTTON_HINT}`],
+    );
+  });
+
+  it("a class expression after other expressions reads its own expression", () => {
+    expect(
+      driftOf('const c = "rounded-xl"; html`<p>${x}</p><button class=${c}>x</button>`').handDrawn,
+    ).toEqual([`views/t.ts:1 <button> is drawn by hand (rounded-xl). ${BUTTON_HINT}`]);
+  });
+
+  it("a class from a template literal is checked", () => {
+    expect(driftOf("html`<button class=${`rounded-xl ${y}`}>x</button>`").handDrawn).toEqual([
+      `views/t.ts:1 <button> is drawn by hand (rounded-xl). ${BUTTON_HINT}`,
+    ]);
+  });
+
+  it("hand-styled select and textarea name inputClass", () => {
+    expect(
+      driftOf('html`<select class="rounded-lg"></select><textarea class="border"></textarea>`')
+        .handDrawn,
+    ).toEqual([
+      `views/t.ts:1 <select> is drawn by hand (rounded-lg). ${INPUT_HINT}`,
+      `views/t.ts:1 <textarea> is drawn by hand (border). ${INPUT_HINT}`,
+    ]);
+  });
+
+  it("an app shortcut next to a design class is not a repaint", () => {
+    expect(driftOf('html`<div class="ui-btn-primary ui-card">x</div>`')).toEqual({
+      handDrawn: [],
+      problems: [],
+    });
+  });
+
+  it("ring-0 and shadow-none are not a look", () => {
+    expect(driftOf('html`<button class="ring-0 shadow-none">x</button>`')).toEqual({
+      handDrawn: [],
+      problems: [],
+    });
+  });
+
+  it("a design shortcut of three look classes is paste-checked", () => {
+    const three: Shortcuts = {
+      design: [
+        { key: "ui-x", classes: ["rounded", "bg-a", "p-1"], fn: "xClass", source: "#design/x.ts" },
+      ],
+      local: new Map(),
+    };
+    expect(
+      driftIn({ file: "views/t.ts", src: 'html`<div class="rounded bg-a p-1">x</div>`' }, three)
+        .problems,
+    ).toEqual([
+      'views/t.ts:1 <div> copies design\'s ui-x classes by hand. Use class="ui-x" (xClass in #design/x.ts).',
     ]);
   });
 
@@ -415,6 +487,15 @@ describe("design drift", () => {
         ["views/x.ts has 0 hand-drawn controls; KNOWN_HAND_DRAWN says 1: remove its entry."],
       ],
     );
+  });
+
+  it("scans views, machines, utils and main.ts, never test files", () => {
+    const files = sources().map((s) => s.file);
+    expect(files.filter((f) => f.startsWith("views/")).length).toBeGreaterThan(0);
+    expect(files.filter((f) => f.startsWith("machines/")).length).toBeGreaterThan(0);
+    expect(files.filter((f) => f.startsWith("utils/")).length).toBeGreaterThan(0);
+    expect(files).toContain("main.ts");
+    expect(files.filter((f) => f.endsWith(".test.ts"))).toEqual([]);
   });
 
   it("justus has no drift beyond the known list", () => {
