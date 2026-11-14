@@ -8,7 +8,9 @@ import {
   samePhoto,
   galleryActor,
   galleryViewModel,
+  photoKey,
 } from "../machines/gallery-machine";
+import { photoSwap } from "./album-transition";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { formatFullDate, formatRelative } from "../utils/time";
 import { takenTime } from "../utils/photo-scope";
@@ -28,11 +30,16 @@ import { copy, t } from "../copy/copy";
 /** Full-screen photo detail. The open photo lives in the lightbox machine. */
 
 export function openLightbox(photo: Photo, within?: Photo[]): void {
-  lightboxActor.send(lightboxEvents.opened.create({ photo, within }));
+  photoSwap(photoKey(photo), "open", () =>
+    lightboxActor.send(lightboxEvents.opened.create({ photo, within })),
+  );
 }
 
 export function closeLightbox(): void {
-  lightboxActor.send(lightboxEvents.closed.create());
+  const open = lightboxActor.snapshot().context.photo;
+  const close = () => lightboxActor.send(lightboxEvents.closed.create());
+  if (open === undefined) return close();
+  photoSwap(photoKey(open), "close", close);
 }
 
 /** Steps through the grid the lightbox was opened from, else every photo. */
@@ -250,12 +257,14 @@ function lightboxBody(photo: Photo, people: ReturnType<typeof peopleIn>, hidden:
   return html`
     <div
       class="fixed inset-0 z-30 touch-pan-y"
+      data-lightbox
       @pointerdown=${notePress}
       @touchstart=${onTouchStart}
       @touchend=${onTouchEnd}
     >
       ${photoViewer({
         src: photo.url,
+        placeholder: photo.thumbUrl,
         alt: photo.name,
         controls: hidden ? "hidden" : "shown",
         closeLabel: copy("lightbox.close"),

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { albumSwap } from "./album-transition";
+import { albumSwap, photoSwap } from "./album-transition";
 import type { AppPage } from "../machines/router-machine";
 
 const grid: AppPage = { route: "photoAlbums", params: {} };
@@ -132,4 +132,94 @@ test("the grid scroll is restored after the grid is back on screen", () => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => void order.push("scroll"));
   albumSwap(page, grid, () => order.push("apply"));
   expect(order).toEqual(["apply", "scroll"]);
+});
+
+function tile() {
+  const el = document.createElement("figure");
+  el.dataset.photoTile = "/a";
+  document.body.append(el);
+  return el;
+}
+
+function stubPhotoTransition() {
+  const seen: { tile: string | null; marked: boolean }[] = [];
+  const start = vi.fn((cb: () => void) => {
+    seen.push({
+      tile: document.querySelector("[data-photo-tile]")?.getAttribute("data-vt") ?? null,
+      marked: document.documentElement.hasAttribute("data-vt-photo"),
+    });
+    cb();
+    return { ready: Promise.reject(new Error("skipped")), finished: Promise.resolve() };
+  });
+  (document as Doc).startViewTransition = start;
+  return { start, seen };
+}
+
+describe("photoSwap", () => {
+  test("no tile applies once without a transition", () => {
+    reduceMotion(false);
+    const { start } = stubPhotoTransition();
+    const apply = vi.fn();
+    photoSwap("/a", "open", apply);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(start).not.toHaveBeenCalled();
+    expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(false);
+  });
+
+  test("a tile of another photo is not used", () => {
+    reduceMotion(false);
+    const { start } = stubPhotoTransition();
+    tile();
+    const apply = vi.fn();
+    photoSwap("/b", "open", apply);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  test("Reduce motion applies once and never names the tile", () => {
+    reduceMotion(true);
+    const { start } = stubPhotoTransition();
+    const el = tile();
+    const apply = vi.fn();
+    photoSwap("/a", "open", apply);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(start).not.toHaveBeenCalled();
+    expect(el.hasAttribute("data-vt")).toBe(false);
+  });
+
+  test("without view transitions it applies once, synchronously", () => {
+    reduceMotion(false);
+    const el = tile();
+    const apply = vi.fn();
+    photoSwap("/a", "close", apply);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(el.hasAttribute("data-vt")).toBe(false);
+  });
+
+  test("opening names the tile and marks the page, then clears both", async () => {
+    reduceMotion(false);
+    const { seen } = stubPhotoTransition();
+    const el = tile();
+    const apply = vi.fn();
+    photoSwap("/a", "open", apply);
+    expect(seen).toEqual([{ tile: "photo", marked: true }]);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(el.hasAttribute("data-vt")).toBe(false);
+    await new Promise((r) => setTimeout(r));
+    expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(false);
+  });
+
+  test("closing names the tile after the viewer goes, then clears both", async () => {
+    reduceMotion(false);
+    const { seen } = stubPhotoTransition();
+    const el = tile();
+    photoSwap("/a", "close", () => {
+      expect(el.hasAttribute("data-vt")).toBe(false);
+    });
+    expect(seen).toEqual([{ tile: null, marked: true }]);
+    expect(el.getAttribute("data-vt")).toBe("photo");
+    await new Promise((r) => setTimeout(r));
+    expect(document.querySelectorAll("[data-photo-tile][data-vt]")).toHaveLength(0);
+    expect(document.documentElement.hasAttribute("data-vt-photo")).toBe(false);
+  });
 });
