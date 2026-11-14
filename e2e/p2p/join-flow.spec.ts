@@ -417,9 +417,11 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
 
   await a.evaluate(() => navigator.clipboard.writeText(""));
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
-  await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).not.toBe(link);
+  await expect
+    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(/^justus:\/\/join\?/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
-  expect(newLink).toMatch(/^justus:\/\/join\?/);
+  expect(newLink).not.toBe(link);
   await expect(replaced).toHaveCount(0);
   await expect(a.getByText("This link works until")).toBeVisible();
 
