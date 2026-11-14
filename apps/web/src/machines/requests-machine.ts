@@ -108,6 +108,8 @@ export const declineHeld = event("DECLINE_HELD")<{
   requesterKey: string;
   requesterName: string;
 }>();
+/** The album page closed: the "is in" card is forgotten. */
+const forgetAccepted = event("FORGET_ACCEPTED")();
 /** The person taps Try again after an error, or Retry after a failed answer (the same answer is sent again). */
 const retry = event("RETRY")();
 
@@ -126,6 +128,8 @@ type RequestsContext = {
   stoppedBatch: Batch | null;
   /** Declines waiting for their toast to close, with where each card sat. */
   heldDeclines: { request: JoinRequest; index: number }[];
+  /** The last person let in; the album page shows it until the page changes. */
+  accepted: JoinRequest | null;
 };
 
 const initialContext: RequestsContext = {
@@ -135,6 +139,7 @@ const initialContext: RequestsContext = {
   error: null,
   stoppedBatch: null,
   heldDeclines: [],
+  accepted: null,
 };
 
 /** The error code the backend gives when the joiner cancelled the request. */
@@ -198,6 +203,7 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
     settled: state === "showingRequests" || state === "couldNotSendAnswer",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
+    accepted: s.context.accepted,
   };
 }
 
@@ -218,6 +224,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
       undoDecline,
       declineSent,
       declineFailed,
+      forgetAccepted,
     ],
     internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
     outputs: [
@@ -278,6 +285,17 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
                 }),
               ],
             };
+          },
+        });
+        /** The album page closed: the "is in" card is forgotten. */
+        m.on(at, {
+          event: forgetAccepted,
+          to: [],
+          handler: (_e, opts) => {
+            const ctx = opts.context.get();
+            if (ctx.accepted === null) return {};
+            opts.context.set({ ...ctx, accepted: null });
+            return {};
           },
         });
         /** Undo brings the card back at its old place; the state stays as it is, so nothing in flight is sent again. */
@@ -620,6 +638,7 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
               e.payload.requesterKey,
             ),
             pendingRespond: null,
+            accepted: pending?.approve && request ? request : ctx.accepted,
           });
           if (!pending) return { state: showingRequests };
           return {
@@ -704,6 +723,7 @@ export const requests = {
     role: "reader" | "member" = "member",
   ) => requestsActor.send(respond.create({ folderId, requesterKey, approve, role })),
   retry: () => requestsActor.send(retry.create()),
+  forgetAccepted: () => requestsActor.send(forgetAccepted.create()),
   /** Decline leaves the card at once; the No is sent by `sendDecline` once the toast closes. */
   holdDecline: (folderId: string, requesterKey: string) =>
     requestsActor.send(holdDecline.create({ folderId, requesterKey })),

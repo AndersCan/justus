@@ -166,6 +166,28 @@ describe("requests machine factory", () => {
     ]);
   });
 
+  test("an accepted answer is remembered before it is announced, and forgotten on request", async () => {
+    const { actor } = setup();
+    const seen: unknown[] = [];
+    onOutput(actor, (e) => {
+      if (e.type === "ANSWER_SENT") seen.push(actor.snapshot().context.accepted?.requesterKey);
+    });
+    actor.send(refresh());
+    await actor.settled();
+    actor.send(respond("f1", "k1", true, "reader"));
+    await actor.settled();
+    expect(seen).toEqual(["k1"]);
+    expect(requestsViewModel(actor.snapshot()).accepted?.requesterKey).toBe("k1");
+    actor.send(respond("f1", "k2", false));
+    await actor.settled();
+    expect(actor.snapshot().context.accepted?.requesterKey).toBe("k1");
+    actor.send({ type: "FORGET_ACCEPTED" } as never);
+    expect(actor.snapshot().context.accepted).toBeNull();
+    const before = actor.snapshot();
+    actor.send({ type: "FORGET_ACCEPTED" } as never);
+    expect(actor.snapshot().context).toBe(before.context);
+  });
+
   test("a failed answer is kept: the view model names it and nothing is announced", async () => {
     const { actor } = setup({ respond: async () => [new Error("invoke timeout"), null] });
     const sent: string[] = [];
@@ -506,6 +528,7 @@ describe("requestsViewModel", () => {
       settled: false,
       error: null,
       fatal: false,
+      accepted: null,
     });
   });
 
