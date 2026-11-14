@@ -554,6 +554,7 @@ describe("albumHeader join request line", () => {
     const link = host.querySelector("[data-request-line] a");
     expect(link?.textContent).toBe("Review");
     expect(link?.getAttribute("href")).toBe("/sharing/f1");
+    expect(link?.className).toBe("ui-link");
   });
 
   test("the line shows without a sync status", () => {

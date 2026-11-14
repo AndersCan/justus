@@ -9,7 +9,7 @@ Every file in `src/components/` copies structure, variant names, spacing and acc
 | GOV.UK Frontend | https://github.com/alphagov/govuk-frontend | MIT | Copyright (C) 2017 Crown Copyright (Government Digital Service) | tabs, error banner |
 | Fluent UI | https://github.com/microsoft/fluentui | MIT | Copyright (c) Microsoft Corporation. | sheet |
 | Web Awesome | https://github.com/shoelace-style/webawesome | MIT | Copyright (c) 2023 Fonticons, Inc. | toast |
-| Radix Themes | https://github.com/radix-ui/themes | MIT | Copyright (c) 2023 WorkOS | request card, icon button, radio cards |
+| Radix Themes | https://github.com/radix-ui/themes | MIT | Copyright (c) 2023 WorkOS | request card, icon button, radio cards, badge, link |
 | daisyUI | https://github.com/saadeghi/daisyui | MIT | Copyright (c) 2020 Pouya Saadeghi | presence dot |
 
 GOV.UK Frontend: the crown, logo and GDS Transport font are not MIT and are not used.

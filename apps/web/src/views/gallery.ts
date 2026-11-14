@@ -741,11 +741,7 @@ function requestLine(album: FolderSummary, text: TemplateResult) {
     data-request-line
   >
     ${text}
-    <a
-      class="ui-focus inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-accent underline underline-offset-2 hover:text-accent-strong"
-      href="/sharing/${album.id}"
-      >${t("ask_toast.review")}</a
-    >
+    <a class="ui-link" href="/sharing/${album.id}">${t("ask_toast.review")}</a>
   </p>`;
 }
 
