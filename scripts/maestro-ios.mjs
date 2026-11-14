@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Walks .maestro/flows/first-run.yaml on an iPhone Simulator (up to the share menu), or with
-// --ipad .maestro/ios/ipad-share.yaml on an iPad Simulator. Builds the Debug app, boots the
+// --ipad .maestro/ios/ipad-share.yaml on an iPad Simulator, or with --invite
+// .maestro/ios/invite-page.yaml (Safari, the invite page, then the app). Builds the Debug app, boots the
 // first available Simulator, installs, and runs Maestro.
 // CI glue for .github/workflows/ios-device.yml; the green run is its test.
 import { spawn, spawnSync } from "node:child_process";
@@ -10,6 +11,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -20,7 +22,12 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
-const flow = ipad ? ".maestro/ios/ipad-share.yaml" : ".maestro/flows/first-run.yaml";
+const invite = process.argv.includes("--invite");
+const flow = ipad
+  ? ".maestro/ios/ipad-share.yaml"
+  : invite
+    ? ".maestro/ios/invite-page.yaml"
+    : ".maestro/flows/first-run.yaml";
 const derived = path.join(root, "apps/ios/build/dd");
 const app = path.join(derived, "Build/Products/Debug-iphonesimulator/Justus.app");
 const out = path.join(root, ".maestro/out");
@@ -125,6 +132,27 @@ if (!ipad) {
   console.log(`Face ID enrolled, helper on port ${face.address().port}`);
 }
 
+// --invite: serve docs/site/public under /justus/ on loopback, as GitHub Pages does.
+let site = null;
+if (invite) {
+  const publicDir = path.join(root, "docs/site/public");
+  const types = { ".html": "text/html", ".js": "text/javascript", ".svg": "image/svg+xml" };
+  site = createServer((request, response) => {
+    const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    const relative = pathname.startsWith("/justus/") ? pathname.slice("/justus/".length) : "";
+    const file = path.join(publicDir, relative.endsWith("/") ? `${relative}index.html` : relative);
+    const inside = relative !== "" && file.startsWith(`${publicDir}${path.sep}`);
+    if (!inside || !existsSync(file) || !statSync(file).isFile()) {
+      response.writeHead(404).end("not found");
+      return;
+    }
+    response.writeHead(200, { "content-type": types[path.extname(file)] ?? "text/plain" });
+    response.end(readFileSync(file));
+  });
+  await new Promise((resolve) => site.listen(0, "127.0.0.1", resolve));
+  console.log(`Invite page served on port ${site.address().port}`);
+}
+
 // Maestro leaves the xcodebuild that hosts its iOS driver running when it gives up on
 // "driver not ready in time"; that kills the next try's driver, so stop it first.
 function stopIosDriver() {
@@ -148,9 +176,10 @@ function maestro(log) {
     const file = createWriteStream(log);
     let text = "";
     const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
+    const pageArgs = site ? ["-e", `PAGE=http://127.0.0.1:${site.address().port}`] : [];
     const child = spawn(
       "maestro",
-      ["--device", udid, "test", ...faceArgs, "--test-output-dir", out, flow],
+      ["--device", udid, "test", ...faceArgs, ...pageArgs, "--test-output-dir", out, flow],
       {
         cwd: root,
         env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },
@@ -195,6 +224,7 @@ for (let attempt = 1; attempt <= 2; attempt++) {
 }
 stopIosDriver();
 face?.close();
+site?.close();
 
 // A crash during the run is a failure even when the flow passed.
 const reports = path.join(homedir(), "Library/Logs/DiagnosticReports");

@@ -1,0 +1,48 @@
+appId: no.cankode.justus
+---
+# iPhone only (outside config.yaml's flows/*.yaml glob, so Android never runs it): a friend with a
+# fresh install taps an invite link in Safari, taps Open in Justus on the page, accepts iOS's
+# prompt, finishes the welcome and lands on Ask to join. scripts/maestro-ios.mjs --invite runs it
+# and serves the invite page as ${PAGE}.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 90000
+- openLink: "${PAGE}/justus/join/#i=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&o=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&n=Garden&a=Tom"
+- extendedWaitUntil:
+    visible: "Open in Justus"
+    timeout: 30000
+- tapOn:
+    text: "Open in Justus"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 15000
+- tapOn:
+    text: "Open"
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 30000
+- tapOn:
+    text: "Skip"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Your name"
+    waitToSettleTimeoutMs: 500
+- inputText: "M"
+- pressKey: Enter
+# The Simulator has Face ID enrolled, so the lock card shows; the walk declines it.
+- runFlow:
+    when:
+      visible: "Lock Justus?"
+    commands:
+      - tapOn:
+          text: "Not now"
+          waitToSettleTimeoutMs: 500
+# The invite was held through the welcome. The owner is made up, so the walk stops before asking.
+- extendedWaitUntil:
+    visible: "Ask to join “Garden”?"
+    timeout: 30000

@@ -1,7 +1,7 @@
 name: ios-device
 
 # Walks the first-run flow on an iPhone Simulator, up to the share menu, and opens the share
-# menu on an iPad Simulator.
+# menu on an iPad Simulator, and opens the invite page in Safari on an iPhone Simulator.
 on:
   workflow_dispatch:
 
@@ -21,6 +21,9 @@ jobs:
           - kind: ipad
             name: iPad share sheet
             flag: --ipad
+          - kind: invite
+            name: iPhone invite page
+            flag: --invite
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
