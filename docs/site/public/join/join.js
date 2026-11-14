@@ -22,8 +22,8 @@ export function readInvitePage(hash) {
   const album = (params.get("n") ?? "").trim();
   const name = (params.get("a") ?? "").trim();
   const target = new URLSearchParams({
-    i: code.toLowerCase(),
-    o: owner.toLowerCase(),
+    i: code,
+    o: owner,
     ...(end === null ? {} : { e: end }),
     n: album,
     a: name,

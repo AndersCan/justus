@@ -40,10 +40,6 @@ describe("readInvitePage, each field", () => {
   it("names an album with no name", () => {
     expect(readInvitePage(`#i=${A}&o=${B}`).album).toBe("this album");
   });
-  it("lower-cases the codes in the target", () => {
-    const page = readInvitePage(`#i=${"A".repeat(64)}&o=${"B".repeat(64)}`);
-    expect(page.target).toContain(`i=${A}&o=${B}`);
-  });
 });
 
 describe("page and app read the same link", () => {
@@ -57,6 +53,7 @@ describe("page and app read the same link", () => {
       expiresAt: 1_900_000_000_000,
     },
     { code: A, owner: B, album: "Ünï cødé 🌴", ownerName: "" },
+    { code: A, owner: B, album: "  Garden  ", ownerName: " Tom " },
   ];
   for (const inv of invites) {
     it(`agrees on ${inv.album}`, () => {
@@ -121,6 +118,10 @@ describe("invite page in a browser", () => {
         new RegExp(`^justus://join\\?i=${A}&o=${B}&e=\\d+&n=Garden&a=Tom$`),
       );
       expect(await page.getByRole("heading", { name: "Get Justus" }).isVisible()).toBe(true);
+      expect(await page.locator("#after-open").textContent()).toBe(
+        "Nothing happened? Justus isn't on this phone yet. Get it below.",
+      );
+      expect(await page.locator("ol li").first().textContent()).toContain("ask Tom how to join");
       expect(requests.map((r) => r.url).sort()).toEqual([
         `${ORIGIN}join/`,
         `${ORIGIN}join/join.js`,
@@ -153,9 +154,35 @@ describe("invite page in a browser", () => {
   it("hides the button when the key is missing", async () => {
     const { browser, page } = await open(`i=javascript:alert(1)&o=${B}`);
     try {
-      expect(await page.getByRole("link", { name: "Open in Justus" }).isVisible()).toBe(false);
+      expect(await page.locator("#open").isVisible()).toBe(false);
       expect(await page.locator("#open").getAttribute("href")).toBeNull();
       expect(await page.locator("#after-open").textContent()).toContain("missing a part");
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+describe("invite page without a name", () => {
+  it("says Someone and the person who invited you", async () => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      await page.route("**/*", (route) => {
+        const path = new URL(route.request().url()).pathname.replace(/^\/justus\//, "");
+        const file = join(publicDir, path.endsWith("/") ? `${path}index.html` : path);
+        return route.fulfill({
+          body: readFileSync(file),
+          contentType: file.endsWith(".js") ? "text/javascript" : "text/html",
+        });
+      });
+      await page.goto(`${ORIGIN}join/#i=${A}&o=${B}&n=Garden&a=`);
+      await expect(page.locator("#heading").textContent()).resolves.toBe(
+        "Someone invited you to “Garden”",
+      );
+      expect(await page.locator("ol li").first().textContent()).toContain(
+        "ask the person who invited you how to join",
+      );
     } finally {
       await browser.close();
     }
