@@ -2092,6 +2092,13 @@
     "who": "Everyone inside an album",
     "screen": ""
   },
+  "gallery.connecting": {
+    "text": "Connecting…",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone inside an album",
+    "screen": ""
+  },
   "gallery.nobody_connected_right_now": {
     "text": "Nobody connected right now",
     "status": "draft",

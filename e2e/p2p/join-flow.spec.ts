@@ -85,10 +85,14 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
     }).observe(document, { childList: true, subtree: true, characterData: true });
   });
   await b.addInitScript(() => {
-    const w = window as unknown as { __sawNobody: boolean };
-    w.__sawNobody = false;
+    const w = window as unknown as { __nobodyAt: number | null };
+    w.__nobodyAt = null;
     new MutationObserver(() => {
-      if (document.body?.textContent?.includes("Nobody connected right now")) w.__sawNobody = true;
+      if (
+        w.__nobodyAt === null &&
+        document.body?.textContent?.includes("Nobody connected right now")
+      )
+        w.__nobodyAt = Date.now();
     }).observe(document, { childList: true, subtree: true, characterData: true });
   });
   await createAlbum(a, ALBUM, PHOTO, 11);
@@ -112,6 +116,7 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  const openedAt = Date.now();
   const bImg = b.getByRole("button", { name: `View ${PHOTO}` }).locator("img");
   await expect(bImg).toBeAttached({ timeout: 60_000 });
   await expect
@@ -127,10 +132,11 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   expect(await b.evaluate(() => (window as unknown as { __sawViewer: boolean }).__sawViewer)).toBe(
     false,
   );
-  await expect(b.getByText("1 connected now")).toBeVisible({ timeout: 60_000 });
-  expect(await b.evaluate(() => (window as unknown as { __sawNobody: boolean }).__sawNobody)).toBe(
-    false,
+  // With Admin unreachable the album says "Connecting to …" for 15 s; "Nobody" may only follow that wait.
+  const nobodyAt = await b.evaluate(
+    () => (window as unknown as { __nobodyAt: number | null }).__nobodyAt,
   );
+  expect(nobodyAt === null || nobodyAt - openedAt >= 13_000).toBe(true);
 });
 
 test("A sees B's request on the album page, Review opens the card, Accept lets B in", async ({

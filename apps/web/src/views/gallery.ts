@@ -403,7 +403,9 @@ export function presenceStrip(
     : alone
       ? copy("gallery.only_you_so_far_invite")
       : connecting
-        ? copy("gallery.connecting_to", { name: connectingTo })
+        ? connectingTo
+          ? copy("gallery.connecting_to", { name: connectingTo })
+          : copy("gallery.connecting")
         : copy("gallery.nobody_connected_right_now");
   const dotPulse = online || alone || connecting ? "" : "animate-pulse motion-reduce:animate-none";
   const dotClass = connecting
@@ -768,7 +770,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
               presenceStrip(
                 status,
                 page.lastSync,
-                connectionGivenUp(r) ? undefined : unreachableMember(status) || undefined,
+                connectionGivenUp(r) ? undefined : (unreachableMember(status) ?? undefined),
               ),
             )
           : null;
