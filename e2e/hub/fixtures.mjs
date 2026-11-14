@@ -49,8 +49,13 @@ export const test = base.extend({
       if (testInfo.status !== testInfo.expectedStatus) {
         for (const [i, page] of pages.entries()) {
           for (const route of ["/__state", "/__logs"]) {
+            // A phone the test never opened sits on about:blank, where a relative
+            // fetch has no origin; ask the instance from the context instead.
+            const url = new URL(route, hubRegistry.instances[i].url).href;
             const body = await page
-              .evaluate((r) => fetch(r).then((res) => res.text()), route)
+              .context()
+              .request.get(url)
+              .then((res) => res.text())
               .catch((e) => `fetch ${route} failed: ${e}`);
             await testInfo.attach(`instance-${i + 1}${route.replace("/", "-")}.json`, {
               body,
