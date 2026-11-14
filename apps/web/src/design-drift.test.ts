@@ -23,7 +23,7 @@ const APP_SHORTCUTS: Record<string, string> = {
 const KNOWN_HAND_DRAWN: Record<string, { count: number; what: string }> = {
   "views/album.ts": {
     count: 3,
-    what: "link-style button, photo picker label, coral add button",
+    what: "link-style button, show/hide key toggle, coral add button",
   },
   "views/albums.ts": { count: 1, what: "album row button" },
   "views/gallery.ts": {

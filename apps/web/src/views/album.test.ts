@@ -1442,7 +1442,7 @@ describe("album menu items", () => {
     syncActor.send(statusSeen.create({ status }));
     const host = document.createElement("div");
     render(albumView("f1"), host);
-    expect(host.querySelector("[aria-label='More options']")).not.toBeNull();
+    expect(host.querySelector("[aria-label='More options']")?.className).toBe("ui-icon-btn");
     expect(
       [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
     ).toEqual(["Archive", "Delete album"]);
