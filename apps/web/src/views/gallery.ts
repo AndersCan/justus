@@ -1,4 +1,4 @@
-import { html, type TemplateResult } from "lit-html";
+import { html, nothing, type TemplateResult } from "lit-html";
 import { arrivalFocus } from "./arrival-focus";
 import { repeat } from "lit-html/directives/repeat.js";
 import { watch } from "@mantaq/lit";
@@ -847,6 +847,7 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   return html`
     <div
       class="space-y-5"
+      data-vt=${scope.kind === "album" && album ? "album" : nothing}
       ${gridMotion({ keys: batchKeys(page.batch), settle: scopeKey })}
       @dragenter=${drop.enter}
       @dragover=${drop.over}
@@ -884,6 +885,7 @@ function albumCard(card: AlbumCard, waiting: number) {
     <a
       class="ui-focus group block rounded-2xl"
       href="/albums/${folder.id}"
+      data-album-card=${folder.id}
       aria-label=${copy("gallery.photo_2", { name: folder.name, count })}
     >
       <div class="relative aspect-square overflow-hidden rounded-2xl bg-subtle ring-1 ring-line">

@@ -1,0 +1,17 @@
+[data-vt="album"] {
+  view-transition-name: album;
+}
+
+::view-transition-group(album) {
+  animation-duration: var(--duration-normal);
+  animation-timing-function: var(--easing-standard);
+  overflow: clip;
+  border-radius: 1rem;
+}
+
+::view-transition-old(album),
+::view-transition-new(album) {
+  height: 100%;
+  object-fit: cover;
+  border-radius: 1rem;
+}
