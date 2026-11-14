@@ -55,6 +55,7 @@ async function copyInviteLink(a) {
     .getByRole("link", { name: /Invite & members/ })
     .first()
     .click();
+  await a.evaluate(() => navigator.clipboard.writeText(""));
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
   await expect
     .poll(() => a.evaluate(() => navigator.clipboard.readText()))
@@ -414,10 +415,13 @@ test("Back trip: A removes B while C waits on the same link; C is told the link 
     { timeout: 20_000 },
   );
 
+  await a.evaluate(() => navigator.clipboard.writeText(""));
   await a.getByRole("button", { name: /^(Copy invite link|Copy link)$/ }).click();
-  await expect.poll(() => a.evaluate(() => navigator.clipboard.readText())).not.toBe(link);
+  await expect
+    .poll(() => a.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(/^justus:\/\/join\?/);
   const newLink = await a.evaluate(() => navigator.clipboard.readText());
-  expect(newLink).toMatch(/^justus:\/\/join\?/);
+  expect(newLink).not.toBe(link);
   await expect(replaced).toHaveCount(0);
   await expect(a.getByText("This link works until")).toBeVisible();
 
@@ -545,6 +549,7 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await expect(b.getByRole("dialog")).toHaveCount(0);
   await expect(a.getByText("wants to join “Off trip”")).toHaveCount(0);
 
+  await a.evaluate(() => navigator.clipboard.writeText(""));
   await a.getByRole("button", { name: /^(Send invite link|Copy invite link)$/ }).click({
     timeout: 20_000,
   });
@@ -672,7 +677,7 @@ test("B reloads while waiting, A declines, B sees the decline on Photos", async 
 
   await expect(b.getByText(/didn.t accept your request/)).toBeVisible({ timeout: 60_000 });
   await b.getByRole("button", { name: "Not now", exact: true }).click();
-  await expect(b.getByRole("region", { name: "Waiting to join" })).toHaveCount(0);
+  await expect(waitingRow).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${RELOAD_PHOTO}` })).toHaveCount(0);
 });
 
