@@ -275,6 +275,15 @@ appId: no.cankode.justus
                   - extendedWaitUntil:
                       notVisible: "Face ID"
                       timeout: 8000
+            # Run 43664547712: after the unlock the app was on Photos, not Settings. Open Settings
+            # again when the lock card is not on the page.
+            - runFlow:
+                when:
+                  notVisible: "Require unlock to open Justus.*"
+                commands:
+                  - tapOn:
+                      text: "Settings"
+                      waitToSettleTimeoutMs: 500
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000
