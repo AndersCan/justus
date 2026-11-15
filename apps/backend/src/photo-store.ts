@@ -1,4 +1,4 @@
-import { deletedSince, vanishedDrives, type Listing } from "./photos/deleted";
+import { goneSince, vanishedDrives, type Listing } from "./photos/deleted";
 import { compareGalleryOrder, deriveGallery, type DriveScan } from "./gallery-order";
 import {
   DRIVE_PATH_PHOTOS,
@@ -18,6 +18,7 @@ import {
   ensureHoldingMarker,
   holdersFor,
   markHeld,
+  unmarkHeld,
   markPreviewed,
   readFormer,
   readHeld,
@@ -631,6 +632,8 @@ type FolderRuntime = {
   listSeq: number;
   /** "<driveKey>:<id>" of photos this phone deleted this session. */
   deletedHere: Set<string>;
+  /** Ids this phone took out of its own holding record this session; never recorded again. */
+  unheld: Set<string>;
 };
 
 /** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
@@ -2670,7 +2673,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         left: new Set<string>(),
       };
       // Nothing went: skip the note reads.
-      if (deletedSince(prev, now, ctx).length === 0) return;
+      if (goneSince(prev, now, ctx).length === 0) return;
       // The Admin deleting the album empties the Admin's drive; that is not a photo delete either.
       if (await readDeleteNote(rt.folderDrive, { log, timeoutMs: 2_000 })) return;
       // A member who left takes their photos with them; that is not a delete.
@@ -2679,8 +2682,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         if (key !== selfKey && drive && (await readLeftNote(drive, { log, timeoutMs: 2_000 })))
           ctx.left.add(key);
       }
-      const gone = deletedSince(prev, now, ctx);
-      if (gone.length === 0) return;
+      const goneIds = goneSince(prev, now, ctx);
+      if (goneIds.length === 0) return;
+      const gone = goneIds.map((g) => g.photo);
+      void forgetHeld(
+        rt,
+        goneIds.map((g) => g.id),
+      );
       log("photos.deleted", { folder: rt.record.id, n: gone.length });
       deps.onChanged({
         cause: "deleted",
@@ -3399,6 +3407,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** A full copy of the photo is now on this phone: record it. */
   async function noteHeld(rt: FolderRuntime, id: string) {
+    if (rt.unheld.has(id)) return;
     const drive = rt.selfDrive;
     const mine = rt.held.get(drive.key);
     if (mine?.kind === "reports" && mine.ids.has(id)) return;
@@ -3412,6 +3421,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
       if (!wrote) return;
+      if (rt.unheld.has(id)) return await forgetHeld(rt, [id]);
       const now = rt.held.get(drive.key);
       const ids = new Set(now?.kind === "reports" ? now.ids : []);
       ids.add(id);
@@ -3428,6 +3438,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** The preview of the photo is now on this phone: record it. */
   async function notePreviewed(rt: FolderRuntime, id: string) {
+    if (rt.unheld.has(id)) return;
     const drive = rt.selfDrive;
     const mine = rt.held.get(drive.key);
     if (mine?.kind === "reports" && (mine.ids.has(id) || mine.previews.has(id))) return;
@@ -3442,6 +3453,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
       if (!wrote) return;
+      if (rt.unheld.has(id)) return await forgetHeld(rt, [id]);
       const now = rt.held.get(drive.key);
       const previews = new Set(now?.kind === "reports" ? now.previews : []);
       previews.add(id);
@@ -3453,6 +3465,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       deps.onChanged({ cause: "holders", folderId: rt.record.id });
     } finally {
       heldPending.delete(slot);
+    }
+  }
+
+  /** Photos this phone's screen stopped listing because someone deleted them: out of its record. */
+  async function forgetHeld(rt: FolderRuntime, ids: readonly string[]) {
+    if (ids.length === 0) return;
+    const drive = rt.selfDrive;
+    for (const id of ids) rt.unheld.add(id);
+    for (const id of ids) {
+      const [err] = await unmarkHeld(drive, id);
+      if (err) log("error", { where: "holding.unmark", err: err.message });
     }
   }
 
@@ -4010,6 +4033,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         heldBackfilled: false,
         listSeq: 0,
         deletedHere: new Set(),
+        unheld: new Set(),
         former: [],
       };
       runtimes.set(record.id, rt);
@@ -4189,6 +4213,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       heldBackfilled: false,
       listSeq: 0,
       deletedHere: new Set(),
+      unheld: new Set(),
       former: [],
     };
     runtimes.set(folderId, rt);
@@ -5248,6 +5273,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             heldBackfilled: false,
             listSeq: 0,
             deletedHere: new Set(),
+            unheld: new Set(),
             former: [],
           };
           runtimes.set(existing.id, rt);
@@ -5344,6 +5370,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       heldBackfilled: false,
       listSeq: 0,
       deletedHere: new Set(),
+      unheld: new Set(),
       former: [],
     };
     runtimes.set(folderId, rt);

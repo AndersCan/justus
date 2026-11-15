@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { deletedSince, vanishedDrives, type Listing } from "../../src/photos/deleted.ts";
+import { deletedSince, goneSince, vanishedDrives, type Listing } from "../../src/photos/deleted.ts";
 
 const drive = { name: "drive" };
 const other = { name: "other" };
@@ -212,5 +212,13 @@ describe("deletedSince", () => {
     expect(
       deletedSince(listing({ keys: ["A:p1", "A:p2"] }), listing({ keys: ["A:p2"] }), ctx),
     ).toEqual([{ name: "A:p1.jpg", adderName: "Ann", mine: false, deletedBy: "Ann" }]);
+  });
+});
+
+describe("goneSince", () => {
+  it("returns the photo id beside the photo", () => {
+    expect(goneSince(listing(), empty, ctx)).toEqual([
+      { id: "p1", photo: { name: "A:p1.jpg", adderName: "Ann", mine: false, deletedBy: "Ann" } },
+    ]);
   });
 });

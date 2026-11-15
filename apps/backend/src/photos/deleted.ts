@@ -33,25 +33,36 @@ export function vanishedDrives(prev: Listing | undefined, now: Listing): Set<str
 export function deletedSince(
   prev: Listing | undefined,
   now: Listing,
-  ctx: {
-    removed: Record<string, unknown>;
-    selfKey: string;
-    adminName: string | undefined;
-    deletedHere: ReadonlySet<string>;
-    /** Photo ids this phone's own holding record lists; undefined while that record is not read. */
-    heldHere: ReadonlySet<string> | undefined;
-    /** Whether this phone loaded the photo's thumbnail. */
-    previewHere: (driveKey: string, id: string) => boolean;
-    /** Drive keys whose owner left the album: their photos went with them. */
-    left: ReadonlySet<string>;
-  },
+  ctx: DeletedCtx,
 ): DeletedPhoto[] {
+  return goneSince(prev, now, ctx).map((g) => g.photo);
+}
+
+export type DeletedCtx = {
+  removed: Record<string, unknown>;
+  selfKey: string;
+  adminName: string | undefined;
+  deletedHere: ReadonlySet<string>;
+  /** Photo ids this phone's own holding record lists; undefined while that record is not read. */
+  heldHere: ReadonlySet<string> | undefined;
+  /** Whether this phone loaded the photo's thumbnail. */
+  previewHere: (driveKey: string, id: string) => boolean;
+  /** Drive keys whose owner left the album: their photos went with them. */
+  left: ReadonlySet<string>;
+};
+
+/** `deletedSince`, with each photo's id. */
+export function goneSince(
+  prev: Listing | undefined,
+  now: Listing,
+  ctx: DeletedCtx,
+): { id: string; photo: DeletedPhoto }[] {
   if (prev === undefined) return [];
   if (prev.role !== now.role) return [];
   if (prev.notice !== undefined || now.notice !== undefined) return [];
   if (!prev.complete || !now.complete) return [];
 
-  const gone: DeletedPhoto[] = [];
+  const gone: { id: string; photo: DeletedPhoto }[] = [];
   for (const [key, photo] of prev.photos) {
     if (now.photos.has(key)) continue;
     if (ctx.deletedHere.has(key)) continue;
@@ -66,14 +77,17 @@ export function deletedSince(
     const held =
       mine || ctx.heldHere !== undefined ? mine || ctx.heldHere?.has(photo.id) : undefined;
     gone.push({
-      name: photo.name,
-      adderName: photo.adderName,
-      mine,
-      ...(held !== undefined ? { held } : {}),
-      ...(held === false && ctx.previewHere(photo.driveKey, photo.id)
-        ? ({ preview: true } satisfies Pick<DeletedPhoto, "preview">)
-        : {}),
-      ...(deleter !== undefined && !PLACEHOLDER_NAMES.has(deleter) ? { deletedBy: deleter } : {}),
+      id: photo.id,
+      photo: {
+        name: photo.name,
+        adderName: photo.adderName,
+        mine,
+        ...(held !== undefined ? { held } : {}),
+        ...(held === false && ctx.previewHere(photo.driveKey, photo.id)
+          ? ({ preview: true } satisfies Pick<DeletedPhoto, "preview">)
+          : {}),
+        ...(deleter !== undefined && !PLACEHOLDER_NAMES.has(deleter) ? { deletedBy: deleter } : {}),
+      },
     });
   }
   return gone;
