@@ -158,8 +158,10 @@ appId: no.cankode.justus
           when:
             visible: "dismiss popup"
           commands:
+            # The backdrop element spans the screen, so tapping it by text hits its centre, on the sheet.
+            # Tap above the sheet (its top edge is about 300 pt of 874).
             - tapOn:
-                text: "dismiss popup"
+                point: "50%,15%"
 - extendedWaitUntil:
     visible: "Send invite link"
     timeout: 15000
