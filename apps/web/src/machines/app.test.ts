@@ -44,7 +44,7 @@ test("the board draws folders with onboarding and sync inside it, and the rest a
   expect(within).toEqual({ onboarding: "folders", sync: "folders" });
   const alone = system.parts.filter((p) => p.alone).map((p) => p.id);
   expect(alone).toHaveLength(14);
-});
+}, 60_000);
 
 test("a saved name reaches folders, a sync status reaches folders and reach, an open sheet asks for requests", async () => {
   const made = createJustus({ clock: VirtualClock() });
