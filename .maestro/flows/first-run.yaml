@@ -135,9 +135,17 @@ appId: no.cankode.justus
     commands:
       # The sheet's own backdrop ("dismiss popup") is there as soon as the sheet is: on CI the iPhone sheet
       # can stay blank (no Copy action ever drawn), so Copy is not the signal that the sheet is up.
-      - extendedWaitUntil:
-          visible: "dismiss popup"
-          timeout: 15000
+      # The backdrop label is not always found though the sheet is drawn: Copy also counts as the sheet.
+      - retry:
+          maxRetries: 3
+          commands:
+            - runFlow:
+                when:
+                  notVisible: "Copy"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "dismiss popup"
+                      timeout: 5000
       - takeScreenshot: .maestro/out/ios-share-sheet
       # Copy closes the sheet on its own; a blank sheet is closed by its backdrop.
       - runFlow:

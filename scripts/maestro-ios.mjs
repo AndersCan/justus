@@ -292,5 +292,15 @@ if (status !== 0) {
     'process == "Justus"',
   ]);
   writeFileSync(path.join(out, "app-log.txt"), logs.stdout ?? "");
+  // The web view's console (the "[welcome] lock status" lines) lands in the app's own justus-log-*.jsonl,
+  // not in the system log.
+  const container = capture("xcrun", ["simctl", "get_app_container", udid, bundleId, "data"]);
+  const dataDir = (container.stdout ?? "").trim();
+  if (container.status === 0 && dataDir !== "") {
+    const found = capture("find", [dataDir, "-name", "justus-log-*.jsonl"]);
+    const files = (found.stdout ?? "").split("\n").filter((file) => file !== "");
+    mkdirSync(path.join(out, "web-log"), { recursive: true });
+    for (const file of files) cpSync(file, path.join(out, "web-log", path.basename(file)));
+  }
 }
 process.exit(status);
