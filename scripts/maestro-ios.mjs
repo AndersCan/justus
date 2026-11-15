@@ -19,6 +19,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { helperRoute } from "./maestro-ios-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -165,20 +166,9 @@ if (!ipad) {
       response.end(found ? readFileSync(file) : "not found");
       return;
     }
-    // /away puts Justus in the background by opening Settings, /back opens Justus again. The walk
-    // asks the Simulator, not the XCTest driver: the driver's Home key press left it waiting on a
-    // screenshot that timed out and killed the driver.
-    const actions = {
-      "/match": () => notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0,
-      "/away": () => run("xcrun", ["simctl", "launch", udid, "com.apple.Preferences"]).status === 0,
-      "/back": () => run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0,
-      // The short away: both launches in one call, so no Maestro step (slow on CI) sits between them
-      // and eats into the 30 s the app allows without a lock.
-      "/blink": () =>
-        run("xcrun", ["simctl", "launch", udid, "com.apple.Preferences"]).status === 0 &&
-        run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0,
-    };
-    const done = actions[request.url ?? ""]?.() ?? false;
+    // The walk asks the Simulator, not the XCTest driver: the driver's Home key press left it
+    // waiting on a screenshot that timed out and killed the driver.
+    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId });
     if (done) console.log(`helper: ${request.url}`);
     response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
   });
