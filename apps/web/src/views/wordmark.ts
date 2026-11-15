@@ -46,10 +46,10 @@ export function wordmark(cls: string, animated = false) {
       animated
         ? svg`<g class="motion-reduce:hidden">
           <circle cx="253.56" cy="102.25" r="7.8" class="fill-brand">
-            <animate attributeName="cx" values="243.36;253.56;253.56;243.36" keyTimes="0;0.4;0.7;1" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>
+            <animate attributeName="cx" values="243.36;253.56;253.56;243.36" keyTimes="0;0.4;0.7;1" dur="2.4s" repeatDur="6.48s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>
           </circle>
           <circle cx="253.56" cy="102.25" r="7.8" class="fill-brand">
-            <animate attributeName="cx" values="263.76;253.56;253.56;263.76" keyTimes="0;0.4;0.7;1" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>
+            <animate attributeName="cx" values="263.76;253.56;253.56;263.76" keyTimes="0;0.4;0.7;1" dur="2.4s" repeatDur="6.48s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>
           </circle>
         </g>`
         : null

@@ -35,6 +35,7 @@ const NOT_COPY = [
   /^hidden group/,
   /^<|^\n\s+@keyframes/,
   /^Files$/,
+  /^\[welcome\] lock status/,
 ];
 
 type Use = { file: string; id: string; keys: string[] | null };

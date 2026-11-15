@@ -19,6 +19,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { helperRoute } from "./maestro-ios-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -104,6 +105,9 @@ console.log(`Simulator: ${name} (${udid})`);
     "CODE_SIGNING_ALLOWED=NO",
   ]);
   if (build.status !== 0) fail("xcodebuild failed");
+  // The build leaves its daemons resident; on the 7 GB runner they starve the Simulator and Maestro's first launch hangs.
+  for (const daemon of ["XCBBuildService", "SWBBuildService", "swift-build"])
+    spawnSync("pkill", ["-x", daemon]);
 }
 if (!existsSync(app)) fail(`Justus.app not found at ${app}`);
 
@@ -162,11 +166,11 @@ if (!ipad) {
       response.end(found ? readFileSync(file) : "not found");
       return;
     }
-    const posted =
-      request.url === "/match" &&
-      notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0;
-    if (posted) console.log("face: match");
-    response.writeHead(posted ? 200 : 404).end(posted ? "match" : "not found");
+    // The walk asks the Simulator, not the XCTest driver: the driver's Home key press left it
+    // waiting on a screenshot that timed out and killed the driver.
+    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId });
+    if (done) console.log(`helper: ${request.url}`);
+    response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
   });
   await new Promise((resolve) => face.listen(0, "127.0.0.1", resolve));
   console.log(`Face ID enrolled, helper on port ${face.address().port}`);
@@ -209,7 +213,7 @@ function maestro(log) {
       file.write(chunk);
       text += chunk.toString();
     };
-    // Maestro can hang after a driver call fails: a healthy walk takes about 4 minutes.
+    // Maestro can hang after a driver call fails: a cold walk takes about 9 minutes, so this limits total time, not stalls.
     const hung = setTimeout(
       () => {
         tee("\nMaestro walk hung: killing it\n");
@@ -283,5 +287,15 @@ if (status !== 0) {
     'process == "Justus"',
   ]);
   writeFileSync(path.join(out, "app-log.txt"), logs.stdout ?? "");
+  // The web view's console (the "[welcome] lock status" lines) lands in the app's own justus-log-*.jsonl,
+  // not in the system log.
+  const container = capture("xcrun", ["simctl", "get_app_container", udid, bundleId, "data"]);
+  const dataDir = (container.stdout ?? "").trim();
+  if (container.status === 0 && dataDir !== "") {
+    const found = capture("find", [dataDir, "-name", "justus-log-*.jsonl"]);
+    const files = (found.stdout ?? "").split("\n").filter((file) => file !== "");
+    mkdirSync(path.join(out, "web-log"), { recursive: true });
+    for (const file of files) cpSync(file, path.join(out, "web-log", path.basename(file)));
+  }
 }
 process.exit(status);

@@ -60,6 +60,9 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
 
+      - name: Stop Spotlight indexing
+        run: sudo mdutil -a -i off || true
+
       - name: Maestro walk (${{ matrix.kind }})
         timeout-minutes: 30
         run: node scripts/maestro-ios.mjs ${{ matrix.flag }}
