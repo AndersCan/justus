@@ -985,9 +985,6 @@ describe("who has each photo", () => {
 });
 
 describe("a deleted photo leaves the phone's holding record", () => {
-  /** Nils's screen lists the album again, as it does on each push. */
-  const nilsLists = (s: Album) => async () => void (await s.nils.store.list(s.nilsFolderId));
-
   async function nilsRecord(s: Album) {
     const shareKey = (await s.nils.store.folders()).folders.find(
       (f) => f.id === s.nilsFolderId,

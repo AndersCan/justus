@@ -8,10 +8,6 @@ already in a release tag, raise `PEER_PROTOCOL` and start a new first section
 `## Unreleased · peer protocol N+1`. `node scripts/check-peer-protocol.mjs`
 checks this.
 
-## Unreleased · peer protocol 5
-
-- **A phone takes a deleted photo out of its holding record** (`/held/<id>` and `/previewed/<id>` are deleted when its screen stops listing the photo). Who: testers on v0.4.0 or an internal protocol-4 build: after a delete, the phone that deleted the photo never reports it removed from their phone. Do: update Justus.
-
 ## Unreleased · peer protocol 4
 
 - **Invite links are web links** (`https://anderscan.github.io/justus/join/#…`; `justus://join?…` still works). Who: testers on builds from before this change: pasting a new link says it doesn't look right. Do: tap Open in Justus on the link's page, or update Justus.

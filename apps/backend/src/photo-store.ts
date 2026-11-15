@@ -3421,11 +3421,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
       if (!wrote) return;
-      if (rt.unheld.has(id)) {
-        const [unErr] = await unmarkHeld(drive, id);
-        if (unErr) log("error", { where: "holding.unmark", err: unErr.message });
-        return;
-      }
+      if (rt.unheld.has(id)) return await forgetHeld(rt, [id]);
       const now = rt.held.get(drive.key);
       const ids = new Set(now?.kind === "reports" ? now.ids : []);
       ids.add(id);
@@ -3457,11 +3453,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         return;
       }
       if (!wrote) return;
-      if (rt.unheld.has(id)) {
-        const [unErr] = await unmarkHeld(drive, id);
-        if (unErr) log("error", { where: "holding.unmark", err: unErr.message });
-        return;
-      }
+      if (rt.unheld.has(id)) return await forgetHeld(rt, [id]);
       const now = rt.held.get(drive.key);
       const previews = new Set(now?.kind === "reports" ? now.previews : []);
       previews.add(id);
