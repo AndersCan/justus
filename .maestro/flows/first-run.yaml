@@ -188,23 +188,15 @@ appId: no.cankode.justus
             platform: Android
           commands:
             - pressKey: Home
-      - runFlow:
-          when:
-            platform: iOS
-          commands:
-            - runScript: ../scripts/away.js
-      - runFlow:
-          when:
-            platform: Android
-          commands:
             - launchApp:
                 stopApp: false
-      # iOS: launchApp does not bring a backgrounded Justus back, so the Simulator opens it.
+      # iOS: Settings and back to Justus in one helper call: launchApp does not bring a backgrounded
+      # Justus back, and two slow CI steps apart could pass the 30 s and lock the app.
       - runFlow:
           when:
             platform: iOS
           commands:
-            - runScript: ../scripts/back.js
+            - runScript: ../scripts/blink.js
       - scrollUntilVisible:
           element: "Require unlock to open Justus.*"
           timeout: 15000

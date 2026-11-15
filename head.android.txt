@@ -1,0 +1,67 @@
+{"launchApp":{"clearState":true}}
+{"extendedWaitUntil":{"visible":"Skip","timeout":90000}}
+{"assertVisible":"Photos go straight to your friends"}
+{"tapOn":{"text":"Skip","retryTapIfNoChange":false,"waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Back","waitToSettleTimeoutMs":500}}
+{"extendedWaitUntil":{"visible":"Photos go straight to your friends","timeout":10000}}
+{"tapOn":{"text":"Skip","retryTapIfNoChange":false,"waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Your name","waitToSettleTimeoutMs":500}}
+{"inputText":"M"}
+{"pressKey":"Enter"}
+{"extendedWaitUntil":{"visible":"Lock Justus?","timeout":20000}}
+{"tapOn":{"text":"Enable","waitToSettleTimeoutMs":500}}
+{"inputText":"1111"}
+{"pressKey":"Enter"}
+{"extendedWaitUntil":{"visible":"App lock is on","timeout":15000}}
+{"extendedWaitUntil":{"visible":"Start sharing","timeout":20000}}
+{"tapOn":{"text":"Album name","waitToSettleTimeoutMs":500}}
+{"inputText":"M"}
+{"pressKey":"Enter"}
+{"extendedWaitUntil":{"visible":"No photos in this album yet.","timeout":20000}}
+{"tapOn":{"text":"Add photos to M","retryTapIfNoChange":false,"waitToSettleTimeoutMs":500}}
+{"extendedWaitUntil":{"notVisible":"No photos in this album yet.","timeout":15000}}
+"back"
+{"extendedWaitUntil":{"visible":"No photos in this album yet.","timeout":15000}}
+{"tapOn":{"text":"Invite & members","waitToSettleTimeoutMs":500}}
+{"extendedWaitUntil":{"visible":"Invite people","timeout":15000}}
+{"tapOn":{"text":"Send invite link","retryTapIfNoChange":false,"waitToSettleTimeoutMs":500}}
+{"extendedWaitUntil":{"notVisible":"Invite people","timeout":15000}}
+"back"
+{"extendedWaitUntil":{"visible":"Send invite link","timeout":15000}}
+{"tapOn":{"text":"Settings","waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Photos","waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Settings","waitToSettleTimeoutMs":500}}
+{"scrollUntilVisible":{"element":"Require unlock to open Justus.*","timeout":20000}}
+{"pressKey":"Home"}
+{"launchApp":{"stopApp":false}}
+{"scrollUntilVisible":{"element":"Require unlock to open Justus.*","timeout":15000}}
+{"assertNotVisible":"Justus is locked"}
+{"pressKey":"Home"}
+{"extendedWaitUntil":{"visible":"Justus is locked","timeout":31000,"optional":true}}
+{"launchApp":{"stopApp":false}}
+{"assertNotVisible":"Require unlock to open Justus.*"}
+{"pressKey":"Back"}
+{"launchApp":{"stopApp":false}}
+{"assertVisible":"Justus is locked"}
+{"assertNotVisible":"Require unlock to open Justus.*"}
+{"tapOn":{"text":"Unlock","waitToSettleTimeoutMs":500}}
+{"inputText":"1111"}
+{"pressKey":"Enter"}
+{"scrollUntilVisible":{"element":"Require unlock to open Justus.*","timeout":15000}}
+"launchApp"
+{"waitForAnimationToEnd":{"timeout":4000}}
+{"runFlow":{"when":{"notVisible":"Justus is locked"},"commands":[{"pressKey":"Back"}]}}
+{"extendedWaitUntil":{"visible":"Justus is locked","timeout":15000}}
+{"assertNotVisible":"Require unlock to open Justus.*"}
+{"tapOn":{"text":"Unlock","waitToSettleTimeoutMs":500}}
+{"inputText":"1111"}
+{"pressKey":"Enter"}
+{"extendedWaitUntil":{"visible":"Settings","timeout":30000}}
+{"tapOn":{"text":"Settings","waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Photos","waitToSettleTimeoutMs":500}}
+{"tapOn":{"text":"Settings","waitToSettleTimeoutMs":500}}
+{"scrollUntilVisible":{"element":"Require unlock to open Justus.*","timeout":20000}}
+{"tapOn":{"text":"Require unlock to open Justus.*","waitToSettleTimeoutMs":500}}
+{"inputText":"1111"}
+{"pressKey":"Enter"}
+{"extendedWaitUntil":{"visible":"App lock is off","timeout":15000}}

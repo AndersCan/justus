@@ -172,6 +172,11 @@ if (!ipad) {
       "/match": () => notify(["-p", "com.apple.BiometricKit_Sim.fingerTouch.match"]).status === 0,
       "/away": () => run("xcrun", ["simctl", "launch", udid, "com.apple.Preferences"]).status === 0,
       "/back": () => run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0,
+      // The short away: both launches in one call, so no Maestro step (slow on CI) sits between them
+      // and eats into the 30 s the app allows without a lock.
+      "/blink": () =>
+        run("xcrun", ["simctl", "launch", udid, "com.apple.Preferences"]).status === 0 &&
+        run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0,
     };
     const done = actions[request.url ?? ""]?.() ?? false;
     if (done) console.log(`helper: ${request.url}`);
