@@ -26,7 +26,13 @@ async function until(done: () => boolean | Promise<boolean>, ms = 4_000): Promis
 function watched(
   deps: ReturnType<typeof fakeStoreDeps>,
   heldPuts: string[],
-  quiet: { on: boolean; previews: boolean; delFails: boolean },
+  quiet: {
+    on: boolean;
+    previews: boolean;
+    delFails: boolean;
+    slowHeldMs?: number;
+    dels?: string[];
+  },
 ) {
   {
     const openOwn = deps.drives.openOwn.bind(deps.drives);
@@ -35,14 +41,17 @@ function watched(
       const del = drive.del.bind(drive);
       drive.del = async (path: string, ...rest: unknown[]) => {
         if (quiet.delFails && path.startsWith("/held/")) throw new Error("disk full");
+        quiet.dels?.push(path);
         return (del as (...a: unknown[]) => Promise<void>)(path, ...rest);
       };
       const put = drive.put.bind(drive);
       drive.put = async (path: string, body: Uint8Array, opts?: Parameters<Drive["put"]>[2]) => {
         if (path.startsWith("/held/")) {
           heldPuts.push(path);
-          await sleep(60);
+          // A Hyperdrive put appends the blob before the entry: a later del can land first.
+          await sleep(quiet.slowHeldMs ?? 60);
         }
+        if (path.startsWith("/previewed/") && quiet.slowHeldMs) await sleep(quiet.slowHeldMs);
         return put(path, body, opts);
       };
       return drive;
@@ -87,7 +96,13 @@ function phone(
     log: (e: { event: string; fields: Record<string, unknown> }) => logs.push(e),
   });
   const heldPuts: string[] = [];
-  const quiet = { on: false, previews: false, delFails: false };
+  const quiet: {
+    on: boolean;
+    previews: boolean;
+    delFails: boolean;
+    slowHeldMs?: number;
+    dels?: string[];
+  } = { on: false, previews: false, delFails: false };
   const logs: { event: string; fields: Record<string, unknown> }[] = [];
   watched(deps, heldPuts, quiet);
   if (options.oldApp) {
@@ -994,7 +1009,9 @@ describe("a deleted photo leaves the phone's holding record", () => {
     expect(await record.held(photo.id)).toBe(true);
     const before = s.nils.pushes.length;
     await s.anna.store.remove((await s.annaPhoto()).id);
-    await until(async () => (await nilsLists(s)(), !(await record.held(photo.id))));
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), !(await record.held(photo.id))),
+    );
     expect(await record.held(photo.id)).toBe(false);
     const pushed = s.nils.pushes.slice(before) as {
       cause: string;
@@ -1014,7 +1031,9 @@ describe("a deleted photo leaves the phone's holding record", () => {
     await until(() => record.previewed(thumbed.id));
     expect(await record.previewed(thumbed.id)).toBe(true);
     await s.anna.store.remove((await s.annaPhotoNamed("thumbed.jpg")).id);
-    await until(async () => (await nilsLists(s)(), !(await record.previewed(thumbed.id))));
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), !(await record.previewed(thumbed.id))),
+    );
     expect(await record.previewed(thumbed.id)).toBe(false);
     await s.close();
   });
@@ -1029,7 +1048,7 @@ describe("a deleted photo leaves the phone's holding record", () => {
     await s.anna.store.remove((await s.annaPhoto()).id);
     await until(
       async () => (
-        await nilsLists(s)(),
+        await s.nils.store.list(s.nilsFolderId),
         s.nils.logs.some((l) => l.fields.where === "holding.unmark")
       ),
     );
@@ -1050,7 +1069,9 @@ describe("a deleted photo leaves the phone's holding record", () => {
     const gone = all.find((p) => p.name === "sunset.jpg")!;
     await until(async () => (await record.held(keep.id)) && (await record.held(gone.id)));
     await s.anna.store.remove((await s.annaPhoto()).id);
-    await until(async () => (await nilsLists(s)(), !(await record.held(gone.id))));
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), !(await record.held(gone.id))),
+    );
     expect(await record.held(keep.id)).toBe(true);
     await s.close();
   });
@@ -1062,7 +1083,9 @@ describe("a deleted photo leaves the phone's holding record", () => {
     const record = await nilsRecord(s);
     await until(() => record.previewed(thumbed.id));
     await s.anna.store.remove((await s.annaPhotoNamed("thumbed.jpg")).id);
-    await until(async () => (await nilsLists(s)(), !(await record.previewed(thumbed.id))));
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), !(await record.previewed(thumbed.id))),
+    );
     await s.nils.server.getForTest(new URL(thumbed.url).pathname);
     await sleep(300);
     expect(await record.held(thumbed.id)).toBe(false);
@@ -1081,4 +1104,55 @@ describe("a deleted photo leaves the phone's holding record", () => {
     expect(await record.previewed(thumbed.id)).toBe(false);
     await s.close();
   });
+});
+
+describe("a record write racing the unmark", () => {
+  it("a full-copy write that started before the delete does not leave the photo recorded", async () => {
+    const s = await album();
+    const photo = (await s.nilsPhoto())!;
+    s.nils.quiet.slowHeldMs = 1_500;
+    s.nils.quiet.dels = [];
+    // Nils opens the photo: the spool lands and the /held/ write starts.
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await until(() => s.nils.heldPuts.length > 0);
+    // Anna deletes it while that write is still appending.
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(
+      async () => (
+        await s.nils.store.list(s.nilsFolderId),
+        s.nils.quiet.dels!.includes(`/held/${photo.id}`)
+      ),
+    );
+    expect(s.nils.quiet.dels).toContain(`/held/${photo.id}`);
+    await sleep(2_000);
+    const shareKey = (await s.nils.store.folders()).folders.find(
+      (f) => f.id === s.nilsFolderId,
+    )!.shareKey;
+    const drive = await s.nils.deps.drives.openOwn(`member/${shareKey}`);
+    expect(await drive.readSmall(`/held/${photo.id}`, 10)).toBeUndefined();
+    await s.close();
+  }, 20_000);
+
+  it("a preview write that started before the delete does not leave the photo recorded", async () => {
+    const s = await album();
+    const thumbed = await addThumbed(s, "slow.jpg");
+    s.nils.quiet.slowHeldMs = 1_500;
+    s.nils.quiet.dels = [];
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    await sleep(300);
+    await s.anna.store.remove((await s.annaPhotoNamed("slow.jpg")).id);
+    await until(
+      async () => (
+        await s.nils.store.list(s.nilsFolderId),
+        s.nils.quiet.dels!.includes(`/previewed/${thumbed.id}`)
+      ),
+    );
+    await sleep(2_000);
+    const shareKey = (await s.nils.store.folders()).folders.find(
+      (f) => f.id === s.nilsFolderId,
+    )!.shareKey;
+    const drive = await s.nils.deps.drives.openOwn(`member/${shareKey}`);
+    expect(await drive.readSmall(`/previewed/${thumbed.id}`, 10)).toBeUndefined();
+    await s.close();
+  }, 20_000);
 });
