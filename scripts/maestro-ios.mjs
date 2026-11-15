@@ -213,7 +213,7 @@ function maestro(log) {
       file.write(chunk);
       text += chunk.toString();
     };
-    // Maestro can hang after a driver call fails: a healthy walk takes about 4 minutes.
+    // Maestro can hang after a driver call fails: a cold walk takes about 9 minutes, so this limits total time, not stalls.
     const hung = setTimeout(
       () => {
         tee("\nMaestro walk hung: killing it\n");
