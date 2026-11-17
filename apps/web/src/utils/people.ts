@@ -84,7 +84,7 @@ export function presenceLabel(
   m: { connected: boolean; lastSeenAt?: number },
   now = Date.now(),
 ): string {
-  if (m.connected) return "connected";
+  if (m.connected) return copy("people.connected");
   return m.lastSeenAt
     ? copy("people.last_seen", { when: formatRelative(m.lastSeenAt, now) })
     : copy("people.not_connected_yet");

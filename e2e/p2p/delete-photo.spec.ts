@@ -9,7 +9,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
-import { askToJoin, copyInviteLink, createAlbum, skipIntro } from "./steps";
+import { askToJoin, copyInviteLink, createAlbum, skipIntro, words } from "./steps";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -119,7 +119,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
-  await expectBenLine(a, "In · can add photos");
+  await expectBenLine(a, words("member.role_collaborator"));
 
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();

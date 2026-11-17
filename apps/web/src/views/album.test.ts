@@ -1181,9 +1181,10 @@ describe("album viewer rows", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const row = memberRows(host)[1];
-    expect(row.textContent).toContain("In · can only look");
-    expect(row.textContent).toContain("connected");
-    expect(row.querySelector("span.h-1\\.5")).not.toBeNull();
+    expect(row.querySelector('[data-copy-id="member.role_viewer"]')).not.toBeNull();
+    expect(row.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      copy("people.connected"),
+    );
     expect(controls(row).slice(-2)).toEqual(["Let Kimmy add photos", "Remove Kimmy"]);
   });
 
@@ -1630,17 +1631,33 @@ describe("album member roles", () => {
     const rows = [...host.querySelectorAll("li")];
     const row = (name: string) => rows.find((r) => r.textContent?.includes(name));
     expect(row("Me")?.textContent).toContain("Started this album");
-    expect(row("Me")?.querySelector("span.h-1\\.5")).toBeNull();
-    expect(row("Nils")?.querySelector("span.h-1\\.5")).not.toBeNull();
+    expect(row("Me")?.querySelector('[role="img"]')).toBeNull();
+    expect(row("Nils")?.querySelector('[role="img"]')).not.toBeNull();
     const status = (name: string) =>
       row(name)?.querySelector('[data-copy-id^="member.role_"]')?.closest("p")?.textContent?.trim();
     expect(status("Me")).toBe("Started this album");
-    expect(status("Nils")).toBe("In · can add photos");
-    expect(status("Zed")).toBe("In · can only look");
-    for (const r of rows) {
-      const nameLine = r.querySelector("p")?.textContent ?? "";
-      expect(nameLine).not.toMatch(/Started this album|can add photos|can only look/);
-    }
+    expect(status("Nils")).toBe(copy("member.role_collaborator"));
+    expect(status("Zed")).toBe(copy("member.role_viewer"));
+  });
+
+  test("a connected member's dot is filled and a not-connected one is a ring", () => {
+    const withKim = {
+      ...mixed,
+      members: [
+        ...(mixed as unknown as { members: object[] }).members,
+        { key: "k3", name: "Kim", admin: false, connected: true, identity: "i3", color: 2 },
+      ],
+    } as unknown as SyncStatus;
+    syncActor.send(statusSeen.create({ status: withKim }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    const dot = (key: string) => host.querySelector(`[data-member-key="${key}"] [role="img"]`);
+    expect(dot("k3")?.getAttribute("aria-label")).toBe(copy("people.connected"));
+    expect(dot("k3")?.classList.contains("bg-trust-green")).toBe(true);
+    expect(dot("k1")?.classList.contains("bg-trust-green")).toBe(false);
+    expect(dot("k1")?.classList.contains("border")).toBe(true);
+    expect(dot("k2")?.getAttribute("aria-label")).toBe(copy("people.not_connected_yet"));
   });
 
   test("the role line wraps instead of being cut off", () => {
@@ -1681,7 +1698,6 @@ describe("album member roles", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
-    expect(own?.textContent).not.toMatch(/Started this album|can add photos|can only look/);
     expect(
       own
         ?.querySelector('[data-copy-id="member.waiting_for_admin"]')
@@ -1789,7 +1805,7 @@ describe("album member status", () => {
     const line = memberRows(host)[1]
       .querySelector('[data-copy-id="member.role_collaborator"]')!
       .closest("p")!;
-    expect(line.textContent?.trim()).toBe("In · can add photos");
+    expect(line.textContent?.trim()).toBe(copy("member.role_collaborator"));
     expect(host.textContent).not.toMatch(
       /not opened|has \d+ of|has all|hasn't said yet|has no photos yet/,
     );

@@ -559,6 +559,13 @@
     "who": "Album members",
     "screen": ""
   },
+  "people.connected": {
+    "text": "connected",
+    "status": "draft",
+    "where": "Album › Members › text",
+    "who": "Album members",
+    "screen": ""
+  },
   "people.last_seen": {
     "text": "last seen {when}",
     "status": "draft",
@@ -2555,7 +2562,7 @@
     "screen": ""
   },
   "help.to_check_open_the_album": {
-    "text": "To check, open the album and tap Invite & members. It shows who is connected right now and when everyone else was last seen.",
+    "text": "To check, open the album and tap Invite & members. A green dot by a name means their phone is connected right now; an empty ring means it is not.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -4312,14 +4319,14 @@
     "screen": ""
   },
   "member.role_collaborator": {
-    "text": "In · can add photos",
+    "text": "Can add photos",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
   "member.role_viewer": {
-    "text": "In · can only look",
+    "text": "Can only look",
     "status": "draft",
     "where": "Album › Invite & members › text",
     "who": "Album members, whenever they open an album's people",
