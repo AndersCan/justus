@@ -109,6 +109,31 @@ appId: no.cankode.justus
       - extendedWaitUntil:
           visible: "No photos in this album yet."
           timeout: 15000
+# iPhone: add the test photo, then open the app switcher with App lock on: it must show none of the photo.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Add photos to M"
+          retryTapIfNoChange: false
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: "Photo, .*"
+          index: 0
+      - tapOn:
+          text: "Add.*"
+      - extendedWaitUntil:
+          visible: "View .*"
+          timeout: 30000
+      - runScript:
+          file: ../scripts/switcher.js
+          env:
+            SHOT: lock-on
+      - extendedWaitUntil:
+          visible: "View .*"
+          timeout: 30000
+      - assertNotVisible: "Justus is locked"
 # Send invite link opens the system share sheet; Back closes it and leaves the page as it was.
 - tapOn:
     text: "Invite & members"
@@ -372,3 +397,18 @@ appId: no.cankode.justus
                   - extendedWaitUntil:
                       visible: "App lock is off"
                       timeout: 5000
+# iPhone: with App lock off the switcher shows the photo (proves the check can see it).
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Photos"
+          waitToSettleTimeoutMs: 500
+      - extendedWaitUntil:
+          visible: "M, 1 photo"
+          timeout: 15000
+      - runScript:
+          file: ../scripts/switcher.js
+          env:
+            SHOT: lock-off

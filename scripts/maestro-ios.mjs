@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { helperRoute } from "./maestro-ios-lib.mjs";
+import { MIN_PHOTO_PIXELS, photoPixels, writeMarker } from "./photo-marker.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -146,6 +147,15 @@ if (!ipad) {
   notify(["-p", enrolment]);
   const state = capture("xcrun", ["simctl", "spawn", udid, "notifyutil", "-g", enrolment]);
   if (!String(state.stdout).trim().endsWith("1")) fail(`Face ID enrolment did not take on ${udid}`);
+  // The walk's test photo, for the switcher check: Justus's picker offers it from the Simulator's library.
+  mkdirSync(out, { recursive: true });
+  if (!invite) {
+    writeMarker(path.join(out, "marker.png"));
+    if (run("xcrun", ["simctl", "addmedia", udid, path.join(out, "marker.png")]).status !== 0)
+      fail("could not add the test photo to the Simulator");
+    // The switcher opens from the Simulator's own Device menu, so the app has to be running.
+    run("open", ["-a", "Simulator", "--args", "-CurrentDeviceUDID", udid]);
+  }
   const publicDir = path.join(root, "docs/site/public");
   const types = { ".html": "text/html", ".js": "text/javascript" };
   face = createServer((request, response) => {
@@ -168,7 +178,22 @@ if (!ipad) {
     }
     // The walk asks the Simulator, not the XCTest driver: the driver's Home key press left it
     // waiting on a screenshot that timed out and killed the driver.
-    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId });
+    const switcher = invite
+      ? undefined
+      : {
+          out,
+          minPixels: MIN_PHOTO_PIXELS,
+          count: photoPixels,
+          read: readFileSync,
+          wait: (ms) => spawnSync("sleep", [String(ms / 1000)]),
+          open: () =>
+            run("open", ["-a", "Simulator"]).status === 0 &&
+            run("osascript", [
+              "-e",
+              'tell application "System Events" to tell process "Simulator" to click menu item "App Switcher" of menu "Device" of menu bar 1',
+            ]).status === 0,
+        };
+    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId, switcher });
     if (done) console.log(`helper: ${request.url}`);
     response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
   });

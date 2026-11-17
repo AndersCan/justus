@@ -80,3 +80,13 @@ jobs:
           name: ios-device-ipad-shots
           path: .maestro/out/**/ipad-share-sheet.png
           retention-days: 14
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && matrix.kind == 'iphone' }}
+        with:
+          name: ios-device-iphone-switcher
+          path: |
+            .maestro/out/switcher-lock-on.png
+            .maestro/out/switcher-lock-off.png
+            .maestro/out/**/in-app.png
+          retention-days: 14
