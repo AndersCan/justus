@@ -2,7 +2,7 @@ import type { FolderSummary } from "@justus/core";
 import { foldersActor, foldersViewModel } from "../machines/folders-machine";
 import { joinActor } from "../machines/sharing/join-request";
 import { open, routerActor, type AppPage } from "../machines/router-machine";
-import { seen, seenActor, seenReady } from "../machines/seen-machine";
+import { seenActor, seenReady } from "../machines/seen-machine";
 
 export type LandingInput = {
   /** The phone app opened the page at /index.html. */
@@ -17,11 +17,7 @@ export type LandingInput = {
   inviteOpen: boolean;
 };
 
-export type Landing =
-  | { kind: "wait" }
-  | { kind: "stay" }
-  | { kind: "open"; albumId: string }
-  | { kind: "forget" };
+export type Landing = { kind: "wait" } | { kind: "stay" } | { kind: "open"; albumId: string };
 
 /** Where the phone app starts: the album looked at last, or All photos. */
 export function decideLanding(i: LandingInput): Landing {
@@ -34,10 +30,11 @@ export function decideLanding(i: LandingInput): Landing {
   if (i.inviteOpen) return { kind: "stay" };
   if (!i.foldersSettled) return { kind: "wait" };
   const album = i.folders.find((f) => f.id === i.lastAlbum);
+  // A gone album stays on All photos; the next album page opened overwrites the pointer.
   if (album !== undefined && album.notice?.kind !== "removed") {
     return { kind: "open", albumId: album.id };
   }
-  return { kind: "forget" };
+  return { kind: "stay" };
 }
 
 function currentInput(appStart: boolean): LandingInput {
@@ -64,7 +61,6 @@ export function landOnLastAlbum(o: { appStart: boolean }): void {
     if (landing.kind === "wait") return;
     done = true;
     for (const stop of stops) stop();
-    if (landing.kind === "forget") seen.lastAlbumGone();
     if (landing.kind === "open") {
       queueMicrotask(() => {
         if (routerActor.snapshot().context.page?.route === "gallery") {

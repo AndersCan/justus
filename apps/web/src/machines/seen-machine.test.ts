@@ -27,7 +27,6 @@ const listed = (albums: { albumId: string; photoIds: string[] }[]) =>
 const opened = (albumId: string) => ({ type: "ALBUM_OPENED", payload: { albumId } }) as never;
 const looked = (photos: { albumId: string; photoId: string }[]) =>
   ({ type: "PHOTOS_LOOKED", payload: { photos } }) as never;
-const gone = () => ({ type: "LAST_ALBUM_GONE" }) as never;
 const ended = () => ({ type: "VISIT_ENDED" }) as never;
 const ctxOf = (a: Awaited<ReturnType<typeof setup>>["actor"]) => a.snapshot().context;
 
@@ -157,20 +156,5 @@ describe("seen machine", () => {
     expect(newCount(ctx, photos)).toBe(2);
     expect(newCount(ctx, photos, ["f1"])).toBe(1);
     expect(newCount(ctx, photos, [])).toBe(0);
-  });
-
-  test("a gone last album is forgotten and the record saved without it", async () => {
-    const { actor, port } = await setup(record({ f1: ["a"] }, "f1"));
-    actor.send(gone());
-    expect(ctxOf(actor).lastAlbum).toBeUndefined();
-    expect(port.write).toHaveBeenCalledWith(record({ f1: ["a"] }));
-    actor.send(gone());
-    expect(port.write).toHaveBeenCalledTimes(1);
-  });
-
-  test("an unreadable record ignores a gone last album", async () => {
-    const { actor, port } = await setup(new Error("x"));
-    actor.send(gone());
-    expect(port.write).not.toHaveBeenCalled();
   });
 });

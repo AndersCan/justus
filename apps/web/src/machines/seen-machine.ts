@@ -34,8 +34,6 @@ const albumOpened = event("ALBUM_OPENED")<{ albumId: string }>();
 const photosLooked = event("PHOTOS_LOOKED")<{ photos: { albumId: string; photoId: string }[] }>();
 /** The person left the page; what they looked at stops being new. */
 const visitEnded = event("VISIT_ENDED")();
-/** The album opened last is gone from this phone. */
-const lastAlbumGone = event("LAST_ALBUM_GONE")();
 /** The saved record was read from the phone. */
 const seenRead = event("SEEN_READ")<{ seen: SeenRecord }>();
 /** The saved record could not be read. */
@@ -61,7 +59,7 @@ export const seenMachine = machine("seen", {
     };
 
     return Actor({
-      inputs: [albumsListed, albumOpened, photosLooked, visitEnded, lastAlbumGone],
+      inputs: [albumsListed, albumOpened, photosLooked, visitEnded],
       internal: [seenRead, seenReadFailed],
       outputs: [],
       states: [holdingSeen],
@@ -139,18 +137,6 @@ export const seenMachine = machine("seen", {
             return {};
           },
         });
-        /** The remembered album is gone: forget it so the next start opens All photos. */
-        m.onAny({
-          event: lastAlbumGone,
-          handler: (_e, opts) => {
-            const ctx = opts.context.get();
-            if (ctx.status !== "ready" || ctx.lastAlbum === undefined) return {};
-            const { lastAlbum: _gone, ...rest } = ctx;
-            opts.context.set(rest);
-            save(rest);
-            return {};
-          },
-        });
         /** Looked-at photos are saved as known; the marks on screen stay until the visit ends. */
         m.onAny({
           event: photosLooked,
@@ -217,5 +203,4 @@ export const seen = {
   photosLooked: (photos: { albumId: string; photoId: string }[]) =>
     seenActor.send(photosLooked.create({ photos })),
   visitEnded: () => seenActor.send(visitEnded.create()),
-  lastAlbumGone: () => seenActor.send(lastAlbumGone.create()),
 };

@@ -42,12 +42,12 @@ describe("decideLanding", () => {
   test("waits until the album list is settled", () => {
     expect(decide({ foldersSettled: false })).toEqual({ kind: "wait" });
   });
-  test("an album that is gone from the list is forgotten", () => {
-    expect(decide({ folders: [{ id: "f2" }] })).toEqual({ kind: "forget" });
+  test("an album that is gone from the list stays on All photos", () => {
+    expect(decide({ folders: [{ id: "f2" }] })).toEqual({ kind: "stay" });
   });
-  test("an album with a removed notice is forgotten", () => {
+  test("an album with a removed notice stays on All photos", () => {
     const folders = [{ id: "f1", notice: { kind: "removed" } }] as LandingInput["folders"];
-    expect(decide({ folders })).toEqual({ kind: "forget" });
+    expect(decide({ folders })).toEqual({ kind: "stay" });
   });
 });
 
@@ -98,10 +98,10 @@ describe("landOnLastAlbum", () => {
     await start("/", false, "f1", ["f1"]);
     expect(location.pathname).toBe("/");
   });
-  test("a gone album is forgotten without a word", async () => {
+  test("a gone album stays on All photos without a word", async () => {
     await start("/", true, "f9", ["f1"]);
     expect(location.pathname).toBe("/");
-    expect(mock.write).toHaveBeenCalledWith({ version: 1, known: {} });
+    expect(mock.write).not.toHaveBeenCalled();
     expect(document.querySelector('[data-copy-id="gallery.this_album_isn_t_on"]')).toBeNull();
   });
 });
