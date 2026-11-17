@@ -139,3 +139,10 @@ jobs:
           name: store-captures
           path: apps/android/store-captures/*.png
           retention-days: 14
+
+  # Ben (release APK, emulator) joins Ada's album (Chromium) from her invite link.
+  # The walk itself: .github/workflows/release-walk.yml, .maestro/README.md "Release walk".
+  join:
+    uses: ./.github/workflows/release-walk.yml
+    permissions:
+      contents: read
