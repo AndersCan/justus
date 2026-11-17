@@ -56,3 +56,38 @@ test("a device that never returns fails fast", () => {
   expect(out).toContain("rc=1 calls=1");
   expect(out).toContain("did not come back");
 });
+
+// Runs the script's variant pick and screen-lock step against a stub `adb` that records its calls.
+function walkSetup(env: Record<string, string>) {
+  const dir = mkdtempSync(join(tmpdir(), "maestro-walk-"));
+  const adb = join(dir, "adb");
+  writeFileSync(adb, `#!/bin/sh\necho "$*" >> "${dir}/calls"\nexit 0\n`);
+  chmodSync(adb, 0o755);
+  const driver = join(dir, "driver.sh");
+  writeFileSync(
+    driver,
+    `set -uo pipefail
+SERIAL=emulator-5554; ADB="${adb}"; : > "${dir}/calls"
+eval "$(sed -n '/^VARIANT=/,/^fi$/p; /^if \\[\\[ "\\$WALK" != 1 \\]\\]; then/,/^fi$/p' "${script}")"
+echo "apk=$APK"; cat "${dir}/calls"
+`,
+  );
+  const r = spawnSync("bash", [driver], {
+    encoding: "utf8",
+    timeout: 30_000,
+    env: { ...process.env, ...env },
+  });
+  return r.stdout;
+}
+
+test("walk mode builds the release APK and sets no screen PIN", () => {
+  const out = walkSetup({ JUSTUS_WALK: "1", JUSTUS_VARIANT: "debug" });
+  expect(out).toContain("apk=apps/android/app/build/outputs/apk/release/app-release.apk");
+  expect(out).not.toContain("locksettings");
+});
+
+test("the flow suite keeps the debug APK and the screen PIN", () => {
+  const out = walkSetup({ JUSTUS_WALK: "", JUSTUS_VARIANT: "" });
+  expect(out).toContain("apk=apps/android/app/build/outputs/apk/debug/app-debug.apk");
+  expect(out).toContain("locksettings set-pin 1111");
+});

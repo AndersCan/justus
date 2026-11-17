@@ -217,10 +217,6 @@ fi
 # The walk opens Ada's invite link in the emulator's Chrome. Chrome's test switch file skips its first
 # run, and set-debug-app makes Chrome read it (needs adb root, set above for the release build).
 prepare_chrome() {
-  if ! "$ADB" -s "$SERIAL" shell pm path com.android.chrome | grep -q '^package:'; then
-    echo "ERROR: the walk needs Chrome on the emulator (a Google APIs image); $SERIAL has none." >&2
-    return 1
-  fi
   "$ADB" -s "$SERIAL" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line' || return 1
   "$ADB" -s "$SERIAL" shell chmod 755 /data/local/tmp/chrome-command-line || return 1
   "$ADB" -s "$SERIAL" shell am set-debug-app --persistent com.android.chrome || return 1
@@ -270,7 +266,6 @@ run_maestro_suite() {
 }
 
 mkdir -p "$OUT_DIR"
-walk_failed=""
 if [[ "$WALK" == 1 ]]; then
   echo
   echo "▶ Preparing Chrome, then running the release walk ..."
@@ -279,15 +274,14 @@ if [[ "$WALK" == 1 ]]; then
     echo "✓ Release walk passed on $SERIAL."
     exit 0
   fi
-  walk_failed=1
   echo
   echo "✗ Release walk FAILED: see $OUT_DIR/walk/walk-summary.md — capturing diagnostics..."
 else
   echo
   echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 fi
-if [[ -n "$walk_failed" ]] || ! run_maestro_suite; then
-  if [[ -z "$walk_failed" ]]; then
+if [[ "$WALK" == 1 ]] || ! run_maestro_suite; then
+  if [[ "$WALK" != 1 ]]; then
     echo
     echo "✗ Maestro suite FAILED — capturing diagnostics..."
   fi
