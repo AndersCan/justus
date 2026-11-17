@@ -424,7 +424,10 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible();
   await b.goto("/sharing");
-  await expect(b.getByText("No longer in this album")).toBeVisible({ timeout: 60_000 });
+  // Other specs on the same hub leave B removed from their own albums: read this album's row.
+  await expect(
+    b.getByRole("link", { name: `Invite & members of ${album}`, exact: true }),
+  ).toContainText("No longer in this album", { timeout: 60_000 });
   expect(
     (await bAfter()).filter((t) => /stopped you adding photos|let you add photos/.test(t)),
   ).toEqual([]);
