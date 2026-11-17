@@ -3,11 +3,10 @@
  * the ones it added. Phones share one hub on the checked fakes.
  */
 import { describe, it, expect } from "vite-plus/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync } from "node:fs";
 import { createPhotoStore } from "../src/photo-store.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
-import { FakeLoopbackServer, fakeStoreDeps, restarted } from "./fakes/fake-store-deps.ts";
+import { FakeLoopbackServer, fakeStoreDeps } from "./fakes/fake-store-deps.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -26,13 +25,6 @@ function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
 type Phone = ReturnType<typeof phone>;
 
 const identityOf = (s: Phone) => (s.store.debugState() as { identityDrive: string }).identityDrive;
-
-async function restart(p: Phone) {
-  await p.store.close();
-  p.deps = restarted(p.deps);
-  p.store = createPhotoStore(p.deps);
-  await p.store.ready();
-}
 
 describe("a removed phone", () => {
   it("lists and serves only the photos it holds in full", async () => {

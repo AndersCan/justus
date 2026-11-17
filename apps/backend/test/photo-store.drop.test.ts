@@ -97,6 +97,10 @@ describe("dropping photos others deleted", () => {
     await s.anna.remove(gone.id);
     await until(() => !spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId).includes(gone.id));
     expect(spoolIds(s.nilsDeps.cacheDir, s.nilsFolderId)).toContain(stays.id);
+    const server = s.nilsDeps.server as FakeLoopbackServer;
+    for (const url of [gone.url, gone.thumbUrl!])
+      expect((await server.getForTest(new URL(url).pathname)).status).toBe(404);
+    expect((await server.getForTest(new URL(stays.url).pathname)).status).toBe(200);
     await s.anna.close();
     await s.nils.close();
   });
