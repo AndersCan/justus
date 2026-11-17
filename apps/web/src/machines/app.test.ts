@@ -75,3 +75,17 @@ test("a saved name reaches folders, a sync status reaches folders and reach, an 
   made.people.send({ type: "OPEN" } as never);
   expect(made.requests.snapshot().path[0]).not.toBe("requestsNotLoaded");
 });
+
+test("every timed part runs on the clock the app is given", () => {
+  const clock = VirtualClock();
+  const made = justusMachine.create({ clock });
+  const timed = Object.entries(made)
+    .filter(([, part]) => part.clock !== undefined)
+    .map(([name, part]) => [name, part.clock === clock]);
+  expect(Object.fromEntries(timed)).toEqual({
+    reach: true,
+    join: true,
+    friendOffer: true,
+    inviteLink: true,
+  });
+});
