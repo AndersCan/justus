@@ -46,10 +46,28 @@ class SharedInTest {
     }
 
     @Test
+    fun acceptedSourceRefusesOwnProviderBehindAUserId() {
+        // ContentResolver strips "<userId>@" and opens the provider for that user,
+        // so content://0@<own>/... reaches Justus's own FileProvider.
+        val own = "io.justus.app.fileprovider"
+        assertFalse(SharedIn.acceptedSource("content", "0@$own", own))
+    }
+
+    @Test
+    fun receivedAtAlwaysHasMilliseconds() {
+        assertEquals("2025-11-17T21:30:00.000Z", SharedIn.receivedAt(java.time.Instant.ofEpochMilli(1763415000000L)))
+        assertEquals("2025-11-17T21:30:00.500Z", SharedIn.receivedAt(java.time.Instant.ofEpochSecond(1763415000L, 500_123_456L)))
+    }
+
+    @Test
     fun extForMime() {
         assertEquals("jpeg", SharedIn.extForMime("image/jpeg"))
         assertEquals("heic", SharedIn.extForMime("image/heif"))
+        assertEquals("jpeg", SharedIn.extForMime("image/jpg"))
         assertEquals("png", SharedIn.extForMime("IMAGE/PNG"))
+        assertEquals("gif", SharedIn.extForMime("image/gif"))
+        assertEquals("webp", SharedIn.extForMime("image/webp"))
+        assertEquals("heic", SharedIn.extForMime("image/heic"))
         assertNull(SharedIn.extForMime("image/svg+xml"))
         assertNull(SharedIn.extForMime(null))
     }
@@ -100,6 +118,17 @@ class SharedInTest {
         }
         val staged = SharedIn.stage(root, "id", "t", sources, copy, noCopies)
         assertEquals(SharedIn.Staged("id", 1, 3), staged)
+        assertEquals(listOf("0.jpeg", "batch.json"), File(root, "id").list()!!.sorted())
+    }
+
+    @Test
+    fun stageRemovesAFailedCopyWhenItIsTheLast() {
+        val root = tempDir()
+        val copy: (SharedIn.Source, File) -> Long? = { s, f ->
+            f.writeText("x")
+            if (s.uri == "content://x/1") SharedIn.MAX_BYTES + 1 else 1L
+        }
+        SharedIn.stage(root, "id", "t", listOf(src(0), src(1, "image/png")), copy, noCopies)
         assertEquals(listOf("0.jpeg", "batch.json"), File(root, "id").list()!!.sorted())
     }
 

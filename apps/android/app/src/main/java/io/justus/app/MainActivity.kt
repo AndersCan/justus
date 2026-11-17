@@ -369,7 +369,7 @@ class MainActivity : AppCompatActivity() {
             val staged = SharedIn.stage(
                 sharedInDir,
                 id,
-                java.time.Instant.now().toString(),
+                SharedIn.receivedAt(java.time.Instant.now()),
                 sources,
                 { source, dest -> copyShared(Uri.parse(source.uri), dest) },
                 { original, dir -> SharedCopies.make(original, dir) },

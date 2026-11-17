@@ -34,7 +34,13 @@ object SharedIn {
     /** Only content:// from another app. Never file://, and never Justus's own
      * provider, so a sender cannot make Justus copy its private files. */
     fun acceptedSource(scheme: String?, authority: String?, ownAuthority: String): Boolean =
-        scheme == "content" && authority != null && authority != ownAuthority
+        scheme == "content" && authority != null && authority.substringAfterLast('@') != ownAuthority
+
+    /** UTC ISO with milliseconds, always, so batches sort as text. */
+    fun receivedAt(now: java.time.Instant): String =
+        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+            .withZone(java.time.ZoneOffset.UTC)
+            .format(now)
 
     /** Mirrors `SHARED_IN_EXTS`. */
     fun extForMime(mime: String?): String? =
