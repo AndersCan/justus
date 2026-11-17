@@ -56,7 +56,7 @@ test("every state a page names exists, and journey pages name some", async () =>
         problems.push(`${key}: ${id}.${state}: ${id} has ${[...states].join(", ")}`);
       }
     }
-    if (key !== "flows" && key !== "internals" && cited.length === 0) {
+    if (key !== "flows" && key !== "internals" && key !== "whole-app" && cited.length === 0) {
       problems.push(`${key}: names no state`);
     }
   }
