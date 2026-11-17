@@ -5,6 +5,14 @@ appId: no.cankode.justus
 - openLink:
     link: ${LINK}
     browser: true
+# Chrome offers its notifications promo on the first page it loads. Dismiss it when it shows.
+- runFlow:
+    when:
+      visible: "No thanks"
+    commands:
+      - tapOn:
+          text: "No thanks"
+          waitToSettleTimeoutMs: 500
 - extendedWaitUntil:
     visible: ${OPEN}
     timeout: 60000
