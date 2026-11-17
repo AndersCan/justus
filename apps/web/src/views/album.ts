@@ -26,7 +26,6 @@ import { onPageChange, open } from "../machines/router-machine";
 import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
-import { albumHolding, holdingLine, type AlbumHolding } from "../utils/holding";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
 import { formatRelative } from "../utils/time";
 import { memberBadge } from "./avatar";
@@ -298,15 +297,14 @@ export function removeDetail(name: string, viewer: boolean): string {
   return copy("album.won_t_see_photos_added", { name, added });
 }
 
-function memberLine(role: PeopleVm["people"][number]["role"], phone: string | undefined) {
-  const tail = phone === undefined ? null : ` · ${phone}`;
+function memberLine(role: PeopleVm["people"][number]["role"]) {
   switch (role) {
     case "admin":
-      return html`<p class="text-xs text-muted">${t("member.role_admin")}${tail}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_admin")}</p>`;
     case "collaborator":
-      return html`<p class="text-xs text-muted">${t("member.role_collaborator")}${tail}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_collaborator")}</p>`;
     case "viewer":
-      return html`<p class="text-xs text-muted">${t("member.role_viewer")}${tail}</p>`;
+      return html`<p class="text-xs text-muted">${t("member.role_viewer")}</p>`;
     case "waiting":
       return html`<p class="text-xs text-muted">${t("member.waiting_for_admin")}</p>`;
   }
@@ -324,8 +322,7 @@ export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "no
   }
 }
 
-function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHolding) {
-  const line = p.you ? undefined : holdingLine(holding.byKey.get(p.key), holding.total);
+function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const identity = p.identity;
   const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${memberBadge(p.name, p.color)}
@@ -334,7 +331,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
         ${p.name}${p.you ? copy("album.you") : ""}
         ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${memberLine(p.role, line)}
+      ${memberLine(p.role)}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -347,13 +344,17 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number], holding: AlbumHo
           ? html`<p class="truncate text-xs text-muted">${p.ownName}</p>`
           : null
       }
-      <p class="flex items-center gap-1.5 text-xs text-muted">
-        <span
-          class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
-          aria-hidden="true"
-        ></span>
-        ${p.presence}
-      </p>
+      ${
+        p.you
+          ? null
+          : html`<p class="flex items-center gap-1.5 text-xs text-muted">
+              <span
+                class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
+                aria-hidden="true"
+              ></span>
+              ${p.presence}
+            </p>`
+      }
       ${
         tappable && !p.friend
           ? html`<p class="truncate text-xs font-medium text-accent">
@@ -620,31 +621,22 @@ function acceptedCard(
   );
 }
 
-const NO_HOLDING: AlbumHolding = { total: 0, byKey: new Map() };
-
 function membersSection(vm: PeopleVm, id: string) {
   return html`<section class="ui-card p-5" data-motion-key="section:members">
     <h2 class="ui-label">${t("album.members")}</h2>
-    ${watch(galleryActor, (g) => {
-      const { state, photos } = galleryViewModel(g, null);
-      const loaded = state !== "photosNotLoaded" && state !== "couldNotLoadPhotos";
-      const holding = loaded ? albumHolding(photos, id) : NO_HOLDING;
-      return html`<p class="mb-2 mt-1 text-xs text-muted">
-          ${t("album.everyone_in_the_album_sees")}
-        </p>
-        ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
-        <ul
-          class="divide-y divide-line"
-          ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
-        >
-          ${repeat(
-            vm.people,
-            (p) => p.key,
-            (p) => memberRow(vm, p, holding),
-          )}
-        </ul>
-        <p class="mt-2 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>`;
-    })}
+    <p class="mb-2 mt-1 text-xs text-muted">${t("album.everyone_in_the_album_sees")}</p>
+    ${vm.error ? html`<p class="mb-2 text-xs text-danger-fg" role="alert">${friendlyError(vm.error)}</p>` : null}
+    <ul
+      class="divide-y divide-line"
+      ${gridMotion({ keys: vm.people.map((p) => p.key), settle: id })}
+    >
+      ${repeat(
+        vm.people,
+        (p) => p.key,
+        (p) => memberRow(vm, p),
+      )}
+    </ul>
+    <p class="mt-2 text-xs text-muted">${t("album.connected_means_they_have_justus")}</p>
   </section>`;
 }
 
