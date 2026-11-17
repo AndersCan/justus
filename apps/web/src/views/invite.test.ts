@@ -122,6 +122,23 @@ describe("invite row", () => {
     ).not.toBeNull();
   });
 
+  test("two quick Copy taps bring the line back with its own id", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => {}) },
+      configurable: true,
+    });
+    const host = mountRow("creator");
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(500);
+    copyButton(host)!.click();
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="gallery.only_you_until_you_invite"]')
+        ?.textContent,
+    ).toBe(copy("gallery.only_you_until_you_invite"));
+  });
+
   test("a reader or a missing invite code renders no button", () => {
     expect(mountRow("reader").querySelectorAll("button")).toHaveLength(0);
     expect(mountRow("creator", false).querySelectorAll("button")).toHaveLength(0);
@@ -186,7 +203,9 @@ describe("invite card send hint", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(7000);
     expect(host.textContent).toContain(LINE);
-    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="invite.send_it_in_any_chat"]'),
+    ).not.toBeNull();
   });
 
   test("with the share sheet, both buttons are plain", () => {
