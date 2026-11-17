@@ -1,5 +1,5 @@
 import { createLoopbackPush, createWorkletRuntime } from "@ekrooh/bare/runtime";
-import { checkPhotoChanged, photoSpecs, type PhotoChanged } from "@justus/core";
+import { checkPhotoChanged, photoSpecs, SHARED_IN_DIR, type PhotoChanged } from "@justus/core";
 import fs from "bare-fs";
 import path from "bare-path";
 import crypto from "bare-crypto";
@@ -9,6 +9,8 @@ import { createPhotosPlugin } from "./photos-plugin";
 import { createLogsPlugin } from "./logs-plugin";
 import { createLockPluginStub } from "./lock-plugin";
 import { createSharePluginStub } from "./share-plugin";
+import { createSharedInPlugin } from "./shared-in-plugin";
+import { createLazyMedia } from "./lazy-media";
 import { createMediaPluginStub } from "./media-plugin";
 import { createBareFiles } from "./adapters/bare-files";
 import { createHyperDriveStore } from "./adapters/hyper-drive-store";
@@ -121,6 +123,15 @@ runtime.pluginRegistry.register(createLogsPlugin({ collector: logCollector }));
 runtime.pluginRegistry.register(createMediaPluginStub());
 runtime.pluginRegistry.register(createLockPluginStub());
 runtime.pluginRegistry.register(createSharePluginStub());
+// Photos other apps shared to Justus wait in `<cacheDir>/shared-in` until an album takes them.
+runtime.pluginRegistry.register(
+  createSharedInPlugin({
+    dir: path.join(cacheDir, SHARED_IN_DIR),
+    files: bareFiles.fs,
+    paths: bareFiles.path,
+    media: createLazyMedia(runtime.server, bareFiles.fs),
+  }),
+);
 
 // Per-device friends: names this device gave to people, keyed by identity key.
 // Local only, so a file in `storageDir` (not localStorage: the web origin's
