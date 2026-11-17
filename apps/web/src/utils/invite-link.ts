@@ -43,6 +43,13 @@ export function ownerShown(name: string, at: "start" | "mid"): string {
   return name;
 }
 
+/** True when the link carried an album name and the Admin's phone sent a different one (trim and case ignored). An empty name on either side never differs. */
+export function linkNamedOtherAlbum(linkAlbum: string | undefined, album: string): boolean {
+  const link = (linkAlbum ?? "").trim().toLowerCase();
+  const heard = album.trim().toLowerCase();
+  return link !== "" && heard !== "" && link !== heard;
+}
+
 /** docs/site/public/join/join.js reads this link; scripts/join-page.test.ts pins both. */
 export function buildInviteLink(invite: JoinInvite & LinkHints): string {
   const params = new URLSearchParams({

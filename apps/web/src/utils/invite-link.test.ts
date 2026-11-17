@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
-import { buildInviteLink, inviteLinkFromAddress, ownerShown, parseInviteLink } from "./invite-link";
+import {
+  buildInviteLink,
+  inviteLinkFromAddress,
+  linkNamedOtherAlbum,
+  ownerShown,
+  parseInviteLink,
+} from "./invite-link";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -194,6 +200,20 @@ describe("inviteLinkFromAddress", () => {
     expect(inviteLinkFromAddress("/welcome", search)).toBeUndefined();
     expect(inviteLinkFromAddress("/join", "")).toBeUndefined();
     expect(inviteLinkFromAddress("/join", `?i=${code}`)).toBeUndefined();
+  });
+});
+
+describe("linkNamedOtherAlbum", () => {
+  test.each([
+    ["Grandma's photos", "Party", true],
+    ["Party", "Party", false],
+    [" party ", "PARTY", false],
+    [undefined, "Party", false],
+    ["", "Party", false],
+    ["   ", "Party", false],
+    ["Party", "", false],
+  ] as const)("link %j against heard %j differs: %s", (link, heard, differs) => {
+    expect(linkNamedOtherAlbum(link, heard)).toBe(differs);
   });
 });
 

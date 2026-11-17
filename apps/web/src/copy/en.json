@@ -3079,6 +3079,20 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.link_named_other_album": {
+    "text": "The link named “{linkAlbum}”. This album is “{album}” by {owner}.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
+  "invite.link_names_help": {
+    "text": "Names can change after a link is shared. If this is the album you expected, tap {close}; if not, tap {cancel}.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "People joining by a link",
+    "screen": ""
+  },
   "invite.close": {
     "text": "Close",
     "status": "draft",

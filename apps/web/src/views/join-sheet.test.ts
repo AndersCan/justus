@@ -152,6 +152,57 @@ describe("renderJoinSheet", () => {
     expect(cancelRequest).not.toHaveBeenCalled();
   });
 
+  describe("when the link named another album", () => {
+    const mismatch = { ...invite, linkAlbum: "Grandma's photos" };
+    const drawWith = (state: JoinView["state"], inv: typeof mismatch | typeof invite) => {
+      const div = document.createElement("div");
+      render(renderJoinSheet({ state, invite: inv, error: "" }, actions), div);
+      return div;
+    };
+    const buttons = (div: HTMLElement) =>
+      [...div.querySelectorAll("button")].map((b) => [b.textContent?.trim(), b.className]);
+
+    test("the waiting screen shows the line and the help, and Cancel request is the main button", () => {
+      const div = drawWith("waitingForAdminToAccept", mismatch);
+      const block = div.querySelector("[data-link-named-other]");
+      expect(block?.textContent).toContain(
+        `The link named “Grandma's photos”. This album is “${invite.album}” by ${owner}.`,
+      );
+      expect(block?.textContent).toContain("tap Close; if not, tap Cancel request.");
+      expect(buttons(div)).toEqual([
+        ["Cancel request", "ui-btn-primary"],
+        ["Close", "ui-btn-ghost"],
+      ]);
+      expect(div.querySelector("[data-dismiss]")?.textContent?.trim()).toBe("Close");
+      expect(div.querySelector("[autofocus]")?.textContent?.trim()).toBe("Cancel request");
+    });
+
+    test("without a mismatch the buttons are as before, with Close focused", () => {
+      for (const inv of [invite, { ...invite, linkAlbum: " spain 2026 " }]) {
+        const div = drawWith("waitingForAdminToAccept", inv);
+        expect(div.querySelector("[data-link-named-other]")).toBeNull();
+        expect(buttons(div)).toEqual([
+          ["Cancel request", "ui-btn-ghost"],
+          ["Close", "ui-btn-primary"],
+        ]);
+        expect(div.querySelector("[autofocus]")?.textContent?.trim()).toBe("Close");
+      }
+    });
+
+    test("the other screens show no warning", () => {
+      for (const state of ["waitingForYouToUpdate", "decidingToAsk", "declinedByAdmin"] as const) {
+        expect(drawWith(state, mismatch).querySelector("[data-link-named-other]")).toBeNull();
+      }
+    });
+
+    test("an unknown owner reads as the person who invited you", () => {
+      const div = drawWith("waitingForAdminToAccept", { ...mismatch, ownerName: "" });
+      expect(div.querySelector("[data-link-named-other]")?.textContent).toContain(
+        "by the person who invited you.",
+      );
+    });
+  });
+
   test("checking the link has nothing to dismiss it", () => {
     const div = draw("checkingLink");
     expect(div.querySelector("[data-dismiss]")).toBeNull();

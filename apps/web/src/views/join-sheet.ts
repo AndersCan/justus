@@ -3,7 +3,7 @@ import { ref } from "lit-html/directives/ref.js";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK, expiredBody } from "../machines/sharing/join-request-machine";
 import { copy, t } from "../copy/copy";
-import { ownerShown } from "../utils/invite-link";
+import { linkNamedOtherAlbum, ownerShown } from "../utils/invite-link";
 import { modalDialog } from "./modal-dialog";
 
 export type JoinSheetActions = {
@@ -169,9 +169,33 @@ export function renderJoinSheet(
           album: unnamed ? copy("albums.album_you_asked_to_join") : invite.album,
         })
       : copy("invite.you_re_done", { owner });
+    const warn = !update && linkNamedOtherAlbum(invite.linkAlbum, invite.album);
     return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
+        ${
+          warn
+            ? html`<div
+                class="mt-3 rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
+                role="status"
+                data-link-named-other
+              >
+                <p>
+                  ${copy("invite.link_named_other_album", {
+                    linkAlbum: invite.linkAlbum ?? "",
+                    album: invite.album,
+                    owner,
+                  })}
+                </p>
+                <p class="mt-1 text-muted">
+                  ${copy("invite.link_names_help", {
+                    close: copy("invite.close"),
+                    cancel: copy("invite.cancel_request"),
+                  })}
+                </p>
+              </div>`
+            : null
+        }
         <p class="mt-3 text-sm text-fg">
           ${
             update
@@ -183,13 +207,17 @@ export function renderJoinSheet(
         </p>
         ${lines.checkCode}
         <div class="mt-4 flex justify-end gap-2">
-          <button class="ui-btn-ghost" @click=${() => actions.cancelRequest()}>
+          <button
+            class=${warn ? "ui-btn-primary" : "ui-btn-ghost"}
+            ?autofocus=${warn}
+            @click=${() => actions.cancelRequest()}
+          >
             ${t("invite.cancel_request")}
           </button>
           <button
-            class="ui-btn-primary"
+            class=${warn ? "ui-btn-ghost" : "ui-btn-primary"}
             data-dismiss
-            autofocus
+            ?autofocus=${!warn}
             @click=${() => actions.closeWaiting()}
           >
             ${t("invite.close")}
