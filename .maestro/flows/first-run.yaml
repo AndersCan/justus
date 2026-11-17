@@ -128,17 +128,16 @@ appId: no.cankode.justus
       - tapOn:
           text: "Photo, .*"
           waitToSettleTimeoutMs: 500
-      # The picker confirms with a blue check at its top right, which Maestro does not read by name.
-      # The first tap can land before the picker has registered the selection: tap again until the
-      # album shows the photo.
-      - retry:
-          maxRetries: 3
+      - runFlow:
+          when:
+            true: ${PICKER_DUMP == '1'}
           commands:
-            - tapOn:
-                point: "90%,16%"
-            - extendedWaitUntil:
-                visible: "View .*"
-                timeout: 20000
+            - assertVisible: "__picker_dump__"
+      - tapOn:
+          point: "90%,16%"
+      - extendedWaitUntil:
+          visible: "View .*"
+          timeout: 20000
       - runScript:
           file: ../scripts/switcher.js
           env:

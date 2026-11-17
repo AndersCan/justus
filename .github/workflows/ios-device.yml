@@ -4,6 +4,10 @@ name: ios-device
 # menu on an iPad Simulator, and opens the invite page in Safari on an iPhone Simulator.
 on:
   workflow_dispatch:
+    inputs:
+      picker_dump:
+        description: Fail on purpose after the photo picker opens, to save its view hierarchy
+        default: "0"
 
 permissions:
   contents: read
@@ -65,6 +69,8 @@ jobs:
 
       - name: Maestro walk (${{ matrix.kind }})
         timeout-minutes: 30
+        env:
+          PICKER_DUMP: ${{ inputs.picker_dump }}
         run: node scripts/maestro-ios.mjs ${{ matrix.flag }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
