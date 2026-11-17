@@ -1084,6 +1084,13 @@
     "who": "Album members, whenever they open an album's people",
     "screen": ""
   },
+  "album.asked_with_link": {
+    "text": "Asked {when} with your link for {kind}, made {made}",
+    "status": "draft",
+    "where": "Album › Invite & members › request card and Accept all sheet",
+    "who": "The Admin, on a request that came through one of their links",
+    "screen": ""
+  },
   "album.check_code": {
     "text": "Three words",
     "status": "draft",

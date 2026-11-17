@@ -102,6 +102,7 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
           owner: args.owner,
           albumName: args.albumName,
           ownerName: args.ownerName,
+          linkEnd: args.linkEnd,
         }),
       createFolder: async (args) => deps.store.createFolder(args.name),
       setActive: async (args) => deps.store.setActive(args.folderId),

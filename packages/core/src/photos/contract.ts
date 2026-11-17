@@ -217,6 +217,7 @@ export const joinRequestSchema = s.object({
   checkCode: s.optional(s.string),
   requesterIdentity: s.optional(s.string),
   declinedEarlier: s.optional(s.boolean),
+  link: s.optional(s.object({ madeAt: s.number, endsAt: s.number })),
 });
 
 export const photoChangedSchema = s.object({

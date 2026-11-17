@@ -96,7 +96,13 @@ export const photoSpecs = {
   ask: {
     pluginId: "justus.photos",
     name: "photos.ask",
-    args: {} as { code: string; owner: string; albumName?: string; ownerName?: string },
+    args: {} as {
+      code: string;
+      owner: string;
+      albumName?: string;
+      ownerName?: string;
+      linkEnd?: number;
+    },
     result: {} as { ask: AskSummary },
   },
   createFolder: {
@@ -290,14 +296,15 @@ export const photoEvents = {
       owner: string,
       albumName?: string,
       ownerName?: string,
+      linkEnd?: number,
     ): InvokeEnvelope<
       "photos.ask",
-      { code: string; owner: string; albumName?: string; ownerName?: string },
+      { code: string; owner: string; albumName?: string; ownerName?: string; linkEnd?: number },
       { ask: AskSummary }
     > {
       return invokeEvent(
         photoSpecs.ask,
-        { code, owner, albumName, ownerName },
+        { code, owner, albumName, ownerName, linkEnd },
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );

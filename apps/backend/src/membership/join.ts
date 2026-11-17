@@ -7,6 +7,7 @@ import type { PeerNetwork } from "../ports/peer-network";
 import type { JoinRequest } from "@justus/core";
 import {
   isHexKey,
+  CLOCK_SLACK_MS,
   inLinkTime,
   isTextJSON,
   parseFolderName,
@@ -15,6 +16,7 @@ import {
   parseRequestsFile,
   parseSealedAsk,
   parseViewers,
+  validLinkEnd,
   type LinkTime,
   type RegistryFile,
   type RequestsFile,
@@ -60,6 +62,8 @@ export type FoundJoinRequest = {
   viaInvite: boolean;
   /** Asked through a code held at a Remove: link times of the current code do not apply. */
   held?: true;
+  /** The end time of the link the asker opened, from the sealed ask. Their claim, unchecked. */
+  linkEnd?: number;
 };
 
 export type FoundJoinRequests = {
@@ -193,14 +197,14 @@ export async function writeJoinRequest(
   return [null, undefined];
 }
 
-/** Requester keys in an outbox that asked through `code`. */
-function inviteRequesters(text: string, code: string | undefined): Set<string> {
-  const out = new Set<string>();
+/** Requester keys in an outbox that asked through `code`, each with the link end its seal carried. */
+function inviteRequesters(text: string, code: string | undefined): Map<string, number | undefined> {
+  const out = new Map<string, number | undefined>();
   const file = code ? parseRequestsFile(text) : undefined;
   for (const raw of Object.values(file?.requests ?? {}) as unknown[]) {
     if (!isTextJSON(raw) || raw.invite !== code) continue;
     if (typeof raw.requesterKey === "string" && isHexKey(raw.requesterKey)) {
-      out.add(raw.requesterKey.toLowerCase());
+      out.set(raw.requesterKey.toLowerCase(), validLinkEnd(raw.linkEnd));
     }
   }
   return out;
@@ -247,7 +251,8 @@ async function openSealedEntries(
     } else if (sealed.invite !== code) {
       drop("invite");
     } else {
-      requests[id] = { ...raw, requesterKey: sealed.key };
+      // linkEnd comes from the seal only: a plain one on the entry is replaced.
+      requests[id] = { ...raw, requesterKey: sealed.key, linkEnd: sealed.linkEnd };
     }
   }
   return JSON.stringify({ version: 1, requests });
@@ -267,7 +272,11 @@ export async function readJoinRequests(
 ): Promise<FoundJoinRequests> {
   const { folder, log } = options;
   const tasks = [...options.identities].map(async (identity) => {
-    const empty = { identity, found: [] as JoinRequest[], invited: new Set<string>() };
+    const empty = {
+      identity,
+      found: [] as JoinRequest[],
+      invited: new Map<string, number | undefined>(),
+    };
     const [openErr, drive] = await openOutbox(identity);
     if (openErr) {
       console.error(
@@ -313,10 +322,12 @@ export async function readJoinRequests(
         if (!ambiguous.includes(req.requesterKey)) ambiguous.push(req.requesterKey);
         continue;
       }
+      const linkEnd = l.invited.get(req.requesterKey);
       requests.push({
         request: req,
         identity: l.identity,
         viaInvite: l.invited.has(req.requesterKey),
+        ...(linkEnd !== undefined && { linkEnd }),
       });
     }
   }
@@ -335,6 +346,21 @@ function answerClosesRequest(
   if (answer === "accepted") return true;
   const answeredAsk = options.declinedAsks?.[f.identity];
   return answeredAsk === undefined || f.request.requestedAt <= answeredAsk;
+}
+
+/** The Admin's own link a request came through: the window ending exactly
+ * when the asker's link did, and open at the time of the ask. Never reads the
+ * current time, so a link that ended while the request waits still names it. */
+function linkOf(
+  f: FoundJoinRequest,
+  linkTimes: readonly LinkTime[] | undefined,
+): { madeAt: number; endsAt: number } | undefined {
+  const at = f.request.requestedAt;
+  const w = (linkTimes ?? []).find(
+    (win) =>
+      win.to === f.linkEnd && win.from - CLOCK_SLACK_MS <= at && at <= win.to + CLOCK_SLACK_MS,
+  );
+  return w ? { madeAt: w.from, endsAt: w.to } : undefined;
 }
 
 /** The requests still waiting on the Admin: not enrolled, not denied, and not
@@ -373,7 +399,9 @@ export function pendingJoinRequests(
     })
     .map((f) => {
       const withIdentity = { ...f.request, requesterIdentity: f.identity };
-      const base = f.viaInvite ? { ...withIdentity, viaInvite: true } : withIdentity;
+      const link = f.viaInvite && !f.held ? linkOf(f, options.linkTimes) : undefined;
+      const viaInvite = f.viaInvite ? { ...withIdentity, viaInvite: true } : withIdentity;
+      const base = link ? { ...viaInvite, link } : viaInvite;
       const flagged =
         f.viaInvite && options.answers?.[f.identity] === "declined"
           ? { ...base, declinedEarlier: true }

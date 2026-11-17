@@ -258,7 +258,19 @@ export function boxKeyOf(deviceText: string | null): string | undefined {
 }
 
 /** What an ask seals for the Admin: the ask drive's key, bound to who asks and through which code. */
-export type SealedAsk = { v: 1; key: string; identity: string; invite: string };
+export type SealedAsk = {
+  v: 1;
+  key: string;
+  identity: string;
+  invite: string;
+  /** End time (ms) of the link the asker opened. Their claim, unchecked. */
+  linkEnd?: number;
+};
+
+/** The end time of a link when it is a positive whole number, else undefined. */
+export function validLinkEnd(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
 
 export function sealedAskBytes(ask: Omit<SealedAsk, "v">): Uint8Array {
   return Buffer.from(JSON.stringify({ v: 1, ...ask }));
@@ -273,11 +285,13 @@ export function parseSealedAsk(bytes: Uint8Array): SealedAsk | undefined {
     if (typeof key !== "string" || !isHexKey(key)) return undefined;
     if (typeof identity !== "string" || !isHexKey(identity)) return undefined;
     if (typeof invite !== "string" || !isHexKey(invite)) return undefined;
+    const linkEnd = validLinkEnd(raw.linkEnd);
     return {
       v: 1,
       key: key.toLowerCase(),
       identity: identity.toLowerCase(),
       invite: invite.toLowerCase(),
+      ...(linkEnd !== undefined && { linkEnd }),
     };
   } catch {
     return undefined;

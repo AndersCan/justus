@@ -8,7 +8,11 @@ already in a release tag, raise `PEER_PROTOCOL` and start a new first section
 `## Unreleased · peer protocol N+1`. `node scripts/check-peer-protocol.mjs`
 checks this.
 
-## Unreleased · peer protocol 4
+## Unreleased · peer protocol 5
+
+- **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.
+
+## Protocol 4 (v0.4.0)
 
 - **Invite links are web links** (`https://anderscan.github.io/justus/join/#…`; `justus://join?…` still works). Who: testers on builds from before this change: pasting a new link says it doesn't look right. Do: tap Open in Justus on the link's page, or update Justus.
 - **Phones note the photos they showed as a preview** (`/previewed/<id>` on each phone's album drive). Who: internal testers on a protocol-4 build from before this change: their phone shows as not having a photo it showed as a preview. Do: update Justus.

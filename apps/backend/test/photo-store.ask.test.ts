@@ -1735,6 +1735,65 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
     await s.admin.store.close();
   });
 
+  describe("which link an ask came through", () => {
+    const whole = (offsetMs: number) => Math.floor((Date.now() + offsetMs) / 1000) * 1000;
+    const savedLinks = (s: Awaited<ReturnType<typeof scenario>>) => {
+      const state = JSON.parse(readFileSync(join(s.admin.deps.storageDir, "justus.json"), "utf8"));
+      return state.folders.find((f: { id: string }) => f.id === s.folderId).invite.links as Array<{
+        from: number;
+        to: number;
+      }>;
+    };
+    /** The Admin saves two links, the joiner asks carrying `pick` of their end times; returns what the Admin lists. */
+    const askedThrough = async (pick: "first" | "second" | "none" | "bad", restart = false) => {
+      const ends = { first: whole(60 * 60_000), second: whole(24 * 60 * 60_000) };
+      const s = await scenario();
+      await s.admin.store.saveInviteLink(s.folderId, ends.first);
+      await s.admin.store.saveInviteLink(s.folderId, ends.second);
+      const linkEnd = pick === "none" ? undefined : pick === "bad" ? ("x" as never) : ends[pick];
+      let joiner = s.joiner.store;
+      if (restart) {
+        setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: false });
+        await joiner.ask({ code: s.invite.code, owner: s.owner, linkEnd });
+        await joiner.close();
+        setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: true });
+        joiner = createPhotoStore(restarted(s.joiner.deps));
+        await joiner.ready();
+        await until(async () => (await s.admin.store.requests()).requests.length === 1, 6_000);
+      } else {
+        await joiner.ask({ code: s.invite.code, owner: s.owner, linkEnd });
+        await connect(s);
+      }
+      const { requests } = await s.admin.store.requests();
+      const windows = savedLinks(s);
+      if (restart) await joiner.close();
+      await s.close();
+      return { requests, windows, ends };
+    };
+
+    it("names the first or the second link by the end time the asker carried", async () => {
+      for (const pick of ["first", "second"] as const) {
+        const { requests, windows, ends } = await askedThrough(pick);
+        const w = windows.find((x) => x.to === ends[pick])!;
+        expect(requests).toHaveLength(1);
+        expect(requests[0]!.link).toEqual({ madeAt: w.from, endsAt: ends[pick] });
+      }
+    });
+
+    it("lists an ask with no end time, or a malformed one, without a link", async () => {
+      for (const pick of ["none", "bad"] as const) {
+        const { requests } = await askedThrough(pick);
+        expect(requests).toHaveLength(1);
+        expect(requests[0]).not.toHaveProperty("link");
+      }
+    });
+
+    it("still names the link when the joiner restarted before the Admin was reached", async () => {
+      const { requests, ends } = await askedThrough("second", true);
+      expect(requests[0]!.link?.endsAt).toBe(ends.second);
+    });
+  });
+
   it("an ask already filed is not filed again when the joiner restarts", async () => {
     const s = await scenario();
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });

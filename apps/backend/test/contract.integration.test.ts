@@ -139,17 +139,21 @@ describe("backend -> web contract, from real backend output", () => {
     const invite = folders[0].invite;
     expect(invite, "the creator's folder carries its invite").toBeDefined();
     // A Viewer asks through the invite code, then the Admin lets them add photos.
+    const linkEnd = Math.floor((Date.now() + 3_600_000) / 1000) * 1000;
+    await a("photos.saveInviteLink", { folderId: folder.id, expiresAt: linkEnd });
     await w("photos.ask", {
       code: invite.code,
       owner: invite.owner,
       albumName: "Contract",
       ownerName: "Phone",
+      linkEnd,
     });
     const viewerAsk = await eventually(
       () => a("photos.requests"),
       (r: any) => r.requests.length === 1,
       "the Viewer's ask on the Admin",
     );
+    expect(viewerAsk.requests[0].link.endsAt).toBe(linkEnd);
     await a("photos.respond", {
       folderId: folder.id,
       requesterKey: viewerAsk.requests[0].requesterKey,

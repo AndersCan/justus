@@ -467,6 +467,22 @@ describe("readJoinRequests", () => {
       expect(events).toContain("requests.sealed.dropped:plain");
     });
 
+    it("reads linkEnd from the seal only, and ignores a plain one on the entry", async () => {
+      const sealed = sealedAskBytes({ key: KEY_A, identity: IA, invite: CODE, linkEnd: 7_000 });
+      const bare = sealedAskBytes({ key: KEY_B, identity: IB, invite: CODE });
+      const plain = { linkEnd: 9_000 };
+      const withEnd = await read(
+        { [IA]: { [`invite:${CODE}`]: entry("aa", plain) } },
+        { aa: sealed },
+      );
+      expect(withEnd.found.requests.map((f) => f.linkEnd)).toEqual([7_000]);
+      const without = await read(
+        { [IB]: { [`invite:${CODE}`]: entry("bb", plain) } },
+        { bb: bare },
+      );
+      expect(without.found.requests.map((f) => f.linkEnd)).toEqual([undefined]);
+    });
+
     it("still lists an album-key entry with a plain key", async () => {
       const { found } = await read({ [IA]: { [FOLDER.shareKey]: request(KEY_A) } }, {});
       expect(found.requests.map((f) => [f.request.requesterKey, f.viaInvite])).toEqual([
@@ -799,5 +815,68 @@ describe("pendingJoinRequests and link times", () => {
     expect(list(9_000_000_000, false)).toBe(1);
     expect(list(9_000_000_000, true, ["i"])).toBe(0);
     expect(list(1_500_000, true, ["i"])).toBe(0);
+  });
+});
+
+describe("pendingJoinRequests names the link", () => {
+  const A = { from: 1_000_000, to: 1_000_000 + 7 * 86_400_000 };
+  const B = { from: 1_000_000 + 86_400_000, to: 1_000_000 + 2 * 86_400_000 };
+  const during = B.from + 3_600_000;
+  const list = (
+    f: { linkEnd?: number; requestedAt?: number; held?: true; viaInvite?: boolean },
+    linkTimes = [A, B],
+  ) =>
+    pendingJoinRequests(
+      [
+        {
+          request: {
+            folderId: "f1",
+            folderName: "Trip",
+            requesterKey: "1".repeat(64),
+            requesterName: "Bo",
+            requestedAt: f.requestedAt ?? during,
+          },
+          identity: "i",
+          viaInvite: f.viaInvite ?? true,
+          ...(f.held && { held: f.held }),
+          ...(f.linkEnd !== undefined && { linkEnd: f.linkEnd }),
+        },
+      ],
+      {
+        registry: { version: 1, members: {} },
+        denied: new Set(),
+        answers: undefined,
+        linkTimes,
+      },
+    );
+
+  it("names the window whose end the asker's link carried", () => {
+    expect(list({ linkEnd: B.to })[0]?.link).toEqual({ madeAt: B.from, endsAt: B.to });
+    expect(list({ linkEnd: A.to })[0]?.link).toEqual({ madeAt: A.from, endsAt: A.to });
+  });
+
+  it("names the link for an ask a few minutes either side of its window (clock slack)", () => {
+    expect(list({ linkEnd: B.to, requestedAt: B.from - 5 * 60_000 })[0]?.link?.endsAt).toBe(B.to);
+    expect(list({ linkEnd: B.to, requestedAt: B.to + 5 * 60_000 })[0]?.link?.endsAt).toBe(B.to);
+  });
+
+  it("names a link that ended while the request waited", () => {
+    expect(list({ linkEnd: B.to })[0]?.link?.endsAt).toBe(B.to);
+    expect(B.to).toBeLessThan(Date.now());
+  });
+
+  it("names nothing, and still lists, when it cannot tell", () => {
+    for (const rows of [
+      list({}),
+      list({}, [A]),
+      list({ linkEnd: B.to + 1000 }),
+      list({ linkEnd: B.to, requestedAt: A.from + 1000 }),
+      list({ linkEnd: B.to, requestedAt: B.to + 20 * 60_000 }),
+      list({ linkEnd: B.to, held: true }),
+      list({ linkEnd: B.to, viaInvite: false }),
+    ]) {
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).not.toHaveProperty("link");
+    }
   });
 });

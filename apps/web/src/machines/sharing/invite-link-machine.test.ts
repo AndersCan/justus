@@ -5,6 +5,7 @@ import { onOutput } from "@mantaq/sugar";
 import { describe, expect, test } from "vite-plus/test";
 import {
   createInviteLinkActor,
+  linkKindOf,
   VALID_FOR_MS,
   type InviteLinkPort,
   type ValidFor,
@@ -615,5 +616,21 @@ describe("invite link design", () => {
   });
   test("reaches every state", () => {
     expectAllStatesReached({ id: "inviteLink", create: walkTarget, payloads: designPayloads });
+  });
+});
+
+describe("linkKindOf", () => {
+  test.each(Object.keys(VALID_FOR_MS) as ValidFor[])(
+    "names %s from its span, also a second short",
+    (kind) => {
+      expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 + VALID_FOR_MS[kind] })).toBe(kind);
+      expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 + VALID_FOR_MS[kind] - 999 })).toBe(kind);
+    },
+  );
+
+  test("names nothing for a span that fits no kind", () => {
+    expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 + 30 * 60_000 })).toBeUndefined();
+    expect(linkKindOf({ madeAt: 5_000, endsAt: 5_000 })).toBeUndefined();
+    expect(linkKindOf({ madeAt: 5_000, endsAt: 1_000 })).toBeUndefined();
   });
 });

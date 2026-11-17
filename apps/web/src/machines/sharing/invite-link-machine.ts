@@ -27,6 +27,13 @@ export const VALID_FOR_LABEL: Record<ValidFor, string> = {
   "7d": copy("invite_link.7_days"),
 };
 
+/** The kind of a link from the span it was made for, within a minute of rounding and save delay; undefined when none fits. */
+export function linkKindOf(link: { madeAt: number; endsAt: number }): ValidFor | undefined {
+  const span = link.endsAt - link.madeAt;
+  const kinds = Object.keys(VALID_FOR_MS) as ValidFor[];
+  return kinds.find((k) => Math.abs(VALID_FOR_MS[k] - span) <= 60_000);
+}
+
 type InviteLinkContext = {
   /** The album the link is for. */
   folderId: string;
