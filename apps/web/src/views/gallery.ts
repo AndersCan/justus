@@ -23,6 +23,7 @@ import { prefs, prefsActor } from "../machines/prefs-machine";
 import { formatRelative } from "../utils/time";
 import { unreachableMember } from "../utils/reach-hint";
 import { backTo, currentPage, open, ownLink } from "../machines/router-machine";
+import { photoWait, type PhotoWait } from "../utils/photo-wait";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
   addTargets,
@@ -760,6 +761,29 @@ function requestLine(album: FolderSummary, text: TemplateResult) {
   </p>`;
 }
 
+/** One muted line under who is connected: previews on their way to this phone, and photos a member's phone lacks. */
+export function photoWaitLine(w: PhotoWait) {
+  const { coming, waitsFor } = w;
+  if (coming === undefined && waitsFor === undefined) return null;
+  const waits =
+    waitsFor === undefined
+      ? null
+      : waitsFor.phones.length === 1
+        ? t("gallery.photos_wait_for_one", {
+            count: waitsFor.count,
+            name: waitsFor.phones[0]!.name,
+          })
+        : t("gallery.photos_wait_for_many", {
+            count: waitsFor.count,
+            phones: waitsFor.phones.length,
+          });
+  return html`<p class="text-sm text-muted" data-photo-wait>
+    ${coming === undefined ? null : t("gallery.photos_coming", { count: coming })}${
+      coming !== undefined && waits !== null ? html`<span aria-hidden="true"> · </span>` : null
+    }${waits}
+  </p>`;
+}
+
 export function albumHeader(page: PhotosPage, album: FolderSummary) {
   const status = page.status?.folder.id === album.id ? page.status : null;
   const here = album.role === "creator" ? page.requests.filter((r) => r.folderId === album.id) : [];
@@ -812,7 +836,9 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           }
         </a>
       </div>
-      ${slot} ${albumAddRow(page, album, waiting > 0)}
+      ${slot}
+      ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
+      ${albumAddRow(page, album, waiting > 0)}
     </div>
   `;
 }

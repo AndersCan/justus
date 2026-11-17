@@ -24,14 +24,14 @@ describe("album header presence while connecting", () => {
   test("albumHeader reads the reach actor: Connecting to Ada…", () => {
     reachActor.send({ type: "UNREACHABLE", payload: { name: "Ada" } } as never);
     const host = document.createElement("div");
-    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     render(albumHeader(page as never, album as never), host);
     expect(host.textContent?.replace(/\s+/g, " ")).toContain("Connecting to Ada…");
   });
 
   test("before any reach event the first frame still says Connecting, never Nobody", () => {
     const host = document.createElement("div");
-    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     render(albumHeader(page as never, album as never), host);
     const text = host.textContent?.replace(/\s+/g, " ");
     expect(text).toContain("Connecting to Ada…");
@@ -43,7 +43,7 @@ describe("album header presence while connecting", () => {
     reachActor.send({ type: "UNREACHABLE", payload: { name: "Ada" } } as never);
     vi.advanceTimersByTime(CONNECTING_FOR_MS + 1);
     const host = document.createElement("div");
-    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     render(albumHeader(page as never, album as never), host);
     vi.useRealTimers();
     expect(host.textContent?.replace(/\s+/g, " ")).toContain("Nobody connected right now");
@@ -66,7 +66,7 @@ describe("album header presence while connecting", () => {
         { key: "k1", name, admin: true, connected: false },
       ],
     };
-    const page = { status: st, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status: st, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     render(albumHeader(page as never, album as never), host);
     return host.textContent?.replace(/\s+/g, " ") ?? "";
   };

@@ -2071,6 +2071,27 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": "start-album"
   },
+  "gallery.photos_wait_for_one": {
+    "text": "{count} {count?photo waits:photos wait} for {name}'s phone",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, under who is connected",
+    "screen": ""
+  },
+  "gallery.photos_wait_for_many": {
+    "text": "{count} {count?photo waits:photos wait} for {phones} phones",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, under who is connected",
+    "screen": ""
+  },
+  "gallery.photos_coming": {
+    "text": "{count} {count?photo:photos} coming",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, under who is connected",
+    "screen": ""
+  },
   "gallery.connected_now": {
     "text": "{connected} connected now",
     "status": "draft",
@@ -4228,7 +4249,7 @@
     "screen": ""
   },
   "full_photo.only_preview": {
-    "text": "Seen, not opened",
+    "text": "Has the preview",
     "status": "draft",
     "where": "Photo viewer › Who has this photo › heading",
     "who": "People who tap the photo's holders or delete a photo",

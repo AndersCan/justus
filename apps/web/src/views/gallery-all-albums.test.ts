@@ -13,7 +13,7 @@ const alone = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connect
 const allAlbums = () => {
   const host = document.createElement("div");
   document.body.append(host);
-  const page = { status: alone, folders: [album], requests: [], lastSync: Date.now() };
+  const page = { status: alone, folders: [album], requests: [], photos: [], lastSync: Date.now() };
   render(albumHeader(page as never, album as never), host);
   const link = [...host.querySelectorAll("a")].find((a) => a.getAttribute("href") === "/albums");
   if (!link) throw new Error("no All albums link");

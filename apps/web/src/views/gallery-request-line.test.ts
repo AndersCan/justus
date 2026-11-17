@@ -12,7 +12,7 @@ const album = { id: "f1", name: "Trip", role: "creator", members: 1 };
 const alone = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
 const draw = (requests: unknown[]) => {
   const host = document.createElement("div");
-  const page = { status: alone, folders: [album], requests, lastSync: Date.now() };
+  const page = { status: alone, folders: [album], requests, photos: [], lastSync: Date.now() };
   render(albumHeader(page as never, album as never), host);
   return host.querySelector("[data-request-line]")?.textContent?.replace(/\s+/g, " ") ?? "";
 };
@@ -57,6 +57,7 @@ describe("albumHeader join request line: who it names", () => {
       status,
       folders: [{ ...album, members: 3 }],
       requests: [{ folderId: "f1", folderName: "Trip", requesterName: "Ben" }],
+      photos: [],
       lastSync: Date.now(),
     };
     render(albumHeader(page as never, { ...album, members: 3 } as never), host);
