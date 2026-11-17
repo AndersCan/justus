@@ -54,6 +54,9 @@ import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite"
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
 import { tabs } from "./tabs";
+import { lookedAt } from "./looked-at";
+import "./new-photos";
+import { isNewPhoto, newCount, seenActor, type SeenContext } from "../machines/seen-machine";
 
 import { copy, t } from "../copy/copy";
 // Adding photos happens only inside an album, so where they go (and who gets
@@ -294,7 +297,7 @@ function emptyIllustration() {
 
 /** One grid tile. `within` is the grid it sits in (the lightbox steps through
  * it). */
-function photoTile(photo: Photo, within: Photo[]) {
+export function photoTile(photo: Photo, within: Photo[]) {
   return html`
     <figure
       data-motion-key=${photoKey(photo)}
@@ -303,6 +306,7 @@ function photoTile(photo: Photo, within: Photo[]) {
       role="button"
       tabindex="0"
       aria-label=${copy("gallery.view", { name: photo.name })}
+      ${lookedAt(photo)}
       @click=${() => openLightbox(photo, within)}
       @keydown=${(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -318,6 +322,13 @@ function photoTile(photo: Photo, within: Photo[]) {
         referrerpolicy="no-referrer"
         loading="lazy"
       />
+      ${watch(seenActor, (s) =>
+        isNewPhoto(s.context, photo)
+          ? html`<span class="ui-new pointer-events-none absolute left-1.5 top-1.5"
+              >${t("gallery.new_photo")}</span
+            >`
+          : nothing,
+      )}
     </figure>
   `;
 }
@@ -906,7 +917,7 @@ export function galleryView(scope: PhotoScope) {
   return pageView((page) => photosBody(page, scope));
 }
 
-function albumCard(card: AlbumCard, waiting: number) {
+function albumCard(card: AlbumCard, waiting: number, fresh: number) {
   const { folder, cover, count } = card;
   return html`<li>
     <a
@@ -937,6 +948,13 @@ function albumCard(card: AlbumCard, waiting: number) {
               >`
             : null
         }
+        ${
+          fresh > 0
+            ? html`<span class="ui-new absolute bottom-2 left-2"
+                >${t("gallery.new_count", { count: fresh })}</span
+              >`
+            : null
+        }
       </div>
       <p class="mt-2 truncate text-sm font-medium text-fg">${folder.name}</p>
       <p class="truncate text-xs text-muted">
@@ -954,7 +972,7 @@ function albumCard(card: AlbumCard, waiting: number) {
   </li>`;
 }
 
-function albumGridBody(page: PhotosPage) {
+export function albumGridBody(page: PhotosPage, seenNow: SeenContext) {
   const scope: PhotoScope = { kind: "all" };
   const cards = albumCards(page.folders, page.photos);
   const drop = dropHandlers(scope);
@@ -983,6 +1001,7 @@ function albumGridBody(page: PhotosPage) {
                     card.folder.role === "creator"
                       ? page.requests.filter((r) => r.folderId === card.folder.id).length
                       : 0,
+                    newCount(seenNow, page.photos, [card.folder.id]),
                   ),
               )}
               <li>
@@ -1002,5 +1021,5 @@ function albumGridBody(page: PhotosPage) {
 
 /** Photos → Albums: one cover card per album; tap one to see its photos. */
 export function albumGridView() {
-  return pageView((page) => albumGridBody(page));
+  return pageView((page) => watch(seenActor, (s) => albumGridBody(page, s.context)));
 }

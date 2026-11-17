@@ -204,9 +204,9 @@ test("Back and the Sharing tab after Archive show a live Sharing page, and the U
   await page.goto("/albums");
   await page.getByRole("button", { name: "New album" }).click();
   const sheet = page.getByRole("dialog", { name: "Start an album" });
-  await sheet.getByLabel("Album name").fill("Summer trip");
+  await sheet.getByLabel("Album name").fill("Winter trip");
   await sheet.getByRole("button", { name: "Create album" }).click();
-  await expect(page.getByRole("heading", { name: "Summer trip" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Winter trip" })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -227,6 +227,6 @@ test("Back and the Sharing tab after Archive show a live Sharing page, and the U
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
 
   await page.getByText(/Archived \(\d+\)/).click();
-  await page.getByRole("button", { name: "Restore Summer trip" }).click();
-  await expect(page.getByRole("link", { name: "Invite & members of Summer trip" })).toBeVisible();
+  await page.getByRole("button", { name: "Restore Winter trip" }).click();
+  await expect(page.getByRole("link", { name: "Invite & members of Winter trip" })).toBeVisible();
 });

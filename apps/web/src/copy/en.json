@@ -2484,6 +2484,20 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
+  "gallery.new_photo": {
+    "text": "New",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.new_count": {
+    "text": "{count} new",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
   "gallery.waiting": {
     "text": "{waiting} waiting",
     "status": "draft",
