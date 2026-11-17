@@ -320,7 +320,7 @@ describe("albumHeader after Create album", () => {
   test("the album name has focus", async () => {
     const album = { id: "f1", name: "Trip", role: "creator", members: 1 };
     const status = { folder: { id: "f1" }, members: [{ key: "k0", name: "Me", connected: true }] };
-    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     focusOnArrival("f1");
     const host = document.createElement("div");
     render(albumHeader(page as never, album as never), host);
@@ -340,7 +340,7 @@ describe("albumHeader for a removed album", () => {
   };
   const render_ = (album: Record<string, unknown>) => {
     const host = document.createElement("div");
-    const page = { status, folders: [album], requests: [], lastSync: Date.now() };
+    const page = { status, folders: [album], requests: [], photos: [], lastSync: Date.now() };
     render(albumHeader(page as never, album as never), host);
     return { host, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
   };
@@ -541,6 +541,7 @@ describe("albumHeader join request line", () => {
       status: "status" in over ? over.status : alone,
       folders: [a],
       requests: over.requests ?? [ask],
+      photos: [],
       lastSync: Date.now(),
     };
     render(albumHeader(page as never, a as never), host);
