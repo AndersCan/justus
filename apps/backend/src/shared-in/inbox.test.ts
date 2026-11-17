@@ -109,10 +109,18 @@ describe("listSharedIn", () => {
     );
   });
 
-  test.each(["A..B", "a/b", "x".repeat(65), "UPPER"])("id %s is refused", (id) => {
-    const d = batch("safe-id", manifest({ id }), fixtureFiles);
-    expect(d).toBeTruthy();
+  test.each(["A..B", "x".repeat(65), "UPPER", "a b"])("id %s is refused", (id) => {
+    batch(id, manifest({ id }), fixtureFiles);
     expect(list()).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith(
+      "[justus] shared-in.skip id=invalid reason=bad-manifest",
+    );
+  });
+
+  test("a dir name that is not an id is logged as invalid, never by name", () => {
+    batch("Beach photo", fixture, fixtureFiles);
+    list();
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("Beach");
   });
 
   test.each([
@@ -199,6 +207,7 @@ describe("listSharedIn", () => {
         original: nodePath.join(d, "0.jpeg"),
       }),
     );
+    expect(list()[0]?.batch.photos[0]).not.toHaveProperty("thumb");
   });
 
   test("an extension outside the allow-list is dropped with reason type", () => {
