@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import {
   backTo,
-  createRouterActor,
+  routerMachine,
   currentPage,
   onPageChange,
   open,
@@ -41,7 +40,7 @@ describe("parsePath", () => {
 
 describe("router actor", () => {
   test("starts on the given page and follows NAVIGATED", () => {
-    const actor = createRouterActor({ clock: VirtualClock(), page: parsePath("/help") });
+    const actor = routerMachine.create({ page: parsePath("/help") });
     expect(actor.snapshot().context.page?.route).toBe("help");
   });
 });

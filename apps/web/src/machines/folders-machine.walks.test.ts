@@ -1,12 +1,11 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createFoldersActor } from "./folders-machine";
+import { foldersMachine } from "./folders-machine";
 
-const make = recordRuns(createFoldersActor);
+const make = recordRuns(foldersMachine);
 
 test("Anna creates the album Trip and sees it in her albums", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({
     type: "ALBUMS_LOADED",

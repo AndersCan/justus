@@ -1,9 +1,8 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import {
   SAVE_FAILED_COPY,
   friendSheetOf,
-  createFriendsActor,
+  friendsMachine,
   friends,
   friendsActor,
   savedFriends,
@@ -47,7 +46,7 @@ async function setup(options: { list?: Reply; add?: Reply; rename?: Reply; remov
     ),
     remove: vi.fn(options.remove ?? (async () => [null, { removed: true }] as [null, unknown])),
   };
-  const actor = createFriendsActor({ clock: VirtualClock(), port: port as unknown as FriendsPort });
+  const actor = friendsMachine.create({ port: port as unknown as FriendsPort });
   const outputs: unknown[] = [];
   actor.on("output", { fn: (e: unknown) => outputs.push(e) } as never);
   await actor.settled();
@@ -76,10 +75,7 @@ describe("friends machine", () => {
 
   test("OPEN is ignored while loading", () => {
     const port = { list: vi.fn(() => new Promise(() => {})), add: vi.fn() };
-    const actor = createFriendsActor({
-      clock: VirtualClock(),
-      port: port as unknown as FriendsPort,
-    });
+    const actor = friendsMachine.create({ port: port as unknown as FriendsPort });
     actor.send(open());
     expect(actor.state.name).toBe("loadingFriends");
   });

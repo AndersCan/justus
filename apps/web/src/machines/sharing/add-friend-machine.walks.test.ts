@@ -1,20 +1,16 @@
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createAddFriendActor } from "./add-friend-machine";
+import { addFriendMachine } from "./add-friend-machine";
 
 const KARI = "6b".repeat(32);
 const OLE = "6f".repeat(32);
 const FOLDER = "f1".repeat(32);
 
-const make = recordRuns(createAddFriendActor);
+const make = recordRuns(addFriendMachine);
 
 test("Nils adds Kari to Lisbon trip as a Viewer, and she joins from her albums list", async () => {
-  const actor = make({
-    clock: VirtualClock(),
-    port: { offerAlbum: async () => [null, { ok: true }] },
-  });
+  const actor = make.create({ port: { offerAlbum: async () => [null, { ok: true }] } });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) =>
     outputs.push({ type: e.type, payload: (e as { payload?: unknown }).payload }),

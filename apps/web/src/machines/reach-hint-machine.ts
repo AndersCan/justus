@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Clock, type Snapshot, machine } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
 import type { SyncStatus } from "@justus/core";
 import {
@@ -57,108 +57,110 @@ const connectingTimedOut = event("CONNECTING_TIMED_OUT")();
 const due = event("DUE")();
 
 /** The wait before the hint runs on `clock`, so tests and the flow inspector can drive it. */
-export function createReachActor(options: { clock: Clock }) {
-  return Actor({
-    inputs: [unreachable, reached],
-    internal: [connectingTimedOut, due],
-    outputs: [],
-    states: [noWifiHint, tryingToReachMembers, waitingBeforeWifiHint, showingWifiHint],
-    initial: noWifiHint,
-    clock: options.clock,
-    context: { name: "" } as ReachContext,
-    setup: (m) => {
-      /** Nobody else can be reached: the first wait starts and no hint is shown yet. */
-      m.on(noWifiHint, {
-        event: unreachable,
-        to: [tryingToReachMembers],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return { state: tryingToReachMembers };
-        },
-      });
-      // Returning `{}` keeps the running timer; returning the same state would restart it.
-      /** Still nobody reachable: the first wait carries on and the member named may change. */
-      m.on(tryingToReachMembers, {
-        event: unreachable,
-        to: [],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return {};
-        },
-      });
-      /** Still nobody reachable: the second wait carries on and the member named may change. */
-      m.on(waitingBeforeWifiHint, {
-        event: unreachable,
-        to: [],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return {};
-        },
-      });
-      /** Still nobody reachable: the hint stays and the member named may change. */
-      m.on(showingWifiHint, {
-        event: unreachable,
-        to: [],
-        handler: (e, opts) => {
-          opts.context.set({ name: e.payload.name });
-          return {};
-        },
-      });
-      /** Someone is reachable again during the first wait: it ends. */
-      m.on(tryingToReachMembers, {
-        event: reached,
-        to: [noWifiHint],
-        handler: () => ({ state: noWifiHint }),
-      });
-      /** Someone is reachable again during the second wait: it ends. */
-      m.on(waitingBeforeWifiHint, {
-        event: reached,
-        to: [noWifiHint],
-        handler: () => ({ state: noWifiHint }),
-      });
-      /** Someone is reachable again: the WiFi hint goes away. */
-      m.on(showingWifiHint, {
-        event: reached,
-        to: [noWifiHint],
-        handler: () => ({ state: noWifiHint }),
-      });
+export const reachMachine = machine("reach", {
+  create: (options: { clock: Clock }) => {
+    return Actor({
+      inputs: [unreachable, reached],
+      internal: [connectingTimedOut, due],
+      outputs: [],
+      states: [noWifiHint, tryingToReachMembers, waitingBeforeWifiHint, showingWifiHint],
+      initial: noWifiHint,
+      clock: options.clock,
+      context: { name: "" } as ReachContext,
+      setup: (m) => {
+        /** Nobody else can be reached: the first wait starts and no hint is shown yet. */
+        m.on(noWifiHint, {
+          event: unreachable,
+          to: [tryingToReachMembers],
+          handler: (e, opts) => {
+            opts.context.set({ name: e.payload.name });
+            return { state: tryingToReachMembers };
+          },
+        });
+        // Returning `{}` keeps the running timer; returning the same state would restart it.
+        /** Still nobody reachable: the first wait carries on and the member named may change. */
+        m.on(tryingToReachMembers, {
+          event: unreachable,
+          to: [],
+          handler: (e, opts) => {
+            opts.context.set({ name: e.payload.name });
+            return {};
+          },
+        });
+        /** Still nobody reachable: the second wait carries on and the member named may change. */
+        m.on(waitingBeforeWifiHint, {
+          event: unreachable,
+          to: [],
+          handler: (e, opts) => {
+            opts.context.set({ name: e.payload.name });
+            return {};
+          },
+        });
+        /** Still nobody reachable: the hint stays and the member named may change. */
+        m.on(showingWifiHint, {
+          event: unreachable,
+          to: [],
+          handler: (e, opts) => {
+            opts.context.set({ name: e.payload.name });
+            return {};
+          },
+        });
+        /** Someone is reachable again during the first wait: it ends. */
+        m.on(tryingToReachMembers, {
+          event: reached,
+          to: [noWifiHint],
+          handler: () => ({ state: noWifiHint }),
+        });
+        /** Someone is reachable again during the second wait: it ends. */
+        m.on(waitingBeforeWifiHint, {
+          event: reached,
+          to: [noWifiHint],
+          handler: () => ({ state: noWifiHint }),
+        });
+        /** Someone is reachable again: the WiFi hint goes away. */
+        m.on(showingWifiHint, {
+          event: reached,
+          to: [noWifiHint],
+          handler: () => ({ state: noWifiHint }),
+        });
 
-      /** A 15 second wait runs; it is cancelled if someone becomes reachable. */
-      m.effect(tryingToReachMembers, {
-        name: "tryingToReachMembers",
-        sends: [connectingTimedOut],
-        fn: (input) =>
-          withTimeout(CONNECTING_FOR_MS, { input, event: () => connectingTimedOut.create() }),
-      });
-      /** Nobody was reachable for the first wait: the album stops saying it is connecting. */
-      m.on(tryingToReachMembers, {
-        event: connectingTimedOut,
-        to: [waitingBeforeWifiHint],
-        handler: () => ({ state: waitingBeforeWifiHint }),
-      });
-      /** The rest of the 30 seconds runs; it is cancelled if someone becomes reachable. */
-      m.effect(waitingBeforeWifiHint, {
-        name: "waitingBeforeWifiHint",
-        sends: [due],
-        fn: (input) =>
-          withTimeout(REACH_HINT_AFTER_MS - CONNECTING_FOR_MS, {
-            input,
-            event: () => due.create(),
-          }),
-      });
-      /** Nobody was reachable for the whole wait: the WiFi hint appears. */
-      m.on(waitingBeforeWifiHint, {
-        event: due,
-        to: [showingWifiHint],
-        handler: () => ({ state: showingWifiHint }),
-      });
-    },
-  });
-}
+        /** A 15 second wait runs; it is cancelled if someone becomes reachable. */
+        m.effect(tryingToReachMembers, {
+          name: "tryingToReachMembers",
+          sends: [connectingTimedOut],
+          fn: (input) =>
+            withTimeout(CONNECTING_FOR_MS, { input, event: () => connectingTimedOut.create() }),
+        });
+        /** Nobody was reachable for the first wait: the album stops saying it is connecting. */
+        m.on(tryingToReachMembers, {
+          event: connectingTimedOut,
+          to: [waitingBeforeWifiHint],
+          handler: () => ({ state: waitingBeforeWifiHint }),
+        });
+        /** The rest of the 30 seconds runs; it is cancelled if someone becomes reachable. */
+        m.effect(waitingBeforeWifiHint, {
+          name: "waitingBeforeWifiHint",
+          sends: [due],
+          fn: (input) =>
+            withTimeout(REACH_HINT_AFTER_MS - CONNECTING_FOR_MS, {
+              input,
+              event: () => due.create(),
+            }),
+        });
+        /** Nobody was reachable for the whole wait: the WiFi hint appears. */
+        m.on(waitingBeforeWifiHint, {
+          event: due,
+          to: [showingWifiHint],
+          handler: () => ({ state: showingWifiHint }),
+        });
+      },
+    });
+  },
+});
 
-export const reachActor = createReachActor({ clock: RealClock() });
+export const reachActor = reachMachine.create();
 
-export type ReachActor = ReturnType<typeof createReachActor>;
+export type ReachActor = ReturnType<typeof reachMachine.create>;
 
 /** Feeds the sync status to the reach actor. Each unreachable event is cheap
  * but pointless to repeat, so it acts only when sync holds a new status object, never on an

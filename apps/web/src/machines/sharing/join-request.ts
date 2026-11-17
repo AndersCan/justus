@@ -1,4 +1,4 @@
-import { RealClock, type Snapshot } from "@mantaq/core";
+import type { Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../../gateway";
 import { currentPage, open } from "../router-machine";
@@ -19,7 +19,7 @@ import {
   cancelRequest,
   closeStoppedLink,
   closeWaiting,
-  createJoinRequestActor,
+  joinRequestMachine,
   dismissDecline,
   dismissExpired,
   notNow,
@@ -73,8 +73,7 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
   };
 }
 
-export const joinActor = createJoinRequestActor({
-  clock: RealClock(),
+export const joinActor = joinRequestMachine.create({
   known: (invite) =>
     classifyInvite(
       invite.code,

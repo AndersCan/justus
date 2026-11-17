@@ -11,7 +11,7 @@ import {
   GARBLED_LINK,
   NOTHING_COPIED,
   SEND_FAILED,
-  createJoinRequestActor,
+  joinRequestMachine,
   oldLinkMessage,
   type AskSummary,
   type JoinPort,
@@ -34,7 +34,7 @@ function setup(
   } = {},
 ) {
   const clock = VirtualClock();
-  const actor = createJoinRequestActor({ clock, ...options });
+  const actor = joinRequestMachine.create({ clock, ...options });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) =>
     outputs.push({ type: e.type, payload: (e as { payload?: unknown }).payload }),
@@ -1024,14 +1024,14 @@ describe("askWithPastedLink", () => {
   });
 });
 
-const make = recordRuns(createJoinRequestActor);
+const make = recordRuns(joinRequestMachine);
 const ROW = (status: AskSummary["status"]) => ask(status);
 
 async function drive(
   steps: (send: Setup["send"]) => Promise<void>,
   options: Parameters<typeof setup>[0] = {},
 ) {
-  const actor = make({ clock: VirtualClock(), ...options });
+  const actor = make.create({ clock: VirtualClock(), ...options });
   const send = async (type: string, payload?: unknown) => {
     actor.send({ type, payload } as never);
     await actor.settled();
@@ -1116,7 +1116,7 @@ test("Maya: opens a link from before the new key", async () => {
 
 test("Maya opens Nils's link after it ended", async () => {
   const clock = VirtualClock();
-  const actor = make({ clock });
+  const actor = make.create({ clock });
   const send = async (type: string, payload?: unknown) => {
     actor.send({ type, payload } as never);
     await actor.settled();
@@ -1162,7 +1162,7 @@ test("Maya cancels, then asks again with the same link", async () => {
 
 test("Maya leaves the question open past the end, then taps Ask", async () => {
   const clock = VirtualClock();
-  const actor = make({ clock });
+  const actor = make.create({ clock });
   const send = async (type: string, payload?: unknown) => {
     actor.send({ type, payload } as never);
     await actor.settled();
@@ -1175,7 +1175,7 @@ test("Maya leaves the question open past the end, then taps Ask", async () => {
 
 test("Maya: asks in time, the link ends, Nils accepts", async () => {
   const clock = VirtualClock();
-  const actor = make({ clock });
+  const actor = make.create({ clock });
   const send = async (type: string, payload?: unknown) => {
     actor.send({ type, payload } as never);
     await actor.settled();
@@ -1347,8 +1347,7 @@ describe("joiner design", () => {
     { code: INVITE.code, answer: "linkOff", why: "albumDeleted" },
   ];
   const target = {
-    id: "joinRequest",
-    create: () => createJoinRequestActor({ clock: VirtualClock() }),
+    machine: joinRequestMachine,
     tests: [
       {
         name: "Maya opens Nils's link and asks",

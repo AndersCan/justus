@@ -1,14 +1,7 @@
-import { RealClock } from "@mantaq/core";
 import { gateway } from "../../gateway";
-import {
-  askAnswered,
-  createFriendOfferActor,
-  join,
-  type FriendOffer,
-} from "./friend-offer-machine";
+import { askAnswered, friendOfferMachine, join, type FriendOffer } from "./friend-offer-machine";
 
-export const friendOfferActor = createFriendOfferActor({
-  clock: RealClock(),
+export const friendOfferActor = friendOfferMachine.create({
   port: { joinOffer: (code, owner) => gateway.joinOffer(code, owner) },
 });
 

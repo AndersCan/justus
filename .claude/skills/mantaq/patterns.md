@@ -1,12 +1,16 @@
 # Patterns
 
-Proven recipes. Code is a sketch. Copy the shape, not the exact signatures: check them against the installed types. Full working versions: [`packages/examples/`](https://github.com/AndersCan/mantaq/tree/main/packages/examples).
+Proven recipes. Code is a sketch. Start from the shape, then check signatures against the installed types. Full working versions: [`packages/examples/`](https://github.com/AndersCan/mantaq/tree/main/packages/examples).
 
 ## Async Work → Effect + Internal Event
 
 State enters "working", effect runs the async job, emits internal event, transition completes.
 
 ```ts
+import { Actor, VirtualClock, event, state } from "@mantaq/core";
+import { withTimeout } from "@mantaq/sugar";
+
+const submit = event("SUBMIT")();
 const fillingForm = state("fillingForm")();
 const submitting = state("submitting")();
 const submitted = state("submitted")().final();
@@ -19,8 +23,10 @@ Actor({
   initial: fillingForm,
   clock: VirtualClock(),
   setup: (m) => {
+    m.on(fillingForm, { event: submit, to: [submitting], handler: () => ({ state: submitting }) });
     m.effect(submitting, {
       name: "startSubmitTimeout",
+      sends: [submittingDone],
       fn: (input) => withTimeout(800, { input, event: () => submittingDone.create() }),
     });
     m.on(submitting, {
@@ -42,6 +48,8 @@ Retry count + backoff live in context. Effect schedules a delay of
 counter, re-emits the fail event or transitions to a retry state. Pass the
 effect's abort signal to the timer so it is removed on exit:
 
+<!-- docs-check: skip -->
+
 ```ts
 clock.setTimeout(delay, { signal, cb: () => emit(retryDone.create()) });
 ```
@@ -50,11 +58,15 @@ clock.setTimeout(delay, { signal, cb: () => emit(retryDone.create()) });
 
 Events that do the same thing in every state (cancel, disconnect, purge). The target may depend on payload or context, never on the current state. Diagrams draw it once, from "any state".
 
+<!-- docs-check: skip -->
+
 ```ts
 m.onAny({ event: disconnect, to: [disconnected], handler: () => ({ state: disconnected }) });
 ```
 
 Target depends on the current state (back, next)? One `m.on` per state, not `onAny` branching on the handler's `state`. Each registration then declares its exact target and the diagram shows exact source/target pairs (`@mantaq/inspect` warns otherwise).
+
+<!-- docs-check: skip -->
 
 ```ts
 m.on(payment, { event: back, to: [shippingAddress], handler: () => ({ state: shippingAddress }) });
@@ -65,14 +77,18 @@ m.on(error, { event: back, to: [payment], handler: () => ({ state: payment }) })
 
 Independent sub-behaviors as child actors. Parent + children in one snapshot; `matches(actor, "parent.region.child")` checks the full path.
 
+<!-- docs-check: skip -->
+
 ```ts
 Actor({ regions: { health: healthMonitor, movement: movementActor }, ... });
 ```
 
 - Child output events reach the parent automatically. The parent must declare the event in its `internal` (or `inputs`) to handle it.
 - For dynamic children (`createActorMap`), wire outputs with `onOutput`.
-- A region only gets events sent to it: `actor.regions.upload.send(…)`. The viz lists them under the region.
+- A region only gets events sent to it: `actor.regions.upload.send(…)`. In the viz, click an arrow inside the region.
 - Forward events INTO a region manually. No declarative parent→child wiring:
+
+<!-- docs-check: skip -->
 
 ```ts
 m.onAny({

@@ -1,5 +1,4 @@
-import { Actor, event, state } from "@mantaq/core";
-import type { Clock } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 
 /**
  * The Admin adds a saved friend to an album without a link. The Admin ticks one
@@ -117,105 +116,111 @@ async function askFriend(
   return { ...friend, outcome: isWaiting(result) ? "waiting" : "asked" };
 }
 
-export function createAddFriendActor(options: { clock: Clock; port?: AddFriendPort }) {
-  const { clock, port = allowAll } = options;
+export const addFriendMachine = machine("addFriend", {
+  create: (options: { port?: AddFriendPort }) => {
+    const { port = allowAll } = options;
 
-  return Actor({
-    inputs: [openPicker, toggleFriend, pickRole, closePicker],
-    internal: [friendsAnswered],
-    outputs: [friendsAsked],
-    states: [showingPeopleWithAddFriend, choosingFriends, askingFriends, showingWhoWasAsked],
-    initial: showingPeopleWithAddFriend,
-    context: { ticked: [] } as AddFriendContext,
-    clock,
-    setup: (m) => {
-      for (const from of [showingPeopleWithAddFriend, showingWhoWasAsked]) {
-        /** "Add a friend": the saved friends who are not members are listed by name, none ticked; with none, nothing opens. */
-        m.on(from, {
-          event: openPicker,
-          to: [choosingFriends, showingPeopleWithAddFriend],
-          handler: (e, { context }) => {
-            const { folderId, albumName, friends, memberIdentities } = e.payload;
-            const choices = friendChoices(friends, memberIdentities);
-            context.set({ ticked: [] });
-            return choices.length === 0
-              ? { state: showingPeopleWithAddFriend }
-              : { state: choosingFriends.create({ folderId, albumName, choices }) };
+    return Actor({
+      inputs: [openPicker, toggleFriend, pickRole, closePicker],
+      internal: [friendsAnswered],
+      outputs: [friendsAsked],
+      states: [showingPeopleWithAddFriend, choosingFriends, askingFriends, showingWhoWasAsked],
+      initial: showingPeopleWithAddFriend,
+      context: { ticked: [] } as AddFriendContext,
+      setup: (m) => {
+        for (const from of [showingPeopleWithAddFriend, showingWhoWasAsked]) {
+          /** "Add a friend": the saved friends who are not members are listed by name, none ticked; with none, nothing opens. */
+          m.on(from, {
+            event: openPicker,
+            to: [choosingFriends, showingPeopleWithAddFriend],
+            handler: (e, { context }) => {
+              const { folderId, albumName, friends, memberIdentities } = e.payload;
+              const choices = friendChoices(friends, memberIdentities);
+              context.set({ ticked: [] });
+              return choices.length === 0
+                ? { state: showingPeopleWithAddFriend }
+                : { state: choosingFriends.create({ folderId, albumName, choices }) };
+            },
+          });
+        }
+
+        /** A friend is ticked or unticked. A name that is not on the list is ignored. */
+        m.on(choosingFriends, {
+          event: toggleFriend,
+          to: [choosingFriends],
+          handler: (e, { state: current, context }) => {
+            const { ticked } = context.get();
+            const { identity } = e.payload;
+            if (current.payload.choices.some((c) => c.identity === identity)) {
+              context.set({
+                ticked: ticked.includes(identity)
+                  ? ticked.filter((id) => id !== identity)
+                  : [...ticked, identity],
+              });
+            }
+            return { state: choosingFriends.create(current.payload) };
           },
         });
-      }
 
-      /** A friend is ticked or unticked. A name that is not on the list is ignored. */
-      m.on(choosingFriends, {
-        event: toggleFriend,
-        to: [choosingFriends],
-        handler: (e, { state: current, context }) => {
-          const { ticked } = context.get();
-          const { identity } = e.payload;
-          if (current.payload.choices.some((c) => c.identity === identity)) {
-            context.set({
-              ticked: ticked.includes(identity)
-                ? ticked.filter((id) => id !== identity)
-                : [...ticked, identity],
-            });
-          }
-          return { state: choosingFriends.create(current.payload) };
-        },
-      });
-
-      /** A role is picked and every ticked friend's phone is asked. With nobody ticked nothing happens. */
-      m.on(choosingFriends, {
-        event: pickRole,
-        to: [askingFriends, choosingFriends],
-        handler: (e, { state: current, context }) => {
-          const { choices, folderId, albumName } = current.payload;
-          const { ticked } = context.get();
-          const friends = choices.filter((c) => ticked.includes(c.identity));
-          return friends.length === 0
-            ? { state: choosingFriends.create(current.payload) }
-            : {
-                state: askingFriends.create({ folderId, albumName, friends, role: e.payload.role }),
-              };
-        },
-      });
-
-      for (const from of [choosingFriends, showingWhoWasAsked]) {
-        /** Close: back to the People list. */
-        m.on(from, {
-          event: closePicker,
-          to: [showingPeopleWithAddFriend],
-          handler: () => ({ state: showingPeopleWithAddFriend }),
+        /** A role is picked and every ticked friend's phone is asked. With nobody ticked nothing happens. */
+        m.on(choosingFriends, {
+          event: pickRole,
+          to: [askingFriends, choosingFriends],
+          handler: (e, { state: current, context }) => {
+            const { choices, folderId, albumName } = current.payload;
+            const { ticked } = context.get();
+            const friends = choices.filter((c) => ticked.includes(c.identity));
+            return friends.length === 0
+              ? { state: choosingFriends.create(current.payload) }
+              : {
+                  state: askingFriends.create({
+                    folderId,
+                    albumName,
+                    friends,
+                    role: e.payload.role,
+                  }),
+                };
+          },
         });
-      }
 
-      /** Every ticked friend's phone is asked at once, each with up to 30 seconds for an answer. */
-      m.effect(askingFriends, {
-        name: "offerAlbum",
-        sends: [friendsAnswered],
-        fn: async ({ emit, state: current }) => {
-          const { folderId, friends, role } = current.payload;
-          const answers = await Promise.all(
-            friends.map((friend) => askFriend(port, { folderId, friend, role })),
-          );
-          emit(friendsAnswered.create({ answers }));
-        },
-      });
-      /** Every phone took the invite: the sheet closes and the Admin is told. Otherwise the sheet says who was asked and who was not. */
-      m.on(askingFriends, {
-        event: friendsAnswered,
-        to: [showingPeopleWithAddFriend, showingWhoWasAsked],
-        handler: (e, { state: current }) => {
-          const { answers } = e.payload;
-          const { role, folderId, albumName } = current.payload;
-          if (answers.every((a) => a.outcome === "asked")) {
-            return {
-              state: showingPeopleWithAddFriend,
-              emit: [friendsAsked.create({ names: answers.map((a) => a.name), role })],
-            };
-          }
-          return { state: showingWhoWasAsked.create({ folderId, albumName, role, answers }) };
-        },
-      });
-    },
-  });
-}
+        for (const from of [choosingFriends, showingWhoWasAsked]) {
+          /** Close: back to the People list. */
+          m.on(from, {
+            event: closePicker,
+            to: [showingPeopleWithAddFriend],
+            handler: () => ({ state: showingPeopleWithAddFriend }),
+          });
+        }
+
+        /** Every ticked friend's phone is asked at once, each with up to 30 seconds for an answer. */
+        m.effect(askingFriends, {
+          name: "offerAlbum",
+          sends: [friendsAnswered],
+          fn: async ({ emit, state: current }) => {
+            const { folderId, friends, role } = current.payload;
+            const answers = await Promise.all(
+              friends.map((friend) => askFriend(port, { folderId, friend, role })),
+            );
+            emit(friendsAnswered.create({ answers }));
+          },
+        });
+        /** Every phone took the invite: the sheet closes and the Admin is told. Otherwise the sheet says who was asked and who was not. */
+        m.on(askingFriends, {
+          event: friendsAnswered,
+          to: [showingPeopleWithAddFriend, showingWhoWasAsked],
+          handler: (e, { state: current }) => {
+            const { answers } = e.payload;
+            const { role, folderId, albumName } = current.payload;
+            if (answers.every((a) => a.outcome === "asked")) {
+              return {
+                state: showingPeopleWithAddFriend,
+                emit: [friendsAsked.create({ names: answers.map((a) => a.name), role })],
+              };
+            }
+            return { state: showingWhoWasAsked.create({ folderId, albumName, role, answers }) };
+          },
+        });
+      },
+    });
+  },
+});

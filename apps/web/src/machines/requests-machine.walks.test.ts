@@ -1,11 +1,10 @@
 import type { JoinRequest } from "@justus/core";
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { onOutput } from "@mantaq/sugar";
 import { expect, test } from "vite-plus/test";
-import { createRequestsActor, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import { requestsMachine, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
 
-const make = recordRuns(createRequestsActor);
+const make = recordRuns(requestsMachine);
 
 const ask = (folderName: string, requesterKey: string, requesterName: string): JoinRequest => ({
   requesterKey,
@@ -30,7 +29,7 @@ const family = [
 ];
 
 test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [maya] } });
   actor.send({
@@ -45,7 +44,7 @@ test("Maya asks to join, and Nils accepts her as a Collaborator", async () => {
 });
 
 test("Maya: asks and is declined", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [maya] } });
   actor.send({
@@ -60,7 +59,7 @@ test("Maya: asks and is declined", async () => {
 });
 
 test("Three wedding guests ask, and Nils accepts each as a Collaborator", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: guests } });
   for (const guest of guests) {
@@ -80,7 +79,7 @@ test("Three wedding guests ask, and Nils accepts each as a Collaborator", async 
 });
 
 test("Nils's family asks to look, and he accepts all three as Viewers", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   const counts: number[] = [];
   onOutput(actor, (e) => {
     if (e.type === "ALL_ACCEPTED_AS_VIEWERS") counts.push((e.payload as { count: number }).count);
@@ -105,7 +104,7 @@ test("Nils's family asks to look, and he accepts all three as Viewers", async ()
 });
 
 test("Nils taps Accept all for the family, spots someone he doesn't know and cancels: everyone still waits", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   const outputs: string[] = [];
   onOutput(actor, (e) => outputs.push(e.type));
   actor.send({ type: "REFRESH" });
@@ -125,7 +124,7 @@ test("Nils taps Accept all for the family, spots someone he doesn't know and can
 
 test("Ana asks while Nils looks at his photos, and Nils hears she wants to join", async () => {
   const ana = ask("Summer", "k7", "Ana");
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   const arrived: string[] = [];
   onOutput(actor, (e) => {
     if (e.type === "REQUESTS_ARRIVED")
@@ -143,7 +142,7 @@ test("Ana asks while Nils looks at his photos, and Nils hears she wants to join"
 });
 
 test("Maya cancels before Nils accepts, and Nils is told", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({ type: "REQUESTS_LOADED", payload: { requests: [maya] } });
   actor.send({

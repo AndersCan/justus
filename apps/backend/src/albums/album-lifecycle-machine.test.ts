@@ -1,20 +1,19 @@
 import {
-  createAlbumLifecycleActor,
+  albumLifecycleMachine,
   lifecycleStart,
   type AlbumLifecyclePort,
   type Keep,
   type PortError,
   type Role,
 } from "./album-lifecycle-machine";
-import { VirtualClock } from "@mantaq/core";
 import { Either } from "@mantaq/utils";
 import { expectAllStatesReached, expectNoDesignErrors, type InspectTarget } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
 import { describe, expect, test } from "vite-plus/test";
 
-const make = recordRuns(createAlbumLifecycleActor);
+const make = recordRuns(albumLifecycleMachine);
 
-type Walker = ReturnType<typeof make>;
+type Walker = ReturnType<typeof make.create>;
 
 async function send(actor: Walker, ...events: Parameters<Walker["send"]>[0][]) {
   for (const e of events) actor.send(e);
@@ -26,7 +25,7 @@ function seen(role: Role) {
 }
 
 test("Maya archives Summer and brings it back", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("member"), { type: "archive" });
   expect(actor.state.name).toBe("archived");
   await send(actor, { type: "restore" });
@@ -34,7 +33,7 @@ test("Maya archives Summer and brings it back", async () => {
 });
 
 test("Maya leaves Hytta, and is gone once Nils's phone sees it", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("member"), { type: "leave" });
   expect(actor.state.name).toBe("waitingForAdminToSeeYouLeft");
   await send(actor, { type: "adminSawYouLeave" });
@@ -42,7 +41,7 @@ test("Maya leaves Hytta, and is gone once Nils's phone sees it", async () => {
 });
 
 test("Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("reader"), { type: "leave" });
   expect(actor.state.name).toBe("waitingForAdminToSeeYouLeft");
   await send(actor, { type: "adminSawYouLeave" });
@@ -50,20 +49,20 @@ test("Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it", async
 });
 
 test("Nils deletes Hytta for everyone", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("creator"), { type: "deleteForEveryone" });
   expect(actor.state.name).toBe("deletedForEveryone");
 });
 
 test("Maya's phone hears that Nils deleted Hytta, after being away", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("member"), { type: "deleteHeard", payload: { adminName: "Nils" } });
   expect(actor.state.name).toBe("deletedByAdmin");
   expect(actor.snapshot().payload).toEqual({ adminName: "Nils" });
 });
 
 test("Maya had archived Hytta when Nils deleted it", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(
     actor,
     seen("member"),
@@ -74,7 +73,7 @@ test("Maya had archived Hytta when Nils deleted it", async () => {
 });
 
 test("Maya leaves Hytta, and Nils deletes it before his phone sees her leave", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   await send(actor, seen("member"), { type: "leave" });
   await send(actor, { type: "deleteHeard", payload: { adminName: "Nils" } });
   expect(actor.state.name).toBe("leftAlbum");
@@ -104,11 +103,7 @@ function recordingPort(options: { failure?: PortError; listed?: boolean } = {}) 
 }
 
 function plain(role: Role, port: AlbumLifecyclePort) {
-  const actor = createAlbumLifecycleActor({
-    clock: VirtualClock(),
-    port,
-    start: { state: "shownInYourAlbums", role },
-  });
+  const actor = albumLifecycleMachine.create({ port, start: { state: "shownInYourAlbums", role } });
   return actor;
 }
 
@@ -212,8 +207,7 @@ describe("album lifecycle", () => {
 
   test("a crash during a leave resumes it at boot", async () => {
     const { port, calls } = recordingPort();
-    const actor = createAlbumLifecycleActor({
-      clock: VirtualClock(),
+    const actor = albumLifecycleMachine.create({
       port,
       start: lifecycleStart({ role: "member", saved: "leaving" }),
     });
@@ -224,8 +218,7 @@ describe("album lifecycle", () => {
 
   test("a phone that heard a delete while off resumes removing at boot", async () => {
     const { port, calls } = recordingPort();
-    const actor = createAlbumLifecycleActor({
-      clock: VirtualClock(),
+    const actor = albumLifecycleMachine.create({
       port,
       start: lifecycleStart({
         role: "member",
@@ -282,8 +275,7 @@ describe("lifecycleStart", () => {
 
 describe("album lifecycle design", () => {
   const target: InspectTarget = {
-    id: "albumLifecycle",
-    create: () => createAlbumLifecycleActor({ clock: VirtualClock() }),
+    machine: albumLifecycleMachine,
     payloads: {
       roleSeen: [{ role: "creator" }, { role: "member" }, { role: "reader" }],
       deleteHeard: [{ adminName: "Nils" }],

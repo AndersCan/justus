@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import type { Photo } from "@justus/core";
-import { createLightboxActor, lightboxEvents } from "./lightbox-machine";
+import { lightboxMachine, lightboxEvents } from "./lightbox-machine";
 
 function photo(id: string, folderId = "f"): Photo {
   return {
@@ -16,7 +15,7 @@ function photo(id: string, folderId = "f"): Photo {
   };
 }
 
-const make = () => createLightboxActor({ clock: VirtualClock() });
+const make = () => lightboxMachine.create({});
 const open = (a: ReturnType<typeof make>, p: Photo, within?: Photo[]) =>
   a.send(lightboxEvents.opened.create({ photo: p, within }));
 const step = (a: ReturnType<typeof make>, dir: 1 | -1, photos: Photo[]) =>

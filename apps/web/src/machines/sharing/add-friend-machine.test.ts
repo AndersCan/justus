@@ -1,11 +1,11 @@
-import { VirtualClock } from "@mantaq/core";
+import { machine } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
 import { describe, expect, test } from "vite-plus/test";
 import {
   FRIEND_REFUSED_CODE,
-  createAddFriendActor,
+  addFriendMachine,
   friendChoices,
   type AddFriendPort,
 } from "./add-friend-machine";
@@ -20,10 +20,10 @@ const FRIENDS = [
 ];
 const OPEN = { folderId: "f1", albumName: "Lisbon trip", friends: FRIENDS, memberIdentities: [] };
 
-const make = recordRuns(createAddFriendActor);
+const make = recordRuns(addFriendMachine);
 
 function setup(port?: AddFriendPort) {
-  const actor = make({ clock: VirtualClock(), port });
+  const actor = make.create({ port });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) =>
     outputs.push({ type: e.type, payload: (e as { payload?: unknown }).payload }),
@@ -344,8 +344,7 @@ describe("choices (property)", () => {
 
 describe("add friend design", () => {
   const target = () => ({
-    id: "addFriend",
-    create: () => createAddFriendActor({ clock: VirtualClock() }),
+    machine: addFriendMachine,
     payloads: {
       openPicker: [OPEN, { ...OPEN, friends: [] }],
       toggleFriend: [{ identity: KARI }, { identity: OLE }],
@@ -378,14 +377,15 @@ describe("add friend design", () => {
           ],
         },
       ],
-      create: () =>
-        createAddFriendActor({
-          clock: VirtualClock(),
-          port: {
-            offerAlbum: async (_f, identity) =>
-              identity === KARI ? [new Error("x"), null] : [null, { ok: true, waiting: true }],
-          },
-        }),
+      machine: machine("addFriend", {
+        create: () =>
+          addFriendMachine.create({
+            port: {
+              offerAlbum: async (_f, identity) =>
+                identity === KARI ? [new Error("x"), null] : [null, { ok: true, waiting: true }],
+            },
+          }),
+      }),
     });
   });
 });

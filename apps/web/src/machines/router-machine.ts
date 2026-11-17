@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 import { albumSwap } from "../views/album-transition";
 
 /**
@@ -66,32 +66,32 @@ const navigated = event("NAVIGATED")<{ page: AppPage | undefined }>();
 /** The page in view. */
 const showingPage = state("showingPage")();
 
-export function createRouterActor(options: { clock: Clock; page: AppPage | undefined }) {
-  return Actor({
-    inputs: [navigated],
-    internal: [],
-    outputs: [],
-    states: [showingPage],
-    initial: showingPage,
-    clock: options.clock,
-    context: { page: options.page } as RouterContext,
-    setup: (m) => {
-      /** A new page replaces the old one; the machine stays where it is. */
-      m.on(showingPage, {
-        event: navigated,
-        handler: (e, opts) => {
-          opts.context.set({ page: e.payload.page });
-          return {};
-        },
-      });
-    },
-  });
-}
+export const routerMachine = machine("router", {
+  create: (options: { page?: AppPage | undefined }) => {
+    return Actor({
+      inputs: [navigated],
+      internal: [],
+      outputs: [],
+      states: [showingPage],
+      initial: showingPage,
+      context: { page: options.page } as RouterContext,
+      setup: (m) => {
+        /** A new page replaces the old one; the machine stays where it is. */
+        m.on(showingPage, {
+          event: navigated,
+          handler: (e, opts) => {
+            opts.context.set({ page: e.payload.page });
+            return {};
+          },
+        });
+      },
+    });
+  },
+});
 
 const hasWindow = typeof window !== "undefined";
 
-export const routerActor = createRouterActor({
-  clock: RealClock(),
+export const routerActor = routerMachine.create({
   page: parsePath(hasWindow ? location.pathname : "/"),
 });
 

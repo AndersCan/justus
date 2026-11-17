@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import type { LockStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
@@ -110,198 +110,199 @@ const initialContext: OnboardingContext = {
 /** Where the person's name is saved; the real gateway unless a test or the inspector supplies one. */
 export type OnboardingPort = Pick<typeof gateway, "setName" | "lock">;
 
-export function createOnboardingActor(options: { clock: Clock; gateway?: OnboardingPort }) {
-  const port = options.gateway ?? gateway;
-  return Actor({
-    inputs: [next, back, skip, editName, saveProfile, lockStatusRead, turnOnAppLock, skipAppLock],
-    internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff, appLockFailed],
-    outputs: [nameSeen],
-    states: [
-      showingIntroCards,
-      askingForName,
-      savingName,
-      offeringAppLock,
-      turningOnAppLock,
-      choosingCreateOrJoin,
-    ],
-    initial: showingIntroCards,
-    clock: options.clock,
-    context: initialContext,
-    setup: (m) => {
-      /** The phone's lock status is remembered in any state; it never moves the person. */
-      m.onAny({
-        event: lockStatusRead,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), lock: e.payload.status });
-          return {};
-        },
-      });
-      /** Next card; after the last card the name step opens. */
-      m.on(showingIntroCards, {
-        event: next,
-        to: [showingIntroCards, askingForName],
-        handler: (_e, opts) => {
-          const card = opts.context.get().card + 1;
-          if (card >= INTRO_CARD_COUNT) return { state: askingForName };
-          opts.context.set({ ...opts.context.get(), card });
-          return { state: showingIntroCards };
-        },
-      });
-      /** Previous card; on the first card nothing changes. */
-      m.on(showingIntroCards, {
-        event: back,
-        to: [showingIntroCards],
-        handler: (_e, opts) => {
-          const current = opts.context.get();
-          opts.context.set({ ...current, card: Math.max(0, current.card - 1) });
-          return { state: showingIntroCards };
-        },
-      });
-      /** Skipping the intro jumps straight to the name step. */
-      m.on(showingIntroCards, {
-        event: skip,
-        to: [askingForName],
-        handler: () => ({ state: askingForName }),
-      });
+export const onboardingMachine = machine("onboarding", {
+  create: (options: { gateway?: OnboardingPort }) => {
+    const port = options.gateway ?? gateway;
+    return Actor({
+      inputs: [next, back, skip, editName, saveProfile, lockStatusRead, turnOnAppLock, skipAppLock],
+      internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff, appLockFailed],
+      outputs: [nameSeen],
+      states: [
+        showingIntroCards,
+        askingForName,
+        savingName,
+        offeringAppLock,
+        turningOnAppLock,
+        choosingCreateOrJoin,
+      ],
+      initial: showingIntroCards,
+      context: initialContext,
+      setup: (m) => {
+        /** The phone's lock status is remembered in any state; it never moves the person. */
+        m.onAny({
+          event: lockStatusRead,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), lock: e.payload.status });
+            return {};
+          },
+        });
+        /** Next card; after the last card the name step opens. */
+        m.on(showingIntroCards, {
+          event: next,
+          to: [showingIntroCards, askingForName],
+          handler: (_e, opts) => {
+            const card = opts.context.get().card + 1;
+            if (card >= INTRO_CARD_COUNT) return { state: askingForName };
+            opts.context.set({ ...opts.context.get(), card });
+            return { state: showingIntroCards };
+          },
+        });
+        /** Previous card; on the first card nothing changes. */
+        m.on(showingIntroCards, {
+          event: back,
+          to: [showingIntroCards],
+          handler: (_e, opts) => {
+            const current = opts.context.get();
+            opts.context.set({ ...current, card: Math.max(0, current.card - 1) });
+            return { state: showingIntroCards };
+          },
+        });
+        /** Skipping the intro jumps straight to the name step. */
+        m.on(showingIntroCards, {
+          event: skip,
+          to: [askingForName],
+          handler: () => ({ state: askingForName }),
+        });
 
-      /** Going back from the name step returns to the card the person left from. */
-      m.on(askingForName, {
-        event: back,
-        to: [showingIntroCards],
-        handler: () => ({ state: showingIntroCards }),
-      });
-      /** Typing updates the avatar preview live. */
-      m.on(askingForName, {
-        event: editName,
-        to: [askingForName],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), draftName: e.payload.name });
-          return { state: askingForName };
-        },
-      });
-      /** Confirming the name starts saving it and clears any earlier error. */
-      m.on(askingForName, {
-        event: saveProfile,
-        to: [savingName],
-        handler: (_e, opts) => {
-          const current = opts.context.get();
-          opts.context.set({
-            ...current,
-            error: null,
-            pendingName: (current.draftName ?? "").trim(),
-          });
-          return { state: savingName };
-        },
-      });
-      /** The name is saved; an empty name is refused. */
-      m.effect(savingName, {
-        name: "savingName",
-        sends: [saved, saveFailed],
-        fn: ({ signal, emit, context }) => {
-          const name = context.get().pendingName;
-          if (!name) {
-            emit(saveFailed.create({ message: copy("onboarding.enter_a_name_to_continue") }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.setName(name),
-            (result) =>
-              emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
-            (message) => emit(saveFailed.create({ message })),
-          );
-        },
-      });
-      /** The name is saved; a phone with a screen lock and App lock off is offered App lock, then the person moves on to create or join an album. */
-      m.on(savingName, {
-        event: saved,
-        to: [choosingCreateOrJoin, offeringAppLock],
-        handler: (e, opts) => {
-          const current = opts.context.get();
-          opts.context.set({ ...current, pendingName: null });
-          const offer = current.lock?.available === true && current.lock.enabled === false;
-          return {
-            state: offer ? offeringAppLock : choosingCreateOrJoin,
-            emit: [nameSeen.create({ name: e.payload.name })],
-          };
-        },
-      });
-      /** Enable opens the phone's own prompt. */
-      m.on(offeringAppLock, {
-        event: turnOnAppLock,
-        to: [turningOnAppLock],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: turningOnAppLock };
-        },
-      });
-      /** Not now moves on without App lock. */
-      m.on(offeringAppLock, {
-        event: skipAppLock,
-        to: [choosingCreateOrJoin],
-        handler: () => ({ state: choosingCreateOrJoin }),
-      });
-      /** The phone is asked to turn App lock on; a cancel or a failure leaves it off; a failure says so. */
-      m.effect(turningOnAppLock, {
-        name: "turningOnAppLock",
-        sends: [appLockTurnedOn, appLockLeftOff, appLockFailed],
-        fn: ({ signal, emit }) =>
-          runInvoke(
-            signal,
-            () => port.lock.setEnabled(true),
-            (result) =>
-              emit(
-                (result as { enabled?: boolean } | null)?.enabled === true
-                  ? appLockTurnedOn.create()
-                  : appLockLeftOff.create(),
-              ),
-            () => emit(appLockFailed.create({ message: APP_LOCK_FAILED_MESSAGE })),
-          ),
-      });
-      /** The person confirmed: App lock is on and they move on. */
-      m.on(turningOnAppLock, {
-        event: appLockTurnedOn,
-        to: [choosingCreateOrJoin],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), lock: { available: true, enabled: true } });
-          return { state: choosingCreateOrJoin };
-        },
-      });
-      /** The prompt failed: back on "Lock Justus?" with the error. */
-      m.on(turningOnAppLock, {
-        event: appLockFailed,
-        to: [offeringAppLock],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: e.payload.message });
-          return { state: offeringAppLock };
-        },
-      });
-      /** Cancelled: back on "Lock Justus?". */
-      m.on(turningOnAppLock, {
-        event: appLockLeftOff,
-        to: [offeringAppLock],
-        handler: () => ({ state: offeringAppLock }),
-      });
-      /** Saving failed or the name was empty: the person stays on the name step and sees why. */
-      m.on(savingName, {
-        event: saveFailed,
-        to: [askingForName],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-            pendingName: null,
-          });
-          return { state: askingForName };
-        },
-      });
-    },
-  });
-}
+        /** Going back from the name step returns to the card the person left from. */
+        m.on(askingForName, {
+          event: back,
+          to: [showingIntroCards],
+          handler: () => ({ state: showingIntroCards }),
+        });
+        /** Typing updates the avatar preview live. */
+        m.on(askingForName, {
+          event: editName,
+          to: [askingForName],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), draftName: e.payload.name });
+            return { state: askingForName };
+          },
+        });
+        /** Confirming the name starts saving it and clears any earlier error. */
+        m.on(askingForName, {
+          event: saveProfile,
+          to: [savingName],
+          handler: (_e, opts) => {
+            const current = opts.context.get();
+            opts.context.set({
+              ...current,
+              error: null,
+              pendingName: (current.draftName ?? "").trim(),
+            });
+            return { state: savingName };
+          },
+        });
+        /** The name is saved; an empty name is refused. */
+        m.effect(savingName, {
+          name: "savingName",
+          sends: [saved, saveFailed],
+          fn: ({ signal, emit, context }) => {
+            const name = context.get().pendingName;
+            if (!name) {
+              emit(saveFailed.create({ message: copy("onboarding.enter_a_name_to_continue") }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.setName(name),
+              (result) =>
+                emit(saved.create({ name: (result as { name?: string } | null)?.name ?? name })),
+              (message) => emit(saveFailed.create({ message })),
+            );
+          },
+        });
+        /** The name is saved; a phone with a screen lock and App lock off is offered App lock, then the person moves on to create or join an album. */
+        m.on(savingName, {
+          event: saved,
+          to: [choosingCreateOrJoin, offeringAppLock],
+          handler: (e, opts) => {
+            const current = opts.context.get();
+            opts.context.set({ ...current, pendingName: null });
+            const offer = current.lock?.available === true && current.lock.enabled === false;
+            return {
+              state: offer ? offeringAppLock : choosingCreateOrJoin,
+              emit: [nameSeen.create({ name: e.payload.name })],
+            };
+          },
+        });
+        /** Enable opens the phone's own prompt. */
+        m.on(offeringAppLock, {
+          event: turnOnAppLock,
+          to: [turningOnAppLock],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: turningOnAppLock };
+          },
+        });
+        /** Not now moves on without App lock. */
+        m.on(offeringAppLock, {
+          event: skipAppLock,
+          to: [choosingCreateOrJoin],
+          handler: () => ({ state: choosingCreateOrJoin }),
+        });
+        /** The phone is asked to turn App lock on; a cancel or a failure leaves it off; a failure says so. */
+        m.effect(turningOnAppLock, {
+          name: "turningOnAppLock",
+          sends: [appLockTurnedOn, appLockLeftOff, appLockFailed],
+          fn: ({ signal, emit }) =>
+            runInvoke(
+              signal,
+              () => port.lock.setEnabled(true),
+              (result) =>
+                emit(
+                  (result as { enabled?: boolean } | null)?.enabled === true
+                    ? appLockTurnedOn.create()
+                    : appLockLeftOff.create(),
+                ),
+              () => emit(appLockFailed.create({ message: APP_LOCK_FAILED_MESSAGE })),
+            ),
+        });
+        /** The person confirmed: App lock is on and they move on. */
+        m.on(turningOnAppLock, {
+          event: appLockTurnedOn,
+          to: [choosingCreateOrJoin],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), lock: { available: true, enabled: true } });
+            return { state: choosingCreateOrJoin };
+          },
+        });
+        /** The prompt failed: back on "Lock Justus?" with the error. */
+        m.on(turningOnAppLock, {
+          event: appLockFailed,
+          to: [offeringAppLock],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: e.payload.message });
+            return { state: offeringAppLock };
+          },
+        });
+        /** Cancelled: back on "Lock Justus?". */
+        m.on(turningOnAppLock, {
+          event: appLockLeftOff,
+          to: [offeringAppLock],
+          handler: () => ({ state: offeringAppLock }),
+        });
+        /** Saving failed or the name was empty: the person stays on the name step and sees why. */
+        m.on(savingName, {
+          event: saveFailed,
+          to: [askingForName],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: e.payload.message,
+              pendingName: null,
+            });
+            return { state: askingForName };
+          },
+        });
+      },
+    });
+  },
+});
 
-export const onboardingActor = createOnboardingActor({ clock: RealClock() });
+export const onboardingActor = onboardingMachine.create();
 
-export type OnboardingActor = ReturnType<typeof createOnboardingActor>;
+export type OnboardingActor = ReturnType<typeof onboardingMachine.create>;
 
 /** A saved name goes to folders, which shows it as the person's own. */
 export function wireOnboardingToFolders(

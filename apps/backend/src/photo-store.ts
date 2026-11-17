@@ -37,11 +37,10 @@ import { guessMime } from "./mime";
 import { spoolNameFor } from "./spool-name";
 import type { LoopbackServer } from "@ekrooh/bare/runtime";
 import { CoreError, ErrorCode, err, ok } from "@ekrooh/bare/core";
-import { RealClock } from "@mantaq/core";
 import { Either } from "@mantaq/utils";
-import { createMembershipActor, type MembershipPort } from "./membership/membership-machine";
+import { membershipMachine, type MembershipPort } from "./membership/membership-machine";
 import {
-  createAlbumLifecycleActor,
+  albumLifecycleMachine,
   lifecycleStart,
   type AlbumLifecyclePort,
   type Keep,
@@ -1972,7 +1971,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   // --- Members machine: one person already in an album, on the Admin's phone. ---
 
-  type MembershipActor = ReturnType<typeof createMembershipActor>;
+  type MembershipActor = ReturnType<typeof membershipMachine.create>;
   /** One actor per album and person, kept only while a change for them is being saved. */
   const memberships = new Map<string, MembershipActor>();
   /** Why the last Make Collaborator for a person failed, so the caller gets the same refusal as before. */
@@ -2122,8 +2121,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     memberships.delete(id);
     const listed = registry.members[key] ?? rt.viewers[key];
     if (!listed) return undefined;
-    const actor = createMembershipActor({
-      clock: RealClock(),
+    const actor = membershipMachine.create({
       port: membershipPort(rt, key, drive ?? rt.memberDrives.get(key)),
       start: { role: registry.members[key] ? "member" : "reader", joinedAt: listed.addedAt },
     });
@@ -2133,7 +2131,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   // --- Archive, delete for everyone (#186). ---------------------------------
 
-  type LifecycleActor = ReturnType<typeof createAlbumLifecycleActor>;
+  type LifecycleActor = ReturnType<typeof albumLifecycleMachine.create>;
   /** One actor per album, built when first needed. */
   const lifecycles = new Map<string, LifecycleActor>();
 
@@ -2524,7 +2522,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       saved: rt.record.lifecycle ?? "shown",
       ...(deleteNote ? { deleteNote } : {}),
     });
-    const actor = createAlbumLifecycleActor({ clock: RealClock(), port: lifecyclePort(rt), start });
+    const actor = albumLifecycleMachine.create({ port: lifecyclePort(rt), start });
     lifecycles.set(rt.record.id, actor);
     actor.on("change", {
       fn: (snapshot) => onLifecycleState(rt, snapshot.path[0] ?? "", snapshot.payload),
@@ -4218,8 +4216,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         try {
           const self = await openSelfDrive(gone.shareKey, gone.selfNs);
           const album = await openDriveWithTopic(gone.shareKey, { server: false });
-          const actor = createAlbumLifecycleActor({
-            clock: RealClock(),
+          const actor = albumLifecycleMachine.create({
             port: {
               adminListsYou: async () => true,
               writeLeftNote: async () => Either.left({ reason: "Already left" }),

@@ -1,11 +1,10 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import {
   onboardingViewModel,
   showsAppNav,
   INTRO_CARD_COUNT,
-  createOnboardingActor,
+  onboardingMachine,
   onboarding,
   onboardingActor,
 } from "./onboarding-machine";
@@ -82,7 +81,7 @@ describe("onboarding actor factory", () => {
     actor.send({ type, payload } as never);
 
   function setup(setName = vi.fn().mockResolvedValue([null, { name: "Maya" }])) {
-    const actor = createOnboardingActor({ clock: VirtualClock(), gateway: { setName } as any });
+    const actor = onboardingMachine.create({ gateway: { setName } as any });
     const outputs: { type: string; payload?: any }[] = [];
     onOutput(actor, (e) => outputs.push(e as any));
     return { actor, setName, outputs };
@@ -189,10 +188,7 @@ describe("onboarding App lock offer", () => {
 
   function setup(setEnabled = vi.fn().mockResolvedValue([null, { enabled: true }])) {
     const setName = vi.fn().mockResolvedValue([null, { name: "Maya" }]);
-    const actor = createOnboardingActor({
-      clock: VirtualClock(),
-      gateway: { setName, lock: { setEnabled } } as any,
-    });
+    const actor = onboardingMachine.create({ gateway: { setName, lock: { setEnabled } } as any });
     const outputs: { type: string; payload?: any }[] = [];
     onOutput(actor, (e) => outputs.push(e as any));
     return { actor, setEnabled, outputs };
@@ -331,7 +327,7 @@ describe("onboarding App lock offer", () => {
 });
 
 describe("onboardingViewModel", () => {
-  const build = () => createOnboardingActor({ clock: VirtualClock() });
+  const build = () => onboardingMachine.create({});
   const send = (a: ReturnType<typeof build>, type: string, payload?: unknown) =>
     (a as any).send({ type, payload });
 
@@ -351,7 +347,7 @@ describe("onboardingViewModel", () => {
 
   test("saving while the name is stored", () => {
     mock.setName.mockReturnValue(new Promise(() => {}));
-    const actor = createOnboardingActor({ clock: VirtualClock(), gateway: mock } as any);
+    const actor = onboardingMachine.create({ gateway: mock } as any);
     send(actor, "SKIP");
     send(actor, "EDIT_NAME", { name: "Maya" });
     send(actor, "SAVE_PROFILE");

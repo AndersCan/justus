@@ -1,12 +1,11 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createPeopleActor } from "./people-machine";
+import { peopleMachine } from "./people-machine";
 
-const make = recordRuns(createPeopleActor);
+const make = recordRuns(peopleMachine);
 
 test("Anna opens People, removes Nils, takes back invite to Kim", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "OPEN" });
   await actor.settled();
   actor.send({ type: "REMOVE_MEMBER", payload: { folderId: "trip", memberKey: "nils" } });

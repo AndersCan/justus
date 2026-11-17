@@ -3,12 +3,12 @@ import type { SyncStatus } from "@justus/core";
 import { VirtualClock } from "@mantaq/core";
 import {
   connectionGivenUp,
-  createReachActor,
+  reachMachine,
   reachActor,
   reachHintOf,
   wireReachToSync,
 } from "./reach-hint-machine";
-import { createSyncActor, statusSeen, syncActor } from "./sync-machine";
+import { syncMachine, statusSeen, syncActor } from "./sync-machine";
 import { CONNECTING_FOR_MS, REACH_HINT_AFTER_MS } from "../utils/reach-hint";
 
 vi.mock("../gateway", () => ({
@@ -67,7 +67,7 @@ describe("reach actor on a virtual clock", () => {
 
   function setup() {
     const clock = VirtualClock();
-    const actor = createReachActor({ clock });
+    const actor = reachMachine.create({ clock });
     return { clock, actor };
   }
 
@@ -155,8 +155,8 @@ describe("reach actor on a virtual clock", () => {
 describe("wireReachToSync", () => {
   function wired(status: () => Promise<[unknown, unknown]>) {
     const clock = VirtualClock();
-    const sync = createSyncActor({ clock, gateway: { status } as never });
-    const reach = createReachActor({ clock });
+    const sync = syncMachine.create({ clock, gateway: { status } as never });
+    const reach = reachMachine.create({ clock });
     sync.send(statusSeen.create({ status: withPeers(false) }));
     wireReachToSync(reach, sync);
     return { clock, sync, reach };

@@ -1,5 +1,4 @@
-import { createMembershipActor, type MembershipPort } from "./membership-machine";
-import { VirtualClock } from "@mantaq/core";
+import { membershipMachine, type MembershipPort } from "./membership-machine";
 import { Either } from "@mantaq/utils";
 import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
@@ -23,8 +22,7 @@ function fakePort(overrides: Partial<MembershipPort> = {}) {
 
 function setup(options: { role?: "reader" | "member"; port?: Partial<MembershipPort> } = {}) {
   const fake = fakePort(options.port);
-  const actor = createMembershipActor({
-    clock: VirtualClock(),
+  const actor = membershipMachine.create({
     port: fake.port,
     start: { role: options.role ?? "reader", joinedAt: 5 },
   });
@@ -149,8 +147,7 @@ describe("membership machine", () => {
 
 describe("membership design", () => {
   const target = {
-    id: "membership",
-    create: () => createMembershipActor({ clock: VirtualClock() }),
+    machine: membershipMachine,
     payloads: { leftNoteRead: [{ leftAt: 2 }] },
   };
   test("has no design errors", () => {
@@ -161,10 +158,10 @@ describe("membership design", () => {
   });
 });
 
-const make = recordRuns(createMembershipActor);
+const make = recordRuns(membershipMachine);
 
 test("Ben, a Viewer, leaves while Nils makes him a Collaborator", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "makeCollaborator" });
   actor.send({ type: "leftNoteRead", payload: { leftAt: 2 } });
   await actor.settled();
@@ -172,21 +169,21 @@ test("Ben, a Viewer, leaves while Nils makes him a Collaborator", async () => {
 });
 
 test("Ben, a Viewer, leaves, and is gone from Nils's list", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "leftNoteRead", payload: { leftAt: 2 } });
   await actor.settled();
   expect(actor.state.name).toBe("leftAlbum");
 });
 
 test("Nils lets Ben add photos", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "makeCollaborator" });
   await actor.settled();
   expect(actor.state.name).toBe("collaboratorInAlbum");
 });
 
 test("Letting Ben add photos fails, and he stays a Viewer", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "makeCollaborator" });
   actor.inject({ type: "roleSaveFailed", payload: { reason: "The list could not be saved" } });
   await actor.settled();

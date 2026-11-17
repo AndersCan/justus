@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 import { readDensity, writeDensity, type Density } from "../utils/gallery-density";
 import { readPhotoSort, writePhotoSort } from "../utils/photo-sort";
 import type { PhotoSort } from "../utils/photo-scope";
@@ -21,58 +21,59 @@ const pictureSet = event("PICTURE_SET")<{ dataUrl: string }>();
 /** Preferences are loaded and can be changed at any time. */
 const holdingPreferences = state("holdingPreferences")();
 
-export function createPrefsActor(options: { clock: Clock }) {
-  return Actor({
-    inputs: [sortChosen, densityChosen, themeChosen, pictureSet],
-    internal: [],
-    outputs: [],
-    states: [holdingPreferences],
-    initial: holdingPreferences,
-    clock: options.clock,
-    context: {
-      sort: readPhotoSort(),
-      density: readDensity(),
-      theme: readTheme(),
-      picture: readProfilePicture(),
-    } as PrefsContext,
-    setup: (m) => {
-      /** The timeline choice is remembered. */
-      m.onAny({
-        event: sortChosen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), sort: e.payload.sort });
-          return {};
-        },
-      });
-      /** The density choice is remembered. */
-      m.onAny({
-        event: densityChosen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), density: e.payload.density });
-          return {};
-        },
-      });
-      /** The theme choice is remembered. */
-      m.onAny({
-        event: themeChosen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), theme: e.payload.theme });
-          return {};
-        },
-      });
-      /** The picture is replaced, or removed when empty. */
-      m.onAny({
-        event: pictureSet,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), picture: e.payload.dataUrl });
-          return {};
-        },
-      });
-    },
-  });
-}
+export const prefsMachine = machine("prefs", {
+  create: () => {
+    return Actor({
+      inputs: [sortChosen, densityChosen, themeChosen, pictureSet],
+      internal: [],
+      outputs: [],
+      states: [holdingPreferences],
+      initial: holdingPreferences,
+      context: {
+        sort: readPhotoSort(),
+        density: readDensity(),
+        theme: readTheme(),
+        picture: readProfilePicture(),
+      } as PrefsContext,
+      setup: (m) => {
+        /** The timeline choice is remembered. */
+        m.onAny({
+          event: sortChosen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), sort: e.payload.sort });
+            return {};
+          },
+        });
+        /** The density choice is remembered. */
+        m.onAny({
+          event: densityChosen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), density: e.payload.density });
+            return {};
+          },
+        });
+        /** The theme choice is remembered. */
+        m.onAny({
+          event: themeChosen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), theme: e.payload.theme });
+            return {};
+          },
+        });
+        /** The picture is replaced, or removed when empty. */
+        m.onAny({
+          event: pictureSet,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), picture: e.payload.dataUrl });
+            return {};
+          },
+        });
+      },
+    });
+  },
+});
 
-export const prefsActor = createPrefsActor({ clock: RealClock() });
+export const prefsActor = prefsMachine.create();
 
 /** Each command saves to this device first, then updates what the screens show. */
 export const prefs = {

@@ -1,16 +1,14 @@
-import { RealClock } from "@mantaq/core";
 import { gateway } from "../../gateway";
 import {
   closePicker,
-  createAddFriendActor,
+  addFriendMachine,
   openPicker,
   pickRole,
   toggleFriend,
   type FriendRole,
 } from "./add-friend-machine";
 
-export const addFriendActor = createAddFriendActor({
-  clock: RealClock(),
+export const addFriendActor = addFriendMachine.create({
   port: { offerAlbum: (folderId, identity, role) => gateway.offerAlbum(folderId, identity, role) },
 });
 

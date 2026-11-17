@@ -1,12 +1,11 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createSyncActor } from "./sync-machine";
+import { syncMachine } from "./sync-machine";
 
-const make = recordRuns(createSyncActor);
+const make = recordRuns(syncMachine);
 
 test("Anna opens Trip's Invite & members page and it is up to date", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "REFRESH" });
   actor.inject({
     type: "ALBUM_CHECKED",

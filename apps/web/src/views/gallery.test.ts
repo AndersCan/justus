@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
-import { VirtualClock } from "@mantaq/core";
 import { requestRowOf } from "../utils/people";
-import { createGalleryActor } from "../machines/gallery-machine";
+import { galleryMachine } from "../machines/gallery-machine";
 import {
   albumAddRow,
   albumHeader,
@@ -41,7 +40,7 @@ function build(initial: Rec[], scope: PhotoScope = { kind: "album", id: "f1" }) 
     upload: vi.fn(),
     remove: vi.fn(),
   };
-  const actor = createGalleryActor({ clock: VirtualClock(), gateway: port as any });
+  const actor = galleryMachine.create({ gateway: port as any });
   const host = document.createElement("div");
   render(
     scopePhotos(actor, {

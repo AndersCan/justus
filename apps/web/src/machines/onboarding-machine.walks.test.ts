@@ -1,11 +1,10 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createOnboardingActor } from "./onboarding-machine";
+import { onboardingMachine } from "./onboarding-machine";
 
-const make = recordRuns(createOnboardingActor);
+const make = recordRuns(onboardingMachine);
 
-type Actor = ReturnType<typeof make>;
+type Actor = ReturnType<typeof make.create>;
 
 function typeNameAndSave(actor: Actor) {
   actor.send({ type: "SKIP" });
@@ -15,7 +14,7 @@ function typeNameAndSave(actor: Actor) {
 }
 
 test("Maya skips the cards, saves her name and turns on App lock", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({
     type: "LOCK_STATUS_READ",
     payload: { status: { available: true, enabled: false } },
@@ -31,7 +30,7 @@ test("Maya skips the cards, saves her name and turns on App lock", async () => {
 });
 
 test("Maya saves her name and says Not now to App lock", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({
     type: "LOCK_STATUS_READ",
     payload: { status: { available: true, enabled: false } },
@@ -45,7 +44,7 @@ test("Maya saves her name and says Not now to App lock", async () => {
 });
 
 test("Maya's phone has no screen lock, so she is never asked about App lock", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({
     type: "LOCK_STATUS_READ",
     payload: { status: { available: false, enabled: false } },
@@ -56,7 +55,7 @@ test("Maya's phone has no screen lock, so she is never asked about App lock", as
 });
 
 test("Maya cancels the phone's unlock prompt and is back on Lock Justus?", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({
     type: "LOCK_STATUS_READ",
     payload: { status: { available: true, enabled: false } },
@@ -71,7 +70,7 @@ test("Maya cancels the phone's unlock prompt and is back on Lock Justus?", async
 });
 
 test("App lock could not be turned on, so Maya sees why on Lock Justus?", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({
     type: "LOCK_STATUS_READ",
     payload: { status: { available: true, enabled: false } },
@@ -89,7 +88,7 @@ test("App lock could not be turned on, so Maya sees why on Lock Justus?", async 
 });
 
 test("Maya's name could not be saved, so she is back on the name step", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "SKIP" });
   actor.send({ type: "EDIT_NAME", payload: { name: "Maya" } });
   actor.send({ type: "SAVE_PROFILE" });

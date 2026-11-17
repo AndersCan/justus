@@ -4,7 +4,7 @@ import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { onOutput } from "@mantaq/sugar";
 import { describe, expect, test } from "vite-plus/test";
 import {
-  createInviteLinkActor,
+  inviteLinkMachine,
   linkKindOf,
   VALID_FOR_MS,
   type InviteLinkPort,
@@ -24,7 +24,7 @@ const savingPort = (saved: [string, number][]): InviteLinkPort => ({
 
 function setup(port?: InviteLinkPort) {
   const clock = VirtualClock();
-  const actor = createInviteLinkActor({ clock, ...(port ? { port } : {}) });
+  const actor = inviteLinkMachine.create({ clock, ...(port ? { port } : {}) });
   return { clock, actor };
 }
 
@@ -555,12 +555,11 @@ describe("invite link after a removal", () => {
   });
 });
 
-const walkTarget = () => createInviteLinkActor({ clock: VirtualClock() });
-const make = recordRuns(createInviteLinkActor);
+const make = recordRuns(inviteLinkMachine);
 
 test("Nils picks 1 hour, sends the link, and the panel offers the picker again once it ends", async () => {
   const clock = VirtualClock();
-  const actor = make({ clock });
+  const actor = make.create({ clock });
   actor.send({ type: "chooseLinkTime", payload: { validFor: "1h" } });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();
@@ -571,7 +570,7 @@ test("Nils picks 1 hour, sends the link, and the panel offers the picker again o
 });
 
 test("Nils removes someone while his link is shown, and the panel offers the picker again", async () => {
-  const actor = make({ clock: VirtualClock(), port: savingPort([]) });
+  const actor = make.create({ clock: VirtualClock(), port: savingPort([]) });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();
   actor.send(removed(FOLDER, CODE));
@@ -580,7 +579,7 @@ test("Nils removes someone while his link is shown, and the panel offers the pic
 });
 
 test("Nils turns off the links he sent", async () => {
-  const actor = make({
+  const actor = make.create({
     clock: VirtualClock(),
     port: { ...savingPort([]), turnOff: async () => [null, { invite: { code: NEW_CODE } }] },
   });
@@ -592,7 +591,7 @@ test("Nils turns off the links he sent", async () => {
 });
 
 test("Nils turns off the links, it fails, and his link stays shown", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create({ clock: VirtualClock() });
   actor.send({ type: "createLink", payload: { folderId: FOLDER, code: CODE } });
   await actor.settled();
   actor.send({ type: "turnOffLink", payload: { folderId: FOLDER, code: CODE } });
@@ -612,10 +611,10 @@ const designPayloads = {
 
 describe("invite link design", () => {
   test("has no design errors", () => {
-    expectNoDesignErrors({ id: "inviteLink", create: walkTarget, payloads: designPayloads });
+    expectNoDesignErrors({ machine: inviteLinkMachine, payloads: designPayloads });
   });
   test("reaches every state", () => {
-    expectAllStatesReached({ id: "inviteLink", create: walkTarget, payloads: designPayloads });
+    expectAllStatesReached({ machine: inviteLinkMachine, payloads: designPayloads });
   });
 });
 

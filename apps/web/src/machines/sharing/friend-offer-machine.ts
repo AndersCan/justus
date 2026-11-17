@@ -1,4 +1,4 @@
-import { Actor, event, state } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
 import { withTimeout } from "@mantaq/sugar";
 
@@ -56,84 +56,86 @@ function codeOf(error: unknown): string {
 
 const allowAll: FriendOfferPort = { joinOffer: async () => [undefined, {}] };
 
-export function createFriendOfferActor(options: { clock: Clock; port?: FriendOfferPort }) {
-  const { clock, port = allowAll } = options;
+export const friendOfferMachine = machine("friendOffer", {
+  create: (options: { clock: Clock; port?: FriendOfferPort }) => {
+    const { clock, port = allowAll } = options;
 
-  return Actor({
-    inputs: [join, askAnswered],
-    internal: [offerGone, joinFailed],
-    outputs: [openAlbum, couldNotJoin],
-    states: [showingFriendOffers, joiningFriendsAlbum],
-    initial: showingFriendOffers,
-    clock,
-    setup: (m) => {
-      /** "Join": the request goes out and the row shows "Joining...". */
-      m.on(showingFriendOffers, {
-        event: join,
-        to: [joiningFriendsAlbum],
-        handler: (e) => ({ state: joiningFriendsAlbum.create({ offer: e.payload.offer }) }),
-      });
+    return Actor({
+      inputs: [join, askAnswered],
+      internal: [offerGone, joinFailed],
+      outputs: [openAlbum, couldNotJoin],
+      states: [showingFriendOffers, joiningFriendsAlbum],
+      initial: showingFriendOffers,
+      clock,
+      setup: (m) => {
+        /** "Join": the request goes out and the row shows "Joining...". */
+        m.on(showingFriendOffers, {
+          event: join,
+          to: [joiningFriendsAlbum],
+          handler: (e) => ({ state: joiningFriendsAlbum.create({ offer: e.payload.offer }) }),
+        });
 
-      /** The request goes to the Admin's phone. A refusal ends the wait at once. */
-      m.effect(joiningFriendsAlbum, {
-        name: "joinOffer",
-        sends: [offerGone, joinFailed],
-        fn: async ({ signal, emit, state: current }) => {
-          const { code, owner } = current.payload.offer;
-          let outcome: [unknown, unknown];
-          try {
-            outcome = await port.joinOffer(code, owner);
-          } catch {
-            if (!signal.aborted) emit(joinFailed.create());
-            return;
-          }
-          if (signal.aborted) return;
-          const [error] = outcome;
-          if (!error) return;
-          const gone = codeOf(error) === OFFER_GONE_CODE;
-          emit(gone ? offerGone.create() : joinFailed.create());
-        },
-      });
-      /** Waits 30 seconds for the Admin's answer. */
-      m.effect(joiningFriendsAlbum, {
-        name: "waitForAnswer",
-        sends: [joinFailed],
-        fn: (input) => withTimeout(JOIN_WAIT_MS, { input, event: () => joinFailed.create() }),
-      });
+        /** The request goes to the Admin's phone. A refusal ends the wait at once. */
+        m.effect(joiningFriendsAlbum, {
+          name: "joinOffer",
+          sends: [offerGone, joinFailed],
+          fn: async ({ signal, emit, state: current }) => {
+            const { code, owner } = current.payload.offer;
+            let outcome: [unknown, unknown];
+            try {
+              outcome = await port.joinOffer(code, owner);
+            } catch {
+              if (!signal.aborted) emit(joinFailed.create());
+              return;
+            }
+            if (signal.aborted) return;
+            const [error] = outcome;
+            if (!error) return;
+            const gone = codeOf(error) === OFFER_GONE_CODE;
+            emit(gone ? offerGone.create() : joinFailed.create());
+          },
+        });
+        /** Waits 30 seconds for the Admin's answer. */
+        m.effect(joiningFriendsAlbum, {
+          name: "waitForAnswer",
+          sends: [joinFailed],
+          fn: (input) => withTimeout(JOIN_WAIT_MS, { input, event: () => joinFailed.create() }),
+        });
 
-      /** The Admin's phone accepted this invite: the album opens. An answer for another invite or a decline is ignored. */
-      m.on(joiningFriendsAlbum, {
-        event: askAnswered,
-        to: [showingFriendOffers, joiningFriendsAlbum],
-        handler: (e, { state: current }) => {
-          const { offer } = current.payload;
-          const { code, answer, folderId } = e.payload;
-          if (code !== offer.code || answer !== "accepted" || folderId === undefined) {
-            return { state: joiningFriendsAlbum.create(current.payload) };
-          }
-          return { state: showingFriendOffers, emit: [openAlbum.create({ folderId })] };
-        },
-      });
-      /** The invite is gone: the row disappears with it, with no message. */
-      m.on(joiningFriendsAlbum, {
-        event: offerGone,
-        to: [showingFriendOffers],
-        handler: () => ({ state: showingFriendOffers }),
-      });
-      /** The join failed or timed out: the row returns to Join and the app says the Admin needs Justus open. */
-      m.on(joiningFriendsAlbum, {
-        event: joinFailed,
-        to: [showingFriendOffers],
-        handler: (_e, { state: current }) => ({
-          state: showingFriendOffers,
-          emit: [
-            couldNotJoin.create({
-              albumName: current.payload.offer.albumName,
-              ownerName: current.payload.offer.ownerName,
-            }),
-          ],
-        }),
-      });
-    },
-  });
-}
+        /** The Admin's phone accepted this invite: the album opens. An answer for another invite or a decline is ignored. */
+        m.on(joiningFriendsAlbum, {
+          event: askAnswered,
+          to: [showingFriendOffers, joiningFriendsAlbum],
+          handler: (e, { state: current }) => {
+            const { offer } = current.payload;
+            const { code, answer, folderId } = e.payload;
+            if (code !== offer.code || answer !== "accepted" || folderId === undefined) {
+              return { state: joiningFriendsAlbum.create(current.payload) };
+            }
+            return { state: showingFriendOffers, emit: [openAlbum.create({ folderId })] };
+          },
+        });
+        /** The invite is gone: the row disappears with it, with no message. */
+        m.on(joiningFriendsAlbum, {
+          event: offerGone,
+          to: [showingFriendOffers],
+          handler: () => ({ state: showingFriendOffers }),
+        });
+        /** The join failed or timed out: the row returns to Join and the app says the Admin needs Justus open. */
+        m.on(joiningFriendsAlbum, {
+          event: joinFailed,
+          to: [showingFriendOffers],
+          handler: (_e, { state: current }) => ({
+            state: showingFriendOffers,
+            emit: [
+              couldNotJoin.create({
+                albumName: current.payload.offer.albumName,
+                ownerName: current.payload.offer.ownerName,
+              }),
+            ],
+          }),
+        });
+      },
+    });
+  },
+});

@@ -1,8 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
-import { createRequestsActor } from "./requests-machine";
+import { requestsMachine } from "./requests-machine";
 
 vi.mock("../gateway", () => ({ gateway: { logs: { view: vi.fn(), clear: vi.fn() } } }));
 
@@ -24,7 +23,7 @@ describe("held decline in the two failure states", () => {
       ),
       respond: vi.fn(async () => [new Error("offline"), null] as never),
     };
-    const actor = createRequestsActor({ clock: VirtualClock(), gateway: port as never });
+    const actor = requestsMachine.create({ gateway: port as never });
     actor.send(ev("REFRESH"));
     await actor.settled();
     actor.send(
@@ -49,7 +48,7 @@ describe("held decline in the two failure states", () => {
       ),
       respond: vi.fn(),
     };
-    const actor = createRequestsActor({ clock: VirtualClock(), gateway: port as never });
+    const actor = requestsMachine.create({ gateway: port as never });
     const out: { type: string }[] = [];
     onOutput(actor, (e) => out.push(e as never));
     actor.send(ev("REFRESH"));

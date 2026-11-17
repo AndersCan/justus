@@ -1,4 +1,4 @@
-import { Actor, event, state } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 import type { Clock } from "@mantaq/core";
 import type { Expectations } from "@mantaq/inspect";
 import { withTimeout } from "@mantaq/sugar";
@@ -128,248 +128,253 @@ function msUntil(expiresAt: number, now: number): number {
 }
 
 /** Everything but `clock` is optional so the flow inspector can build it from a clock alone. */
-export function createInviteLinkActor(options: { clock: Clock; port?: InviteLinkPort }) {
-  const { clock, port = noPort } = options;
-  return Actor({
-    inputs: [chooseLinkTime, createLink, turnOffLink, linkReplaced],
-    internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
-    outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
-    states: [noLinkYet, savingLinkTime, linkMade, turningOff],
-    initial: noLinkYet,
-    clock,
-    context: {
-      folderId: "",
-      validFor: "1d",
-      offCode: "",
-      offFolderId: "",
-      replacedFolderId: "",
-      removedName: "",
-    } as InviteLinkContext,
-    setup: (m) => {
-      /** The owner picks a time; a value that is not one of the choices is ignored. */
-      m.on(noLinkYet, {
-        event: chooseLinkTime,
-        handler: (e, { context }) => {
-          if (e.payload.validFor in VALID_FOR_MS)
-            context.set({ ...context.get(), validFor: e.payload.validFor });
-          return {};
-        },
-      });
-      /** The owner makes a link that works for the chosen time. */
-      m.on(noLinkYet, {
-        event: createLink,
-        to: [savingLinkTime],
-        handler: (e, { context }) => {
-          const current = context.get();
-          // The code was just turned off; wait for the album's new one.
-          if (e.payload.folderId === "" || e.payload.code === current.offCode) return {};
-          context.set({
-            ...current,
-            folderId: e.payload.folderId,
-            offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
-            ...(current.replacedFolderId === e.payload.folderId
-              ? { replacedFolderId: "", removedName: "" }
-              : {}),
-          });
-          const expiresAt =
-            Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
-        },
-      });
-      /** The panel for another album shows the picker, so a pick still counts. */
-      m.on(linkMade, {
-        event: chooseLinkTime,
-        handler: (e, { context }) => {
-          if (e.payload.validFor in VALID_FOR_MS)
-            context.set({ ...context.get(), validFor: e.payload.validFor });
-          return {};
-        },
-      });
-      /** A link for another album, or for this album's new code, replaces the one made; the same link is kept. */
-      m.on(linkMade, {
-        event: createLink,
-        to: [savingLinkTime],
-        handler: (e, { context, state }) => {
-          const current = context.get();
-          if (
-            e.payload.folderId === "" ||
-            e.payload.code === current.offCode ||
-            (e.payload.folderId === current.folderId && e.payload.code === state.payload.code)
-          )
+export const inviteLinkMachine = machine("inviteLink", {
+  create: (options: { clock: Clock; port?: InviteLinkPort }) => {
+    const { clock, port = noPort } = options;
+    return Actor({
+      inputs: [chooseLinkTime, createLink, turnOffLink, linkReplaced],
+      internal: [timeRanOut, linkOff, linkOffFailed, linkTimeSaved, linkTimeNotSaved],
+      outputs: [linkTurnedOff, turnOffFailed, linkNotSaved],
+      states: [noLinkYet, savingLinkTime, linkMade, turningOff],
+      initial: noLinkYet,
+      clock,
+      context: {
+        folderId: "",
+        validFor: "1d",
+        offCode: "",
+        offFolderId: "",
+        replacedFolderId: "",
+        removedName: "",
+      } as InviteLinkContext,
+      setup: (m) => {
+        /** The owner picks a time; a value that is not one of the choices is ignored. */
+        m.on(noLinkYet, {
+          event: chooseLinkTime,
+          handler: (e, { context }) => {
+            if (e.payload.validFor in VALID_FOR_MS)
+              context.set({ ...context.get(), validFor: e.payload.validFor });
             return {};
-          context.set({
-            ...current,
-            folderId: e.payload.folderId,
-            offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
-            ...(current.replacedFolderId === e.payload.folderId
-              ? { replacedFolderId: "", removedName: "" }
-              : {}),
-          });
-          const expiresAt =
-            Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
-          return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
-        },
-      });
-      /** A timer runs until the link's end time. */
-      m.effect(linkMade, {
-        name: "untilExpiry",
-        sends: [timeRanOut],
-        fn: (input) =>
-          withTimeout(msUntil(input.state.payload.expiresAt, clock.now()), {
-            input,
-            event: () => timeRanOut.create(),
+          },
+        });
+        /** The owner makes a link that works for the chosen time. */
+        m.on(noLinkYet, {
+          event: createLink,
+          to: [savingLinkTime],
+          handler: (e, { context }) => {
+            const current = context.get();
+            // The code was just turned off; wait for the album's new one.
+            if (e.payload.folderId === "" || e.payload.code === current.offCode) return {};
+            context.set({
+              ...current,
+              folderId: e.payload.folderId,
+              offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+              ...(current.replacedFolderId === e.payload.folderId
+                ? { replacedFolderId: "", removedName: "" }
+                : {}),
+            });
+            const expiresAt =
+              Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
+            return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
+          },
+        });
+        /** The panel for another album shows the picker, so a pick still counts. */
+        m.on(linkMade, {
+          event: chooseLinkTime,
+          handler: (e, { context }) => {
+            if (e.payload.validFor in VALID_FOR_MS)
+              context.set({ ...context.get(), validFor: e.payload.validFor });
+            return {};
+          },
+        });
+        /** A link for another album, or for this album's new code, replaces the one made; the same link is kept. */
+        m.on(linkMade, {
+          event: createLink,
+          to: [savingLinkTime],
+          handler: (e, { context, state }) => {
+            const current = context.get();
+            if (
+              e.payload.folderId === "" ||
+              e.payload.code === current.offCode ||
+              (e.payload.folderId === current.folderId && e.payload.code === state.payload.code)
+            )
+              return {};
+            context.set({
+              ...current,
+              folderId: e.payload.folderId,
+              offFolderId: current.offFolderId === e.payload.folderId ? "" : current.offFolderId,
+              ...(current.replacedFolderId === e.payload.folderId
+                ? { replacedFolderId: "", removedName: "" }
+                : {}),
+            });
+            const expiresAt =
+              Math.floor((clock.now() + VALID_FOR_MS[current.validFor]) / 1000) * 1000;
+            return { state: savingLinkTime.create({ expiresAt, code: e.payload.code }) };
+          },
+        });
+        /** A timer runs until the link's end time. */
+        m.effect(linkMade, {
+          name: "untilExpiry",
+          sends: [timeRanOut],
+          fn: (input) =>
+            withTimeout(msUntil(input.state.payload.expiresAt, clock.now()), {
+              input,
+              event: () => timeRanOut.create(),
+            }),
+        });
+        /** The link's time is saved on this phone before the link is handed out. */
+        m.effect(savingLinkTime, {
+          name: "saveLinkTime",
+          sends: [linkTimeSaved, linkTimeNotSaved],
+          fn: ({ signal, emit, state, context }) => {
+            const { expiresAt } = state.payload;
+            return runInvoke(
+              signal,
+              () => port.saveLinkTime(context.get().folderId, expiresAt),
+              () => emit(linkTimeSaved.create()),
+              () => emit(linkTimeNotSaved.create()),
+            );
+          },
+        });
+        /** Saved: the link can be handed out. */
+        m.on(savingLinkTime, {
+          event: linkTimeSaved,
+          to: [linkMade],
+          handler: (_e, { state }) => ({
+            state: linkMade.create(state.payload as { expiresAt: number; code: string }),
           }),
-      });
-      /** The link's time is saved on this phone before the link is handed out. */
-      m.effect(savingLinkTime, {
-        name: "saveLinkTime",
-        sends: [linkTimeSaved, linkTimeNotSaved],
-        fn: ({ signal, emit, state, context }) => {
-          const { expiresAt } = state.payload;
-          return runInvoke(
-            signal,
-            () => port.saveLinkTime(context.get().folderId, expiresAt),
-            () => emit(linkTimeSaved.create()),
-            () => emit(linkTimeNotSaved.create()),
-          );
-        },
-      });
-      /** Saved: the link can be handed out. */
-      m.on(savingLinkTime, {
-        event: linkTimeSaved,
-        to: [linkMade],
-        handler: (_e, { state }) => ({
-          state: linkMade.create(state.payload as { expiresAt: number; code: string }),
-        }),
-      });
-      /** Saving failed, so no link is shown and the owner can try again. */
-      m.on(savingLinkTime, {
-        event: linkTimeNotSaved,
-        to: [noLinkYet],
-        handler: (_e, { context }) => {
-          context.set({ ...context.get(), validFor: "1d" });
-          return { state: noLinkYet, emit: [linkNotSaved.create()] };
-        },
-      });
-      /** The owner turns off the links before any link was made here. */
-      m.on(noLinkYet, {
-        event: turnOffLink,
-        to: [turningOff],
-        handler: (e) => {
-          if (e.payload.folderId === "" || e.payload.code === "") return {};
-          return { state: turningOff.create(e.payload) };
-        },
-      });
-      /** The owner turns off the links while a link is shown; it stays shown until the answer comes. */
-      m.on(linkMade, {
-        event: turnOffLink,
-        to: [turningOff],
-        handler: (e, { state }) => {
-          if (e.payload.folderId === "" || e.payload.code === "") return {};
-          const { expiresAt, code } = state.payload as { expiresAt: number; code: string };
-          return { state: turningOff.create({ ...e.payload, before: { expiresAt, code } }) };
-        },
-      });
-      /** The links are turned off on this phone. */
-      m.effect(turningOff, {
-        name: "turnOff",
-        sends: [linkOff, linkOffFailed],
-        fn: ({ signal, emit, state }) => {
-          const { folderId, code } = state.payload;
-          return runInvoke(
-            signal,
-            () => port.turnOff(folderId),
-            () => emit(linkOff.create({ folderId, code })),
-            () => emit(linkOffFailed.create({ folderId })),
-          );
-        },
-      });
-      /** Done: another album's link stays shown, otherwise the panel offers the picker. */
-      m.on(turningOff, {
-        event: linkOff,
-        to: [noLinkYet, linkMade],
-        handler: (e, { context, state }) => {
-          const current = context.get();
-          const { before } = state.payload as { before?: { expiresAt: number; code: string } };
-          const keep = before !== undefined && e.payload.folderId !== current.folderId;
-          context.set({
-            ...current,
-            offCode: e.payload.code,
-            offFolderId: e.payload.folderId,
-            validFor: keep ? current.validFor : "1d",
-            ...(current.replacedFolderId === e.payload.folderId
-              ? { replacedFolderId: "", removedName: "" }
-              : {}),
-          });
-          return {
-            state: keep ? linkMade.create(before) : noLinkYet,
-            emit: [linkTurnedOff.create({ folderId: e.payload.folderId })],
-          };
-        },
-      });
-      /** Failed: the panel goes back to what it showed. */
-      m.on(turningOff, {
-        event: linkOffFailed,
-        to: [noLinkYet, linkMade],
-        handler: (e, { state }) => {
-          const { before } = state.payload as { before?: { expiresAt: number; code: string } };
-          return {
-            state: before ? linkMade.create(before) : noLinkYet,
-            emit: [turnOffFailed.create({ folderId: e.payload.folderId })],
-          };
-        },
-      });
-      /** A removal before any link is shown: the old code is refused; a second removal names the new person. */
-      m.on(noLinkYet, {
-        event: linkReplaced,
-        handler: (e, { context }) => {
-          if (e.payload.folderId === "" || e.payload.code === "") return {};
-          const current = context.get();
-          context.set({
-            ...current,
-            offCode: e.payload.code,
-            ...(current.replacedFolderId === e.payload.folderId
-              ? { removedName: e.payload.name }
-              : {}),
-          });
-          return {};
-        },
-      });
-      /** A removal while a link is shown: another album's link stays; this album's goes back to the picker. */
-      m.on(linkMade, {
-        event: linkReplaced,
-        to: [noLinkYet, linkMade],
-        handler: (e, { context }) => {
-          if (e.payload.folderId === "" || e.payload.code === "") return {};
-          const current = context.get();
-          if (e.payload.folderId !== current.folderId) {
-            context.set({ ...current, offCode: e.payload.code });
+        });
+        /** Saving failed, so no link is shown and the owner can try again. */
+        m.on(savingLinkTime, {
+          event: linkTimeNotSaved,
+          to: [noLinkYet],
+          handler: (_e, { context }) => {
+            context.set({ ...context.get(), validFor: "1d" });
+            return { state: noLinkYet, emit: [linkNotSaved.create()] };
+          },
+        });
+        /** The owner turns off the links before any link was made here. */
+        m.on(noLinkYet, {
+          event: turnOffLink,
+          to: [turningOff],
+          handler: (e) => {
+            if (e.payload.folderId === "" || e.payload.code === "") return {};
+            return { state: turningOff.create(e.payload) };
+          },
+        });
+        /** The owner turns off the links while a link is shown; it stays shown until the answer comes. */
+        m.on(linkMade, {
+          event: turnOffLink,
+          to: [turningOff],
+          handler: (e, { state }) => {
+            if (e.payload.folderId === "" || e.payload.code === "") return {};
+            const { expiresAt, code } = state.payload as { expiresAt: number; code: string };
+            return { state: turningOff.create({ ...e.payload, before: { expiresAt, code } }) };
+          },
+        });
+        /** The links are turned off on this phone. */
+        m.effect(turningOff, {
+          name: "turnOff",
+          sends: [linkOff, linkOffFailed],
+          fn: ({ signal, emit, state }) => {
+            const { folderId, code } = state.payload;
+            return runInvoke(
+              signal,
+              () => port.turnOff(folderId),
+              () => emit(linkOff.create({ folderId, code })),
+              () => emit(linkOffFailed.create({ folderId })),
+            );
+          },
+        });
+        /** Done: another album's link stays shown, otherwise the panel offers the picker. */
+        m.on(turningOff, {
+          event: linkOff,
+          to: [noLinkYet, linkMade],
+          handler: (e, { context, state }) => {
+            const current = context.get();
+            const { before } = state.payload as { before?: { expiresAt: number; code: string } };
+            const keep = before !== undefined && e.payload.folderId !== current.folderId;
+            context.set({
+              ...current,
+              offCode: e.payload.code,
+              offFolderId: e.payload.folderId,
+              validFor: keep ? current.validFor : "1d",
+              ...(current.replacedFolderId === e.payload.folderId
+                ? { replacedFolderId: "", removedName: "" }
+                : {}),
+            });
+            return {
+              state: keep ? linkMade.create(before) : noLinkYet,
+              emit: [linkTurnedOff.create({ folderId: e.payload.folderId })],
+            };
+          },
+        });
+        /** Failed: the panel goes back to what it showed. */
+        m.on(turningOff, {
+          event: linkOffFailed,
+          to: [noLinkYet, linkMade],
+          handler: (e, { state }) => {
+            const { before } = state.payload as { before?: { expiresAt: number; code: string } };
+            return {
+              state: before ? linkMade.create(before) : noLinkYet,
+              emit: [turnOffFailed.create({ folderId: e.payload.folderId })],
+            };
+          },
+        });
+        /** A removal before any link is shown: the old code is refused; a second removal names the new person. */
+        m.on(noLinkYet, {
+          event: linkReplaced,
+          handler: (e, { context }) => {
+            if (e.payload.folderId === "" || e.payload.code === "") return {};
+            const current = context.get();
+            context.set({
+              ...current,
+              offCode: e.payload.code,
+              ...(current.replacedFolderId === e.payload.folderId
+                ? { removedName: e.payload.name }
+                : {}),
+            });
             return {};
-          }
-          context.set({
-            ...current,
-            offCode: e.payload.code,
-            replacedFolderId: e.payload.folderId,
-            removedName: e.payload.name,
-            validFor: "1d",
-          });
-          return { state: noLinkYet };
-        },
-      });
-      /** The time ran out, so the panel offers the picker again. */
-      m.on(linkMade, {
-        event: timeRanOut,
-        to: [noLinkYet],
-        handler: (_e, { context }) => {
-          context.set({ ...context.get(), validFor: "1d" });
-          return { state: noLinkYet };
-        },
-      });
-    },
-  });
-}
+          },
+        });
+        /** A removal while a link is shown: another album's link stays; this album's goes back to the picker. */
+        m.on(linkMade, {
+          event: linkReplaced,
+          to: [noLinkYet, linkMade],
+          handler: (e, { context }) => {
+            if (e.payload.folderId === "" || e.payload.code === "") return {};
+            const current = context.get();
+            if (e.payload.folderId !== current.folderId) {
+              context.set({ ...current, offCode: e.payload.code });
+              return {};
+            }
+            context.set({
+              ...current,
+              offCode: e.payload.code,
+              replacedFolderId: e.payload.folderId,
+              removedName: e.payload.name,
+              validFor: "1d",
+            });
+            return { state: noLinkYet };
+          },
+        });
+        /** The time ran out, so the panel offers the picker again. */
+        m.on(linkMade, {
+          event: timeRanOut,
+          to: [noLinkYet],
+          handler: (_e, { context }) => {
+            context.set({ ...context.get(), validFor: "1d" });
+            return { state: noLinkYet };
+          },
+        });
+      },
+    });
+  },
+});
 
 /** A link can always run out. */
-export const inviteLinkExpectations: Expectations<typeof createInviteLinkActor> = {
-  linkMade: { mustSee: [{}] },
+export const inviteLinkExpectations: Expectations<typeof inviteLinkMachine> = {
+  machine: "inviteLink",
+  states: {
+    linkMade: { mustSee: [{}] },
+  },
 };

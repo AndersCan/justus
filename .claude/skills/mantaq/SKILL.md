@@ -1,6 +1,7 @@
 ---
 name: mantaq
-description: Create and use actor-model state machines with @mantaq/core in your own project. Philosophy, mental model, conventions. Also for any ask to design, plan or rethink a feature or a rule, even when it names no machine ("design this with me", "show me the design", "who can delete photos?", "show me how X works"): the answer is a machine drawn on the live viz page with recorded walks, not a written design. Also for drafting two designs of one feature to compare side by side ("draft two designs for Z"). Also for applying notes left on the live viz page ("apply the viz notes"). Also sets mantaq up in a Vite project and opens the live viewer on a machine. Read sibling files (designing.md, sugar.md, patterns.md, testing.md, reviewing.md) when the task touches those areas.
+description: >-
+  Create and use actor-model state machines with @mantaq/core in your own project. Philosophy, mental model, conventions. Also for any ask to design, plan or rethink a feature or a rule, even when it names no machine ("design this with me", "show me the design", "who can delete photos?", "show me how X works"): the answer is a machine drawn on the live viz page with recorded walks, not a written design. Also for drafting two designs of one feature to compare side by side ("draft two designs for Z"). Also sets mantaq up in a Vite project and opens the live viewer on a machine. Read sibling files (designing.md, sugar.md, patterns.md, testing.md, reviewing.md) when the task touches those areas.
 allowed-tools: Read Grep Glob Edit Write Bash Shell
 ---
 
@@ -8,7 +9,7 @@ allowed-tools: Read Grep Glob Edit Write Bash Shell
 
 Actor-model state machine library for TypeScript. `npm install @mantaq/core`. Minimal primitives: states + events, context, effects, regions, one injectable clock.
 
-**Written against:** `@mantaq/core` 0.7, `@mantaq/sugar` 2.1, `@mantaq/test` 2.0, `@mantaq/traversal` 0.3, `@mantaq/inspect` 0.28, `@mantaq/viz` 0.21. Sibling files share this stamp.
+**Written against:** `@mantaq/core` 0.9, `@mantaq/sugar` 3.0, `@mantaq/test` 2.1, `@mantaq/traversal` 0.3, `@mantaq/inspect` 0.44, `@mantaq/viz` 0.37. Sibling files share this stamp.
 
 ## Trust the installed package over this skill
 
@@ -42,7 +43,7 @@ One way to do things; don't invent competing patterns.
 - **State payload.** Data tied to one visit to a state, passed on transition. Per-visit data → payload. Cross-step data → context.
 - **Effect.** `{ name, sends, fn }`: a named side effect that runs when a state is entered and is aborted when it is left. All async work, timers and I/O live here. Never in transition handlers. `sends` declares the internal events `fn` emits, and the diagram links them.
 - **Transition handler.** Pure decision: gets `(event, { context, state })`, where `state` is the typed current state. Read them, return the next state and/or events to emit. Registered per state (`m.on`) or for every state (`m.onAny`), with `to` listing every state it may return (compile-checked; omit `to` for a handler that only stays). `to` is what the diagram draws, and returning a state not in `to` fails to compile.
-- **Clock.** The only source of time. `VirtualClock` in tests, `RealClock` in production.
+- **Clock.** The only source of time, and only for a machine with timers. `create` receives `{ clock }`: real time in the app, a `VirtualClock` in tests and on the live page. A machine with a timer passes it on, `Actor({ clock, … })`; a machine with no timers takes no `clock` and its actor has no time. Forget it on a timer and the compiler stops: `Property 'clock' is missing in type '{ signal: AbortSignal; … }' but required in type '{ clock: Clock; }'`. Fix: `create: ({ clock }) => Actor({ clock, … })`. A `clock` in a machine with no timers is noise: remove it.
 - **Regions.** Child actors composed into a parent. Forwarding events into a child is manual.
 - **Actor.** Build it with `Actor({...})` (a function, no `new`). Wires the above together: declared `inputs` (what callers send), `internal` events (emitted back to itself), `outputs` (emitted outward), states, initial state, context, clock, and a `setup` that registers handlers and effects.
 
@@ -52,7 +53,7 @@ Everything runs synchronously in one call stack with `VirtualClock`. No awaits n
 
 Design before code. Suggested order; follow the user's:
 
-1. **States first.** List every state the system can be in. If the user hasn't said, read the existing code or ask questions to understand the app, then propose the states. Mark which are final. Failures that are part of the domain (declined, timed out) are states too. Read each name after "Right now:". If a stranger cannot tell what is on screen or what is awaited, rename it.
+1. **States first.** List every state the system can be in. If the user hasn't said, read the existing code or ask questions to understand the app, then propose the states. Mark which are final. Failures that are part of the domain (declined, timed out) are states too. Read each name alone, as the live page's state line shows it: `In waitingForAnswer`. If a stranger cannot tell what is on screen or what is awaited, rename it.
 2. **Then edges.** For each state, which events move it where? Name the events and say which are inputs (from callers) and which are internal (emitted by effects). Draw the whole graph before writing handlers.
 3. **Then effects.** For each state, ask what must happen on entry: calls, timers, logging, I/O. Effects run on entry to a state, not on an edge. "When going A→B, send a log" is an effect on B. If it must only fire when coming from A, model a separate state, or carry the source in context or state payload.
 4. **Decisions are transitions, not effects.** "Validate, then go to B or C" is a handler returning B or C. If validation is async, the effect does the work and emits an internal event, and a handler on that event picks B or C.
@@ -62,12 +63,14 @@ Rule of thumb: a question about _where we go_ belongs in a transition; a questio
 
 ## Rules
 
+- **Start from the example.** `patterns.md` has a complete machine: imports, states, events, a handler and a timer effect; `testing.md` shows how to test it. Copy its shape first, then check signatures against the installed types.
 - All timing through the injected clock. No real timers, `Date.now` or `Math.random` in effects.
 - Effects check `signal.aborted` before emitting, and hand the abort signal to any timer they create.
 - Declare payload types at boundaries. Bare `state("x")()` has payload `unknown`.
 - Declare every event an actor emits (`internal` / `outputs`), and handle each internal event in every state that can receive it.
 - Final states ignore all events.
 - Domain failures (declined card, timeout) are states and events: recoverable → non-final state with retry, terminal → final state. Never booleans in context.
+- **A timeout's length and outcome are the person's decisions.** Ask how long, and whether running out can be retried or ends the journey. Never guess either.
 - Handlers and effects should not throw for expected failures. A throw sends the actor to a terminal error state (`snapshot().error`, `on("error")`). Treat that as a bug signal, not control flow.
 - Read the current state from the handler's `state` argument, not `actor.state`.
 - **State names read without the notes.** Work in progress is a verb plus its object (`sendingRequest`, `addingMember`), waiting says what for (`waitingForAnswer`), and an outcome says how it ended (`joined`, `declined`, `expired`). A state names its object (`loadingPhotos`, `showingAlbums`, `couldNotLoadAlbums`), never a bare `ok`, `ready`, `idle`, `loading`, `error`, `open`, `closed` or `busy`. Never `done` or `approved` for a save that is still running.
@@ -76,6 +79,10 @@ Rule of thumb: a question about _where we go_ belongs in a transition; a questio
 - **One state is a store, not a flow.** Name it for what it holds (`holdingPreferences`) and do not draw a journey from it.
 - **Every journey ends in a named outcome**, success included. One state per way it can end. Never fall back to the start state to mean done. Mark the outcome final when the actor's work is over. An actor reused for the next attempt keeps it non-final and says so in its JSDoc. Exception: a cyclic controller (traffic light) has no outcome or final state; every state must be on the cycle, reachable back to the start.
 - Test with `VirtualClock` and the `@mantaq/test` harness. See `testing.md`.
+
+## Hand a machine to a builder
+
+To build an app or feature from a machine, or to give it to another agent, write its brief instead of describing it from memory: `machineBrief` from `@mantaq/inspect` (0.33 or later) turns `inspectFile`'s machines into Markdown (start state, arrows with conditions, entry effects, ignored events, event payloads). Keep it true with a test, `inspectFile` taking an absolute path: `await expect(machines.map(machineBrief).join("\n")).toMatchFileSnapshot("./<machine>-brief.md")`. Paste the brief in the reply; never retype it.
 
 ## Live design
 

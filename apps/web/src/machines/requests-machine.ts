@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import type { JoinRequest } from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
@@ -209,146 +209,131 @@ export function requestsViewModel(s: Snapshot<RequestsContext>) {
 
 type RequestsPort = Pick<typeof gateway, "requests" | "respond">;
 
-/** The clock and the gateway are injected so tests and the flow inspector can drive the machine. */
-export function createRequestsActor(options: { clock: Clock; gateway?: RequestsPort }) {
-  const { clock, gateway: port = gateway } = options;
-  return Actor({
-    inputs: [
-      refresh,
-      respond,
-      retry,
-      acceptAllAsViewers,
-      confirmAcceptAll,
-      cancelAcceptAll,
-      holdDecline,
-      undoDecline,
-      declineSent,
-      declineFailed,
-      forgetAccepted,
-    ],
-    internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
-    outputs: [
-      answerSent,
-      allAcceptedAsViewers,
-      requestsArrived,
-      requestCancelledBeforeAnswer,
-      declineHeld,
-      declineNotSent,
-    ],
-    states: [
-      requestsNotLoaded,
-      loadingRequests,
-      showingRequests,
-      confirmingAcceptAll,
-      sendingAnswer,
-      sendingAnswersToAll,
-      couldNotLoadRequests,
-      couldNotSendAnswer,
-    ],
-    initial: requestsNotLoaded,
-    clock,
-    context: initialContext,
-    setup: (m) => {
-      // Decline, Undo and the held No finishing work in every state, so a tap on a toast is never lost.
-      for (const at of [
+/** The gateway is injected so tests and the flow inspector can drive the machine. */
+export const requestsMachine = machine("requests", {
+  create: (options: { gateway?: RequestsPort }) => {
+    const { gateway: port = gateway } = options;
+    return Actor({
+      inputs: [
+        refresh,
+        respond,
+        retry,
+        acceptAllAsViewers,
+        confirmAcceptAll,
+        cancelAcceptAll,
+        holdDecline,
+        undoDecline,
+        declineSent,
+        declineFailed,
+        forgetAccepted,
+      ],
+      internal: [loaded, loadFailed, responded, respondFailed, requestWasCancelled],
+      outputs: [
+        answerSent,
+        allAcceptedAsViewers,
+        requestsArrived,
+        requestCancelledBeforeAnswer,
+        declineHeld,
+        declineNotSent,
+      ],
+      states: [
+        requestsNotLoaded,
+        loadingRequests,
         showingRequests,
-        couldNotSendAnswer,
+        confirmingAcceptAll,
         sendingAnswer,
         sendingAnswersToAll,
-        loadingRequests,
-        confirmingAcceptAll,
         couldNotLoadRequests,
-      ]) {
-        /** The Admin tapped Decline: the card leaves the list at once, the state stays, and the toast offers Undo. */
-        m.on(at, {
-          event: holdDecline,
-          to: [],
-          handler: (e, opts) => {
-            const ctx = opts.context.get();
-            const index = ctx.requests.findIndex((r) => sameKey(r, e.payload));
-            const request = ctx.requests[index];
-            if (!request) return {};
-            opts.context.set({
-              ...ctx,
-              requests: removeRequestFromList(
-                ctx.requests,
-                e.payload.folderId,
-                e.payload.requesterKey,
-              ),
-              heldDeclines: [...ctx.heldDeclines, { request, index }],
-            });
-            return {
-              emit: [
-                declineHeld.create({
-                  ...e.payload,
-                  requesterName: request.requesterName,
-                }),
-              ],
-            };
-          },
-        });
-        /** The album page closed: the "is in" card is forgotten. */
-        m.on(at, {
-          event: forgetAccepted,
-          to: [],
-          handler: (_e, opts) => {
-            const ctx = opts.context.get();
-            if (ctx.accepted === null) return {};
-            opts.context.set({ ...ctx, accepted: null });
-            return {};
-          },
-        });
-        /** Undo brings the card back at its old place; the state stays as it is, so nothing in flight is sent again. */
-        m.on(at, {
-          event: undoDecline,
-          to: [],
-          handler: (e, opts) => {
-            restoreHeld(opts.context, e.payload);
-            return {};
-          },
-        });
-        /** The held No could not be sent: the card comes back and the Admin is told. */
-        m.on(at, {
-          event: declineFailed,
-          to: [],
-          handler: (e, opts) => {
-            const held = restoreHeld(opts.context, e.payload);
-            return held
-              ? { emit: [declineNotSent.create({ requesterName: held.request.requesterName })] }
-              : {};
-          },
-        });
-        /** The held No went through; it is forgotten and the state stays as it is. */
-        m.on(at, {
-          event: declineSent,
-          to: [],
-          handler: (e, opts) => {
-            const ctx = opts.context.get();
-            opts.context.set({
-              ...ctx,
-              heldDeclines: ctx.heldDeclines.filter((h) => !sameKey(h.request, e.payload)),
-            });
-            return {};
-          },
-        });
-      }
-      /** The first load starts and any old error is cleared. */
-      m.on(requestsNotLoaded, {
-        event: refresh,
-        to: [loadingRequests],
-        handler: (_e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingRespond: null,
-            stoppedBatch: null,
+        couldNotSendAnswer,
+      ],
+      initial: requestsNotLoaded,
+      context: initialContext,
+      setup: (m) => {
+        // Decline, Undo and the held No finishing work in every state, so a tap on a toast is never lost.
+        for (const at of [
+          showingRequests,
+          couldNotSendAnswer,
+          sendingAnswer,
+          sendingAnswersToAll,
+          loadingRequests,
+          confirmingAcceptAll,
+          couldNotLoadRequests,
+        ]) {
+          /** The Admin tapped Decline: the card leaves the list at once, the state stays, and the toast offers Undo. */
+          m.on(at, {
+            event: holdDecline,
+            to: [],
+            handler: (e, opts) => {
+              const ctx = opts.context.get();
+              const index = ctx.requests.findIndex((r) => sameKey(r, e.payload));
+              const request = ctx.requests[index];
+              if (!request) return {};
+              opts.context.set({
+                ...ctx,
+                requests: removeRequestFromList(
+                  ctx.requests,
+                  e.payload.folderId,
+                  e.payload.requesterKey,
+                ),
+                heldDeclines: [...ctx.heldDeclines, { request, index }],
+              });
+              return {
+                emit: [
+                  declineHeld.create({
+                    ...e.payload,
+                    requesterName: request.requesterName,
+                  }),
+                ],
+              };
+            },
           });
-          return { state: loadingRequests };
-        },
-      });
-      for (const at of [showingRequests, couldNotSendAnswer]) {
-        /** A reload starts and any old error is cleared. */
-        m.on(at, {
+          /** The album page closed: the "is in" card is forgotten. */
+          m.on(at, {
+            event: forgetAccepted,
+            to: [],
+            handler: (_e, opts) => {
+              const ctx = opts.context.get();
+              if (ctx.accepted === null) return {};
+              opts.context.set({ ...ctx, accepted: null });
+              return {};
+            },
+          });
+          /** Undo brings the card back at its old place; the state stays as it is, so nothing in flight is sent again. */
+          m.on(at, {
+            event: undoDecline,
+            to: [],
+            handler: (e, opts) => {
+              restoreHeld(opts.context, e.payload);
+              return {};
+            },
+          });
+          /** The held No could not be sent: the card comes back and the Admin is told. */
+          m.on(at, {
+            event: declineFailed,
+            to: [],
+            handler: (e, opts) => {
+              const held = restoreHeld(opts.context, e.payload);
+              return held
+                ? { emit: [declineNotSent.create({ requesterName: held.request.requesterName })] }
+                : {};
+            },
+          });
+          /** The held No went through; it is forgotten and the state stays as it is. */
+          m.on(at, {
+            event: declineSent,
+            to: [],
+            handler: (e, opts) => {
+              const ctx = opts.context.get();
+              opts.context.set({
+                ...ctx,
+                heldDeclines: ctx.heldDeclines.filter((h) => !sameKey(h.request, e.payload)),
+              });
+              return {};
+            },
+          });
+        }
+        /** The first load starts and any old error is cleared. */
+        m.on(requestsNotLoaded, {
           event: refresh,
           to: [loadingRequests],
           handler: (_e, opts) => {
@@ -361,357 +346,376 @@ export function createRequestsActor(options: { clock: Clock; gateway?: RequestsP
             return { state: loadingRequests };
           },
         });
-        /** Sending the Yes or No starts and any earlier error is cleared. */
-        m.on(at, {
-          event: respond,
-          to: [sendingAnswer],
-          handler: (e, opts) => {
-            opts.context.set({
-              ...opts.context.get(),
-              error: null,
-              stoppedBatch: null,
-              pendingRespond: {
-                folderId: e.payload.folderId,
-                requesterKey: e.payload.requesterKey,
-                approve: e.payload.approve,
-                role: e.payload.role,
-              },
-            });
-            return { state: sendingAnswer };
-          },
-        });
-        /** Accept all as Viewers opens the sheet with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
-        m.on(at, {
-          event: acceptAllAsViewers,
-          to: [confirmingAcceptAll],
-          handler: (e, opts) => {
-            const ctx = opts.context.get();
-            const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
-              ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
-            );
-            if (keys.length === 0) return {};
-            opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
+        for (const at of [showingRequests, couldNotSendAnswer]) {
+          /** A reload starts and any old error is cleared. */
+          m.on(at, {
+            event: refresh,
+            to: [loadingRequests],
+            handler: (_e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                error: null,
+                pendingRespond: null,
+                stoppedBatch: null,
+              });
+              return { state: loadingRequests };
+            },
+          });
+          /** Sending the Yes or No starts and any earlier error is cleared. */
+          m.on(at, {
+            event: respond,
+            to: [sendingAnswer],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                error: null,
+                stoppedBatch: null,
+                pendingRespond: {
+                  folderId: e.payload.folderId,
+                  requesterKey: e.payload.requesterKey,
+                  approve: e.payload.approve,
+                  role: e.payload.role,
+                },
+              });
+              return { state: sendingAnswer };
+            },
+          });
+          /** Accept all as Viewers opens the sheet with the people on screen at the tap who are still waiting in that album; with none, nothing happens. */
+          m.on(at, {
+            event: acceptAllAsViewers,
+            to: [confirmingAcceptAll],
+            handler: (e, opts) => {
+              const ctx = opts.context.get();
+              const keys = [...new Set(e.payload.requesterKeys)].filter((k) =>
+                ctx.requests.some((r) => r.folderId === e.payload.folderId && r.requesterKey === k),
+              );
+              if (keys.length === 0) return {};
+              opts.context.set({ ...ctx, error: null, pendingRespond: null, stoppedBatch: null });
+              return {
+                state: confirmingAcceptAll.create({
+                  folderId: e.payload.folderId,
+                  requesterKeys: keys,
+                }),
+              };
+            },
+          });
+        }
+        /** Accept on the sheet: the listed people are answered one by one. */
+        m.on(confirmingAcceptAll, {
+          event: confirmAcceptAll,
+          to: [sendingAnswersToAll],
+          handler: (_e, opts) => {
+            const [next, ...after] = opts.state.payload.requesterKeys;
+            if (next === undefined) return {};
             return {
-              state: confirmingAcceptAll.create({
-                folderId: e.payload.folderId,
-                requesterKeys: keys,
+              state: sendingAnswersToAll.create({
+                folderId: opts.state.payload.folderId,
+                next,
+                after,
+                sent: 0,
               }),
             };
           },
         });
-      }
-      /** Accept on the sheet: the listed people are answered one by one. */
-      m.on(confirmingAcceptAll, {
-        event: confirmAcceptAll,
-        to: [sendingAnswersToAll],
-        handler: (_e, opts) => {
-          const [next, ...after] = opts.state.payload.requesterKeys;
-          if (next === undefined) return {};
-          return {
-            state: sendingAnswersToAll.create({
-              folderId: opts.state.payload.folderId,
-              next,
-              after,
-              sent: 0,
-            }),
-          };
-        },
-      });
-      /** Cancel on the sheet: nobody is answered, and the list reloads. */
-      m.on(confirmingAcceptAll, {
-        event: cancelAcceptAll,
-        to: [loadingRequests],
-        handler: () => ({ state: loadingRequests }),
-      });
-      /** A reload after an error starts and the error message goes away. */
-      m.on(couldNotLoadRequests, {
-        event: refresh,
-        to: [loadingRequests],
-        handler: (_e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingRespond: null,
-            stoppedBatch: null,
-          });
-          return { state: loadingRequests };
-        },
-      });
-      /** Try again after an error: loading starts again and the error message goes away. */
-      m.on(couldNotLoadRequests, {
-        event: retry,
-        to: [loadingRequests],
-        handler: (_e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            pendingRespond: null,
-            stoppedBatch: null,
-          });
-          return { state: loadingRequests };
-        },
-      });
+        /** Cancel on the sheet: nobody is answered, and the list reloads. */
+        m.on(confirmingAcceptAll, {
+          event: cancelAcceptAll,
+          to: [loadingRequests],
+          handler: () => ({ state: loadingRequests }),
+        });
+        /** A reload after an error starts and the error message goes away. */
+        m.on(couldNotLoadRequests, {
+          event: refresh,
+          to: [loadingRequests],
+          handler: (_e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingRespond: null,
+              stoppedBatch: null,
+            });
+            return { state: loadingRequests };
+          },
+        });
+        /** Try again after an error: loading starts again and the error message goes away. */
+        m.on(couldNotLoadRequests, {
+          event: retry,
+          to: [loadingRequests],
+          handler: (_e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: null,
+              pendingRespond: null,
+              stoppedBatch: null,
+            });
+            return { state: loadingRequests };
+          },
+        });
 
-      /** The pending join requests are fetched; if that fails or returns nothing, loading fails and the person sees an error. */
-      m.effect(loadingRequests, {
-        name: "loadingRequests",
-        sends: [loaded, loadFailed],
-        fn: ({ signal, emit }) => {
-          return runInvoke(
-            signal,
-            () => port.requests(),
-            (result) => {
-              const requests = (result as { requests?: JoinRequest[] } | null)?.requests;
-              if (!requests) {
-                emit(loadFailed.create({ message: "requests returned no data" }));
-                return;
+        /** The pending join requests are fetched; if that fails or returns nothing, loading fails and the person sees an error. */
+        m.effect(loadingRequests, {
+          name: "loadingRequests",
+          sends: [loaded, loadFailed],
+          fn: ({ signal, emit }) => {
+            return runInvoke(
+              signal,
+              () => port.requests(),
+              (result) => {
+                const requests = (result as { requests?: JoinRequest[] } | null)?.requests;
+                if (!requests) {
+                  emit(loadFailed.create({ message: "requests returned no data" }));
+                  return;
+                }
+                emit(loaded.create({ requests }));
+              },
+              (message) => emit(loadFailed.create({ message })),
+            );
+          },
+        });
+        /** The requests are shown; asks not listed before are announced, except at the first load. */
+        m.on(loadingRequests, {
+          event: loaded,
+          to: [showingRequests],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const listed = e.payload.requests.filter(
+              (r) => !ctx.heldDeclines.some((h) => sameKey(h.request, r)),
+            );
+            const fresh = listed.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
+            opts.context.set({ ...ctx, requests: listed, error: null, loadedOnce: true });
+            if (ctx.loadedOnce && fresh.length > 0) {
+              return {
+                state: showingRequests,
+                emit: [requestsArrived.create({ requests: fresh })],
+              };
+            }
+            return { state: showingRequests };
+          },
+        });
+        /** Loading failed: the person sees an error and can try again. */
+        m.on(loadingRequests, {
+          event: loadFailed,
+          to: [couldNotLoadRequests],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: e.payload.message });
+            return { state: couldNotLoadRequests };
+          },
+        });
+
+        /** The Admin's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
+        m.effect(sendingAnswer, {
+          name: "sendingAnswer",
+          sends: [responded, respondFailed, requestWasCancelled],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pendingRespond;
+            if (!pending) {
+              emit(respondFailed.create({ message: "no pending response" }));
+              return;
+            }
+            const { folderId, requesterKey } = pending;
+            return (async () => {
+              try {
+                const [error] = await port.respond(
+                  folderId,
+                  requesterKey,
+                  pending.approve,
+                  pending.role,
+                );
+                if (signal.aborted) return;
+                if (!error) emit(responded.create({ folderId, requesterKey }));
+                else if (codeOf(error) === REQUEST_CANCELLED_CODE)
+                  emit(requestWasCancelled.create({ folderId, requesterKey }));
+                else emit(respondFailed.create({ message: messageOf(error) }));
+              } catch (e) {
+                if (signal.aborted) return;
+                emit(respondFailed.create({ message: messageOf(e) }));
               }
-              emit(loaded.create({ requests }));
-            },
-            (message) => emit(loadFailed.create({ message })),
-          );
-        },
-      });
-      /** The requests are shown; asks not listed before are announced, except at the first load. */
-      m.on(loadingRequests, {
-        event: loaded,
-        to: [showingRequests],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const listed = e.payload.requests.filter(
-            (r) => !ctx.heldDeclines.some((h) => sameKey(h.request, r)),
-          );
-          const fresh = listed.filter((r) => !ctx.requests.some((q) => sameAsk(q, r)));
-          opts.context.set({ ...ctx, requests: listed, error: null, loadedOnce: true });
-          if (ctx.loadedOnce && fresh.length > 0) {
-            return { state: showingRequests, emit: [requestsArrived.create({ requests: fresh })] };
-          }
-          return { state: showingRequests };
-        },
-      });
-      /** Loading failed: the person sees an error and can try again. */
-      m.on(loadingRequests, {
-        event: loadFailed,
-        to: [couldNotLoadRequests],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: e.payload.message });
-          return { state: couldNotLoadRequests };
-        },
-      });
-
-      /** The Admin's answer to a join request is sent; if it cannot be sent, the person sees an error and the request stays in the list. */
-      m.effect(sendingAnswer, {
-        name: "sendingAnswer",
-        sends: [responded, respondFailed, requestWasCancelled],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pendingRespond;
-          if (!pending) {
-            emit(respondFailed.create({ message: "no pending response" }));
-            return;
-          }
-          const { folderId, requesterKey } = pending;
-          return (async () => {
-            try {
-              const [error] = await port.respond(
-                folderId,
-                requesterKey,
-                pending.approve,
-                pending.role,
-              );
-              if (signal.aborted) return;
-              if (!error) emit(responded.create({ folderId, requesterKey }));
-              else if (codeOf(error) === REQUEST_CANCELLED_CODE)
-                emit(requestWasCancelled.create({ folderId, requesterKey }));
-              else emit(respondFailed.create({ message: messageOf(error) }));
-            } catch (e) {
-              if (signal.aborted) return;
-              emit(respondFailed.create({ message: messageOf(e) }));
+            })();
+          },
+        });
+        /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
+        m.effect(sendingAnswersToAll, {
+          name: "sendingAnswersToAll",
+          sends: [responded, respondFailed, requestWasCancelled],
+          fn: ({ signal, emit, state }) => {
+            const { folderId, next } = state.payload;
+            return (async () => {
+              try {
+                const [error] = await port.respond(folderId, next, true, "reader");
+                if (signal.aborted) return;
+                if (!error) emit(responded.create({ folderId, requesterKey: next }));
+                else if (codeOf(error) === REQUEST_CANCELLED_CODE)
+                  emit(requestWasCancelled.create({ folderId, requesterKey: next }));
+                else emit(respondFailed.create({ message: messageOf(error) }));
+              } catch (e) {
+                if (signal.aborted) return;
+                emit(respondFailed.create({ message: messageOf(e) }));
+              }
+            })();
+          },
+        });
+        /** One answer of Accept all went through: that person leaves the list and the next is sent; after the last, the list reloads and the Admin hears how many are in. */
+        m.on(sendingAnswersToAll, {
+          event: responded,
+          to: [sendingAnswersToAll, loadingRequests],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const p = opts.state.payload;
+            opts.context.set({
+              ...ctx,
+              requests: removeRequestFromList(
+                ctx.requests,
+                e.payload.folderId,
+                e.payload.requesterKey,
+              ),
+            });
+            const sent = p.sent + 1;
+            const [next, ...after] = p.after;
+            if (next !== undefined) {
+              return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
             }
-          })();
-        },
-      });
-      /** One answer of Accept all is sent as a Viewer; if it cannot be sent, the batch hears why. */
-      m.effect(sendingAnswersToAll, {
-        name: "sendingAnswersToAll",
-        sends: [responded, respondFailed, requestWasCancelled],
-        fn: ({ signal, emit, state }) => {
-          const { folderId, next } = state.payload;
-          return (async () => {
-            try {
-              const [error] = await port.respond(folderId, next, true, "reader");
-              if (signal.aborted) return;
-              if (!error) emit(responded.create({ folderId, requesterKey: next }));
-              else if (codeOf(error) === REQUEST_CANCELLED_CODE)
-                emit(requestWasCancelled.create({ folderId, requesterKey: next }));
-              else emit(respondFailed.create({ message: messageOf(error) }));
-            } catch (e) {
-              if (signal.aborted) return;
-              emit(respondFailed.create({ message: messageOf(e) }));
+            return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
+          },
+        });
+        /** A person in Accept all cancelled: they are skipped, the rest go on, and only who got in is counted. */
+        m.on(sendingAnswersToAll, {
+          event: requestWasCancelled,
+          to: [sendingAnswersToAll, loadingRequests],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const p = opts.state.payload;
+            opts.context.set({
+              ...ctx,
+              requests: removeRequestFromList(
+                ctx.requests,
+                e.payload.folderId,
+                e.payload.requesterKey,
+              ),
+            });
+            const [next, ...after] = p.after;
+            if (next !== undefined) {
+              return { state: sendingAnswersToAll.create({ ...p, next, after }) };
             }
-          })();
-        },
-      });
-      /** One answer of Accept all went through: that person leaves the list and the next is sent; after the last, the list reloads and the Admin hears how many are in. */
-      m.on(sendingAnswersToAll, {
-        event: responded,
-        to: [sendingAnswersToAll, loadingRequests],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const p = opts.state.payload;
-          opts.context.set({
-            ...ctx,
-            requests: removeRequestFromList(
-              ctx.requests,
-              e.payload.folderId,
-              e.payload.requesterKey,
-            ),
-          });
-          const sent = p.sent + 1;
-          const [next, ...after] = p.after;
-          if (next !== undefined) {
-            return { state: sendingAnswersToAll.create({ ...p, next, after, sent }) };
-          }
-          return { state: loadingRequests, emit: [allAcceptedAsViewers.create({ count: sent })] };
-        },
-      });
-      /** A person in Accept all cancelled: they are skipped, the rest go on, and only who got in is counted. */
-      m.on(sendingAnswersToAll, {
-        event: requestWasCancelled,
-        to: [sendingAnswersToAll, loadingRequests],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const p = opts.state.payload;
-          opts.context.set({
-            ...ctx,
-            requests: removeRequestFromList(
-              ctx.requests,
-              e.payload.folderId,
-              e.payload.requesterKey,
-            ),
-          });
-          const [next, ...after] = p.after;
-          if (next !== undefined) {
-            return { state: sendingAnswersToAll.create({ ...p, next, after }) };
-          }
-          return {
-            state: loadingRequests,
-            emit: p.sent > 0 ? [allAcceptedAsViewers.create({ count: p.sent })] : [],
-          };
-        },
-      });
-      /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
-      m.on(sendingAnswersToAll, {
-        event: respondFailed,
-        to: [couldNotSendAnswer],
-        handler: (e, opts) => {
-          const p = opts.state.payload;
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-            stoppedBatch: p,
-            pendingRespond: {
-              folderId: p.folderId,
-              requesterKey: p.next,
-              approve: true,
-              role: "reader",
-            },
-          });
-          return { state: couldNotSendAnswer };
-        },
-      });
-      /** The answer went through and that request disappears from the list. */
-      m.on(sendingAnswer, {
-        event: responded,
-        to: [showingRequests],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const pending = ctx.pendingRespond;
-          const request = ctx.requests.find(
-            (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
-          );
-          opts.context.set({
-            ...ctx,
-            error: null,
-            requests: removeRequestFromList(
-              ctx.requests,
-              e.payload.folderId,
-              e.payload.requesterKey,
-            ),
-            pendingRespond: null,
-            accepted: pending?.approve && request ? request : ctx.accepted,
-          });
-          if (!pending) return { state: showingRequests };
-          return {
-            state: showingRequests,
-            emit: [
-              answerSent.create({
-                requesterKey: e.payload.requesterKey,
-                requesterName: request?.requesterName ?? copy("requests.they"),
-                approve: pending.approve,
-                role: pending.role,
-                viaInvite: request?.viaInvite === true,
-              }),
-            ],
-          };
-        },
-      });
-      /** The joiner cancelled: the card leaves and the Admin is told who. */
-      m.on(sendingAnswer, {
-        event: requestWasCancelled,
-        to: [showingRequests],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const request = ctx.requests.find(
-            (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
-          );
-          opts.context.set({
-            ...ctx,
-            error: null,
-            requests: removeRequestFromList(
-              ctx.requests,
-              e.payload.folderId,
-              e.payload.requesterKey,
-            ),
-            pendingRespond: null,
-          });
-          return {
-            state: showingRequests,
-            emit: [
-              requestCancelledBeforeAnswer.create({
-                requesterName: request?.requesterName || copy("requests.they"),
-              }),
-            ],
-          };
-        },
-      });
-      /** Sending failed: the person sees an error and the request stays in the list. */
-      m.on(sendingAnswer, {
-        event: respondFailed,
-        to: [couldNotSendAnswer],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-          });
-          return { state: couldNotSendAnswer };
-        },
-      });
-      /** Retry after a failed answer: the same answer is sent again, and a stopped Accept all carries on with the people still waiting. */
-      m.on(couldNotSendAnswer, {
-        event: retry,
-        to: [sendingAnswer, sendingAnswersToAll],
-        handler: (_e, opts) => {
-          const ctx = opts.context.get();
-          opts.context.set({ ...ctx, error: null, stoppedBatch: null });
-          if (ctx.stoppedBatch) return { state: sendingAnswersToAll.create(ctx.stoppedBatch) };
-          return { state: sendingAnswer };
-        },
-      });
-    },
-  });
-}
+            return {
+              state: loadingRequests,
+              emit: p.sent > 0 ? [allAcceptedAsViewers.create({ count: p.sent })] : [],
+            };
+          },
+        });
+        /** One answer of Accept all failed: the batch stops, the rest stay waiting, and Retry carries on from this person. */
+        m.on(sendingAnswersToAll, {
+          event: respondFailed,
+          to: [couldNotSendAnswer],
+          handler: (e, opts) => {
+            const p = opts.state.payload;
+            opts.context.set({
+              ...opts.context.get(),
+              error: e.payload.message,
+              stoppedBatch: p,
+              pendingRespond: {
+                folderId: p.folderId,
+                requesterKey: p.next,
+                approve: true,
+                role: "reader",
+              },
+            });
+            return { state: couldNotSendAnswer };
+          },
+        });
+        /** The answer went through and that request disappears from the list. */
+        m.on(sendingAnswer, {
+          event: responded,
+          to: [showingRequests],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const pending = ctx.pendingRespond;
+            const request = ctx.requests.find(
+              (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
+            );
+            opts.context.set({
+              ...ctx,
+              error: null,
+              requests: removeRequestFromList(
+                ctx.requests,
+                e.payload.folderId,
+                e.payload.requesterKey,
+              ),
+              pendingRespond: null,
+              accepted: pending?.approve && request ? request : ctx.accepted,
+            });
+            if (!pending) return { state: showingRequests };
+            return {
+              state: showingRequests,
+              emit: [
+                answerSent.create({
+                  requesterKey: e.payload.requesterKey,
+                  requesterName: request?.requesterName ?? copy("requests.they"),
+                  approve: pending.approve,
+                  role: pending.role,
+                  viaInvite: request?.viaInvite === true,
+                }),
+              ],
+            };
+          },
+        });
+        /** The joiner cancelled: the card leaves and the Admin is told who. */
+        m.on(sendingAnswer, {
+          event: requestWasCancelled,
+          to: [showingRequests],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const request = ctx.requests.find(
+              (q) => q.folderId === e.payload.folderId && q.requesterKey === e.payload.requesterKey,
+            );
+            opts.context.set({
+              ...ctx,
+              error: null,
+              requests: removeRequestFromList(
+                ctx.requests,
+                e.payload.folderId,
+                e.payload.requesterKey,
+              ),
+              pendingRespond: null,
+            });
+            return {
+              state: showingRequests,
+              emit: [
+                requestCancelledBeforeAnswer.create({
+                  requesterName: request?.requesterName || copy("requests.they"),
+                }),
+              ],
+            };
+          },
+        });
+        /** Sending failed: the person sees an error and the request stays in the list. */
+        m.on(sendingAnswer, {
+          event: respondFailed,
+          to: [couldNotSendAnswer],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: e.payload.message,
+            });
+            return { state: couldNotSendAnswer };
+          },
+        });
+        /** Retry after a failed answer: the same answer is sent again, and a stopped Accept all carries on with the people still waiting. */
+        m.on(couldNotSendAnswer, {
+          event: retry,
+          to: [sendingAnswer, sendingAnswersToAll],
+          handler: (_e, opts) => {
+            const ctx = opts.context.get();
+            opts.context.set({ ...ctx, error: null, stoppedBatch: null });
+            if (ctx.stoppedBatch) return { state: sendingAnswersToAll.create(ctx.stoppedBatch) };
+            return { state: sendingAnswer };
+          },
+        });
+      },
+    });
+  },
+});
 
-export const requestsActor = createRequestsActor({ clock: RealClock() });
+export const requestsActor = requestsMachine.create();
 
 export const requests = {
   state: () => nameOf(requestsActor.snapshot()),

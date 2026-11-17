@@ -36,7 +36,7 @@ vi.mock("../folders-machine", () => {
 });
 
 const { join, joinActor, joinViewOf } = await import("./join-request");
-const { createJoinRequestActor } = await import("./join-request-machine");
+const { joinRequestMachine } = await import("./join-request-machine");
 const { foldersActor } = (await import("../folders-machine")) as unknown as {
   foldersActor: { snapshot: () => { context: { folders: unknown[]; asks: unknown[] } } };
 };
@@ -248,7 +248,7 @@ describe("join singleton", () => {
 
 describe("joinViewOf", () => {
   test("initial snapshot has no invite", () => {
-    const fresh = createJoinRequestActor({
+    const fresh = joinRequestMachine.create({
       clock: VirtualClock(),
       known: () => ({ kind: "new" }) as never,
       port: { ask: async () => [null, null] as never },

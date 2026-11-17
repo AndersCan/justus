@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import { FriendError, type Friend } from "@justus/core";
 import { gateway } from "../gateway";
 import { runInvoke } from "./actor-utils";
@@ -69,253 +69,256 @@ type FriendsContext = { friends: Record<string, string>; error: string | null };
 
 const initialContext: FriendsContext = { friends: {}, error: null };
 
-/** The clock and the friends port are injected so tests and the flow inspector can drive the machine. */
-export function createFriendsActor(options: { clock: Clock; port?: FriendsPort }) {
-  const { clock, port = gateway.friends } = options;
-  return Actor({
-    inputs: [open, add, rename, type, save, close, remove],
-    internal: [loaded, loadFailed, saved, saveFailed, friendGone, removed, removeFailed],
-    outputs: [friendSaved, friendRemoved, friendNotRemoved],
-    states: [
-      loadingFriends,
-      friendSheetClosed,
-      showingMember,
-      namingFriend,
-      savingFriend,
-      removingFriend,
-    ],
-    initial: loadingFriends,
-    clock,
-    context: initialContext,
-    setup: (m) => {
-      /** The saved friends are read from this device; if that fails, the app carries on with no friends. */
-      m.effect(loadingFriends, {
-        name: "loadingFriends",
-        sends: [loaded, loadFailed],
-        fn: ({ signal, emit }) =>
-          runInvoke(
-            signal,
-            () => port.list(),
-            (result) =>
-              emit(
-                loaded.create({ friends: (result as { friends: Friend[] } | null)?.friends ?? [] }),
-              ),
-            (message) => {
-              console.error("friends: could not load", message);
-              emit(loadFailed.create({ message }));
-            },
-          ),
-      });
-      /** The friends are known, so the sheet can open. */
-      m.on(loadingFriends, {
-        event: loaded,
-        to: [friendSheetClosed],
-        handler: (e, opts) => {
-          const friends: Record<string, string> = {};
-          for (const f of e.payload.friends) friends[f.identity] = f.name;
-          opts.context.set({ friends, error: null });
-          return { state: friendSheetClosed };
-        },
-      });
-      /** Reading the friends failed; nobody is shown as a friend and no error is shown. */
-      m.on(loadingFriends, {
-        event: loadFailed,
-        to: [friendSheetClosed],
-        handler: () => ({ state: friendSheetClosed }),
-      });
+/** The friends port is injected so tests and the flow inspector can drive the machine. */
+export const friendsMachine = machine("friends", {
+  create: (options: { port?: FriendsPort }) => {
+    const { port = gateway.friends } = options;
+    return Actor({
+      inputs: [open, add, rename, type, save, close, remove],
+      internal: [loaded, loadFailed, saved, saveFailed, friendGone, removed, removeFailed],
+      outputs: [friendSaved, friendRemoved, friendNotRemoved],
+      states: [
+        loadingFriends,
+        friendSheetClosed,
+        showingMember,
+        namingFriend,
+        savingFriend,
+        removingFriend,
+      ],
+      initial: loadingFriends,
+      context: initialContext,
+      setup: (m) => {
+        /** The saved friends are read from this device; if that fails, the app carries on with no friends. */
+        m.effect(loadingFriends, {
+          name: "loadingFriends",
+          sends: [loaded, loadFailed],
+          fn: ({ signal, emit }) =>
+            runInvoke(
+              signal,
+              () => port.list(),
+              (result) =>
+                emit(
+                  loaded.create({
+                    friends: (result as { friends: Friend[] } | null)?.friends ?? [],
+                  }),
+                ),
+              (message) => {
+                console.error("friends: could not load", message);
+                emit(loadFailed.create({ message }));
+              },
+            ),
+        });
+        /** The friends are known, so the sheet can open. */
+        m.on(loadingFriends, {
+          event: loaded,
+          to: [friendSheetClosed],
+          handler: (e, opts) => {
+            const friends: Record<string, string> = {};
+            for (const f of e.payload.friends) friends[f.identity] = f.name;
+            opts.context.set({ friends, error: null });
+            return { state: friendSheetClosed };
+          },
+        });
+        /** Reading the friends failed; nobody is shown as a friend and no error is shown. */
+        m.on(loadingFriends, {
+          event: loadFailed,
+          to: [friendSheetClosed],
+          handler: () => ({ state: friendSheetClosed }),
+        });
 
-      /** The person taps a member and the friend sheet opens for them. */
-      m.on(friendSheetClosed, {
-        event: open,
-        to: [showingMember],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: showingMember.create(e.payload.target) };
-        },
-      });
-      /** The person starts naming a member who is not a friend yet, with their own name as the first draft. */
-      m.on(showingMember, {
-        event: add,
-        to: [namingFriend, showingMember],
-        handler: (_e, opts) => {
-          const target = opts.state.payload;
-          if (opts.context.get().friends[target.identity] !== undefined) {
-            return { state: showingMember.create(target) };
-          }
-          return { state: namingFriend.create({ ...target, draft: target.ownName }) };
-        },
-      });
-      /** The person starts renaming a saved friend, with the saved name as the draft. */
-      m.on(showingMember, {
-        event: rename,
-        to: [namingFriend, showingMember],
-        handler: (_e, opts) => {
-          const target = opts.state.payload;
-          const savedName = opts.context.get().friends[target.identity];
-          if (savedName === undefined) return { state: showingMember.create(target) };
-          return { state: namingFriend.create({ ...target, draft: savedName, renaming: true }) };
-        },
-      });
-      /** Closing the sheet from the member view hides it. */
-      m.on(showingMember, {
-        event: close,
-        to: [friendSheetClosed],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: friendSheetClosed };
-        },
-      });
-      /** Closing the sheet while naming throws the draft away. */
-      m.on(namingFriend, {
-        event: close,
-        to: [friendSheetClosed],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: friendSheetClosed };
-        },
-      });
-      /** Typing changes the draft, cut to the longest name allowed, and clears any save error. */
-      m.on(namingFriend, {
-        event: type,
-        to: [namingFriend],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return {
-            state: namingFriend.create({
-              ...opts.state.payload,
-              draft: e.payload.text.slice(0, FRIEND_NAME_LIMIT),
-            }),
-          };
-        },
-      });
-      /** Save starts only when the draft has something other than spaces in it; an unchanged name for a rename just closes the sheet. */
-      m.on(namingFriend, {
-        event: save,
-        to: [savingFriend, namingFriend, friendSheetClosed],
-        handler: (_e, opts) => {
-          const { identity, ownName, draft, renaming } = opts.state.payload;
-          const name = draft.trim();
-          if (name === "") return { state: namingFriend.create(opts.state.payload) };
-          if (renaming && opts.context.get().friends[identity] === name) {
+        /** The person taps a member and the friend sheet opens for them. */
+        m.on(friendSheetClosed, {
+          event: open,
+          to: [showingMember],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: showingMember.create(e.payload.target) };
+          },
+        });
+        /** The person starts naming a member who is not a friend yet, with their own name as the first draft. */
+        m.on(showingMember, {
+          event: add,
+          to: [namingFriend, showingMember],
+          handler: (_e, opts) => {
+            const target = opts.state.payload;
+            if (opts.context.get().friends[target.identity] !== undefined) {
+              return { state: showingMember.create(target) };
+            }
+            return { state: namingFriend.create({ ...target, draft: target.ownName }) };
+          },
+        });
+        /** The person starts renaming a saved friend, with the saved name as the draft. */
+        m.on(showingMember, {
+          event: rename,
+          to: [namingFriend, showingMember],
+          handler: (_e, opts) => {
+            const target = opts.state.payload;
+            const savedName = opts.context.get().friends[target.identity];
+            if (savedName === undefined) return { state: showingMember.create(target) };
+            return { state: namingFriend.create({ ...target, draft: savedName, renaming: true }) };
+          },
+        });
+        /** Closing the sheet from the member view hides it. */
+        m.on(showingMember, {
+          event: close,
+          to: [friendSheetClosed],
+          handler: (_e, opts) => {
             opts.context.set({ ...opts.context.get(), error: null });
             return { state: friendSheetClosed };
-          }
-          return { state: savingFriend.create({ identity, ownName, name, renaming }) };
-        },
-      });
+          },
+        });
+        /** Closing the sheet while naming throws the draft away. */
+        m.on(namingFriend, {
+          event: close,
+          to: [friendSheetClosed],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: friendSheetClosed };
+          },
+        });
+        /** Typing changes the draft, cut to the longest name allowed, and clears any save error. */
+        m.on(namingFriend, {
+          event: type,
+          to: [namingFriend],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return {
+              state: namingFriend.create({
+                ...opts.state.payload,
+                draft: e.payload.text.slice(0, FRIEND_NAME_LIMIT),
+              }),
+            };
+          },
+        });
+        /** Save starts only when the draft has something other than spaces in it; an unchanged name for a rename just closes the sheet. */
+        m.on(namingFriend, {
+          event: save,
+          to: [savingFriend, namingFriend, friendSheetClosed],
+          handler: (_e, opts) => {
+            const { identity, ownName, draft, renaming } = opts.state.payload;
+            const name = draft.trim();
+            if (name === "") return { state: namingFriend.create(opts.state.payload) };
+            if (renaming && opts.context.get().friends[identity] === name) {
+              opts.context.set({ ...opts.context.get(), error: null });
+              return { state: friendSheetClosed };
+            }
+            return { state: savingFriend.create({ identity, ownName, name, renaming }) };
+          },
+        });
 
-      /** The name is saved on this device; if that fails, the person sees why and can try again. */
-      m.effect(savingFriend, {
-        name: "savingFriend",
-        sends: [saved, saveFailed, friendGone],
-        fn: ({ signal, emit, state: current }) => {
-          const { identity, name, renaming } = current.payload;
-          let gone = false;
-          return runInvoke(
-            signal,
-            async () => {
-              if (!renaming) return port.add(identity, name);
-              const outcome = await port.rename(identity, name);
-              gone = (outcome[0] as { code?: string } | null)?.code === FriendError.NOT_FOUND;
-              return outcome;
-            },
-            (result) =>
-              emit(
-                saved.create({
-                  friend: (result as { friend: Friend } | null)?.friend ?? { identity, name },
-                }),
-              ),
-            (message) => emit(gone ? friendGone.create() : saveFailed.create({ message })),
-          );
-        },
-      });
-      /** The friend is kept and the sheet closes; a new friend is announced by name, a rename says nothing. */
-      m.on(savingFriend, {
-        event: saved,
-        to: [friendSheetClosed],
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          opts.context.set({
-            friends: { ...ctx.friends, [e.payload.friend.identity]: e.payload.friend.name },
-            error: null,
-          });
-          return {
+        /** The name is saved on this device; if that fails, the person sees why and can try again. */
+        m.effect(savingFriend, {
+          name: "savingFriend",
+          sends: [saved, saveFailed, friendGone],
+          fn: ({ signal, emit, state: current }) => {
+            const { identity, name, renaming } = current.payload;
+            let gone = false;
+            return runInvoke(
+              signal,
+              async () => {
+                if (!renaming) return port.add(identity, name);
+                const outcome = await port.rename(identity, name);
+                gone = (outcome[0] as { code?: string } | null)?.code === FriendError.NOT_FOUND;
+                return outcome;
+              },
+              (result) =>
+                emit(
+                  saved.create({
+                    friend: (result as { friend: Friend } | null)?.friend ?? { identity, name },
+                  }),
+                ),
+              (message) => emit(gone ? friendGone.create() : saveFailed.create({ message })),
+            );
+          },
+        });
+        /** The friend is kept and the sheet closes; a new friend is announced by name, a rename says nothing. */
+        m.on(savingFriend, {
+          event: saved,
+          to: [friendSheetClosed],
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            opts.context.set({
+              friends: { ...ctx.friends, [e.payload.friend.identity]: e.payload.friend.name },
+              error: null,
+            });
+            return {
+              state: friendSheetClosed,
+              emit: opts.state.payload.renaming
+                ? []
+                : [friendSaved.create({ name: e.payload.friend.name })],
+            };
+          },
+        });
+        /** Saving failed: the person is back at the name with their draft and a short message; a rename stays a rename. */
+        m.on(savingFriend, {
+          event: saveFailed,
+          to: [namingFriend],
+          handler: (_e, opts) => {
+            const { identity, ownName, name, renaming } = opts.state.payload;
+            opts.context.set({ ...opts.context.get(), error: SAVE_FAILED_COPY });
+            return { state: namingFriend.create({ identity, ownName, draft: name, renaming }) };
+          },
+        });
+        /** The friend was taken off the list meanwhile: the sheet closes quietly and the name is dropped here too. */
+        m.on(savingFriend, {
+          event: friendGone,
+          to: [friendSheetClosed],
+          handler: (_e, opts) => {
+            const rest = { ...opts.context.get().friends };
+            delete rest[opts.state.payload.identity];
+            opts.context.set({ friends: rest, error: null });
+            return { state: friendSheetClosed };
+          },
+        });
+
+        /** Remove starts only for someone on the list. */
+        m.on(friendSheetClosed, {
+          event: remove,
+          to: [removingFriend, friendSheetClosed],
+          handler: (e, opts) => {
+            const { identity } = e.payload;
+            const name = opts.context.get().friends[identity];
+            if (name === undefined) return { state: friendSheetClosed };
+            return { state: removingFriend.create({ identity, name }) };
+          },
+        });
+        /** The friend is taken off this phone's list. */
+        m.effect(removingFriend, {
+          name: "removingFriend",
+          sends: [removed, removeFailed],
+          fn: ({ signal, emit, state: current }) =>
+            runInvoke(
+              signal,
+              () => port.remove(current.payload.identity),
+              () => emit(removed.create()),
+              (message) => emit(removeFailed.create({ message })),
+            ),
+        });
+        /** The friend is gone from the list and the app is told the name. */
+        m.on(removingFriend, {
+          event: removed,
+          to: [friendSheetClosed],
+          handler: (_e, opts) => {
+            const { identity, name } = opts.state.payload;
+            const rest = { ...opts.context.get().friends };
+            delete rest[identity];
+            opts.context.set({ friends: rest, error: null });
+            return { state: friendSheetClosed, emit: [friendRemoved.create({ name })] };
+          },
+        });
+        /** Removing failed: the friend stays and the app is told the name. */
+        m.on(removingFriend, {
+          event: removeFailed,
+          to: [friendSheetClosed],
+          handler: (_e, opts) => ({
             state: friendSheetClosed,
-            emit: opts.state.payload.renaming
-              ? []
-              : [friendSaved.create({ name: e.payload.friend.name })],
-          };
-        },
-      });
-      /** Saving failed: the person is back at the name with their draft and a short message; a rename stays a rename. */
-      m.on(savingFriend, {
-        event: saveFailed,
-        to: [namingFriend],
-        handler: (_e, opts) => {
-          const { identity, ownName, name, renaming } = opts.state.payload;
-          opts.context.set({ ...opts.context.get(), error: SAVE_FAILED_COPY });
-          return { state: namingFriend.create({ identity, ownName, draft: name, renaming }) };
-        },
-      });
-      /** The friend was taken off the list meanwhile: the sheet closes quietly and the name is dropped here too. */
-      m.on(savingFriend, {
-        event: friendGone,
-        to: [friendSheetClosed],
-        handler: (_e, opts) => {
-          const rest = { ...opts.context.get().friends };
-          delete rest[opts.state.payload.identity];
-          opts.context.set({ friends: rest, error: null });
-          return { state: friendSheetClosed };
-        },
-      });
-
-      /** Remove starts only for someone on the list. */
-      m.on(friendSheetClosed, {
-        event: remove,
-        to: [removingFriend, friendSheetClosed],
-        handler: (e, opts) => {
-          const { identity } = e.payload;
-          const name = opts.context.get().friends[identity];
-          if (name === undefined) return { state: friendSheetClosed };
-          return { state: removingFriend.create({ identity, name }) };
-        },
-      });
-      /** The friend is taken off this phone's list. */
-      m.effect(removingFriend, {
-        name: "removingFriend",
-        sends: [removed, removeFailed],
-        fn: ({ signal, emit, state: current }) =>
-          runInvoke(
-            signal,
-            () => port.remove(current.payload.identity),
-            () => emit(removed.create()),
-            (message) => emit(removeFailed.create({ message })),
-          ),
-      });
-      /** The friend is gone from the list and the app is told the name. */
-      m.on(removingFriend, {
-        event: removed,
-        to: [friendSheetClosed],
-        handler: (_e, opts) => {
-          const { identity, name } = opts.state.payload;
-          const rest = { ...opts.context.get().friends };
-          delete rest[identity];
-          opts.context.set({ friends: rest, error: null });
-          return { state: friendSheetClosed, emit: [friendRemoved.create({ name })] };
-        },
-      });
-      /** Removing failed: the friend stays and the app is told the name. */
-      m.on(removingFriend, {
-        event: removeFailed,
-        to: [friendSheetClosed],
-        handler: (_e, opts) => ({
-          state: friendSheetClosed,
-          emit: [friendNotRemoved.create({ name: opts.state.payload.name })],
-        }),
-      });
-    },
-  });
-}
+            emit: [friendNotRemoved.create({ name: opts.state.payload.name })],
+          }),
+        });
+      },
+    });
+  },
+});
 
 export type FriendSheet = {
   state:
@@ -360,7 +363,7 @@ export function savedFriends(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export const friendsActor = createFriendsActor({ clock: RealClock() });
+export const friendsActor = friendsMachine.create();
 
 export const friends = {
   open: (target: FriendTarget) => friendsActor.send(open.create({ target })),

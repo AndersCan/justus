@@ -1,56 +1,57 @@
-import type { Clock } from "@mantaq/core";
-import { createAppLockActor } from "./app-lock-machine";
-import { createFoldersActor, wireFoldersToSync } from "./folders-machine";
-import { createFriendsActor } from "./friends-machine";
-import { createGalleryActor } from "./gallery-machine";
-import { createLightboxActor } from "./lightbox-machine";
-import { createLogsActor } from "./logs-machine";
-import { createOnboardingActor, wireOnboardingToFolders } from "./onboarding-machine";
-import { createPeopleActor, wirePeopleToRequests } from "./people-machine";
-import { createPrefsActor } from "./prefs-machine";
-import { createReachActor, wireReachToSync } from "./reach-hint-machine";
-import { createRequestsActor, refresh } from "./requests-machine";
-import { createRouterActor } from "./router-machine";
-import { createAddFriendActor } from "./sharing/add-friend-machine";
-import { createFriendOfferActor } from "./sharing/friend-offer-machine";
-import { createInviteLinkActor } from "./sharing/invite-link-machine";
-import { createJoinRequestActor } from "./sharing/join-request-machine";
+import { machine } from "@mantaq/core";
+import { appLockMachine } from "./app-lock-machine";
+import { foldersMachine, wireFoldersToSync } from "./folders-machine";
+import { friendsMachine } from "./friends-machine";
+import { galleryMachine } from "./gallery-machine";
+import { lightboxMachine } from "./lightbox-machine";
+import { logsMachine } from "./logs-machine";
+import { onboardingMachine, wireOnboardingToFolders } from "./onboarding-machine";
+import { peopleMachine, wirePeopleToRequests } from "./people-machine";
+import { prefsMachine } from "./prefs-machine";
+import { reachMachine, wireReachToSync } from "./reach-hint-machine";
+import { requestsMachine, refresh } from "./requests-machine";
+import { routerMachine } from "./router-machine";
+import { addFriendMachine } from "./sharing/add-friend-machine";
+import { friendOfferMachine } from "./sharing/friend-offer-machine";
+import { inviteLinkMachine } from "./sharing/invite-link-machine";
+import { joinRequestMachine } from "./sharing/join-request-machine";
 import { wireAsksToJoin } from "./sharing/join-request";
-import { createSyncActor } from "./sync-machine";
+import { syncMachine } from "./sync-machine";
 
 /** Every machine in the app, wired as the app wires them, so one board draws the whole app.
  * The router is the root; the other sixteen sit beside it by name. */
-export function createJustus(options: { clock: Clock }) {
-  const { clock } = options;
-  const folders = createFoldersActor({ clock });
-  const sync = createSyncActor({ clock });
-  const onboarding = createOnboardingActor({ clock });
-  const people = createPeopleActor({ clock });
-  const requests = createRequestsActor({ clock });
-  const reach = createReachActor({ clock });
-  const join = createJoinRequestActor({ clock });
-  wireOnboardingToFolders(onboarding, folders);
-  wireFoldersToSync(folders, sync);
-  wireReachToSync(reach, sync);
-  wirePeopleToRequests(people, { refresh: () => requests.send(refresh.create()) });
-  wireAsksToJoin(folders, join);
-  return {
-    actor: createRouterActor({ clock, page: undefined }),
-    appLock: createAppLockActor({ clock }),
-    folders,
-    friends: createFriendsActor({ clock }),
-    gallery: createGalleryActor({ clock }),
-    lightbox: createLightboxActor({ clock }),
-    logs: createLogsActor({ clock }),
-    onboarding,
-    people,
-    prefs: createPrefsActor({ clock }),
-    reach,
-    requests,
-    sync,
-    addFriend: createAddFriendActor({ clock }),
-    friendOffer: createFriendOfferActor({ clock }),
-    inviteLink: createInviteLinkActor({ clock }),
-    join,
-  };
-}
+export const justusMachine = machine("justus", {
+  create: ({ clock }) => {
+    const folders = foldersMachine.create();
+    const sync = syncMachine.create();
+    const onboarding = onboardingMachine.create();
+    const people = peopleMachine.create();
+    const requests = requestsMachine.create();
+    const reach = reachMachine.create({ clock });
+    const join = joinRequestMachine.create({ clock });
+    wireOnboardingToFolders(onboarding, folders);
+    wireFoldersToSync(folders, sync);
+    wireReachToSync(reach, sync);
+    wirePeopleToRequests(people, { refresh: () => requests.send(refresh.create()) });
+    wireAsksToJoin(folders, join);
+    return {
+      actor: routerMachine.create(),
+      appLock: appLockMachine.create(),
+      folders,
+      friends: friendsMachine.create(),
+      gallery: galleryMachine.create(),
+      lightbox: lightboxMachine.create(),
+      logs: logsMachine.create(),
+      onboarding,
+      people,
+      prefs: prefsMachine.create(),
+      reach,
+      requests,
+      sync,
+      addFriend: addFriendMachine.create(),
+      friendOffer: friendOfferMachine.create({ clock }),
+      inviteLink: inviteLinkMachine.create({ clock }),
+      join,
+    };
+  },
+});
