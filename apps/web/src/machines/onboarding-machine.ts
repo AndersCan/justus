@@ -18,6 +18,7 @@ export const ONBOARDING_STATES = [
   "showingIntroCards",
   "askingForName",
   "savingName",
+  "waitingForLockStatus",
   "offeringAppLock",
   "turningOnAppLock",
   "choosingCreateOrJoin",
@@ -39,7 +40,7 @@ export function onboardingViewModel(s: Snapshot<OnboardingContext>, userName: st
     card: s.context.card,
     cardCount: INTRO_CARD_COUNT,
     state,
-    saving: state === "savingName",
+    saving: state === "savingName" || state === "waitingForLockStatus",
     turningOnLock: state === "turningOnAppLock",
     error: fatal?.message ?? s.context.error,
     fatal: fatal !== null,
@@ -55,6 +56,8 @@ const showingIntroCards = state("showingIntroCards")();
 const askingForName = state("askingForName")();
 /** The name is being saved; the button shows progress. */
 const savingName = state("savingName")();
+/** The name is saved but the phone has not yet said whether it has a screen lock. */
+const waitingForLockStatus = state("waitingForLockStatus")();
 /** The name is saved and the phone has a screen lock: the person is asked whether to lock Justus with it. */
 const offeringAppLock = state("offeringAppLock")();
 /** The phone's own fingerprint, face or PIN prompt is open to confirm turning App lock on. */
@@ -78,6 +81,10 @@ const saved = event("SAVED")<{ name: string }>();
 const saveFailed = event("SAVE_FAILED")<{ message: string }>();
 /** The phone reported whether it has a screen lock and whether App lock is on. */
 const lockStatusRead = event("LOCK_STATUS_READ")<{ status: LockStatus }>();
+/** The shell started asking the phone for its lock status. */
+const lockReadStarted = event("LOCK_READ_STARTED")();
+/** The lock status could not be read; the App lock offer is skipped. */
+const lockReadGaveUp = event("LOCK_READ_GAVE_UP")();
 /** The person taps Enable on "Lock Justus?". */
 const turnOnAppLock = event("TURN_ON_APP_LOCK")();
 /** The person taps Not now on "Lock Justus?". */
@@ -97,6 +104,7 @@ type OnboardingContext = {
   pendingName: string | null;
   error: string | null;
   lock: LockStatus | undefined;
+  lockPending: boolean;
 };
 
 const initialContext: OnboardingContext = {
@@ -105,22 +113,41 @@ const initialContext: OnboardingContext = {
   pendingName: null,
   error: null,
   lock: undefined,
+  lockPending: false,
 };
 
 /** Where the person's name is saved; the real gateway unless a test or the inspector supplies one. */
 export type OnboardingPort = Pick<typeof gateway, "setName" | "lock">;
 
+/** A phone with a screen lock and App lock off is offered App lock; otherwise the person moves on. */
+function stateAfterName(context: OnboardingContext) {
+  const offer = context.lock?.available === true && context.lock.enabled === false;
+  return offer ? offeringAppLock : choosingCreateOrJoin;
+}
+
 export const onboardingMachine = machine("onboarding", {
   create: (options: { gateway?: OnboardingPort }) => {
     const port = options.gateway ?? gateway;
     return Actor({
-      inputs: [next, back, skip, editName, saveProfile, lockStatusRead, turnOnAppLock, skipAppLock],
+      inputs: [
+        next,
+        back,
+        skip,
+        editName,
+        saveProfile,
+        lockStatusRead,
+        lockReadStarted,
+        lockReadGaveUp,
+        turnOnAppLock,
+        skipAppLock,
+      ],
       internal: [saved, saveFailed, appLockTurnedOn, appLockLeftOff, appLockFailed],
       outputs: [nameSeen],
       states: [
         showingIntroCards,
         askingForName,
         savingName,
+        waitingForLockStatus,
         offeringAppLock,
         turningOnAppLock,
         choosingCreateOrJoin,
@@ -132,7 +159,21 @@ export const onboardingMachine = machine("onboarding", {
         m.onAny({
           event: lockStatusRead,
           handler: (e, opts) => {
-            opts.context.set({ ...opts.context.get(), lock: e.payload.status });
+            opts.context.set({ ...opts.context.get(), lock: e.payload.status, lockPending: false });
+            return {};
+          },
+        });
+        m.onAny({
+          event: lockReadStarted,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), lockPending: true });
+            return {};
+          },
+        });
+        m.onAny({
+          event: lockReadGaveUp,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), lockPending: false });
             return {};
           },
         });
@@ -215,15 +256,33 @@ export const onboardingMachine = machine("onboarding", {
         /** The name is saved; a phone with a screen lock and App lock off is offered App lock, then the person moves on to create or join an album. */
         m.on(savingName, {
           event: saved,
-          to: [choosingCreateOrJoin, offeringAppLock],
+          to: [choosingCreateOrJoin, offeringAppLock, waitingForLockStatus],
           handler: (e, opts) => {
             const current = opts.context.get();
             opts.context.set({ ...current, pendingName: null });
-            const offer = current.lock?.available === true && current.lock.enabled === false;
             return {
-              state: offer ? offeringAppLock : choosingCreateOrJoin,
+              state: current.lockPending ? waitingForLockStatus : stateAfterName(current),
               emit: [nameSeen.create({ name: e.payload.name })],
             };
+          },
+        });
+        /** The read ended with a status: offer App lock or move on. */
+        m.on(waitingForLockStatus, {
+          event: lockStatusRead,
+          to: [choosingCreateOrJoin, offeringAppLock],
+          handler: (e, opts) => {
+            const current = { ...opts.context.get(), lock: e.payload.status, lockPending: false };
+            opts.context.set(current);
+            return { state: stateAfterName(current) };
+          },
+        });
+        /** The read ended without a status: skip the offer. */
+        m.on(waitingForLockStatus, {
+          event: lockReadGaveUp,
+          to: [choosingCreateOrJoin],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), lockPending: false });
+            return { state: choosingCreateOrJoin };
           },
         });
         /** Enable opens the phone's own prompt. */
@@ -326,6 +385,8 @@ export const onboarding = {
   editName: (name: string) => onboardingActor.send(editName.create({ name })),
   saveProfile: () => onboardingActor.send(saveProfile.create()),
   lockStatusRead: (status: LockStatus) => onboardingActor.send(lockStatusRead.create({ status })),
+  lockReadStarted: () => onboardingActor.send(lockReadStarted.create()),
+  lockReadGaveUp: () => onboardingActor.send(lockReadGaveUp.create()),
   turnOnAppLock: () => onboardingActor.send(turnOnAppLock.create()),
   skipAppLock: () => onboardingActor.send(skipAppLock.create()),
 };
