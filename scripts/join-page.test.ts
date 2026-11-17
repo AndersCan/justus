@@ -2,7 +2,7 @@
 import { chromium } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 import { buildInviteLink, parseInviteLink } from "../apps/web/src/utils/invite-link.ts";
 import type { JoinInvite } from "../apps/web/src/utils/invite-link.ts";
 // @ts-expect-error plain JS page module
@@ -70,6 +70,13 @@ describe("page and app read the same link", () => {
 });
 
 describe("invite page in a browser", () => {
+  // The first Chromium launch of the run is cold (binary load while other test files use the cores);
+  // it took over 5 s on CI while later launches took about 1 s. Pay it here, bounded at 30 s.
+  beforeAll(async () => {
+    const browser = await chromium.launch();
+    await browser.close();
+  }, 30_000);
+
   async function open(hash: string) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
