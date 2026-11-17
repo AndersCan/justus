@@ -2,8 +2,9 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { t } from "../copy/copy";
-import { inviteLink } from "../machines/sharing/invite-link";
+import { copy, t } from "../copy/copy";
+import { linkEndText } from "../utils/time";
+import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import {
   checkCodeLine,
   friendNamesLine,
@@ -108,10 +109,17 @@ describe("invite row", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(copyButton(host)!.textContent).toBe("Copied ✓");
-    expect(host.textContent).toContain("Copied. Now open your messages app");
+    const { expiresAt } = inviteLinkViewOf(inviteLinkActor.snapshot());
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="invite.copied_works_until"]')
+        ?.textContent,
+    ).toBe(copy("invite.copied_works_until", { end: linkEndText(expiresAt!) }));
     await vi.advanceTimersByTimeAsync(7000);
     expect(copyButton(host)!.textContent!.trim()).toBe("Copy invite link");
     expect(host.textContent).toContain("Only you, until you invite someone.");
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="gallery.only_you_until_you_invite"]'),
+    ).not.toBeNull();
   });
 
   test("a reader or a missing invite code renders no button", () => {
@@ -137,9 +145,9 @@ describe("invite card send hint", () => {
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(copyButton(host)!.textContent).toBe("Copied ✓");
-    expect(host.textContent).toContain(
-      "Copied. Now open your messages app, paste the link and send it to the person you want.",
-    );
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="invite.copied_paste_it"]'),
+    ).not.toBeNull();
     expect(host.textContent).not.toContain(LINE);
     await vi.advanceTimersByTimeAsync(7000);
     expect(copyButton(host)!.textContent!.trim()).toBe(label);
@@ -155,9 +163,9 @@ describe("invite card send hint", () => {
     const host = mount("creator");
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(5000);
-    expect(host.textContent).toContain(
-      "Copied. Now open your messages app, paste the link and send it to the person you want.",
-    );
+    expect(
+      host.querySelector('[data-invite-hint] [data-copy-id="invite.copied_paste_it"]'),
+    ).not.toBeNull();
   });
 
   test("the invite buttons are plain", () => {

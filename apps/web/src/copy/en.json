@@ -2778,6 +2778,13 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": "album"
   },
+  "invite.copied_works_until": {
+    "text": "Copied. Now open your messages app, paste the link and send it to the person you want. This link works until {end}.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": "album"
+  },
   "invite.turn_off_links_you_sent": {
     "text": "Turn off links you sent?",
     "status": "draft",
