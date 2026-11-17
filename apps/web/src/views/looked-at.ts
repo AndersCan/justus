@@ -10,7 +10,6 @@ const FLUSH_MS = 1000;
 type Tile = { photo: Photo; showing: boolean; timer?: ReturnType<typeof setTimeout> };
 
 const tiles = new WeakMap<Element, Tile>();
-const observed = new Set<Element>();
 let batch: { albumId: string; photoId: string }[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let observer: IntersectionObserver | undefined;
@@ -71,39 +70,16 @@ function onEntries(entries: IntersectionObserverEntry[]) {
 
 function watchTile(element: Element) {
   observer ??= new IntersectionObserver(onEntries, { threshold: 0.5 });
-  observed.add(element);
   observer.observe(element);
 }
 
 function unwatchTile(element: Element) {
-  observed.delete(element);
   observer?.unobserve(element);
   const tile = tiles.get(element);
   if (tile) {
     tile.showing = false;
     stop(tile);
   }
-}
-
-if (typeof document !== "undefined") {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      for (const element of observed) {
-        const tile = tiles.get(element);
-        if (tile) {
-          tile.showing = false;
-          stop(tile);
-        }
-      }
-      flushLooked();
-      seen.visitEnded();
-      return;
-    }
-    for (const element of observed) {
-      observer?.unobserve(element);
-      observer?.observe(element);
-    }
-  });
 }
 
 class LookedAt extends AsyncDirective {

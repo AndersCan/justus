@@ -15,7 +15,7 @@ vi.mock("../gateway", () => ({
   },
 }));
 
-const { albumHeader, albumGridBody, photoTile } = await import("./gallery");
+const { albumGridBody, photoTile } = await import("./gallery");
 const { seen, seenActor, seenReady } = await import("../machines/seen-machine");
 
 const photo = (id: string, mine = false) => ({
@@ -28,6 +28,7 @@ const photo = (id: string, mine = false) => ({
 const photos = [photo("a"), photo("b"), photo("c", true)];
 const f1 = { id: "f1", name: "Trip", role: "creator", members: 2 };
 const f2 = { id: "f2", name: "Home", role: "creator", members: 2 };
+const other = { ...photo("z"), folderId: "f2" };
 
 const draw = (body: unknown) => {
   const host = document.createElement("div");
@@ -57,27 +58,24 @@ describe("new photo marks", () => {
     const host = draw(albumGridBody(page as never, seenActor.snapshot().context));
     const card = host.querySelector('[data-album-card="f1"]');
     expect(card?.querySelector('[data-copy-id="gallery.new_count"]')?.textContent).toBe("1 new");
-    expect(card?.getAttribute("aria-label")).toBe("Trip, 3 photos, 1 new");
   });
 
-  it("another album's header carries the count of the other albums", async () => {
+  it("a card with nothing new says nothing, and counts only its own album", async () => {
     await ready();
     const page = {
       folders: [f1, f2],
-      photos,
+      photos: [...photos, other],
       requests: [],
-      status: { folder: { id: "f2" }, members: [] },
-      lastSync: 0,
+      status: null,
+      foldersLoading: false,
     };
-    const host = draw(albumHeader(page as never, f2 as never));
-    expect(host.querySelector("a[href='/albums']")?.parentElement?.textContent).toContain("1 new");
-  });
-
-  it("the open album's own header shows no count", async () => {
-    await ready();
-    const page = { folders: [f1], photos, requests: [], status: null, lastSync: 0 };
-    const host = draw(albumHeader(page as never, f1 as never));
-    expect(host.querySelector('[data-copy-id="gallery.new_count"]')).toBeNull();
+    const host = draw(albumGridBody(page as never, seenActor.snapshot().context));
+    const count = (id: string) =>
+      host
+        .querySelector(`[data-album-card="${id}"]`)
+        ?.querySelector('[data-copy-id="gallery.new_count"]')?.textContent;
+    expect(count("f1")).toBe("1 new");
+    expect(count("f2")).toBeUndefined();
   });
 
   it("looking keeps the mark until the visit ends", async () => {

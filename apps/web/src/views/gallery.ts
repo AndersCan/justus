@@ -84,27 +84,17 @@ async function newAlbum() {
 }
 
 /** "All albums" steps back when the album was opened from the grid, so Back does not reopen it. */
-function allAlbumsLink(page?: PhotosPage, albumId?: string) {
+function allAlbumsLink() {
   return html`<a
-      class="text-sm text-muted hover:text-fg"
-      href="/albums"
-      @click=${(e: MouseEvent) => {
-        if (!ownLink(e)) return;
-        e.preventDefault();
-        backTo("/albums");
-      }}
-      >${t("gallery.all_albums")}</a
-    >${
-      page === undefined
-        ? nothing
-        : watch(seenActor, (s) => {
-            const others = page.folders.map((f) => f.id).filter((id) => id !== albumId);
-            const n = newCount(s.context, page.photos, others);
-            return n > 0
-              ? html` <span class="ui-new ml-1.5">${t("gallery.new_count", { count: n })}</span>`
-              : nothing;
-          })
-    }`;
+    class="text-sm text-muted hover:text-fg"
+    href="/albums"
+    @click=${(e: MouseEvent) => {
+      if (!ownLink(e)) return;
+      e.preventDefault();
+      backTo("/albums");
+    }}
+    >${t("gallery.all_albums")}</a
+  >`;
 }
 
 /** Drag-and-drop and paste (browser/desktop): same batch path as the picker,
@@ -832,7 +822,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           : null;
   return html`
     <div class="space-y-2" data-motion-key="section:album">
-      ${allAlbumsLink(page, album.id)}
+      ${allAlbumsLink()}
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2
           class="min-w-0 truncate text-xl font-semibold tracking-tight text-fg outline-none"
@@ -934,11 +924,7 @@ function albumCard(card: AlbumCard, waiting: number, fresh: number) {
       class="ui-focus group block rounded-2xl"
       href="/albums/${folder.id}"
       data-album-card=${folder.id}
-      aria-label=${
-        fresh > 0
-          ? copy("gallery.photo_2_new", { name: folder.name, count, fresh })
-          : copy("gallery.photo_2", { name: folder.name, count })
-      }
+      aria-label=${copy("gallery.photo_2", { name: folder.name, count })}
     >
       <div class="relative aspect-square overflow-hidden rounded-2xl bg-subtle ring-1 ring-line">
         ${

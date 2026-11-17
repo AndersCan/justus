@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { html, render } from "lit-html";
 
 const looked = vi.fn();
-const ended = vi.fn();
 vi.mock("../machines/seen-machine", () => ({
-  seen: { photosLooked: looked, visitEnded: ended },
+  seen: { photosLooked: looked },
 }));
 
 type Cb = (e: Partial<IntersectionObserverEntry>[]) => void;
@@ -38,20 +37,14 @@ function tile(photo = p("b"), loaded = true) {
 }
 const see = (el: Element, ratio: number) =>
   cb([{ target: el, intersectionRatio: ratio } as IntersectionObserverEntry]);
-const hide = (state: "hidden" | "visible") => {
-  Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
-  document.dispatchEvent(new Event("visibilitychange"));
-};
 
 beforeEach(() => {
   vi.useFakeTimers();
   looked.mockClear();
-  ended.mockClear();
   observe.mockClear();
   unobserve.mockClear();
 });
 afterEach(() => {
-  hide("visible");
   vi.useRealTimers();
   document.body.replaceChildren();
 });
@@ -103,31 +96,5 @@ describe("lookedAt", () => {
   it("the person's own photo is never observed", () => {
     const { el } = tile(p("m", true));
     expect(observe).not.toHaveBeenCalledWith(el);
-  });
-
-  it("hiding the app sends what is pending and ends the visit", () => {
-    const { el } = tile();
-    see(el, 1);
-    vi.advanceTimersByTime(1000);
-    hide("hidden");
-    expect(looked).toHaveBeenCalledTimes(1);
-    expect(ended).toHaveBeenCalledTimes(1);
-  });
-
-  it("hiding cancels a wait in progress", () => {
-    const { el } = tile();
-    see(el, 1);
-    vi.advanceTimersByTime(500);
-    hide("hidden");
-    vi.advanceTimersByTime(3000);
-    expect(looked).not.toHaveBeenCalled();
-  });
-
-  it("showing the app watches every tile again", () => {
-    const { el } = tile();
-    observe.mockClear();
-    hide("visible");
-    expect(unobserve).toHaveBeenCalledWith(el);
-    expect(observe).toHaveBeenCalledWith(el);
   });
 });

@@ -2498,13 +2498,6 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
-  "gallery.photo_2_new": {
-    "text": "{name}, {count} photo{count?:s}, {fresh} new",
-    "status": "draft",
-    "where": "Photos › screen reader label",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
   "gallery.waiting": {
     "text": "{waiting} waiting",
     "status": "draft",
