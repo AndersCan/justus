@@ -3,7 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { VirtualClock } from "@mantaq/core";
 import { inspectFile } from "@mantaq/inspect";
-import { systemOf } from "@mantaq/viz";
 import { expect, test } from "vite-plus/test";
 import { createJustus } from "./app";
 import { statusSeen } from "./sync-machine";
@@ -27,23 +26,24 @@ test("the factory returns every machine the app has, the router as its actor", (
   expect(made.actor.snapshot().context).toHaveProperty("page");
 });
 
-test("the board draws folders with onboarding and sync inside it, and the rest alone", async () => {
+test("onboarding tells folders the name and folders tell sync the status, and every machine is a part", async () => {
   const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
   const machine = loaded.machines.find((m) => m.id === "justus");
   expect(machine).toBeDefined();
-  const system = systemOf(machine!);
-  expect(
-    system.links
-      .filter((link) => link.to !== null)
-      .map((link) => `${link.from} → ${link.to} ${link.event}`)
-      .toSorted(),
-  ).toEqual(["folders → sync STATUS_SEEN", "onboarding → folders NAME_SEEN"]);
-  const within = Object.fromEntries(
-    system.parts.filter((p) => p.within !== null).map((p) => [p.id, p.within]),
+  const links = Object.entries(machine!.partOutputs).flatMap(([from, events]) =>
+    events.flatMap((event) => [
+      ...new Set(
+        machine!.edges
+          .filter((edge) => edge.event === event && edge.from.split(".")[0] !== from)
+          .map((edge) => `${from} → ${edge.from.split(".")[0]} ${event}`),
+      ),
+    ]),
   );
-  expect(within).toEqual({ onboarding: "folders", sync: "folders" });
-  const alone = system.parts.filter((p) => p.alone).map((p) => p.id);
-  expect(alone).toHaveLength(14);
+  expect(links.toSorted()).toEqual([
+    "folders → sync STATUS_SEEN",
+    "onboarding → folders NAME_SEEN",
+  ]);
+  expect(machine!.regions).toHaveLength(16);
 }, 60_000);
 
 test("a saved name reaches folders, a sync status reaches folders and reach, an open sheet asks for requests", async () => {
