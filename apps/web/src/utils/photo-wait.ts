@@ -22,7 +22,7 @@ export function photoWait(
     if (photo.thumbUrl === undefined || holders === undefined || holders.kind !== "inAlbum")
       continue;
     if (!holders.here && !holders.previewHere) {
-      const sources = [photo.member, ...holders.others, ...holders.previews];
+      const sources = [...holders.others, ...holders.previews];
       if (sources.some((s) => connected.has(s.key))) coming++;
     } else if (holders.waiting.length > 0) {
       waiting++;
@@ -35,9 +35,7 @@ export function photoWait(
       ? {
           waitsFor: {
             count: waiting,
-            phones: [...phones.values()].sort(
-              (a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key),
-            ),
+            phones: [...phones.values()],
           },
         }
       : {}),

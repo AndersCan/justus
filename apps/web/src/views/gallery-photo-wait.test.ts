@@ -67,15 +67,21 @@ describe("albumHeader photo wait line", () => {
       { key: "k1", name: "Ada", connected: true },
     ],
   };
-  const draw = (album: object) => {
+  const draw = (album: object, photos: object[] = [photo]) => {
     const host = document.createElement("div");
-    const page = { status, folders: [album], requests: [], photos: [photo], lastSync: 0 };
+    const page = { status, folders: [album], requests: [], photos, lastSync: 0 };
     render(albumHeader(page as never, album as never), host);
     return host;
   };
 
   it("shows under the presence strip", () => {
     expect(draw({ id: "f1", name: "Trip", role: "member" }).textContent).toContain(
+      "1 photo waits for Ada's phone",
+    );
+  });
+  it("counts only this album's photos", () => {
+    const other = { ...photo, id: "q", folderId: "f2" };
+    expect(draw({ id: "f1", name: "Trip", role: "member" }, [photo, other]).textContent).toContain(
       "1 photo waits for Ada's phone",
     );
   });

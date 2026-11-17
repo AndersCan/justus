@@ -36,14 +36,6 @@ describe("photoWait", () => {
       waitsFor: { count: 2, phones: [m("Ben"), m("Cara")] },
     });
   });
-  it("orders phones by name then key", () => {
-    const photos = [base(h({ waiting: [m("Cara"), m("Ben"), { key: "B2", name: "Ben" }] }))];
-    expect(photoWait(photos, members()).waitsFor?.phones.map((p) => p.key)).toEqual([
-      "B2",
-      "Ben",
-      "Cara",
-    ]);
-  });
   it("counts a missing preview only while a phone that has it is connected", () => {
     const lacking = base(h({ here: false, others: [m("Ada")] }));
     expect(photoWait([lacking], members("Ada"))).toEqual({ coming: 1 });
@@ -71,6 +63,10 @@ describe("photoWait", () => {
       base({ kind: "removed", here: true } as unknown as PhotoHolders),
     ];
     expect(photoWait(photos, members("Ada"))).toEqual({});
+  });
+  it("a photo this phone lacks never says it waits for another phone", () => {
+    const lacking = base(h({ here: false, others: [m("Ada")], waiting: [m("Cara")] }));
+    expect(photoWait([lacking], members("Ada"))).toEqual({ coming: 1 });
   });
   it("a preview this phone has adds nothing to coming", () => {
     expect(photoWait([base(h({ here: false, previewHere: true }))], members("Ada"))).toEqual({});
