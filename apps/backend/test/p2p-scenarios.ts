@@ -1457,7 +1457,7 @@ export const scenarios: Scenario[] = [
         60_000,
       );
       t.ok(benAlbum?.id === benId, "Ben's removed album is the one he had");
-      t.ok((await names(ben, benId)).includes("old.jpg"), "Ben still lists the old photo");
+      t.ok(!(await names(ben, benId)).includes("old.jpg"), "Ben lists no photo he never opened");
 
       const old = (await photosOf(nils, nilsId)).find((p) => p.name === "old.jpg")!;
       t.noErr(await nils.store.remove(old.id, nilsId), "Nils deletes the old photo");
