@@ -92,9 +92,10 @@ class SwitcherCover {
 
   private fun shot(name: String) {
     device.pressRecentApps()
-    val inOverview = device.wait(
-      Until.hasObject(By.pkg(device.launcherPackageName).textContains("Justus")), 10000
-    ) || device.hasObject(By.pkg(device.launcherPackageName).descContains("Justus"))
+    // The task card is the launcher's "snapshot" view, described "Justus"; older launchers write it as text.
+    val launcher = device.launcherPackageName
+    val inOverview = device.wait(Until.hasObject(By.pkg(launcher).descContains("Justus")), 10000) ||
+      device.wait(Until.hasObject(By.pkg(launcher).textContains("Justus")), 2000)
     if (!inOverview) fail("recents did not show the Justus task", "Justus")
     device.waitForIdle()
     val dir = File(target.getExternalFilesDir(null), "switcher-cover").apply { mkdirs() }
