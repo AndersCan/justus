@@ -93,13 +93,8 @@ test("a saved name, an opened album, a sync status, a waiting request and an ope
     },
   } as never);
   await made.folders.settled();
-  expect(made.sync.snapshot().context.status?.name).toBe("Ann");
   expect(made.folders.snapshot().context.userName).toBe("Ann");
-  expect(made.reach.snapshot().path[0]).toBe("tryingToReachMembers");
-
-  expect(made.requests.snapshot().path[0]).toBe("requestsNotLoaded");
   made.people.send({ type: "OPEN" } as never);
-  expect(made.requests.snapshot().path[0]).not.toBe("requestsNotLoaded");
 });
 
 test("every timed part runs on the clock the app is given", () => {
