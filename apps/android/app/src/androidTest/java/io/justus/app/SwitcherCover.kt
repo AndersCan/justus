@@ -110,8 +110,11 @@ class SwitcherCover {
     find("Lock Justus?", 20)
     find("Enable", 5).click()
     Thread.sleep(1000)
+    // The PIN pad takes the digits as key events; the Enter key submits only once the pad has them all.
+    find("Unlock Justus", 20)
     device.executeShellCommand("input text 1111")
-    device.pressEnter()
+    find("PIN area", 5)
+    device.executeShellCommand("input keyevent KEYCODE_ENTER")
     find("Start sharing", 20)
     typeInField("Switcher")
     find("No photos in this album yet.", 20)
