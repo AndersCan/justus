@@ -2751,7 +2751,7 @@
     "screen": ""
   },
   "intro_cards.your_photos_go_straight_from": {
-    "text": "Your photos go straight from your phone to the phones of the people you share with. Nobody else gets a copy, not even us. No account needed.",
+    "text": "Your photos go straight from your phone to the phones of the people you share with. No server in the middle keeps a copy. No account needed.",
     "status": "draft",
     "where": "Welcome › Intro cards › text",
     "who": "New people, once, at first launch",

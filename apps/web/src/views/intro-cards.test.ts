@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import { copy } from "../copy/copy";
 import { INTRO_CARDS } from "./intro-cards";
 
 describe("intro cards", () => {
@@ -9,10 +10,8 @@ describe("intro cards", () => {
     ]);
   });
 
-  test("first card says photos go straight between phones", () => {
-    const body = INTRO_CARDS[0]?.body as string;
-    expect(body).toContain("straight from your phone");
-    expect(body).toContain("Nobody else gets a copy");
+  test("first card body is the catalogue line intro_cards.your_photos_go_straight_from", () => {
+    expect(INTRO_CARDS[0]?.body).toBe(copy("intro_cards.your_photos_go_straight_from"));
   });
 
   test("second card promises no per-photo choice, which a Viewer does not get", () => {
