@@ -37,16 +37,16 @@ describe("the ask toast on its album page", () => {
     expect(count()).toBe(0);
   });
 
-  test("stays for another album", () => {
+  test("closes on another album", () => {
     raiseAsk([ask("Maya")]);
     open("/sharing/f2");
-    expect(count()).toBe(1);
+    expect(count()).toBe(0);
   });
 
-  test("the plural toast stays on an album page", () => {
+  test("the plural toast closes on an album page", () => {
     raiseAsk([ask("Maya"), ask("Ben", "f2")]);
     open("/sharing/f1");
-    expect(count()).toBe(1);
+    expect(count()).toBe(0);
   });
 
   test("after it timed out, opening the album does nothing", () => {
@@ -83,11 +83,11 @@ describe("the ask toast raised by the requests machine", () => {
     expect(count()).toBe(0);
   });
 
-  test("the photos page of the same id does not close it", () => {
+  test("the photos page of the same id closes it", () => {
     vi.useFakeTimers();
     open("/");
     raiseAsk([ask("Maya")]);
     open("/albums/f1");
-    expect(count()).toBe(1);
+    expect(count()).toBe(0);
   });
 });

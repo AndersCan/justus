@@ -194,14 +194,39 @@ test("Archive from the album page lands on Sharing with the album under Archived
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("link", { name: "Invite & members of Summer trip" })).toBeVisible();
+});
+
+test("Back and the Sharing tab after Archive show a live Sharing page, and the Undo toast stays behind", async ({
+  page,
+}) => {
+  await page.goto("/albums");
+  await page.getByRole("button", { name: "New album" }).click();
+  const sheet = page.getByRole("dialog", { name: "Start an album" });
+  await sheet.getByLabel("Album name").fill("Summer trip");
+  await sheet.getByRole("button", { name: "Create album" }).click();
+  await expect(page.getByRole("heading", { name: "Summer trip" })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.getByRole("link", { name: "Invite & members" }).click();
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
+  await expect(page).toHaveURL(/\/sharing$/, { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
+
   await page.goBack();
+  await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Main" })
     .first()
     .getByRole("link", { name: "Sharing" })
     .click();
   await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByText(/Archived \(\d+\)/).click();
+  await page.getByRole("button", { name: "Restore Summer trip" }).click();
   await expect(page.getByRole("link", { name: "Invite & members of Summer trip" })).toBeVisible();
 });
