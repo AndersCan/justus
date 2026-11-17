@@ -307,7 +307,7 @@ describe("scopeEmptyState for an album", () => {
     const host = draw({ id: "f1", name: "Trip", role: "reader", notice: { kind: "removed" } });
     expect(host.querySelector("h2")?.textContent).toBe("No photos on this phone");
     expect(host.querySelector("p")?.textContent).toBe(
-      "The Admin removed you from Trip, so new photos won't arrive. To ask to rejoin, paste a new invite link from the Admin. The Admin decides.",
+      copy("gallery.removed_empty_body", { name: "Trip" }),
     );
     expect(host.querySelector("button, a")).toBeNull();
   });

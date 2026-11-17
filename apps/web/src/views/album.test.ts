@@ -1205,8 +1205,7 @@ describe("album viewer rows", () => {
     await vi.waitFor(() =>
       expect(confirmAction).toHaveBeenLastCalledWith({
         title: "Remove Kimmy?",
-        detail:
-          "Kimmy won't see photos added from now on. Kimmy keeps the photos already on their phone and sees they're no longer in the album. Everyone else stays in the album and keeps their photos; this reaches their phones the next time they connect to yours.",
+        detail: copy("album.won_t_see_photos_added", { name: "Kimmy", added: "" }),
         confirmLabel: "Remove",
         tone: "danger",
       }),
