@@ -8,6 +8,8 @@ import {
   photoEvents,
   logEvents,
   friendEvents,
+  seenEvents,
+  type SeenRecord,
   justusLockEvents,
   justusShareEvents,
   justusMediaEvents,
@@ -145,5 +147,9 @@ export const gateway = {
     add: (identity: string, name: string) => invoke(friendEvents.add(identity, name)),
     rename: (identity: string, name: string) => invoke(friendEvents.rename(identity, name)),
     remove: (identity: string) => invoke(friendEvents.remove(identity)),
+  },
+  seen: {
+    read: () => invoke(seenEvents.read()),
+    write: (seen: SeenRecord) => invoke(seenEvents.write(seen)),
   },
 };

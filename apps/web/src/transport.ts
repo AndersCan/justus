@@ -1,5 +1,6 @@
 import { devPeerPort } from "./utils/peer";
 import { MessageType } from "@ekrooh/bare/core";
+import { emptySeen } from "@justus/core";
 import {
   createMockTransport,
   createWebSocketTransport,
@@ -8,10 +9,16 @@ import {
 
 let transport: MessageTransport | null = null;
 
-/** The mock transport refuses events it has no handler for. The friends list
- * is read on start, so the docs site's mock answers it with nobody saved
- * instead of an error the page would log. */
-export function withMockFriends(inner: MessageTransport): MessageTransport {
+/** Canned replies for the events the page sends on start. The mock transport
+ * refuses events it has no handler for, so the docs site's mock answers these
+ * with nothing saved instead of an error the page would log. */
+const mockReplies: Record<string, unknown> = {
+  "friends.list": { friends: [] },
+  "seen.read": { seen: emptySeen() },
+  "seen.write": {},
+};
+
+export function withMockReplies(inner: MessageTransport): MessageTransport {
   const listeners = new Set<Parameters<MessageTransport["subscribe"]>[0]>();
   inner.subscribe((message) => {
     for (const listener of listeners) listener(message);
@@ -23,8 +30,10 @@ export function withMockFriends(inner: MessageTransport): MessageTransport {
       if (
         type === MessageType.ENVELOPE &&
         h.type === "INVOKE_REQUEST" &&
-        h.event === "friends.list"
+        h.event !== undefined &&
+        Object.hasOwn(mockReplies, h.event)
       ) {
+        const result = mockReplies[h.event];
         queueMicrotask(() => {
           const reply = {
             type: MessageType.ENVELOPE,
@@ -33,7 +42,7 @@ export function withMockFriends(inner: MessageTransport): MessageTransport {
               pluginId: h.pluginId,
               event: h.event,
               requestId: h.requestId,
-              result: { friends: [] },
+              result,
             },
             payload: new Uint8Array(0),
           };
@@ -56,7 +65,7 @@ export function getTransport(): MessageTransport {
   if (transport) return transport;
 
   if (import.meta.env.VITE_TRANSPORT_MODE === "mock") {
-    transport = withMockFriends(createMockTransport());
+    transport = withMockReplies(createMockTransport());
     return transport;
   }
 
