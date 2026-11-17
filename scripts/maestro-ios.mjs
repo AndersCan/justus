@@ -147,10 +147,11 @@ if (!ipad && !invite) {
   if (run("xcrun", ["simctl", "addmedia", udid, marker]).status !== 0) fail("addmedia failed");
   run("open", ["-a", "Simulator", "--args", "-CurrentDeviceUDID", udid]);
   spawnSync("sleep", ["5"]);
-  run("osascript", [
+  const menu = capture("osascript", [
     "-e",
     'tell application "System Events" to tell process "Simulator" to get name of every menu item of menu "Device" of menu bar 1',
   ]);
+  console.log(`Simulator Device menu: ${menu.stdout}${menu.stderr}`);
 }
 
 // iPhone: enrol a Face ID so the first-run card offers App lock, and serve /match for the flow.

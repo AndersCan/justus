@@ -18,11 +18,18 @@ export function helperRoute(url, context) {
   return actions[url]?.() ?? false;
 }
 
-// Simulator's Device menu has App Switcher; the click needs Simulator.app open on the device (the
-// walk opens it once after boot).
+// Simulator.app in front, then Home (shift-command-H) twice: the app switcher on any device.
 const openSwitcher = [
   "-e",
-  'tell application "System Events" to tell process "Simulator" to click menu item "App Switcher" of menu "Device" of menu bar 1',
+  'tell application "Simulator" to activate',
+  "-e",
+  "delay 1",
+  "-e",
+  'tell application "System Events" to tell process "Simulator" to keystroke "h" using {command down, shift down}',
+  "-e",
+  "delay 0.2",
+  "-e",
+  'tell application "System Events" to tell process "Simulator" to keystroke "h" using {command down, shift down}',
 ];
 
 // /switcher-lock-on and /switcher-lock-off: open the app switcher, take screenshots 300 ms apart
