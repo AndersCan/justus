@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error pngjs ships no type declarations, so the import has an implicit any
@@ -62,4 +62,37 @@ test("treats 2000 marker pixels as a photo and 1999 as none", () => {
     writeFileSync(file, PNG.sync.write(png));
     expect(check(file, expected).status).toBe(0);
   }
+});
+
+test("prints the expectation it was given, not the result", () => {
+  const dir = mkdtempSync(join(tmpdir(), "marker-"));
+  const photo = join(dir, "photo.png");
+  writeMarker(photo);
+  expect(check(photo, "hidden").stdout).toBe(`${photo}: 1080000 photo pixels (expected none)\n`);
+  expect(check(photo, "shows").stdout).toBe(`${photo}: 1080000 photo pixels (expected shows)\n`);
+});
+
+test("still checks when the script's path has a space in it", () => {
+  const dir = mkdtempSync(join(import.meta.dirname, "marker copy "));
+  try {
+    const copy = join(dir, "photo-marker.mjs");
+    copyFileSync(script, copy);
+    const photo = join(dir, "photo.png");
+    writeMarker(photo);
+    const wrong = spawnSync("node", [copy, "check", photo, "hidden"], { encoding: "utf8" });
+    expect(wrong.status).toBe(1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("rejects a third argument that is not shows or hidden", () => {
+  const dir = mkdtempSync(join(tmpdir(), "marker-"));
+  const photo = join(dir, "photo.png");
+  writeMarker(photo);
+  expect(check(photo, "foo").status).toBe(2);
+});
+
+test("fails when the file is missing", () => {
+  expect(check(join(tmpdir(), "no-such-marker.png"), "hidden").status).toBe(1);
 });

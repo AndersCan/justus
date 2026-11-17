@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 
 export const MIN_PHOTO_PIXELS = 2000;
@@ -34,21 +35,17 @@ function main(args) {
     return 0;
   }
   if (command === "check" && file && (expected === "shows" || expected === "hidden")) {
-    let count;
-    try {
-      count = photoPixels(file);
-    } catch (error) {
-      console.error(`Can't read ${file}: ${error.message}`);
-      return 2;
-    }
+    const count = photoPixels(file);
     const shows = count >= MIN_PHOTO_PIXELS;
-    console.log(`${file}: ${count} photo pixels (expected ${shows ? "shows" : "none"})`);
+    console.log(
+      `${file}: ${count} photo pixels (expected ${expected === "shows" ? "shows" : "none"})`,
+    );
     return shows === (expected === "shows") ? 0 : 1;
   }
   console.error("usage: photo-marker.mjs write <file.png> | check <file.png> shows|hidden");
   return 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.exitCode = main(process.argv.slice(2));
 }
