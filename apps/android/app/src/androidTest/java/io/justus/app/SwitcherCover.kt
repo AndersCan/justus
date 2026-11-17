@@ -122,10 +122,13 @@ class SwitcherCover {
     var thumbs: List<UiObject2>? = null
     for (attempt in 1..3) {
       find("Add photos to Switcher", 20).click()
+      Log.i("SwitcherCover", "picker attempt " + attempt)
       thumbs = device.wait(Until.findObjects(By.res(Pattern.compile(".*:id/icon_thumbnail"))), 10000)
         ?: device.wait(Until.findObjects(By.desc(Pattern.compile("Photo taken on .*"))), 10000)
       if (thumbs != null && thumbs.isNotEmpty()) break
-      device.pressBack()
+      Log.i("SwitcherCover", "picker empty, pkg " + device.currentPackageName)
+      // Back from Justus itself would leave the app: close only the picker.
+      if (device.currentPackageName != target.packageName) device.pressBack()
       Thread.sleep(2000)
     }
     if (thumbs == null || thumbs.isEmpty()) fail("picker thumbnails", "icon_thumbnail")
