@@ -208,6 +208,7 @@ describe("linkNamedOtherAlbum", () => {
     ["Grandma's photos", "Party", true],
     ["Party", "Party", false],
     [" party ", "PARTY", false],
+    ["Party", " party ", false],
     [undefined, "Party", false],
     ["", "Party", false],
     ["   ", "Party", false],

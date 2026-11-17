@@ -1,7 +1,7 @@
 import { copy } from "../copy/copy";
 
 /** What an invite link carries: the code, who to ask, when it ends. The names a joiner reads come
- * from the Admin's phone; `linkAlbum` is only kept to compare with the real one, never shown as a name. */
+ * from the Admin's phone; `linkAlbum` is kept to compare with the real one; the warning shows it quoted. */
 export type JoinInvite = {
   /** 64-hex invite code. */
   code: string;
@@ -13,7 +13,7 @@ export type JoinInvite = {
   linkAlbum?: string;
 };
 
-/** Names the sender typed into the link, written only for the browser join page. The app keeps the album name only to compare it with the one the Admin's phone sends. */
+/** Names the sender typed into the link, written only for the browser join page. The app keeps the album name to compare it with the one the Admin's phone sends. */
 export type LinkHints = { album: string; ownerName: string };
 
 export type ParsedInvite =

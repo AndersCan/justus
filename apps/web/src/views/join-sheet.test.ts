@@ -195,6 +195,20 @@ describe("renderJoinSheet", () => {
       }
     });
 
+    test("the warning arriving keeps the same buttons, so focus stays where it was", () => {
+      const div = document.createElement("div");
+      const view = (inv: typeof mismatch | typeof invite) =>
+        renderJoinSheet({ state: "waitingForAdminToAccept", invite: inv, error: "" }, actions);
+      render(view({ ...mismatch, album: "", ownerName: "" }), div);
+      const before = [...div.querySelectorAll("button")];
+      render(view(mismatch), div);
+      // Focus does not move to the warning, so it is announced instead.
+      expect(div.querySelector("[data-link-named-other]")?.getAttribute("role")).toBe("status");
+      const after = [...div.querySelectorAll("button")];
+      expect(after).toHaveLength(2);
+      expect(after.every((b, i) => b === before[i])).toBe(true);
+    });
+
     test("an unknown owner reads as the person who invited you", () => {
       const div = drawWith("waitingForAdminToAccept", { ...mismatch, ownerName: "" });
       expect(div.querySelector("[data-link-named-other]")?.textContent).toContain(
