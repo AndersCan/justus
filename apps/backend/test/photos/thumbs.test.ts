@@ -166,4 +166,37 @@ describe("fetchThumbs", () => {
     expect(run).toEqual({ fetched: 1 });
     expect(landed).toEqual(["p0"]);
   });
+
+  it("runs four at once", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    await fetchThumbs({
+      todo: items(12),
+      driveOf: () =>
+        stubDrive(async (): Promise<DownloadResult> => {
+          peak = Math.max(peak, ++inFlight);
+          await new Promise((r) => setTimeout(r, 5));
+          inFlight--;
+          return "here";
+        }),
+      landed: async () => {},
+      log: noLog,
+    });
+    expect(peak).toBe(4);
+  });
+
+  it("goes on past more gone drives than it runs at once", async () => {
+    const gone = Array.from({ length: 4 }, (_, i) => ({
+      id: `g${i}`,
+      driveKey: "gone",
+      path: `/thumbs/g${i}.jpg`,
+    }));
+    const run = await fetchThumbs({
+      todo: [...gone, ...items(1)],
+      driveOf: (k) => (k === "gone" ? undefined : stubDrive(() => "here")),
+      landed: async () => {},
+      log: noLog,
+    });
+    expect(run).toEqual({ fetched: 1 });
+  });
 });

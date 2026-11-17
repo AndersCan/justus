@@ -2839,7 +2839,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (runtimes.get(id) !== rt || rt.record.notice !== undefined) return;
     thumbRuns.add(id);
     try {
-      const run = await fetchThumbs({
+      await fetchThumbs({
         todo,
         driveOf: (k) => driveByKey.get(k),
         landed: (photoId) =>
@@ -2848,13 +2848,6 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             : Promise.resolve(),
         log,
       });
-      log("thumbs.fetch", {
-        folder: short(id),
-        fetched: run.fetched,
-        ...(run.stopped ? { stopped: run.stopped } : {}),
-      });
-    } catch (e) {
-      log("error", { where: "thumbs.pass", err: errText(e) });
     } finally {
       thumbRuns.delete(id);
     }

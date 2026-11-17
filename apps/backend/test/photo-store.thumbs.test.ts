@@ -18,28 +18,31 @@ async function until(done: () => boolean | Promise<boolean>, ms = 4_000): Promis
 function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const logs: { event: string; fields: Record<string, unknown> }[] = [];
   const deps = fakeStoreDeps({
     hub,
     node,
     deviceName,
     server: new FakeLoopbackServer(),
-    log: (e: { event: string; fields: Record<string, unknown> }) => logs.push(e),
   });
-  const stuck = { on: false };
+  const hold: { gate?: Promise<void>; calls: number } = { calls: 0 };
   const open = deps.drives.open.bind(deps.drives);
   deps.drives.open = async (key: string, opts: { timeoutMs: number }) => {
     const opened = await open(key, opts);
     const drive = opened[1];
     if (drive) {
       const download = drive.download.bind(drive);
-      drive.download = async (path: string, o: { timeoutMs: number }) =>
-        stuck.on ? "timedOut" : download(path, o);
+      drive.download = async (path: string, o: { timeoutMs: number }) => {
+        if (hold.gate) {
+          hold.calls++;
+          await hold.gate;
+        }
+        return download(path, o);
+      };
     }
     return opened;
   };
   mkdirSync(deps.cacheDir, { recursive: true });
-  return { deps, logs, stuck, store: createPhotoStore(deps) };
+  return { deps, hold, store: createPhotoStore(deps) };
 }
 
 async function album() {
@@ -93,34 +96,42 @@ describe("background previews", () => {
       holders.kind === "inAlbum" && holders.previews.map((m: { key: string }) => m.key),
     ).toEqual([s.nilsKey]);
     expect(holders.kind === "inAlbum" && holders.waiting).toEqual([]);
-    expect(s.nils.logs.some((l) => l.event === "thumbs.fetch" && l.fields.fetched === 1)).toBe(
-      true,
-    );
   });
 
-  it("fetches nothing while Anna's phone does not send, and says so in the log", async () => {
+  it("a listing while a pass runs starts no second pass", async () => {
     const s = await album();
-    s.nils.stuck.on = true;
+    let release = () => {};
+    s.nils.hold.gate = new Promise<void>((r) => (release = r));
     await s.addThumbed("a.jpg");
     await until(async () => {
       await s.nilsPhoto("a.jpg");
-      return s.nils.logs.some((l) => l.fields.stopped === "timedOut");
+      return s.nils.hold.calls > 0;
     });
-    expect(s.nils.logs.some((l) => l.fields.stopped === "timedOut")).toBe(true);
-    expect((await s.nilsPhoto("a.jpg"))!.holders).toMatchObject({ previewHere: false });
+    await s.nilsPhoto("a.jpg");
+    await s.nilsPhoto("a.jpg");
+    await sleep(100);
+    expect(s.nils.hold.calls).toBe(1);
+    release();
+    await until(async () => (await s.nilsPhoto("a.jpg"))?.holders?.previewHere === true);
+    expect((await s.nilsPhoto("a.jpg"))!.holders).toMatchObject({ previewHere: true });
   });
 
-  it("a removed phone fetches nothing more of the album", async () => {
+  it("a preview that lands after the phone was removed is not recorded", async () => {
     const s = await album();
+    let release = () => {};
+    s.nils.hold.gate = new Promise<void>((r) => (release = r));
     await s.addThumbed("a.jpg");
-    await until(async () => (await s.nilsPhoto("a.jpg"))?.holders?.previewHere === true);
+    await until(async () => {
+      await s.nilsPhoto("a.jpg");
+      return s.nils.hold.calls > 0;
+    });
     expect((await s.anna.store.removeMember(s.folderId, s.nilsKey))[0]).toBeNull();
     await until(async () => (await s.nils.store.folders()).folders[0]?.notice?.kind === "removed");
-    await s.addThumbed("b.jpg");
-    await until(async () => (await s.anna.store.list(s.folderId)).length === 2);
+    release();
     await sleep(400);
-    const b = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "b.jpg");
-    expect(b?.holders?.kind !== "inAlbum" || !b.holders.previewHere).toBe(true);
-    expect((await s.annaPhoto("b.jpg")).holders).toMatchObject({ previews: [] });
+    const own = (await s.nils.deps.drives.open(s.nilsKey, { timeoutMs: 1_000 }))[1]!;
+    const listed: string[] = [];
+    for await (const entry of own.list("/previewed")) listed.push(entry.path);
+    expect(listed).toEqual([]);
   });
 });
