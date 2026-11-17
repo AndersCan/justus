@@ -64,9 +64,11 @@ test("every holders line reads right on both phones from add to delete", async (
 
   const link = await copyInviteLink(a);
   await askToJoin(b, link, ALBUM);
+  // 60 s: the join request travels over the hub to Ada's phone.
   await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
   await a.getByRole("link", { name: "See photos in this album" }).click();
+  // 60 s: the album and its photo sync to Ben's phone after Ada accepts.
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
   await expect(b.getByRole("button", { name: `View ${FILE}` })).toBeVisible({ timeout: 60_000 });
 
@@ -108,6 +110,7 @@ test("every holders line reads right on both phones from add to delete", async (
   const people = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   await people.getByRole("button", { name: /^Remove /, exact: false }).click();
   await a.getByRole("button", { name: "Remove", exact: true }).last().click();
+  // 60 s: the removal syncs to both phones over the hub.
   await expect(a.getByText(`is no longer in ${ALBUM}`)).toBeVisible({ timeout: 60_000 });
   await expect(b.getByText(words("gallery.you_re_no_longer_in", { name: ALBUM }))).toBeVisible({
     timeout: 60_000,
@@ -128,6 +131,5 @@ test("every holders line reads right on both phones from add to delete", async (
   await expect(a.getByRole("button", { name: `View ${FILE}` })).toHaveCount(0, {
     timeout: 20_000,
   });
-  await b.reload();
   await expectHoldersLine(b, "delete", "Ben", words("holders.on_your_phone_removed"));
 });
