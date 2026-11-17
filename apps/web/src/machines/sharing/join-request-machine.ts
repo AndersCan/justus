@@ -753,7 +753,7 @@ export const joinRequestMachine = machine("joinRequest", {
             to: [from],
             handler: (e, { actor, context }) => {
               const invite = actor.snapshot().payload as JoinScreen;
-              // A payload-only change tells no watcher; setting the context does.
+              // LIMITATION(#810): mantaq#721 sends no change for a payload-only self-transition; setting the context does.
               context.set({ error: "" });
               return e.payload.code === invite.code
                 ? {

@@ -233,9 +233,7 @@ test("a link holder with an edited link who opens, asks, waits, is declined, ask
   await b.goto("/join");
   await b
     .getByRole("button", {
-      name: new RegExp(
-        `^${pattern("albums.waiting_for_to_accept").source}: (${album}|${pattern("albums.album_you_asked_to_join").source})$`,
-      ),
+      name: new RegExp(`^${pattern("albums.waiting_for_to_accept").source}: ${album}$`),
     })
     .click();
   await b.getByRole("button", { name: words("invite.cancel_request"), exact: true }).click();
