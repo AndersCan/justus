@@ -61,12 +61,11 @@ export function deletedOf(args: unknown): DeletedIn | undefined {
 
 /** The phones that dropped a photo, carried by a `photos.changed` push with cause "dropped". */
 export function droppedOf(args: unknown): DroppedIn | undefined {
-  const a = (args ?? {}) as { cause?: unknown; dropped?: unknown };
-  if (a.cause !== "dropped" || typeof a.dropped !== "object" || a.dropped === null)
-    return undefined;
-  const people = (a.dropped as { people?: unknown }).people;
-  if (!Array.isArray(people)) return undefined;
-  return { names: people.flatMap((p) => (typeof p?.name === "string" ? [p.name] : [])) };
+  const a = (args ?? {}) as { cause?: unknown; folderId?: unknown; dropped?: unknown };
+  if (a.cause !== "dropped" || typeof a.folderId !== "string") return undefined;
+  if (typeof a.dropped !== "object" || a.dropped === null) return undefined;
+  // guardPush has checked the shape of people.
+  return { folderId: a.folderId, people: (a.dropped as Pick<DroppedIn, "people">).people };
 }
 
 /** Routes inbound wire messages: backend→web pushes refresh the actors;

@@ -11,15 +11,17 @@ describe("droppedText", () => {
     [["Ben", "Cy", "Dan"], "Removed from Ben's, Cy's and Dan's phones."],
     [[], ""],
   ])("%j", (names, text) => {
-    expect(droppedText({ names })).toBe(text);
+    expect(
+      droppedText({ folderId: "f1", people: names.map((name) => ({ key: name, name })) }),
+    ).toBe(text);
   });
 });
 
 describe("droppedToast", () => {
   it("shows the text, and nothing for no names", () => {
-    droppedToast.show({ names: [] });
+    droppedToast.show({ folderId: "f1", people: [] });
     expect(toast).not.toHaveBeenCalled();
-    droppedToast.show({ names: ["Ben"] });
+    droppedToast.show({ folderId: "f1", people: [{ key: "k", name: "Ben" }] });
     expect(toast).toHaveBeenCalledWith("Removed from Ben's phone.");
   });
 });

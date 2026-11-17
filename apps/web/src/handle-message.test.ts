@@ -16,6 +16,7 @@ import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import { gallery } from "./machines/gallery-machine";
 import { folders } from "./machines/folders-machine";
+import { sync } from "./machines/sync-machine";
 
 const push = (args: unknown) =>
   ({
@@ -203,8 +204,12 @@ describe("handleMessage dropped", () => {
 
   it("a dropped push tells the toast and reloads nothing", () => {
     const spy = vi.spyOn(droppedToast, "show").mockImplementation(() => {});
+    const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
+    const refresh = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     handleMessage(push({ cause: "dropped", folderId: "f1", dropped }));
-    expect(spy).toHaveBeenCalledWith({ names: ["Ben"] });
+    expect(spy).toHaveBeenCalledWith({ folderId: "f1", people: dropped.people });
+    expect(load).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 
@@ -216,10 +221,13 @@ describe("handleMessage dropped", () => {
   });
 
   it("droppedOf needs the dropped cause and a people list", () => {
-    expect(droppedOf({ cause: "dropped", dropped })).toEqual({ names: ["Ben"] });
+    expect(droppedOf({ cause: "dropped", folderId: "f1", dropped })).toEqual({
+      folderId: "f1",
+      people: dropped.people,
+    });
     expect(droppedOf({ cause: "deleted", dropped })).toBeUndefined();
-    expect(droppedOf({ cause: "dropped" })).toBeUndefined();
-    expect(droppedOf({ cause: "dropped", dropped: null })).toBeUndefined();
-    expect(droppedOf({ cause: "dropped", dropped: { people: "x" } })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped", folderId: "f1" })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped", dropped })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped", folderId: "f1", dropped: null })).toBeUndefined();
   });
 });
