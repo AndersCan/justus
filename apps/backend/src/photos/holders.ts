@@ -2,7 +2,7 @@
  * The record each phone keeps of the photos it has a full copy of, and the
  * rules that turn those records into "who has it". Ports only: no photo-store.
  */
-import type { InAlbumHolders, PhotoMember } from "@justus/core";
+import type { PhotoHolders, PhotoMember } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
 import { isHexKey } from "../membership/records";
 import type { GalleryLog } from "./gallery";
@@ -208,14 +208,22 @@ function previewed(report: HeldReport | undefined, id: string): boolean {
 export function holdersFor(input: {
   photo: { id: string; driveKey: string; memberName: string };
   selfKey: string;
-  /** Current album people; self may be in it. */
-  people: ReadonlyArray<PhotoMember>;
   /** By drive key, self included. */
   held: ReadonlyMap<string, HeldReport>;
-  former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
-}): InAlbumHolders {
-  const { photo, selfKey, people, held, former } = input;
+  /** What this phone can still hear. A removed phone hears nobody, so it has no people to pass. */
+  album:
+    | {
+        kind: "inAlbum";
+        /** Current album people; self may be in it. */
+        people: ReadonlyArray<PhotoMember>;
+        former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
+      }
+    | { kind: "removed" };
+}): PhotoHolders {
+  const { photo, selfKey, held, album } = input;
   const here = photo.driveKey === selfKey || holds(held.get(selfKey), photo.id);
+  if (album.kind === "removed") return { kind: "removed", here };
+  const { people, former } = album;
   const others = new Map<string, PhotoMember>();
   if (photo.driveKey !== selfKey) {
     others.set(photo.driveKey, { key: photo.driveKey, name: photo.memberName });

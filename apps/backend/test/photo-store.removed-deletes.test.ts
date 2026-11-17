@@ -91,6 +91,21 @@ async function removed() {
   return { hub, anna, nils, cleo, folderId, nilsId, cleoId, keys, holders, close };
 }
 
+describe("a removed phone's own holders", () => {
+  it("says only its own copy after the removal and after the Admin deletes", async () => {
+    const s = await removed();
+    await until(async () => (await s.holders(s.cleo)).kind === "removed");
+    expect(await s.holders(s.cleo)).toEqual({ kind: "removed", here: true });
+    const photo = (await s.anna.store.list())[0];
+    expect((await s.anna.store.remove(photo.id, s.folderId))[0]).toBeNull();
+    await until(async () => (await s.anna.store.list()).length === 0);
+    const kept = (await s.cleo.store.list())[0];
+    expect(kept.name).toBe("sunset.jpg");
+    expect(kept.holders).toEqual({ kind: "removed", here: true });
+    await s.close();
+  }, 40_000);
+});
+
 describe("a removed phone that deletes the album", () => {
   it("stops counting as a holder on the Admin's and others' phones", async () => {
     const s = await removed();

@@ -372,14 +372,39 @@ describe("holdersFor", () => {
     held?: [string, HeldReport][];
     former?: { name: string; ids: ReadonlySet<string>; left?: true }[];
   }) {
+    const result = holdersFor({
+      photo: over.photo ?? photo,
+      selfKey: SELF,
+      held: new Map(over.held ?? []),
+      album: { kind: "inAlbum", people: over.people ?? [self, adder], former: over.former ?? [] },
+    });
+    if (result.kind !== "inAlbum") throw new Error("expected an in-album result");
+    return result;
+  }
+
+  function runRemoved(over: { photo?: typeof photo; held?: [string, HeldReport][] }) {
     return holdersFor({
       photo: over.photo ?? photo,
       selfKey: SELF,
-      people: over.people ?? [self, adder],
       held: new Map(over.held ?? []),
-      former: over.former ?? [],
+      album: { kind: "removed" },
     });
   }
+
+  it("a removed phone knows only its own copy of another person's photo", () => {
+    expect(runRemoved({ held: [[SELF, has("p1")]] })).toEqual({ kind: "removed", here: true });
+  });
+
+  it("a removed phone without the copy yet is not here", () => {
+    expect(runRemoved({})).toEqual({ kind: "removed", here: false });
+  });
+
+  it("a removed phone has its own photo", () => {
+    expect(runRemoved({ photo: { id: "p1", driveKey: SELF, memberName: "Me" } })).toEqual({
+      kind: "removed",
+      here: true,
+    });
+  });
 
   it("adder only", () => {
     expect(run({ held: [[ADDER, has("p1")]] })).toEqual({
