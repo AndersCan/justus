@@ -118,12 +118,14 @@ appId: no.cankode.justus
           text: "Add photos to M"
           retryTapIfNoChange: false
           waitToSettleTimeoutMs: 500
+      # The picker's grid lists the newest first, so the test photo is the top-left cell; the check mark confirms.
+      - extendedWaitUntil:
+          visible: "Select Photos"
+          timeout: 20000
       - tapOn:
-          text: "Photo, .*"
-          index: 0
+          point: "17%,29%"
       - tapOn:
-          text: "Add.*"
-          optional: true
+          point: "90%,16%"
       - extendedWaitUntil:
           visible: "View .*"
           timeout: 30000
