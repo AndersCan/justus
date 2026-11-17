@@ -30,15 +30,19 @@ test("onboarding tells folders the name and folders tell sync the status, and ev
   const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
   const machine = loaded.machines.find((m) => m.id === "justus");
   expect(machine).toBeDefined();
-  const handledBy = (event: string) => [
-    ...new Set(
-      machine!.edges.filter((edge) => edge.event === event).map((edge) => edge.from.split(".")[0]),
-    ),
-  ];
-  expect(machine!.partOutputs.onboarding).toContain("NAME_SEEN");
-  expect(handledBy("NAME_SEEN")).toEqual(["folders"]);
-  expect(machine!.partOutputs.folders).toContain("STATUS_SEEN");
-  expect(handledBy("STATUS_SEEN")).toEqual(["sync"]);
+  const links = Object.entries(machine!.partOutputs).flatMap(([from, events]) =>
+    events.flatMap((event) => [
+      ...new Set(
+        machine!.edges
+          .filter((edge) => edge.event === event && edge.from.split(".")[0] !== from)
+          .map((edge) => `${from} → ${edge.from.split(".")[0]} ${event}`),
+      ),
+    ]),
+  );
+  expect(links.toSorted()).toEqual([
+    "folders → sync STATUS_SEEN",
+    "onboarding → folders NAME_SEEN",
+  ]);
   expect(machine!.regions).toHaveLength(16);
 }, 60_000);
 
