@@ -11,6 +11,7 @@ import { prefsMachine } from "./prefs-machine";
 import { reachMachine, wireReachToSync } from "./reach-hint-machine";
 import { requestsMachine, refresh } from "./requests-machine";
 import { routerMachine } from "./router-machine";
+import { seenMachine } from "./seen-machine";
 import { addFriendMachine } from "./sharing/add-friend-machine";
 import { friendOfferMachine } from "./sharing/friend-offer-machine";
 import { inviteLinkMachine } from "./sharing/invite-link-machine";
@@ -19,7 +20,7 @@ import { wireAsksToJoin } from "./sharing/join-request";
 import { syncMachine } from "./sync-machine";
 
 /** Every machine in the app, wired as the app wires them, so one board draws the whole app.
- * The router is the root; the other sixteen sit beside it by name. */
+ * The router is the root; the other seventeen sit beside it by name. */
 export const justusMachine = machine("justus", {
   create: ({ clock }) => {
     const folders = foldersMachine.create();
@@ -46,6 +47,7 @@ export const justusMachine = machine("justus", {
       people,
       prefs: prefsMachine.create(),
       reach,
+      seen: seenMachine.create({}),
       requests,
       sync,
       addFriend: addFriendMachine.create(),

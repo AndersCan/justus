@@ -20,6 +20,7 @@ const NOT_COPY = [
   / returned no /,
   /^unknown error$/,
   /^friends: could not load$/,
+  /^seen: could not (save|read)$/,
   /^canvas unavailable$/,
   /^gridMotion/,
   /^Internal error/,
