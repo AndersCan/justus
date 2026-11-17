@@ -58,3 +58,83 @@ test("an unknown path is not a route and runs nothing", () => {
   expect(walk("/nope")).toEqual({ done: false, commands: [] });
   expect(walk("/toString")).toEqual({ done: false, commands: [] });
 });
+
+// The switcher routes: the screenshots are `shots` (one buffer each), the count is `count`.
+function switcherWalk(url: string, opts: { shots: string[]; count: number; failing?: string[] }) {
+  const commands: string[][] = [];
+  const run = (cmd: string, args: string[]) => {
+    commands.push([cmd, ...args]);
+    return {
+      status: opts.failing?.includes(args[0] === "-e" ? "osascript" : (args[1] ?? "")) ? 1 : 0,
+    };
+  };
+  let shot = 0;
+  const done = helperRoute(url, {
+    run,
+    notify: () => ({ status: 0 }),
+    udid: "U",
+    bundleId: "app.id",
+    out: "/out",
+    photoPixels: () => opts.count,
+    minPhotoPixels: 2000,
+    read: () => Buffer.from(opts.shots[Math.min(shot++, opts.shots.length - 1)]),
+    sleep: () => {},
+  });
+  return { done, commands, name: (i: number) => commands[i]?.[0] };
+}
+
+const settled = ["a", "b", "b"];
+
+test("/switcher-lock-on opens the switcher, shoots until stable, then launches Justus", () => {
+  const walk = switcherWalk("/switcher-lock-on", { shots: settled, count: 0 });
+  expect(walk.done).toBe(true);
+  expect(walk.commands.map((command) => command[0])).toEqual([
+    "osascript",
+    "xcrun",
+    "xcrun",
+    "xcrun",
+    "xcrun",
+  ]);
+  expect(walk.commands[1]).toEqual([
+    "xcrun",
+    "simctl",
+    "io",
+    "U",
+    "screenshot",
+    "/out/switcher-lock-on.png",
+  ]);
+  expect(walk.commands.at(-1)).toEqual(["xcrun", "simctl", "launch", "U", "app.id"]);
+});
+
+test("/switcher-lock-on fails on photo pixels, /switcher-lock-off fails on none", () => {
+  expect(switcherWalk("/switcher-lock-on", { shots: settled, count: 5000 }).done).toBe(false);
+  expect(switcherWalk("/switcher-lock-off", { shots: settled, count: 5000 }).done).toBe(true);
+  expect(switcherWalk("/switcher-lock-off", { shots: settled, count: 1999 }).done).toBe(false);
+  expect(switcherWalk("/switcher-lock-off", { shots: settled, count: 2000 }).done).toBe(true);
+});
+
+test("a switcher that never settles fails, takes at most 10 shots and still launches Justus", () => {
+  const walk = switcherWalk("/switcher-lock-on", {
+    shots: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    count: 0,
+  });
+  expect(walk.done).toBe(false);
+  expect(walk.commands.filter((command) => command[2] === "io")).toHaveLength(10);
+  expect(walk.commands.at(-1)).toEqual(["xcrun", "simctl", "launch", "U", "app.id"]);
+});
+
+test("a switcher that cannot open runs nothing else", () => {
+  const walk = switcherWalk("/switcher-lock-on", {
+    shots: settled,
+    count: 0,
+    failing: ["osascript"],
+  });
+  expect(walk.done).toBe(false);
+  expect(walk.commands).toHaveLength(1);
+});
+
+test("a failed launch fails the switcher route", () => {
+  expect(
+    switcherWalk("/switcher-lock-on", { shots: settled, count: 0, failing: ["launch"] }).done,
+  ).toBe(false);
+});

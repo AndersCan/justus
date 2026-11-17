@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { helperRoute } from "./maestro-ios-lib.mjs";
+import { MIN_PHOTO_PIXELS, photoPixels, writeMarker } from "./photo-marker.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ipad = process.argv.includes("--ipad");
@@ -137,6 +138,17 @@ if (invite) {
 run("xcrun", ["simctl", "uninstall", udid, bundleId]);
 if (run("xcrun", ["simctl", "install", udid, app]).status !== 0) fail("install failed");
 
+// iPhone first-run: a magenta photo in the library for the walk to add, and Simulator.app open on
+// the device so the walk can open its app switcher.
+if (!ipad && !invite) {
+  mkdirSync(out, { recursive: true });
+  const marker = path.join(out, "marker.png");
+  writeMarker(marker);
+  if (run("xcrun", ["simctl", "addmedia", udid, marker]).status !== 0) fail("addmedia failed");
+  run("open", ["-a", "Simulator", "--args", "-CurrentDeviceUDID", udid]);
+  spawnSync("sleep", ["5"]);
+}
+
 // iPhone: enrol a Face ID so the first-run card offers App lock, and serve /match for the flow.
 let face = null;
 if (!ipad) {
@@ -168,7 +180,17 @@ if (!ipad) {
     }
     // The walk asks the Simulator, not the XCTest driver: the driver's Home key press left it
     // waiting on a screenshot that timed out and killed the driver.
-    const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId });
+    const done = helperRoute(request.url ?? "", {
+      run,
+      notify,
+      udid,
+      bundleId,
+      out,
+      photoPixels,
+      minPhotoPixels: MIN_PHOTO_PIXELS,
+      read: readFileSync,
+      sleep: (ms) => spawnSync("sleep", [String(ms / 1000)]),
+    });
     if (done) console.log(`helper: ${request.url}`);
     response.writeHead(done ? 200 : 404).end(done ? "ok" : "not found");
   });
