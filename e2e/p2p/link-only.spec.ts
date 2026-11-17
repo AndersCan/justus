@@ -107,8 +107,8 @@ async function answerSince(page, inst, word, t0) {
   return (await stateOf(page, inst)).answersIn.some((m) => m.at >= t0 && m.text.includes(word));
 }
 
-/** Flags in `window.__photoSeen` any node or attribute on `page` that names one of `names`. */
-async function watchPhotoNames(page, names) {
+/** Flags in `window.__photoSeen` any node or attribute on `page` that shows one of `names`: a photo file or a name only the link carries. */
+async function watchNames(page, names) {
   const watch = (list) => {
     const hit = (text) => list.some((n) => text.includes(n));
     const scan = (node) => {
@@ -141,7 +141,7 @@ function photosOf(inst, id) {
   return readdirSync(dir).map((name) => ({ name, bytes: readFileSync(join(dir, name)) }));
 }
 
-test("a link holder who opens, asks, waits, is declined, asks again and cancels never gets the key, the photo or the member list", async ({
+test("a link holder with an edited link who opens, asks, waits, is declined, asks again and cancels never sees the link's names, the key, the photo or the member list", async ({
   instancePages,
   instances,
 }) => {
@@ -176,13 +176,22 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   ];
   expect(secrets.length, "Ada keeps the photo").toBeGreaterThan(2);
   const t0 = Date.now();
-  await watchPhotoNames(b, [P1]);
+  const tag = Date.now().toString(36);
+  const hash = new URLSearchParams(new URL(link).hash.slice(1));
+  const hintAlbum = `Holiday ${tag}`;
+  const hintOwner = `Mallory ${tag}`;
+  const adaName = hash.get("a");
+  expect(adaName, "the link carries Ada's name").toBeTruthy();
+  hash.set("n", hintAlbum);
+  hash.set("a", hintOwner);
+  const edited = `${link.split("#")[0]}#${hash.toString()}`;
+  await watchNames(b, [P1, hintAlbum, hintOwner]);
 
   // Opens the tapped link and does not ask.
   await b.goto("/");
   await b.evaluate(
     (l) => window.dispatchEvent(new CustomEvent("justus:invite", { detail: l })),
-    link,
+    edited,
   );
   const sheet = b.getByRole("dialog", { name: words("invite.ask_to_join_unnamed") });
   await expect(sheet).toBeVisible({ timeout: 60_000 });
@@ -191,10 +200,14 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   await sheet.getByRole("button", { name: words("invite.not_now"), exact: true }).click();
 
   // Asks and waits.
-  await askToJoin(b, link, album);
+  const asked = Date.now();
+  await askToJoin(b, edited, album);
   await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
     timeout: 60_000,
   });
+  const waiting = b.getByRole("dialog", { name: words("invite.you_re_done", { owner: adaName }) });
+  await expect(waiting).toContainText(album, { timeout: 60_000 });
+  await expect.poll(() => answerSince(b, bInst, "received", asked), { timeout: 30_000 }).toBe(true);
   expect((await stateOf(b, bInst)).asks.some((x) => x.status === "waiting")).toBe(true);
   await staysClean(b, bInst, secrets, "waiting");
   expect(await photoSeen(b), "photo name on screen: waiting").toBe(false);
@@ -361,7 +374,7 @@ test("a removed person never gets the new key or a later photo, even after a Col
       { timeout: 60_000, message: "Ben and Cleo connected (the route a later photo would take)" },
     )
     .toBeGreaterThan(0);
-  await watchPhotoNames(b, ["link-removed-2.png"]);
+  await watchNames(b, ["link-removed-2.png"]);
   await staysClean(b, bInst, secrets, "removed, Cleo on the new key");
   expect(await photoSeen(b), "later photo name on screen: removed").toBe(false);
 

@@ -1800,6 +1800,15 @@ describe("names come only from the Admin's phone", () => {
     },
   );
 
+  test("names heard tell a watcher of the screen", async () => {
+    const s = await waitingSetup();
+    const seen: unknown[] = [];
+    s.actor.on("change", { fn: (snap) => seen.push(snap.payload) });
+    seen.length = 0;
+    await s.send("namesHeard", { code: INVITE.code, album: "Spain 2026", ownerName: "Ada" });
+    expect(seen).toEqual([NAMED]);
+  });
+
   test("names heard for another request change nothing", async () => {
     const s = await waitingSetup();
     await s.send("namesHeard", { code: "c".repeat(64), album: "Garden", ownerName: "Tom" });
