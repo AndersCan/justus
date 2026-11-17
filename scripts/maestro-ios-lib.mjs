@@ -34,16 +34,18 @@ function switcher(
   expected,
 ) {
   const file = `${out}/switcher-${name}.png`;
+  // The frame before the switcher opens: a settled pair only counts once it differs from this.
+  if (run("xcrun", ["simctl", "io", udid, "screenshot", file]).status !== 0) return false;
+  const app = read(file);
   if (run("osascript", openSwitcher).status !== 0) return false;
-  // The switcher animates in; two shots of the unchanged app would settle before it opens.
-  sleep(2000);
+  // At most 10 shots 300 ms apart (3 s): the switcher's open animation lasts about a second.
   let settled = false;
   let previous = null;
   for (let shot = 0; shot < 10 && !settled; shot++) {
     if (shot > 0) sleep(300);
     if (run("xcrun", ["simctl", "io", udid, "screenshot", file]).status !== 0) break;
     const bytes = read(file);
-    settled = previous !== null && bytes.equals(previous);
+    settled = !bytes.equals(app) && previous !== null && bytes.equals(previous);
     previous = bytes;
   }
   if (!settled) console.log("the switcher never settled");

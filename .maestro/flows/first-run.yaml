@@ -121,6 +121,10 @@ appId: no.cankode.justus
           text: "Add photos to M"
           retryTapIfNoChange: false
           waitToSettleTimeoutMs: 500
+      # The picker shows "Loading..." until the library has indexed the added photo.
+      - extendedWaitUntil:
+          visible: "Photo, .*"
+          timeout: 90000
       - tapOn:
           text: "Photo, .*"
           waitToSettleTimeoutMs: 500
