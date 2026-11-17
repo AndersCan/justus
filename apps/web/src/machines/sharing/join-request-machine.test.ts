@@ -631,7 +631,7 @@ describe("answers with no sheet open", () => {
     const s = await closed({ asked: found });
     await s.send("requestAnswered", declinedAnswer);
     expect(s.actor.state.name).toBe("declinedByAdmin");
-    expect(payload(s)).toEqual(ROW_NAMED);
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test("declined with no stored ask stays quiet", async () => {
@@ -1237,7 +1237,7 @@ describe("stopped links", () => {
       await s.send("closeWaiting");
       await s.send("requestAnswered", { ...linkOff, why });
       expect(s.actor.state.name).toBe(name);
-      expect(payload(s)).toEqual(ROW_NAMED);
+      expect(payload(s)).toEqual(NAMED);
     },
   );
 
@@ -1863,5 +1863,45 @@ describe("names come only from the Admin's phone", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: { ...ask("waiting"), albumName: "", ownerName: "" } });
     expect(payload(s)).toEqual(ROW_UNNAMED);
+  });
+});
+
+describe("the link's album name after a decline that arrives with no sheet open", () => {
+  test("Ask again keeps the link's album name, as a reopened row does", async () => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = {
+      ask: async (i) => (asks.push(i), [undefined, {}]),
+      checkLink: async () => [undefined, { turnedOff: false }],
+    };
+    const s = await waitingSetup({ port, asked: () => ask("waiting") });
+    await s.send("closeWaiting");
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    expect(s.actor.state.name).toBe("declinedByAdmin");
+    expect(payload(s)).toEqual(NAMED);
+    await s.send("askAgain");
+    expect(asks.at(-1)).toMatchObject({ linkAlbum: HINTS.album });
+    expect(payload(s)).toMatchObject({ linkAlbum: HINTS.album });
+  });
+});
+
+describe("the link's album name when the same invite is opened again", () => {
+  test("a later link without a name does not erase the earlier one", async () => {
+    const s = setup({ asked: () => ask("waiting") });
+    await s.send("openLink", { text: LINK });
+    await s.send("openLink", { text: writeInviteLink({ ...INVITE, album: "", ownerName: "" }) });
+    await s.send("reopenRequest", { ask: ask("declined") });
+    expect(payload(s)).toEqual(NAMED);
+  });
+
+  test("Ask again after a decline with the sheet open sends the link's album name", async () => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = {
+      ask: async (i) => (asks.push(i), [undefined, {}]),
+      checkLink: async () => [undefined, { turnedOff: false }],
+    };
+    const s = await waitingSetup({ port, asked: () => ask("waiting") });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    await s.send("askAgain");
+    expect(asks.at(-1)).toMatchObject({ linkAlbum: HINTS.album });
   });
 });

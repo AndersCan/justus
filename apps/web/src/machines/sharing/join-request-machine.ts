@@ -225,6 +225,11 @@ export const joinRequestMachine = machine("joinRequest", {
       if (invite.linkAlbum !== undefined) linkAlbums.set(invite.code, invite.linkAlbum);
       return { ...invite, album: ask?.albumName ?? "", ownerName: ask?.ownerName ?? "" };
     }
+    /** A stored ask as a screen, with the album name its link carried. */
+    function rowInvite(row: AskSummary): JoinScreen {
+      const linkAlbum = linkAlbums.get(row.code);
+      return { ...inviteOf(row), ...(linkAlbum === undefined ? {} : { linkAlbum }) };
+    }
     /** A waiting screen's payload: the stored ask's names once it has any, else the screen's own. */
     function withHeard(invite: JoinScreen): JoinScreen {
       const ask = asked(invite.code);
@@ -374,11 +379,7 @@ export const joinRequestMachine = machine("joinRequest", {
             ],
             handler: (e) => {
               const { ask: row } = e.payload;
-              const linkAlbum = linkAlbums.get(row.code);
-              const invite = {
-                ...inviteOf(row),
-                ...(linkAlbum === undefined ? {} : { linkAlbum }),
-              };
+              const invite = rowInvite(row);
               if (row.status === "linkOff") return { state: stoppedScreen(row.why, invite) };
               return row.status === "declined"
                 ? { state: declinedByAdmin.create(invite) }
@@ -501,13 +502,13 @@ export const joinRequestMachine = machine("joinRequest", {
                 const row = asked(e.payload.code);
                 return row === undefined
                   ? { state: from }
-                  : { state: stoppedScreen(e.payload.why, inviteOf(row)) };
+                  : { state: stoppedScreen(e.payload.why, rowInvite(row)) };
               }
               if (e.payload.answer === "declined") {
                 const row = asked(e.payload.code);
                 return row === undefined
                   ? { state: from }
-                  : { state: declinedByAdmin.create(inviteOf(row)) };
+                  : { state: declinedByAdmin.create(rowInvite(row)) };
               }
               const folderId = e.payload.folderId;
               return folderId === undefined
