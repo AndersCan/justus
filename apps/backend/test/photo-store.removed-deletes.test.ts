@@ -58,8 +58,6 @@ async function removed() {
     await who.store.ask({
       code: invite!.code,
       owner: identityOf(anna),
-      albumName: "Trip",
-      ownerName: "Anna",
     });
     let requesterKey = "";
     await until(async () => {
@@ -187,8 +185,6 @@ describe("a removed phone that deletes the album", () => {
     await s.cleo.store.ask({
       code: created.invite!.code,
       owner: identityOf(s.anna),
-      albumName: "Trip",
-      ownerName: "Anna",
     });
     let requesterKey = "";
     await until(async () => {

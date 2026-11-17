@@ -59,9 +59,7 @@ describe("a Collaborator's outbox", () => {
 
     const created = await nils.store.createFolder("Trip");
     const { id: folderId, shareKey, invite } = created[1]!.folder;
-    expect(
-      (await ben.store.ask({ code: invite!.code, owner: nils.identity(), albumName: "Trip" }))[0],
-    ).toBeNull();
+    expect((await ben.store.ask({ code: invite!.code, owner: nils.identity() }))[0]).toBeNull();
     const { requests } = await eventually(
       () => nils.store.requests(),
       (r) => r.requests.length === 1,

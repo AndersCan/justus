@@ -87,7 +87,7 @@ describe("peer versions", () => {
     owner: string,
     code = "c".repeat(64),
   ) => {
-    const asked = await s.me.store.ask({ code, owner, albumName: "Summer", ownerName: "Nils" });
+    const asked = await s.me.store.ask({ code, owner });
     expect(asked[0]).toBeNull();
   };
   const marks = async (s: Awaited<ReturnType<typeof setup>>) =>

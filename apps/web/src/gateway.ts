@@ -86,8 +86,8 @@ export const gateway = {
   status: () => invoke(photoEvents.photos.status()),
   folders: () => invoke(photoEvents.photos.folders()),
   /** Asks the album's Admin to let this phone in, from a link's code, owner and name hints. */
-  ask: (code: string, owner: string, albumName?: string, ownerName?: string, linkEnd?: number) =>
-    invoke(photoEvents.photos.ask(code, owner, albumName, ownerName, linkEnd)),
+  ask: (code: string, owner: string, linkEnd?: number) =>
+    invoke(photoEvents.photos.ask(code, owner, linkEnd)),
   /** Whether the link's owner turned it off, read from the owner's phone within a few seconds. */
   linkTurnedOff: (code: string, owner: string) =>
     invoke(photoEvents.photos.linkTurnedOff(code, owner)),

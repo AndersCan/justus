@@ -651,8 +651,6 @@ export const scenarios: Scenario[] = [
         await joiner.store.ask({
           code: invite!.code,
           owner: adminIdentity,
-          albumName: "Lisbon",
-          ownerName: "Phone",
         }),
         "ask while the Admin is offline",
       );
@@ -1357,8 +1355,6 @@ export const scenarios: Scenario[] = [
           await who.store.ask({
             code: invite!.code,
             owner: adminIdentity,
-            albumName: "Trip",
-            ownerName: "Phone",
           }),
           `${who.name} asks`,
         );
@@ -1491,8 +1487,6 @@ export const scenarios: Scenario[] = [
           await who.store.ask({
             code: invite!.code,
             owner: adminIdentity,
-            albumName: "Trip",
-            ownerName: "Phone",
           }),
           `${who.name} asks`,
         );
@@ -1565,8 +1559,6 @@ export const scenarios: Scenario[] = [
         who.store.ask({
           code: invite!.code,
           owner: adminIdentity,
-          albumName: "Trip",
-          ownerName: "Phone",
         });
 
       t.noErr(await askAs(desktop), "Desktop asks");
@@ -1625,8 +1617,6 @@ async function askedAlbum(net: Net, joinerOpts?: Parameters<Net["peer"]>[2]) {
   const asked = await joiner.store.ask({
     code: invite.code,
     owner: adminIdentity,
-    albumName: "Lisbon",
-    ownerName: "Phone",
   });
   if (asked[0]) throw asked[0];
   return { admin, joiner, folderId, shareKey, invite, adminIdentity };

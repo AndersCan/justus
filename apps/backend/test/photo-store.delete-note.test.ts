@@ -457,8 +457,6 @@ describe("noticing photos someone else deleted", () => {
       await who.store.ask({
         code: invite!.code,
         owner: identity,
-        albumName: "Trip",
-        ownerName: "Anna",
       });
       let requesterKey = "";
       await until(async () => {
@@ -630,8 +628,6 @@ describe("noticing photos someone else deleted", () => {
       await who.store.ask({
         code: invite!.code,
         owner: identity,
-        albumName: "Trip",
-        ownerName: "Anna",
       });
       let requesterKey = "";
       await until(async () => {

@@ -266,8 +266,6 @@ async function follow(s: Awaited<ReturnType<typeof album>>, who: P) {
   const asked = await who.store.ask({
     code: folder.invite!.code,
     owner: identityOf(s.admin),
-    albumName: "Trip",
-    ownerName: "Anna",
   });
   expect(asked[0]).toBeNull();
   await who.store.close();
@@ -332,8 +330,6 @@ describe("colour seats through a Remove", () => {
     const asked = await dee.store.ask({
       code: folder.invite!.code,
       owner: identityOf(s.admin),
-      albumName: "Trip",
-      ownerName: "Anna",
     });
     expect(asked[0]).toBeNull();
     await until(async () => (await s.admin.store.requests()).requests.length === 1);

@@ -124,9 +124,7 @@ describe("ask after a No", () => {
       askedAt: 1,
       status,
     };
-    const offers = withOffer
-      ? [{ code: CODE, owner: OWNER, albumName: "Trip", ownerName: "Admin" }]
-      : [];
+    const offers = withOffer ? [{ code: CODE, owner: OWNER, albumName: "Trip" }] : [];
     writeFileSync(
       join(storageDir, "justus.json"),
       JSON.stringify({
@@ -197,8 +195,6 @@ describe("ask", () => {
     const asked = await s.joiner.store.ask({
       code: s.invite.code,
       owner: s.owner,
-      albumName: "Trip",
-      ownerName: "Admin",
     });
     expect(asked[0]).toBeNull();
     expect(asked[1]!.ask).toMatchObject({ code: s.invite.code, status: "waiting" });
@@ -242,16 +238,45 @@ describe("ask", () => {
     await s.close();
   });
 
-  it("clips the names the link carried", async () => {
+  it("an ask through a link has no names until the Admin's phone sends them", async () => {
     const s = await scenario();
-    const asked = await s.joiner.store.ask({
-      code: s.invite.code,
-      owner: s.owner,
-      albumName: "a".repeat(500),
-      ownerName: "  ",
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(asked[1]!.ask.albumName).toBe("");
+    expect(asked[1]!.ask.ownerName).toBe("");
+    await s.close();
+  });
+
+  it("an ask saved with the link's flat names loads with none", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const file = join(s.joiner.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.asks = [{ ...saved.asks[0], albumName: "Holiday", ownerName: "Mallory" }];
+    delete saved.asks[0].names;
+    writeFileSync(file, JSON.stringify(saved));
+    const again = createPhotoStore(restarted(s.joiner.deps));
+    await again.ready();
+    const [ask] = (await again.folders()).asks;
+    expect(ask).toMatchObject({ albumName: "", ownerName: "" });
+    await again.close();
+    await s.close();
+  });
+
+  it("the Admin's phone gives a waiting ask its names", async () => {
+    const hub = createFakeHub();
+    const storageDir = makeTmpDir("justus-heard-");
+    const s = await scenario(undefined, { storageDir }, hub);
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(asked[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length > 0);
+    await until(async () => {
+      const [ask] = (await s.joiner.store.folders()).asks;
+      return ask?.albumName === "Trip";
     });
-    expect(asked[1]!.ask.albumName).toHaveLength(80);
-    expect(asked[1]!.ask.ownerName).toBe("the Admin");
+    const [ask] = (await s.joiner.store.folders()).asks;
+    expect(ask).toMatchObject({ albumName: "Trip" });
+    const saved = JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
+    expect(saved.asks[0].names).toEqual({ album: "Trip", owner: "Admin" });
     await s.close();
   });
 
@@ -1507,8 +1532,31 @@ describe("a request through a turned-off link", () => {
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
     await until(async () => (await askStatus(s)) === "linkOff", 4_000);
     await s.joiner.store.ask({ code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.joiner.store.folders()).asks.length === 1, 4_000);
     const asks = (await s.joiner.store.folders()).asks;
-    expect(asks.map((a) => [a.code, a.status])).toEqual([[code, "waiting"]]);
+    expect(asks.map((a) => [a.code, a.status, a.albumName])).toEqual([[code, "waiting", "Trip"]]);
+    await s.close();
+  });
+
+  it("a new ask keeps the linkOff row of another album from the same Admin", async () => {
+    const { s, joinerNetwork } = await teed();
+    const other = (await s.admin.store.createFolder("Other"))[1]!.folder;
+    await s.joiner.store.ask({ code: other.invite!.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    await until(async () => (await s.joiner.store.folders()).asks[0]?.albumName === "Other");
+    await s.admin.store.turnOffInvite(other.id);
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () =>
+      (await s.joiner.store.folders()).asks.some((a) => a.albumName === "Trip"),
+    );
+    const asks = (await s.joiner.store.folders()).asks;
+    expect(asks.map((a) => [a.status, a.albumName]).sort()).toEqual([
+      ["linkOff", "Other"],
+      ["waiting", "Trip"],
+    ]);
     await s.close();
   });
 
@@ -2069,4 +2117,93 @@ describe("a joiner checks a link against the owner's published list", () => {
     expect(Date.now() - started).toBeLessThan(6_000);
     await joiner.store.close();
   }, 10_000);
+});
+
+describe("names the Admin's phone sent: wiring", () => {
+  it("an ask from a friend's offer keeps the offer's names, in the result and the saved file", async () => {
+    const storageDir = makeTmpDir("justus-offer-names-");
+    const code = "c".repeat(64);
+    const owner = "d".repeat(64);
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({
+        version: 2,
+        name: "Joiner",
+        folders: [],
+        activeFolderId: null,
+        asks: [],
+        offers: [{ code, owner, albumName: "Trip", ownerName: "Anna" }],
+        gone: [],
+      }),
+    );
+    const s = await scenario(undefined, { storageDir });
+    const taken = await s.joiner.store.joinOffer(code, owner);
+    expect(taken[1]!.ask).toMatchObject({ albumName: "Trip", ownerName: "Anna" });
+    const saved = JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
+    expect(saved.asks[0].names).toEqual({ album: "Trip", owner: "Anna" });
+    await s.close();
+  });
+
+  it("heard names come back after a restart and the screen is told when they arrive", async () => {
+    const storageDir = makeTmpDir("justus-heard-restart-");
+    const changes: { cause: string; code?: string }[] = [];
+    const s = await scenario(undefined, {
+      storageDir,
+      onChanged: (c: { cause: string; code?: string }) => void changes.push(c),
+    } as Partial<FakeStoreDeps>);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const before = changes.length;
+    await until(async () => (await s.joiner.store.folders()).asks[0]?.albumName === "Trip", 4_000);
+    expect(
+      changes.slice(before).some((c) => c.cause === "ask" && c.code === s.invite.code),
+      "the joiner's screen hears the names arrive",
+    ).toBe(true);
+    await s.joiner.store.close();
+    const again = createPhotoStore(restarted({ ...s.joiner.deps, onChanged: () => {} }));
+    await again.ready();
+    const [ask] = (await again.folders()).asks;
+    expect(ask).toMatchObject({ albumName: "Trip", ownerName: "Admin" });
+    await again.close();
+    await s.admin.store.close();
+  });
+
+  it("a dead row of another Admin with the same album name stays when a new ask hears", async () => {
+    const storageDir = makeTmpDir("justus-other-owner-");
+    const deadOther = {
+      code: "c".repeat(64),
+      owner: "d".repeat(64),
+      names: { album: "Trip", owner: "Mallory" },
+      askedAt: 1,
+      status: "linkOff",
+    };
+    writeFileSync(
+      join(storageDir, "justus.json"),
+      JSON.stringify({
+        version: 2,
+        name: "Joiner",
+        folders: [],
+        activeFolderId: null,
+        asks: [deadOther],
+        offers: [],
+        gone: [],
+      }),
+    );
+    const s = await scenario(undefined, { storageDir });
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(
+      async () =>
+        (await s.joiner.store.folders()).asks.some(
+          (a) => a.code === s.invite.code && a.albumName === "Trip",
+        ),
+      4_000,
+    );
+    const asks = (await s.joiner.store.folders()).asks;
+    expect(
+      asks.map((a) => [a.owner === s.owner ? "this" : "other", a.status, a.albumName]).sort(),
+    ).toEqual([
+      ["other", "linkOff", "Trip"],
+      ["this", "waiting", "Trip"],
+    ]);
+    await s.close();
+  });
 });
