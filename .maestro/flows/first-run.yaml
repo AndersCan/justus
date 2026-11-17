@@ -110,7 +110,7 @@ appId: no.cankode.justus
           visible: "No photos in this album yet."
           timeout: 15000
 # iOS: add the magenta photo the walk put in the library (the iOS picker is a separate process
-# whose cells read "Photo, <date>"; a multi-photo picker confirms with "Add"), then peek at the app
+# whose cells read "Photo, <date>"), then peek at the app
 # switcher with App lock on: the helper opens it, checks the picture and brings Justus back
 # within the 30 s the app allows without a lock.
 - runFlow:
@@ -124,12 +124,9 @@ appId: no.cankode.justus
       - tapOn:
           text: "Photo, .*"
           waitToSettleTimeoutMs: 500
-      - runFlow:
-          when:
-            visible: "Add"
-          commands:
-            - tapOn:
-                text: "Add"
+      # The picker confirms with a blue check at its top right, which Maestro does not read by name.
+      - tapOn:
+          point: "90%,16%"
       - extendedWaitUntil:
           visible: "View .*"
           timeout: 30000
