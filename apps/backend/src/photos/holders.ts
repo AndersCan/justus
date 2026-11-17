@@ -246,6 +246,26 @@ export function holdersFor(input: {
   };
 }
 
+/** How long Ada's phone watches Ben's record after she deletes a photo. */
+export const DROP_WATCH_MS = 60_000;
+
+/** Which waited-on phones now report a record without the photo. A silent record, or a failed previews list, proves nothing. */
+export function droppedBy(input: {
+  id: string;
+  waiting: ReadonlySet<string>;
+  held: ReadonlyMap<string, HeldReport>;
+}): Set<string> {
+  const { id, waiting, held } = input;
+  const gone = new Set<string>();
+  for (const key of waiting) {
+    const report = held.get(key);
+    if (report?.kind !== "reports" || report.ids.has(id)) continue;
+    if (report.previews.has(id) || report.previewsUnknown === true) continue;
+    gone.add(key);
+  }
+  return gone;
+}
+
 /** A removed phone tells the Admin it deleted its copy for at most this long. */
 export const COPY_DELETED_HOLD_MS = 90 * 24 * 60 * 60 * 1000;
 export const FORMER_PATH = "/former.json";

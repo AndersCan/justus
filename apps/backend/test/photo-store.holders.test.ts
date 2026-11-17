@@ -3,7 +3,7 @@
  * records, so every listed photo says who has it. Phones share one hub on the
  * checked fakes.
  */
-import { describe, it, expect } from "vite-plus/test";
+import { describe, it, expect, vi } from "vite-plus/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Drive } from "../src/ports/drive-store.ts";
@@ -1152,4 +1152,126 @@ describe("a record write racing the unmark", () => {
     expect(await drive.readSmall(`/previewed/${thumbed.id}`, 10)).toBeUndefined();
     await s.close();
   }, 20_000);
+});
+
+describe("the phone that deletes a photo hears who dropped it", () => {
+  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  const droppedPushes = (s: Album) =>
+    (s.anna.pushes as Dropped[]).filter((p) => p.cause === "dropped");
+
+  /** Nils's screen reloads the album, which is when his phone sees the delete. */
+  const untilDropped = (s: Album, n: number) =>
+    until(async () => (await s.nils.store.list(s.nilsFolderId), droppedPushes(s).length >= n));
+
+  /** Nils's record changes after the delete, which is when Anna's phone reads it again. */
+  async function nilsOpensAnother(s: Album) {
+    await s.anna.store.addBytes("other.jpg", new Uint8Array([4, 4, 4, 4]));
+    await until(async () =>
+      (await s.nils.store.list(s.nilsFolderId)).some((p) => p.name === "other.jpg"),
+    );
+    const other = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "other.jpg")!;
+    await s.nils.server.getForTest(new URL(other.url).pathname);
+    await until(async () => (await s.annaPhotoNamed("other.jpg")).holders!.others.length === 1);
+  }
+
+  it("answers an unknown photo with not-found", async () => {
+    const s = await album();
+    const [error] = await s.anna.store.remove("nope");
+    expect(error?.message).toContain("No photo nope");
+    await s.close();
+  });
+
+  async function nilsOpens(s: Album, name: string) {
+    const photo = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === name)!;
+    await s.nils.server.getForTest(new URL(photo.url).pathname);
+    await until(async () => (await s.annaPhotoNamed(name)).holders!.others.length === 1);
+  }
+
+  it("names Nils once his record drops a photo he held", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    const photo = await s.annaPhoto();
+    await s.anna.store.remove(photo.id);
+    await untilDropped(s, 1);
+    await sleep(300);
+    expect(droppedPushes(s)).toEqual([
+      expect.objectContaining({
+        folderId: s.folderId,
+        dropped: { photoId: photo.id, people: [expect.objectContaining({ key: s.nilsKey })] },
+      }),
+    ]);
+    await s.close();
+  });
+
+  it("names Nils for a photo he only previewed", async () => {
+    const s = await album();
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "thumbed.jpg")).length === 1);
+    await s.anna.store.remove(thumbed.id);
+    await untilDropped(s, 1);
+    expect(droppedPushes(s)[0]!.dropped!.people.map((p) => p.key)).toEqual([s.nilsKey]);
+    await s.close();
+  });
+
+  it("says nothing when Nils's phone never takes it out of his record", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    s.nils.quiet.delFails = true;
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await nilsOpensAnother(s);
+    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 1_000);
+    expect(droppedPushes(s)).toEqual([]);
+    await s.close();
+  });
+
+  it("stops listening 60 s after the delete", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
+    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 1_000);
+    clock.mockRestore();
+    expect(droppedPushes(s)).toEqual([]);
+    await s.close();
+  });
+
+  it("says nothing for a photo no phone held", async () => {
+    const s = await album();
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 800);
+    expect(droppedPushes(s)).toEqual([]);
+    await s.close();
+  });
+
+  it("says nothing about the phone that added the photo when the Admin deletes it", async () => {
+    const s = await album();
+    await s.nils.store.addBytes("nils.jpg", new Uint8Array([9, 9, 9, 9]));
+    await until(async () => (await s.anna.store.list()).some((p) => p.name === "nils.jpg"));
+    await s.anna.store.remove((await s.annaPhotoNamed("nils.jpg")).id);
+    await nilsOpensAnother(s);
+    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 800);
+    expect(droppedPushes(s)).toEqual([]);
+    await s.close();
+  });
+
+  it("tells each delete on its own", async () => {
+    const s = await album();
+    await s.anna.store.addBytes("two.jpg", new Uint8Array([2, 2, 2, 2]));
+    await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
+    await nilsOpens(s, "sunset.jpg");
+    await nilsOpens(s, "two.jpg").catch(() => {});
+    await until(async () => (await s.annaPhotoNamed("two.jpg")).holders!.others.length === 1);
+    const ids = [(await s.annaPhoto()).id, (await s.annaPhotoNamed("two.jpg")).id];
+    for (const id of ids) await s.anna.store.remove(id);
+    await untilDropped(s, 2);
+    await sleep(300);
+    expect(
+      droppedPushes(s)
+        .map((p) => p.dropped!.photoId)
+        .sort(),
+    ).toEqual([...ids].sort());
+    await s.close();
+  });
 });
