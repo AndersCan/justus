@@ -220,11 +220,10 @@ function maestro(log) {
     const file = createWriteStream(log);
     let text = "";
     const faceArgs = face ? ["-e", `FACE=${face.address().port}`] : [];
-    const dumpArgs = ["-e", `PICKER_DUMP=${process.env.PICKER_DUMP === "1" ? "1" : "0"}`];
     const pageArgs = invite ? ["-e", `PAGE=http://127.0.0.1:${face.address().port}`] : [];
     const child = spawn(
       "maestro",
-      ["--device", udid, "test", ...faceArgs, ...pageArgs, ...dumpArgs, "--test-output-dir", out, flow],
+      ["--device", udid, "test", ...faceArgs, ...pageArgs, "--test-output-dir", out, flow],
       {
         cwd: root,
         env: { ...process.env, MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000" },

@@ -128,13 +128,10 @@ appId: no.cankode.justus
       - tapOn:
           text: "Photo, .*"
           waitToSettleTimeoutMs: 500
-      - runFlow:
-          when:
-            true: ${PICKER_DUMP == '1'}
-          commands:
-            - assertVisible: "__picker_dump__"
+      # The picker's confirm button (label "Done") has the id "Add".
       - tapOn:
-          point: "90%,16%"
+          id: "Add"
+          waitToSettleTimeoutMs: 500
       - extendedWaitUntil:
           visible: "View .*"
           timeout: 20000
