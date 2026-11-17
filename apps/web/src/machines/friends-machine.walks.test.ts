@@ -1,12 +1,11 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createFriendsActor } from "./friends-machine";
+import { friendsMachine } from "./friends-machine";
 
-const make = recordRuns(createFriendsActor);
+const make = recordRuns(friendsMachine);
 
 test("Anna taps Nils in Trip and saves him as a friend", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.inject({ type: "FRIENDS_LOADED", payload: { friends: [] } });
   await actor.settled();
   actor.send({ type: "OPEN", payload: { target: { identity: "nils", ownName: "Nils" } } });
@@ -21,7 +20,7 @@ test("Anna taps Nils in Trip and saves him as a friend", async () => {
 });
 
 test("Anna removes Nils from her friends", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.inject({
     type: "FRIENDS_LOADED",
     payload: { friends: [{ identity: "nils", name: "Nils" }] },
@@ -34,7 +33,7 @@ test("Anna removes Nils from her friends", async () => {
 });
 
 test("Anna renames Ben B to Ben", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.inject({
     type: "FRIENDS_LOADED",
     payload: { friends: [{ identity: "ben", name: "Ben B" }] },

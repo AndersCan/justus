@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock } from "@mantaq/core";
+import { Actor, event, state, machine } from "@mantaq/core";
 import type { LockStatus } from "@justus/core";
 
 /** The Android App lock switch: what the host reports, and whether a change is being saved. */
@@ -17,43 +17,44 @@ const showingLockSwitch = state("showingLockSwitch")();
 /** The host is being asked; the switch is disabled. */
 const savingLockChoice = state("savingLockChoice")();
 
-export function createAppLockActor(options: { clock: Clock }) {
-  return Actor({
-    inputs: [statusRead, saveStarted, saveEnded],
-    internal: [],
-    outputs: [],
-    states: [showingLockSwitch, savingLockChoice],
-    initial: showingLockSwitch,
-    clock: options.clock,
-    context: { status: undefined } as AppLockContext,
-    setup: (m) => {
-      /** A fresh status from the host replaces what the card shows, in any state. */
-      m.onAny({
-        event: statusRead,
-        handler: (e, opts) => {
-          opts.context.set({ status: e.payload.status });
-          return {};
-        },
-      });
-      /** The switch is disabled while the host is asked. */
-      m.on(showingLockSwitch, {
-        event: saveStarted,
-        to: [savingLockChoice],
-        handler: () => ({ state: savingLockChoice }),
-      });
-      /** The host answered: the switch is usable again. */
-      m.on(savingLockChoice, {
-        event: saveEnded,
-        to: [showingLockSwitch],
-        handler: (e, opts) => {
-          opts.context.set({ status: e.payload.status });
-          return { state: showingLockSwitch };
-        },
-      });
-    },
-  });
-}
+export const appLockMachine = machine("appLock", {
+  create: () => {
+    return Actor({
+      inputs: [statusRead, saveStarted, saveEnded],
+      internal: [],
+      outputs: [],
+      states: [showingLockSwitch, savingLockChoice],
+      initial: showingLockSwitch,
+      context: { status: undefined } as AppLockContext,
+      setup: (m) => {
+        /** A fresh status from the host replaces what the card shows, in any state. */
+        m.onAny({
+          event: statusRead,
+          handler: (e, opts) => {
+            opts.context.set({ status: e.payload.status });
+            return {};
+          },
+        });
+        /** The switch is disabled while the host is asked. */
+        m.on(showingLockSwitch, {
+          event: saveStarted,
+          to: [savingLockChoice],
+          handler: () => ({ state: savingLockChoice }),
+        });
+        /** The host answered: the switch is usable again. */
+        m.on(savingLockChoice, {
+          event: saveEnded,
+          to: [showingLockSwitch],
+          handler: (e, opts) => {
+            opts.context.set({ status: e.payload.status });
+            return { state: showingLockSwitch };
+          },
+        });
+      },
+    });
+  },
+});
 
-export const appLockActor = createAppLockActor({ clock: RealClock() });
+export const appLockActor = appLockMachine.create();
 
 export const appLockEvents = { statusRead, saveStarted, saveEnded };

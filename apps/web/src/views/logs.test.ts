@@ -6,14 +6,13 @@ import {
   createLogsController,
   type LogsFetch,
 } from "./logs";
-import { VirtualClock } from "@mantaq/core";
 import type { LogEntry } from "@justus/core";
 import {
   availableSources,
   collectSources,
   filterLogEntries,
   keepSeenEntries,
-  createLogsActor,
+  logsMachine,
   logsEvents,
   visibleEntries,
 } from "../machines/logs-machine";
@@ -198,7 +197,7 @@ describe("keepSeenEntries", () => {
   });
 
   it("keeps held objects through the actor", () => {
-    const actor = createLogsActor({ clock: VirtualClock() });
+    const actor = logsMachine.create({});
     const [a1, a2, a3] = [line(1), line(2), line(3)];
     actor.send(logsEvents.loaded.create({ entries: [a1, a2], at: 1 }));
     const first = actor.snapshot().context.entries[0];

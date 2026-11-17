@@ -1,6 +1,5 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
-import { createGalleryActor, galleryViewModel, gallery, galleryActor } from "./gallery-machine";
+import { galleryMachine, galleryViewModel, gallery, galleryActor } from "./gallery-machine";
 
 const hoisted = vi.hoisted(() => ({
   gateway: { list: vi.fn(), add: vi.fn(), upload: vi.fn(), remove: vi.fn() },
@@ -25,7 +24,7 @@ function build(fakes: Fakes = {}) {
     upload: vi.fn(fakes.upload ?? (async () => [null, { id: "u1" }])),
     remove: vi.fn(fakes.remove ?? (async () => [null, undefined])),
   };
-  const actor = createGalleryActor({ clock: VirtualClock(), gateway: port as any });
+  const actor = galleryMachine.create({ gateway: port as any });
   const send = (type: string, payload?: unknown) => (actor as any).send({ type, payload });
   const stateOf = () => actor.snapshot().path[0];
   const ctx = () => actor.snapshot().context;

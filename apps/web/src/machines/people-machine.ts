@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import { gateway } from "../gateway";
 import { buildPeople } from "../utils/people";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
@@ -150,328 +150,333 @@ type PeoplePort = Pick<
   "removeMember" | "makeMember" | "makeViewer" | "takeBackOffer"
 >;
 
-/** The Admin's removal runs through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
-export function createPeopleActor(options: { clock: Clock; gateway?: PeoplePort }) {
-  const port = options.gateway ?? gateway;
-  return Actor({
-    inputs: [
-      openSheet,
-      closeSheet,
-      removeMember,
-      letViewerAddPhotos,
-      makeViewer,
-      takeBackInvite,
-      showQr,
-    ],
-    internal: [
-      removed,
-      removeFailed,
-      viewerCanAddPhotos,
-      letViewerAddFailed,
-      madeViewer,
-      makeViewerFailed,
-      inviteTakenBack,
-      takeBackFailed,
-    ],
-    outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer, memberRemoved, inviteWithdrawn],
-    states: [
-      peopleSheetClosed,
-      showingPeople,
-      removingMember,
-      couldNotRemoveMember,
-      lettingViewerAddPhotos,
-      couldNotLetViewerAddPhotos,
-      makingViewer,
-      couldNotMakeViewer,
-      takingBackInvite,
-      couldNotTakeBackInvite,
-    ],
-    initial: peopleSheetClosed,
-    clock: options.clock,
-    context: { pending: null, error: null, qrShown: false } as PeopleContext,
-    setup: (m) => {
-      /** Opening the sheet clears any old error and asks for the latest join requests. */
-      m.on(peopleSheetClosed, {
-        event: openSheet,
-        to: [showingPeople],
-        handler: (_e, opts) => {
-          opts.context.set({ pending: null, error: null, qrShown: false });
-          return { state: showingPeople, emit: [sheetOpened.create()] };
-        },
-      });
-      for (const at of [
+/** The Admin's removal runs through `gateway` so tests and the flow inspector can drive it. */
+export const peopleMachine = machine("people", {
+  create: (options: { gateway?: PeoplePort }) => {
+    const port = options.gateway ?? gateway;
+    return Actor({
+      inputs: [
+        openSheet,
+        closeSheet,
+        removeMember,
+        letViewerAddPhotos,
+        makeViewer,
+        takeBackInvite,
+        showQr,
+      ],
+      internal: [
+        removed,
+        removeFailed,
+        viewerCanAddPhotos,
+        letViewerAddFailed,
+        madeViewer,
+        makeViewerFailed,
+        inviteTakenBack,
+        takeBackFailed,
+      ],
+      outputs: [sheetOpened, viewerLetAddPhotos, memberMadeViewer, memberRemoved, inviteWithdrawn],
+      states: [
+        peopleSheetClosed,
         showingPeople,
+        removingMember,
         couldNotRemoveMember,
+        lettingViewerAddPhotos,
         couldNotLetViewerAddPhotos,
+        makingViewer,
         couldNotMakeViewer,
+        takingBackInvite,
         couldNotTakeBackInvite,
-      ]) {
-        /** Closing the sheet hides it again. */
-        m.on(at, {
-          event: closeSheet,
-          to: [peopleSheetClosed],
+      ],
+      initial: peopleSheetClosed,
+      context: { pending: null, error: null, qrShown: false } as PeopleContext,
+      setup: (m) => {
+        /** Opening the sheet clears any old error and asks for the latest join requests. */
+        m.on(peopleSheetClosed, {
+          event: openSheet,
+          to: [showingPeople],
           handler: (_e, opts) => {
-            opts.context.set({ ...opts.context.get(), qrShown: false });
-            return { state: peopleSheetClosed };
+            opts.context.set({ pending: null, error: null, qrShown: false });
+            return { state: showingPeople, emit: [sheetOpened.create()] };
           },
         });
-        /** The person asks for the invite QR code; it stays up until the sheet closes. */
-        m.on(at, {
+        for (const at of [
+          showingPeople,
+          couldNotRemoveMember,
+          couldNotLetViewerAddPhotos,
+          couldNotMakeViewer,
+          couldNotTakeBackInvite,
+        ]) {
+          /** Closing the sheet hides it again. */
+          m.on(at, {
+            event: closeSheet,
+            to: [peopleSheetClosed],
+            handler: (_e, opts) => {
+              opts.context.set({ ...opts.context.get(), qrShown: false });
+              return { state: peopleSheetClosed };
+            },
+          });
+          /** The person asks for the invite QR code; it stays up until the sheet closes. */
+          m.on(at, {
+            event: showQr,
+            handler: (_e, opts) => {
+              opts.context.set({ ...opts.context.get(), qrShown: true });
+              return {};
+            },
+          });
+          /** The Admin picks a member to remove; the sheet shows that it is working. */
+          m.on(at, {
+            event: removeMember,
+            to: [removingMember],
+            handler: (e, opts) => {
+              opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
+              return { state: removingMember };
+            },
+          });
+          /** The Admin lets a Viewer add photos; the sheet shows that it is working. */
+          m.on(at, {
+            event: letViewerAddPhotos,
+            to: [lettingViewerAddPhotos],
+            handler: (e, opts) => {
+              opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
+              return { state: lettingViewerAddPhotos };
+            },
+          });
+          /** The Admin makes a Collaborator a Viewer; the sheet shows that it is working. */
+          m.on(at, {
+            event: makeViewer,
+            to: [makingViewer],
+            handler: (e, opts) => {
+              opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
+              return { state: makingViewer };
+            },
+          });
+        }
+        for (const at of [peopleSheetClosed, showingPeople, couldNotTakeBackInvite]) {
+          /** The Invite card is on the album page whether or not the sheet is open, so Take back works from a closed sheet too; the machine shows that the invite is being taken back. */
+          m.on(at, {
+            event: takeBackInvite,
+            to: [takingBackInvite],
+            handler: (e, opts) => {
+              const { folderId, identity, name } = e.payload;
+              opts.context.set({
+                ...opts.context.get(),
+                pending: { folderId, memberKey: identity, name },
+                error: null,
+              });
+              return { state: takingBackInvite };
+            },
+          });
+        }
+        /** The person asks for the invite QR code while an invite is being taken back; it stays up until the sheet closes. */
+        m.on(takingBackInvite, {
           event: showQr,
           handler: (_e, opts) => {
             opts.context.set({ ...opts.context.get(), qrShown: true });
             return {};
           },
         });
-        /** The Admin picks a member to remove; the sheet shows that it is working. */
-        m.on(at, {
-          event: removeMember,
-          to: [removingMember],
-          handler: (e, opts) => {
-            opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
-            return { state: removingMember };
-          },
-        });
-        /** The Admin lets a Viewer add photos; the sheet shows that it is working. */
-        m.on(at, {
-          event: letViewerAddPhotos,
-          to: [lettingViewerAddPhotos],
-          handler: (e, opts) => {
-            opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
-            return { state: lettingViewerAddPhotos };
-          },
-        });
-        /** The Admin makes a Collaborator a Viewer; the sheet shows that it is working. */
-        m.on(at, {
-          event: makeViewer,
-          to: [makingViewer],
-          handler: (e, opts) => {
-            opts.context.set({ ...opts.context.get(), pending: e.payload, error: null });
-            return { state: makingViewer };
-          },
-        });
-      }
-      for (const at of [peopleSheetClosed, showingPeople, couldNotTakeBackInvite]) {
-        /** The Invite card is on the album page whether or not the sheet is open, so Take back works from a closed sheet too; the machine shows that the invite is being taken back. */
-        m.on(at, {
-          event: takeBackInvite,
-          to: [takingBackInvite],
-          handler: (e, opts) => {
-            const { folderId, identity, name } = e.payload;
-            opts.context.set({
-              ...opts.context.get(),
-              pending: { folderId, memberKey: identity, name },
-              error: null,
-            });
-            return { state: takingBackInvite };
-          },
-        });
-      }
-      /** The person asks for the invite QR code while an invite is being taken back; it stays up until the sheet closes. */
-      m.on(takingBackInvite, {
-        event: showQr,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: true });
-          return {};
-        },
-      });
-      /** The friend's invite is taken back. An invite that is already gone counts as done. */
-      m.effect(takingBackInvite, {
-        name: "takingBackInvite",
-        sends: [inviteTakenBack, takeBackFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pending;
-          if (!pending) {
-            emit(takeBackFailed.create({ message: "no invite to take back" }));
-            return;
-          }
-          return (async () => {
-            try {
-              const [err] = await port.takeBackOffer(pending.folderId, pending.memberKey);
-              if (signal.aborted) return;
-              if (!err) emit(inviteTakenBack.create({ gone: false }));
-              else if (isOfferGone(err)) emit(inviteTakenBack.create({ gone: true }));
-              else emit(takeBackFailed.create({ message: err.message || "unknown error" }));
-            } catch (e) {
-              if (signal.aborted) return;
-              emit(takeBackFailed.create({ message: e instanceof Error ? e.message : String(e) }));
+        /** The friend's invite is taken back. An invite that is already gone counts as done. */
+        m.effect(takingBackInvite, {
+          name: "takingBackInvite",
+          sends: [inviteTakenBack, takeBackFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pending;
+            if (!pending) {
+              emit(takeBackFailed.create({ message: "no invite to take back" }));
+              return;
             }
-          })();
-        },
-      });
-      /** The invite is gone and the Invite card drops the friend's row; an invite that was already gone says nothing. */
-      m.on(takingBackInvite, {
-        event: inviteTakenBack,
-        to: [showingPeople],
-        handler: (e, opts) => {
-          const name = opts.context.get().pending?.name ?? "";
-          opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          if (e.payload.gone) return { state: showingPeople };
-          return { state: showingPeople, emit: [inviteWithdrawn.create({ name })] };
-        },
-      });
-      /** Taking back failed: the Invite card says why and the friend stays invited. */
-      m.on(takingBackInvite, {
-        event: takeBackFailed,
-        to: [couldNotTakeBackInvite],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
-          return { state: couldNotTakeBackInvite };
-        },
-      });
-      /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
-      m.on(removingMember, {
-        event: showQr,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: true });
-          return {};
-        },
-      });
-      /** The person asks for the invite QR code while a Viewer is being let add photos; it stays up until the sheet closes. */
-      m.on(lettingViewerAddPhotos, {
-        event: showQr,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: true });
-          return {};
-        },
-      });
-      /** The person asks for the invite QR code while a Collaborator is being made a Viewer; it stays up until the sheet closes. */
-      m.on(makingViewer, {
-        event: showQr,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), qrShown: true });
-          return {};
-        },
-      });
-      /** The Collaborator is made a Viewer. */
-      m.effect(makingViewer, {
-        name: "makingViewer",
-        sends: [madeViewer, makeViewerFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pending;
-          if (!pending) {
-            emit(makeViewerFailed.create({ message: "no member to update" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.makeViewer(pending.folderId, pending.memberKey),
-            () => emit(madeViewer.create()),
-            (message) => emit(makeViewerFailed.create({ message })),
-          );
-        },
-      });
-      /** The Collaborator is a Viewer and the sheet shows the updated row. */
-      m.on(makingViewer, {
-        event: madeViewer,
-        to: [showingPeople],
-        handler: (_e, opts) => {
-          const memberKey = opts.context.get().pending?.memberKey ?? "";
-          opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          return { state: showingPeople, emit: [memberMadeViewer.create({ memberKey })] };
-        },
-      });
-      /** Saving failed: the sheet stays open and says why, and the person stays a Collaborator. */
-      m.on(makingViewer, {
-        event: makeViewerFailed,
-        to: [couldNotMakeViewer],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
-          return { state: couldNotMakeViewer };
-        },
-      });
-      /** The Viewer is made a Collaborator. */
-      m.effect(lettingViewerAddPhotos, {
-        name: "lettingViewerAddPhotos",
-        sends: [viewerCanAddPhotos, letViewerAddFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pending;
-          if (!pending) {
-            emit(letViewerAddFailed.create({ message: "no member to update" }));
-            return;
-          }
-          return (async () => {
-            try {
-              const [err] = await port.makeMember(pending.folderId, pending.memberKey);
-              if (signal.aborted) return;
-              if (!err || isAlreadyEnrolled(err)) emit(viewerCanAddPhotos.create());
-              else emit(letViewerAddFailed.create({ message: err.message || "unknown error" }));
-            } catch (e) {
-              if (signal.aborted) return;
-              emit(
-                letViewerAddFailed.create({ message: e instanceof Error ? e.message : String(e) }),
-              );
+            return (async () => {
+              try {
+                const [err] = await port.takeBackOffer(pending.folderId, pending.memberKey);
+                if (signal.aborted) return;
+                if (!err) emit(inviteTakenBack.create({ gone: false }));
+                else if (isOfferGone(err)) emit(inviteTakenBack.create({ gone: true }));
+                else emit(takeBackFailed.create({ message: err.message || "unknown error" }));
+              } catch (e) {
+                if (signal.aborted) return;
+                emit(
+                  takeBackFailed.create({ message: e instanceof Error ? e.message : String(e) }),
+                );
+              }
+            })();
+          },
+        });
+        /** The invite is gone and the Invite card drops the friend's row; an invite that was already gone says nothing. */
+        m.on(takingBackInvite, {
+          event: inviteTakenBack,
+          to: [showingPeople],
+          handler: (e, opts) => {
+            const name = opts.context.get().pending?.name ?? "";
+            opts.context.set({ ...opts.context.get(), pending: null, error: null });
+            if (e.payload.gone) return { state: showingPeople };
+            return { state: showingPeople, emit: [inviteWithdrawn.create({ name })] };
+          },
+        });
+        /** Taking back failed: the Invite card says why and the friend stays invited. */
+        m.on(takingBackInvite, {
+          event: takeBackFailed,
+          to: [couldNotTakeBackInvite],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+            return { state: couldNotTakeBackInvite };
+          },
+        });
+        /** The person asks for the invite QR code while a member is being removed; it stays up until the sheet closes. */
+        m.on(removingMember, {
+          event: showQr,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), qrShown: true });
+            return {};
+          },
+        });
+        /** The person asks for the invite QR code while a Viewer is being let add photos; it stays up until the sheet closes. */
+        m.on(lettingViewerAddPhotos, {
+          event: showQr,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), qrShown: true });
+            return {};
+          },
+        });
+        /** The person asks for the invite QR code while a Collaborator is being made a Viewer; it stays up until the sheet closes. */
+        m.on(makingViewer, {
+          event: showQr,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), qrShown: true });
+            return {};
+          },
+        });
+        /** The Collaborator is made a Viewer. */
+        m.effect(makingViewer, {
+          name: "makingViewer",
+          sends: [madeViewer, makeViewerFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pending;
+            if (!pending) {
+              emit(makeViewerFailed.create({ message: "no member to update" }));
+              return;
             }
-          })();
-        },
-      });
-      /** The Viewer can add photos and the sheet shows the updated list. */
-      m.on(lettingViewerAddPhotos, {
-        event: viewerCanAddPhotos,
-        to: [showingPeople],
-        handler: (_e, opts) => {
-          const memberKey = opts.context.get().pending?.memberKey ?? "";
-          opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          return { state: showingPeople, emit: [viewerLetAddPhotos.create({ memberKey })] };
-        },
-      });
-      /** Saving failed: the sheet stays open and says why, and the person stays a Viewer. */
-      m.on(lettingViewerAddPhotos, {
-        event: letViewerAddFailed,
-        to: [couldNotLetViewerAddPhotos],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
-          return { state: couldNotLetViewerAddPhotos };
-        },
-      });
-      /** The member is taken out of the album. */
-      m.effect(removingMember, {
-        name: "removingMember",
-        sends: [removed, removeFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pending;
-          if (!pending) {
-            emit(removeFailed.create({ message: "no member to remove" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.removeMember(pending.folderId, pending.memberKey),
-            () => emit(removed.create()),
-            (message) => emit(removeFailed.create({ message })),
-          );
-        },
-      });
-      /** The member is gone and the sheet shows the updated list. */
-      m.on(removingMember, {
-        event: removed,
-        to: [showingPeople],
-        handler: (_e, opts) => {
-          const pending = opts.context.get().pending;
-          opts.context.set({ ...opts.context.get(), pending: null, error: null });
-          if (!pending) return { state: showingPeople };
-          return {
-            state: showingPeople,
-            emit: [memberRemoved.create({ memberKey: pending.memberKey })],
-          };
-        },
-      });
-      /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
-      m.on(removingMember, {
-        event: removeFailed,
-        to: [couldNotRemoveMember],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
-          return { state: couldNotRemoveMember };
-        },
-      });
-    },
-  });
-}
+            return runInvoke(
+              signal,
+              () => port.makeViewer(pending.folderId, pending.memberKey),
+              () => emit(madeViewer.create()),
+              (message) => emit(makeViewerFailed.create({ message })),
+            );
+          },
+        });
+        /** The Collaborator is a Viewer and the sheet shows the updated row. */
+        m.on(makingViewer, {
+          event: madeViewer,
+          to: [showingPeople],
+          handler: (_e, opts) => {
+            const memberKey = opts.context.get().pending?.memberKey ?? "";
+            opts.context.set({ ...opts.context.get(), pending: null, error: null });
+            return { state: showingPeople, emit: [memberMadeViewer.create({ memberKey })] };
+          },
+        });
+        /** Saving failed: the sheet stays open and says why, and the person stays a Collaborator. */
+        m.on(makingViewer, {
+          event: makeViewerFailed,
+          to: [couldNotMakeViewer],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+            return { state: couldNotMakeViewer };
+          },
+        });
+        /** The Viewer is made a Collaborator. */
+        m.effect(lettingViewerAddPhotos, {
+          name: "lettingViewerAddPhotos",
+          sends: [viewerCanAddPhotos, letViewerAddFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pending;
+            if (!pending) {
+              emit(letViewerAddFailed.create({ message: "no member to update" }));
+              return;
+            }
+            return (async () => {
+              try {
+                const [err] = await port.makeMember(pending.folderId, pending.memberKey);
+                if (signal.aborted) return;
+                if (!err || isAlreadyEnrolled(err)) emit(viewerCanAddPhotos.create());
+                else emit(letViewerAddFailed.create({ message: err.message || "unknown error" }));
+              } catch (e) {
+                if (signal.aborted) return;
+                emit(
+                  letViewerAddFailed.create({
+                    message: e instanceof Error ? e.message : String(e),
+                  }),
+                );
+              }
+            })();
+          },
+        });
+        /** The Viewer can add photos and the sheet shows the updated list. */
+        m.on(lettingViewerAddPhotos, {
+          event: viewerCanAddPhotos,
+          to: [showingPeople],
+          handler: (_e, opts) => {
+            const memberKey = opts.context.get().pending?.memberKey ?? "";
+            opts.context.set({ ...opts.context.get(), pending: null, error: null });
+            return { state: showingPeople, emit: [viewerLetAddPhotos.create({ memberKey })] };
+          },
+        });
+        /** Saving failed: the sheet stays open and says why, and the person stays a Viewer. */
+        m.on(lettingViewerAddPhotos, {
+          event: letViewerAddFailed,
+          to: [couldNotLetViewerAddPhotos],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+            return { state: couldNotLetViewerAddPhotos };
+          },
+        });
+        /** The member is taken out of the album. */
+        m.effect(removingMember, {
+          name: "removingMember",
+          sends: [removed, removeFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pending;
+            if (!pending) {
+              emit(removeFailed.create({ message: "no member to remove" }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.removeMember(pending.folderId, pending.memberKey),
+              () => emit(removed.create()),
+              (message) => emit(removeFailed.create({ message })),
+            );
+          },
+        });
+        /** The member is gone and the sheet shows the updated list. */
+        m.on(removingMember, {
+          event: removed,
+          to: [showingPeople],
+          handler: (_e, opts) => {
+            const pending = opts.context.get().pending;
+            opts.context.set({ ...opts.context.get(), pending: null, error: null });
+            if (!pending) return { state: showingPeople };
+            return {
+              state: showingPeople,
+              emit: [memberRemoved.create({ memberKey: pending.memberKey })],
+            };
+          },
+        });
+        /** Removing failed: the sheet stays open and tells the person what went wrong, and the member stays in the album. */
+        m.on(removingMember, {
+          event: removeFailed,
+          to: [couldNotRemoveMember],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), pending: null, error: e.payload.message });
+            return { state: couldNotRemoveMember };
+          },
+        });
+      },
+    });
+  },
+});
 
-export const peopleActor = createPeopleActor({ clock: RealClock() });
+export const peopleActor = peopleMachine.create();
 
-export type PeopleActor = ReturnType<typeof createPeopleActor>;
+export type PeopleActor = ReturnType<typeof peopleMachine.create>;
 
 /** Opening the People sheet asks for the latest join requests. */
 export function wirePeopleToRequests(people: PeopleActor, target: { refresh(): void }): () => void {

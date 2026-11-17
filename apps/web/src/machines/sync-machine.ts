@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
 import { fatalErrorOf, runInvoke, stateNameOf } from "./actor-utils";
@@ -84,63 +84,53 @@ type SyncContext = {
 };
 type SyncPort = Pick<typeof gateway, "status" | "enroll">;
 
-/** Album status and enroll run through `gateway` and the clock is injected, so tests and the flow inspector can drive it. */
-export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
-  const port = options.gateway ?? gateway;
-  return Actor({
-    inputs: [refresh, enroll, retry, statusSeen],
-    internal: [status, statusFailed, enrolled, enrollFailed],
-    outputs: [],
-    states: [
-      albumNotChecked,
-      checkingAlbum,
-      showingAlbum,
-      waitingForAdminApproval,
-      addingMemberByKey,
-      couldNotAddMember,
-      couldNotCheckAlbum,
-    ],
-    initial: albumNotChecked,
-    clock: options.clock,
-    context: {
-      status: null,
-      error: null,
-      pendingEnroll: null,
-    } as SyncContext,
-    setup: (m) => {
-      /** Another machine reports a newer status: it becomes the status shown, in any state. */
-      m.onAny({
-        event: statusSeen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), status: e.payload.status });
-          return {};
-        },
-      });
-      /** A newer status says the Admin has not approved the person yet. */
-      m.on(showingAlbum, {
-        event: statusSeen,
-        to: [waitingForAdminApproval],
-        handler: (e) =>
-          e.payload.status.folder?.pending ? { state: waitingForAdminApproval } : {},
-      });
-      /** A newer status says the Admin has approved the person. */
-      m.on(waitingForAdminApproval, {
-        event: statusSeen,
-        to: [showingAlbum],
-        handler: (e) => (e.payload.status.folder?.pending ? {} : { state: showingAlbum }),
-      });
-      /** The first check starts and any old error is cleared. */
-      m.on(albumNotChecked, {
-        event: refresh,
-        to: [checkingAlbum],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: checkingAlbum };
-        },
-      });
-      for (const at of [showingAlbum, waitingForAdminApproval, couldNotAddMember]) {
-        /** A reload starts and any old error is cleared. */
-        m.on(at, {
+/** Album status and enroll run through `gateway` so tests and the flow inspector can drive it. */
+export const syncMachine = machine("sync", {
+  create: (options: { gateway?: SyncPort }) => {
+    const port = options.gateway ?? gateway;
+    return Actor({
+      inputs: [refresh, enroll, retry, statusSeen],
+      internal: [status, statusFailed, enrolled, enrollFailed],
+      outputs: [],
+      states: [
+        albumNotChecked,
+        checkingAlbum,
+        showingAlbum,
+        waitingForAdminApproval,
+        addingMemberByKey,
+        couldNotAddMember,
+        couldNotCheckAlbum,
+      ],
+      initial: albumNotChecked,
+      context: {
+        status: null,
+        error: null,
+        pendingEnroll: null,
+      } as SyncContext,
+      setup: (m) => {
+        /** Another machine reports a newer status: it becomes the status shown, in any state. */
+        m.onAny({
+          event: statusSeen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), status: e.payload.status });
+            return {};
+          },
+        });
+        /** A newer status says the Admin has not approved the person yet. */
+        m.on(showingAlbum, {
+          event: statusSeen,
+          to: [waitingForAdminApproval],
+          handler: (e) =>
+            e.payload.status.folder?.pending ? { state: waitingForAdminApproval } : {},
+        });
+        /** A newer status says the Admin has approved the person. */
+        m.on(waitingForAdminApproval, {
+          event: statusSeen,
+          to: [showingAlbum],
+          handler: (e) => (e.payload.status.folder?.pending ? {} : { state: showingAlbum }),
+        });
+        /** The first check starts and any old error is cleared. */
+        m.on(albumNotChecked, {
           event: refresh,
           to: [checkingAlbum],
           handler: (_e, opts) => {
@@ -148,146 +138,157 @@ export function createSyncActor(options: { clock: Clock; gateway?: SyncPort }) {
             return { state: checkingAlbum };
           },
         });
-        /** Setting up the person's album for sharing starts and any earlier error is cleared. */
-        m.on(at, {
-          event: enroll,
-          to: [addingMemberByKey],
+        for (const at of [showingAlbum, waitingForAdminApproval, couldNotAddMember]) {
+          /** A reload starts and any old error is cleared. */
+          m.on(at, {
+            event: refresh,
+            to: [checkingAlbum],
+            handler: (_e, opts) => {
+              opts.context.set({ ...opts.context.get(), error: null });
+              return { state: checkingAlbum };
+            },
+          });
+          /** Setting up the person's album for sharing starts and any earlier error is cleared. */
+          m.on(at, {
+            event: enroll,
+            to: [addingMemberByKey],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                error: null,
+                pendingEnroll: { key: e.payload.key, name: e.payload.name },
+              });
+              return { state: addingMemberByKey };
+            },
+          });
+        }
+        /** A reload asked while a check is running: the running check may have read the album before the news (the Admin connecting) landed, so it starts again. */
+        m.on(checkingAlbum, {
+          event: refresh,
+          to: [checkingAlbum],
+          handler: () => ({ state: checkingAlbum }),
+        });
+        /** A reload after an error starts and the error message goes away. */
+        m.on(couldNotCheckAlbum, {
+          event: refresh,
+          to: [checkingAlbum],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: checkingAlbum };
+          },
+        });
+        /** Try again after an error: the check starts again and the error message goes away. */
+        m.on(couldNotCheckAlbum, {
+          event: retry,
+          to: [checkingAlbum],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: checkingAlbum };
+          },
+        });
+
+        /** The album status is fetched; if that fails or returns nothing, the status fails and the person sees an error. */
+        m.effect(checkingAlbum, {
+          name: "checkingAlbum",
+          sends: [status, statusFailed],
+          fn: ({ signal, emit }) => {
+            return runInvoke(
+              signal,
+              () => port.status(),
+              (result) =>
+                result
+                  ? emit(status.create({ status: result as SyncStatus }))
+                  : emit(statusFailed.create({ message: "no status returned" })),
+              (message) => emit(statusFailed.create({ message })),
+            );
+          },
+        });
+        /** The album status is shown and any error is cleared. */
+        m.on(checkingAlbum, {
+          event: status,
+          to: [showingAlbum, waitingForAdminApproval],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              status: e.payload.status,
+              error: null,
+              pendingEnroll: null,
+            });
+            return {
+              state: e.payload.status.folder?.pending ? waitingForAdminApproval : showingAlbum,
+            };
+          },
+        });
+        /** The check failed: the person sees an error and can try again. */
+        m.on(checkingAlbum, {
+          event: statusFailed,
+          to: [couldNotCheckAlbum],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: e.payload.message,
+              pendingEnroll: null,
+            });
+            return { state: couldNotCheckAlbum };
+          },
+        });
+
+        /** The album is set up with its key and name; if that fails or returns no status, setting up fails and the person stays on the sharing screen. */
+        m.effect(addingMemberByKey, {
+          name: "addingMemberByKey",
+          sends: [enrolled, enrollFailed],
+          fn: ({ signal, emit, context }) => {
+            const pending = context.get().pendingEnroll;
+            if (!pending) {
+              emit(enrollFailed.create({ message: "no pending enrollment" }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.enroll(pending.key, pending.name),
+              (result) =>
+                result
+                  ? emit(enrolled.create({ status: result as SyncStatus }))
+                  : emit(enrollFailed.create({ message: "enroll returned no status" })),
+              (message) => emit(enrollFailed.create({ message })),
+            );
+          },
+        });
+        /** The album is set up and its status is shown. */
+        m.on(addingMemberByKey, {
+          event: enrolled,
+          to: [showingAlbum],
           handler: (e, opts) => {
             opts.context.set({
               ...opts.context.get(),
               error: null,
-              pendingEnroll: { key: e.payload.key, name: e.payload.name },
+              status: e.payload.status,
+              pendingEnroll: null,
             });
-            return { state: addingMemberByKey };
+            return { state: showingAlbum };
           },
         });
-      }
-      /** A reload asked while a check is running: the running check may have read the album before the news (the Admin connecting) landed, so it starts again. */
-      m.on(checkingAlbum, {
-        event: refresh,
-        to: [checkingAlbum],
-        handler: () => ({ state: checkingAlbum }),
-      });
-      /** A reload after an error starts and the error message goes away. */
-      m.on(couldNotCheckAlbum, {
-        event: refresh,
-        to: [checkingAlbum],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: checkingAlbum };
-        },
-      });
-      /** Try again after an error: the check starts again and the error message goes away. */
-      m.on(couldNotCheckAlbum, {
-        event: retry,
-        to: [checkingAlbum],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: checkingAlbum };
-        },
-      });
+        /** Setting up failed: the person sees an error and can try again. */
+        m.on(addingMemberByKey, {
+          event: enrollFailed,
+          to: [couldNotAddMember],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              error: e.payload.message,
+              pendingEnroll: null,
+            });
+            return { state: couldNotAddMember };
+          },
+        });
+      },
+    });
+  },
+});
 
-      /** The album status is fetched; if that fails or returns nothing, the status fails and the person sees an error. */
-      m.effect(checkingAlbum, {
-        name: "checkingAlbum",
-        sends: [status, statusFailed],
-        fn: ({ signal, emit }) => {
-          return runInvoke(
-            signal,
-            () => port.status(),
-            (result) =>
-              result
-                ? emit(status.create({ status: result as SyncStatus }))
-                : emit(statusFailed.create({ message: "no status returned" })),
-            (message) => emit(statusFailed.create({ message })),
-          );
-        },
-      });
-      /** The album status is shown and any error is cleared. */
-      m.on(checkingAlbum, {
-        event: status,
-        to: [showingAlbum, waitingForAdminApproval],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            status: e.payload.status,
-            error: null,
-            pendingEnroll: null,
-          });
-          return {
-            state: e.payload.status.folder?.pending ? waitingForAdminApproval : showingAlbum,
-          };
-        },
-      });
-      /** The check failed: the person sees an error and can try again. */
-      m.on(checkingAlbum, {
-        event: statusFailed,
-        to: [couldNotCheckAlbum],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-            pendingEnroll: null,
-          });
-          return { state: couldNotCheckAlbum };
-        },
-      });
+export type SyncActor = ReturnType<typeof syncMachine.create>;
 
-      /** The album is set up with its key and name; if that fails or returns no status, setting up fails and the person stays on the sharing screen. */
-      m.effect(addingMemberByKey, {
-        name: "addingMemberByKey",
-        sends: [enrolled, enrollFailed],
-        fn: ({ signal, emit, context }) => {
-          const pending = context.get().pendingEnroll;
-          if (!pending) {
-            emit(enrollFailed.create({ message: "no pending enrollment" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.enroll(pending.key, pending.name),
-            (result) =>
-              result
-                ? emit(enrolled.create({ status: result as SyncStatus }))
-                : emit(enrollFailed.create({ message: "enroll returned no status" })),
-            (message) => emit(enrollFailed.create({ message })),
-          );
-        },
-      });
-      /** The album is set up and its status is shown. */
-      m.on(addingMemberByKey, {
-        event: enrolled,
-        to: [showingAlbum],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: null,
-            status: e.payload.status,
-            pendingEnroll: null,
-          });
-          return { state: showingAlbum };
-        },
-      });
-      /** Setting up failed: the person sees an error and can try again. */
-      m.on(addingMemberByKey, {
-        event: enrollFailed,
-        to: [couldNotAddMember],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            error: e.payload.message,
-            pendingEnroll: null,
-          });
-          return { state: couldNotAddMember };
-        },
-      });
-    },
-  });
-}
-
-export type SyncActor = ReturnType<typeof createSyncActor>;
-
-export const syncActor = createSyncActor({ clock: RealClock() });
+export const syncActor = syncMachine.create();
 
 export const sync = {
   state: () => nameOf(syncActor.snapshot()),

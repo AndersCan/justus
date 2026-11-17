@@ -1,11 +1,11 @@
-import { RealClock, type Snapshot } from "@mantaq/core";
+import type { Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../../gateway";
 import { toast } from "../../views/toast";
 import { sync } from "../sync-machine";
 import {
   chooseLinkTime,
-  createInviteLinkActor,
+  inviteLinkMachine,
   createLink,
   linkReplaced,
   turnOffLink,
@@ -59,8 +59,7 @@ export function inviteLinkViewOf(snapshot: Snapshot<unknown>): InviteLinkView {
   };
 }
 
-export const inviteLinkActor = createInviteLinkActor({
-  clock: RealClock(),
+export const inviteLinkActor = inviteLinkMachine.create({
   port: {
     saveLinkTime: (folderId, expiresAt) => gateway.saveInviteLink(folderId, expiresAt),
     turnOff: async (folderId) => {

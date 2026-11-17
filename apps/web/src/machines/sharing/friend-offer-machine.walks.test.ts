@@ -2,16 +2,16 @@ import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createFriendOfferActor } from "./friend-offer-machine";
+import { friendOfferMachine } from "./friend-offer-machine";
 
 const NILS = "4e".repeat(32);
 const FOLDER = "f1".repeat(32);
 const CODE = "c0".repeat(32);
 
-const make = recordRuns(createFriendOfferActor);
+const make = recordRuns(friendOfferMachine);
 
 test("Nils adds Kari to Lisbon trip as a Viewer, and she joins from her albums list", async () => {
-  const actor = make({
+  const actor = make.create({
     clock: VirtualClock(),
     port: { joinOffer: async () => [null, { ok: true }] },
   });

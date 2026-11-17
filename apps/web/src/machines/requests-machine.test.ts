@@ -1,8 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
-import { createRequestsActor, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
+import { requestsMachine, requestsViewModel, viewerAcceptKeys } from "./requests-machine";
 
 vi.mock("../gateway", () => ({
   gateway: { logs: { view: vi.fn(), clear: vi.fn() } },
@@ -38,7 +37,7 @@ function setup(
     ),
     respond: vi.fn(options.respond ?? (async () => [null, { ok: true }] as never)),
   };
-  const actor = createRequestsActor({ clock: VirtualClock(), gateway: port as never });
+  const actor = requestsMachine.create({ gateway: port as never });
   return { actor, port };
 }
 

@@ -1,8 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import type { JoinRequest } from "@justus/core";
-import { createRequestsActor } from "./requests-machine";
+import { requestsMachine } from "./requests-machine";
 
 vi.mock("../gateway", () => ({ gateway: { logs: { view: vi.fn(), clear: vi.fn() } } }));
 
@@ -21,7 +20,7 @@ function setup(keys = ["k1", "k2"]) {
     requests: vi.fn(async () => [null, { requests: keys.map((k) => request("f1", k)) }] as never),
     respond: vi.fn(() => new Promise<[unknown, unknown]>((r) => pending.push(r)) as never),
   };
-  const actor = createRequestsActor({ clock: VirtualClock(), gateway: port as never });
+  const actor = requestsMachine.create({ gateway: port as never });
   return { actor, port, pending };
 }
 

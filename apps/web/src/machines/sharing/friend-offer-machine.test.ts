@@ -1,4 +1,4 @@
-import { VirtualClock } from "@mantaq/core";
+import { VirtualClock, machine } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
@@ -6,7 +6,7 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   JOIN_WAIT_MS,
   OFFER_GONE_CODE,
-  createFriendOfferActor,
+  friendOfferMachine,
   type FriendOffer,
   type FriendOfferPort,
 } from "./friend-offer-machine";
@@ -18,11 +18,11 @@ const OFFER: FriendOffer = {
   ownerName: "Nils",
 };
 
-const make = recordRuns(createFriendOfferActor);
+const make = recordRuns(friendOfferMachine);
 
 function setup(port?: FriendOfferPort) {
   const clock = VirtualClock();
-  const actor = make({ clock, port });
+  const actor = make.create({ clock, port });
   const outputs: { type: string; payload?: unknown }[] = [];
   onOutput(actor, (e) =>
     outputs.push({ type: e.type, payload: (e as { payload?: unknown }).payload }),
@@ -145,8 +145,9 @@ test("join is ignored while joining", async () => {
 
 describe("friend offer design", () => {
   const target = (port?: FriendOfferPort) => ({
-    id: "friendOffer",
-    create: () => createFriendOfferActor({ clock: VirtualClock(), port }),
+    machine: machine("friendOffer", {
+      create: ({ clock }) => friendOfferMachine.create({ clock, port }),
+    }),
     payloads: {
       join: [{ offer: OFFER }],
       askAnswered: [{ code: OFFER.code, answer: "accepted" as const, folderId: "f9" }],

@@ -1,8 +1,7 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import type { SyncStatus } from "@justus/core";
 import { gateway } from "../gateway";
-import { createSyncActor, sync, syncActor, syncViewModel } from "./sync-machine";
+import { syncMachine, sync, syncActor, syncViewModel } from "./sync-machine";
 
 vi.mock("../gateway", () => ({
   gateway: {
@@ -15,7 +14,7 @@ vi.mock("../gateway", () => ({
 const statusOf = (pending = false, name = "Ana") =>
   ({ name, folder: { id: "f1", role: "reader", pending } }) as unknown as SyncStatus;
 
-const send = (actor: ReturnType<typeof createSyncActor>, type: string, payload?: unknown) =>
+const send = (actor: ReturnType<typeof syncMachine.create>, type: string, payload?: unknown) =>
   (actor as any).send({ type, payload });
 
 function build(port: { status?: any; enroll?: any }) {
@@ -24,12 +23,12 @@ function build(port: { status?: any; enroll?: any }) {
     enroll: vi.fn().mockResolvedValue([null, statusOf()]),
     ...port,
   };
-  const actor = createSyncActor({ clock: VirtualClock(), gateway: gateway as any });
+  const actor = syncMachine.create({ gateway: gateway as any });
   return { actor, gateway };
 }
 
-const stateOf = (actor: ReturnType<typeof createSyncActor>) => actor.snapshot().path[0];
-const ctx = (actor: ReturnType<typeof createSyncActor>) => actor.snapshot().context;
+const stateOf = (actor: ReturnType<typeof syncMachine.create>) => actor.snapshot().path[0];
+const ctx = (actor: ReturnType<typeof syncMachine.create>) => actor.snapshot().context;
 
 describe("sync factory", () => {
   test("refresh stores the status", async () => {

@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
-import { VirtualClock } from "@mantaq/core";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { createPrefsActor, prefs, prefsActor } from "./prefs-machine";
+import { prefsMachine, prefs, prefsActor } from "./prefs-machine";
 
 beforeEach(() => {
   localStorage.clear();
@@ -10,7 +9,7 @@ beforeEach(() => {
 describe("prefs", () => {
   it("starts from the stored values", () => {
     localStorage.setItem("justus:gallery-density", "compact");
-    const a = createPrefsActor({ clock: VirtualClock() });
+    const a = prefsMachine.create({});
     expect(a.snapshot().context.density).toBe("compact");
     expect(a.snapshot().context.sort).toBe("added");
   });

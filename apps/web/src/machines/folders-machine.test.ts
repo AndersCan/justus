@@ -1,16 +1,16 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import { expectNoDesignErrors } from "@mantaq/inspect";
-import { VirtualClock } from "@mantaq/core";
+import { VirtualClock, machine } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import {
-  createFoldersActor,
+  foldersMachine,
   folders,
   foldersActor,
   foldersViewModel,
   wireFoldersToSync,
 } from "./folders-machine";
 import { gateway } from "../gateway";
-import { createSyncActor, statusSeen, syncActor } from "./sync-machine";
+import { syncMachine, statusSeen, syncActor } from "./sync-machine";
 
 // The mocked gateway is loosely typed so test fixtures don't have to satisfy
 // the full FolderSummary/Photo/Either shapes.
@@ -150,7 +150,7 @@ describe("folders machine", () => {
 });
 
 describe("folders factory", () => {
-  const send = (actor: ReturnType<typeof createFoldersActor>, type: string, payload?: unknown) =>
+  const send = (actor: ReturnType<typeof foldersMachine.create>, type: string, payload?: unknown) =>
     (actor as any).send({ type, payload });
 
   function build(port: Record<string, unknown> = {}) {
@@ -161,13 +161,13 @@ describe("folders factory", () => {
       setName: vi.fn().mockResolvedValue([null, { name: "Renamed" }]),
       ...port,
     };
-    const actor = createFoldersActor({ clock: VirtualClock(), gateway: gw as any });
+    const actor = foldersMachine.create({ gateway: gw as any });
     const outputs: { type: string; payload: unknown }[] = [];
     onOutput(actor, (e) => outputs.push(e as any));
     return { actor, outputs, gw };
   }
-  const ctx = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().context;
-  const path = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().path[0];
+  const ctx = (actor: ReturnType<typeof foldersMachine.create>) => actor.snapshot().context;
+  const path = (actor: ReturnType<typeof foldersMachine.create>) => actor.snapshot().path[0];
 
   async function loaded(port: Record<string, unknown> = {}) {
     const built = build({
@@ -319,7 +319,7 @@ describe("folders single owner", () => {
   const status = (name: string, id = "f1") => ({ name, folder: { id }, members: [] }) as any;
   const wired = (port: Record<string, unknown> = {}) => {
     const clock = VirtualClock();
-    const folders = createFoldersActor({
+    const folders = foldersMachine.create({
       clock,
       gateway: {
         folders: vi.fn().mockResolvedValue([null, { folders: [], activeFolderId: null }]),
@@ -328,7 +328,7 @@ describe("folders single owner", () => {
         ...port,
       } as any,
     });
-    const sync = createSyncActor({ clock, gateway: {} as any });
+    const sync = syncMachine.create({ clock, gateway: {} as any });
     const off = wireFoldersToSync(folders, sync);
     return { folders, sync, off };
   };
@@ -400,9 +400,9 @@ describe("folders single owner", () => {
 });
 
 describe("album lifecycle in the folders machine", () => {
-  const send = (actor: ReturnType<typeof createFoldersActor>, type: string, payload?: unknown) =>
+  const send = (actor: ReturnType<typeof foldersMachine.create>, type: string, payload?: unknown) =>
     (actor as any).send({ type, payload });
-  const path = (actor: ReturnType<typeof createFoldersActor>) => actor.snapshot().path[0];
+  const path = (actor: ReturnType<typeof foldersMachine.create>) => actor.snapshot().path[0];
   const trip = { folderId: "f1", name: "Trip" };
   const notice = { id: "f2", name: "Hytta", adminName: "Nils" };
 
@@ -429,7 +429,7 @@ describe("album lifecycle in the folders machine", () => {
       dismissAlbumNotice: ok(),
       ...port,
     };
-    const actor = createFoldersActor({ clock: VirtualClock(), gateway: gw as any });
+    const actor = foldersMachine.create({ gateway: gw as any });
     return { actor, gw };
   }
 
@@ -531,8 +531,9 @@ describe("album lifecycle in the folders machine", () => {
 
   test("has no design errors", () => {
     expectNoDesignErrors({
-      id: "folders",
-      create: () => createFoldersActor({ clock: VirtualClock(), gateway: {} as any }),
+      machine: machine("folders", {
+        create: () => foldersMachine.create({ gateway: {} as any }),
+      }),
       payloads: {
         ALBUMS_LOADED: [{ folders: [], asks: [], offers: [], activeId: null }],
         ARCHIVE_ALBUM: [trip],

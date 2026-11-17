@@ -13,8 +13,7 @@ import { bareLazyMedia } from "./lazy-media.ts";
 import { createBareFiles } from "../../src/adapters/bare-files.ts";
 import bareFs from "bare-fs";
 import { makeCheck, scenarios } from "../p2p-scenarios.ts";
-import { createMembershipActor } from "../../src/membership/membership-machine.ts";
-import { VirtualClock } from "@mantaq/core";
+import { membershipMachine } from "../../src/membership/membership-machine.ts";
 import { Either } from "@mantaq/utils";
 
 declare const Bare: { argv: string[]; exit(code?: number): never };
@@ -183,8 +182,7 @@ await Promise.race([wiredWorlds.destroy(), new Promise((r) => setTimeout(r, 5_00
 {
   const started = Date.now();
   try {
-    const actor = createMembershipActor({
-      clock: VirtualClock(),
+    const actor = membershipMachine.create({
       port: {
         makeCollaborator: () => Promise.resolve(Either.right()),
         markLeft: () => Promise.resolve(Either.right()),

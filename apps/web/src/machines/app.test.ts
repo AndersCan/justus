@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { VirtualClock } from "@mantaq/core";
 import { inspectFile } from "@mantaq/inspect";
 import { expect, test } from "vite-plus/test";
-import { createJustus } from "./app";
+import { justusMachine } from "./app";
 import { statusSeen } from "./sync-machine";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -18,9 +18,9 @@ function machineFiles(dir: string): string[] {
 }
 
 test("the factory returns every machine the app has, the router as its actor", () => {
-  const made = createJustus({ clock: VirtualClock() });
+  const made = justusMachine.create({ clock: VirtualClock() });
   const created = machineFiles(here).flatMap(
-    (file) => readFileSync(file, "utf8").match(/export function create\w+Actor/g) ?? [],
+    (file) => readFileSync(file, "utf8").match(/export const \w+Machine = machine\(/g) ?? [],
   );
   expect(Object.keys(made).filter((name) => name !== "actor")).toHaveLength(created.length - 1);
   expect(made.actor.snapshot().context).toHaveProperty("page");
@@ -47,7 +47,7 @@ test("onboarding tells folders the name and folders tell sync the status, and ev
 }, 60_000);
 
 test("a saved name reaches folders, a sync status reaches folders and reach, an open sheet asks for requests", async () => {
-  const made = createJustus({ clock: VirtualClock() });
+  const made = justusMachine.create({ clock: VirtualClock() });
   made.onboarding.send({ type: "SKIP" });
   made.onboarding.send({ type: "EDIT_NAME", payload: { name: "Maya" } });
   made.onboarding.send({ type: "SAVE_PROFILE" });

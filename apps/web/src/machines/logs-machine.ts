@@ -1,4 +1,4 @@
-import { Actor, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import type { LogEntry, LogLevel } from "@justus/core";
 import { LOG_LEVELS } from "@justus/core";
 
@@ -32,97 +32,98 @@ const cleared = event("CLEARED")<{ at: number }>();
 /** The tail is shown and can be filtered at any time. */
 const holdingLogs = state("holdingLogs")();
 
-export function createLogsActor(options: { clock: Clock }) {
-  return Actor({
-    inputs: [loadingStarted, loaded, loadFailed, levelChosen, sourceToggled, paused, cleared],
-    internal: [],
-    outputs: [],
-    states: [holdingLogs],
-    initial: holdingLogs,
-    clock: options.clock,
-    context: {
-      entries: [],
-      level: "all",
-      sources: [],
-      paused: false,
-      error: undefined,
-      loading: false,
-      updatedAt: undefined,
-    } as LogsContext,
-    setup: (m) => {
-      /** A fetch is in flight. */
-      m.onAny({
-        event: loadingStarted,
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), loading: true });
-          return {};
-        },
-      });
-      /** Fresh entries replace the old ones (lines already held keep their objects) and any error is cleared. */
-      m.onAny({
-        event: loaded,
-        handler: (e, opts) => {
-          const c = opts.context.get();
-          opts.context.set({
-            ...c,
-            loading: false,
-            error: undefined,
-            entries: keepSeenEntries(c.entries, e.payload.entries),
-            updatedAt: e.payload.at,
-          });
-          return {};
-        },
-      });
-      /** The fetch failed: the old entries stay and the error is shown. */
-      m.onAny({
-        event: loadFailed,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), loading: false, error: e.payload.message });
-          return {};
-        },
-      });
-      /** The severity filter changes. */
-      m.onAny({
-        event: levelChosen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), level: e.payload.level });
-          return {};
-        },
-      });
-      /** A source filter is added or removed. */
-      m.onAny({
-        event: sourceToggled,
-        handler: (e, opts) => {
-          const c = opts.context.get();
-          const { source } = e.payload;
-          const next = c.sources.includes(source)
-            ? c.sources.filter((s) => s !== source)
-            : [...c.sources, source];
-          opts.context.set({ ...c, sources: next });
-          return {};
-        },
-      });
-      /** Polling pauses or resumes. */
-      m.onAny({
-        event: paused,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), paused: e.payload.paused });
-          return {};
-        },
-      });
-      /** The buffer was cleared on the device. */
-      m.onAny({
-        event: cleared,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), entries: [], updatedAt: e.payload.at });
-          return {};
-        },
-      });
-    },
-  });
-}
+export const logsMachine = machine("logs", {
+  create: () => {
+    return Actor({
+      inputs: [loadingStarted, loaded, loadFailed, levelChosen, sourceToggled, paused, cleared],
+      internal: [],
+      outputs: [],
+      states: [holdingLogs],
+      initial: holdingLogs,
+      context: {
+        entries: [],
+        level: "all",
+        sources: [],
+        paused: false,
+        error: undefined,
+        loading: false,
+        updatedAt: undefined,
+      } as LogsContext,
+      setup: (m) => {
+        /** A fetch is in flight. */
+        m.onAny({
+          event: loadingStarted,
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), loading: true });
+            return {};
+          },
+        });
+        /** Fresh entries replace the old ones (lines already held keep their objects) and any error is cleared. */
+        m.onAny({
+          event: loaded,
+          handler: (e, opts) => {
+            const c = opts.context.get();
+            opts.context.set({
+              ...c,
+              loading: false,
+              error: undefined,
+              entries: keepSeenEntries(c.entries, e.payload.entries),
+              updatedAt: e.payload.at,
+            });
+            return {};
+          },
+        });
+        /** The fetch failed: the old entries stay and the error is shown. */
+        m.onAny({
+          event: loadFailed,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), loading: false, error: e.payload.message });
+            return {};
+          },
+        });
+        /** The severity filter changes. */
+        m.onAny({
+          event: levelChosen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), level: e.payload.level });
+            return {};
+          },
+        });
+        /** A source filter is added or removed. */
+        m.onAny({
+          event: sourceToggled,
+          handler: (e, opts) => {
+            const c = opts.context.get();
+            const { source } = e.payload;
+            const next = c.sources.includes(source)
+              ? c.sources.filter((s) => s !== source)
+              : [...c.sources, source];
+            opts.context.set({ ...c, sources: next });
+            return {};
+          },
+        });
+        /** Polling pauses or resumes. */
+        m.onAny({
+          event: paused,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), paused: e.payload.paused });
+            return {};
+          },
+        });
+        /** The buffer was cleared on the device. */
+        m.onAny({
+          event: cleared,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), entries: [], updatedAt: e.payload.at });
+            return {};
+          },
+        });
+      },
+    });
+  },
+});
 
-export type LogsActor = ReturnType<typeof createLogsActor>;
+export type LogsActor = ReturnType<typeof logsMachine.create>;
 
 export const logsEvents = {
   loadingStarted,

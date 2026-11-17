@@ -1,15 +1,14 @@
-import { VirtualClock } from "@mantaq/core";
 import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
-import { createGalleryActor, galleryViewModel } from "./gallery-machine";
+import { galleryMachine, galleryViewModel } from "./gallery-machine";
 
-const make = recordRuns(createGalleryActor);
+const make = recordRuns(galleryMachine);
 
 const beach = { id: "p1", name: "beach.jpg", folderId: "trip" };
 const picnic = { id: "p2", name: "picnic.jpg", folderId: "trip" };
 
 test("Anna opens Trip and sees its photos", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "LOAD" });
   actor.inject({ type: "PHOTOS_LOADED", payload: { photos: [beach, picnic] } });
   await actor.settled();
@@ -19,7 +18,7 @@ test("Anna opens Trip and sees its photos", async () => {
 });
 
 test("Anna removes a photo and it is gone", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "LOAD" });
   actor.inject({ type: "PHOTOS_LOADED", payload: { photos: [beach, picnic] } });
   await actor.settled();
@@ -35,7 +34,7 @@ test("Anna removes a photo and it is gone", async () => {
 });
 
 test("Anna deletes a photo someone already deleted, and no Deleted message shows", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   const outputs: string[] = [];
   actor.on("output", { fn: (e) => void outputs.push(e.type) });
   actor.send({ type: "LOAD" });
@@ -54,7 +53,7 @@ test("Anna deletes a photo someone already deleted, and no Deleted message shows
 });
 
 test("Anna removes a photo, it fails, and the photo stays", async () => {
-  const actor = make({ clock: VirtualClock() });
+  const actor = make.create();
   actor.send({ type: "LOAD" });
   actor.inject({ type: "PHOTOS_LOADED", payload: { photos: [beach, picnic] } });
   await actor.settled();

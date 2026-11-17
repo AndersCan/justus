@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 import { render } from "lit-html";
-import { VirtualClock } from "@mantaq/core";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { createFriendsActor, type FriendsPort } from "../machines/friends-machine";
+import { friendsMachine, type FriendsPort } from "../machines/friends-machine";
 
 const hoisted = vi.hoisted(() => ({ confirmAction: vi.fn() }));
 vi.mock("../gateway", () => ({ gateway: { friends: {} } }));
@@ -19,7 +18,7 @@ async function mount(friends: { identity: string; name: string }[]) {
     add: vi.fn(),
     remove: vi.fn(async () => [null, { removed: true }]),
   };
-  const actor = createFriendsActor({ clock: VirtualClock(), port: port as unknown as FriendsPort });
+  const actor = friendsMachine.create({ port: port as unknown as FriendsPort });
   const host = document.createElement("div");
   document.body.appendChild(host);
   render(

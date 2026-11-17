@@ -1,4 +1,4 @@
-import { Actor, RealClock, event, state, type Clock, type Snapshot } from "@mantaq/core";
+import { Actor, event, state, type Snapshot, machine } from "@mantaq/core";
 import type {
   AskSummary,
   DeletedAlbum,
@@ -296,87 +296,77 @@ function runChange(
   );
 }
 
-/** Album calls run through `gateway` and the clock is injected, so tests and the flow inspector can drive them. */
-export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPort }) {
-  const port = options.gateway ?? gateway;
-  return Actor({
-    inputs: [
-      refresh,
-      createFolder,
-      setActive,
-      setName,
-      retry,
-      nameSeen,
-      archiveAlbum,
-      restoreAlbum,
-      leaveAlbum,
-      deleteAlbum,
-      dismissDeletedNotice,
-    ],
-    internal: [
-      loaded,
-      loadFailed,
-      created,
-      createFailed,
-      switched,
-      switchFailed,
-      nameSaved,
-      renameFailed,
-      albumChangeFailed,
-    ],
-    outputs: [statusSeen, renamed],
-    states: [
-      albumsNotLoaded,
-      loadingAlbums,
-      showingAlbums,
-      creatingAlbum,
-      openingAlbum,
-      savingName,
-      archivingAlbum,
-      restoringAlbum,
-      leavingAlbum,
-      deletingAlbum,
-      dismissingDeletedNotice,
-      couldNotLoadAlbums,
-      couldNotCreateAlbum,
-      couldNotOpenAlbum,
-      couldNotSaveName,
-      couldNotChangeAlbum,
-    ],
-    initial: albumsNotLoaded,
-    clock: options.clock,
-    context: {
-      userName: "",
-      folders: [],
-      asks: [],
-      offers: [],
-      archived: [],
-      deleted: [],
-      activeId: null,
-      error: null,
-      ...noPending,
-    } as FoldersContext,
-    setup: (m) => {
-      /** The backend reports this device's name: it becomes the name shown, in any state. */
-      m.onAny({
-        event: nameSeen,
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), userName: e.payload.name });
-          return {};
-        },
-      });
-      /** First load of albums starts and any error is cleared. */
-      m.on(albumsNotLoaded, {
-        event: refresh,
-        to: [loadingAlbums],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: loadingAlbums };
-        },
-      });
-      for (const at of settledStates) {
-        /** Refreshing the albums starts a reload and clears any error. */
-        m.on(at, {
+/** Album calls run through `gateway` so tests and the flow inspector can drive them. */
+export const foldersMachine = machine("folders", {
+  create: (options: { gateway?: FoldersPort }) => {
+    const port = options.gateway ?? gateway;
+    return Actor({
+      inputs: [
+        refresh,
+        createFolder,
+        setActive,
+        setName,
+        retry,
+        nameSeen,
+        archiveAlbum,
+        restoreAlbum,
+        leaveAlbum,
+        deleteAlbum,
+        dismissDeletedNotice,
+      ],
+      internal: [
+        loaded,
+        loadFailed,
+        created,
+        createFailed,
+        switched,
+        switchFailed,
+        nameSaved,
+        renameFailed,
+        albumChangeFailed,
+      ],
+      outputs: [statusSeen, renamed],
+      states: [
+        albumsNotLoaded,
+        loadingAlbums,
+        showingAlbums,
+        creatingAlbum,
+        openingAlbum,
+        savingName,
+        archivingAlbum,
+        restoringAlbum,
+        leavingAlbum,
+        deletingAlbum,
+        dismissingDeletedNotice,
+        couldNotLoadAlbums,
+        couldNotCreateAlbum,
+        couldNotOpenAlbum,
+        couldNotSaveName,
+        couldNotChangeAlbum,
+      ],
+      initial: albumsNotLoaded,
+      context: {
+        userName: "",
+        folders: [],
+        asks: [],
+        offers: [],
+        archived: [],
+        deleted: [],
+        activeId: null,
+        error: null,
+        ...noPending,
+      } as FoldersContext,
+      setup: (m) => {
+        /** The backend reports this device's name: it becomes the name shown, in any state. */
+        m.onAny({
+          event: nameSeen,
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), userName: e.payload.name });
+            return {};
+          },
+        });
+        /** First load of albums starts and any error is cleared. */
+        m.on(albumsNotLoaded, {
           event: refresh,
           to: [loadingAlbums],
           handler: (_e, opts) => {
@@ -384,354 +374,78 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             return { state: loadingAlbums };
           },
         });
-      }
-      /** After an error, refreshing starts a reload and clears the error. */
-      m.on(couldNotLoadAlbums, {
-        event: refresh,
-        to: [loadingAlbums],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: loadingAlbums };
-        },
-      });
-      /** Try again after an error reloads the albums. */
-      m.on(couldNotLoadAlbums, {
-        event: retry,
-        to: [loadingAlbums],
-        handler: (_e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: null });
-          return { state: loadingAlbums };
-        },
-      });
-
-      /** The albums are fetched from the app's storage. */
-      m.effect(loadingAlbums, {
-        name: "loadingAlbums",
-        sends: [loaded, loadFailed],
-        fn: ({ signal, emit }) => {
-          return runInvoke(
-            signal,
-            () => port.folders(),
-            (result) => {
-              const r = result as {
-                folders?: FolderSummary[];
-                activeFolderId?: string;
-                asks?: AskSummary[];
-                offers?: OfferSummary[];
-                archived?: FolderSummary[];
-                deleted?: DeletedAlbum[];
-              } | null;
-              // `activeFolderId` may legitimately be null (a fresh device with no
-              // folder chosen yet) — only a missing folder list is a real load
-              // failure. Treating null as an error wedged first-run users on the
-              // error screen instead of the empty gallery.
-              if (!r?.folders) {
-                emit(loadFailed.create({ message: "albums returned no data" }));
-                return;
-              }
-              emit(
-                loaded.create({
-                  folders: r.folders,
-                  asks: r.asks ?? [],
-                  offers: r.offers ?? [],
-                  activeId: r.activeFolderId ?? null,
-                  archived: r.archived ?? [],
-                  deleted: r.deleted ?? [],
-                }),
-              );
+        for (const at of settledStates) {
+          /** Refreshing the albums starts a reload and clears any error. */
+          m.on(at, {
+            event: refresh,
+            to: [loadingAlbums],
+            handler: (_e, opts) => {
+              opts.context.set({ ...opts.context.get(), error: null });
+              return { state: loadingAlbums };
             },
-            (message) => emit(loadFailed.create({ message })),
-          );
-        },
-      });
-      /** The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine. */
-      m.on(loadingAlbums, {
-        event: loaded,
-        to: [showingAlbums],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            folders: e.payload.folders,
-            asks: e.payload.asks,
-            offers: e.payload.offers,
-            archived: e.payload.archived ?? [],
-            deleted: e.payload.deleted ?? [],
-            activeId: e.payload.activeId,
-            error: null,
           });
-          return { state: showingAlbums };
-        },
-      });
-      /** Loading failed: an error is shown with a way to try again. */
-      m.on(loadingAlbums, {
-        event: loadFailed,
-        to: [couldNotLoadAlbums],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), error: e.payload.message });
-          return { state: couldNotLoadAlbums };
-        },
-      });
-
-      for (const at of settledStates) {
-        /** The person starts creating an album; the screen shows it is busy. */
-        m.on(at, {
-          event: createFolder,
-          to: [creatingAlbum],
-          handler: (e, opts) => {
-            opts.context.set({
-              ...opts.context.get(),
-              ...noPending,
-              error: null,
-              pendingCreate: e.payload.name,
-            });
-            return { state: creatingAlbum };
+        }
+        /** After an error, refreshing starts a reload and clears the error. */
+        m.on(couldNotLoadAlbums, {
+          event: refresh,
+          to: [loadingAlbums],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: loadingAlbums };
           },
         });
-      }
-      /** The new album is created. */
-      m.effect(creatingAlbum, {
-        name: "creatingAlbum",
-        sends: [created, createFailed],
-        fn: ({ signal, emit, context }) => {
-          const name = context.get().pendingCreate;
-          if (!name) {
-            emit(createFailed.create({ message: "no album name" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.createFolder(name),
-            (result) =>
-              result
-                ? emit(created.create({ folder: (result as { folder: FolderSummary }).folder }))
-                : emit(createFailed.create({ message: "create returned no album" })),
-            (message) => emit(createFailed.create({ message })),
-          );
-        },
-      });
-      /** The new album appears first in the list and is opened. */
-      m.on(creatingAlbum, {
-        event: created,
-        to: [showingAlbums],
-        handler: (e, opts) => {
-          const context = opts.context.get();
-          opts.context.set({
-            ...context,
-            ...noPending,
-            folders: [e.payload.folder, ...context.folders],
-            activeId: e.payload.folder.id,
-            error: null,
-          });
-          return { state: showingAlbums };
-        },
-      });
-      /** Creating failed: the list is unchanged and the person sees why. */
-      m.on(creatingAlbum, {
-        event: createFailed,
-        to: [couldNotCreateAlbum],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: couldNotCreateAlbum };
-        },
-      });
-
-      for (const at of settledStates) {
-        /** The person picks another album; the screen shows it is busy. */
-        m.on(at, {
-          event: setActive,
-          to: [openingAlbum],
-          handler: (e, opts) => {
-            opts.context.set({
-              ...opts.context.get(),
-              ...noPending,
-              error: null,
-              pendingActive: e.payload.folderId,
-            });
-            return { state: openingAlbum };
+        /** Try again after an error reloads the albums. */
+        m.on(couldNotLoadAlbums, {
+          event: retry,
+          to: [loadingAlbums],
+          handler: (_e, opts) => {
+            opts.context.set({ ...opts.context.get(), error: null });
+            return { state: loadingAlbums };
           },
         });
-      }
-      /** The chosen album is opened. */
-      m.effect(openingAlbum, {
-        name: "openingAlbum",
-        sends: [switched, switchFailed],
-        fn: ({ signal, emit, context }) => {
-          const folderId = context.get().pendingActive;
-          if (!folderId) {
-            emit(switchFailed.create({ message: "no album to switch to" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.setActive(folderId),
-            (result) =>
-              result
-                ? emit(switched.create({ status: result as SyncStatus }))
-                : emit(switchFailed.create({ message: "switch returned no status" })),
-            (message) => emit(switchFailed.create({ message })),
-          );
-        },
-      });
-      /** The picked album is now open and the sync status follows it. */
-      m.on(openingAlbum, {
-        event: switched,
-        to: [showingAlbums],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            ...noPending,
-            activeId: e.payload.status.folder.id,
-            error: null,
-          });
-          return { state: showingAlbums, emit: [statusSeen.create({ status: e.payload.status })] };
-        },
-      });
-      /** Opening the album failed: the previous album stays open and the person sees why. */
-      m.on(openingAlbum, {
-        event: switchFailed,
-        to: [couldNotOpenAlbum],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: couldNotOpenAlbum };
-        },
-      });
 
-      for (const at of settledStates) {
-        /** The person starts changing their name; the screen shows it is busy. */
-        m.on(at, {
-          event: setName,
-          to: [savingName],
-          handler: (e, opts) => {
-            opts.context.set({
-              ...opts.context.get(),
-              ...noPending,
-              error: null,
-              pendingName: e.payload.name,
-            });
-            return { state: savingName };
+        /** The albums are fetched from the app's storage. */
+        m.effect(loadingAlbums, {
+          name: "loadingAlbums",
+          sends: [loaded, loadFailed],
+          fn: ({ signal, emit }) => {
+            return runInvoke(
+              signal,
+              () => port.folders(),
+              (result) => {
+                const r = result as {
+                  folders?: FolderSummary[];
+                  activeFolderId?: string;
+                  asks?: AskSummary[];
+                  offers?: OfferSummary[];
+                  archived?: FolderSummary[];
+                  deleted?: DeletedAlbum[];
+                } | null;
+                // `activeFolderId` may legitimately be null (a fresh device with no
+                // folder chosen yet) — only a missing folder list is a real load
+                // failure. Treating null as an error wedged first-run users on the
+                // error screen instead of the empty gallery.
+                if (!r?.folders) {
+                  emit(loadFailed.create({ message: "albums returned no data" }));
+                  return;
+                }
+                emit(
+                  loaded.create({
+                    folders: r.folders,
+                    asks: r.asks ?? [],
+                    offers: r.offers ?? [],
+                    activeId: r.activeFolderId ?? null,
+                    archived: r.archived ?? [],
+                    deleted: r.deleted ?? [],
+                  }),
+                );
+              },
+              (message) => emit(loadFailed.create({ message })),
+            );
           },
         });
-      }
-      /** The new name is saved. */
-      m.effect(savingName, {
-        name: "savingName",
-        sends: [nameSaved, renameFailed],
-        fn: ({ signal, emit, context }) => {
-          const name = context.get().pendingName;
-          if (!name) {
-            emit(renameFailed.create({ message: "no name given" }));
-            return;
-          }
-          return runInvoke(
-            signal,
-            () => port.setName(name),
-            (result) =>
-              result
-                ? emit(
-                    nameSaved.create({ name: (result as { name?: string } | null)?.name ?? name }),
-                  )
-                : emit(renameFailed.create({ message: "setName returned no data" })),
-            (message) => emit(renameFailed.create({ message })),
-          );
-        },
-      });
-      /** The new name is saved and shown everywhere. */
-      m.on(savingName, {
-        event: nameSaved,
-        to: [showingAlbums],
-        handler: (e, opts) => {
-          opts.context.set({
-            ...opts.context.get(),
-            ...noPending,
-            userName: e.payload.name,
-            error: null,
-          });
-          return { state: showingAlbums, emit: [renamed.create({ name: e.payload.name })] };
-        },
-      });
-      /** Saving the name failed: the old name stays and the person sees why. */
-      m.on(savingName, {
-        event: renameFailed,
-        to: [couldNotSaveName],
-        handler: (e, opts) => {
-          opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
-          return { state: couldNotSaveName };
-        },
-      });
-
-      for (const at of settledStates) {
-        /** The person archives an album; the screen shows it is busy. */
-        m.on(at, {
-          event: archiveAlbum,
-          to: [archivingAlbum],
-          handler: startChange("archive", archivingAlbum),
-        });
-      }
-      /** The change is made, then the lists are loaded again so every list is current. */
-      m.effect(archivingAlbum, {
-        name: "archivingAlbum",
-        sends: [loaded, albumChangeFailed],
-        fn: (args) => runChange(port, args),
-      });
-      for (const at of settledStates) {
-        /** The person restores an archived album; the screen shows it is busy. */
-        m.on(at, {
-          event: restoreAlbum,
-          to: [restoringAlbum],
-          handler: startChange("restore", restoringAlbum),
-        });
-      }
-      /** The change is made, then the lists are loaded again so every list is current. */
-      m.effect(restoringAlbum, {
-        name: "restoringAlbum",
-        sends: [loaded, albumChangeFailed],
-        fn: (args) => runChange(port, args),
-      });
-      for (const at of settledStates) {
-        /** The person leaves an album; the screen shows it is busy. */
-        m.on(at, {
-          event: leaveAlbum,
-          to: [leavingAlbum],
-          handler: startChange("leave", leavingAlbum),
-        });
-      }
-      /** The change is made, then the lists are loaded again so every list is current. */
-      m.effect(leavingAlbum, {
-        name: "leavingAlbum",
-        sends: [loaded, albumChangeFailed],
-        fn: (args) => runChange(port, args),
-      });
-      for (const at of settledStates) {
-        /** The Admin deletes an album; the screen shows it is busy. */
-        m.on(at, {
-          event: deleteAlbum,
-          to: [deletingAlbum],
-          handler: startChange("delete", deletingAlbum),
-        });
-      }
-      /** The change is made, then the lists are loaded again so every list is current. */
-      m.effect(deletingAlbum, {
-        name: "deletingAlbum",
-        sends: [loaded, albumChangeFailed],
-        fn: (args) => runChange(port, args),
-      });
-      for (const at of settledStates) {
-        /** The person dismisses the deleted-album notice; the screen shows it is busy. */
-        m.on(at, {
-          event: dismissDeletedNotice,
-          to: [dismissingDeletedNotice],
-          handler: startChange("dismiss", dismissingDeletedNotice),
-        });
-      }
-      /** The change is made, then the lists are loaded again so every list is current. */
-      m.effect(dismissingDeletedNotice, {
-        name: "dismissingDeletedNotice",
-        sends: [loaded, albumChangeFailed],
-        fn: (args) => runChange(port, args),
-      });
-      for (const [, inFlight] of changeStates) {
-        /** The change is done and the lists are current. */
-        m.on(inFlight, {
+        /** The albums are listed and the active album is marked; an empty first-run device with no album chosen is fine. */
+        m.on(loadingAlbums, {
           event: loaded,
           to: [showingAlbums],
           handler: (e, opts) => {
@@ -748,23 +462,315 @@ export function createFoldersActor(options: { clock: Clock; gateway?: FoldersPor
             return { state: showingAlbums };
           },
         });
-        /** The change failed: the album stays where it was and the context keeps what failed. */
-        m.on(inFlight, {
-          event: albumChangeFailed,
-          to: [couldNotChangeAlbum],
+        /** Loading failed: an error is shown with a way to try again. */
+        m.on(loadingAlbums, {
+          event: loadFailed,
+          to: [couldNotLoadAlbums],
           handler: (e, opts) => {
             opts.context.set({ ...opts.context.get(), error: e.payload.message });
-            return { state: couldNotChangeAlbum };
+            return { state: couldNotLoadAlbums };
           },
         });
-      }
-    },
-  });
-}
 
-export const foldersActor = createFoldersActor({ clock: RealClock() });
+        for (const at of settledStates) {
+          /** The person starts creating an album; the screen shows it is busy. */
+          m.on(at, {
+            event: createFolder,
+            to: [creatingAlbum],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                ...noPending,
+                error: null,
+                pendingCreate: e.payload.name,
+              });
+              return { state: creatingAlbum };
+            },
+          });
+        }
+        /** The new album is created. */
+        m.effect(creatingAlbum, {
+          name: "creatingAlbum",
+          sends: [created, createFailed],
+          fn: ({ signal, emit, context }) => {
+            const name = context.get().pendingCreate;
+            if (!name) {
+              emit(createFailed.create({ message: "no album name" }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.createFolder(name),
+              (result) =>
+                result
+                  ? emit(created.create({ folder: (result as { folder: FolderSummary }).folder }))
+                  : emit(createFailed.create({ message: "create returned no album" })),
+              (message) => emit(createFailed.create({ message })),
+            );
+          },
+        });
+        /** The new album appears first in the list and is opened. */
+        m.on(creatingAlbum, {
+          event: created,
+          to: [showingAlbums],
+          handler: (e, opts) => {
+            const context = opts.context.get();
+            opts.context.set({
+              ...context,
+              ...noPending,
+              folders: [e.payload.folder, ...context.folders],
+              activeId: e.payload.folder.id,
+              error: null,
+            });
+            return { state: showingAlbums };
+          },
+        });
+        /** Creating failed: the list is unchanged and the person sees why. */
+        m.on(creatingAlbum, {
+          event: createFailed,
+          to: [couldNotCreateAlbum],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
+            return { state: couldNotCreateAlbum };
+          },
+        });
 
-export type FoldersActor = ReturnType<typeof createFoldersActor>;
+        for (const at of settledStates) {
+          /** The person picks another album; the screen shows it is busy. */
+          m.on(at, {
+            event: setActive,
+            to: [openingAlbum],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                ...noPending,
+                error: null,
+                pendingActive: e.payload.folderId,
+              });
+              return { state: openingAlbum };
+            },
+          });
+        }
+        /** The chosen album is opened. */
+        m.effect(openingAlbum, {
+          name: "openingAlbum",
+          sends: [switched, switchFailed],
+          fn: ({ signal, emit, context }) => {
+            const folderId = context.get().pendingActive;
+            if (!folderId) {
+              emit(switchFailed.create({ message: "no album to switch to" }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.setActive(folderId),
+              (result) =>
+                result
+                  ? emit(switched.create({ status: result as SyncStatus }))
+                  : emit(switchFailed.create({ message: "switch returned no status" })),
+              (message) => emit(switchFailed.create({ message })),
+            );
+          },
+        });
+        /** The picked album is now open and the sync status follows it. */
+        m.on(openingAlbum, {
+          event: switched,
+          to: [showingAlbums],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              activeId: e.payload.status.folder.id,
+              error: null,
+            });
+            return {
+              state: showingAlbums,
+              emit: [statusSeen.create({ status: e.payload.status })],
+            };
+          },
+        });
+        /** Opening the album failed: the previous album stays open and the person sees why. */
+        m.on(openingAlbum, {
+          event: switchFailed,
+          to: [couldNotOpenAlbum],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
+            return { state: couldNotOpenAlbum };
+          },
+        });
+
+        for (const at of settledStates) {
+          /** The person starts changing their name; the screen shows it is busy. */
+          m.on(at, {
+            event: setName,
+            to: [savingName],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                ...noPending,
+                error: null,
+                pendingName: e.payload.name,
+              });
+              return { state: savingName };
+            },
+          });
+        }
+        /** The new name is saved. */
+        m.effect(savingName, {
+          name: "savingName",
+          sends: [nameSaved, renameFailed],
+          fn: ({ signal, emit, context }) => {
+            const name = context.get().pendingName;
+            if (!name) {
+              emit(renameFailed.create({ message: "no name given" }));
+              return;
+            }
+            return runInvoke(
+              signal,
+              () => port.setName(name),
+              (result) =>
+                result
+                  ? emit(
+                      nameSaved.create({
+                        name: (result as { name?: string } | null)?.name ?? name,
+                      }),
+                    )
+                  : emit(renameFailed.create({ message: "setName returned no data" })),
+              (message) => emit(renameFailed.create({ message })),
+            );
+          },
+        });
+        /** The new name is saved and shown everywhere. */
+        m.on(savingName, {
+          event: nameSaved,
+          to: [showingAlbums],
+          handler: (e, opts) => {
+            opts.context.set({
+              ...opts.context.get(),
+              ...noPending,
+              userName: e.payload.name,
+              error: null,
+            });
+            return { state: showingAlbums, emit: [renamed.create({ name: e.payload.name })] };
+          },
+        });
+        /** Saving the name failed: the old name stays and the person sees why. */
+        m.on(savingName, {
+          event: renameFailed,
+          to: [couldNotSaveName],
+          handler: (e, opts) => {
+            opts.context.set({ ...opts.context.get(), ...noPending, error: e.payload.message });
+            return { state: couldNotSaveName };
+          },
+        });
+
+        for (const at of settledStates) {
+          /** The person archives an album; the screen shows it is busy. */
+          m.on(at, {
+            event: archiveAlbum,
+            to: [archivingAlbum],
+            handler: startChange("archive", archivingAlbum),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(archivingAlbum, {
+          name: "archivingAlbum",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const at of settledStates) {
+          /** The person restores an archived album; the screen shows it is busy. */
+          m.on(at, {
+            event: restoreAlbum,
+            to: [restoringAlbum],
+            handler: startChange("restore", restoringAlbum),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(restoringAlbum, {
+          name: "restoringAlbum",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const at of settledStates) {
+          /** The person leaves an album; the screen shows it is busy. */
+          m.on(at, {
+            event: leaveAlbum,
+            to: [leavingAlbum],
+            handler: startChange("leave", leavingAlbum),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(leavingAlbum, {
+          name: "leavingAlbum",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const at of settledStates) {
+          /** The Admin deletes an album; the screen shows it is busy. */
+          m.on(at, {
+            event: deleteAlbum,
+            to: [deletingAlbum],
+            handler: startChange("delete", deletingAlbum),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(deletingAlbum, {
+          name: "deletingAlbum",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const at of settledStates) {
+          /** The person dismisses the deleted-album notice; the screen shows it is busy. */
+          m.on(at, {
+            event: dismissDeletedNotice,
+            to: [dismissingDeletedNotice],
+            handler: startChange("dismiss", dismissingDeletedNotice),
+          });
+        }
+        /** The change is made, then the lists are loaded again so every list is current. */
+        m.effect(dismissingDeletedNotice, {
+          name: "dismissingDeletedNotice",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const [, inFlight] of changeStates) {
+          /** The change is done and the lists are current. */
+          m.on(inFlight, {
+            event: loaded,
+            to: [showingAlbums],
+            handler: (e, opts) => {
+              opts.context.set({
+                ...opts.context.get(),
+                folders: e.payload.folders,
+                asks: e.payload.asks,
+                offers: e.payload.offers,
+                archived: e.payload.archived ?? [],
+                deleted: e.payload.deleted ?? [],
+                activeId: e.payload.activeId,
+                error: null,
+              });
+              return { state: showingAlbums };
+            },
+          });
+          /** The change failed: the album stays where it was and the context keeps what failed. */
+          m.on(inFlight, {
+            event: albumChangeFailed,
+            to: [couldNotChangeAlbum],
+            handler: (e, opts) => {
+              opts.context.set({ ...opts.context.get(), error: e.payload.message });
+              return { state: couldNotChangeAlbum };
+            },
+          });
+        }
+      },
+    });
+  },
+});
+
+export const foldersActor = foldersMachine.create();
+
+export type FoldersActor = ReturnType<typeof foldersMachine.create>;
 
 /** Folders and sync each own one value and tell the other when theirs moves:
  * a switched album gives sync its new status, and a status with a new name

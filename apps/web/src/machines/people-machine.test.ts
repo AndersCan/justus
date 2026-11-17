@@ -1,7 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vite-plus/test";
-import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { createPeopleActor, people, peopleActor, peopleViewModel } from "./people-machine";
+import { peopleMachine, people, peopleActor, peopleViewModel } from "./people-machine";
 import { gateway } from "../gateway";
 
 const mock = gateway as any;
@@ -86,8 +85,7 @@ describe("letting a Viewer add photos", () => {
   });
 
   test("the view model is busy while saving", () => {
-    const actor = createPeopleActor({
-      clock: VirtualClock(),
+    const actor = peopleMachine.create({
       gateway: { makeMember: () => new Promise(() => {}) } as any,
     });
     actor.send({ type: "OPEN" } as never);
@@ -102,16 +100,13 @@ describe("letting a Viewer add photos", () => {
 });
 
 describe("people factory", () => {
-  const send = (actor: ReturnType<typeof createPeopleActor>, type: string, payload?: unknown) =>
+  const send = (actor: ReturnType<typeof peopleMachine.create>, type: string, payload?: unknown) =>
     (actor as any).send({ type, payload });
 
   function build(
     removeMember: (folderId: string, memberKey: string) => Promise<[unknown, unknown]>,
   ) {
-    const actor = createPeopleActor({
-      clock: VirtualClock(),
-      gateway: { removeMember } as any,
-    });
+    const actor = peopleMachine.create({ gateway: { removeMember } as any });
     const outputs: string[] = [];
     onOutput(actor, (e) => outputs.push(e.type));
     return { actor, outputs };
@@ -128,7 +123,7 @@ describe("people factory", () => {
 
   test("making a Viewer tells the view who", async () => {
     const makeViewer = vi.fn().mockResolvedValue([null, {}]);
-    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { makeViewer } as any });
+    const actor = peopleMachine.create({ gateway: { makeViewer } as any });
     const outputs: string[] = [];
     onOutput(actor, (e) => outputs.push(e.type));
     send(actor, "OPEN");
@@ -139,7 +134,7 @@ describe("people factory", () => {
 
   test("removing tells the view who", async () => {
     const removeMember = vi.fn().mockResolvedValue([null, {}]);
-    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { removeMember } as any });
+    const actor = peopleMachine.create({ gateway: { removeMember } as any });
     const outputs: string[] = [];
     onOutput(actor, (e) => outputs.push(e.type));
     send(actor, "OPEN");
@@ -150,7 +145,7 @@ describe("people factory", () => {
 
   test("a failed removal tells nobody", async () => {
     const removeMember = vi.fn().mockResolvedValue([{ message: "x" }, null]);
-    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { removeMember } as any });
+    const actor = peopleMachine.create({ gateway: { removeMember } as any });
     const outputs: string[] = [];
     onOutput(actor, (e) => outputs.push(e.type));
     send(actor, "OPEN");
@@ -161,7 +156,7 @@ describe("people factory", () => {
 
   test("a failed Viewer change tells nobody", async () => {
     const makeViewer = vi.fn().mockResolvedValue([{ message: "x" }, null]);
-    const actor = createPeopleActor({ clock: VirtualClock(), gateway: { makeViewer } as any });
+    const actor = peopleMachine.create({ gateway: { makeViewer } as any });
     const outputs: string[] = [];
     onOutput(actor, (e) => outputs.push(e.type));
     send(actor, "OPEN");
@@ -230,7 +225,7 @@ describe("peopleViewModel", () => {
   const deps = { status, requests: [], friends: {} };
 
   test("closed, from the initial snapshot", () => {
-    const actor = createPeopleActor({ clock: VirtualClock(), gateway: {} as any });
+    const actor = peopleMachine.create({ gateway: {} as any });
     const vm = peopleViewModel(actor.snapshot(), deps);
     expect(vm.open).toBe(false);
     expect(vm.busy).toBe(false);
@@ -241,8 +236,7 @@ describe("peopleViewModel", () => {
   });
 
   test("open, then removing, with no status", () => {
-    const actor = createPeopleActor({
-      clock: VirtualClock(),
+    const actor = peopleMachine.create({
       gateway: { removeMember: () => new Promise(() => {}) } as any,
     });
     actor.send({ type: "OPEN" } as never);
@@ -278,8 +272,7 @@ describe("making a Collaborator a Viewer", () => {
   });
 
   test("busy while makingViewer", () => {
-    const actor = createPeopleActor({
-      clock: VirtualClock(),
+    const actor = peopleMachine.create({
       gateway: { makeViewer: () => new Promise(() => {}) } as any,
     });
     actor.send({ type: "OPEN" } as never);
@@ -343,8 +336,7 @@ describe("taking back a friend's invite", () => {
   });
 
   test("CLOSE works after a failure, and busy while taking back", async () => {
-    const actor = createPeopleActor({
-      clock: VirtualClock(),
+    const actor = peopleMachine.create({
       gateway: { takeBackOffer: () => new Promise(() => {}) } as any,
     });
     actor.send({

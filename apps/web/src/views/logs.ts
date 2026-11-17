@@ -1,5 +1,4 @@
 import { watch } from "@mantaq/lit";
-import { RealClock } from "@mantaq/core";
 import { html } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import type { LogEntry, LogLevel } from "@justus/core";
@@ -7,7 +6,7 @@ import { LOGS_VIEW_MAX_ENTRIES } from "@justus/core";
 import { gateway } from "../gateway";
 import {
   availableSources,
-  createLogsActor,
+  logsMachine,
   logKey,
   logsEvents,
   visibleEntries,
@@ -88,7 +87,7 @@ export interface LogsController {
 
 export function createLogsController(deps: LogsControllerDeps): LogsController {
   const intervalMs = deps.intervalMs ?? 2000;
-  const actor = createLogsActor({ clock: RealClock() });
+  const actor = logsMachine.create({});
   const send = actor.send.bind(actor);
 
   let timer: ReturnType<typeof setInterval> | undefined;
