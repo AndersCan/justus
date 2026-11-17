@@ -17,12 +17,10 @@ type SeenContext = {
   lastAlbum?: string;
   known: Record<string, string[]>;
   knownAtVisitStart: Record<string, string[]>;
-  /** The phone's seen file could not be read: nothing is marked and nothing is written. */
-  unreadable: boolean;
+  /** Until the phone's seen file is read, and when it cannot be, nothing is marked and nothing is written. */
+  status: "reading" | "ready" | "unreadable";
 };
 
-/** The phone's seen file is being read; inputs wait for it. */
-const readingSeen = state("readingSeen")();
 /** The record is in memory; every change is saved to the phone. */
 const holdingSeen = state("holdingSeen")();
 
@@ -41,7 +39,7 @@ const seenRead = event("SEEN_READ")<{ seen: SeenRecord }>();
 /** The saved record could not be read. */
 const seenReadFailed = event("SEEN_READ_FAILED")<{ message: string }>();
 
-const initialContext: SeenContext = { known: {}, knownAtVisitStart: {}, unreadable: false };
+const initialContext: SeenContext = { known: {}, knownAtVisitStart: {}, status: "reading" };
 
 /** The port is injected so tests can drive the machine. */
 export const seenMachine = machine("seen", {
@@ -64,12 +62,12 @@ export const seenMachine = machine("seen", {
     inputs: [albumsListed, albumOpened, photosLooked, visitEnded],
     internal: [seenRead, seenReadFailed],
     outputs: [],
-    states: [readingSeen, holdingSeen],
-    initial: readingSeen,
+    states: [holdingSeen],
+    initial: holdingSeen,
     context: initialContext,
     setup: (m) => {
       /** The saved record is read from the phone; if that fails, nothing is marked or written. */
-      m.effect(readingSeen, {
+      m.effect(holdingSeen, {
         name: "readingSeen",
         sends: [seenRead, seenReadFailed],
         fn: ({ signal, emit }) =>
@@ -87,31 +85,30 @@ export const seenMachine = machine("seen", {
             },
           ),
       });
-      m.on(readingSeen, {
+      /** The saved record arrived: its albums start the visit as known. */
+      m.onAny({
         event: seenRead,
-        to: [holdingSeen],
         handler: (e, opts) => {
           const { lastAlbum, known } = e.payload.seen;
-          opts.context.set({ lastAlbum, known, knownAtVisitStart: known, unreadable: false });
-          return { state: holdingSeen };
+          opts.context.set({ lastAlbum, known, knownAtVisitStart: known, status: "ready" });
+          return {};
         },
       });
-      m.on(readingSeen, {
+      /** The saved record could not be read: nothing is marked and nothing is written. */
+      m.onAny({
         event: seenReadFailed,
-        to: [holdingSeen],
         handler: (_e, opts) => {
-          opts.context.set({ ...initialContext, unreadable: true });
-          return { state: holdingSeen };
+          opts.context.set({ ...initialContext, status: "unreadable" });
+          return {};
         },
       });
 
       /** An album listed for the first time with photos starts its record: those photos are not new. */
-      m.on(holdingSeen, {
+      m.onAny({
         event: albumsListed,
-        to: [holdingSeen],
         handler: (e, opts) => {
           const ctx = opts.context.get();
-          if (ctx.unreadable) return { state: holdingSeen };
+          if (ctx.status !== "ready") return {};
           const known = { ...ctx.known };
           const atStart = { ...ctx.knownAtVisitStart };
           let added = false;
@@ -121,33 +118,30 @@ export const seenMachine = machine("seen", {
             atStart[albumId] = photoIds;
             added = true;
           }
-          if (!added) return { state: holdingSeen };
+          if (!added) return {};
           const next = { ...ctx, known, knownAtVisitStart: atStart };
           opts.context.set(next);
           save(next);
-          return { state: holdingSeen };
+          return {};
         },
       });
       /** The album opened last is remembered. */
-      m.on(holdingSeen, {
+      m.onAny({
         event: albumOpened,
-        to: [holdingSeen],
         handler: (e, opts) => {
           const ctx = opts.context.get();
-          if (ctx.unreadable || ctx.lastAlbum === e.payload.albumId) return { state: holdingSeen };
+          if (ctx.status !== "ready" || ctx.lastAlbum === e.payload.albumId) return {};
           const next = { ...ctx, lastAlbum: e.payload.albumId };
           opts.context.set(next);
           save(next);
-          return { state: holdingSeen };
+          return {};
         },
       });
       /** Looked-at photos are saved as known; the marks on screen stay until the visit ends. */
-      m.on(holdingSeen, {
+      m.onAny({
         event: photosLooked,
-        to: [holdingSeen],
         handler: (e, opts) => {
           const ctx = opts.context.get();
-          if (ctx.unreadable) return { state: holdingSeen };
           const known = { ...ctx.known };
           let added = false;
           for (const { albumId, photoId } of e.payload.photos) {
@@ -156,21 +150,20 @@ export const seenMachine = machine("seen", {
             known[albumId] = [...ids, photoId];
             added = true;
           }
-          if (!added) return { state: holdingSeen };
+          if (!added) return {};
           const next = { ...ctx, known };
           opts.context.set(next);
           save(next);
-          return { state: holdingSeen };
+          return {};
         },
       });
       /** Leaving the page drops the marks of what was looked at. */
-      m.on(holdingSeen, {
+      m.onAny({
         event: visitEnded,
-        to: [holdingSeen],
         handler: (_e, opts) => {
           const ctx = opts.context.get();
           opts.context.set({ ...ctx, knownAtVisitStart: ctx.known });
-          return { state: holdingSeen };
+          return {};
         },
       });
     },
@@ -198,8 +191,7 @@ export function newCount(ctx: SeenContext, photos: SeenPhoto[], albumIds?: strin
 
 /** Whether the record is still being read, usable, or could not be read. */
 export function seenReady(snapshot: Snapshot<SeenContext>): "reading" | "ready" | "unreadable" {
-  if (snapshot.path[0] === "readingSeen") return "reading";
-  return snapshot.context.unreadable ? "unreadable" : "ready";
+  return snapshot.context.status;
 }
 
 export const seenActor = seenMachine.create({});

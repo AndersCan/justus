@@ -92,6 +92,7 @@ describe("seen machine", () => {
     actor.send(opened("f1"));
     actor.send(opened("f1"));
     expect(port.write).toHaveBeenCalledTimes(1);
+    expect(port.read).toHaveBeenCalledTimes(1);
     expect(port.write).toHaveBeenCalledWith(record({}, "f1"));
     expect(ctxOf(actor).lastAlbum).toBe("f1");
   });
@@ -106,6 +107,20 @@ describe("seen machine", () => {
     actor.send(looked([{ albumId: "f1", photoId: "c" }]));
     expect(port.write).toHaveBeenLastCalledWith(record({ f1: ["a", "b", "c"] }));
     expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test("a rejected save is logged and the next change still writes", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { actor, port } = await setup(record({ f1: ["a"] }));
+    port.write.mockRejectedValueOnce(new Error("gone"));
+    actor.send(looked([{ albumId: "f1", photoId: "b" }]));
+    await actor.settled();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(spy).toHaveBeenCalledWith("seen: could not save", expect.any(Error));
+    actor.send(looked([{ albumId: "f1", photoId: "c" }]));
+    expect(port.write).toHaveBeenLastCalledWith(record({ f1: ["a", "b", "c"] }));
     spy.mockRestore();
   });
 
