@@ -9,6 +9,7 @@ import {
   logEvents,
   friendEvents,
   seenEvents,
+  sharedInEvents,
   type SeenRecord,
   justusLockEvents,
   justusShareEvents,
@@ -147,6 +148,10 @@ export const gateway = {
     add: (identity: string, name: string) => invoke(friendEvents.add(identity, name)),
     rename: (identity: string, name: string) => invoke(friendEvents.rename(identity, name)),
     remove: (identity: string) => invoke(friendEvents.remove(identity)),
+  },
+  /** Photos other apps shared to Justus, waiting in the inbox (`justus.sharedIn`). */
+  sharedIn: {
+    list: () => invoke(sharedInEvents.list()),
   },
   seen: {
     read: () => invoke(seenEvents.read()),

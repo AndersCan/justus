@@ -5,7 +5,7 @@ Justus is a photo-sharing app that lives on many platforms at once (web, Android
 ## Language
 
 **Photo**:
-A single image captured or picked on a device and stored in the folder. Photos enter the app only through the system picker or camera; Justus never scans a library.
+A single image captured or picked on a device and stored in the folder. Photos enter the app only through the system picker, the camera, or another app's share menu (shared photos wait in the inbox until added to an album); Justus never scans a library.
 _Avoid_: media, file, asset
 
 **Folder**:
