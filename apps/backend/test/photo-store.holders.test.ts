@@ -659,6 +659,57 @@ describe("who has each photo", () => {
     await s.anna.store.close();
   });
 
+  it("two listings started together both carry holders", async () => {
+    const s = await album();
+    await s.nils.store.close();
+    const slow = restarted(s.nils.deps);
+    const openOwn = slow.drives.openOwn.bind(slow.drives);
+    slow.drives.openOwn = async (namespace?: string) => {
+      const drive = await openOwn(namespace);
+      const list = drive.list.bind(drive);
+      drive.list = (dir: string) => {
+        const inner = list(dir);
+        return {
+          [Symbol.asyncIterator]: () => {
+            const it = inner[Symbol.asyncIterator]();
+            return {
+              next: async () => {
+                await sleep(300);
+                return it.next();
+              },
+              return: async (v?: unknown) => it.return?.(v) ?? { done: true as const, value: v },
+            };
+          },
+        } as ReturnType<typeof list>;
+      };
+      return drive;
+    };
+    const reopened = createPhotoStore(slow);
+    await reopened.ready();
+    const [first, second] = await Promise.all([
+      reopened.list(s.nilsFolderId),
+      reopened.list(s.nilsFolderId),
+    ]);
+    expect(first.every((p) => p.holders !== undefined)).toBe(true);
+    expect(second.every((p) => p.holders !== undefined)).toBe(true);
+    await reopened.close();
+    await s.anna.store.close();
+  });
+
+  it("the first list after a restart says previewHere for a preview recorded before", async () => {
+    const s = await album();
+    const photo = await addThumbed(s, "pv.jpg");
+    await s.nils.server.getForTest(new URL(photo.thumbUrl!).pathname);
+    await until(async () => (await s.annaPhotoNamed("pv.jpg")).holders!.previews.length === 1);
+    await s.nils.store.close();
+    const reopened = createPhotoStore(restarted(s.nils.deps));
+    await reopened.ready();
+    const first = (await reopened.list(s.nilsFolderId)).find((p) => p.name === "pv.jpg")!;
+    expect(first.holders).toMatchObject({ kind: "inAlbum", here: false, previewHere: true });
+    await reopened.close();
+    await s.anna.store.close();
+  });
+
   it("opening a Viewer's drive reads the record it already has", async () => {
     const s = await album({ viewer: true });
     const photo = (await s.nilsPhoto())!;

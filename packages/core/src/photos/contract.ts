@@ -100,6 +100,7 @@ export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 const inAlbumHoldersSchema = s.object({
   kind: s.oneOf("inAlbum"),
   here: s.boolean,
+  previewHere: s.boolean,
   others: s.array(photoMemberSchema),
   unsure: s.array(photoMemberSchema),
   waiting: s.array(photoMemberSchema),

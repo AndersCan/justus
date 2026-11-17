@@ -14,6 +14,7 @@ const m = (name: string) => ({ key: name, name });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
   kind: "inAlbum",
   here: true,
+  previewHere: false,
   others: [],
   unsure: [],
   waiting: [],

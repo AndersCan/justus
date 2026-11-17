@@ -6,6 +6,7 @@ describe("privacy copy states only what is true", () => {
     const h = {
       kind: "inAlbum" as const,
       here: true,
+      previewHere: false,
       others: [{ key: "Nils", name: "Nils" }],
       unsure: [],
       waiting: [],

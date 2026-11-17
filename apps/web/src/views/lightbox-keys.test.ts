@@ -72,6 +72,7 @@ describe("holders sheet in the lightbox", () => {
       holders: {
         kind: "inAlbum" as const,
         here: true,
+        previewHere: false,
         others: [],
         unsure: [],
         waiting: [],
@@ -95,6 +96,7 @@ describe("holders sheet in the lightbox", () => {
       holders: {
         kind: "inAlbum" as const,
         here: true,
+        previewHere: false,
         others: [],
         unsure: [],
         waiting: [],

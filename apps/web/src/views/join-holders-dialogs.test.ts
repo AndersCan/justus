@@ -74,6 +74,7 @@ const photo: Photo = {
   holders: {
     kind: "inAlbum",
     here: true,
+    previewHere: false,
     others: [],
     unsure: [],
     waiting: [],

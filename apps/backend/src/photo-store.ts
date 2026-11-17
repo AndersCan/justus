@@ -629,6 +629,8 @@ type FolderRuntime = {
   held: Map<string, HeldReport>;
   /** Key of the own drive whose holding record was really read (unset while silent or still reading). */
   ownHeldRead?: string;
+  /** The read of this phone's own holding record, once started for this own drive. */
+  holding?: { key: string; done: Promise<void> };
   /** People who left or were removed, from the Admin's `/former.json`. */
   former: FormerPerson[];
   /** True once the photos opened before holding records existed were recorded. */
@@ -2759,6 +2761,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const driveByKey = new Map(sources.map((s) => [s.key, s.drive]));
 
     const people = await albumPeople(rt);
+    // The own record is read before any photo says who holds it: no guessing.
+    await startHolding(rt).catch((e) => log("error", { where: "startHolding", err: errText(e) }));
     tellScreenOfDeletes(rt, {
       seq,
       selfKey,
@@ -2784,12 +2788,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(d.takenAt ? { takenAt: d.takenAt } : {}),
         folderId: rt.record.id,
         mine: d.driveKey === selfKey,
-        holders: holdersFor({
-          photo: { id: d.id, driveKey: d.driveKey, memberName: d.memberName },
-          selfKey,
-          held: rt.held,
-          album: removed ? { kind: "removed" } : { kind: "inAlbum", people, former: rt.former },
-        }),
+        ...(rt.ownHeldRead === selfKey
+          ? {
+              holders: holdersFor({
+                photo: { id: d.id, driveKey: d.driveKey, memberName: d.memberName },
+                selfKey,
+                held: rt.held,
+                album: removed
+                  ? { kind: "removed" }
+                  : { kind: "inAlbum", people, former: rt.former },
+              }),
+            }
+          : {}),
       });
     }
     if (!rt.heldBackfilled) {
@@ -3433,9 +3443,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   /** Writes this phone's marker and reads back what it already holds. Once per own drive. */
-  async function startHolding(rt: FolderRuntime) {
+  function startHolding(rt: FolderRuntime): Promise<void> {
     const drive = rt.selfDrive;
-    if (rt.held.has(drive.key)) return;
+    if (rt.holding?.key === drive.key) return rt.holding.done;
+    const done = readOwnHolding(rt, drive);
+    rt.holding = { key: drive.key, done };
+    return done;
+  }
+
+  async function readOwnHolding(rt: FolderRuntime, drive: Drive) {
     rt.held.set(drive.key, { kind: "silent" });
     const [markerErr] = await ensureHoldingMarker(drive);
     if (markerErr) log("error", { where: "holding.marker", err: markerErr.message });

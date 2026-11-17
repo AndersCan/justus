@@ -166,6 +166,7 @@ describe("Delete", () => {
     const holders = {
       kind: "inAlbum" as const,
       here: true,
+      previewHere: false,
       others: [{ key: "n", name: "Nils" }],
       unsure: [],
       waiting: [],
@@ -215,6 +216,7 @@ describe("Delete", () => {
   const holdersOf = (others: { key: string; name: string }[]) => ({
     kind: "inAlbum" as const,
     here: true,
+    previewHere: false,
     others,
     unsure: [],
     waiting: [],
