@@ -9,6 +9,7 @@
 # Usage:
 #   bash scripts/maestro-e2e.sh                # default AVD Medium_Phone_API_36.1
 #   bash scripts/maestro-e2e.sh <serial>       # target a specific emulator-XXXX
+#   JUSTUS_WALK=1 bash scripts/maestro-e2e.sh [serial]   # release build, run the walk instead of the flows
 #
 # NOTE: this is NOT part of the fast `vp check` gate — it needs the Android SDK,
 # an arm64 AVD image, and a debug APK build.
@@ -21,6 +22,10 @@ FLOWS_DIR="$MAESTRO_DIR/flows"
 OUT_DIR="$MAESTRO_DIR/out"
 # JUSTUS_VARIANT=release runs the R8-minified release build (debug-signed, see app/build.gradle).
 VARIANT="${JUSTUS_VARIANT:-debug}"
+# JUSTUS_WALK=1 runs the release walk (playwright.walk.config.ts) instead of the flow suite. The walk
+# is always the release build.
+WALK="${JUSTUS_WALK:-}"
+[[ "$WALK" == 1 ]] && VARIANT=release
 if [[ "$VARIANT" == "release" ]]; then
   GRADLE_ARGS=(:app:assembleRelease -Pjustus.deviceCheck)
   APK="apps/android/app/build/outputs/apk/release/app-release.apk"
@@ -188,9 +193,11 @@ echo "✓ APK installed."
 "$ADB" -s "$SERIAL" shell svc power stayon true || true
 
 # The App lock flow needs a phone screen lock. Restore the device on exit so a local emulator
-# is not left with a PIN.
-"$ADB" -s "$SERIAL" shell locksettings set-pin 1111 || true
-trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 || true' EXIT
+# is not left with a PIN. The walk sets none: a device without a lock shows no lock card.
+if [[ "$WALK" != 1 ]]; then
+  "$ADB" -s "$SERIAL" shell locksettings set-pin 1111 || true
+  trap '"$ADB" -s "$SERIAL" shell locksettings clear --old 1111 >/dev/null 2>&1 || true' EXIT
+fi
 
 # ----------------------------------------------------------------------------
 # 5. Run the Maestro flow suite
@@ -206,6 +213,24 @@ if [[ "$VARIANT" == "release" ]]; then
 else
   run_as() { "$ADB" -s "$SERIAL" shell "run-as $APP sh -c '$1'"; }
 fi
+
+# The walk opens Ada's invite link in the emulator's Chrome. Chrome's test switch file skips its first
+# run, and set-debug-app makes Chrome read it (needs adb root, set above for the release build).
+prepare_chrome() {
+  if ! "$ADB" -s "$SERIAL" shell pm path com.android.chrome | grep -q '^package:'; then
+    echo "ERROR: the walk needs Chrome on the emulator (a Google APIs image); $SERIAL has none." >&2
+    return 1
+  fi
+  "$ADB" -s "$SERIAL" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line' || return 1
+  "$ADB" -s "$SERIAL" shell chmod 755 /data/local/tmp/chrome-command-line || return 1
+  "$ADB" -s "$SERIAL" shell am set-debug-app --persistent com.android.chrome || return 1
+  "$ADB" -s "$SERIAL" shell am force-stop com.android.chrome
+}
+
+run_walk() {
+  ( cd "$REPO_ROOT" && JUSTUS_WALK_SERIAL="$SERIAL" JUSTUS_WALK_OUT="$OUT_DIR/walk" \
+      pnpm exec playwright test --config playwright.walk.config.ts )
+}
 
 run_maestro() { maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; }
 
@@ -244,16 +269,32 @@ run_maestro_suite() {
   run_maestro
 }
 
-echo
-echo "▶ Running Maestro flows from $FLOWS_DIR ..."
 mkdir -p "$OUT_DIR"
-if ! run_maestro_suite; then
+walk_failed=""
+if [[ "$WALK" == 1 ]]; then
   echo
-  echo "✗ Maestro suite FAILED — capturing diagnostics..."
+  echo "▶ Preparing Chrome, then running the release walk ..."
+  mkdir -p "$OUT_DIR/walk"
+  if prepare_chrome && run_walk; then
+    echo "✓ Release walk passed on $SERIAL."
+    exit 0
+  fi
+  walk_failed=1
+  echo
+  echo "✗ Release walk FAILED: see $OUT_DIR/walk/walk-summary.md — capturing diagnostics..."
+else
+  echo
+  echo "▶ Running Maestro flows from $FLOWS_DIR ..."
+fi
+if [[ -n "$walk_failed" ]] || ! run_maestro_suite; then
+  if [[ -z "$walk_failed" ]]; then
+    echo
+    echo "✗ Maestro suite FAILED — capturing diagnostics..."
+  fi
   mkdir -p "$OUT_DIR"
 
   logcat_file="$OUT_DIR/logcat-JUSTUS_ANDROID.txt"
-  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$logcat_file" 2>/dev/null || true
+  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium ActivityTaskManager >"$logcat_file" 2>/dev/null || true
 
   # Worklet logs from the app's private storage (debuggable APK → run-as works).
   worklet_file="$OUT_DIR/worklet-logs.txt"
