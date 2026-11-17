@@ -27,7 +27,8 @@ import { inviteLink } from "../machines/sharing/invite-link";
 import { sync, syncActor, syncViewModel } from "../machines/sync-machine";
 import { friendlyError } from "../utils/friendly-error";
 import { nameList, requestRowOf, requestsHint, type Person } from "../utils/people";
-import { formatRelative } from "../utils/time";
+import { formatRelative, linkEndText } from "../utils/time";
+import { linkKindOf, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
 import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
@@ -468,6 +469,18 @@ function inviteAccept(
   </button>`;
 }
 
+/** "Asked 5 min ago", with the Admin's link it came through when the phone could tell. */
+function askedLine(r: PeopleVm["requests"][number]): TemplateResult {
+  const when = formatRelative(r.requestedAt);
+  const kind = r.link ? linkKindOf(r.link) : undefined;
+  if (!r.link || !kind) return t("album.asked", { when });
+  return t("album.asked_with_link", {
+    when,
+    kind: VALID_FOR_LABEL[kind],
+    made: linkEndText(r.link.madeAt),
+  });
+}
+
 /** Who is asking: name, Friend tag, warning, real name, when, three words and declined earlier. The card and the sheet share it. */
 export function requestIdentity(r: PeopleVm["requests"][number], joining: TemplateResult | null) {
   return html` <p class="text-sm text-fg">
@@ -482,9 +495,7 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
         ? html`<p class="text-xs text-muted">${r.requesterName}</p>`
         : null
     }
-    <p class="mt-1 text-xs text-muted">
-      ${t("album.asked", { when: formatRelative(r.requestedAt) })}
-    </p>
+    <p class="mt-1 text-xs text-muted">${askedLine(r)}</p>
     ${
       r.checkCode
         ? html`<p class="mt-2 text-xs text-muted">

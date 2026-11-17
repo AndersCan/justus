@@ -8,6 +8,7 @@
  * Set JUSTUS_HUB_DHT_PORT / JUSTUS_HUB_BASE_PORT when the defaults are taken.
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
+import { readFileSync } from "node:fs";
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { expect, test } from "../hub/fixtures.mjs";
@@ -109,6 +110,10 @@ async function askToJoin(b, link, _album) {
   await expect(b.locator("img")).toHaveCount(0);
 }
 
+const catalogue = JSON.parse(
+  readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
+);
+
 test("B asks to join A's album by link, A accepts, B sees the photo", async ({ instancePages }) => {
   test.setTimeout(150_000);
   const [a, b] = instancePages;
@@ -149,6 +154,8 @@ test("B asks to join A's album by link, A accepts, B sees the photo", async ({ i
   const askRow = a.locator("li", { hasText: `wants to join “${ALBUM}”` });
   await expect(askRow).toBeVisible({ timeout: 60_000 });
   await expect(askRow).toContainText(`Three words ${code}`);
+  const oneDay = catalogue["invite_link.1_day"].text;
+  await expect(askRow.locator('[data-copy-id="album.asked_with_link"]')).toContainText(oneDay);
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
 
   await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });

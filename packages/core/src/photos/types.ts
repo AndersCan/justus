@@ -215,6 +215,8 @@ export type JoinRequest = {
   requesterIdentity?: string;
   /** This phone asked through the link before and the Admin declined it; set only on a later ask. */
   declinedEarlier?: boolean;
+  /** The Admin's own link this ask came through: when it was made and when it ends (ms since the epoch). Absent when the phone cannot tell. */
+  link?: { madeAt: number; endsAt: number };
 };
 
 export type PhotoChangedCause =

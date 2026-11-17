@@ -556,6 +556,14 @@ describe("sealing records", () => {
     expect(parseSealedAsk(sealedAskBytes(ask))).toEqual({ v: 1, ...ask });
   });
 
+  test("parseSealedAsk keeps a valid linkEnd and drops any other, keeping the ask", () => {
+    const ask = { key: hex("1"), identity: hex("2"), invite: hex("3") };
+    const parse = (linkEnd: unknown) =>
+      parseSealedAsk(Buffer.from(JSON.stringify({ v: 1, ...ask, linkEnd })));
+    expect(parse(1_700_000_000_000)).toEqual({ v: 1, ...ask, linkEnd: 1_700_000_000_000 });
+    for (const bad of ["1", -1, 0, 1.5, {}, null]) expect(parse(bad)).toEqual({ v: 1, ...ask });
+  });
+
   test("parseSealedAsk rejects other versions, missing fields and non-hex", () => {
     const good = { v: 1, key: hex("1"), identity: hex("2"), invite: hex("3") };
     const parse = (value: unknown) => parseSealedAsk(Buffer.from(JSON.stringify(value)));

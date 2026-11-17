@@ -84,7 +84,13 @@ export const joinActor = createJoinRequestActor({
   asked: (code) => foldersActor.snapshot().context.asks.find((a) => a.code === code),
   port: {
     ask: async (invite) => {
-      const outcome = await gateway.ask(invite.code, invite.owner, invite.album, invite.ownerName);
+      const outcome = await gateway.ask(
+        invite.code,
+        invite.owner,
+        invite.album,
+        invite.ownerName,
+        invite.expiresAt,
+      );
       if (!outcome[0]) folders.refresh();
       return outcome;
     },

@@ -76,8 +76,24 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils");
+    expect(mocks.ask).toHaveBeenCalledWith(
+      INVITE.code,
+      INVITE.owner,
+      "Spain 2026",
+      "Nils",
+      undefined,
+    );
     expect(view().state).toBe("waitingForAdminToAccept");
+  });
+
+  test("asking through a link with an end time passes the end time", async () => {
+    const endsAt = Math.floor((Date.now() + 3_600_000) / 1000) * 1000;
+    mocks.ask.mockResolvedValue([null, {}]);
+    join.openLink(buildInviteLink({ ...INVITE, expiresAt: endsAt }));
+    await settle();
+    join.askToJoin();
+    await settle();
+    expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils", endsAt);
   });
 
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {

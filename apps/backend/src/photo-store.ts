@@ -106,6 +106,7 @@ import {
   DRIVE_FIELD_BOX,
   boxKeyOf,
   sealedAskBytes,
+  validLinkEnd,
   inLinkTime,
   isLinkOffWhy,
   type EarlierEntry,
@@ -293,6 +294,8 @@ type AskRecord = Omit<AskSummary, "status"> & {
   /** Joining this ask's album replaces the album with this local id: the
    * Admin moved it to new keys and this phone is following. */
   replaces?: string;
+  /** End time of the link this ask was made through, sealed to the Admin with the ask. */
+  linkEnd?: number;
 };
 
 type Answers = Record<string, "accepted" | "declined">;
@@ -463,6 +466,7 @@ export interface PhotoStore {
     owner: string;
     albumName?: string;
     ownerName?: string;
+    linkEnd?: number;
   }): Promise<EitherResult<{ ask: AskSummary }>>;
   createFolder(name: string): Promise<EitherResult<{ folder: FolderSummary }>>;
   setActive(folderId: string): Promise<EitherResult<SyncStatus>>;
@@ -1139,6 +1143,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         a.status !== "linkOff"
       )
         continue;
+      const linkEnd = validLinkEnd(a.linkEnd);
       out.push({
         code: a.code,
         owner: a.owner,
@@ -1150,6 +1155,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(a.closed === true ? { closed: true } : {}),
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
         ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
+        ...(linkEnd === undefined ? {} : { linkEnd }),
       });
     }
     return out;
@@ -4398,11 +4404,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     albumName: unknown,
     ownerName: unknown,
     replaces?: string,
+    linkEnd?: number,
   ): Promise<EitherResult<{ ask: AskSummary }>> {
     try {
       await openSelfDriveIn(`ask/${code}`);
       const ask = newInviteAsk({ code, owner, albumName, ownerName, now: Date.now() });
-      const filed = replaces ? { ...ask, replaces } : ask;
+      const end = validLinkEnd(linkEnd);
+      const filed = {
+        ...ask,
+        ...(replaces ? { replaces } : {}),
+        ...(end === undefined ? {} : { linkEnd: end }),
+      };
       state.asks = [
         ...state.asks.filter(
           (a) =>
@@ -4432,7 +4444,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Seals the ask drive's key to the Admin's phone and files it in the outbox.
    * Stops quietly when the ask is over, already filed, or the Admin's sealing
    * key is not known yet: the Admin's next connection tries again. */
-  async function sendAsk({ code, owner }: AskRecord): Promise<void> {
+  async function sendAsk({ code, owner, linkEnd }: AskRecord): Promise<void> {
     try {
       const waiting = () => state.asks.find((a) => a.code === code && a.status === "waiting");
       const drive = await openSelfDriveIn(`ask/${code}`);
@@ -4460,7 +4472,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const [sealErr, sealedKey] = deps.drives.sealFor(
         boxKey,
-        sealedAskBytes({ key: drive.key, identity: ownDrive.key, invite: code }),
+        sealedAskBytes({
+          key: drive.key,
+          identity: ownDrive.key,
+          invite: code,
+          ...(linkEnd !== undefined && { linkEnd }),
+        }),
       );
       if (sealErr) {
         log("error", { where: "ask.seal", err: sealErr.message });
@@ -5682,7 +5699,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const { code, owner } = check;
       const pending = askInflight.get(code);
       if (pending) return (await pending) as EitherResult<{ ask: AskSummary }>;
-      const filing = fileAsk(code, owner, args.albumName, args.ownerName);
+      const filing = fileAsk(code, owner, args.albumName, args.ownerName, undefined, args.linkEnd);
       askInflight.set(code, filing);
       try {
         return await filing;

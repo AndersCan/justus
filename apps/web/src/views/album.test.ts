@@ -24,6 +24,8 @@ import {
   removeDetail,
 } from "./album";
 import { open } from "../machines/router-machine";
+import { VALID_FOR_MS, VALID_FOR_LABEL } from "../machines/sharing/invite-link-machine";
+import { formatRelative, linkEndText } from "../utils/time";
 import { memberColor } from "../utils/palette";
 import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import { toast } from "./toast";
@@ -518,6 +520,35 @@ describe("album join requests", () => {
     expect(text).not.toContain("wants to join");
     render(requestIdentity(row, html`wants to join Trip`), host);
     expect(flat(host)).toContain("Dad wants to join Trip");
+  });
+
+  test("a request through one of your links says which, and a link of no known length does not", () => {
+    const host = document.createElement("div");
+    const madeAt = 1_700_000_000_000;
+    const base = ask("a", true, "maple river stone");
+    const row = (span: number) => ({
+      ...base,
+      name: "Dad",
+      friend: false,
+      link: { madeAt, endsAt: madeAt + span },
+    });
+    for (const kind of ["10m", "1h", "1d", "7d"] as const) {
+      render(requestIdentity(row(VALID_FOR_MS[kind]), null), host);
+      const line = host.querySelector('[data-copy-id="album.asked_with_link"]');
+      expect(line?.textContent).toBe(
+        copy("album.asked_with_link", {
+          when: formatRelative(base.requestedAt),
+          kind: VALID_FOR_LABEL[kind],
+          made: linkEndText(madeAt),
+        }),
+      );
+      expect(host.querySelector('[data-copy-id="album.asked"]')).toBeNull();
+    }
+    for (const plain of [{ ...base, name: "Dad", friend: false }, row(30 * 60_000)]) {
+      render(requestIdentity(plain, null), host);
+      expect(host.querySelector('[data-copy-id="album.asked"]')).not.toBeNull();
+      expect(host.querySelector('[data-copy-id="album.asked_with_link"]')).toBeNull();
+    }
   });
 
   test("a request from a saved friend shows your name for them and Friend", async () => {
