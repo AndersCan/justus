@@ -952,7 +952,9 @@ describe("turning off invite links", () => {
             identity,
             (e: PeerEvent) => {
               if (e.type === "connected") conns.push(e.conn);
-              if (e.type === "answer") arrived.push(e.value as { code: string; answer: string });
+              // "received" (the names) is not the answer this test follows.
+              if (e.type === "answer" && (e.value as { answer: string }).answer !== "received")
+                arrived.push(e.value as { code: string; answer: string });
               on(e);
             },
             protocol,
@@ -1317,7 +1319,7 @@ describe("a request through a turned-off link", () => {
     await until(async () => (await s.admin.store.requests()).requests.length === 1);
     const first = (await s.admin.store.requests()).requests;
     await s.admin.store.respond(s.folderId, first[0].requesterKey, false);
-    await until(() => arrived.length >= 1, 4_000);
+    await until(() => arrived.some((m) => m.answer === "declined"), 4_000);
     await s.admin.store.turnOffInvite(s.folderId);
     await new Promise((r) => setTimeout(r, 200));
     expect(arrived.some((m) => m.answer === "linkOff")).toBe(false);

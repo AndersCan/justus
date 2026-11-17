@@ -11,6 +11,7 @@ checks this.
 ## Unreleased · peer protocol 5
 
 - **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.
+- **The Admin's phone tells a waiting asker the album's name and its own** (new `received` answer on the answer channel). Who: nobody beyond the entry above; v0.4.0 phones are already refused. Do: nothing.
 
 ## Protocol 4 (v0.4.0)
 

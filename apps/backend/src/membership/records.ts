@@ -420,7 +420,9 @@ export type Answer =
   | { code: string; answer: "accepted"; shareKey: string; movedFrom?: string[] }
   | { code: string; answer: "declined"; askedAt?: number }
   /** The code no longer works for this ask; `why` says which, when known. */
-  | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy };
+  | { code: string; answer: "linkOff"; askedAt: number; why?: LinkOffWhy }
+  /** The Admin's phone has this ask and it waits on the Admin: the names the asker's screens show. Never a key. */
+  | { code: string; answer: "received"; askedAt: number; albumName: string; ownerName: string };
 
 /** True for the four reasons a link can stop working. */
 export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
@@ -432,15 +434,28 @@ export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey, askedAt, movedFrom, why } = value as {
+  const { code, answer, shareKey, askedAt, movedFrom, why, albumName, ownerName } = value as {
     code?: unknown;
     answer?: unknown;
     shareKey?: unknown;
     askedAt?: unknown;
     movedFrom?: unknown;
     why?: unknown;
+    albumName?: unknown;
+    ownerName?: unknown;
   };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
+  if (answer === "received") {
+    if (typeof askedAt !== "number" || !Number.isFinite(askedAt)) return undefined;
+    if (typeof albumName !== "string" || typeof ownerName !== "string") return undefined;
+    return {
+      code,
+      answer,
+      askedAt,
+      albumName: peerName(albumName, ""),
+      ownerName: peerName(ownerName, ""),
+    };
+  }
   if (answer === "declined") {
     return typeof askedAt === "number" && Number.isFinite(askedAt)
       ? { code, answer, askedAt }

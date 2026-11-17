@@ -81,6 +81,7 @@ export async function proveIdentity(
 /** An album as answersOwed reads it (structural; photo-store passes FolderRecord). */
 export type OwingAlbum = {
   role?: string;
+  name: string;
   shareKey: string;
   invite?: { code: string; links?: readonly LinkTime[] };
   /** Identities with an open friend invite: never turned away by link times. */
@@ -133,17 +134,56 @@ export function answersOwed(
         !album.invited?.includes(identity) &&
         !inLinkTime(album.invite.links, a.requestedAt);
       if (!retired && !late) continue;
-      // Same rule as join.ts answerClosesRequest; duplicated because use-case modules don't import siblings.
-      const settled =
-        answer === "accepted" ||
-        (answer === "declined" && (askedAt === undefined || a.requestedAt <= askedAt));
-      if (settled) continue;
+      if (settles(answer, askedAt, a.requestedAt)) continue;
       const why = retired ? album.retiredWhy?.[a.code] : "expired";
       owed.push({
         code: a.code,
         answer: "linkOff",
         askedAt: a.requestedAt,
         ...(why ? { why } : {}),
+      });
+    }
+  }
+  return owed;
+}
+
+/** Same rule as join.ts answerClosesRequest; duplicated because use-case modules don't import siblings. */
+function settles(
+  answer: "accepted" | "declined" | undefined,
+  declinedAt: number | undefined,
+  requestedAt: number,
+): boolean {
+  return (
+    answer === "accepted" ||
+    (answer === "declined" && (declinedAt === undefined || requestedAt <= declinedAt))
+  );
+}
+
+/** A "received" for each ask in `asked` that went through a current code of a creator
+ * album and still waits on the Admin: the album's name and `ownerName`, so the asker's
+ * screens show the Admin's words, never the link's. Albums and asks in the order given. */
+export function receivedOwed(
+  albums: Iterable<OwingAlbum>,
+  identity: string,
+  asked: readonly AskedCode[],
+  ownerName: string,
+): Answer[] {
+  const owed: Answer[] = [];
+  for (const album of albums) {
+    if (album.role !== "creator" || !album.invite) continue;
+    for (const a of asked) {
+      if (a.code !== album.invite.code) continue;
+      const late =
+        !album.invited?.includes(identity) && !inLinkTime(album.invite.links, a.requestedAt);
+      if (late) continue;
+      if (settles(album.answers?.[identity], album.declinedAsks?.[identity], a.requestedAt))
+        continue;
+      owed.push({
+        code: a.code,
+        answer: "received",
+        askedAt: a.requestedAt,
+        albumName: album.name,
+        ownerName,
       });
     }
   }
@@ -222,6 +262,7 @@ export type AnswerArrival =
     }
   | { kind: "declined"; code: string }
   | { kind: "linkOff"; code: string; why?: LinkOffWhy }
+  | { kind: "received"; code: string; albumName: string; ownerName: string }
   | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
@@ -251,6 +292,14 @@ export async function arrivingAnswer(
   if (answer.answer === "declined") return { kind: "declined", code: answer.code };
   if (answer.answer === "linkOff")
     return { kind: "linkOff", code: answer.code, ...(answer.why ? { why: answer.why } : {}) };
+  if (answer.answer === "received") {
+    return {
+      kind: "received",
+      code: answer.code,
+      albumName: answer.albumName,
+      ownerName: answer.ownerName,
+    };
+  }
   return {
     kind: "accepted",
     code: answer.code,
