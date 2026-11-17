@@ -10,3 +10,5 @@ export * from "./lock/events";
 export * from "./share/events";
 export * from "./friends/types";
 export * from "./friends/events";
+export * from "./seen/types";
+export * from "./seen/events";

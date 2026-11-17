@@ -15,6 +15,8 @@ import { createHyperDriveStore } from "./adapters/hyper-drive-store";
 import { createHyperPeerNetwork } from "./adapters/hyper-peer-network";
 import { createFriendsPlugin } from "./friends-plugin";
 import { createFriendsStore } from "./friends-store";
+import { createSeenPlugin } from "./seen-plugin";
+import { createSeenStore } from "./seen-store";
 import { createDevInbox } from "./dev-inbox";
 import { registerUploadRoute } from "./upload-route";
 import { createLogCollector } from "./log-collector";
@@ -125,6 +127,14 @@ runtime.pluginRegistry.register(createSharePluginStub());
 // port can change, the desktop host falls back to a random one when its fixed
 // port is taken).
 runtime.pluginRegistry.register(createFriendsPlugin({ store: friendsStore }));
+
+// Per-device seen file: which album was used last and which photos this phone
+// knows. Local only, in `storageDir` for the same reason as the friends file.
+runtime.pluginRegistry.register(
+  createSeenPlugin({
+    store: createSeenStore({ dir: storageDir, files: bareFiles.fs, paths: bareFiles.path }),
+  }),
+);
 
 // The real upload route on the worklet's own loopback server — the add path
 // the browser "Pick photo" uses in dev and on the device WebView alike.
