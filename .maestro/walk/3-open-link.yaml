@@ -1,0 +1,11 @@
+appId: no.cankode.justus
+---
+# Step 3 of the release walk (e2e/device/release-walk.walk.ts runs it): Ben opens Ada's invite link in
+# Chrome and sees the invite page's button. Words come in with -e from the copy catalogue.
+- openLink:
+    link: ${LINK}
+    browser: true
+- extendedWaitUntil:
+    visible: ${OPEN}
+    timeout: 60000
+- takeScreenshot: ${OUT}/ben-3-invite-page

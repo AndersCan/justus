@@ -6,7 +6,7 @@ layer from a Bare worklet's loopback server via a WebView, and the web layer ren
 
 Run locally with `pnpm test:native` (`scripts/maestro-e2e.sh`). The release workflow
 (`.github/workflows/release-android.yml`) runs the same script on an x86_64 API 36 emulator before
-the Play upload. Emulators cannot reach peers, so flows are single-device only.
+the Play upload. The flows are single-device: an emulator cannot reach another emulator, so only the release walk (below) meets a second person.
 
 ## What the flow covers
 
@@ -52,3 +52,19 @@ state. First after wiping the app's cache dir (as Settings → Clear cache does)
 times the relaunched worklet must reopen the album "M" from `first-run.yaml` out of the store.
 The UI cannot show this: the intro-seen flag lives in web storage keyed by the loopback port,
 which changes every launch.
+
+## Release walk
+
+`.github/workflows/release-walk.yml` (Actions › release-walk › Run workflow; never on pushes) walks two
+people on the release build. Ada is the web build in Chromium on a worklet that joins the public DHT
+(`scripts/e2e-server.mjs`, port 8091). Ben is the release APK on the emulator. Ada makes an album and
+copies her invite link, Ben opens it in Chrome, taps Open in Justus, asks to join, Ada accepts, and Ben
+sees her photo.
+
+- The spec is `e2e/device/release-walk.walk.ts`, run by `playwright.walk.config.ts`.
+  `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` sets up the emulator and Chrome, then runs it.
+- Ben's four steps are `.maestro/walk/*.yaml`. They are outside `config.yaml`'s `flows/*.yaml`, so the
+  first-run suite never runs them. Each is given its words with `-e` from `apps/web/src/copy/en.json`.
+- The run page shows a table of the 7 steps with pass or FAILED and their time. The `release-walk`
+  download has `walk/walk-summary.md`, `walk/ben-<n>-<step>.png` and Maestro's failure shots.
+- A dispatch from a branch walks main's deployed invite page, not the branch's page.

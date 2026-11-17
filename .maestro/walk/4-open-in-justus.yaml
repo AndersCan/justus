@@ -1,0 +1,24 @@
+appId: no.cankode.justus
+---
+# Step 4 of the release walk: Ben taps Open in Justus, gets through the fresh-install welcome, and
+# Justus asks to join Ada's album. Words come in with -e from the copy catalogue.
+- tapOn:
+    text: ${OPEN}
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: ${SKIP}
+    timeout: 90000
+- tapOn:
+    text: ${SKIP}
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ${YOUR_NAME}
+    waitToSettleTimeoutMs: 500
+- inputText: "B"
+# Submit with Enter, not "Continue": the keyboard can cover the button.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: ${ASK_TITLE}
+    timeout: 30000
+- takeScreenshot: ${OUT}/ben-4-asks-to-join

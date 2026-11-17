@@ -1,0 +1,8 @@
+appId: no.cankode.justus
+---
+# Step 7 of the release walk: Ada let Ben in, and Ben sees her photo. The tile's screen reader label
+# comes in with -e from the copy catalogue.
+- extendedWaitUntil:
+    visible: ${TILE}
+    timeout: 120000
+- takeScreenshot: ${OUT}/ben-7-sees-photo
