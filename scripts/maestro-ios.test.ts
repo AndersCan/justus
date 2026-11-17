@@ -60,7 +60,10 @@ test("an unknown path is not a route and runs nothing", () => {
 });
 
 // The switcher routes: the screenshots are `shots` (one buffer each), the count is `count`.
-function switcherWalk(url: string, opts: { shots: string[]; count: number; failing?: string[] }) {
+function switcherWalk(
+  url: string,
+  opts: { shots: string[]; count: number; counts?: number[]; failing?: string[] },
+) {
   const commands: string[][] = [];
   const run = (cmd: string, args: string[]) => {
     commands.push([cmd, ...args]);
@@ -69,13 +72,14 @@ function switcherWalk(url: string, opts: { shots: string[]; count: number; faili
     };
   };
   let shot = 0;
+  let counted = 0;
   const done = helperRoute(url, {
     run,
     notify: () => ({ status: 0 }),
     udid: "U",
     bundleId: "app.id",
     out: "/out",
-    photoPixels: () => opts.count,
+    photoPixels: () => opts.counts?.[counted++] ?? opts.count,
     minPhotoPixels: 2000,
     read: () => Buffer.from(opts.shots[Math.min(shot++, opts.shots.length - 1)]),
     sleep: () => {},
@@ -92,7 +96,6 @@ test("/switcher-lock-on opens the switcher, shoots until stable, then launches J
   expect(walk.commands.map((command) => command[0])).toEqual([
     "xcrun",
     "osascript",
-    "xcrun",
     "xcrun",
     "xcrun",
     "xcrun",
@@ -119,6 +122,7 @@ test("a switcher that never settles fails, takes at most 11 shots and still laun
   const walk = switcherWalk("/switcher-lock-on", {
     shots: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
     count: 0,
+    counts: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   });
   expect(walk.done).toBe(false);
   expect(walk.commands.filter((command) => command[2] === "io")).toHaveLength(11);
@@ -133,6 +137,16 @@ test("a switcher that cannot open runs nothing else", () => {
   });
   expect(walk.done).toBe(false);
   expect(walk.commands.map((command) => command[0])).toEqual(["xcrun", "osascript"]);
+});
+
+test("frames that differ byte for byte settle once the photo count repeats", () => {
+  const walk = switcherWalk("/switcher-lock-off", {
+    shots: ["app", "a", "b", "c", "d"],
+    count: 0,
+    counts: [0, 4000, 9000, 9000],
+  });
+  expect(walk.done).toBe(true);
+  expect(walk.commands.filter((command) => command[2] === "io")).toHaveLength(5);
 });
 
 test("a frame equal to the app before the switcher opened never counts as settled", () => {

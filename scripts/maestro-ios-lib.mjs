@@ -33,8 +33,8 @@ const openSwitcher = [
 ];
 
 // /switcher-lock-on and /switcher-lock-off: open the app switcher, take screenshots 300 ms apart
-// until two in a row are byte-identical, count the photo pixels in the last one, and open Justus
-// again. True only when the switcher settled, Justus launched and the count matches.
+// until two in a row have the same photo-pixel count (the blurred wallpaper behind the card is never
+// byte-identical twice), and open Justus again. True only when the switcher settled, Justus launched and the count matches.
 function switcher(
   { run, udid, bundleId, out, photoPixels, minPhotoPixels, read, sleep },
   name,
@@ -47,15 +47,16 @@ function switcher(
   if (run("osascript", openSwitcher).status !== 0) return false;
   // At most 10 shots 300 ms apart (3 s): the switcher's open animation lasts about a second.
   let settled = false;
-  let previous = null;
+  let previous = -1;
+  let count = 0;
   for (let shot = 0; shot < 10 && !settled; shot++) {
     if (shot > 0) sleep(300);
     if (run("xcrun", ["simctl", "io", udid, "screenshot", file]).status !== 0) break;
     const bytes = read(file);
-    settled = !bytes.equals(app) && previous !== null && bytes.equals(previous);
-    previous = bytes;
+    count = photoPixels(file);
+    settled = !bytes.equals(app) && count === previous;
+    previous = count;
   }
-  const count = settled ? photoPixels(file) : 0;
   const shows = count >= minPhotoPixels;
   console.log(
     settled
