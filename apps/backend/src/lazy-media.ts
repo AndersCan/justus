@@ -25,7 +25,8 @@ export type LazyMedia = {
  * file, so opening an album downloaded all of it. A route here instead spools
  * on its first GET: the grid fetches thumbnails as they scroll into view, and
  * a display copy only when the photo is opened. Hyperdrive replicates sparsely,
- * so blocks nobody reads are never downloaded.
+ * so display copies nobody opens are never downloaded. Previews are fetched
+ * in the background while phones are connected (`photos/thumbs.ts`).
  *
  * The loopback server can't unregister a route, so each one looks its source
  * up per request; `drop` makes it answer 404.

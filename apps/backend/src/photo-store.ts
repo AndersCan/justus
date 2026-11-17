@@ -27,6 +27,7 @@ import {
   type FormerPerson,
   type HeldReport,
 } from "./photos/holders";
+import { fetchThumbs, thumbsToFetch, type ThumbToFetch } from "./photos/thumbs";
 import { RENDITION_EXT, isSha256Hex, readTakenAt, TAKEN_AT_RE } from "@justus/core";
 import { createLazyMedia } from "./lazy-media";
 import { pumpStream, type PumpWriter } from "./pump";
@@ -2809,7 +2810,47 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         .then(() => backfillHeld(rt, listed))
         .catch((e) => log("error", { where: "backfillHeld", err: errText(e) }));
     }
+    void fetchThumbsIn(
+      rt,
+      thumbsToFetch({
+        photos: photos.map((p) => ({
+          id: p.id,
+          driveKey: p.member.key,
+          addedAt: p.addedAt,
+          ...(p.thumbUrl === undefined ? {} : { hasThumb: true as const }),
+          holders: p.holders,
+        })),
+        connected: (k) => memberPresence(presence, k).connected,
+      }),
+      driveByKey,
+    );
     return photos;
+  }
+
+  /** Fetches missing previews for one album, one pass at a time; a call while a pass runs is dropped (the next listing brings a fresh one). Never rejects. */
+  const thumbRuns = new Set<string>();
+  async function fetchThumbsIn(
+    rt: FolderRuntime,
+    todo: ThumbToFetch[],
+    driveByKey: ReadonlyMap<string, Drive>,
+  ): Promise<void> {
+    const id = rt.record.id;
+    if (todo.length === 0 || thumbRuns.has(id)) return;
+    if (runtimes.get(id) !== rt || rt.record.notice !== undefined) return;
+    thumbRuns.add(id);
+    try {
+      await fetchThumbs({
+        todo,
+        driveOf: (k) => driveByKey.get(k),
+        landed: (photoId) =>
+          runtimes.get(id) === rt && rt.record.notice === undefined
+            ? notePreviewed(rt, photoId)
+            : Promise.resolve(),
+        log,
+      });
+    } finally {
+      thumbRuns.delete(id);
+    }
   }
 
   /**
