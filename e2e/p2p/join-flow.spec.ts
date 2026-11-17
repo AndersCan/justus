@@ -18,6 +18,7 @@ const catalogue = JSON.parse(
 );
 const words = (id, params = {}) =>
   catalogue[id].text.replace(/\{(\w+)\}/g, (whole, k) => String(params[k] ?? whole));
+const connectedDot = () => `[role="img"][aria-label="${words("people.connected")}"]`;
 // The text of an id as a pattern, a name or number standing for each placeholder.
 const pattern = (id) =>
   new RegExp(
@@ -304,7 +305,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const row = members.locator("li", { has: a.locator('[data-copy-id="member.role_viewer"]') });
   await expect(row).toBeVisible({ timeout: 60_000 });
-  await expect(row.getByText("connected", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(row.locator(connectedDot())).toBeVisible({ timeout: 30_000 });
 
   await row.getByRole("button", { name: /^Let .* add photos$/ }).click();
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
@@ -547,7 +548,7 @@ test("A saves B as a friend from the Members list and the name stays after a rel
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const row = members
-    .locator("li", { has: a.getByText("connected", { exact: true }) })
+    .locator("li", { has: a.locator(connectedDot()) })
     .filter({ hasNot: a.getByText("(you)") });
   const tap = row.getByRole("button").first();
   await expect(tap).toBeVisible({ timeout: 60_000 });
@@ -790,7 +791,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const tap = members
-    .locator("li", { has: a.getByText("connected", { exact: true }) })
+    .locator("li", { has: a.locator(connectedDot()) })
     .filter({ hasNot: a.getByText("(you)") })
     .getByRole("button")
     .first();
@@ -857,7 +858,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     timeout: 60_000,
   });
   await expect(lisbonMembers.locator("li", { hasText: "Sam" }).first()).toContainText(
-    "In · can only look",
+    words("member.role_viewer"),
   );
 });
 
@@ -925,7 +926,7 @@ test("A saved friend and a stranger with the friend's name ask by link: only the
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const tap = members
-    .locator("li", { has: a.getByText("connected", { exact: true }) })
+    .locator("li", { has: a.locator(connectedDot()) })
     .filter({ hasNot: a.getByText("(you)") })
     .getByRole("button")
     .first();
@@ -992,7 +993,7 @@ test("A takes back the invite sent to friend B: the row goes on A and the invite
 
   const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
   const tap = members
-    .locator("li", { has: a.getByText("connected", { exact: true }) })
+    .locator("li", { has: a.locator(connectedDot()) })
     .filter({ hasNot: a.getByText("(you)") })
     .getByRole("button")
     .first();

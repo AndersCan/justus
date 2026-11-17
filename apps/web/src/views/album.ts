@@ -1,6 +1,7 @@
 import type { FolderSummary } from "@justus/core";
 import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "#design/justus/album/album-full.ts";
+import { presenceDot } from "#design/components/presence-dot.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { ref } from "lit-html/directives/ref.js";
@@ -328,9 +329,10 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
   const tappable = p.tappable && !p.you && identity !== undefined;
   const body = html`${memberBadge(p.name, p.color)}
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium text-fg">
-        ${p.name}${p.you ? copy("album.you") : ""}
-        ${p.friend ? html`<span class="ml-1 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
+      <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg">
+        <span class="truncate">${p.name}${p.you ? copy("album.you") : ""}</span>
+        ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
+        ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
       ${memberLine(p.role)}
       ${
@@ -344,17 +346,6 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         p.friend && p.ownName !== p.name
           ? html`<p class="truncate text-xs text-muted">${p.ownName}</p>`
           : null
-      }
-      ${
-        p.you
-          ? null
-          : html`<p class="flex items-center gap-1.5 text-xs text-muted">
-              <span
-                class="inline-block h-1.5 w-1.5 rounded-full ${p.connected ? "bg-ok" : "bg-line"}"
-                aria-hidden="true"
-              ></span>
-              ${p.presence}
-            </p>`
       }
       ${
         tappable && !p.friend
