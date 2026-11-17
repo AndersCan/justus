@@ -123,6 +123,7 @@ appId: no.cankode.justus
           index: 0
       - tapOn:
           text: "Add.*"
+          optional: true
       - extendedWaitUntil:
           visible: "View .*"
           timeout: 30000
