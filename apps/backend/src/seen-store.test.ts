@@ -28,6 +28,13 @@ describe("seen store", () => {
     expect(open().read()).toEqual([null, record]);
   });
 
+  test("a write is what the same store reads next, without a restart", async () => {
+    const store = open();
+    await store.write({ version: 1, known: {} });
+    await store.write(record);
+    expect(store.read()).toEqual([null, record]);
+  });
+
   test("a non-JSON file reads as empty and is replaced on write", async () => {
     fs.writeFileSync(file(), "not json {");
     const store = open();
