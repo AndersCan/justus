@@ -12,6 +12,7 @@ import {
 import {
   answersOwed,
   deletedAlbumAnswers,
+  receivedOwed,
   arrivingAnswer,
   deliverOwed,
   forgetSent,
@@ -92,6 +93,7 @@ function prove(p: Phone, conn: () => ClaimedConn | undefined, attempts = 2, log 
 
 const album = (extra: Partial<OwingAlbum> = {}): OwingAlbum => ({
   role: "creator",
+  name: "Holiday",
   shareKey: SHARE,
   invite: { code: CODE },
   answers: { [hex("b")]: "accepted" },
@@ -725,5 +727,114 @@ describe("answers: a deleted album", () => {
 
   it("no deleted codes, nothing owed", () => {
     expect(deletedAlbumAnswers(new Set(), [{ code: CODE, requestedAt: 5 }])).toEqual([]);
+  });
+});
+
+describe("answers: the names a waiting ask is told", () => {
+  const b = hex("b");
+  const links = [{ from: 1_000_000, to: 2_000_000 }];
+  const open = (extra: Partial<OwingAlbum> = {}) =>
+    album({ invite: { code: CODE, links }, answers: undefined, ...extra });
+  const ask = (requestedAt: number, code = CODE) => [{ code, requestedAt }];
+  const told = (askedAt: number): Answer => ({
+    code: CODE,
+    answer: "received",
+    askedAt,
+    albumName: "Holiday",
+    ownerName: "Ada",
+  });
+
+  it("received: a current-code ask in link time gets the album and owner names and its ask time", () => {
+    expect(receivedOwed([open()], b, ask(1_500_000), "Ada")).toEqual([told(1_500_000)]);
+  });
+
+  it("received: none for a retired code, a late ask, another album's code or a non-creator album", () => {
+    expect(
+      receivedOwed([open({ retiredInvites: [RETIRED] })], b, ask(1_500_000, RETIRED), "Ada"),
+    ).toEqual([]);
+    expect(receivedOwed([open()], b, ask(9_000_000), "Ada")).toEqual([]);
+    expect(receivedOwed([open()], b, ask(1_500_000, hex("1")), "Ada")).toEqual([]);
+    expect(receivedOwed([open({ role: "member" })], b, ask(1_500_000), "Ada")).toEqual([]);
+    expect(receivedOwed([open({ invite: undefined })], b, ask(1_500_000), "Ada")).toEqual([]);
+  });
+
+  it("received: none after an accept; a decline covers the ask, not a newer one", () => {
+    expect(
+      receivedOwed([open({ answers: { [b]: "accepted" } })], b, ask(1_500_000), "Ada"),
+    ).toEqual([]);
+    const declined = open({ answers: { [b]: "declined" }, declinedAsks: { [b]: 1_500_000 } });
+    expect(receivedOwed([declined], b, ask(1_500_000), "Ada")).toEqual([]);
+    expect(receivedOwed([declined], b, ask(1_600_000), "Ada")).toEqual([told(1_600_000)]);
+  });
+
+  it("received: an invited friend outside link times gets it", () => {
+    expect(receivedOwed([open({ invited: [b] })], b, ask(9_000_000), "Ada")).toEqual([
+      told(9_000_000),
+    ]);
+  });
+
+  it("delivery: received is sent once per connection per ask time, only on a proven connection", async () => {
+    const w = await adminAndJoiners();
+    const id = w.joiner.identity.key;
+    let at = 1_500_000;
+    const options = {
+      identity: id,
+      owed: () => receivedOwed([open()], id, ask(at), "Ada"),
+      log: noLog,
+    };
+    const ports = w.ports([
+      { conn: w.toJoiner.conn, identity: id },
+      { conn: w.toOther.conn, identity: id },
+    ]);
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    expect((await deliverOwed(ports, options)).sent).toBe(0);
+    at = 1_600_000;
+    expect((await deliverOwed(ports, options)).sent).toBe(1);
+    await waitFor(
+      () => w.joiner.events.filter((e) => e.type === "answer").length === 2,
+      "both received",
+    );
+    expect(w.other.events.some((e) => e.type === "answer")).toBe(false);
+  });
+
+  describe("arriving", () => {
+    const OWNER = hex("a");
+    const waiting = { code: CODE, owner: OWNER, status: "waiting", askedAt: 2 };
+    const value = {
+      code: CODE,
+      answer: "received",
+      askedAt: 2,
+      albumName: "Holiday",
+      ownerName: "Ada",
+    };
+    const arrive = (proven: string | undefined, v: unknown, list: unknown[]) =>
+      arrivingAnswer(
+        { provenIdentity: async () => proven },
+        { conn: 1, value: v, refused: false, asks: () => list as (typeof waiting)[] },
+      );
+
+    it("received from the proven owner of a waiting ask is received", async () => {
+      expect(await arrive(OWNER, value, [waiting])).toEqual({
+        kind: "received",
+        code: CODE,
+        albumName: "Holiday",
+        ownerName: "Ada",
+      });
+    });
+
+    it("another identity is unverified, an older ask is stale, no waiting ask is ignored", async () => {
+      expect(await arrive(hex("f"), value, [waiting])).toEqual({
+        kind: "ignored",
+        reason: "unverified",
+      });
+      expect(await arrive(OWNER, { ...value, askedAt: 1 }, [waiting])).toEqual({
+        kind: "ignored",
+        reason: "stale",
+      });
+      expect(await arrive(OWNER, value, [{ ...waiting, status: "declined" }])).toEqual({
+        kind: "ignored",
+        reason: "no-waiting-ask",
+      });
+    });
   });
 });

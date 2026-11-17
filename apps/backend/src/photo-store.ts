@@ -136,6 +136,7 @@ import {
 import {
   answersOwed,
   deletedAlbumAnswers,
+  receivedOwed,
   arrivingAnswer,
   type AskedCode,
   deliverOwed,
@@ -4642,17 +4643,19 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** The codes `identity` asked through, read from its outbox; only when some
    * album here has turned a link off. */
   async function askedThrough(identity: string): Promise<AskedCode[]> {
-    const hasRetired =
+    const mayOwe =
       [...runtimes.values()].some(
         (rt) =>
-          rt.record.retiredInvites?.length ||
-          (rt.record.role === "creator" && rt.record.invite?.links?.length),
+          rt.record.retiredInvites?.length || (rt.record.role === "creator" && rt.record.invite),
       ) || state.gone.some((g) => g.inviteCodes?.length);
-    if (!hasRetired) return [];
+    if (!mayOwe) return [];
     try {
       const drive = await withTimeout(openPeerOutbox(identity), 5_000);
       if (!drive) return [];
-      const text = await withTimeout(readText(drive, DRIVE_PATH_REQUESTS), 5_000);
+      const text = await withTimeout(
+        readText(drive, DRIVE_PATH_REQUESTS, { timeout: 5_000 }),
+        5_000,
+      );
       return text ? invitesAsked(text) : [];
     } catch (thrown: unknown) {
       log("error", { where: "answer.asked", err: errMsg(thrown) });
@@ -4678,21 +4681,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (closed || !setupDone) return;
     const asked = await askedThrough(identity);
     const deleted = new Set(state.gone.flatMap((g) => g.inviteCodes ?? []));
-    const owed = () => [
-      ...answersOwed(
-        [...runtimes.values()].map((rt) =>
-          rt.record.pastKeys?.length
-            ? {
-                ...rt.record,
-                movedFrom: rt.record.pastKeys.map((k) => deps.drives.discoveryKeyOf(k)),
-              }
-            : rt.record,
-        ),
-        identity,
-        asked,
-      ),
-      ...deletedAlbumAnswers(deleted, asked),
-    ];
+    const owed = () => {
+      const albums = [...runtimes.values()].map((rt) =>
+        rt.record.pastKeys?.length
+          ? {
+              ...rt.record,
+              movedFrom: rt.record.pastKeys.map((k) => deps.drives.discoveryKeyOf(k)),
+            }
+          : rt.record,
+      );
+      return [
+        ...answersOwed(albums, identity, asked),
+        ...receivedOwed(albums, identity, asked, state.name ?? ""),
+        ...deletedAlbumAnswers(deleted, asked),
+      ];
+    };
     const { retry } = await deliverOwed(
       {
         connections: () =>
@@ -4730,6 +4733,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     const ask = state.asks.find((a) => a.code === arrival.code);
     if (!ask) return;
+    if (arrival.kind === "received") {
+      log("answer.received", { conn: connId, code: short(arrival.code) });
+      return;
+    }
     if (arrival.kind === "linkOff") {
       ask.status = "linkOff";
       if (arrival.why) ask.why = arrival.why;

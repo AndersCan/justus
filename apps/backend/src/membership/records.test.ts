@@ -361,7 +361,42 @@ describe("parseAnswer", () => {
     });
   });
 
+  test("reads a received answer with its names clipped and blank names empty", () => {
+    const value = {
+      code: k1,
+      answer: "received",
+      askedAt: 5,
+      albumName: "Holiday",
+      ownerName: "Ada",
+    };
+    expect(parseAnswer(value)).toEqual(value);
+    expect(parseAnswer({ ...value, albumName: "x".repeat(200) })).toMatchObject({
+      albumName: "x".repeat(80),
+    });
+    expect(parseAnswer({ ...value, ownerName: "y".repeat(200) })).toMatchObject({
+      ownerName: "y".repeat(80),
+    });
+    expect(parseAnswer({ ...value, ownerName: "  " })).toMatchObject({ ownerName: "" });
+    expect(parseAnswer({ ...value, albumName: "  ", ownerName: "" })).toMatchObject({
+      albumName: "",
+      ownerName: "",
+    });
+  });
+
   test.each([
+    [
+      "received with a bad askedAt",
+      { code: k1, answer: "received", askedAt: "5", albumName: "a", ownerName: "b" },
+    ],
+    ["received without askedAt", { code: k1, answer: "received", albumName: "a", ownerName: "b" }],
+    [
+      "received with a non-string album",
+      { code: k1, answer: "received", askedAt: 5, albumName: 1, ownerName: "b" },
+    ],
+    [
+      "received with a non-string owner",
+      { code: k1, answer: "received", askedAt: 5, albumName: "a", ownerName: null },
+    ],
     ["null", null],
     ["a string", "accepted"],
     ["no code", { answer: "declined" }],
