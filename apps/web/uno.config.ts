@@ -75,6 +75,7 @@ export default defineConfig({
     "ui-radio-card-checked": `${radioCardsItemClass({ checked: true, size: "1" })} transition`,
     // Filter chips: Radix's soft badge, grey off and indigo on.
     "ui-chip": badgeClass({ variant: "soft", color: "gray", size: "2", radius: "full" }),
+    "ui-new": badgeClass({ variant: "solid", color: "accent", size: "1", radius: "full" }),
     "ui-chip-on": badgeClass({ variant: "soft", color: "accent", size: "2", radius: "full" }),
     // A link standing alone gets the 44px tap height; that is app layout.
     "ui-link": `${linkClass({ size: "2", weight: "bold", underline: "always" })} inline-flex min-h-11 items-center`,

@@ -13,7 +13,7 @@ import { runInvoke } from "./actor-utils";
 
 export type SeenPort = Pick<typeof gateway.seen, "read" | "write">;
 
-type SeenContext = {
+export type SeenContext = {
   lastAlbum?: string;
   known: Record<string, string[]>;
   knownAtVisitStart: Record<string, string[]>;
