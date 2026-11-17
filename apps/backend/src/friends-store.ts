@@ -1,5 +1,6 @@
 import { CoreError, err, ok } from "@ekrooh/bare/core";
 import { FRIEND_NAME_MAX, FriendError, type Friend } from "@justus/core";
+import { readJsonFile, writeJsonFile } from "./json-file";
 import { isHexKey } from "./membership/records";
 import type { Files, Paths } from "./ports/files";
 
@@ -14,21 +15,8 @@ export type FriendsStore = {
 
 function readFriends(files: Files, file: string): Map<string, string> {
   const friends = new Map<string, string>();
-  let text: string;
-  try {
-    if (!files.existsSync(file)) return friends;
-    text = files.readFileSync(file, "utf8") as string;
-  } catch (e) {
-    console.error(`[justus] friends.json unreadable: ${String(e)}`);
-    return friends;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    console.error(`[justus] friends.json is not JSON: ${String(e)}`);
-    return friends;
-  }
+  const parsed = readJsonFile(files, file, "friends.json");
+  if (parsed === undefined) return friends;
   const entries =
     typeof parsed === "object" && parsed !== null && "friends" in parsed ? parsed.friends : null;
   if (typeof entries !== "object" || entries === null || Array.isArray(entries)) {
@@ -62,10 +50,7 @@ export function createFriendsStore(opts: FriendsStoreOpts): FriendsStore {
       version: 1,
       friends: Object.fromEntries([...friends].map(([identity, name]) => [identity, { name }])),
     };
-    const tmp = `${file}.tmp`;
-    files.mkdirSync(opts.dir, { recursive: true });
-    files.writeFileSync(tmp, JSON.stringify(body));
-    files.renameSync(tmp, file);
+    writeJsonFile(files, opts.dir, file, body);
   }
 
   return {

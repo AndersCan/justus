@@ -31,7 +31,7 @@ describe("justus.seen plugin", () => {
   });
 
   test("store errors pass through", async () => {
-    const e = new CoreError("justus.seen/write-failed", "no");
+    const e = new CoreError("justus.seen/unsupported-version", "no");
     const store: SeenStore = { read: () => [e, null], write: async () => [e, null] };
     const plugin = createSeenPlugin({ store });
     expect(await invoke(plugin, "seen.read", {})).toEqual([e, null]);
