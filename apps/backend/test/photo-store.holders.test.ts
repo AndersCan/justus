@@ -710,6 +710,57 @@ describe("who has each photo", () => {
     await s.anna.store.close();
   });
 
+  it("two listings started together read the own record once", async () => {
+    const s = await album();
+    await s.nils.store.close();
+    const deps = restarted(s.nils.deps);
+    let markerReads = 0;
+    const openOwn = deps.drives.openOwn.bind(deps.drives);
+    deps.drives.openOwn = async (namespace?: string) => {
+      const drive = await openOwn(namespace);
+      const readSmall = drive.readSmall.bind(drive);
+      drive.readSmall = async (...args: Parameters<Drive["readSmall"]>) => {
+        if (args[0] === "/holding.json") {
+          markerReads++;
+          await sleep(300);
+        }
+        return readSmall(...args);
+      };
+      return drive;
+    };
+    const reopened = createPhotoStore(deps);
+    await reopened.ready();
+    await Promise.all([reopened.list(s.nilsFolderId), reopened.list(s.nilsFolderId)]);
+    await sleep(700);
+    // Two reads in all: the marker check plus one record read, shared by both listings.
+    expect(markerReads).toBe(2);
+    await reopened.close();
+    await s.anna.store.close();
+  });
+
+  it("a phone whose own record cannot be read lists photos without holders", async () => {
+    const s = await album();
+    await s.nils.store.close();
+    const deps = restarted(s.nils.deps);
+    const openOwn = deps.drives.openOwn.bind(deps.drives);
+    deps.drives.openOwn = async (namespace?: string) => {
+      const drive = await openOwn(namespace);
+      const readSmall = drive.readSmall.bind(drive);
+      drive.readSmall = async (...args: Parameters<Drive["readSmall"]>) => {
+        if (args[0] === "/holding.json") throw new Error("unreadable");
+        return readSmall(...args);
+      };
+      return drive;
+    };
+    const reopened = createPhotoStore(deps);
+    await reopened.ready();
+    const photos = await reopened.list(s.nilsFolderId);
+    expect(photos.length).toBeGreaterThan(0);
+    expect(photos.every((p) => p.holders === undefined)).toBe(true);
+    await reopened.close();
+    await s.anna.store.close();
+  });
+
   it("opening a Viewer's drive reads the record it already has", async () => {
     const s = await album({ viewer: true });
     const photo = (await s.nilsPhoto())!;
