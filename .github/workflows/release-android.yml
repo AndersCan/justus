@@ -183,6 +183,12 @@ jobs:
           path: apps/android/app/build/outputs/mapping/release/mapping.txt
           retention-days: 30
 
+  # The release build walked end to end (.maestro/README.md "Release walk"). Does not hold the upload.
+  walk:
+    uses: ./.github/workflows/release-walk.yml
+    permissions:
+      contents: read
+
   # Keeps the website's screenshots in step with the Play listing.
   publish-screenshots:
     needs: bundle
