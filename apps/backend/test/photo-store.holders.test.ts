@@ -1275,3 +1275,71 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await s.close();
   });
 });
+
+describe("the deleting phone hears every holder, on any delete path", () => {
+  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  const droppedKeys = (pushes: unknown[]) =>
+    (pushes as Dropped[])
+      .filter((p) => p.cause === "dropped")
+      .flatMap((p) => p.dropped!.people.map((m) => m.key))
+      .sort();
+
+  async function withKim() {
+    const s = await album();
+    const kim = phone(s.hub, "Kim");
+    await kim.store.ready();
+    const shareKey = (await s.anna.store.folders()).folders.find(
+      (f) => f.id === s.folderId,
+    )!.shareKey;
+    const kimKey = await joinAsMember(s.anna.store, s.folderId, kim.store, shareKey);
+    const kimFolderId = (await kim.store.folders()).folders.find(
+      (f) => f.shareKey === shareKey,
+    )!.id;
+    await kim.store.setActive(kimFolderId);
+    await until(async () => (await kim.store.list(kimFolderId)).length === 1);
+    return { s, kim, kimKey, kimFolderId };
+  }
+
+  async function opens(p: ReturnType<typeof phone>, name: string) {
+    await until(async () => (await p.store.list()).some((x) => x.name === name), 15_000);
+    const photo = (await p.store.list()).find((x) => x.name === name)!;
+    await p.server.getForTest(new URL(photo.url).pathname);
+  }
+
+  it("names Kim when the Admin deletes Nils's photo she held", async () => {
+    const { s, kim, kimKey, kimFolderId } = await withKim();
+    await s.nils.store.addBytes("nils.jpg", new Uint8Array([7, 7, 7, 7]));
+    await opens(kim, "nils.jpg");
+    await until(
+      async () =>
+        (
+          (await s.anna.store.list()).find((p) => p.name === "nils.jpg")?.holders?.others ?? []
+        ).some((m: { key: string }) => m.key === kimKey),
+      10_000,
+    );
+    expect((await s.anna.store.remove((await s.annaPhotoNamed("nils.jpg")).id))[0]).toBeNull();
+    await until(async () => {
+      await kim.store.list(kimFolderId);
+      return droppedKeys(s.anna.pushes).length >= 1;
+    }, 8_000);
+    expect(droppedKeys(s.anna.pushes)).toEqual([kimKey]);
+    await kim.store.close();
+    await s.close();
+  }, 40_000);
+
+  it("names Nils and Kim when both held the photo", async () => {
+    const { s, kim, kimKey, kimFolderId } = await withKim();
+    await opens(s.nils, "sunset.jpg");
+    await opens(kim, "sunset.jpg");
+    await until(async () => (await s.annaPhoto()).holders!.others.length === 2);
+    expect((await s.anna.store.remove((await s.annaPhoto()).id))[0]).toBeNull();
+    await until(async () => {
+      await s.nils.store.list(s.nilsFolderId);
+      await kim.store.list(kimFolderId);
+      return droppedKeys(s.anna.pushes).length >= 2;
+    }, 8_000);
+    expect(droppedKeys(s.anna.pushes)).toEqual([s.nilsKey, kimKey].sort());
+    await kim.store.close();
+    await s.close();
+  }, 30_000);
+});
