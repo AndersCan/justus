@@ -287,7 +287,8 @@ test("a removed person never gets the new key or a later photo, even after a Col
     has: a.getByRole("heading", { name: words("album.members") }),
   });
   await members
-    .getByRole("button", { name: words("album.remove_name", { name: "Ben" }), exact: true })
+    .locator("li", { hasText: "Ben" })
+    .getByRole("button", { name: pattern("album.remove_name") })
     .click();
   await a
     .getByRole("button", { name: words("album.remove_2"), exact: true })
