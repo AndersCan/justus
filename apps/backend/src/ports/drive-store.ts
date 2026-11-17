@@ -15,6 +15,9 @@ export type ByteStream = {
   on(event: "data" | "end" | "error", listener: (...args: any[]) => void): unknown;
 };
 
+/** What `Drive.download` found. */
+export type DownloadResult = "here" | "missing" | "timedOut";
+
 export type Drive = {
   key: string;
   discoveryKey: string;
@@ -25,6 +28,12 @@ export type Drive = {
     opts?: { timeoutMs: number },
   ): Promise<string | undefined>;
   readBytes(path: string): Promise<Uint8Array | undefined>;
+  /**
+   * Makes sure this device has the bytes of `path`, fetching them from a peer if needed; returns no bytes.
+   * "missing": the latest version has no such file. "timedOut": the entry or the bytes did not arrive
+   * within `timeoutMs`. Other failures throw.
+   */
+  download(path: string, opts: { timeoutMs: number }): Promise<DownloadResult>;
   put(
     path: string,
     bytes: Uint8Array,

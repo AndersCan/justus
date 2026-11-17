@@ -244,6 +244,12 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
       if (!file || file.clearedSize !== undefined || file.bytes.length > maxBytes) return undefined;
       return Buffer.from(file.bytes).toString("utf8");
     },
+    async download(path) {
+      assertOpen();
+      if (!replica.files.has(path)) return "missing";
+      if (replica.files.get(path)?.clearedSize === undefined) return "here";
+      return "timedOut";
+    },
     async readBytes(path) {
       assertOpen();
       const file = replica.files.get(path);
@@ -375,6 +381,9 @@ function makeCopy(options: {
       const file = files.get(path);
       if (!file || file.clearedSize !== undefined || file.bytes.length > maxBytes) return undefined;
       return Buffer.from(file.bytes).toString("utf8");
+    },
+    async download(path) {
+      return files.has(path) ? "here" : "missing";
     },
     async readBytes(path) {
       const file = files.get(path);

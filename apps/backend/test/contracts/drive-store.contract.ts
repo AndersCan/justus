@@ -1134,6 +1134,50 @@ export const cases: DriveCase[] = [
     },
   },
   {
+    name: "D44 download fetches a peer's file, which then reads with no peer connected",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/t", bytes("x".repeat(100)));
+      await eventually(
+        () => paths(remote),
+        (found) => found.includes("/t"),
+        "entry replicated",
+      );
+      t.eq(await remote.download("/t", { timeoutMs: 2_000 }), "here", "downloaded");
+      await a.disconnect();
+      t.eq(
+        await remote.readSmall("/t", 1_000, { timeoutMs: 500 }),
+        "x".repeat(100),
+        "readable with no peer",
+      );
+    },
+  },
+  {
+    name: "D45 download settles as timedOut when nobody can send the bytes, and says missing for no file",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/big", bytes("x".repeat(100)));
+      await eventually(
+        () => paths(remote),
+        (found) => found.includes("/big"),
+        "entry replicated",
+      );
+      t.eq(await remote.download("/nope", { timeoutMs: 2_000 }), "missing", "no such file");
+      await a.disconnect();
+      await remote.clear("/big");
+      const started = Date.now();
+      const outcome = await Promise.race([
+        remote.download("/big", { timeoutMs: 200 }).then(
+          (v) => v,
+          () => "threw",
+        ),
+        sleep(2_000).then(() => "hung"),
+      ]);
+      t.eq(outcome, "timedOut", "timed out");
+      t.ok(Date.now() - started < 1_500, "bounded by the timeout");
+    },
+  },
+  {
     name: "R1 clearDeleted on an openAt copy is an error value and clears nothing",
     async run(world, t) {
       const { b, own, remote } = await keeperSetup(world, t);
@@ -1368,6 +1412,29 @@ export const realOnlyCases: DriveCase[] = [
       await one;
       await late;
       await early;
+    },
+  },
+  {
+    name: "D45b download settles as timedOut when the file's entry cannot be fetched",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/t", bytes("x".repeat(100)));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b knows the new length",
+      );
+      await a.disconnect();
+      const started = Date.now();
+      const outcome = await Promise.race([
+        remote.download("/t", { timeoutMs: 200 }).then(
+          (v) => v,
+          () => "threw",
+        ),
+        sleep(2_000).then(() => "hung"),
+      ]);
+      t.eq(outcome, "timedOut", "entry timed out");
+      t.ok(Date.now() - started < 1_500, "bounded by the timeout");
     },
   },
 ];
