@@ -19,6 +19,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.webkit.WebViewCompat
 import org.json.JSONObject
 import to.holepunch.bare.android.BareWebViewClient
@@ -69,6 +70,10 @@ class MainActivity : AppCompatActivity() {
      * root (#93/#97). Cleared on every launch. */
     private lateinit var importsDir: File
 
+    /** Photos shared in from other apps wait here. Unlike `importsDir` it is
+     * not cleared at launch. */
+    private lateinit var sharedInDir: File
+
     /** Copies picked files off the main thread (a batch can be many MB). */
     private val stagingExecutor = Executors.newSingleThreadExecutor()
 
@@ -104,6 +109,8 @@ class MainActivity : AppCompatActivity() {
         importsDir = File(workletCache, "imports")
         importsDir.deleteRecursively()
         importsDir.mkdirs()
+        sharedInDir = File(workletCache, SharedIn.DIR).apply { mkdirs() }
+        sharedInDir.listFiles { f -> f.name.startsWith(".tmp-") }?.forEach { it.deleteRecursively() }
         webappDir = File(cacheDir, "webapp")
         copyWebAssets(webappDir)
 
@@ -134,6 +141,8 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("JUSTUS_ANDROID", "Failed to start worklet", e)
         }
+        // A recreate (rotation, process restore) carries the same intent again.
+        if (savedInstanceState == null) stageShared(intent)
 
         webView = findViewById(R.id.webview)
         stoppedAt = savedInstanceState?.takeIf { it.containsKey(K_STOPPED) }?.getLong(K_STOPPED)
@@ -333,6 +342,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        stageShared(intent)
         val invite = inviteFrom(intent) ?: return
         if (pageLoaded) {
             // The web layer listens for this and shows the join consent sheet.
@@ -344,6 +354,77 @@ class MainActivity : AppCompatActivity() {
             pendingInvite = invite
         }
     }
+
+    /** Copies photos another app shared into the inbox, then nudges the page. */
+    private fun stageShared(intent: Intent?) {
+        if (intent == null || intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        val uris = shareUris(intent)
+        if (uris.isEmpty()) return
+        val own = "$packageName.fileprovider"
+        stagingExecutor.execute {
+            val sources = uris
+                .filter { SharedIn.acceptedSource(it.scheme, it.authority, own) }
+                .map { SharedIn.Source(it.toString(), contentResolver.getType(it), displayNameOf(it)) }
+            val id = UUID.randomUUID().toString()
+            val staged = SharedIn.stage(
+                sharedInDir,
+                id,
+                SharedIn.receivedAt(java.time.Instant.now()),
+                sources,
+                { source, dest -> copyShared(Uri.parse(source.uri), dest) },
+                { original, dir -> SharedCopies.make(original, dir) },
+            )
+            val skipped = uris.size - (staged?.items ?: 0)
+            Log.i("JUSTUS_ANDROID", "share-in staged id=${staged?.id} items=${staged?.items ?: 0} dropped=$skipped")
+            if (staged != null) {
+                runOnUiThread {
+                    if (pageLoaded) {
+                        webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('justus:shared'))", null)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun shareUris(intent: Intent): List<Uri> =
+        when (intent.action) {
+            Intent.ACTION_SEND ->
+                listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+            Intent.ACTION_SEND_MULTIPLE ->
+                IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: emptyList()
+            else -> emptyList()
+        }
+
+    private fun displayNameOf(uri: Uri): String? =
+        try {
+            contentResolver
+                .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        } catch (e: Exception) {
+            null
+        }
+
+    /** Copies a shared file, stopping at the 50 MB cap. Null when it failed or was too big. */
+    private fun copyShared(uri: Uri, dest: File): Long? =
+        try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { output ->
+                    var total = 0L
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > SharedIn.MAX_BYTES) return@use total
+                        output.write(buf, 0, n)
+                    }
+                    total
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("JUSTUS_ANDROID", "Failed to copy shared photo", e)
+            null
+        }
 
     private fun inviteFrom(intent: android.content.Intent?): String? =
         if (intent?.action == android.content.Intent.ACTION_VIEW && intent.data?.scheme == "justus") {
