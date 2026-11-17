@@ -1,6 +1,7 @@
 import { short, type P2pLog } from "../p2p-log";
 import type {
   Drive,
+  DownloadResult,
   DriveEntry,
   DriveStore,
   IdentityProof,
@@ -132,6 +133,18 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     return Buffer.from(bytes).toString("utf8");
   }
 
+  async function downloadNow(path: string, timeoutMs: number): Promise<DownloadResult> {
+    try {
+      const node = await raw.entry(path, { timeout: timeoutMs });
+      if (!node) return "missing";
+      await raw.get(path, { timeout: timeoutMs });
+      return "here";
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === "REQUEST_TIMEOUT") return "timedOut";
+      throw e;
+    }
+  }
+
   async function keepPath(path: string): Promise<OpenResult<{ olderVersionsCleared: boolean }>> {
     const missing: OpenResult<{ olderVersionsCleared: boolean }> = [
       new Error(`${path} is not on this device`),
@@ -171,6 +184,7 @@ function wrap(raw: any, wrapOpts: { readOnly?: boolean } = {}): Drive {
     key: toHex(raw.key),
     discoveryKey: toHex(raw.discoveryKey),
     readSmall: (path, maxBytes, opts) => whileReading(() => readSmallNow(path, maxBytes, opts)),
+    download: (path, opts) => whileReading(() => downloadNow(path, opts.timeoutMs)),
     readBytes: (path) => whileReading(async () => (await raw.get(path)) ?? undefined),
     async put(path, bytes, opts) {
       if (readOnly) readOnlyCopy();
