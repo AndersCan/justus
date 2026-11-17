@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import { open } from "../machines/router-machine";
 import { toast } from "./toast";
 
 describe("toast motion", () => {
@@ -170,5 +171,47 @@ describe("toast early close", () => {
     toast("Another");
     vi.advanceTimersByTime(3300);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a toast and the page it was raised on", () => {
+  const text = () => document.body.textContent ?? "";
+  beforeEach(() => {
+    vi.useFakeTimers();
+    open("/");
+  });
+  afterEach(() => {
+    vi.advanceTimersByTime(10_000);
+    vi.useRealTimers();
+  });
+
+  test("leaving its page closes it; onClose still runs once at its time", () => {
+    const onClose = vi.fn();
+    toast("Stays on home", { onClose });
+    expect(text()).toContain("Stays on home");
+    open("/sharing");
+    expect(text()).not.toContain("Stays on home");
+    expect(onClose).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(3300);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("a toast raised right after open() stays on the page it lands on", () => {
+    open("/sharing");
+    toast("Archived", { action: { label: "Undo", run: () => {} } });
+    expect(text()).toContain("Archived");
+  });
+
+  test("raised on an album photos page, closes when its sharing page opens", () => {
+    open("/albums/f1");
+    toast("Those photos are already in Summer");
+    open("/sharing/f1");
+    expect(text()).not.toContain("already in Summer");
+  });
+
+  test("a page change that keeps the path keeps the toast", () => {
+    toast("Same path");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(text()).toContain("Same path");
   });
 });

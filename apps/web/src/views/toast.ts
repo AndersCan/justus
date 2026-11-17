@@ -1,14 +1,16 @@
 import { html, render } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
+import { onPageChange } from "../machines/router-machine";
 import { gridMotion } from "./grid-motion";
 
 /** Tiny toast system: `toast("Photo removed")`. Renders a stacked
  * container in the bottom-left (safe-area aware); toasts fade out after ~3s,
  * or ~6s when they carry an action (`toast("Added", { action })`); `onClose` runs when the time is up, even after the action was tapped; the others
- * slide into place. */
+ * slide into place. A toast belongs to the page it was raised on: leaving that page closes it
+ * (`onClose` still runs at its time). One raised right after `open()` belongs to the new page. */
 
 type ToastAction = { label: string; run: () => void };
-type Toast = { id: number; message: string; action?: ToastAction };
+type Toast = { id: number; message: string; action?: ToastAction; path: string };
 
 let toasts: Toast[] = [];
 let nextId = 0;
@@ -78,7 +80,7 @@ export function toast(
   options: { action?: ToastAction; duration?: number; onClose?: () => void } = {},
 ): () => void {
   const id = ++nextId;
-  toasts = [...toasts, { id, message, action: options.action }];
+  toasts = [...toasts, { id, message, action: options.action, path: location.pathname }];
   paint();
   setTimeout(
     () => {
@@ -89,3 +91,10 @@ export function toast(
   );
   return () => dismiss(id);
 }
+
+onPageChange(() => {
+  const here = location.pathname;
+  if (toasts.every((t) => t.path === here)) return;
+  toasts = toasts.filter((t) => t.path === here);
+  paint();
+});

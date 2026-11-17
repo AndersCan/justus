@@ -194,14 +194,6 @@ test("Archive from the album page lands on Sharing with the album under Archived
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
 
-  await page.goBack();
-  await page
-    .getByRole("navigation", { name: "Main" })
-    .first()
-    .getByRole("link", { name: "Sharing" })
-    .click();
-  await expect(page.getByRole("heading", { name: "Sharing", exact: true })).toBeVisible();
-
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByRole("link", { name: "Invite & members of Summer trip" })).toBeVisible();
 });
