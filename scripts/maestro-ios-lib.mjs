@@ -35,6 +35,8 @@ function switcher(
 ) {
   const file = `${out}/switcher-${name}.png`;
   if (run("osascript", openSwitcher).status !== 0) return false;
+  // The switcher animates in; two shots of the unchanged app would settle before it opens.
+  sleep(2000);
   let settled = false;
   let previous = null;
   for (let shot = 0; shot < 10 && !settled; shot++) {
