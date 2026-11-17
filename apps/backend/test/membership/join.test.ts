@@ -855,6 +855,11 @@ describe("pendingJoinRequests names the link", () => {
     expect(list({ linkEnd: A.to })[0]?.link).toEqual({ madeAt: A.from, endsAt: A.to });
   });
 
+  it("names the link for an ask a few minutes either side of its window (clock slack)", () => {
+    expect(list({ linkEnd: B.to, requestedAt: B.from - 5 * 60_000 })[0]?.link?.endsAt).toBe(B.to);
+    expect(list({ linkEnd: B.to, requestedAt: B.to + 5 * 60_000 })[0]?.link?.endsAt).toBe(B.to);
+  });
+
   it("names a link that ended while the request waited", () => {
     expect(list({ linkEnd: B.to })[0]?.link?.endsAt).toBe(B.to);
     expect(B.to).toBeLessThan(Date.now());
