@@ -23,6 +23,7 @@ import { helpView } from "./views/help";
 import { reachActor, reachHintOf } from "./machines/reach-hint-machine";
 import { welcomeView, hasSeenWelcome, readLockForOnboarding } from "./views/welcome";
 import { joinSheet, listenForHostInvites } from "./views/invite";
+import { listenForSharedPhotos } from "./views/shared-in";
 import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
 import { inviteLinkFromAddress } from "./utils/invite-link";
@@ -60,6 +61,8 @@ transport.subscribe((message) => {
 });
 
 listenForHostInvites(addressInvite);
+// The album picker consumes shared photos; until it lands nothing needs them.
+listenForSharedPhotos(() => {});
 landOnLastAlbum({ appStart });
 gallery.load();
 sync.refresh();
