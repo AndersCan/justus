@@ -1,6 +1,8 @@
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
+import { listenerPids, portHeldBy } from "../../apps/backend/scripts/port-utils.mjs";
+import { readFileSync } from "node:fs";
 
 export async function skipIntro(pages) {
   for (const page of pages) {
@@ -48,4 +50,53 @@ export async function askToJoin(b, link, _album) {
   await b.getByRole("button", { name: "Ask to join", exact: true }).click();
   await expect(b.getByRole("dialog", { name: /^You're done\. / })).toBeVisible({ timeout: 20_000 });
   await expect(b.locator("img")).toHaveCount(0, { timeout: 20_000 });
+}
+
+const catalogue = JSON.parse(
+  readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
+);
+
+/** The catalogue text for a copy id, filled the way the app's copy() does ({name}, {n?one:other}). copy.ts does not load in Playwright (lit-html, import.meta.env). */
+export function words(id, params = {}) {
+  const entry = catalogue[id];
+  if (entry === undefined) throw new Error(`no copy id ${id}`);
+  return entry.text.replace(/\{(\w+)(?:\?([^:}]*):([^}]*))?\}/g, (whole, key, one, other) => {
+    const value = params[key];
+    if (value === undefined) return whole;
+    if (one === undefined) return String(value);
+    return Number(value) === 1 ? one : other;
+  });
+}
+
+const paused = new Set();
+
+/** Pauses an instance's backend so the other phones lose it; returns a function that resumes it. `resumeAll()` resumes every paused instance. */
+export async function pausePhone(instance) {
+  const pids = (await listenerPids(instance.port)).map(Number);
+  if (pids.length === 0) {
+    throw new Error(`no process listens on port ${instance.port} (is lsof installed?)`);
+  }
+  if (!(await portHeldBy(instance.port, /\/apps\/backend\/dist\/main\.core\.gen\.js/))) {
+    throw new Error(`port ${instance.port} is not a Justus worklet`);
+  }
+  for (const pid of pids) {
+    process.kill(pid, "SIGSTOP");
+    paused.add(pid);
+  }
+  return () => resume(pids);
+}
+
+function resume(pids) {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGCONT");
+    } catch {
+      // already gone
+    }
+    paused.delete(pid);
+  }
+}
+
+export function resumeAll() {
+  resume([...paused]);
 }
