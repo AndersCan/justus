@@ -4,7 +4,9 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: { ignorePatterns: ["apps/web/src/design/**"] },
+  fmt: {
+    ignorePatterns: ["apps/web/src/design/**", "packages/core/fixtures/shared-in-batch.v1.json"],
+  },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },

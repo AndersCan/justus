@@ -8,6 +8,7 @@ export * from "./logging/events";
 export * from "./media/events";
 export * from "./lock/events";
 export * from "./share/events";
+export * from "./share/inbox";
 export * from "./friends/types";
 export * from "./friends/events";
 export * from "./seen/types";
