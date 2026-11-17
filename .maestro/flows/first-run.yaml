@@ -70,14 +70,20 @@ appId: no.cankode.justus
                   - tapOn:
                       text: "Enable"
                       waitToSettleTimeoutMs: 500
-            - extendedWaitUntil:
-                visible: "Face ID"
-                timeout: 8000
-            - runScript: ../scripts/face-match.js
+            # A retry after a slow match finds the prompt gone and the next page up: skip the match then.
+            - runFlow:
+                when:
+                  notVisible: "Start sharing"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "Face ID"
+                      timeout: 8000
+                  - runScript: ../scripts/face-match.js
             # The "App lock is on" toast is gone before the slow iOS hierarchy reads it: the next page proves the match.
+            # A hierarchy read takes 15 s on the CI runner, so the wait outlasts it.
             - extendedWaitUntil:
                 visible: "Start sharing"
-                timeout: 8000
+                timeout: 30000
 - extendedWaitUntil:
     visible: "Start sharing"
     timeout: 20000
