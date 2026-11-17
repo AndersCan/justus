@@ -113,7 +113,7 @@ describe("finishing the welcome", () => {
     expect(joinViewOf(joinActor.snapshot()).state).toBe("holdingInviteUntilWelcomeEnds");
     onboarding.skipAppLock();
     await vi.waitFor(() => expect(joinViewOf(joinActor.snapshot()).state).toBe("decidingToAsk"));
-    expect(joinViewOf(joinActor.snapshot()).invite?.album).toBe("Garden");
+    expect(joinViewOf(joinActor.snapshot()).invite).toMatchObject({ album: "", ownerName: "" });
     join.notNow();
   });
 });

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 import { buildInviteLink, parseInviteLink } from "../apps/web/src/utils/invite-link.ts";
-import type { JoinInvite } from "../apps/web/src/utils/invite-link.ts";
+import type { JoinInvite, LinkHints } from "../apps/web/src/utils/invite-link.ts";
 // @ts-expect-error plain JS page module
 import { readInvitePage } from "../docs/site/public/join/join.js";
 
@@ -43,7 +43,7 @@ describe("readInvitePage, each field", () => {
 });
 
 describe("page and app read the same link", () => {
-  const invites: JoinInvite[] = [
+  const invites: (JoinInvite & LinkHints)[] = [
     { code: A, owner: B, album: "Garden", ownerName: "Tom" },
     {
       code: A,
@@ -63,8 +63,8 @@ describe("page and app read the same link", () => {
       const parsed = parseInviteLink(link);
       expect(parseInviteLink(page.target)).toEqual(parsed);
       if (parsed.kind !== "invite") throw new Error("not an invite");
-      expect(page.album).toBe(parsed.invite.album);
-      expect(page.owner).toBe(parsed.invite.ownerName);
+      expect(page.album).toBe(inv.album.trim() || "this album");
+      expect(page.owner).toBe(inv.ownerName.trim());
     });
   }
 });

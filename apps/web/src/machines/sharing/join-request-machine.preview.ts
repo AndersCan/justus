@@ -1,6 +1,5 @@
 import { render } from "lit-html";
 import type { JoinView } from "./join-request";
-import type { JoinInvite } from "../../utils/invite-link";
 import { renderJoinSheet } from "../../views/join-sheet";
 import "../../design/justus/tokens/theme.css";
 import "../../tokens.css";
@@ -22,7 +21,7 @@ const actions = {
 /** The join sheet for one state of the walk, without the albums list (no check code, no "wasn't answered" line). */
 export default function preview(
   element: HTMLElement,
-  state: { name: JoinView["state"]; payload: JoinInvite | null; context: { error: string } },
+  state: { name: JoinView["state"]; payload: JoinView["invite"]; context: { error: string } },
 ) {
   render(
     renderJoinSheet(

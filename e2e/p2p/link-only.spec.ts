@@ -184,7 +184,7 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
     (l) => window.dispatchEvent(new CustomEvent("justus:invite", { detail: l })),
     link,
   );
-  const sheet = b.getByRole("dialog", { name: words("invite.ask_to_join", { album }) });
+  const sheet = b.getByRole("dialog", { name: words("invite.ask_to_join_unnamed") });
   await expect(sheet).toBeVisible({ timeout: 60_000 });
   await staysClean(b, bInst, secrets, "opened the link");
   expect(await photoSeen(b), "photo name on screen: opened the link").toBe(false);
@@ -220,7 +220,9 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   await b.goto("/join");
   await b
     .getByRole("button", {
-      name: new RegExp(`^${pattern("albums.waiting_for_to_accept").source}: ${album}$`),
+      name: new RegExp(
+        `^${pattern("albums.waiting_for_to_accept").source}: (${album}|${pattern("albums.album_you_asked_to_join").source})$`,
+      ),
     })
     .click();
   await b.getByRole("button", { name: words("invite.cancel_request"), exact: true }).click();

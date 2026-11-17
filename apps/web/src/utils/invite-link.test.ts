@@ -1,33 +1,31 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  MAX_HINT,
-  buildInviteLink,
-  inviteLinkFromAddress,
-  ownerShown,
-  parseInviteLink,
-} from "./invite-link";
+import { buildInviteLink, inviteLinkFromAddress, ownerShown, parseInviteLink } from "./invite-link";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
 
 describe("the https invite link", () => {
-  const invite = { code: A, owner: B, album: "Lisbon & co #1", ownerName: "Nils", expiresAt: 5000 };
+  const hints = { album: "Lisbon & co #1", ownerName: "Nils" };
+  const invite = { code: A, owner: B, expiresAt: 5000 };
 
   test("is built on the page address with the invite after the #", () => {
-    expect(buildInviteLink(invite)).toMatch(
+    expect(buildInviteLink({ ...invite, ...hints })).toMatch(
       /^https:\/\/anderscan\.github\.io\/justus\/join\/#i=a{64}&o=b{64}&e=5&n=/,
     );
   });
 
   test("reads back to the same invite", () => {
-    expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
+    expect(parseInviteLink(buildInviteLink({ ...invite, ...hints }))).toEqual({
+      kind: "invite",
+      invite,
+    });
   });
 
   test("is found inside a message", () => {
-    const link = buildInviteLink({ ...invite, expiresAt: undefined, album: "Lisbon" });
+    const link = buildInviteLink({ ...hints, code: A, owner: B });
     expect(parseInviteLink(`Join! ${link} thanks`)).toEqual({
       kind: "invite",
-      invite: { code: A, owner: B, album: "Lisbon", ownerName: "Nils" },
+      invite: { code: A, owner: B },
     });
   });
 
@@ -61,7 +59,7 @@ describe("the https invite link", () => {
 
   test("a web address /join?… becomes the https link", () => {
     expect(inviteLinkFromAddress("/join", `?i=${A}&o=${B}`)).toBe(
-      buildInviteLink({ code: A, owner: B, album: "this album", ownerName: "" }),
+      buildInviteLink({ code: A, owner: B, album: "", ownerName: "" }),
     );
   });
 });
@@ -70,7 +68,14 @@ describe("parseInviteLink", () => {
   test("finds the link inside a message", () => {
     expect(parseInviteLink(`Join! justus://join?i=${A}&o=${B}&n=Lisbon&a=Nils thanks`)).toEqual({
       kind: "invite",
-      invite: { code: A, owner: B, album: "Lisbon", ownerName: "Nils" },
+      invite: { code: A, owner: B },
+    });
+  });
+
+  test("an edited link carries no name: the names typed into it are never read", () => {
+    expect(parseInviteLink(`justus://join?i=${A}&o=${B}&e=1&n=Holiday&a=Mallory`)).toEqual({
+      kind: "invite",
+      invite: { code: A, owner: B, expiresAt: 1000 },
     });
   });
 
@@ -78,17 +83,8 @@ describe("parseInviteLink", () => {
     const parsed = parseInviteLink(`justus://join?i=${A.toUpperCase()}&o=${B.toUpperCase()}`);
     expect(parsed).toEqual({
       kind: "invite",
-      invite: { code: A, owner: B, album: "this album", ownerName: "" },
+      invite: { code: A, owner: B },
     });
-  });
-
-  test("caps the hints", () => {
-    const parsed = parseInviteLink(
-      `justus://join?i=${A}&o=${B}&n=${"x".repeat(500)}&a=${"y".repeat(500)}`,
-    );
-    if (parsed.kind !== "invite") throw new Error("expected invite");
-    expect(parsed.invite.album).toHaveLength(MAX_HINT);
-    expect(parsed.invite.ownerName).toHaveLength(MAX_HINT);
   });
 
   test.each([
@@ -107,22 +103,16 @@ describe("parseInviteLink", () => {
 });
 
 describe("parseInviteLink old links", () => {
-  test("reads the owner hint", () => {
-    expect(parseInviteLink(`justus://join/${A}?n=Lisbon&a=Nils`)).toEqual({
-      kind: "old",
-      ownerName: "Nils",
-    });
+  test("carries no name, even when the link has one", () => {
+    expect(parseInviteLink(`justus://join/${A}?n=Lisbon&a=Nils`)).toEqual({ kind: "old" });
   });
 
-  test("falls back without a hint", () => {
-    expect(parseInviteLink(`justus://join/${A}`)).toEqual({ kind: "old", ownerName: "" });
+  test("reads one with no hint", () => {
+    expect(parseInviteLink(`justus://join/${A}`)).toEqual({ kind: "old" });
   });
 
   test("finds it inside a message", () => {
-    expect(parseInviteLink(`Join! justus://join/${A}?a=Nils thanks`)).toEqual({
-      kind: "old",
-      ownerName: "Nils",
-    });
+    expect(parseInviteLink(`Join! justus://join/${A}?a=Nils thanks`)).toEqual({ kind: "old" });
   });
 
   test("a key longer than 64 hex is garbled", () => {
@@ -132,15 +122,15 @@ describe("parseInviteLink old links", () => {
 
 describe("buildInviteLink", () => {
   test("round-trips the end time in whole seconds", () => {
-    const invite = {
-      code: A,
-      owner: B,
-      album: "Lisbon",
-      ownerName: "Nils",
-      expiresAt: 1_700_000_123_000,
-    };
-    expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
-    expect(buildInviteLink({ ...invite, expiresAt: 1_700_000_123_999 })).toContain("e=1700000123&");
+    const invite = { code: A, owner: B, expiresAt: 1_700_000_123_000 };
+    const hints = { album: "Lisbon", ownerName: "Nils" };
+    expect(parseInviteLink(buildInviteLink({ ...invite, ...hints }))).toEqual({
+      kind: "invite",
+      invite,
+    });
+    expect(buildInviteLink({ ...invite, ...hints, expiresAt: 1_700_000_123_999 })).toContain(
+      "e=1700000123&",
+    );
   });
 
   test("a link without e never expires", () => {
@@ -161,9 +151,11 @@ describe("buildInviteLink", () => {
     expect(parseInviteLink(`justus://join?i=${A}&o=${B}&e=${e}`)).toEqual({ kind: "garbled" });
   });
 
-  test("round-trips, including awkward names", () => {
-    const invite = { code: A, owner: B, album: "Spain & 2026 = fun?", ownerName: "Zoë #1" };
-    expect(parseInviteLink(buildInviteLink(invite))).toEqual({ kind: "invite", invite });
+  test("writes awkward names for the browser page and the app still reads only the invite", () => {
+    const invite = { code: A, owner: B };
+    const link = buildInviteLink({ ...invite, album: "Spain & 2026 = fun?", ownerName: "Zoë #1" });
+    expect(link).toContain("n=Spain+%26+2026+%3D+fun%3F&a=Zo%C3%AB+%231");
+    expect(parseInviteLink(link)).toEqual({ kind: "invite", invite });
   });
 });
 
@@ -171,7 +163,7 @@ describe("inviteLinkFromAddress", () => {
   const code = "a".repeat(64);
   const owner = "b".repeat(64);
   const search = `?i=${code}&o=${owner}&n=Garden&a=Tom`;
-  const link = buildInviteLink({ code, owner, album: "Garden", ownerName: "Tom" });
+  const link = buildInviteLink({ code, owner, album: "", ownerName: "" });
 
   test("reads /join?... as the link a phone app hands over", () => {
     expect(inviteLinkFromAddress("/join", search)).toBe(link);
@@ -203,11 +195,8 @@ describe("ownerShown", () => {
     expect(ownerShown(name, at)).toBe(shown);
   });
 
-  test("a web address without a name round-trips to an unknown owner", () => {
-    const link = inviteLinkFromAddress("/join", `?i=${A}&o=${B}`);
-    expect(parseInviteLink(link ?? "")).toMatchObject({
-      kind: "invite",
-      invite: { ownerName: "" },
-    });
+  test("a web address round-trips to the invite alone", () => {
+    const link = inviteLinkFromAddress("/join", `?i=${A}&o=${B}&n=Holiday&a=Mallory`);
+    expect(parseInviteLink(link ?? "")).toEqual({ kind: "invite", invite: { code: A, owner: B } });
   });
 });

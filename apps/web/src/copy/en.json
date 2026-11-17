@@ -104,8 +104,8 @@
     "who": "People joining by a link",
     "screen": ""
   },
-  "join_request.checking_owner_s_link": {
-    "text": "Checking the link from {owner}…",
+  "join_request.checking_the_link": {
+    "text": "Checking the link…",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "People joining by a link",
@@ -536,13 +536,6 @@
     "status": "draft",
     "where": "Photo viewer › Who has this photo › text",
     "who": "People who tap the photo's holders",
-    "screen": ""
-  },
-  "invite_link.this_album": {
-    "text": "this album",
-    "status": "draft",
-    "where": "Invite & join › text",
-    "who": "People sending or opening an invite",
     "screen": ""
   },
   "invite_link.the_person_who_invited_you": {
@@ -1590,6 +1583,13 @@
   },
   "albums.waiting_for_to_accept": {
     "text": "Waiting for {ownerName} to accept",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.album_you_asked_to_join": {
+    "text": "Album you asked to join",
     "status": "draft",
     "where": "Your albums › text",
     "who": "Everyone, every time they open Your albums",
@@ -3093,6 +3093,13 @@
     "who": "Admins sending invites; people joining by a link",
     "screen": ""
   },
+  "invite.ask_to_join_unnamed": {
+    "text": "Ask to join this album?",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
   "invite.will_see_your_name_and": {
     "text": "{owner} will see your name and can accept or decline. You'll see the photos if they accept.",
     "status": "draft",
@@ -3151,6 +3158,13 @@
   },
   "invite.request_to_join_sent_to": {
     "text": "Request to join sent to {owner}. You'll see “{album}” when accepted. They must be online too: keep Justus open on both phones.",
+    "status": "draft",
+    "where": "Invite & join › text",
+    "who": "Admins sending invites; people joining by a link",
+    "screen": ""
+  },
+  "invite.request_to_join_sent_to_unnamed": {
+    "text": "Request to join sent to {owner}. You'll see the album when accepted. They must be online too: keep Justus open on both phones.",
     "status": "draft",
     "where": "Invite & join › text",
     "who": "Admins sending invites; people joining by a link",

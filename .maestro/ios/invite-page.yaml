@@ -44,5 +44,5 @@ appId: no.cankode.justus
           waitToSettleTimeoutMs: 500
 # The invite was held through the welcome. The owner is made up, so the walk stops before asking.
 - extendedWaitUntil:
-    visible: "Ask to join “Garden”?"
+    visible: "Ask to join this album?"
     timeout: 30000

@@ -84,9 +84,10 @@ test("an invite link opened before the welcome asks once the name is saved", asy
   await page.getByRole("button", { name: "Skip" }).click();
   await page.getByLabel("Your name").fill("Joe");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("dialog", { name: "Ask to join “Garden”?" })).toBeVisible({
-    timeout: 20_000,
-  });
+  const question = page.getByRole("dialog", { name: "Ask to join this album?" });
+  await expect(question).toBeVisible({ timeout: 20_000 });
+  // The names typed into the link are never shown.
+  await expect(page.getByText(/Garden|Tom/)).toHaveCount(0);
 });
 
 /** Creating the first album lands inside it, where its add button names it,

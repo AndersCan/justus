@@ -43,13 +43,8 @@ const { foldersActor } = (await import("../folders-machine")) as unknown as {
 const foldersContext = foldersActor.snapshot().context;
 const view = () => joinViewOf(joinActor.snapshot());
 
-const INVITE: JoinInvite = {
-  code: "a".repeat(64),
-  owner: "b".repeat(64),
-  album: "Spain 2026",
-  ownerName: "Nils",
-};
-const LINK = buildInviteLink(INVITE);
+const INVITE: JoinInvite = { code: "a".repeat(64), owner: "b".repeat(64) };
+const LINK = buildInviteLink({ ...INVITE, album: "Holiday", ownerName: "Mallory" });
 const settle = () => joinActor.settled();
 
 beforeEach(async () => {
@@ -83,7 +78,7 @@ describe("join singleton", () => {
   test("asking through a link with an end time passes the end time", async () => {
     const endsAt = Math.floor((Date.now() + 3_600_000) / 1000) * 1000;
     mocks.ask.mockResolvedValue([null, {}]);
-    join.openLink(buildInviteLink({ ...INVITE, expiresAt: endsAt }));
+    join.openLink(buildInviteLink({ ...INVITE, album: "", ownerName: "", expiresAt: endsAt }));
     await settle();
     join.askToJoin();
     await settle();
@@ -259,7 +254,7 @@ describe("joinViewOf", () => {
     await settle();
     const view = joinViewOf(joinActor.snapshot());
     expect(view.state).toBe("decidingToAsk");
-    expect(view.invite).toMatchObject({ album: "Spain 2026" });
+    expect(view.invite).toEqual({ ...INVITE, album: "", ownerName: "" });
   });
 });
 
@@ -269,7 +264,7 @@ describe("wireAsksToJoin", () => {
     await settle();
   };
   const mark = (whoMustUpdate?: "you") => {
-    foldersContext.asks = [{ code: INVITE.code, whoMustUpdate }];
+    foldersContext.asks = [{ code: INVITE.code, albumName: "", ownerName: "", whoMustUpdate }];
   };
   const wait = async () => {
     mocks.ask.mockResolvedValue([null, {}]);
@@ -299,9 +294,61 @@ describe("wireAsksToJoin", () => {
     sent.mockRestore();
   });
 
+  const heard = (albumName: string, ownerName: string) => {
+    foldersContext.asks = [{ code: INVITE.code, albumName, ownerName }];
+  };
+
+  test("names the Admin's phone sent reach the open waiting screen", async () => {
+    await wait();
+    expect(view().invite).toMatchObject({ album: "", ownerName: "" });
+    heard("Spain 2026", "Ada");
+    await foldersChanged();
+    expect(view().state).toBe("waitingForAdminToAccept");
+    expect(view().invite).toMatchObject({ album: "Spain 2026", ownerName: "Ada" });
+  });
+
+  test("the same names again send nothing", async () => {
+    await wait();
+    heard("Spain 2026", "Ada");
+    await foldersChanged();
+    const sent = vi.spyOn(joinActor, "send");
+    await foldersChanged();
+    expect(sent).not.toHaveBeenCalled();
+    sent.mockRestore();
+  });
+
+  test("an ask with no album name yet sends no names", async () => {
+    await wait();
+    const sent = vi.spyOn(joinActor, "send");
+    heard("", "Ada");
+    await foldersChanged();
+    expect(sent).not.toHaveBeenCalled();
+    sent.mockRestore();
+  });
+
+  test("a name change on the open ask updates the screen", async () => {
+    await wait();
+    heard("Spain 2026", "Ada");
+    await foldersChanged();
+    heard("Spain 2027", "Ada");
+    await foldersChanged();
+    expect(view().invite).toMatchObject({ album: "Spain 2027" });
+  });
+
+  test("a change of the Admin's name alone updates the screen", async () => {
+    await wait();
+    heard("Spain 2026", "Ada");
+    await foldersChanged();
+    heard("Spain 2026", "Bea");
+    await foldersChanged();
+    expect(view().invite).toMatchObject({ album: "Spain 2026", ownerName: "Bea" });
+  });
+
   test("a mark on another request leaves the screen alone", async () => {
     await wait();
-    foldersContext.asks = [{ code: "c".repeat(64), whoMustUpdate: "you" }];
+    foldersContext.asks = [
+      { code: "c".repeat(64), albumName: "", ownerName: "", whoMustUpdate: "you" },
+    ];
     await foldersChanged();
     expect(view().state).toBe("waitingForAdminToAccept");
   });
@@ -313,8 +360,8 @@ describe("wireAsksToJoin", () => {
     join.reopenRequest({
       code: INVITE.code,
       owner: INVITE.owner,
-      albumName: INVITE.album,
-      ownerName: INVITE.ownerName,
+      albumName: "Spain 2026",
+      ownerName: "Ada",
       askedAt: 1,
       status: "waiting",
     });

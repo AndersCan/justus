@@ -300,6 +300,7 @@ function deletedNotices(view: FoldersViewModel) {
 }
 
 function askRow(ask: AskSummary) {
+  const title = ask.albumName || copy("albums.album_you_asked_to_join");
   const label =
     ask.status === "declined"
       ? copy("albums.not_accepted")
@@ -311,11 +312,11 @@ function askRow(ask: AskSummary) {
     <li data-motion-key=${"ask:" + ask.code}>
       <button
         class="ui-focus flex w-full items-center gap-3 rounded-2xl border border-line p-4 text-left"
-        aria-label="${label}: ${ask.albumName}"
+        aria-label="${label}: ${title}"
         @click=${() => join.reopenRequest(ask)}
       >
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-lg font-medium text-fg">${ask.albumName}</span>
+          <span class="block truncate text-lg font-medium text-fg">${title}</span>
           <span class="mt-0.5 block text-xs ${muted ? "text-muted" : "font-semibold text-warn-fg"}"
             >${label}</span
           >

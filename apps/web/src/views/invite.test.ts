@@ -555,7 +555,7 @@ describe("joinSheet update screen", () => {
     });
   });
 
-  test("the checking sheet names the owner and has no button", async () => {
+  test("the checking sheet names nobody and has no button", async () => {
     const mod = await import("../machines/sharing/join-request");
     const view = vi.spyOn(mod, "joinViewOf").mockReturnValue({
       state: "checkingLink",
@@ -565,7 +565,7 @@ describe("joinSheet update screen", () => {
     const host = document.createElement("div");
     render(joinSheet(), host);
     view.mockRestore();
-    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe("Checking the link from Anna…");
+    expect(host.textContent?.replace(/\s+/g, " ").trim()).toBe("Checking the link…");
     expect(host.querySelectorAll("button")).toHaveLength(0);
   });
 
