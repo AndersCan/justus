@@ -154,6 +154,32 @@ test("a frame equal to the app before the switcher opened never counts as settle
   expect(walk.done).toBe(false);
 });
 
+test("a switcher that stays on the app frame is opened again, at most 3 presses in all", () => {
+  const stuck = switcherWalk("/switcher-lock-on", { shots: ["app"], count: 0 });
+  expect(stuck.done).toBe(false);
+  expect(stuck.commands.filter((command) => command[0] === "osascript")).toHaveLength(3);
+});
+
+test("a second press opens a switcher the first press missed", () => {
+  const walk = switcherWalk("/switcher-lock-on", {
+    shots: ["app", "app", "app", "app", "app", "a", "b", "b"],
+    count: 0,
+    counts: [0, 0, 0, 0, 7, 7, 7],
+  });
+  expect(walk.done).toBe(true);
+  expect(walk.commands.filter((command) => command[0] === "osascript")).toHaveLength(2);
+});
+
+test("an opening switcher is never pressed again", () => {
+  const walk = switcherWalk("/switcher-lock-on", {
+    shots: ["app", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+    count: 0,
+    counts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  });
+  expect(walk.done).toBe(false);
+  expect(walk.commands.filter((command) => command[0] === "osascript")).toHaveLength(1);
+});
+
 test("a failed launch fails the switcher route", () => {
   expect(
     switcherWalk("/switcher-lock-on", { shots: settled, count: 0, failing: ["launch"] }).done,
