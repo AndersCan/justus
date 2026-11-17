@@ -1,7 +1,7 @@
 import type { Snapshot } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../../gateway";
-import { currentPage, open } from "../router-machine";
+import { currentPage, onPageChange, open } from "../router-machine";
 import { classifyInvite } from "../../utils/classify-invite";
 import type { AskSummary } from "@justus/core";
 import { folders, foldersActor } from "../folders-machine";
@@ -14,6 +14,7 @@ import {
   askAgain,
   askToJoin,
   askWithPastedLink,
+  albumClosed,
   linkEdited,
   cancelRequest,
   closeStoppedLink,
@@ -33,6 +34,7 @@ export const JOIN_STATES = [
   "noInviteOpen",
   "showingLinkProblem",
   "joinedAlbum",
+  "alreadyInAlbum",
   "checkingLink",
   "checkingPastedLink",
   "decidingToAsk",
@@ -67,11 +69,19 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
       name === "noInviteOpen" ||
       name === "showingWelcome" ||
       name === "showingLinkProblem" ||
-      name === "joinedAlbum"
+      name === "joinedAlbum" ||
+      name === "alreadyInAlbum"
         ? null
         : (snapshot.payload as JoinScreen),
     error: (snapshot.context as { error: string }).error,
   };
+}
+
+/** The album this phone was just let into, while the join screen is in that state. */
+export function joinedNow(snapshot: Snapshot<unknown>): { folderId: string } | undefined {
+  return snapshot.path[0] === "joinedAlbum"
+    ? (snapshot.payload as { folderId: string })
+    : undefined;
 }
 
 export const joinActor = joinRequestMachine.create({
@@ -105,6 +115,13 @@ onOutput(joinActor, (e) => {
   }
   if (e.type === "cancelAsk") {
     void gateway.cancelAsk((e.payload as { code: string }).code).then(() => folders.refresh());
+  }
+});
+
+onPageChange((_page, old) => {
+  const now = joinedNow(joinActor.snapshot());
+  if (now !== undefined && old?.route === "photoAlbum" && old.params.id === now.folderId) {
+    joinActor.send(albumClosed.create());
   }
 });
 

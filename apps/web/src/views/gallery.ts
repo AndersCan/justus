@@ -50,6 +50,8 @@ import {
   startAdd,
 } from "./photo-picker";
 import { ownerShown } from "../utils/invite-link";
+import { joinActor, joinedNow } from "../machines/sharing/join-request";
+import { joinedNotice } from "./notices";
 import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
@@ -824,6 +826,11 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           }
         </a>
       </div>
+      ${watch(joinActor, (j) =>
+        joinedNow(j)?.folderId === album.id && album.notice === undefined
+          ? joinedNotice(album.name)
+          : null,
+      )}
       ${slot}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
       ${albumAddRow(page, album)}

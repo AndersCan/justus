@@ -112,8 +112,10 @@ const stoppedStates = [
   albumDeletedByAdmin,
   linkStoppedForUnknownReason,
 ] as const;
-/** The joiner is in the album, accepted just now or already in, and the app opens it. Not final: this screen machine takes the next link. */
-const joinedAlbum = state("joinedAlbum")();
+/** The Admin accepted this phone just now; the app opens the album and says so. Not final: this screen machine takes the next link. */
+const joinedAlbum = state("joinedAlbum")<{ folderId: string }>();
+/** A link to an album this phone is already in: the app opens it. */
+const alreadyInAlbum = state("alreadyInAlbum")<{ folderId: string }>();
 
 /** The first-run welcome opened on this phone. */
 export const welcomeStarted = event("welcomeStarted")();
@@ -127,6 +129,8 @@ export const openLink = event("openLink")<{ text: string }>();
 export const reopenRequest = event("reopenRequest")<{ ask: AskSummary }>();
 /** The joiner taps "Ask to join" under the paste box. */
 export const askWithPastedLink = event("askWithPastedLink")<{ text: string }>();
+/** The joiner left the album page the accept opened, so the line saying they were let in goes. */
+export const albumClosed = event("albumClosed")();
 /** The joiner changed the text in the paste box. */
 export const linkEdited = event("linkEdited")();
 /** The joiner taps "Ask to join". */
@@ -251,7 +255,10 @@ export const joinRequestMachine = machine("joinRequest", {
       const invite = screenOf(link);
       const found = classify(invite);
       if (found.kind === "own" || found.kind === "member") {
-        return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
+        return {
+          state: alreadyInAlbum.create({ folderId: found.folderId }),
+          emit: [openAlbum.create({ folderId: found.folderId })],
+        };
       }
       if (found.kind === "waiting") {
         return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
@@ -266,7 +273,10 @@ export const joinRequestMachine = machine("joinRequest", {
       const invite = screenOf(link);
       const found = classify(invite);
       if (found.kind === "own" || found.kind === "member") {
-        return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
+        return {
+          state: alreadyInAlbum.create({ folderId: found.folderId }),
+          emit: [openAlbum.create({ folderId: found.folderId })],
+        };
       }
       if (found.kind === "waiting") {
         return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
@@ -290,6 +300,7 @@ export const joinRequestMachine = machine("joinRequest", {
         openLink,
         askWithPastedLink,
         linkEdited,
+        albumClosed,
         reopenRequest,
         askToJoin,
         notNow,
@@ -311,6 +322,7 @@ export const joinRequestMachine = machine("joinRequest", {
         holdingInviteUntilWelcomeEnds,
         showingLinkProblem,
         joinedAlbum,
+        alreadyInAlbum,
         checkingLink,
         checkingPastedLink,
         decidingToAsk,
@@ -331,6 +343,7 @@ export const joinRequestMachine = machine("joinRequest", {
           noInviteOpen,
           showingLinkProblem,
           joinedAlbum,
+          alreadyInAlbum,
           checkingLink,
           checkingPastedLink,
           decidingToAsk,
@@ -345,7 +358,7 @@ export const joinRequestMachine = machine("joinRequest", {
             event: openLink,
             to: [
               showingLinkProblem,
-              joinedAlbum,
+              alreadyInAlbum,
               checkingLink,
               checkingPastedLink,
               decidingToAsk,
@@ -388,13 +401,13 @@ export const joinRequestMachine = machine("joinRequest", {
           });
         }
 
-        for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum]) {
+        for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum, alreadyInAlbum]) {
           /** "Ask to join" under the paste box: no dialog; problems show under the box. Dropped while a check or send runs. */
           m.on(from, {
             event: askWithPastedLink,
             to: [
               showingLinkProblem,
-              joinedAlbum,
+              alreadyInAlbum,
               checkingPastedLink,
               waitingForAdminToAccept,
               waitingForYouToUpdate,
@@ -418,6 +431,13 @@ export const joinRequestMachine = machine("joinRequest", {
             },
           });
         }
+        /** The joiner moved on from the album: the line is done. */
+        m.on(joinedAlbum, {
+          event: albumClosed,
+          to: [noInviteOpen],
+          handler: () => ({ state: noInviteOpen }),
+        });
+
         /** Typing in the box clears the problem under it. */
         m.on(showingLinkProblem, {
           event: linkEdited,
@@ -471,7 +491,7 @@ export const joinRequestMachine = machine("joinRequest", {
         m.on(holdingInviteUntilWelcomeEnds, {
           event: welcomeEnded,
           to: [
-            joinedAlbum,
+            alreadyInAlbum,
             waitingForAdminToAccept,
             waitingForYouToUpdate,
             linkExpired,
@@ -492,7 +512,7 @@ export const joinRequestMachine = machine("joinRequest", {
           });
         }
 
-        for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum]) {
+        for (const from of [noInviteOpen, showingLinkProblem, joinedAlbum, alreadyInAlbum]) {
           /** An answer that arrives with no sheet open still counts: accepted opens the album, declined says so. */
           m.on(from, {
             event: requestAnswered,
@@ -513,7 +533,10 @@ export const joinRequestMachine = machine("joinRequest", {
               const folderId = e.payload.folderId;
               return folderId === undefined
                 ? { state: from }
-                : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
+                : {
+                    state: joinedAlbum.create({ folderId }),
+                    emit: [openAlbum.create({ folderId })],
+                  };
             },
           });
         }
@@ -535,7 +558,10 @@ export const joinRequestMachine = machine("joinRequest", {
             handler: (e, { actor }) => {
               const answer = e.payload;
               return answer.answer === "accepted" && answer.folderId !== undefined
-                ? { state: joinedAlbum, emit: [openAlbum.create({ folderId: answer.folderId })] }
+                ? {
+                    state: joinedAlbum.create({ folderId: answer.folderId }),
+                    emit: [openAlbum.create({ folderId: answer.folderId })],
+                  }
                 : { state: from.create(actor.snapshot().payload as JoinScreen) };
             },
           });
@@ -752,7 +778,10 @@ export const joinRequestMachine = machine("joinRequest", {
               const folderId = e.payload.folderId;
               return folderId === undefined
                 ? { state: from.create(invite) }
-                : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
+                : {
+                    state: joinedAlbum.create({ folderId }),
+                    emit: [openAlbum.create({ folderId })],
+                  };
             },
           });
           /** The Admin's phone sent the names for this request. Another request's names change nothing. */

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   currentPage: vi.fn(() => undefined as { route: string } | undefined),
   listeners: [] as (() => void)[],
+  pageChanged: [] as ((page: unknown, old: unknown) => void)[],
 }));
 
 vi.mock("../../gateway", () => ({
@@ -20,7 +21,14 @@ vi.mock("../../gateway", () => ({
     cancelAsk: mocks.cancelAsk,
   },
 }));
-vi.mock("../router-machine", () => ({ open: mocks.open, currentPage: mocks.currentPage }));
+vi.mock("../router-machine", () => ({
+  open: mocks.open,
+  currentPage: mocks.currentPage,
+  onPageChange: (fn: (page: unknown, old: unknown) => void) => {
+    mocks.pageChanged.push(fn);
+    return () => {};
+  },
+}));
 vi.mock("../folders-machine", () => {
   const context = { folders: [] as unknown[], asks: [] as unknown[] };
   return {
@@ -35,7 +43,7 @@ vi.mock("../folders-machine", () => {
   };
 });
 
-const { join, joinActor, joinViewOf } = await import("./join-request");
+const { join, joinActor, joinViewOf, joinedNow } = await import("./join-request");
 const { joinRequestMachine } = await import("./join-request-machine");
 const { foldersActor } = (await import("../folders-machine")) as unknown as {
   foldersActor: { snapshot: () => { context: { folders: unknown[]; asks: unknown[] } } };
@@ -56,6 +64,34 @@ beforeEach(async () => {
   join.dismissDecline();
   join.closeStoppedLink();
   await settle();
+});
+
+describe("the line saying you were let in", () => {
+  const accept = async () => {
+    join.requestAnswered({ code: INVITE.code, answer: "accepted", folderId: "f1" });
+    await settle();
+  };
+  const move = (old: { route: string; params: { id: string } }) => {
+    for (const fn of mocks.pageChanged) fn(undefined, old);
+  };
+
+  test("goes when the person leaves the album the accept opened", async () => {
+    await accept();
+    expect(joinedNow(joinActor.snapshot())).toEqual({ folderId: "f1" });
+    move({ route: "photoAlbum", params: { id: "f1" } });
+    await settle();
+    expect(joinedNow(joinActor.snapshot())).toBeUndefined();
+  });
+
+  test("stays when the person leaves another page", async () => {
+    await accept();
+    move({ route: "photoAlbum", params: { id: "f2" } });
+    move({ route: "sharing", params: { id: "f1" } });
+    await settle();
+    expect(joinedNow(joinActor.snapshot())).toEqual({ folderId: "f1" });
+    move({ route: "photoAlbum", params: { id: "f1" } });
+    await settle();
+  });
 });
 
 describe("join singleton", () => {

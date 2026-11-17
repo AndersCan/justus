@@ -15,6 +15,8 @@ import {
   scopePhotos,
   viewerLine,
 } from "./gallery";
+import { joinActor } from "../machines/sharing/join-request";
+import { albumClosed, requestAnswered } from "../machines/sharing/join-request-machine";
 import { focusOnArrival } from "./arrival-focus";
 import type { PhotoScope } from "../utils/photo-scope";
 
@@ -591,5 +593,42 @@ describe("albumHeader join request line", () => {
 
   test("with no request the usual presence line shows", () => {
     expect(draw_({ requests: [] }).text).toContain("Only you so far");
+  });
+});
+
+describe("albumHeader line for a joined album", () => {
+  const album = { id: "f1", name: "Summer", role: "reader", members: 2 };
+  const draw = (a: Record<string, unknown>) => {
+    const host = document.createElement("div");
+    const page = { status: null, folders: [a], requests: [], photos: [], lastSync: Date.now() };
+    render(albumHeader(page as never, a as never), host);
+    return host.textContent?.replace(/\s+/g, " ") ?? "";
+  };
+  const accept = (folderId: string) => {
+    joinActor.send(requestAnswered.create({ code: "c", answer: "accepted", folderId }));
+  };
+  afterEach(() => {
+    joinActor.send(albumClosed.create());
+  });
+
+  test("says the person is now in the album they were just let into", () => {
+    accept("f1");
+    expect(draw(album)).toContain("You're now in “Summer”.");
+  });
+
+  test("says nothing on another album", () => {
+    accept("f9");
+    expect(draw(album)).not.toContain("You're now in");
+  });
+
+  test("says nothing on a removed album", () => {
+    accept("f1");
+    expect(draw({ ...album, notice: { kind: "removed" } })).not.toContain("You're now in “");
+  });
+
+  test("says nothing once the person moved on", () => {
+    accept("f1");
+    joinActor.send(albumClosed.create());
+    expect(draw(album)).not.toContain("You're now in");
   });
 });
