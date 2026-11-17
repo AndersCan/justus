@@ -164,6 +164,7 @@ describe("Delete", () => {
     await reload([a, b]);
     hoisted.gateway.remove.mockResolvedValue([null, undefined]);
     const holders = {
+      kind: "inAlbum" as const,
       here: true,
       others: [{ key: "n", name: "Nils" }],
       unsure: [],
@@ -212,6 +213,7 @@ describe("Delete", () => {
     }) as never;
 
   const holdersOf = (others: { key: string; name: string }[]) => ({
+    kind: "inAlbum" as const,
     here: true,
     others,
     unsure: [],

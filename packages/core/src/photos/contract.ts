@@ -97,7 +97,7 @@ export const s = {
 
 export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 
-export const photoHoldersSchema = s.object({
+const inAlbumHoldersSchema = s.object({
   here: s.boolean,
   others: s.array(photoMemberSchema),
   unsure: s.array(photoMemberSchema),
@@ -106,6 +106,18 @@ export const photoHoldersSchema = s.object({
   former: s.array(s.string),
   left: s.array(s.string),
 });
+const removedHoldersSchema = s.object({ here: s.boolean });
+
+export const photoHoldersSchema: Schema<PhotoHolders> = {
+  check(v, path) {
+    if (typeof v !== "object" || v === null || Array.isArray(v))
+      return `${path}: expected object, got ${describe(v)}`;
+    const kind = (v as Record<string, unknown>).kind;
+    if (kind === "inAlbum") return inAlbumHoldersSchema.check(v, path);
+    if (kind === "removed") return removedHoldersSchema.check(v, path);
+    return `${path}.kind: expected one of inAlbum|removed, got ${JSON.stringify(kind)}`;
+  },
+};
 
 export const photoSchema = s.object({
   id: s.string,

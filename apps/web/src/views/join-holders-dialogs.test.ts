@@ -71,7 +71,16 @@ const photo: Photo = {
   size: 1,
   addedAt: 0,
   member: { key: "m", name: "M" },
-  holders: { here: true, others: [], unsure: [], waiting: [], previews: [], former: [], left: [] },
+  holders: {
+    kind: "inAlbum",
+    here: true,
+    others: [],
+    unsure: [],
+    waiting: [],
+    previews: [],
+    former: [],
+    left: [],
+  },
 };
 
 describe("Who has this photo: focus", () => {

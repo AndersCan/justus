@@ -710,6 +710,7 @@
             "folderId": "mw9muso6-18523ded",
             "mine": true,
             "holders": {
+              "kind": "inAlbum",
               "here": true,
               "others": [],
               "unsure": [],
@@ -738,6 +739,7 @@
             "folderId": "mw9musow-03bc7854",
             "mine": false,
             "holders": {
+              "kind": "inAlbum",
               "here": false,
               "others": [
                 {

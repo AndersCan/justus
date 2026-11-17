@@ -8,6 +8,12 @@ const LIMIT = 36;
 /** The one line on photo detail that says whose phones have a full copy. */
 export function holdersLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
   if (!h) return { text: copy("holders.can_t_tell_who_has"), tappable: false };
+  if (h.kind === "removed") {
+    return {
+      text: h.here ? copy("holders.on_your_phone_removed") : copy("holders.arriving_on_your_phone"),
+      tappable: true,
+    };
+  }
   const k = h.others.length + h.former.length;
   const names = h.others.map((m) => `${m.name}'s`);
   const named = h.former.length === 0 && names.length >= 1 && names.length <= 3;
@@ -53,6 +59,17 @@ export type HoldersSheetRows = {
 
 /** What the "Who has this photo" sheet lists; empty sections are left out by the view. */
 export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows {
+  if (h?.kind === "removed") {
+    return {
+      youArriving: !h.here,
+      others: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+    };
+  }
   return {
     youArriving: !h?.here,
     others: h?.others ?? [],
@@ -86,9 +103,10 @@ export function lacksFullPhoto(names: readonly string[]): string {
 /** The delete dialog's text: it leaves everyone's album, who has the full photo, and who does not. */
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
-  const have = (h?.others ?? []).map((m) => m.name);
-  const preview = (h?.previews ?? []).map((m) => m.name);
-  const lack = (h?.waiting ?? []).map((m) => m.name);
+  const live = h?.kind === "inAlbum" ? h : undefined;
+  const have = (live?.others ?? []).map((m) => m.name);
+  const preview = (live?.previews ?? []).map((m) => m.name);
+  const lack = (live?.waiting ?? []).map((m) => m.name);
   const cannot =
     have.length + preview.length === 0
       ? ""
@@ -106,10 +124,11 @@ export function deletedMessage(
   people: readonly { key: string; name: string; connected: boolean }[],
 ): string {
   const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
-  const have = (holders?.others ?? []).map(named);
-  const preview = (holders?.previews ?? []).map(named);
-  const lack = (holders?.waiting ?? []).map(named);
-  const later = [...(holders?.others ?? []), ...(holders?.previews ?? [])]
+  const live = holders?.kind === "inAlbum" ? holders : undefined;
+  const have = (live?.others ?? []).map(named);
+  const preview = (live?.previews ?? []).map(named);
+  const lack = (live?.waiting ?? []).map(named);
+  const later = [...(live?.others ?? []), ...(live?.previews ?? [])]
     .filter((m) => people.some((p) => p.key === m.key && !p.connected))
     .map(named);
   return [

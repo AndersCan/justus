@@ -12,6 +12,7 @@ import {
 
 const m = (name: string) => ({ key: name, name });
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
+  kind: "inAlbum",
   here: true,
   others: [],
   unsure: [],
@@ -28,6 +29,36 @@ describe("holdersLine", () => {
     expect(holdersLine(h({ others: [m("Nils")], left: ["Cleo"] })).text).toBe(
       "On Nils's and your phone",
     );
+  });
+
+  it("says only 'On your phone' for a removed phone, whatever it holds", () => {
+    expect(holdersLine({ kind: "removed", here: true })).toEqual({
+      text: "On your phone",
+      tappable: true,
+    });
+    expect(holdersLine({ kind: "removed", here: false })).toEqual({
+      text: "Arriving on your phone…",
+      tappable: true,
+    });
+  });
+
+  it("lists only this phone in the sheet of a removed phone", () => {
+    const rows = {
+      others: [],
+      unsure: [],
+      waiting: [],
+      previews: [],
+      former: [],
+      left: [],
+    };
+    expect(holdersSheetRows({ kind: "removed", here: true })).toEqual({
+      youArriving: false,
+      ...rows,
+    });
+    expect(holdersSheetRows({ kind: "removed", here: false })).toEqual({
+      youArriving: true,
+      ...rows,
+    });
   });
 
   it("can't tell without holders, and is not tappable", () => {
@@ -263,5 +294,13 @@ describe("previews", () => {
   it("sheet rows carry previews", () => {
     expect(holdersSheetRows(h({ previews: [m("Ben")] })).previews).toEqual([m("Ben")]);
     expect(holdersSheetRows(undefined).previews).toEqual([]);
+  });
+});
+
+describe("a removed phone", () => {
+  it("has nothing to say about others in the delete texts", () => {
+    const removed: PhotoHolders = { kind: "removed", here: true };
+    expect(deleteDetail(removed)).toBe(deleteDetail(undefined));
+    expect(deletedMessage("a.jpg", removed, [])).toBe(deletedMessage("a.jpg", undefined, []));
   });
 });

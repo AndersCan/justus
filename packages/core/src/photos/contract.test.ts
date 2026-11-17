@@ -18,6 +18,23 @@ describe("photo contract", () => {
     for (const push of fixture.pushes) expect(checkPhotoChanged(push)).toBeNull();
   });
 
+  it("accepts removed holders and names a bad kind", () => {
+    const photo = {
+      id: "a",
+      url: "u",
+      name: "n",
+      mime: "m",
+      size: 1,
+      addedAt: 0,
+      member: { key: "k", name: "N" },
+    };
+    const list = (holders: unknown) => ({ photos: [{ ...photo, holders }] });
+    expect(checkPhotoResult("photos.list", list({ kind: "removed", here: true }))).toBeNull();
+    expect(checkPhotoResult("photos.list", list({ kind: "other", here: true }))).toBe(
+      'photos.list contract violation: result.photos[0].holders.kind: expected one of inAlbum|removed, got "other"',
+    );
+  });
+
   it("names the offending field", () => {
     expect(checkPhotoResult("photos.list", { photos: [{ id: "a" }] })).toBe(
       "photos.list contract violation: result.photos[0].url: missing required field",
