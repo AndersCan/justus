@@ -55,11 +55,12 @@ function switcher(
     settled = !bytes.equals(app) && previous !== null && bytes.equals(previous);
     previous = bytes;
   }
-  if (!settled) console.log("the switcher never settled");
   const count = settled ? photoPixels(file) : 0;
   const shows = count >= minPhotoPixels;
   console.log(
-    `${file}: ${count} photo pixels (expected ${expected === "shows" ? "shows" : "none"})`,
+    settled
+      ? `${file}: ${count} photo pixels (expected ${expected === "shows" ? "shows" : "none"})`
+      : `${file}: the switcher never settled, no pixels counted`,
   );
   const launched = run("xcrun", ["simctl", "launch", udid, bundleId]).status === 0;
   return settled && launched && shows === (expected === "shows");

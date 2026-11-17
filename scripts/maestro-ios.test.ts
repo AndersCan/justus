@@ -145,3 +145,29 @@ test("a failed launch fails the switcher route", () => {
     switcherWalk("/switcher-lock-on", { shots: settled, count: 0, failing: ["launch"] }).done,
   ).toBe(false);
 });
+
+test("a failed screenshot fails the switcher route", () => {
+  const before = switcherWalk("/switcher-lock-on", { shots: settled, count: 0, failing: ["io"] });
+  expect(before.done).toBe(false);
+  expect(before.commands.map((command) => command[0])).toEqual(["xcrun"]);
+  let calls = 0;
+  const commands: string[][] = [];
+  const done = helperRoute("/switcher-lock-on", {
+    run: (cmd: string, args: string[]) => {
+      commands.push([cmd, ...args]);
+      // The app frame works, every shot after the switcher opens fails.
+      return { status: args[1] === "io" && calls++ > 0 ? 1 : 0 };
+    },
+    notify: () => ({ status: 0 }),
+    udid: "U",
+    bundleId: "app.id",
+    out: "/out",
+    photoPixels: () => 0,
+    minPhotoPixels: 2000,
+    read: () => Buffer.from("same"),
+    sleep: () => {},
+  });
+  expect(done).toBe(false);
+  expect(commands.filter((command) => command[2] === "io")).toHaveLength(2);
+  expect(commands.at(-1)).toEqual(["xcrun", "simctl", "launch", "U", "app.id"]);
+});

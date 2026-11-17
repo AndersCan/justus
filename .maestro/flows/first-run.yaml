@@ -405,14 +405,18 @@ appId: no.cankode.justus
                   - extendedWaitUntil:
                       visible: "App lock is off"
                       timeout: 5000
-      # App lock is off: the switcher shows the photo on the album tile.
-      - tapOn:
-          text: "Photos"
-          waitToSettleTimeoutMs: 500
-      - extendedWaitUntil:
-          visible: "1 photo"
-          timeout: 30000
-      - runScript:
-          file: ../scripts/switcher.js
-          env:
-            SHOT: lock-off
+      # iOS, App lock is off: the switcher shows the photo on the album tile (only iOS added one).
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                text: "Photos"
+                waitToSettleTimeoutMs: 500
+            - extendedWaitUntil:
+                visible: "1 photo"
+                timeout: 30000
+            - runScript:
+                file: ../scripts/switcher.js
+                env:
+                  SHOT: lock-off
