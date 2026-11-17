@@ -376,7 +376,11 @@ describe("invited friends list", () => {
     });
     expect(host.textContent).toContain("Invited, not in yet");
     expect(host.querySelector("li")?.textContent).toContain("Kari");
-    expect(host.querySelector("li")?.textContent).toContain("Hasn't joined yet · can only look");
+    expect(
+      host
+        .querySelector('[data-copy-id="member.invited_can_only_look"]')
+        ?.parentElement?.textContent?.trim(),
+    ).toBe("Hasn't joined yet · can only look");
     expect(button(host)?.getAttribute("aria-label")).toBe("Take back Kari's invite");
   });
 
@@ -384,7 +388,11 @@ describe("invited friends list", () => {
     const host = mountInvited("creator", [{ identity: "k", role: "member" }], {
       friends: { k: "Kari" },
     });
-    expect(host.querySelector("li")?.textContent).toContain("Hasn't joined yet · can add photos");
+    expect(
+      host
+        .querySelector('[data-copy-id="member.invited_can_add_photos"]')
+        ?.parentElement?.textContent?.trim(),
+    ).toBe("Hasn't joined yet · can add photos");
   });
 
   test("a friend without a saved name is Someone you invited", () => {

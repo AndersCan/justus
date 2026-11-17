@@ -1602,8 +1602,11 @@ describe("album member roles", () => {
     expect(row("Me")?.textContent).toContain("Started this album");
     expect(row("Me")?.querySelector("span.h-1\\.5")).toBeNull();
     expect(row("Nils")?.querySelector("span.h-1\\.5")).not.toBeNull();
-    expect(row("Nils")?.textContent).toContain("In · can add photos");
-    expect(row("Zed")?.textContent).toContain("In · can only look");
+    const status = (name: string) =>
+      row(name)?.querySelector('[data-copy-id^="member.role_"]')?.closest("p")?.textContent?.trim();
+    expect(status("Me")).toBe("Started this album");
+    expect(status("Nils")).toBe("In · can add photos");
+    expect(status("Zed")).toBe("In · can only look");
     for (const r of rows) {
       const nameLine = r.querySelector("p")?.textContent ?? "";
       expect(nameLine).not.toMatch(/Started this album|can add photos|can only look/);
@@ -1649,7 +1652,12 @@ describe("album member roles", () => {
     render(albumView("f1"), host);
     const own = [...host.querySelectorAll("li")].find((r) => r.textContent?.includes("Me"));
     expect(own?.textContent).not.toMatch(/Started this album|can add photos|can only look/);
-    expect(own?.textContent).toContain("Waiting to be let in");
+    expect(
+      own
+        ?.querySelector('[data-copy-id="member.waiting_for_admin"]')
+        ?.closest("p")
+        ?.textContent?.trim(),
+    ).toBe("Waiting to be let in");
     expect(host.querySelector('[data-copy-id^="album.you_"]')).toBeNull();
     expect(host.textContent).toContain("Waiting for approval");
   });
