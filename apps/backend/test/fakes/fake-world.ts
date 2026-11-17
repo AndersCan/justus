@@ -247,9 +247,8 @@ function makeEntry(options: { hub: FakeHub; node: FakeNode; replica: Replica }):
     async download(path) {
       assertOpen();
       if (!replica.files.has(path)) return "missing";
-      if (hub.options.unreachable?.(key)) return "timedOut";
-      if (replica.files.get(path)?.clearedSize !== undefined) replicateKey({ hub, key });
-      return replica.files.get(path)?.clearedSize === undefined ? "here" : "timedOut";
+      if (replica.files.get(path)?.clearedSize === undefined) return "here";
+      return "timedOut";
     },
     async readBytes(path) {
       assertOpen();

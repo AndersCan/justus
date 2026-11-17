@@ -1414,4 +1414,27 @@ export const realOnlyCases: DriveCase[] = [
       await early;
     },
   },
+  {
+    name: "D45b download settles as timedOut when the file's entry cannot be fetched",
+    async run(world, t) {
+      const { a, own, remote } = await pair(world, t);
+      await own.put("/t", bytes("x".repeat(100)));
+      await eventually(
+        async () => remote.version(),
+        (v) => v === own.version(),
+        "b knows the new length",
+      );
+      await a.disconnect();
+      const started = Date.now();
+      const outcome = await Promise.race([
+        remote.download("/t", { timeoutMs: 200 }).then(
+          (v) => v,
+          () => "threw",
+        ),
+        sleep(2_000).then(() => "hung"),
+      ]);
+      t.eq(outcome, "timedOut", "entry timed out");
+      t.ok(Date.now() - started < 1_500, "bounded by the timeout");
+    },
+  },
 ];
