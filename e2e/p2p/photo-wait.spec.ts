@@ -78,6 +78,12 @@ test("Ada's waiting line appears while Ben's phone is paused and goes without a 
     timeout: 30_000,
   });
 
+  // 60 s: Ada's phone needs about 14 s to see Ben is gone; resuming sooner never cuts the link.
+  await expect(
+    a.getByText(words("gallery.connecting_to", { name: "Ben" }), { exact: true }),
+    "Ada sees Ben's link drop",
+  ).toBeVisible({ timeout: 60_000 });
+
   resume();
   // 60 s: reconnecting after a resume took 2-16 s, then three previews.
   await expect(
