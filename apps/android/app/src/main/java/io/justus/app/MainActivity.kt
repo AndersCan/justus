@@ -231,6 +231,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        Log.i("JUSTUS_ANDROID", "lock pause lockEnabled=${lockEnabled(this)} webView=${::webView.isInitialized}")
         if (::webView.isInitialized && lockEnabled(this)) {
             covered = true
             renderLock()
