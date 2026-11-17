@@ -14,7 +14,8 @@
   ],
   "share-photos": [
     "apps/web/src/machines/gallery-machine.ts",
-    "apps/web/src/machines/reach-hint-machine.ts"
+    "apps/web/src/machines/reach-hint-machine.ts",
+    "apps/web/src/machines/seen-machine.ts"
   ],
   "internals": [
     "apps/web/src/machines/router-machine.ts",

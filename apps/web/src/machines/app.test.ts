@@ -43,7 +43,7 @@ test("onboarding tells folders the name and folders tell sync the status, and ev
     "folders → sync STATUS_SEEN",
     "onboarding → folders NAME_SEEN",
   ]);
-  expect(machine!.regions).toHaveLength(16);
+  expect(machine!.regions).toHaveLength(17);
 }, 60_000);
 
 test("a saved name reaches folders, a sync status reaches folders and reach, an open sheet asks for requests", async () => {
