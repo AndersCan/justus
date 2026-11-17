@@ -19,7 +19,7 @@ function run(mode: "drop-once" | "drop-twice" | "assert" | "adb-gone") {
   writeFileSync(
     driver,
     `set -uo pipefail
-OUT_DIR="${dir}/out"; SERIAL=emulator-5554; ADB="${adb}"; FLOWS_DIR=x; ADB_RETURN_TIMEOUT=1
+OUT_DIR="${dir}/out"; SERIAL=emulator-5554; ADB="${adb}"; FLOWS_DIR=x; DOCUMENTS_UI=docs.ui; ADB_RETURN_TIMEOUT=1
 COUNT="${dir}/count"; echo 0 > "$COUNT"; mkdir -p "$OUT_DIR"
 maestro() {
   local n=$(( $(cat "$COUNT") + 1 )); echo $n > "$COUNT"

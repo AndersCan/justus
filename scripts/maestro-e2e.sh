@@ -276,9 +276,7 @@ run_maestro_suite() {
 }
 
 mkdir -p "$OUT_DIR"
-if [[ "$WALK" != 1 ]]; then
-  prepare_share_in || { echo "✗ could not put the share-in photos on the device"; exit 1; }
-fi
+[[ "$WALK" == 1 ]] || prepare_share_in || { echo "✗ could not put the share-in photos on the device"; exit 1; }
 if [[ "$WALK" == 1 ]]; then
   echo
   echo "▶ Preparing Chrome, then running the release walk ..."
