@@ -111,7 +111,12 @@ async function answerSince(page, inst, word, t0) {
 async function watchNames(page, names) {
   const watch = (list) => {
     const hit = (text) => list.some((n) => text.includes(n));
+    // The warning block names the link's album next to the real one on purpose.
+    const inWarning = (node) =>
+      (node.nodeType === 1 ? node : node.parentElement)?.closest("[data-link-named-other]") !==
+      null;
     const scan = (node) => {
+      if (inWarning(node)) return;
       if (node.nodeType === 3 && hit(node.data)) window.__photoSeen = true;
       if (node.nodeType !== 1) return;
       for (const attr of node.attributes) if (hit(attr.value)) window.__photoSeen = true;
@@ -141,7 +146,7 @@ function photosOf(inst, id) {
   return readdirSync(dir).map((name) => ({ name, bytes: readFileSync(join(dir, name)) }));
 }
 
-test("a link holder with an edited link who opens, asks, waits, is declined, asks again and cancels never sees the link's names, the key, the photo or the member list", async ({
+test("a link holder with an edited link who opens, asks, waits, is declined, asks again and cancels sees the link's album only in the warning beside the real one, never the key, the photo or the member list", async ({
   instancePages,
   instances,
 }) => {
@@ -159,6 +164,8 @@ test("a link holder with an edited link who opens, asks, waits, is declined, ask
   await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
     timeout: 60_000,
   });
+  // An unedited link names the same album: no warning.
+  await expect(c.locator("[data-link-named-other]")).toHaveCount(0);
   await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
   await expect(c.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
@@ -207,6 +214,12 @@ test("a link holder with an edited link who opens, asks, waits, is declined, ask
   });
   const waiting = b.getByRole("dialog", { name: words("invite.you_re_done", { owner: adaName }) });
   await expect(waiting).toContainText(album, { timeout: 60_000 });
+  await expect(waiting.locator("[data-link-named-other]")).toContainText(
+    words("invite.link_named_other_album", { linkAlbum: hintAlbum, album, owner: adaName }),
+  );
+  await expect(
+    waiting.getByRole("button", { name: words("invite.cancel_request"), exact: true }),
+  ).toHaveClass(/ui-btn-primary/);
   await expect.poll(() => answerSince(b, bInst, "received", asked), { timeout: 30_000 }).toBe(true);
   expect((await stateOf(b, bInst)).asks.some((x) => x.status === "waiting")).toBe(true);
   await staysClean(b, bInst, secrets, "waiting");
