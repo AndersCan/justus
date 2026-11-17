@@ -4,8 +4,10 @@ import { render } from "lit-html";
 import { copy } from "../copy/copy";
 import type { JoinView } from "../machines/sharing/join-request";
 import { EXPIRED_LINK } from "../machines/sharing/join-request-machine";
+import { parseInviteLink } from "../utils/invite-link";
 import { renderJoinSheet } from "./join-sheet";
 
+/** An open invite whose names came from the Admin's phone. */
 const invite = {
   code: "a".repeat(64),
   owner: "b".repeat(64),
@@ -35,7 +37,7 @@ const noSheet: JoinView["state"][] = [
   "sendingPastedRequest",
 ];
 const labels: [JoinView["state"], string][] = [
-  ["checkingLink", copy("join_request.checking_owner_s_link", { owner })],
+  ["checkingLink", copy("join_request.checking_the_link")],
   ["decidingToAsk", copy("invite.ask_to_join", { album: invite.album })],
   ["sendingRequest", copy("invite.ask_to_join", { album: invite.album })],
   ["waitingForAdminToAccept", copy("invite.you_re_done", { owner })],
@@ -203,12 +205,6 @@ describe("renderJoinSheet when the owner's name is not known", () => {
     ).not.toContain("Admin");
   });
 
-  test("the checking line names the person who invited you", () => {
-    expect(drawFor("checkingLink", "").querySelector("dialog")?.getAttribute("aria-label")).toBe(
-      "Checking the link from the person who invited you…",
-    );
-  });
-
   test("a stopped link starts its title with a capital", () => {
     expect(drawFor("linkTurnedOffByAdmin", "").querySelector("h3")?.textContent).toBe(
       "The person who invited you turned off this link.",
@@ -253,5 +249,59 @@ describe("renderJoinSheet picks the start or mid form for every owner line", () 
     const text = textOf(state);
     expect(text).toContain(first);
     expect(text).toContain(second);
+  });
+});
+
+describe("renderJoinSheet names", () => {
+  const A = "a".repeat(64);
+  const B = "b".repeat(64);
+  const parsed = parseInviteLink(`justus://join?i=${A}&o=${B}&n=Holiday&a=Mallory`);
+  if (parsed.kind !== "invite") throw new Error("expected invite");
+  /** What the screen holds for an edited link before the Admin's phone has answered. */
+  const unnamed = { ...parsed.invite, album: "", ownerName: "" };
+  const states = labels.map(([state]) => state);
+  const drawUnnamed = (state: JoinView["state"]) => {
+    const div = document.createElement("div");
+    render(renderJoinSheet({ state, invite: unnamed, error: "" }, actions), div);
+    return div;
+  };
+
+  test.each(states)("%s for an edited link shows no name from the link", (state) => {
+    const div = drawUnnamed(state);
+    expect(div.textContent).not.toMatch(/Holiday|Mallory/);
+    expect(div.querySelector("dialog")?.getAttribute("aria-label")).not.toMatch(/Holiday|Mallory/);
+  });
+
+  test("the question without an album name says 'this album'", () => {
+    expect(drawUnnamed("decidingToAsk").querySelector("h3")?.textContent).toBe(
+      copy("invite.ask_to_join_unnamed"),
+    );
+    expect(drawUnnamed("sendingRequest").querySelector("h3")?.textContent).toBe(
+      copy("invite.ask_to_join_unnamed"),
+    );
+  });
+
+  test("the update title without an album name says 'this album'", () => {
+    expect(drawUnnamed("waitingForYouToUpdate").querySelector("h3")?.textContent).toBe(
+      copy("invite.update_justus_to_join_unnamed"),
+    );
+  });
+
+  test("the waiting body without an album name uses the unnamed text, with one the named text", () => {
+    const body = (div: HTMLElement) =>
+      div.querySelector("[data-copy-id]")?.getAttribute("data-copy-id");
+    expect(body(drawUnnamed("waitingForAdminToAccept"))).toBe(
+      "invite.request_to_join_sent_to_unnamed",
+    );
+    expect(body(draw("waitingForAdminToAccept"))).toBe("invite.request_to_join_sent_to");
+  });
+
+  test("a named album shows its name in the title", () => {
+    expect(draw("decidingToAsk").querySelector("h3")?.textContent).toBe(
+      copy("invite.ask_to_join", { album: "Spain 2026" }),
+    );
+    expect(draw("waitingForYouToUpdate").querySelector("h3")?.textContent).toBe(
+      copy("invite.update_justus_to_join", { album: "Spain 2026" }),
+    );
   });
 });

@@ -4,8 +4,8 @@ import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
 import type { VizRun } from "@mantaq/viz";
 import { describe, expect, test } from "vite-plus/test";
-import { buildInviteLink } from "../../utils/invite-link";
-import type { JoinInvite } from "../../utils/invite-link";
+import { buildInviteLink as writeInviteLink } from "../../utils/invite-link";
+import type { JoinInvite, LinkHints } from "../../utils/invite-link";
 import {
   EXPIRED_LINK,
   GARBLED_LINK,
@@ -18,13 +18,17 @@ import {
   type Known,
 } from "./join-request-machine";
 
-const INVITE: JoinInvite = {
-  code: "a".repeat(64),
-  owner: "b".repeat(64),
-  album: "Spain 2026",
-  ownerName: "Nils",
-};
+/** The names typed into the link: the app must never show them. */
+const HINTS = { album: "Holiday", ownerName: "Mallory" };
+const INVITE: JoinInvite = { code: "a".repeat(64), owner: "b".repeat(64) };
+/** A link carrying the edited names, unless a test says otherwise. */
+const buildInviteLink = (invite: JoinInvite & Partial<LinkHints>) =>
+  writeInviteLink({ ...HINTS, ...invite });
 const LINK = buildInviteLink(INVITE);
+/** What the open screen holds when this phone has heard no names. */
+const UNNAMED = { ...INVITE, album: "", ownerName: "" };
+/** What it holds once this phone has an ask from the Admin's phone. */
+const NAMED = { ...INVITE, album: "Spain 2026", ownerName: "Ada" };
 
 function setup(
   options: {
@@ -62,7 +66,7 @@ describe("openLink", () => {
     const s = setup();
     await s.send("openLink", { text: `join us ${LINK} thanks` });
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test.each(["noInviteOpen", "decidingToAsk", "waitingForAdminToAccept"] as const)(
@@ -97,7 +101,9 @@ describe("openLink", () => {
     if (name === "waitingForAdminToAccept") await s.send("askToJoin");
     await s.send("openLink", { text: `justus://join/${"a".repeat(64)}?n=Lisbon&a=Nils` });
     expect(s.actor.state.name).toBe(name === "noInviteOpen" ? "showingLinkProblem" : name);
-    expect(error(s)).toBe("This link no longer works. Ask Nils for a new invite link.");
+    expect(error(s)).toBe(
+      "This link no longer works. Ask the person who invited you for a new invite link.",
+    );
   });
 
   test("an old link without a hint is told to ask the person who invited you", async () => {
@@ -141,7 +147,7 @@ describe("openLink", () => {
     const other = { ...INVITE, code: "c".repeat(64) };
     await s.send("openLink", { text: buildInviteLink(other) });
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual(other);
+    expect(payload(s)).toEqual({ ...other, album: "", ownerName: "" });
   });
 });
 
@@ -149,8 +155,8 @@ function ask(status: AskSummary["status"]): AskSummary {
   return {
     code: INVITE.code,
     owner: INVITE.owner,
-    albumName: INVITE.album,
-    ownerName: INVITE.ownerName,
+    albumName: "Spain 2026",
+    ownerName: "Ada",
     askedAt: 1,
     status,
   };
@@ -174,7 +180,7 @@ describe("checkingLink", () => {
     const s = setup({ port });
     await s.send("openLink", { text: LINK });
     expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
     expect(asks).toEqual([]);
     expect(s.outputs).toEqual([]);
   });
@@ -213,7 +219,7 @@ describe("reopenRequest", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask(status) });
     expect(s.actor.state.name).toBe(expected);
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(NAMED);
   });
 });
 
@@ -231,8 +237,8 @@ describe("decidingToAsk", () => {
     const seen: JoinInvite[] = [];
     const s = await waitingSetup({ port: { ask: async (i) => (seen.push(i), [undefined, {}]) } });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
-    expect(seen).toEqual([INVITE]);
-    expect(payload(s)).toEqual(INVITE);
+    expect(seen).toEqual([UNNAMED]);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test("ask locks the screen while sending", async () => {
@@ -257,7 +263,7 @@ describe("decidingToAsk", () => {
     const s = await waitingSetup({ port });
     expect(s.actor.state.name).toBe("decidingToAsk");
     expect(error(s)).toBe(SEND_FAILED);
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test("a retry after a failed send works", async () => {
@@ -291,7 +297,7 @@ describe("waitingForAdminToAccept", () => {
     const s = await waitingSetup();
     await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
     expect(s.actor.state.name).toBe("declinedByAdmin");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test.each(["accepted", "declined"] as const)(
@@ -407,7 +413,7 @@ describe("linkExpired", () => {
     s.clock.advance(END);
     await s.send("openLink", { text: timed });
     expect(s.actor.state.name).toBe("linkExpired");
-    expect(payload(s)).toEqual({ ...INVITE, expiresAt: END });
+    expect(payload(s)).toEqual({ ...UNNAMED, expiresAt: END });
     await s.send("askToJoin");
     expect(s.actor.state.name).toBe("linkExpired");
     expect(asked).toBe(0);
@@ -501,7 +507,7 @@ describe("ask again", () => {
     });
     sent.length = 0;
     await s.send("askAgain");
-    expect(sent).toEqual([INVITE]);
+    expect(sent).toEqual([UNNAMED]);
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(s.outputs).toEqual([]);
   });
@@ -621,7 +627,7 @@ describe("answers with no sheet open", () => {
     const s = await closed({ asked: found });
     await s.send("requestAnswered", declinedAnswer);
     expect(s.actor.state.name).toBe("declinedByAdmin");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test("declined with no stored ask stays quiet", async () => {
@@ -661,7 +667,7 @@ describe("answers with no sheet open", () => {
     await s.send("openLink", { text: LINK });
     await s.send("requestAnswered", declinedAnswer);
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(NAMED);
     expect(s.outputs).toEqual([]);
   });
 
@@ -697,12 +703,12 @@ describe("the welcome", () => {
     expect(payload(s)).toEqual(INVITE);
     await s.send("welcomeEnded");
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test("a second link replaces the held one", async () => {
     const s = setup();
-    const other = { ...INVITE, album: "Garden", ownerName: "Tom" };
+    const other = { ...INVITE, code: "c".repeat(64) };
     await s.send("welcomeStarted");
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: buildInviteLink(other) });
@@ -795,8 +801,9 @@ describe("pasteFoundNothing", () => {
 });
 
 describe("askWithPastedLink", () => {
-  const OFF = "Nils turned off this link. Ask Nils for a new link if you still want to join.";
-  const EXPIRED = "This invite link has expired. Ask Nils for a new one.";
+  const OFF =
+    "The person who invited you turned off this link. Ask the person who invited you for a new link if you still want to join.";
+  const EXPIRED = "This invite link has expired. Ask the person who invited you for a new one.";
   const tick = () => new Promise((r) => setTimeout(r, 0));
 
   /** A port whose check and send wait until the test lets them go. */
@@ -838,7 +845,7 @@ describe("askWithPastedLink", () => {
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(seen).not.toContain("decidingToAsk");
     expect(seen).not.toContain("checkingLink");
-    expect(asks).toEqual([INVITE]);
+    expect(asks).toEqual([UNNAMED]);
     expect(error(s)).toBe("");
   });
 
@@ -884,7 +891,7 @@ describe("askWithPastedLink", () => {
     const s = setup();
     await s.send("askWithPastedLink", { text: `justus://join/${INVITE.code}?n=Lisbon&a=Nils` });
     expect(s.actor.state.name).toBe("showingLinkProblem");
-    expect(error(s)).toBe(oldLinkMessage("Nils"));
+    expect(error(s)).toBe(oldLinkMessage(""));
   });
 
   test("a link that has ended says so and sends nothing", async () => {
@@ -931,11 +938,20 @@ describe("askWithPastedLink", () => {
   });
 
   test.each([
-    ["turnedOff", "Nils turned off this link. Ask Nils for a new link if you still want to join."],
-    ["replaced", "Nils replaced this link. Ask Nils for the new link."],
-    ["albumDeleted", "Nils deleted this album. There is nothing to join any more."],
-    ["expired", "This invite link has expired. Ask Nils for a new one."],
-    [undefined, "This invite link no longer works. Ask Nils for a new one."],
+    [
+      "turnedOff",
+      "The person who invited you turned off this link. Ask the person who invited you for a new link if you still want to join.",
+    ],
+    [
+      "replaced",
+      "The person who invited you replaced this link. Ask the person who invited you for the new link.",
+    ],
+    [
+      "albumDeleted",
+      "The person who invited you deleted this album. There is nothing to join any more.",
+    ],
+    ["expired", "This invite link has expired. Ask the person who invited you for a new one."],
+    [undefined, "This invite link no longer works. Ask the person who invited you for a new one."],
   ] as const)("a link this phone knows stopped (%s) says so under the box", async (why, line) => {
     const asks: JoinInvite[] = [];
     const s = setup({
@@ -1207,7 +1223,7 @@ describe("stopped links", () => {
   test.each(SCREENS)("a linkOff answer with why %s while waiting shows %s", async (why, name) => {
     const s = await screen(why);
     expect(s.actor.state.name).toBe(name);
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test.each(SCREENS)(
@@ -1217,7 +1233,7 @@ describe("stopped links", () => {
       await s.send("closeWaiting");
       await s.send("requestAnswered", { ...linkOff, why });
       expect(s.actor.state.name).toBe(name);
-      expect(payload(s)).toEqual(INVITE);
+      expect(payload(s)).toEqual(NAMED);
     },
   );
 
@@ -1225,7 +1241,7 @@ describe("stopped links", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: { ...ask("linkOff"), why } });
     expect(s.actor.state.name).toBe(name);
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test.each(SCREENS)(
@@ -1234,7 +1250,7 @@ describe("stopped links", () => {
       const s = setup({ known: { kind: "stopped", why } });
       await s.send("openLink", { text: LINK });
       expect(s.actor.state.name).toBe(name);
-      expect(payload(s)).toEqual(INVITE);
+      expect(payload(s)).toEqual(UNNAMED);
       expect(s.outputs).toEqual([]);
     },
   );
@@ -1265,7 +1281,7 @@ describe("stopped links", () => {
     await s.send("openLink", { text: LINK });
     await s.send("requestAnswered", linkOff);
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test.each(SCREENS.map(([why]) => why))(
@@ -1325,7 +1341,7 @@ describe("stopped links", () => {
     const s = await screen(why);
     await s.send("openLink", { text: "justus://join/not-a-link" });
     expect(s.actor.state.name).toBe(name);
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test.each(SCREENS)("an accept for another request opens the album over %s", async (why) => {
@@ -1364,6 +1380,11 @@ describe("joiner design", () => {
         name: "Maya's ask meets a deleted album",
         steps: [
           { kind: "event" as const, event: "openLink", payload: { text: LINK } },
+          {
+            kind: "event" as const,
+            event: "linkChecked",
+            payload: { turnedOff: false, ownerName: "" },
+          },
           { kind: "event" as const, event: "askToJoin", payload: null },
           {
             kind: "event" as const,
@@ -1409,8 +1430,15 @@ describe("joiner design", () => {
         { code: INVITE.code, who: "nobody" },
         { code: "c".repeat(64), who: "you" },
       ],
+      namesHeard: [
+        { code: INVITE.code, album: "Spain 2026", ownerName: "Ada" },
+        { code: "c".repeat(64), album: "Garden", ownerName: "Tom" },
+      ],
       requestAnswered: answers,
-      linkChecked: [{ turnedOff: false }, { turnedOff: true }],
+      linkChecked: [
+        { turnedOff: false, ownerName: "" },
+        { turnedOff: true, ownerName: "Ada" },
+      ],
       requestFailed: [{ message: SEND_FAILED }],
     },
   };
@@ -1548,7 +1576,7 @@ test("Maya asks on an older Justus, and is told to update first", async () => {
     await send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
   });
   expect(actor.state.name).toBe("waitingForYouToUpdate");
-  expect(actor.snapshot().payload).toEqual(INVITE);
+  expect(actor.snapshot().payload).toEqual(UNNAMED);
 });
 
 test("Maya updates and her request goes back to waiting for Nils", async () => {
@@ -1676,7 +1704,7 @@ describe("pasted link: branches the review found untested", () => {
     });
     await s.send("askWithPastedLink", { text: LINK });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
-    expect(asks).toEqual([INVITE]);
+    expect(asks).toEqual([UNNAMED]);
   });
 
   test("a check answer without turnedOff true still sends", async () => {
@@ -1721,7 +1749,7 @@ describe("pasted link: branches the review found untested", () => {
     expect(s.actor.state.name).toBe("joinedAlbum");
     await s.send("askWithPastedLink", { text: buildInviteLink(other) });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
-    expect(asks).toEqual([other]);
+    expect(asks).toEqual([{ ...other, album: "", ownerName: "" }]);
   });
 
   test("a garbled tapped link during the pasted check keeps the check", async () => {
@@ -1737,6 +1765,109 @@ describe("pasted link: branches the review found untested", () => {
     s.actor.send({ type: "openLink", payload: { text: "nope" } } as never);
     await new Promise((r) => setTimeout(r, 0));
     expect(s.actor.state.name).toBe("checkingPastedLink");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(UNNAMED);
+  });
+});
+
+describe("names come only from the Admin's phone", () => {
+  const checked = (ownerName: string, turnedOff = false): JoinPort => ({
+    ask: async () => [undefined, {}],
+    checkLink: async () => [undefined, { turnedOff, ownerName }],
+  });
+
+  test("an edited link names nobody on the question", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    expect(payload(s)).toEqual(UNNAMED);
+    expect(JSON.stringify(payload(s))).not.toMatch(/Holiday|Mallory/);
+  });
+
+  test("the link check gives the question the Admin's published name", async () => {
+    const s = setup({ port: checked("Ada") });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
+  });
+
+  test("a check with no published name leaves the owner unnamed", async () => {
+    const s = setup({ port: checked("") });
+    await s.send("openLink", { text: LINK });
+    expect(payload(s)).toEqual(UNNAMED);
+  });
+
+  test("a check that answers with no name field leaves the owner unnamed", async () => {
+    const s = setup({
+      port: {
+        ask: async () => [undefined, {}],
+        checkLink: async () => [undefined, { turnedOff: false }],
+      },
+    });
+    await s.send("openLink", { text: LINK });
+    expect(payload(s)).toEqual(UNNAMED);
+  });
+
+  test("a turned-off link says who turned it off by the published name", async () => {
+    const s = setup({ port: checked("Ada", true) });
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
+    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
+  });
+
+  test("a pasted link turned off says so with the published name", async () => {
+    const s = setup({ port: checked("Ada", true) });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(error(s)).toBe(
+      "Ada turned off this link. Ask Ada for a new link if you still want to join.",
+    );
+  });
+
+  test("the waiting screen takes the names of the stored ask", async () => {
+    const s = await waitingSetup({ asked: () => ask("waiting") });
+    expect(payload(s)).toEqual(NAMED);
+  });
+
+  test("a pasted request takes the names of the stored ask", async () => {
+    const s = setup({ asked: () => ask("waiting") });
+    await s.send("askWithPastedLink", { text: LINK });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(payload(s)).toEqual(NAMED);
+  });
+
+  test("the stored ask's name wins over the name from the link check", async () => {
+    const s = await waitingSetup({
+      port: checked("Ada"),
+      asked: () => ({ ...ask("waiting"), ownerName: "Bea" }),
+    });
+    expect(payload(s)).toEqual({ ...NAMED, ownerName: "Bea" });
+  });
+
+  test("the waiting screen with no stored names keeps what it has", async () => {
+    const s = await waitingSetup({ port: checked("Ada") });
+    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
+  });
+
+  test.each(["waitingForAdminToAccept", "waitingForYouToUpdate"] as const)(
+    "names heard for the open request replace the names in %s",
+    async (name) => {
+      const s = await waitingSetup();
+      if (name === "waitingForYouToUpdate") {
+        await s.send("whoMustUpdateChanged", { code: INVITE.code, who: "you" });
+      }
+      await s.send("namesHeard", { code: INVITE.code, album: "Spain 2026", ownerName: "Ada" });
+      expect(s.actor.state.name).toBe(name);
+      expect(payload(s)).toEqual(NAMED);
+    },
+  );
+
+  test("names heard for another request change nothing", async () => {
+    const s = await waitingSetup();
+    await s.send("namesHeard", { code: "c".repeat(64), album: "Garden", ownerName: "Tom" });
+    expect(payload(s)).toEqual(UNNAMED);
+  });
+
+  test("a row with no names reopens unnamed", async () => {
+    const s = setup();
+    await s.send("reopenRequest", { ask: { ...ask("waiting"), albumName: "", ownerName: "" } });
+    expect(payload(s)).toEqual(UNNAMED);
   });
 });

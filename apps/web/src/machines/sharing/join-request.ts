@@ -3,7 +3,6 @@ import { onOutput } from "@mantaq/sugar";
 import { gateway } from "../../gateway";
 import { currentPage, open } from "../router-machine";
 import { classifyInvite } from "../../utils/classify-invite";
-import type { JoinInvite } from "../../utils/invite-link";
 import type { AskSummary } from "@justus/core";
 import { folders, foldersActor } from "../folders-machine";
 import {
@@ -20,6 +19,8 @@ import {
   closeStoppedLink,
   closeWaiting,
   joinRequestMachine,
+  namesHeard,
+  type JoinScreen,
   dismissDecline,
   dismissExpired,
   notNow,
@@ -53,7 +54,7 @@ export const JOIN_STATES = [
 /** What the join screens draw: which screen, whose album, and any error. */
 export type JoinView = {
   state: (typeof JOIN_STATES)[number];
-  invite: JoinInvite | null;
+  invite: JoinScreen | null;
   error: string;
 };
 
@@ -68,7 +69,7 @@ export function joinViewOf(snapshot: Snapshot<unknown>): JoinView {
       name === "showingLinkProblem" ||
       name === "joinedAlbum"
         ? null
-        : (snapshot.payload as JoinInvite),
+        : (snapshot.payload as JoinScreen),
     error: (snapshot.context as { error: string }).error,
   };
 }
@@ -113,12 +114,23 @@ onOutput(joinActor, (e) => {
  */
 export function wireAsksToJoin(
   foldersSource: {
-    snapshot(): { context: { asks: readonly { code: string; whoMustUpdate?: "you" }[] } };
+    snapshot(): {
+      context: {
+        asks: readonly {
+          code: string;
+          albumName: string;
+          ownerName: string;
+          whoMustUpdate?: "you";
+        }[];
+      };
+    };
     on(event: "change", options: { fn: () => void }): () => void;
   },
   target: {
     snapshot(): Snapshot<unknown>;
-    send(e: ReturnType<typeof whoMustUpdateChanged.create>): unknown;
+    send(
+      e: ReturnType<typeof whoMustUpdateChanged.create> | ReturnType<typeof namesHeard.create>,
+    ): unknown;
   },
 ): () => void {
   return foldersSource.on("change", {
@@ -126,8 +138,16 @@ export function wireAsksToJoin(
       const snap = target.snapshot();
       const name = snap.path[0];
       if (name !== "waitingForAdminToAccept" && name !== "waitingForYouToUpdate") return;
-      const { code } = snap.payload as JoinInvite;
+      const shown = snap.payload as JoinScreen;
+      const { code } = shown;
       const ask = foldersSource.snapshot().context.asks.find((a) => a.code === code);
+      if (
+        ask !== undefined &&
+        ask.albumName !== "" &&
+        (ask.albumName !== shown.album || ask.ownerName !== shown.ownerName)
+      ) {
+        target.send(namesHeard.create({ code, album: ask.albumName, ownerName: ask.ownerName }));
+      }
       const who = ask?.whoMustUpdate ?? "nobody";
       if ((who === "you") === (name === "waitingForYouToUpdate")) return;
       target.send(whoMustUpdateChanged.create({ code, who }));

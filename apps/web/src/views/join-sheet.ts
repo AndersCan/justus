@@ -69,7 +69,7 @@ function sheet(label: string, body: unknown) {
 }
 
 /** The joiner's screens: ask, waiting, not accepted. Draws from the view alone, so it can be previewed.
- * No photos or counts: the link carries only the names its sender typed. */
+ * No photos or counts: names come only from the Admin's phone. */
 export function renderJoinSheet(
   view: JoinView,
   actions: JoinSheetActions,
@@ -127,7 +127,7 @@ export function renderJoinSheet(
     );
   }
   if (state === "checkingLink") {
-    const title = copy("join_request.checking_owner_s_link", { owner });
+    const title = copy("join_request.checking_the_link");
     // Ends by itself within seconds, so there is no button and nothing dismisses it.
     return sheet(
       title,
@@ -136,7 +136,10 @@ export function renderJoinSheet(
   }
   if (state === "decidingToAsk" || state === "sendingRequest") {
     const sending = state === "sendingRequest";
-    const title = copy("invite.ask_to_join", { album: invite.album });
+    const title =
+      invite.album === ""
+        ? copy("invite.ask_to_join_unnamed")
+        : copy("invite.ask_to_join", { album: invite.album });
     return sheet(
       title,
       html`<h3 class="break-words text-base font-semibold text-fg">${title}</h3>
@@ -160,8 +163,11 @@ export function renderJoinSheet(
   }
   if (state === "waitingForAdminToAccept" || state === "waitingForYouToUpdate") {
     const update = state === "waitingForYouToUpdate";
+    const unnamed = invite.album === "";
     const title = update
-      ? copy("invite.update_justus_to_join", { album: invite.album })
+      ? unnamed
+        ? copy("invite.update_justus_to_join_unnamed")
+        : copy("invite.update_justus_to_join", { album: invite.album })
       : copy("invite.you_re_done", { owner });
     return sheet(
       title,
@@ -170,7 +176,9 @@ export function renderJoinSheet(
           ${
             update
               ? t("invite.request_reaches_after_update", { owner })
-              : t("invite.request_to_join_sent_to", { owner, album: invite.album })
+              : unnamed
+                ? t("invite.request_to_join_sent_to_unnamed", { owner })
+                : t("invite.request_to_join_sent_to", { owner, album: invite.album })
           }
         </p>
         ${lines.checkCode}

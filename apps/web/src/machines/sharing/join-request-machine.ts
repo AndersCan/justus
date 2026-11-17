@@ -11,6 +11,10 @@ import { copy } from "../../copy/copy";
  * The link carries no album key; the key arrives only if the Admin accepts.
  */
 
+/** An open invite as the join screens hold it: the link's invite plus the names the
+ * Admin's phone gave. "" until it has: from the link check (owner only) or a received answer. */
+export type JoinScreen = JoinInvite & { album: string; ownerName: string };
+
 /** What the app already knows about a link's invite code. */
 export type Known =
   | { kind: "new" }
@@ -35,7 +39,7 @@ export type AskSummary = {
 /** Sends the request; resolves `[error, result]` like the gateway. */
 export type JoinPort = {
   ask(invite: JoinInvite): Promise<[unknown, unknown]>;
-  /** Reads whether the owner turned this link off; `[error, { turnedOff }]`. */
+  /** Reads whether the owner turned this link off and the name the owner published; `[error, { turnedOff, ownerName }]`. */
   checkLink?(invite: JoinInvite): Promise<[unknown, unknown]>;
 };
 
@@ -75,33 +79,33 @@ const holdingInviteUntilWelcomeEnds = state("holdingInviteUntilWelcomeEnds")<Joi
 /** The opened text is not a link that works; the reason shows under the paste box. */
 const showingLinkProblem = state("showingLinkProblem")();
 /** "Checking <owner>'s link…": the owner's phone is asked whether the link was turned off, for at most a few seconds. Nothing is sent. */
-const checkingLink = state("checkingLink")<JoinInvite>();
+const checkingLink = state("checkingLink")<JoinScreen>();
 /** The paste box's button reads "Checking the link…": the owner's phone is asked whether the link was turned off, for at most a few seconds. No sheet; nothing is sent. */
-const checkingPastedLink = state("checkingPastedLink")<JoinInvite>();
+const checkingPastedLink = state("checkingPastedLink")<JoinScreen>();
 /** The paste box's button reads "Asking…" while the request is handed over. No sheet. */
-const sendingPastedRequest = state("sendingPastedRequest")<JoinInvite>();
+const sendingPastedRequest = state("sendingPastedRequest")<JoinScreen>();
 /** The declined request goes out again; the declined screen stays. */
-const sendingRequestAgain = state("sendingRequestAgain")<JoinInvite>();
+const sendingRequestAgain = state("sendingRequestAgain")<JoinScreen>();
 /** "Ask to join <album>?" is on screen. No photos, no counts. */
-const decidingToAsk = state("decidingToAsk")<JoinInvite>();
+const decidingToAsk = state("decidingToAsk")<JoinScreen>();
 /** The request is being sent; the buttons are disabled. */
-const sendingRequest = state("sendingRequest")<JoinInvite>();
+const sendingRequest = state("sendingRequest")<JoinScreen>();
 /** "Waiting for <owner>". Shown with no timer until an answer comes. */
-const waitingForAdminToAccept = state("waitingForAdminToAccept")<JoinInvite>();
+const waitingForAdminToAccept = state("waitingForAdminToAccept")<JoinScreen>();
 /** This phone's Justus is older than the Admin's: "Update Justus to join". The request stays and goes out once both match. */
-const waitingForYouToUpdate = state("waitingForYouToUpdate")<JoinInvite>();
+const waitingForYouToUpdate = state("waitingForYouToUpdate")<JoinScreen>();
 /** "<owner> didn't accept your request." OK takes the request off this phone; the link can be asked through again. */
-const declinedByAdmin = state("declinedByAdmin")<JoinInvite>();
+const declinedByAdmin = state("declinedByAdmin")<JoinScreen>();
 /** The link's end time has passed; nothing is sent. */
-const linkExpired = state("linkExpired")<JoinInvite>();
+const linkExpired = state("linkExpired")<JoinScreen>();
 /** "<owner> turned off this link." The request was not answered; "Ask <owner> for a new link if you still want to join." */
-const linkTurnedOffByAdmin = state("linkTurnedOffByAdmin")<JoinInvite>();
+const linkTurnedOffByAdmin = state("linkTurnedOffByAdmin")<JoinScreen>();
 /** "<owner> replaced this link." The request was not answered; "Ask <owner> for the new link." */
-const linkReplacedByAdmin = state("linkReplacedByAdmin")<JoinInvite>();
+const linkReplacedByAdmin = state("linkReplacedByAdmin")<JoinScreen>();
 /** "<owner> deleted this album." "There is nothing to join any more." */
-const albumDeletedByAdmin = state("albumDeletedByAdmin")<JoinInvite>();
+const albumDeletedByAdmin = state("albumDeletedByAdmin")<JoinScreen>();
 /** "This invite link no longer works. Ask <owner> for a new one." The Admin's phone gave no reason (an older Justus, or a link turned off before reasons were kept). */
-const linkStoppedForUnknownReason = state("linkStoppedForUnknownReason")<JoinInvite>();
+const linkStoppedForUnknownReason = state("linkStoppedForUnknownReason")<JoinScreen>();
 const stoppedStates = [
   linkTurnedOffByAdmin,
   linkReplacedByAdmin,
@@ -154,8 +158,11 @@ export type RequestAnswer =
 /** The owner's answer reached this phone. */
 export const requestAnswered = event("requestAnswered")<RequestAnswer>();
 
-/** The owner's phone answered whether the link is turned off; any failure reads as not off. */
-const linkChecked = event("linkChecked")<{ turnedOff: boolean }>();
+/** The Admin's phone sent the names for a waiting ask. */
+export const namesHeard = event("namesHeard")<{ code: string; album: string; ownerName: string }>();
+
+/** The owner's phone answered whether the link is turned off, and the name it publishes ("" when unknown); any failure reads as not off. */
+const linkChecked = event("linkChecked")<{ turnedOff: boolean; ownerName: string }>();
 /** The request was sent. */
 const requestSent = event("requestSent")();
 /** The request could not be sent. */
@@ -169,7 +176,7 @@ export const dismissDeclinedAsk = event("dismissDeclinedAsk")<{ code: string }>(
 export const cancelAsk = event("cancelAsk")<{ code: string }>();
 
 /** The screen that says why a link stopped working. */
-function stoppedScreen(why: LinkOffWhy | undefined, invite: JoinInvite) {
+function stoppedScreen(why: LinkOffWhy | undefined, invite: JoinScreen) {
   switch (why) {
     case "expired":
       return linkExpired.create(invite);
@@ -207,9 +214,23 @@ export const joinRequestMachine = machine("joinRequest", {
         sent.set(invite.code, askOf(invite, clock.now()));
         return [undefined, {}];
       },
-      checkLink: async () => [undefined, { turnedOff: false }],
+      checkLink: async () => [undefined, { turnedOff: false, ownerName: "" }],
     };
     const asked = options.asked ?? ((code: string) => sent.get(code));
+    /** The link's invite with the names this phone heard from the Admin's phone, "" when none. */
+    function screenOf(invite: JoinInvite): JoinScreen {
+      const ask = asked(invite.code);
+      return { ...invite, album: ask?.albumName ?? "", ownerName: ask?.ownerName ?? "" };
+    }
+    /** A waiting screen's payload: the stored ask's names once it has any, else the screen's own. */
+    function withHeard(invite: JoinScreen): JoinScreen {
+      const ask = asked(invite.code);
+      return {
+        ...invite,
+        album: ask?.albumName || invite.album,
+        ownerName: ask?.ownerName || invite.ownerName,
+      };
+    }
     const classify = typeof known === "function" ? known : () => known;
 
     /** The waiting screen that fits who must update. */
@@ -218,13 +239,14 @@ export const joinRequestMachine = machine("joinRequest", {
     }
 
     /** The screen a usable link opens, from what this phone knows about it. */
-    function screenFor(invite: JoinInvite) {
+    function screenFor(link: JoinInvite) {
+      const invite = screenOf(link);
       const found = classify(invite);
       if (found.kind === "own" || found.kind === "member") {
         return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
       }
       if (found.kind === "waiting") {
-        return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(withHeard(invite)) };
       }
       if (found.kind === "stopped") return { state: stoppedScreen(found.why, invite) };
       if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
@@ -232,13 +254,14 @@ export const joinRequestMachine = machine("joinRequest", {
     }
 
     /** The screen a link pasted under the box opens: like `screenFor`, but a stopped link says so under the box and a new one is checked with no sheet. */
-    function pastedScreenFor(invite: JoinInvite, context: { set(next: JoinContext): void }) {
+    function pastedScreenFor(link: JoinInvite, context: { set(next: JoinContext): void }) {
+      const invite = screenOf(link);
       const found = classify(invite);
       if (found.kind === "own" || found.kind === "member") {
         return { state: joinedAlbum, emit: [openAlbum.create({ folderId: found.folderId })] };
       }
       if (found.kind === "waiting") {
-        return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+        return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(withHeard(invite)) };
       }
       if (found.kind === "stopped") {
         context.set({ error: stoppedLine(found.why, invite.ownerName) });
@@ -270,6 +293,7 @@ export const joinRequestMachine = machine("joinRequest", {
         closeStoppedLink,
         requestAnswered,
         whoMustUpdateChanged,
+        namesHeard,
       ],
       internal: [requestSent, requestFailed, linkChecked],
       outputs: [openAlbum, dismissDeclinedAsk, cancelAsk],
@@ -327,7 +351,7 @@ export const joinRequestMachine = machine("joinRequest", {
               const parsed = parseInviteLink(e.payload.text);
               if (parsed.kind !== "invite") {
                 context.set({
-                  error: parsed.kind === "old" ? oldLinkMessage(parsed.ownerName) : GARBLED_LINK,
+                  error: parsed.kind === "old" ? oldLinkMessage("") : GARBLED_LINK,
                 });
                 return { state: unusableOrStay(actor) };
               }
@@ -376,7 +400,7 @@ export const joinRequestMachine = machine("joinRequest", {
                     text.trim() === ""
                       ? NOTHING_COPIED
                       : parsed.kind === "old"
-                        ? oldLinkMessage(parsed.ownerName)
+                        ? oldLinkMessage("")
                         : GARBLED_LINK,
                 });
                 return { state: showingLinkProblem };
@@ -504,7 +528,7 @@ export const joinRequestMachine = machine("joinRequest", {
               const answer = e.payload;
               return answer.answer === "accepted" && answer.folderId !== undefined
                 ? { state: joinedAlbum, emit: [openAlbum.create({ folderId: answer.folderId })] }
-                : { state: from.create(actor.snapshot().payload as JoinInvite) };
+                : { state: from.create(actor.snapshot().payload as JoinScreen) };
             },
           });
         }
@@ -527,9 +551,10 @@ export const joinRequestMachine = machine("joinRequest", {
               emit(
                 linkChecked.create({
                   turnedOff: (r as { turnedOff?: unknown } | undefined)?.turnedOff === true,
+                  ownerName: nameOf(r),
                 }),
               ),
-            () => emit(linkChecked.create({ turnedOff: false })),
+            () => emit(linkChecked.create({ turnedOff: false, ownerName: "" })),
           );
         /** The owner's phone is asked whether the link is off. Nothing is sent, and no failure is shown: not knowing leads to the question. */
         m.effect(checkingLink, {
@@ -548,7 +573,8 @@ export const joinRequestMachine = machine("joinRequest", {
           event: linkChecked,
           to: [linkTurnedOffByAdmin, decidingToAsk],
           handler: (e, { actor }) => {
-            const invite = actor.snapshot().payload as JoinInvite;
+            const shown = actor.snapshot().payload as JoinScreen;
+            const invite = { ...shown, ownerName: e.payload.ownerName || shown.ownerName };
             return e.payload.turnedOff
               ? { state: linkTurnedOffByAdmin.create(invite) }
               : { state: decidingToAsk.create(invite) };
@@ -560,7 +586,8 @@ export const joinRequestMachine = machine("joinRequest", {
           event: linkChecked,
           to: [showingLinkProblem, sendingPastedRequest],
           handler: (e, { actor, context }) => {
-            const invite = actor.snapshot().payload as JoinInvite;
+            const shown = actor.snapshot().payload as JoinScreen;
+            const invite = { ...shown, ownerName: e.payload.ownerName || shown.ownerName };
             const why = e.payload.turnedOff
               ? "turnedOff"
               : hasEnded(invite, clock.now())
@@ -578,8 +605,10 @@ export const joinRequestMachine = machine("joinRequest", {
           event: requestSent,
           to: [waitingForAdminToAccept, waitingForYouToUpdate],
           handler: (_e, { actor }) => {
-            const invite = actor.snapshot().payload as JoinInvite;
-            return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+            const invite = actor.snapshot().payload as JoinScreen;
+            return {
+              state: waitingFor(asked(invite.code)?.whoMustUpdate).create(withHeard(invite)),
+            };
           },
         });
         /** The send failed: the box keeps the link and says so under it. */
@@ -598,7 +627,7 @@ export const joinRequestMachine = machine("joinRequest", {
           to: [sendingRequest, linkExpired],
           handler: (_e, { actor, context }) => {
             context.set({ error: "" });
-            const invite = actor.snapshot().payload as JoinInvite;
+            const invite = actor.snapshot().payload as JoinScreen;
             // The link may have ended while the question was open.
             if (hasEnded(invite, clock.now())) return { state: linkExpired.create(invite) };
             return { state: sendingRequest.create(invite) };
@@ -651,8 +680,10 @@ export const joinRequestMachine = machine("joinRequest", {
           event: requestSent,
           to: [waitingForAdminToAccept, waitingForYouToUpdate],
           handler: (_e, { actor }) => {
-            const invite = actor.snapshot().payload as JoinInvite;
-            return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+            const invite = actor.snapshot().payload as JoinScreen;
+            return {
+              state: waitingFor(asked(invite.code)?.whoMustUpdate).create(withHeard(invite)),
+            };
           },
         });
         /** The declined request is on its way again. */
@@ -660,8 +691,10 @@ export const joinRequestMachine = machine("joinRequest", {
           event: requestSent,
           to: [waitingForAdminToAccept, waitingForYouToUpdate],
           handler: (_e, { actor }) => {
-            const invite = actor.snapshot().payload as JoinInvite;
-            return { state: waitingFor(asked(invite.code)?.whoMustUpdate).create(invite) };
+            const invite = actor.snapshot().payload as JoinScreen;
+            return {
+              state: waitingFor(asked(invite.code)?.whoMustUpdate).create(withHeard(invite)),
+            };
           },
         });
         /** The send failed: back to the declined screen, with the error shown. */
@@ -670,7 +703,7 @@ export const joinRequestMachine = machine("joinRequest", {
           to: [declinedByAdmin],
           handler: (e, { actor, context }) => {
             context.set({ error: e.payload.message });
-            return { state: declinedByAdmin.create(actor.snapshot().payload as JoinInvite) };
+            return { state: declinedByAdmin.create(actor.snapshot().payload as JoinScreen) };
           },
         });
         /** The send failed: back to the question, with the error shown. */
@@ -679,7 +712,7 @@ export const joinRequestMachine = machine("joinRequest", {
           to: [decidingToAsk],
           handler: (e, { actor, context }) => {
             context.set({ error: e.payload.message });
-            return { state: decidingToAsk.create(actor.snapshot().payload as JoinInvite) };
+            return { state: decidingToAsk.create(actor.snapshot().payload as JoinScreen) };
           },
         });
 
@@ -695,7 +728,7 @@ export const joinRequestMachine = machine("joinRequest", {
             event: cancelRequest,
             to: [noInviteOpen],
             handler: (_e, { actor }) => {
-              const invite = actor.snapshot().payload as JoinInvite;
+              const invite = actor.snapshot().payload as JoinScreen;
               sent.delete(invite.code);
               return { state: noInviteOpen, emit: [cancelAsk.create({ code: invite.code })] };
             },
@@ -705,7 +738,7 @@ export const joinRequestMachine = machine("joinRequest", {
             event: requestAnswered,
             to: [joinedAlbum, declinedByAdmin, linkExpired, ...stoppedStates, from],
             handler: (e, { actor }) => {
-              const invite = actor.snapshot().payload as JoinInvite;
+              const invite = actor.snapshot().payload as JoinScreen;
               if (e.payload.code !== invite.code) return { state: from.create(invite) };
               if (e.payload.answer === "declined") return { state: declinedByAdmin.create(invite) };
               if (e.payload.answer === "linkOff") {
@@ -717,12 +750,29 @@ export const joinRequestMachine = machine("joinRequest", {
                 : { state: joinedAlbum, emit: [openAlbum.create({ folderId })] };
             },
           });
+          /** The Admin's phone sent the names for this request. Another request's names change nothing. */
+          m.on(from, {
+            event: namesHeard,
+            to: [from],
+            handler: (e, { actor }) => {
+              const invite = actor.snapshot().payload as JoinScreen;
+              return e.payload.code === invite.code
+                ? {
+                    state: from.create({
+                      ...invite,
+                      album: e.payload.album,
+                      ownerName: e.payload.ownerName,
+                    }),
+                  }
+                : { state: from.create(invite) };
+            },
+          });
           /** The phones compared versions: the screen says who must update. Another request's mark changes nothing. */
           m.on(from, {
             event: whoMustUpdateChanged,
             to: [waitingForAdminToAccept, waitingForYouToUpdate],
             handler: (e, { actor }) => {
-              const invite = actor.snapshot().payload as JoinInvite;
+              const invite = actor.snapshot().payload as JoinScreen;
               return e.payload.code === invite.code
                 ? { state: waitingFor(e.payload.who).create(invite) }
                 : { state: from.create(invite) };
@@ -739,7 +789,7 @@ export const joinRequestMachine = machine("joinRequest", {
             event: close,
             to: [noInviteOpen],
             handler: (_e, { actor }) => {
-              const { code } = actor.snapshot().payload as JoinInvite;
+              const { code } = actor.snapshot().payload as JoinScreen;
               const row = asked(code);
               if (row === undefined || row.status === "declined") return { state: noInviteOpen };
               sent.delete(code);
@@ -755,7 +805,7 @@ export const joinRequestMachine = machine("joinRequest", {
           handler: (_e, { actor, context }) => {
             context.set({ error: "" });
 
-            return { state: sendingRequestAgain.create(actor.snapshot().payload as JoinInvite) };
+            return { state: sendingRequestAgain.create(actor.snapshot().payload as JoinScreen) };
           },
         });
         /** "Not now": the request comes off this phone. */
@@ -768,7 +818,7 @@ export const joinRequestMachine = machine("joinRequest", {
             return {
               state: noInviteOpen,
               emit: [
-                dismissDeclinedAsk.create({ code: (actor.snapshot().payload as JoinInvite).code }),
+                dismissDeclinedAsk.create({ code: (actor.snapshot().payload as JoinScreen).code }),
               ],
             };
           },
@@ -778,25 +828,30 @@ export const joinRequestMachine = machine("joinRequest", {
   },
 });
 
+function nameOf(result: unknown): string {
+  const name = (result as { ownerName?: unknown } | undefined)?.ownerName;
+  return typeof name === "string" ? name : "";
+}
+
 function askOf(invite: JoinInvite, askedAt: number): AskSummary {
   return {
     code: invite.code,
     owner: invite.owner,
-    albumName: invite.album,
-    ownerName: invite.ownerName,
+    albumName: "",
+    ownerName: "",
     askedAt,
     status: "waiting",
   };
 }
 
-function inviteOf(row: AskSummary): JoinInvite {
+function inviteOf(row: AskSummary): JoinScreen {
   return { code: row.code, owner: row.owner, album: row.albumName, ownerName: row.ownerName };
 }
 
 /** From a screen with no invite, an unusable link shows its error; from an invite screen, the screen stays. */
 function unusableOrStay(actor: { snapshot(): { path: string[]; payload?: unknown } }) {
   const snap = actor.snapshot();
-  const invite = snap.payload as JoinInvite;
+  const invite = snap.payload as JoinScreen;
   switch (snap.path[0]) {
     case "checkingLink":
       return checkingLink.create(invite);

@@ -1,26 +1,22 @@
-import { copy } from "../copy/copy"; /** What an invite link carries: the invite code, who to ask, and unsigned
- * labels the joiner sees before asking. The album's key is never in a link. */
+import { copy } from "../copy/copy"; /** What an invite link carries: the code, who to ask, when it ends. Never a name:
+ * the names a joiner reads come from the Admin's phone. */
 export type JoinInvite = {
   /** 64-hex invite code. */
   code: string;
   /** 64-hex identity drive key of the album's owner. */
   owner: string;
-  /** Album name hint. */
-  album: string;
-  /** Owner's display name hint; "" when the link carries none. */
-  ownerName: string;
   /** When the link stops working, in ms since the epoch. Absent: never. */
   expiresAt?: number;
 };
 
+/** Names the sender typed into the link, written only for the browser join page. The app never reads them back. */
+export type LinkHints = { album: string; ownerName: string };
+
 export type ParsedInvite =
   | { kind: "invite"; invite: JoinInvite }
-  | { kind: "old"; ownerName: string }
+  | { kind: "old" }
   | { kind: "garbled" };
 
-/** Same cap as a peer name. */
-export const MAX_HINT = 80;
-const FALLBACK_ALBUM = copy("invite_link.this_album");
 const HEX64 = /^[0-9a-f]{64}$/i;
 const SECONDS = /^\d{1,12}$/;
 /** The page people open from a chat. The invite sits after the "#", which browsers never send. */
@@ -28,11 +24,6 @@ export const INVITE_PAGE = "https://anderscan.github.io/justus/join/";
 const PAGE_LINK = /https:\/\/anderscan\.github\.io\/justus\/join\/?#([^\s]*)/i;
 const LINK = /justus:\/\/join\?([^\s]*)/i;
 const OLD_LINK = /justus:\/\/join\/[0-9a-f]{64}(?![0-9a-f])(?:\?([^\s]*))?/i;
-
-function hint(value: string | null, fallback: string): string {
-  const trimmed = (value ?? "").trim().slice(0, MAX_HINT);
-  return trimmed === "" ? fallback : trimmed;
-}
 
 /** The owner as the joiner reads them: their name, or "the person who invited you" when this phone
  * does not know it. "" and the backend's stand-in "the Admin" (DEFAULT_ASK_OWNER, records.ts) both mean
@@ -49,7 +40,7 @@ export function ownerShown(name: string, at: "start" | "mid"): string {
 }
 
 /** docs/site/public/join/join.js reads this link; scripts/join-page.test.ts pins both. */
-export function buildInviteLink(invite: JoinInvite): string {
+export function buildInviteLink(invite: JoinInvite & LinkHints): string {
   const params = new URLSearchParams({
     i: invite.code.toLowerCase(),
     o: invite.owner.toLowerCase(),
@@ -64,10 +55,7 @@ export function buildInviteLink(invite: JoinInvite): string {
 export function parseInviteLink(text: string): ParsedInvite {
   const match = PAGE_LINK.exec(text) ?? LINK.exec(text);
   if (!match) {
-    const old = OLD_LINK.exec(text);
-    if (!old) return { kind: "garbled" };
-    const ownerName = hint(new URLSearchParams(old[1] ?? "").get("a"), "");
-    return { kind: "old", ownerName };
+    return OLD_LINK.test(text) ? { kind: "old" } : { kind: "garbled" };
   }
   const params = new URLSearchParams(match[1]);
   const code = params.get("i");
@@ -82,8 +70,6 @@ export function parseInviteLink(text: string): ParsedInvite {
     invite: {
       code: code.toLowerCase(),
       owner: owner.toLowerCase(),
-      album: hint(params.get("n"), FALLBACK_ALBUM),
-      ownerName: hint(params.get("a"), ""),
       ...(end === null ? {} : { expiresAt: Number(end) * 1000 }),
     },
   };
@@ -94,5 +80,7 @@ export function inviteLinkFromAddress(pathname: string, search: string): string 
   if (pathname.toLowerCase().replace(/\/$/, "") !== "/join") return undefined;
   if (!search.startsWith("?")) return undefined;
   const parsed = parseInviteLink(`justus://join${search}`);
-  return parsed.kind === "invite" ? buildInviteLink(parsed.invite) : undefined;
+  return parsed.kind === "invite"
+    ? buildInviteLink({ ...parsed.invite, album: "", ownerName: "" })
+    : undefined;
 }

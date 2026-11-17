@@ -236,6 +236,17 @@ describe("pending asks", () => {
     expect(host.textContent).not.toContain("Admin");
   });
 
+  test("a request whose Admin has not answered names no album", async () => {
+    const host = document.createElement("div");
+    render(albumsPanel(), host);
+    await load(["a"], [{ ...ask("waiting"), albumName: "", ownerName: "" }]);
+    const row = host.querySelector("button[aria-label*='Album you asked to join']");
+    expect(row?.getAttribute("aria-label")).toBe(
+      "Waiting for the person who invited you to accept: Album you asked to join",
+    );
+    expect(row?.textContent).toContain("Album you asked to join");
+  });
+
   test("the albums panel still lists waiting and declined rows", async () => {
     const host = document.createElement("div");
     render(albumsPanel(), host);
@@ -358,11 +369,11 @@ describe("Join tab", () => {
   test("a link its owner turned off says so under the box and keeps the text", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
-    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: true }]);
+    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: true, ownerName: "Ada" }]);
     const input = submit(host, goodLink);
     await vi.waitFor(() => expect(host.querySelector("[role=alert]")).not.toBeNull());
     expect(host.querySelector("[role=alert]")!.textContent).toBe(
-      "Nils turned off this link. Ask Nils for a new link if you still want to join.",
+      "Ada turned off this link. Ask Ada for a new link if you still want to join.",
     );
     expect(input.value).toBe(goodLink);
     expect(document.querySelector("dialog")).toBeNull();

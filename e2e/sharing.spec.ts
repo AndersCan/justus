@@ -6,11 +6,11 @@ test("an expired invite link says so under the box and sends nothing", async ({ 
   await page.getByLabel("Invite link").fill(link);
   await page.getByRole("button", { name: "Ask to join", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText(
-    "This invite link has expired. Ask Nils for a new one.",
+    "This invite link has expired. Ask the person who invited you for a new one.",
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByLabel("Invite link")).toHaveValue(link);
-  await expect(page.getByRole("button", { name: /: Trip$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /: Album you asked to join$/ })).toHaveCount(0);
 });
 
 test("text that is not a link says so under the box until you type", async ({ page }) => {
@@ -36,14 +36,18 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
     await page.goto("/join");
     await page.getByLabel("Invite link").fill(link);
     await page.getByRole("button", { name: "Ask to join", exact: true }).click();
-    return page.getByRole("dialog", { name: "You're done. Waiting for Nils to let you in." });
+    return page.getByRole("dialog", {
+      name: "You're done. Waiting for the person who invited you to let you in.",
+    });
   };
   const waiting = await ask();
   await expect(waiting).toBeVisible({ timeout: 15_000 });
   await expect(page.getByLabel("Invite link")).toHaveValue("");
   await waiting.getByRole("button", { name: "Cancel request" }).click();
   await expect(waiting).toBeHidden();
-  const row = page.getByRole("button", { name: "Waiting for Nils to accept: Cancel test" });
+  const row = page.getByRole("button", {
+    name: "Waiting for the person who invited you to accept: Album you asked to join",
+  });
   await expect(row).toHaveCount(0);
   await page.reload();
   await expect(row).toHaveCount(0);
