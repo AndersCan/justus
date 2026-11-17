@@ -2735,12 +2735,13 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
     const seq = ++rt.listSeq;
     const selfKey = selfKeyOf(rt);
+    const removed = rt.record.notice?.kind === "removed";
     const sources = galleryDrives({
       role: rt.record.role,
       folderDrive: rt.folderDrive,
       selfDrive: rt.selfDrive,
       memberDrives: rt.memberDrives,
-      removed: rt.record.notice?.kind === "removed",
+      removed,
     });
     const gallery = await listGallery(sources, {
       removedFrom: rt.folderDrive,
@@ -2780,9 +2781,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         holders: holdersFor({
           photo: { id: d.id, driveKey: d.driveKey, memberName: d.memberName },
           selfKey,
-          people,
           held: rt.held,
-          former: rt.former,
+          album: removed ? { kind: "removed" } : { kind: "inAlbum", people, former: rt.former },
         }),
       });
     }
@@ -3297,10 +3297,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const holders = holdersFor({
       photo: { id, driveKey: entry.driveKey, memberName: entry.adderName },
       selfKey,
-      people: (await albumPeople(rt)) as PhotoMember[],
       held: rt.held,
-      former: [],
+      album: { kind: "inAlbum", people: (await albumPeople(rt)) as PhotoMember[], former: [] },
     });
+    if (holders.kind === "removed") return waiting;
     for (const person of [...holders.others, ...holders.previews]) {
       if (person.key !== selfKey && person.key !== entry.driveKey) waiting.set(person.key, person);
     }
