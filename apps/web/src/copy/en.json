@@ -3198,6 +3198,13 @@
     "who": "People who delete a photo: who added it, or the Admin",
     "screen": ""
   },
+  "lightbox.removed_from_phones": {
+    "text": "Removed from {list} {n?phone:phones}.",
+    "status": "draft",
+    "where": "Photo viewer › Removed toast",
+    "who": "People who delete a photo that other phones held",
+    "screen": ""
+  },
   "lightbox.will_see_it_when_connected": {
     "text": "{list} will see it's gone when connected.",
     "status": "draft",

@@ -1,8 +1,16 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import { photoSpecs } from "@justus/core";
 import type { WireMessage } from "@ekrooh/bare/core";
-import { askAnswer, changeCause, deletedOf, handleMessage, roleChangeOf } from "./handle-message";
+import {
+  askAnswer,
+  changeCause,
+  deletedOf,
+  droppedOf,
+  handleMessage,
+  roleChangeOf,
+} from "./handle-message";
 import { deletedNote } from "./views/deleted-note";
+import { droppedToast } from "./views/dropped-toast";
 import { roleToast } from "./views/role-toast";
 import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
@@ -187,5 +195,31 @@ describe("handleMessage deleted", () => {
     expect(deletedOf({ cause: "deleted", folderId: "f1" })).toBeUndefined();
     expect(deletedOf({ cause: "enroll", folderId: "f1", deleted })).toBeUndefined();
     expect(deletedOf({ cause: "deleted", folderId: "f1", deleted: null })).toBeUndefined();
+  });
+});
+
+describe("handleMessage dropped", () => {
+  const dropped = { photoId: "p1", people: [{ key: "k1", name: "Ben" }] };
+
+  it("a dropped push tells the toast and reloads nothing", () => {
+    const spy = vi.spyOn(droppedToast, "show").mockImplementation(() => {});
+    handleMessage(push({ cause: "dropped", folderId: "f1", dropped }));
+    expect(spy).toHaveBeenCalledWith({ names: ["Ben"] });
+    spy.mockRestore();
+  });
+
+  it("other pushes do not", () => {
+    const spy = vi.spyOn(droppedToast, "show").mockImplementation(() => {});
+    handleMessage(push({ cause: "enroll", folderId: "f1" }));
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("droppedOf needs the dropped cause and a people list", () => {
+    expect(droppedOf({ cause: "dropped", dropped })).toEqual({ names: ["Ben"] });
+    expect(droppedOf({ cause: "deleted", dropped })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped" })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped", dropped: null })).toBeUndefined();
+    expect(droppedOf({ cause: "dropped", dropped: { people: "x" } })).toBeUndefined();
   });
 });

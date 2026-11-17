@@ -8,6 +8,7 @@ import { friendOffer } from "./machines/sharing/friend-offer";
 import { join } from "./machines/sharing/join-request";
 import type { RequestAnswer } from "./machines/sharing/join-request-machine";
 import { sync } from "./machines/sync-machine";
+import { droppedToast, type DroppedIn } from "./views/dropped-toast";
 import { deletedNote, type DeletedIn } from "./views/deleted-note";
 import { roleToast, type RoleChangeIn } from "./views/role-toast";
 
@@ -58,6 +59,16 @@ export function deletedOf(args: unknown): DeletedIn | undefined {
   return { ...(a.deleted as Omit<DeletedIn, "folderId">), folderId: a.folderId };
 }
 
+/** The phones that dropped a photo, carried by a `photos.changed` push with cause "dropped". */
+export function droppedOf(args: unknown): DroppedIn | undefined {
+  const a = (args ?? {}) as { cause?: unknown; dropped?: unknown };
+  if (a.cause !== "dropped" || typeof a.dropped !== "object" || a.dropped === null)
+    return undefined;
+  const people = (a.dropped as { people?: unknown }).people;
+  if (!Array.isArray(people)) return undefined;
+  return { names: people.flatMap((p) => (typeof p?.name === "string" ? [p.name] : [])) };
+}
+
 /** Routes inbound wire messages: backend→web pushes refresh the actors;
  * invoke failures log. */
 export function handleMessage(msg: WireMessage) {
@@ -80,6 +91,12 @@ export function handleMessage(msg: WireMessage) {
     const deleted = deletedOf(h.args);
     if (deleted) {
       deletedNote.add(deleted);
+      return;
+    }
+    // A friend's phone let go of a photo this phone deleted: tell the person, reload nothing.
+    const dropped = droppedOf(h.args);
+    if (dropped) {
+      droppedToast.show(dropped);
       return;
     }
     gallery.synced(Date.now());
