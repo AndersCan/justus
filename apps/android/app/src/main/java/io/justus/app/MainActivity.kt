@@ -231,7 +231,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && ::webView.isInitialized && lockEnabled(this)) {
+        if (::webView.isInitialized && lockEnabled(this)) {
             covered = true
             renderLock()
         }
