@@ -268,7 +268,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyRecentsScreenshot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            setRecentsScreenshotEnabled(!lockEnabled(this))
+            val enabled = !lockEnabled(this)
+            Log.i("JUSTUS_ANDROID", "recents screenshot enabled=$enabled")
+            setRecentsScreenshotEnabled(enabled)
         }
     }
 

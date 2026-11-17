@@ -90,7 +90,8 @@ class SwitcherCover {
     }
   }
 
-  private fun shot(name: String) {
+  private fun shot(name: String, fromHome: Boolean = false) {
+    if (fromHome) device.pressHome()
     device.pressRecentApps()
     // The task card is the launcher's "snapshot" view, described "Justus". The launcher package name the
     // test reports differs from the one that draws the overview, so match on the view id.
@@ -142,6 +143,10 @@ class SwitcherCover {
     waitForTile()
 
     shot("switcher-lock-on")
+    // Diagnostic: the snapshot path, Recents opened from the launcher rather than from the app.
+    launch(Intent.FLAG_ACTIVITY_NEW_TASK)
+    waitForTile()
+    shot("switcher-lock-on-from-home", fromHome = true)
 
     device.executeShellCommand("locksettings clear --old 1111")
     launch(Intent.FLAG_ACTIVITY_NEW_TASK)

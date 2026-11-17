@@ -13,5 +13,6 @@ grep -q "^OK" /tmp/switcher-cover.log || { $adb logcat -d -s SwitcherCover TestR
 $adb logcat -d -s JUSTUS_ANDROID | tail -30
 rm -rf switcher-cover
 $adb pull /sdcard/Android/data/no.cankode.justus/files/switcher-cover switcher-cover
+node ../../scripts/photo-marker.mjs check switcher-cover/switcher-lock-on-from-home.png hidden || true
 node ../../scripts/photo-marker.mjs check switcher-cover/switcher-lock-on.png hidden
 node ../../scripts/photo-marker.mjs check switcher-cover/switcher-lock-off.png shows
