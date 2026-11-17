@@ -6,7 +6,7 @@ layer from a Bare worklet's loopback server via a WebView, and the web layer ren
 
 Run locally with `pnpm test:native` (`scripts/maestro-e2e.sh`). The release workflow
 (`.github/workflows/release-android.yml`) runs the same script on an x86_64 API 36 emulator before
-the Play upload. Emulators cannot reach peers, so flows are single-device only.
+the Play upload. The flows are single-device: an emulator cannot reach another emulator, so only the release walk (below) meets a second person.
 
 ## What the flow covers
 
@@ -52,3 +52,7 @@ state. First after wiping the app's cache dir (as Settings → Clear cache does)
 times the relaunched worklet must reopen the album "M" from `first-run.yaml` out of the store.
 The UI cannot show this: the intro-seen flag lives in web storage keyed by the loopback port,
 which changes every launch.
+
+## Release walk
+
+Actions › release-walk › Run workflow walks Ada (web, Chromium) and Ben (the release APK) through an invite: `e2e/device/release-walk.walk.ts` with Ben's steps in `.maestro/walk/`, outside `flows/*.yaml`. A branch dispatch walks main's deployed invite page.

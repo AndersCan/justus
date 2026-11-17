@@ -116,7 +116,7 @@ layer, Host, Actor). Use those terms exactly.
 - **Seed/imported images must be real decodable files** (e2e asserts `naturalWidth > 0`).
 - **`libnativehelper.so` ships in the bare-host AAR** (ekrooh#45 fixed, since 0.5.0); the
   app no longer carries its own shim.
-- Emulators cannot P2P each other (NAT). Use a desktop worklet or a physical device.
+- Emulators cannot P2P each other (NAT); one emulator reaches a worklet on the same machine over the public DHT (the release walk).
 
 ## Do / don't
 

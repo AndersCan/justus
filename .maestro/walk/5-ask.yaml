@@ -1,0 +1,10 @@
+appId: no.cankode.justus
+---
+# Step 5 of the release walk: Ben asks to join. Words come in with -e from the copy catalogue.
+- tapOn:
+    text: ${ASK}
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: ${DONE}
+    timeout: 60000
+- takeScreenshot: ben-5-done
