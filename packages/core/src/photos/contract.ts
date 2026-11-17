@@ -98,6 +98,7 @@ export const s = {
 export const photoMemberSchema = s.object({ key: s.string, name: s.string });
 
 const inAlbumHoldersSchema = s.object({
+  kind: s.oneOf("inAlbum"),
   here: s.boolean,
   others: s.array(photoMemberSchema),
   unsure: s.array(photoMemberSchema),
@@ -106,9 +107,11 @@ const inAlbumHoldersSchema = s.object({
   former: s.array(s.string),
   left: s.array(s.string),
 });
-const removedHoldersSchema = s.object({ here: s.boolean });
+const removedHoldersSchema = s.object({ kind: s.oneOf("removed"), here: s.boolean });
 
-export const photoHoldersSchema: Schema<PhotoHolders> = {
+export const photoHoldersSchema: Schema<
+  T<typeof inAlbumHoldersSchema> | T<typeof removedHoldersSchema>
+> = {
   check(v, path) {
     if (typeof v !== "object" || v === null || Array.isArray(v))
       return `${path}: expected object, got ${describe(v)}`;

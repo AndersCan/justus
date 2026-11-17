@@ -33,6 +33,12 @@ describe("photo contract", () => {
     expect(checkPhotoResult("photos.list", list({ kind: "other", here: true }))).toBe(
       'photos.list contract violation: result.photos[0].holders.kind: expected one of inAlbum|removed, got "other"',
     );
+    expect(checkPhotoResult("photos.list", list({ kind: "inAlbum", here: true }))).toBe(
+      "photos.list contract violation: result.photos[0].holders.others: missing required field",
+    );
+    expect(checkPhotoResult("photos.list", list(null))).toBe(
+      "photos.list contract violation: result.photos[0].holders: expected object, got null",
+    );
   });
 
   it("names the offending field", () => {
