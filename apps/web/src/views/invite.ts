@@ -33,6 +33,30 @@ export async function copyText(value: string): Promise<boolean> {
   }
 }
 
+/** Writes text that may still be on its way. Call it inside the tap: WebKit refuses a
+ * clipboard write that starts after the tap but accepts a promise of the text. Without
+ * ClipboardItem the text is written once it arrives. False when there is no text or the clipboard refuses. */
+export async function copyWhenReady(text: Promise<string | null>): Promise<boolean> {
+  if (typeof ClipboardItem !== "function" || typeof navigator.clipboard?.write !== "function") {
+    const value = await text;
+    return value === null ? false : copyText(value);
+  }
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/plain": text.then((value) =>
+          value === null
+            ? Promise.reject(new Error("no link"))
+            : new Blob([value], { type: "text/plain" }),
+        ),
+      }),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The invite link for an album this phone made. Only the Admin's phone can
  * answer a request, so only the Admin's phone has a link; everyone else gets null. */
 export function inviteLinkFor(
@@ -106,14 +130,32 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
 
 type CopiedLine = "with-end" | "plain";
 
+/** A second tap while the first copy is still working does nothing. */
+let copyWaiting = false;
+
 async function copyInvite(
   folder: FolderSummary,
   options: { myName: string; button: HTMLElement; copiedLine: CopiedLine },
 ) {
+  if (copyWaiting) return;
+  copyWaiting = true;
+  try {
+    await copyMadeInvite(folder, options);
+  } finally {
+    copyWaiting = false;
+  }
+}
+
+async function copyMadeInvite(
+  folder: FolderSummary,
+  options: { myName: string; button: HTMLElement; copiedLine: CopiedLine },
+) {
   const { myName, button, copiedLine } = options;
-  const made = await madeLink(folder, myName);
+  // The write starts inside the tap, before the end time is saved.
+  const pending = madeLink(folder, myName);
+  const ok = await copyWhenReady(pending.then((made) => made?.link ?? null));
+  const made = await pending;
   if (!made) return;
-  const ok = await copyText(made.link);
   if (!ok) {
     toast(copy("invite.couldn_t_copy_the_invite_2"));
     return;
