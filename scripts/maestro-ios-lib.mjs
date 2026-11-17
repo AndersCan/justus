@@ -62,7 +62,7 @@ function switcher(
     const bytes = read(file);
     count = photoPixels(file);
     opened = opened || !bytes.equals(app);
-    settled = opened && count === previous;
+    settled = !bytes.equals(app) && count === previous;
     previous = count;
   }
   const shows = count >= minPhotoPixels;

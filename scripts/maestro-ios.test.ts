@@ -211,3 +211,13 @@ test("a failed screenshot fails the switcher route", () => {
   expect(commands.filter((command) => command[2] === "io")).toHaveLength(2);
   expect(commands.at(-1)).toEqual(["xcrun", "simctl", "launch", "U", "app.id"]);
 });
+
+test("after the switcher opened, a frame equal to the app neither settles nor presses Home again", () => {
+  const walk = switcherWalk("/switcher-lock-off", {
+    shots: ["app", "a", "app"],
+    count: 9000,
+    counts: [0],
+  });
+  expect(walk.done).toBe(false);
+  expect(walk.commands.filter((command) => command[0] === "osascript")).toHaveLength(1);
+});
