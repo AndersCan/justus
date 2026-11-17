@@ -256,6 +256,9 @@ catalogs:
     playwright:
       specifier: ^1.62.1
       version: 1.62.1
+    pngjs:
+      specifier: 7.0.0
+      version: 7.0.0
     qrcode-generator:
       specifier: 2.0.4
       version: 2.0.4
@@ -294,6 +297,9 @@ importers:
       playwright:
         specifier: 'catalog:'
         version: 1.62.1
+      pngjs:
+        specifier: 'catalog:'
+        version: 7.0.0
       require-asset:
         specifier: ^1.2.2
         version: 1.2.2(bare-url@2.5.2)
