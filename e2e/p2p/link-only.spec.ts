@@ -296,6 +296,42 @@ test("a removed person never gets the new key or a later photo, even after a Col
     )
     .toContainEqual(expect.stringMatching(/^disk: .*: photo$/));
 
+  // Ben opens P1 so it is his in full; he never opens P0.
+  await b
+    .getByRole("button", { name: words("gallery.view", { name: "link-removed-1.png" }) })
+    .click({ timeout: 60_000 });
+  await expect(b.locator('div.fixed [data-part="photo"] > img:not([data-part])')).toBeVisible({
+    timeout: 30_000,
+  });
+  await b.keyboard.press("Escape");
+  await a.goto(`/albums/${id}`);
+  await a.setInputFiles("input[type=file]", {
+    name: "link-removed-0.png",
+    mimeType: "image/png",
+    buffer: pngOf(...runColour(71)),
+  });
+  const p0Tile = (page) =>
+    page.getByRole("button", { name: words("gallery.view", { name: "link-removed-0.png" }) });
+  await expect(p0Tile(b)).toBeVisible({ timeout: 60_000 });
+  // Ada opens P0 so her phone holds its display copy (not only a preview).
+  await a
+    .getByRole("button", { name: words("gallery.view", { name: "link-removed-0.png" }) })
+    .click({ timeout: 30_000 });
+  await expect(a.locator('div.fixed [data-part="photo"] > img:not([data-part])')).toBeVisible({
+    timeout: 30_000,
+  });
+  await a.keyboard.press("Escape");
+  const isThumb = (name) => Buffer.from(name, "base64url").toString().includes(":thumb");
+  const p0All = () => photosOf(aInst, id).filter((p) => !p1.some((q) => q.bytes.equals(p.bytes)));
+  await expect
+    .poll(() => p0All().some((p) => !isThumb(p.name)), { message: "Ada keeps the older photo" })
+    .toBe(true);
+  const p0 = p0All();
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+
   const members = a.locator("section", {
     has: a.getByRole("heading", { name: words("album.members") }),
   });
@@ -312,6 +348,7 @@ test("a removed person never gets the new key or a later photo, even after a Col
     timeout: 60_000,
   });
 
+  await expect(p0Tile(b)).toHaveCount(0, { timeout: 30_000 });
   const newKey = (await folderOf(a, aInst, id)).shareKey;
   expect(newKey).not.toBe(oldKey);
   await a.goto(`/albums/${id}`);
@@ -326,7 +363,8 @@ test("a removed person never gets the new key or a later photo, even after a Col
     timeout: 20_000,
   });
   // The move re-files P1 under the new key, same bytes: only P2's bytes are new.
-  const later = () => photosOf(aInst, id).filter((p) => !p1.some((q) => q.bytes.equals(p.bytes)));
+  const later = () =>
+    photosOf(aInst, id).filter((p) => ![...p1, ...p0].some((q) => q.bytes.equals(p.bytes)));
   await expect
     .poll(() => later().length, { message: "Ada keeps the later photo" })
     .toBeGreaterThan(0);
@@ -363,6 +401,9 @@ test("a removed person never gets the new key or a later photo, even after a Col
     { label: "new album key", hex: newKey },
     { label: "Cleo's new drive key", hex: cNew.selfDrive.key },
     ...adaLater.map((p) => ({ label: "later photo bytes", bytes: p.bytes })),
+    ...p0
+      .filter((p) => !isThumb(p.name))
+      .map((p) => ({ label: "older photo never opened", bytes: p.bytes })),
   ];
   // The route a later photo would take: Ben is connected to Cleo while he is scanned.
   await expect
@@ -388,6 +429,7 @@ test("a removed person never gets the new key or a later photo, even after a Col
   await expect(
     b.getByRole("button", { name: words("gallery.view", { name: "link-removed-2.png" }) }),
   ).toHaveCount(0);
+  await expect(p0Tile(b)).toHaveCount(0);
   await staysClean(b, bInst, secrets, "after reload");
   expect(await photoSeen(b), "later photo name on screen: after reload").toBe(false);
 

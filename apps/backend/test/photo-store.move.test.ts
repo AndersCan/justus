@@ -1319,6 +1319,8 @@ describe("the removed phone sees the album turn read-only", () => {
     expect((await s.ben.store.addBytes("ben.jpg", new Uint8Array([1, 2, 3]), benId))[0]).toBeNull();
     expect((await s.admin.store.addBytes("anna.jpg", new Uint8Array([4, 5, 6])))[0]).toBeNull();
     await until(async () => (await s.ben.store.list({ all: true })).length === 2);
+    const annas = (await s.ben.store.list({ all: true })).find((p) => p.name === "anna.jpg")!;
+    await s.ben.server.getForTest(new URL(annas.url).pathname);
     expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
     await until(async () => (await noticeOf(s.ben))?.kind === "removed", 15_000);
     const folder = await albumOf(s.ben);
@@ -1468,6 +1470,8 @@ describe("away when removed", () => {
     const nilsId = (await albumOf(s.nils)).id;
     expect((await s.nils.store.addBytes("nils.jpg", new Uint8Array([7]), nilsId))[0]).toBeNull();
     await until(async () => (await names(s.ben)).includes("nils.jpg"));
+    const nilsPhoto = (await s.ben.store.list({ all: true })).find((x) => x.name === "nils.jpg")!;
+    await s.ben.server.getForTest(new URL(nilsPhoto.url).pathname);
     setFakeNodeConnected({ hub: s.hub, node: s.nils.node, connected: false });
     expect((await s.admin.store.removeMember(s.folderId, s.keys.ben))[0]).toBeNull();
     await until(async () => (await albumOf(s.ben)).notice?.kind === "removed", 15_000);

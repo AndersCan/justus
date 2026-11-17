@@ -2779,9 +2779,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     });
     const photos: Photo[] = [];
     const listed: { id: string; ext: string; driveKey: string }[] = [];
+    const ownHeld = rt.held.get(selfKey);
+    const heldIds =
+      rt.ownHeldRead === selfKey && ownHeld?.kind === "reports" ? ownHeld.ids : undefined;
     for (const d of derived) {
       const drive = driveByKey.get(d.driveKey);
       if (!drive) continue;
+      // A removed phone lists only the photos it holds in full.
+      if (removed && d.driveKey !== selfKey && !heldIds?.has(d.id)) {
+        unservePhoto(rt, d.driveKey, d.id, d.ext);
+        continue;
+      }
       listed.push({ id: d.id, ext: d.ext, driveKey: d.driveKey });
       photos.push({
         id: d.id,
@@ -2975,16 +2983,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
   }
 
-  /** Stop serving a photo that left the album, and drop its cached bytes. */
-  function forgetPhoto(rt: FolderRuntime, driveKey: string, id: string, ext: string) {
-    const names = [
-      spoolNameFor(driveKey, id, ext),
-      spoolNameFor(driveKey, id, `thumb${RENDITION_EXT}`),
-    ];
-    for (const name of names) {
+  /** Stop serving a photo's routes; the cached bytes stay. */
+  function unservePhoto(rt: FolderRuntime, driveKey: string, id: string, ext: string) {
+    for (const name of photoSpoolNames(driveKey, id, ext)) {
       const route = `/photos/${rt.record.id}/${name}`;
       lazyMedia.drop(route);
       rt.mounted.delete(route);
+    }
+  }
+
+  function photoSpoolNames(driveKey: string, id: string, ext: string) {
+    return [spoolNameFor(driveKey, id, ext), spoolNameFor(driveKey, id, `thumb${RENDITION_EXT}`)];
+  }
+
+  /** Stop serving a photo that left the album, and drop its cached bytes. */
+  function forgetPhoto(rt: FolderRuntime, driveKey: string, id: string, ext: string) {
+    unservePhoto(rt, driveKey, id, ext);
+    for (const name of photoSpoolNames(driveKey, id, ext)) {
       try {
         fs.rmSync(path.join(spoolDirFor(rt.record.id), name), { force: true });
       } catch {
