@@ -26,7 +26,7 @@ export type Person = {
   role: "admin" | "collaborator" | "viewer" | "waiting";
   you: boolean;
   connected: boolean;
-  /** "connected", "last seen 2h ago" or "not seen yet". */
+  /** "connected", "last seen 2h ago" or "hasn't connected yet"; empty on your own row. */
   presence: string;
 };
 
@@ -87,7 +87,7 @@ export function presenceLabel(
   if (m.connected) return "connected";
   return m.lastSeenAt
     ? copy("people.last_seen", { when: formatRelative(m.lastSeenAt, now) })
-    : copy("people.not_seen_yet");
+    : copy("people.not_connected_yet");
 }
 
 /** Chip text counts the others only: you are always connected to yourself. */
@@ -137,7 +137,7 @@ export function buildPeople(
         role: you ? ownRole(status?.folder) : otherRole(m),
         you,
         connected: m.connected,
-        presence: you ? "you" : presenceLabel(m, now),
+        presence: you ? "" : presenceLabel(m, now),
       };
     })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));

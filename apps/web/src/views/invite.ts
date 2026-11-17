@@ -229,9 +229,12 @@ function invitedList(
                 return html`<li class="flex items-center justify-between gap-2 py-2">
                   <span class="min-w-0 text-sm text-fg">
                     <span class="font-semibold">${name ?? t("invite.someone_you_invited")}</span>
-                    <span class="text-muted"
-                      >·
-                      ${f.role === "member" ? t("albums.collaborator") : t("albums.viewer")}</span
+                    <span class="block text-xs text-muted"
+                      >${
+                        f.role === "member"
+                          ? t("member.invited_can_add_photos")
+                          : t("member.invited_can_only_look")
+                      }</span
                     >
                   </span>
                   <button

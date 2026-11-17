@@ -119,7 +119,7 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
     await expect(a.getByRole("button", { name: `View ${file}` })).toBeVisible({ timeout: 60_000 });
   }
 
-  await expectBenLine(a, "Can add photos · has 2 of 3 photos");
+  await expectBenLine(a, "In · can add photos");
 
   // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
@@ -140,9 +140,6 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
   await expect(anaLine).toContainText(/On .+'s and your phone/, { timeout: 60_000 });
   expect(await lightboxImage.boundingBox()).toEqual(before);
   await a.getByRole("button", { name: "Close" }).click();
-
-  // Ben opened every photo: Ana's members page says his phone has all of them.
-  await expectBenLine(a, "Can add photos · has all 3 photos");
 
   await expect(b.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(b.getByRole("button", { name: "More options" })).toHaveCount(0, { timeout: 20_000 });

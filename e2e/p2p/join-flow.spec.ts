@@ -788,7 +788,7 @@ test("A adds friend B to a new album without a link; B joins and sees the photo"
     timeout: 60_000,
   });
   await expect(lisbonMembers.locator("li", { hasText: "Sam" }).first()).toContainText(
-    "Can only look",
+    "In · can only look",
   );
 });
 
@@ -955,7 +955,7 @@ test("A takes back the invite sent to friend B: the row goes on A and the invite
     timeout: 60_000,
   });
 
-  const row = a.locator("li", { hasText: "Can only look" }).filter({
+  const row = a.locator("li", { hasText: "Hasn't joined yet · can only look" }).filter({
     has: a.getByRole("button", { name: "Take back Sam's invite" }),
   });
   await expect(a.getByText("Invited, not in yet")).toBeVisible({ timeout: 60_000 });

@@ -62,7 +62,7 @@ describe("buildPeople viewers", () => {
     expect(vera.viewer).toBe(true);
     expect(vera.presence).toMatch(/^last seen/);
     expect(ana.viewer).toBe(false);
-    expect(ana.presence).toBe("not seen yet");
+    expect(ana.presence).toBe("hasn't connected yet");
   });
 });
 
@@ -119,7 +119,7 @@ describe("buildPeople", () => {
   it("lists you first, then the Admin, with presence wording", () => {
     const p = buildPeople(status("member"), [], {}, NOW);
     expect(p.people.map((x) => x.name)).toEqual(["Nils", "Maya", "Alex"]);
-    expect(p.people[0].presence).toBe("you");
+    expect(p.people[0].presence).toBe("");
     expect(p.people[1].presence).toBe("last seen 2 hr ago");
     expect(p.people[2].presence).toBe("connected");
   });
@@ -156,7 +156,7 @@ describe("buildPeople", () => {
 describe("presenceLabel", () => {
   it("never says online", () => {
     expect(presenceLabel({ connected: true })).toBe("connected");
-    expect(presenceLabel({ connected: false })).toBe("not seen yet");
+    expect(presenceLabel({ connected: false })).toBe("hasn't connected yet");
   });
 });
 
