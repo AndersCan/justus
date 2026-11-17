@@ -12,6 +12,8 @@ export type InAlbumHolders = {
   kind: "inAlbum";
   /** This phone has the full copy (it added the photo, or the copy finished arriving). */
   here: boolean;
+  /** This phone has the photo's preview (thumbnail) but not the full copy. Always false when `here`. */
+  previewHere: boolean;
   /** Current album people other than this phone with a full copy, the adder always included. Sorted by name, then key. */
   others: PhotoMember[];
   /** Current album people (not this phone, not in `others`) whose phone has not said what it holds. Sorted like `others`. */

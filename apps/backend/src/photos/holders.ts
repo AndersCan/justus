@@ -246,6 +246,7 @@ export function holdersFor(input: {
   return {
     kind: "inAlbum",
     here,
+    previewHere: !here && previewed(held.get(selfKey), photo.id),
     others: [...others.values()].sort(byNameThenKey),
     unsure: [...unsure.values()].sort(byNameThenKey),
     waiting: [...waiting.values()].sort(byNameThenKey),

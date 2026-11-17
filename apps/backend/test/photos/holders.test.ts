@@ -382,6 +382,27 @@ describe("holdersFor", () => {
     return result;
   }
 
+  it("says previewHere when only the preview is on this phone", () => {
+    const result = run({ held: [[SELF, report([], ["p1"])]] });
+    expect(result.here).toBe(false);
+    expect(result.previewHere).toBe(true);
+  });
+
+  it("says previewHere false when the full copy is here too", () => {
+    const result = run({ held: [[SELF, report(["p1"], ["p1"])]] });
+    expect(result.here).toBe(true);
+    expect(result.previewHere).toBe(false);
+  });
+
+  it("says previewHere false for the adder's own photo", () => {
+    const result = run({
+      photo: { id: "p1", driveKey: SELF, memberName: "Me" },
+      held: [[SELF, report([], ["p1"])]],
+    });
+    expect(result.here).toBe(true);
+    expect(result.previewHere).toBe(false);
+  });
+
   function runRemoved(over: { photo?: typeof photo; held?: [string, HeldReport][] }) {
     return holdersFor({
       photo: over.photo ?? photo,
@@ -410,6 +431,7 @@ describe("holdersFor", () => {
     expect(run({ held: [[ADDER, has("p1")]] })).toEqual({
       kind: "inAlbum",
       here: false,
+      previewHere: false,
       others: [adder],
       unsure: [],
       waiting: [],
@@ -428,6 +450,7 @@ describe("holdersFor", () => {
     expect(run({ photo: own, people: [self, ben], held: [[B, has()]] })).toEqual({
       kind: "inAlbum",
       here: true,
+      previewHere: false,
       others: [],
       unsure: [],
       waiting: [ben],
