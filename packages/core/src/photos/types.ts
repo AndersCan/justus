@@ -217,7 +217,8 @@ export type PhotoChangedCause =
   | "version"
   | "holders"
   | "role"
-  | "deleted";
+  | "deleted"
+  | "dropped";
 
 /** A role this phone can be moved between by the Admin. The Admin's own role never changes. */
 export type ChangedRole = "member" | "reader";
@@ -251,6 +252,9 @@ export type DeletedPhoto = {
 /** For cause "deleted": one album's photos deleted by someone else since this phone last listed it. */
 export type DeletedPhotos = { albumName: string; photos: DeletedPhoto[] };
 
+/** For cause "dropped": phones that no longer hold a photo this phone deleted. */
+export type DroppedPhoto = { photoId: string; people: PhotoMember[] };
+
 /** Backend → web push payload for the `photos.changed` dispatch. */
 export type PhotoChanged = {
   cause: PhotoChangedCause;
@@ -268,4 +272,6 @@ export type PhotoChanged = {
   role?: RoleChange;
   /** For cause "deleted": what was deleted. */
   deleted?: DeletedPhotos;
+  /** For cause "dropped": who dropped the photo. */
+  dropped?: DroppedPhoto;
 };

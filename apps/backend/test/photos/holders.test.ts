@@ -17,6 +17,7 @@ import {
   addFormer,
   copyFormer,
   copyHeld,
+  droppedBy,
   dropFormer,
   ensureHoldingMarker,
   heldPath,
@@ -849,5 +850,38 @@ describe("unmarkHeld errors", () => {
     };
     const [err] = await unmarkHeld(broken, "p1");
     expect(err?.kind).toBe("write-failed");
+  });
+});
+
+describe("droppedBy", () => {
+  const reports = (ids: string[], previews: string[] = [], unknown = false): HeldReport => ({
+    kind: "reports",
+    ids: new Set(ids),
+    previews: new Set(previews),
+    ...(unknown ? { previewsUnknown: true as const } : {}),
+  });
+  const run = (held: Record<string, HeldReport>, waiting = ["ben"]) =>
+    [
+      ...droppedBy({ id: "p1", waiting: new Set(waiting), held: new Map(Object.entries(held)) }),
+    ].sort();
+
+  it("names a phone whose record no longer lists the photo", () => {
+    expect(run({ ben: reports(["p2"]) })).toEqual(["ben"]);
+  });
+  it("does not name a phone that still holds the full copy", () => {
+    expect(run({ ben: reports(["p1"]) })).toEqual([]);
+  });
+  it("does not name a phone that still holds the preview", () => {
+    expect(run({ ben: reports([], ["p1"]) })).toEqual([]);
+  });
+  it("does not name a silent or unread phone", () => {
+    expect(run({ ben: { kind: "silent" } })).toEqual([]);
+    expect(run({})).toEqual([]);
+  });
+  it("does not name a phone whose previews list failed", () => {
+    expect(run({ ben: reports([], [], true) })).toEqual([]);
+  });
+  it("never names a phone nobody waits on", () => {
+    expect(run({ ben: reports([]), cy: reports([]) }, ["cy"])).toEqual(["cy"]);
   });
 });

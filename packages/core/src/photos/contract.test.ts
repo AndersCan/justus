@@ -157,3 +157,14 @@ describe("deleted push", () => {
     ).toContain("args.deleted.photos[0].mine");
   });
 });
+
+describe("dropped push", () => {
+  const dropped = { photoId: "p1", people: [{ key: "k", name: "Ben" }] };
+
+  it("accepts a dropped push and names a bad field", () => {
+    expect(checkPhotoChanged({ cause: "dropped", folderId: "f", dropped })).toBeNull();
+    expect(
+      checkPhotoChanged({ cause: "dropped", folderId: "f", dropped: { ...dropped, people: "x" } }),
+    ).toContain("args.dropped.people");
+  });
+});

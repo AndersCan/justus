@@ -12,6 +12,8 @@ import {
 import {
   addFormer,
   copyHeld,
+  DROP_WATCH_MS,
+  droppedBy,
   dropFormer,
   markFormerLeft,
   COPY_DELETED_HOLD_MS,
@@ -190,6 +192,7 @@ import type {
   Photo,
   PhotoChanged,
   PhotoChangedCause,
+  PhotoMember,
   Role,
   SyncMember,
   SyncStatus,
@@ -634,6 +637,8 @@ type FolderRuntime = {
   deletedHere: Set<string>;
   /** Ids this phone took out of its own holding record this session; never recorded again. */
   unheld: Set<string>;
+  /** Photos this phone deleted lately, by id: the connected phones whose records should drop them. */
+  dropWatch: Map<string, { waiting: Map<string, PhotoMember>; until: number }>;
 };
 
 /** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
@@ -3280,6 +3285,51 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (sameReport(prev, next)) return;
     rt.held.set(key, next);
     deps.onChanged({ cause: "holders", folderId: rt.record.id });
+    checkDropWatch(rt);
+  }
+
+  /** The phones, other than the adder, that hold or previewed the photo this phone is about to delete. */
+  async function dropWaitingOn(rt: FolderRuntime, id: string): Promise<Map<string, PhotoMember>> {
+    const waiting = new Map<string, PhotoMember>();
+    const selfKey = selfKeyOf(rt);
+    const entry = [...(rt.listing?.photos.values() ?? [])].find((p) => p.id === id);
+    if (entry === undefined) return waiting;
+    const holders = holdersFor({
+      photo: { id, driveKey: entry.driveKey, memberName: entry.adderName },
+      selfKey,
+      people: (await albumPeople(rt)) as PhotoMember[],
+      held: rt.held,
+      former: [],
+    });
+    for (const person of [...holders.others, ...holders.previews]) {
+      if (person.key !== selfKey && person.key !== entry.driveKey) waiting.set(person.key, person);
+    }
+    return waiting;
+  }
+
+  function watchDrop(rt: FolderRuntime, id: string, waiting: Map<string, PhotoMember>) {
+    if (waiting.size === 0) return;
+    rt.dropWatch.set(id, { waiting, until: Date.now() + DROP_WATCH_MS });
+  }
+
+  /** Tells the screen which watched phones no longer hold a photo this phone deleted. */
+  function checkDropWatch(rt: FolderRuntime) {
+    for (const [id, watch] of rt.dropWatch) {
+      if (Date.now() > watch.until) {
+        rt.dropWatch.delete(id);
+        continue;
+      }
+      const gone = droppedBy({ id, waiting: new Set(watch.waiting.keys()), held: rt.held });
+      if (gone.size === 0) continue;
+      const people = [...gone].map((key) => watch.waiting.get(key)!);
+      for (const key of gone) watch.waiting.delete(key);
+      if (watch.waiting.size === 0) rt.dropWatch.delete(id);
+      deps.onChanged({
+        cause: "dropped",
+        folderId: rt.record.id,
+        dropped: { photoId: id, people },
+      });
+    }
   }
 
   function sameFormer(a: FormerPerson[], b: FormerPerson[]): boolean {
@@ -4034,6 +4084,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         listSeq: 0,
         deletedHere: new Set(),
         unheld: new Set(),
+        dropWatch: new Map(),
         former: [],
       };
       runtimes.set(record.id, rt);
@@ -4214,6 +4265,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       listSeq: 0,
       deletedHere: new Set(),
       unheld: new Set(),
+      dropWatch: new Map(),
       former: [],
     };
     runtimes.set(folderId, rt);
@@ -5274,6 +5326,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             listSeq: 0,
             deletedHere: new Set(),
             unheld: new Set(),
+            dropWatch: new Map(),
             former: [],
           };
           runtimes.set(existing.id, rt);
@@ -5371,6 +5424,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       listSeq: 0,
       deletedHere: new Set(),
       unheld: new Set(),
+      dropWatch: new Map(),
       former: [],
     };
     runtimes.set(folderId, rt);
@@ -5514,6 +5568,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const role = rt.record.role;
       const selfKey = selfKeyOf(rt);
       const selfDrive = rt.selfDrive;
+      const waiting = await dropWaitingOn(rt, id);
       // Own photo → delete from own drive.
       for (const base of await drivePhotoKeys(selfDrive)) {
         if (base.startsWith(`${id}.`) || base === id) {
@@ -5524,6 +5579,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           await selfDrive.del(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`);
           forgetPhoto(rt, selfKey, id, base.slice(id.length));
           pruneIndex(id, selfKey);
+          watchDrop(rt, id, waiting);
           deps.onChanged({ cause: "remove", folderId: rt.record.id, memberKey: selfKey });
           return ok({ id });
         }
@@ -5548,6 +5604,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             DRIVE_PATH_REMOVED,
             Buffer.from(JSON.stringify({ version: 1, removed })),
           );
+          watchDrop(rt, id, waiting);
           deps.onChanged({ cause: "remove", folderId: rt.record.id });
           return ok({ id });
         }
