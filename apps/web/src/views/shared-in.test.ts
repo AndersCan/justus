@@ -81,4 +81,22 @@ describe("listenForSharedPhotos", () => {
     expect(got).toEqual([]);
     expect(warn).toHaveBeenCalledWith("justus:share-in.list-failed", "boom");
   });
+
+  test("a nudge during a failed list still runs one more list", async () => {
+    let release: (v: unknown) => void = () => {};
+    list.mockImplementationOnce(async () => {
+      await new Promise((r) => (release = r));
+      return [new Error("timeout"), null];
+    });
+    list.mockResolvedValue([null, { batches: [batch("late")] }]);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const got: string[] = [];
+    (await load())((b) => got.push(b.id));
+    await tick();
+    window.dispatchEvent(new CustomEvent("justus:shared"));
+    release(null);
+    await tick();
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(got).toEqual(["late"]);
+  });
 });
