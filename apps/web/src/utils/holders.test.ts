@@ -114,11 +114,20 @@ describe("holdersLine", () => {
       "On your phone and 4 others",
     );
   });
-  it("a former holder forces the count form", () => {
+  it("names one removed person who keeps a copy", () => {
+    expect(holdersLine(h({ former: ["Ben"] })).text).toBe(
+      "On your phone. Ben was removed and keeps a copy",
+    );
+    expect(holdersLine(h({ former: ["Ben"], unsure: [m("Jo")], waiting: [m("Nils")] })).text).toBe(
+      "On your phone. Ben was removed and keeps a copy",
+    );
+  });
+  it("a former holder with others, or several, keeps the count form", () => {
+    expect(holdersLine(h({ former: ["A", "B"] })).text).toBe("On your phone and 2 others");
+    expect(holdersLine(h({ left: ["Ben"] })).text).toBe("Only on your phone");
     expect(holdersLine(h({ others: [m("Nils")], former: ["Ola"] })).text).toBe(
       "On your phone and 2 others",
     );
-    expect(holdersLine(h({ former: ["Ola"] })).text).toBe("On your phone and 1 other");
   });
   it("not here: one named other, else counts", () => {
     expect(holdersLine(h({ here: false, others: [m("Maya")] })).text).toBe(
@@ -176,7 +185,15 @@ describe("deleteDetail", () => {
     expect(deleteDetail(undefined)).toBe(`${gone} ${back}`);
   });
   it("says only that it is gone when no one else has it", () => {
-    expect(deleteDetail(h({ unsure: [m("Jo")], former: ["Al"] }))).toBe(`${gone} ${back}`);
+    expect(deleteDetail(h({ unsure: [m("Jo")], left: ["Al"] }))).toBe(`${gone} ${back}`);
+  });
+  it("names one removed person who keeps a copy", () => {
+    expect(deleteDetail(h({ former: ["Ben"] }))).toBe(
+      `${gone} Ben was removed and keeps a copy on their phone. ${back}`,
+    );
+  });
+  it("names no removed person when several", () => {
+    expect(deleteDetail(h({ former: ["Ben", "Cy"] }))).toBe(`${gone} ${back}`);
   });
   it("names one phone", () => {
     expect(deleteDetail(h({ others: [m("Nils")] }))).toBe(

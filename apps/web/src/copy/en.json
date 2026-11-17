@@ -503,6 +503,13 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "holders.on_your_phone_name_removed": {
+    "text": "On your phone. {name} was removed and keeps a copy",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who open a photo someone removed from the album kept",
+    "screen": ""
+  },
   "holders.on_your_phone_removed": {
     "text": "On your phone",
     "status": "draft",
@@ -4267,6 +4274,13 @@
     "status": "draft",
     "where": "Photo viewer › Delete › text, Deleted toast",
     "who": "People who tap the photo's holders or delete a photo",
+    "screen": ""
+  },
+  "full_photo.name_removed_keeps": {
+    "text": "{name} was removed and keeps a copy on their phone.",
+    "status": "draft",
+    "where": "Photo viewer › Delete › text",
+    "who": "People who delete a photo someone removed from the album kept",
     "screen": ""
   },
   "lightbox.stops_showing_can_t_erase": {
