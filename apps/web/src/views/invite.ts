@@ -51,7 +51,10 @@ export function inviteLinkFor(
 }
 
 /** Makes the album's link (or reuses the one already made) and returns it once its end time is saved. */
-async function madeLink(folder: FolderSummary, myName: string): Promise<string | null> {
+async function madeLink(
+  folder: FolderSummary,
+  myName: string,
+): Promise<{ link: string; expiresAt: number } | null> {
   inviteLink.createLink(folder.id, folder.invite?.code ?? "");
   await inviteLinkActor.settled();
   const view = inviteLinkViewOf(inviteLinkActor.snapshot());
@@ -62,7 +65,8 @@ async function madeLink(folder: FolderSummary, myName: string): Promise<string |
     view.code !== (folder.invite?.code ?? "")
   )
     return null;
-  return inviteLinkFor(folder, myName, view.expiresAt);
+  const link = inviteLinkFor(folder, myName, view.expiresAt);
+  return link === null ? null : { link, expiresAt: view.expiresAt };
 }
 
 function isStoreApp(): boolean {
@@ -76,8 +80,9 @@ export function canShareInvite(): boolean {
 
 /** Phone's share sheet in the store apps, the browser's when it has one, otherwise copy. */
 export async function shareInvite(folder: FolderSummary, myName: string) {
-  const link = await madeLink(folder, myName);
-  if (!link) return;
+  const made = await madeLink(folder, myName);
+  if (!made) return;
+  const link = made.link;
   const text = copy("invite.ask_to_join_my_justus", { name: folder.name, link });
   if (isStoreApp()) {
     // Closing the sheet looks like sending from it; the Copy button is the fallback.
@@ -99,10 +104,16 @@ export async function shareInvite(folder: FolderSummary, myName: string) {
   );
 }
 
-async function copyInvite(folder: FolderSummary, myName: string, button: HTMLElement) {
-  const link = await madeLink(folder, myName);
-  if (!link) return;
-  const ok = await copyText(link);
+type CopiedLine = "with-end" | "plain";
+
+async function copyInvite(
+  folder: FolderSummary,
+  options: { myName: string; button: HTMLElement; copiedLine: CopiedLine },
+) {
+  const { myName, button, copiedLine } = options;
+  const made = await madeLink(folder, myName);
+  if (!made) return;
+  const ok = await copyText(made.link);
   if (!ok) {
     toast(copy("invite.couldn_t_copy_the_invite_2"));
     return;
@@ -115,19 +126,29 @@ async function copyInvite(folder: FolderSummary, myName: string, button: HTMLEle
     ?.querySelector<HTMLElement>("[data-copy-id]");
   if (hint) {
     hint.dataset.text = hint.dataset.text ?? hint.textContent ?? "";
-    hint.textContent = copy("invite.copied_paste_it");
+    hint.dataset.idWas = hint.dataset.idWas ?? hint.dataset.copyId ?? "";
+    if (copiedLine === "with-end") {
+      hint.textContent = copy("invite.copied_works_until", { end: linkEndText(made.expiresAt) });
+      hint.dataset.copyId = "invite.copied_works_until";
+    } else {
+      hint.textContent = copy("invite.copied_paste_it");
+      hint.dataset.copyId = "invite.copied_paste_it";
+    }
   }
   setTimeout(() => {
     button.textContent = label;
-    if (hint) hint.textContent = hint.dataset.text ?? "";
+    if (hint) {
+      hint.textContent = hint.dataset.text ?? "";
+      hint.dataset.copyId = hint.dataset.idWas ?? "";
+    }
   }, 6000);
 }
 
 /** Copies the album's current link and says whether it worked; used by the toast after a removal. */
 export async function copyInviteLink(folder: FolderSummary, myName: string) {
-  const link = await madeLink(folder, myName);
+  const made = await madeLink(folder, myName);
   toast(
-    link && (await copyText(link))
+    made && (await copyText(made.link))
       ? copy("invite.invite_link_copied")
       : copy("invite.couldn_t_copy_the_invite_2"),
   );
@@ -291,8 +312,13 @@ function linkBlockedFor(folder: FolderSummary, view: InviteLinkView) {
   return view.state === "turningOff" || folder.invite?.code === view.offCode;
 }
 
-function inviteButtons(folder: FolderSummary, myName: string, blocked: boolean) {
-  const copyClick = (e: Event) => void copyInvite(folder, myName, e.currentTarget as HTMLElement);
+function inviteButtons(
+  folder: FolderSummary,
+  options: { myName: string; blocked: boolean; copiedLine: CopiedLine },
+) {
+  const { myName, blocked, copiedLine } = options;
+  const copyClick = (e: Event) =>
+    void copyInvite(folder, { myName, button: e.currentTarget as HTMLElement, copiedLine });
   return html`<div class="flex flex-wrap gap-2">
     ${
       canShareInvite()
@@ -320,7 +346,11 @@ export function inviteRow(folder: FolderSummary, myName: string, line: unknown) 
   return watch(
     inviteLinkActor,
     (snapshot) => html`<div>
-      ${inviteButtons(folder, myName, linkBlockedFor(folder, inviteLinkViewOf(snapshot)))}
+      ${inviteButtons(folder, {
+        myName,
+        blocked: linkBlockedFor(folder, inviteLinkViewOf(snapshot)),
+        copiedLine: "with-end",
+      })}
       <p class="mt-1 text-xs text-muted" data-invite-hint>${line}</p>
     </div>`,
   );
@@ -412,7 +442,7 @@ function invitePanelBody(
               ${t("invite.this_link_works_until", { end: linkEndText(expiresAt) })}
             </p>`
       }
-      ${inviteButtons(folder, myName, linkBlocked)}
+      ${inviteButtons(folder, { myName, blocked: linkBlocked, copiedLine: "plain" })}
       ${
         linkBlocked
           ? null
