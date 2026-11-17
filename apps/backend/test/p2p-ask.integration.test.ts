@@ -108,6 +108,10 @@ describe("answer delivery", () => {
       "the real joiner becomes a member",
       30_000,
     );
+    const heard = (joiner.store.debugState() as { answersIn: { text: string }[] }).answersIn;
+    expect(heard.some((e) => e.text.includes('"accepted"') && e.text.includes(shareKey))).toBe(
+      true,
+    );
     // Give the Admin time to (wrongly) answer the impostor as well.
     await new Promise((r) => setTimeout(r, 4_000));
     expect(received).toEqual([]);

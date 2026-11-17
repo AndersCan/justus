@@ -1,6 +1,7 @@
 import { errText, short, createP2pLog, type P2pLog } from "../p2p-log";
 import type { ChannelMessage } from "../membership/records";
 import type { PeerEvent, PeerNetwork } from "../ports/peer-network";
+import { emptyAnswersIn, noteAnswerIn } from "./answers-in";
 import { openAnswers } from "./peer-answer";
 import { greetPeer } from "./peer-identity";
 import { openVersion } from "./peer-version";
@@ -34,6 +35,7 @@ export function createHyperPeerNetwork(deps: {
   const extraJoins = new Map<string, Handle[]>();
   const rediscoverTimers = new Set<ReturnType<typeof setTimeout>>();
   const peerIdentities = new Set<string>();
+  const answersIn = emptyAnswersIn();
   const conns = new Map<
     number,
     {
@@ -120,9 +122,10 @@ export function createHyperPeerNetwork(deps: {
       log("error", { where: "identity.greet", conn: connId, err: errText(e) });
     }
     try {
-      const channel = (deps.openAnswers ?? openAnswers)(conn, (value) =>
-        emit({ type: "answer", conn: connId, value }),
-      );
+      const channel = (deps.openAnswers ?? openAnswers)(conn, (value) => {
+        noteAnswerIn(answersIn, { at: Date.now(), conn: connId, value });
+        emit({ type: "answer", conn: connId, value });
+      });
       const c = conns.get(connId);
       if (c) c.answers = channel;
     } catch (e: unknown) {
@@ -232,6 +235,7 @@ export function createHyperPeerNetwork(deps: {
           extraJoins: extraJoins.get(topic)?.length ?? 0,
         })),
         rediscoverTimers: rediscoverTimers.size,
+        answersIn: [...answersIn],
       };
     },
     async close() {
