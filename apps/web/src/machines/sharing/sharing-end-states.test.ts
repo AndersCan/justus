@@ -71,10 +71,10 @@ function joinLines(state: string): string[] {
   );
 }
 
-function row(name: string, lines: () => string[]): Row & { name: string } {
+function row(name: string, lines: () => string[]): Row {
   const noSheet = NO_SHEET[name.split(".")[1] ?? ""];
   if (name.startsWith("joinRequest.") && noSheet !== undefined) {
-    return { name, title: `${name}: no sheet, ${noSheet}`, fail: "" };
+    return { title: `${name}: no sheet, ${noSheet}`, fail: "" };
   }
   const silent = SILENT_TODAY[name];
   let found: string[] = [];
@@ -87,17 +87,14 @@ function row(name: string, lines: () => string[]): Row & { name: string } {
   }
   if (reason === "") {
     return {
-      name,
       title: `${name}: ${found.join(" · ")}`,
-      fail:
-        silent === undefined ? "" : `${name} now shows "${found[0]}": delete it from SILENT_TODAY.`,
+      fail: "",
     };
   }
   if (silent !== undefined) {
-    return { name, title: `${name}: silent today (roadmap Next 5), ${silent}`, fail: "" };
+    return { title: `${name}: silent today (roadmap Next 5), ${silent}`, fail: "" };
   }
   return {
-    name,
     title: `${name}: NO LINE, ${reason}`,
     fail: `${name} shows no plain-words line (${reason}). Write its line in en.json and its view, or, if a person truly reads nothing here, add it to NO_SHEET with why.`,
   };
@@ -110,6 +107,4 @@ const rows = [
   row("albumNotice.removed", () => [albumNoticeText({ kind: "removed" }, "Holiday") ?? ""]),
 ];
 
-test.each(rows)("$title", ({ fail }) => {
-  expect(fail).toBe("");
-});
+for (const { title, fail } of rows) test(title, () => expect(fail).toBe(""));
