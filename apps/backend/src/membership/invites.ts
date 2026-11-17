@@ -7,15 +7,7 @@
 import type { Drive } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
 import type { OfferSummary } from "@justus/core";
-import {
-  DEFAULT_ASK_ALBUM,
-  DEFAULT_ASK_OWNER,
-  isHexKey,
-  parseRequestsFile,
-  peerName,
-  type ChannelMessage,
-  type RequestsFile,
-} from "./records";
+import { isHexKey, parseRequestsFile, type ChannelMessage, type RequestsFile } from "./records";
 import { errText, type P2pLog } from "../p2p-log.ts";
 import { readRecord } from "./join.ts";
 
@@ -56,25 +48,15 @@ export function checkAsk<A extends { code: string; status: string }>(
 export type InviteAsk = {
   code: string;
   owner: string;
-  albumName: string;
-  ownerName: string;
   askedAt: number;
   status: "waiting";
 };
 
-/** The saved record of a new ask: names the link carried are clipped. */
-export function newInviteAsk(options: {
-  code: string;
-  owner: string;
-  albumName: unknown;
-  ownerName: unknown;
-  now: number;
-}): InviteAsk {
+/** The saved record of a new ask. It holds no names: they come from the Admin's phone. */
+export function newInviteAsk(options: { code: string; owner: string; now: number }): InviteAsk {
   return {
     code: options.code,
     owner: options.owner,
-    albumName: peerName(options.albumName, DEFAULT_ASK_ALBUM),
-    ownerName: peerName(options.ownerName, DEFAULT_ASK_OWNER),
     askedAt: options.now,
     status: "waiting",
   };

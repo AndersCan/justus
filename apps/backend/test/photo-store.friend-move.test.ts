@@ -170,8 +170,6 @@ describe("a friend invited before a Remove", () => {
     await stranger.store.ask({
       code: card.code,
       owner: identityOf(s.admin),
-      albumName: "Trip",
-      ownerName: "Anna",
     });
     const status = () =>
       (stranger.store.debugState() as { asks: { status: string }[] }).asks[0]?.status;

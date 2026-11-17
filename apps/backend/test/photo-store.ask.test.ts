@@ -197,8 +197,6 @@ describe("ask", () => {
     const asked = await s.joiner.store.ask({
       code: s.invite.code,
       owner: s.owner,
-      albumName: "Trip",
-      ownerName: "Admin",
     });
     expect(asked[0]).toBeNull();
     expect(asked[1]!.ask).toMatchObject({ code: s.invite.code, status: "waiting" });
@@ -242,18 +240,56 @@ describe("ask", () => {
     await s.close();
   });
 
-  it("clips the names the link carried", async () => {
+  it("an ask through a link has no names until the Admin's phone sends them", async () => {
     const s = await scenario();
-    const asked = await s.joiner.store.ask({
-      code: s.invite.code,
-      owner: s.owner,
-      albumName: "a".repeat(500),
-      ownerName: "  ",
-    });
-    expect(asked[1]!.ask.albumName).toHaveLength(80);
-    expect(asked[1]!.ask.ownerName).toBe("the Admin");
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(asked[1]!.ask.albumName).toBe("");
+    expect(asked[1]!.ask.ownerName).toBe("");
     await s.close();
   });
+
+  it("an ask saved with the link's flat names loads with none", async () => {
+    const s = await scenario();
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const file = join(s.joiner.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.asks = [{ ...saved.asks[0], albumName: "Holiday", ownerName: "Mallory" }];
+    delete saved.asks[0].names;
+    writeFileSync(file, JSON.stringify(saved));
+    const again = createPhotoStore(restarted(s.joiner.deps));
+    await again.ready();
+    const [ask] = (await again.folders()).asks;
+    expect(ask).toMatchObject({ albumName: "", ownerName: "" });
+    await again.close();
+    await s.close();
+  });
+
+  it("the Admin's phone gives a waiting ask its names, kept over a restart", async () => {
+    const hub = createFakeHub();
+    const storageDir = makeTmpDir("justus-heard-");
+    const s = await scenario(undefined, { storageDir }, hub);
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    expect(asked[0]).toBeNull();
+    await until(async () => (await s.admin.store.requests()).requests.length > 0);
+    await until(async () => {
+      const [ask] = (await s.joiner.store.folders()).asks;
+      return ask?.albumName === "Trip";
+    });
+    const [ask] = (await s.joiner.store.folders()).asks;
+    expect(ask).toMatchObject({ albumName: "Trip", ownerName: "Admin" });
+    const saved = JSON.parse(readFileSync(join(storageDir, "justus.json"), "utf8"));
+    expect(saved.asks[0].names).toEqual({ album: "Trip", owner: "Admin" });
+    await s.close();
+  });
+
+  it('linkTurnedOff gives the Admin\'s published name, and "" for an unknown owner', async () => {
+    const s = await scenario();
+    const known = await s.joiner.store.linkTurnedOff(s.invite.code, s.owner);
+    expect(known[1]).toEqual({ turnedOff: false, ownerName: "Admin" });
+    const unknown = await s.joiner.store.linkTurnedOff(s.invite.code, "e".repeat(64));
+    expect(unknown[1]).toEqual({ turnedOff: false, ownerName: "" });
+    await s.close();
+  }, 15_000);
 
   it("the Admin's request and the asker's ask show the same check code", async () => {
     const s = await scenario();
@@ -1507,8 +1543,31 @@ describe("a request through a turned-off link", () => {
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
     await until(async () => (await askStatus(s)) === "linkOff", 4_000);
     await s.joiner.store.ask({ code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.joiner.store.folders()).asks.length === 1, 4_000);
     const asks = (await s.joiner.store.folders()).asks;
-    expect(asks.map((a) => [a.code, a.status])).toEqual([[code, "waiting"]]);
+    expect(asks.map((a) => [a.code, a.status, a.albumName])).toEqual([[code, "waiting", "Trip"]]);
+    await s.close();
+  });
+
+  it("a new ask keeps the linkOff row of another album from the same Admin", async () => {
+    const { s, joinerNetwork } = await teed();
+    const other = (await s.admin.store.createFolder("Other"))[1]!.folder;
+    await s.joiner.store.ask({ code: other.invite!.code, owner: s.owner });
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(async () => (await s.admin.store.requests()).requests.length === 1);
+    await until(async () => (await s.joiner.store.folders()).asks[0]?.albumName === "Other");
+    await s.admin.store.turnOffInvite(other.id);
+    await until(async () => (await askStatus(s)) === "linkOff", 4_000);
+    await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    await until(async () =>
+      (await s.joiner.store.folders()).asks.some((a) => a.albumName === "Trip"),
+    );
+    const asks = (await s.joiner.store.folders()).asks;
+    expect(asks.map((a) => [a.status, a.albumName]).sort()).toEqual([
+      ["linkOff", "Other"],
+      ["waiting", "Trip"],
+    ]);
     await s.close();
   });
 
@@ -1995,7 +2054,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     const s = await scenario();
     await s.admin.store.turnOffInvite(s.folderId);
     const result = await s.joiner.store.linkTurnedOff(s.invite.code, s.owner);
-    expect(result).toEqual([null, { turnedOff: true }]);
+    expect(result).toEqual([null, { turnedOff: true, ownerName: "Admin" }]);
     expect((await s.admin.store.requests()).requests).toEqual([]);
     expect((await s.joiner.store.folders()).asks).toEqual([]);
     await s.close();
@@ -2004,7 +2063,10 @@ describe("a joiner checks a link against the owner's published list", () => {
   it("the current link is not off", async () => {
     const s = await scenario();
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
-    expect(await s.joiner.store.linkTurnedOff(code, s.owner)).toEqual([null, { turnedOff: false }]);
+    expect(await s.joiner.store.linkTurnedOff(code, s.owner)).toEqual([
+      null,
+      { turnedOff: false, ownerName: "Admin" },
+    ]);
     await s.close();
   });
 
@@ -2013,7 +2075,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     const started = Date.now();
     expect(await s.joiner.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
       null,
-      { turnedOff: false },
+      { turnedOff: false, ownerName: "Admin" },
     ]);
     expect(Date.now() - started).toBeLessThan(3_000);
     await s.close();
@@ -2034,7 +2096,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     await c.store.ready();
     expect(await c.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
       null,
-      { turnedOff: false },
+      { turnedOff: false, ownerName: "Admin" },
     ]);
     await c.store.close();
     await s.close();
@@ -2052,7 +2114,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     await c.store.ready();
     expect(await c.store.linkTurnedOff(s.invite.code, s.owner)).toEqual([
       null,
-      { turnedOff: true },
+      { turnedOff: true, ownerName: "Admin" },
     ]);
     await c.store.close();
     await reopened.close();
@@ -2065,7 +2127,7 @@ describe("a joiner checks a link against the owner's published list", () => {
     await joiner.store.ready();
     const started = Date.now();
     const result = await joiner.store.linkTurnedOff("c".repeat(64), "e".repeat(64));
-    expect(result).toEqual([null, { turnedOff: false }]);
+    expect(result).toEqual([null, { turnedOff: false, ownerName: "" }]);
     expect(Date.now() - started).toBeLessThan(6_000);
     await joiner.store.close();
   }, 10_000);

@@ -133,18 +133,10 @@ describe("invites: asking through a link", () => {
     );
   });
 
-  it("names the link carried are clipped, and missing ones say who", () => {
-    const fields = { code: C, owner: hex("a"), now: 5 };
-    const blank = newInviteAsk({ ...fields, albumName: "  ", ownerName: 7 });
-    expect(blank.albumName, "ask: blank album name").toBe("this album");
-    expect(blank.ownerName, "ask: non-string owner name").toBe("the Admin");
-    const long = newInviteAsk({ ...fields, albumName: "x".repeat(200), ownerName: "Maya" });
-    expect(long.albumName, "ask: clipped to 80").toBe("x".repeat(80));
-    expect(long, "ask: a waiting record").toEqual({
+  it("a new ask is a waiting record with no names", () => {
+    expect(newInviteAsk({ code: C, owner: hex("a"), now: 5 }), "ask: a waiting record").toEqual({
       code: C,
       owner: hex("a"),
-      albumName: "x".repeat(80),
-      ownerName: "Maya",
       askedAt: 5,
       status: "waiting",
     });

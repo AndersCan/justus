@@ -198,8 +198,6 @@ async function follow(
   const asked = await who.store.ask({
     code: folder.invite!.code,
     owner: identityOf(s.admin),
-    albumName: "Trip",
-    ownerName: "Anna",
   });
   expect(asked[0]).toBeNull();
   await who.store.close();
@@ -399,8 +397,6 @@ describe("someone who asked through the invite and is removed", () => {
         await carl.store.ask({
           code: folder.invite!.code,
           owner: identityOf(s.admin),
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -433,8 +429,6 @@ describe("someone removed who asks again with the new code", () => {
         await carl.store.ask({
           code: first.invite!.code,
           owner,
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -449,9 +443,7 @@ describe("someone removed who asks again with the new code", () => {
     const other = await s.admin.store.createFolder("Other");
     const otherId = other[1]!.folder.id;
     const otherCode = other[1]!.folder.invite!.code;
-    expect(
-      (await carl.store.ask({ code: otherCode, owner, albumName: "Other", ownerName: "Anna" }))[0],
-    ).toBeNull();
+    expect((await carl.store.ask({ code: otherCode, owner }))[0]).toBeNull();
     let otherKey = "";
     await until(async () => {
       otherKey =
@@ -480,8 +472,6 @@ describe("someone removed who asks again with the new code", () => {
         await carl.store.ask({
           code: now.invite!.code,
           owner,
-          albumName: "Other",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -519,8 +509,6 @@ async function removedCarl() {
       await carl.store.ask({
         code: first.invite!.code,
         owner,
-        albumName: "Trip",
-        ownerName: "Anna",
       })
     )[0],
   ).toBeNull();
@@ -559,8 +547,6 @@ describe("an answer that names a kept album", () => {
         await carl.store.ask({
           code: made[1]!.folder.invite!.code,
           owner: identityOf(mal),
-          albumName: "Mal's",
-          ownerName: "Mal",
         })
       )[0],
     ).toBeNull();
@@ -593,8 +579,6 @@ describe("an answer that names a kept album", () => {
         await carl.store.ask({
           code: now.invite!.code,
           owner,
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -635,8 +619,6 @@ describe("someone who asked with the link the Remove replaced", () => {
         await kim.store.ask({
           code: folder.invite!.code,
           owner: identityOf(s.admin),
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0];
     expect(await ask()).toBeNull();
@@ -705,8 +687,6 @@ describe("someone who asked with the link the Remove replaced", () => {
         await kim.store.ask({
           code: folder.invite!.code,
           owner: identityOf(s.admin),
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -734,8 +714,6 @@ describe("someone who asked with the link the Remove replaced", () => {
         await kim.store.ask({
           code: folder.invite!.code,
           owner,
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -774,8 +752,6 @@ describe("someone who asked with the link the Remove replaced", () => {
         await kim.store.ask({
           code: folder.invite!.code,
           owner: identityOf(s.admin),
-          albumName: "Trip",
-          ownerName: "Anna",
         })
       )[0],
     ).toBeNull();
@@ -873,8 +849,6 @@ describe("the other phones follow the move by themselves", () => {
       await who.store.ask({
         code: invite!.code,
         owner: identityOf(admin),
-        albumName: "Trip",
-        ownerName: "Anna",
       });
       let requesterKey = "";
       await until(async () => {
@@ -1517,8 +1491,6 @@ describe("an Accept or a Remove during a Remove", () => {
     const [askErr] = await kim.store.ask({
       code: folder.invite!.code,
       owner: identityOf(s.admin),
-      albumName: "Trip",
-      ownerName: "Anna",
     });
     expect(askErr).toBeNull();
     let key = "";

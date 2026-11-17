@@ -301,7 +301,7 @@ export const photoResultSchemas = {
   "photos.dismissAlbumNotice": s.object({ ok: s.boolean }),
   "photos.dismissDeclinedAsk": s.object({ ok: s.boolean }),
   "photos.cancelAsk": s.object({ ok: s.boolean }),
-  "photos.linkTurnedOff": s.object({ turnedOff: s.boolean }),
+  "photos.linkTurnedOff": s.object({ turnedOff: s.boolean, ownerName: s.string }),
   "photos.turnOffInvite": s.object({ invite: s.object({ code: s.string, owner: s.string }) }),
   "photos.saveInviteLink": s.object({ ok: s.boolean }),
 } as const;

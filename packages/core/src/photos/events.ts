@@ -99,8 +99,6 @@ export const photoSpecs = {
     args: {} as {
       code: string;
       owner: string;
-      albumName?: string;
-      ownerName?: string;
       linkEnd?: number;
     },
     result: {} as { ask: AskSummary },
@@ -229,7 +227,7 @@ export const photoSpecs = {
     pluginId: "justus.photos",
     name: "photos.linkTurnedOff",
     args: {} as { code: string; owner: string },
-    result: {} as { turnedOff: boolean },
+    result: {} as { turnedOff: boolean; ownerName: string },
   },
   changed: {
     pluginId: "justus.photos",
@@ -294,20 +292,13 @@ export const photoEvents = {
     ask(
       code: string,
       owner: string,
-      albumName?: string,
-      ownerName?: string,
       linkEnd?: number,
     ): InvokeEnvelope<
       "photos.ask",
-      { code: string; owner: string; albumName?: string; ownerName?: string; linkEnd?: number },
+      { code: string; owner: string; linkEnd?: number },
       { ask: AskSummary }
     > {
-      return invokeEvent(
-        photoSpecs.ask,
-        { code, owner, albumName, ownerName, linkEnd },
-        null,
-        PHOTOS_SHORT_TIMEOUT_MS,
-      );
+      return invokeEvent(photoSpecs.ask, { code, owner, linkEnd }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
     createFolder(
       name: string,
@@ -498,7 +489,7 @@ export const photoEvents = {
     ): InvokeEnvelope<
       "photos.linkTurnedOff",
       { code: string; owner: string },
-      { turnedOff: boolean }
+      { turnedOff: boolean; ownerName: string }
     > {
       return invokeEvent(photoSpecs.linkTurnedOff, { code, owner }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },

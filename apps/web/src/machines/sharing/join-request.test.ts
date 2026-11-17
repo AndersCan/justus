@@ -76,13 +76,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    expect(mocks.ask).toHaveBeenCalledWith(
-      INVITE.code,
-      INVITE.owner,
-      "Spain 2026",
-      "Nils",
-      undefined,
-    );
+    expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, undefined);
     expect(view().state).toBe("waitingForAdminToAccept");
   });
 
@@ -93,7 +87,7 @@ describe("join singleton", () => {
     await settle();
     join.askToJoin();
     await settle();
-    expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, "Spain 2026", "Nils", endsAt);
+    expect(mocks.ask).toHaveBeenCalledWith(INVITE.code, INVITE.owner, endsAt);
   });
 
   test("a failed request keeps the screen and shows the error, then refreshes nothing", async () => {

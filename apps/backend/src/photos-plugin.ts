@@ -100,8 +100,6 @@ export function createPhotosPlugin(deps: { store: PhotoStore; checkContract?: bo
         deps.store.ask({
           code: args.code,
           owner: args.owner,
-          albumName: args.albumName,
-          ownerName: args.ownerName,
           linkEnd: args.linkEnd,
         }),
       createFolder: async (args) => deps.store.createFolder(args.name),

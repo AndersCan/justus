@@ -151,7 +151,9 @@ export type AskSummary = {
   code: string;
   /** The Admin's identity drive key (hex). */
   owner: string;
+  /** From the Admin's phone; "" until it answered. Never from the link. */
   albumName: string;
+  /** From the Admin's phone; "" until it answered. Never from the link. */
   ownerName: string;
   /** When this device asked (ms epoch). */
   askedAt: number;

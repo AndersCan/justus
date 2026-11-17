@@ -290,8 +290,10 @@ type GoneRecord = {
 
 /** A request to join through an invite code. `shareKey` is set only once the
  * Admin accepted and the join is not done yet; it never touches a drive. */
-type AskRecord = Omit<AskSummary, "status"> & {
+type AskRecord = Omit<AskSummary, "status" | "albumName" | "ownerName"> & {
   status: "waiting" | "declined" | "accepted" | "linkOff";
+  /** The names the Admin's phone sent for this ask; never the link's. */
+  names?: { album: string; owner: string };
   shareKey?: string;
   /** Joining this ask's album replaces the album with this local id: the
    * Admin moved it to new keys and this phone is following. */
@@ -466,8 +468,6 @@ export interface PhotoStore {
   ask(args: {
     code: string;
     owner: string;
-    albumName?: string;
-    ownerName?: string;
     linkEnd?: number;
   }): Promise<EitherResult<{ ask: AskSummary }>>;
   createFolder(name: string): Promise<EitherResult<{ folder: FolderSummary }>>;
@@ -517,8 +517,11 @@ export interface PhotoStore {
   dismissDeclinedAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes back a request still waiting; the Admin stops seeing it. The link can be asked through again. */
   cancelAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
-  /** Joiner: whether the link's owner turned this link off, read from the owner's phone within 5 s; false when unknown. */
-  linkTurnedOff(code: string, owner: string): Promise<EitherResult<{ turnedOff: boolean }>>;
+  /** Joiner: whether the link's owner turned this link off, and the name their phone publishes ("" when unknown), read within 5 s; false when unknown. */
+  linkTurnedOff(
+    code: string,
+    owner: string,
+  ): Promise<EitherResult<{ turnedOff: boolean; ownerName: string }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -1148,11 +1151,18 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       )
         continue;
       const linkEnd = validLinkEnd(a.linkEnd);
+      // Asks saved before peer protocol 5 kept the link's flat albumName/ownerName; dropped,
+      // the Admin's phone sends the real ones on the next connection.
+      const names =
+        isTextJSON(a.names) &&
+        typeof a.names.album === "string" &&
+        typeof a.names.owner === "string"
+          ? { album: peerName(a.names.album, ""), owner: peerName(a.names.owner, "") }
+          : undefined;
       out.push({
         code: a.code,
         owner: a.owner,
-        albumName: peerName(a.albumName, DEFAULT_ASK_ALBUM),
-        ownerName: peerName(a.ownerName, DEFAULT_ASK_OWNER),
+        ...(names ? { names } : {}),
         askedAt: typeof a.askedAt === "number" ? a.askedAt : 0,
         status: a.status,
         ...(a.status === "linkOff" && isLinkOffWhy(a.why) ? { why: a.why } : {}),
@@ -4416,8 +4426,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return {
       code: a.code,
       owner: a.owner,
-      albumName: a.albumName,
-      ownerName: a.ownerName,
+      albumName: a.names?.album ?? "",
+      ownerName: a.names?.owner ?? "",
       askedAt: a.askedAt,
       status,
       ...(status === "linkOff" && a.why ? { why: a.why } : {}),
@@ -4459,33 +4469,26 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function fileAsk(
     code: string,
     owner: string,
-    albumName: unknown,
-    ownerName: unknown,
+    names: { album: string; owner: string } | undefined,
     replaces?: string,
     linkEnd?: number,
   ): Promise<EitherResult<{ ask: AskSummary }>> {
     try {
       await openSelfDriveIn(`ask/${code}`);
-      const ask = newInviteAsk({ code, owner, albumName, ownerName, now: Date.now() });
+      const ask = newInviteAsk({ code, owner, now: Date.now() });
       const end = validLinkEnd(linkEnd);
       const filed = {
         ...ask,
+        ...(names ? { names } : {}),
         ...(replaces ? { replaces } : {}),
         ...(end === undefined ? {} : { linkEnd: end }),
       };
-      state.asks = [
-        ...state.asks.filter(
-          (a) =>
-            a.code !== code &&
-            !(a.status === "linkOff" && a.owner === owner && a.albumName === ask.albumName),
-        ),
-        filed,
-      ];
+      state.asks = [...state.asks.filter((a) => a.code !== code), filed];
       saveState();
       await watchInvite(filed);
       deps.onChanged({ cause: "ask", code });
       void sendAsk(filed);
-      return ok({ ask: askSummary(ask) });
+      return ok({ ask: askSummary(filed) });
     } catch (e) {
       return err(ErrorCode.HOST_ERROR, `Cannot send the request: ${errMsg(e)}`);
     }
@@ -4734,7 +4737,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const ask = state.asks.find((a) => a.code === arrival.code);
     if (!ask) return;
     if (arrival.kind === "received") {
+      const names = { album: arrival.albumName, owner: arrival.ownerName };
+      if (ask.names?.album === names.album && ask.names.owner === names.owner) return;
+      ask.names = names;
+      if (names.album !== "") {
+        // A link-off row of the same owner and album is the dead link this ask replaces.
+        state.asks = state.asks.filter(
+          (a) =>
+            !(
+              a.status === "linkOff" &&
+              a.owner === ask.owner &&
+              a.code !== ask.code &&
+              a.names?.album === names.album
+            ),
+        );
+      }
       log("answer.received", { conn: connId, code: short(arrival.code) });
+      saveState();
+      deps.onChanged({ cause: "ask", code: ask.code });
       return;
     }
     if (arrival.kind === "linkOff") {
@@ -4780,7 +4800,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     if (!ask.shareKey || !setupDone || completing.has(ask.code)) return;
     completing.add(ask.code);
     try {
-      const joined = await joinAlbum(ask.shareKey, ask.albumName, {
+      const joined = await joinAlbum(ask.shareKey, ask.names?.album, {
         invite: { code: ask.code, owner: ask.owner },
         selfNs: `ask/${ask.code}`,
         replaces: ask.replaces,
@@ -5293,7 +5313,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         await copyOwnEntries(rt.selfDrive, ask, ids);
       }
       await copyHeld(rt.selfDrive, ask);
-      const [askErr] = await fileAsk(code, sender, offer.albumName, offer.ownerName, rt.record.id);
+      const [askErr] = await fileAsk(
+        code,
+        sender,
+        { album: offer.albumName, owner: offer.ownerName },
+        rt.record.id,
+      );
       if (askErr) {
         log("error", { where: "followMove.ask", err: askErr.message });
         return;
@@ -5763,7 +5788,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       const { code, owner } = check;
       const pending = askInflight.get(code);
       if (pending) return (await pending) as EitherResult<{ ask: AskSummary }>;
-      const filing = fileAsk(code, owner, args.albumName, args.ownerName, undefined, args.linkEnd);
+      const filing = fileAsk(code, owner, undefined, undefined, args.linkEnd);
       askInflight.set(code, filing);
       try {
         return await filing;
@@ -6021,9 +6046,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       if (!isHexKey(code) || !isHexKey(owner)) return err(PhotoError.INVALID_KEY, "Invalid link");
       const deadline = Date.now() + 5_000;
+      let named = "";
       const text = await withTimeout(
         openPeerOutbox(owner.toLowerCase()).then(async (drive) => {
-          // The file may not have replicated yet: wait for it, but only until the timeout.
+          // The name and the list may not have replicated yet: wait, but only until the timeout.
+          const reading = (async () => {
+            while (!closed && Date.now() < deadline) {
+              await withTimeout(drive.update(), 3_000);
+              const device = await readText(drive, DRIVE_PATH_DEVICE);
+              if (device !== null) {
+                const name = parseDeviceName(device);
+                named = name === "Unknown device" ? "" : name;
+                return;
+              }
+              await sleep(100);
+            }
+          })();
+          void reading.catch(() => undefined);
           while (!closed && Date.now() < deadline) {
             await withTimeout(drive.update(), 3_000);
             const list = await readText(drive, DRIVE_PATH_LINKS);
@@ -6035,7 +6074,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         5_000,
       ).catch(() => null);
       const turnedOff = linksOffIn(text ?? null).includes(linkOffId(code.toLowerCase(), crypto));
-      return ok({ turnedOff });
+      return ok({ turnedOff, ownerName: named });
     },
 
     async saveInviteLink(folderId, expiresAt) {
@@ -6159,7 +6198,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (take.kind === "gone") return err(PhotoError.OFFER_GONE, "This invite was taken back");
       let summary: AskSummary;
       if (take.kind === "file-ask") {
-        const filed = await fileAsk(code, owner, take.offer.albumName, take.offer.ownerName);
+        const filed = await fileAsk(code, owner, {
+          album: take.offer.albumName,
+          owner: take.offer.ownerName,
+        });
         if (filed[0]) return filed;
         summary = filed[1].ask;
       } else {
