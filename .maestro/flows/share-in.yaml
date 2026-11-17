@@ -26,16 +26,21 @@ env:
 - longPressOn: "justus-share-a.jpg"
 - tapOn: "justus-share-b.png"
 - tapOn: "Share"
-# The share sheet lists apps in a row that scrolls sideways: swipe it until Justus shows.
+# The share sheet shows a short row of apps that did not scroll to Justus: pull the sheet open to
+# its full app list, then scroll that list until Justus shows.
+- swipe:
+    start: 50%, 55%
+    end: 50%, 8%
+    duration: 500
 - repeat:
     while:
       notVisible: "Justus"
-    times: 8
+    times: 6
     commands:
       - swipe:
-          start: 90%, 85%
-          end: 10%, 85%
-          duration: 400
+          start: 50%, 80%
+          end: 50%, 30%
+          duration: 500
 - tapOn:
     text: "Justus"
     waitToSettleTimeoutMs: 500
