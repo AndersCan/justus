@@ -2,6 +2,7 @@
  * A phone that holds only the invite link never gets the album key, a photo or another
  * member's key, in what it stored, in every answer message that reached it, or on its disk.
  * The stranger is instance 2; instances keep earlier specs' state, so every secret is per album.
+ * The removed test adds Cleo (instance 3), who stays in and follows the move.
  *
  *   pnpm test:e2e-p2p e2e/p2p/link-only.spec.ts
  */
@@ -229,27 +230,42 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   await expect(b.locator("img")).toHaveCount(0);
 });
 
-test("a stranger who was let in, removed and uses the old link never gets the new key or a later photo", async ({
+async function nameIs(page, name) {
+  await page.goto("/settings");
+  const box = page.getByRole("textbox", { name: words("settings.your_name"), exact: true });
+  await box.fill(name);
+  await page.getByRole("button", { name: words("settings.save"), exact: true }).click();
+  await expect(box).toHaveValue(name);
+}
+
+test("a removed person never gets the new key or a later photo, even after a Collaborator followed the move and a reload; the old link does not let them back", async ({
   instancePages,
   instances,
 }) => {
   test.setTimeout(240_000);
-  const [a, b] = instancePages;
-  const [aInst, bInst] = instances;
-  await skipIntro([a, b]);
+  const [a, b, c] = instancePages;
+  const [aInst, bInst, cInst] = instances;
+  await skipIntro([a, b, c]);
+  await nameIs(b, "Ben");
+  await nameIs(c, "Cleo");
   const album = `Link removed ${Date.now().toString(36)}`;
   await createAlbum(a, album, "link-removed-1.png", 73);
   const id = new URL(a.url()).pathname.split("/").pop();
   const link = await copyInviteLink(a);
 
-  await askToJoin(b, link, album);
-  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
-    timeout: 60_000,
-  });
-  await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
-  await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
-    timeout: 60_000,
-  });
+  for (const joiner of [b, c]) {
+    await askToJoin(joiner, link, album);
+    await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+      timeout: 60_000,
+    });
+    await a
+      .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
+      .click();
+    await expect(
+      joiner.getByRole("button", { name: words("gallery.add_photos_to", { name: album }) }),
+    ).toBeVisible({ timeout: 60_000 });
+  }
+  const cIdentity = (await stateOf(c, cInst)).identityDrive;
   const oldKey = (await folderOf(a, aInst, id)).shareKey;
   // The scanner must find a key the stranger really holds, in the store and on disk.
   const held = await leaksOn(b, bInst, [keyOf(oldKey)]);
@@ -270,7 +286,9 @@ test("a stranger who was let in, removed and uses the old link never gets the ne
   const members = a.locator("section", {
     has: a.getByRole("heading", { name: words("album.members") }),
   });
-  await members.getByRole("button", { name: pattern("album.remove_name"), exact: false }).click();
+  await members
+    .getByRole("button", { name: words("album.remove_name", { name: "Ben" }), exact: true })
+    .click();
   await a
     .getByRole("button", { name: words("album.remove_2"), exact: true })
     .last()
@@ -298,13 +316,66 @@ test("a stranger who was let in, removed and uses the old link never gets the ne
   await expect
     .poll(() => later().length, { message: "Ada keeps the later photo" })
     .toBeGreaterThan(0);
+  const adaLater = later();
+
+  // Cleo stays in, follows the album to the new key and opens Ada's later photo.
+  const followed = async () =>
+    (await stateOf(c, cInst)).folders.find(
+      (f) => f.shareKey === newKey && f.role === "member" && !f.pending,
+    );
+  await expect.poll(followed, { timeout: 90_000, message: "Cleo follows the move" }).toBeTruthy();
+  const cNew = await followed();
+  await c.goto(`/albums/${cNew.id}`);
+  await c
+    .getByRole("button", { name: words("gallery.view", { name: "link-removed-2.png" }) })
+    .click({
+      timeout: 60_000,
+    });
+  await expect
+    .poll(
+      () => {
+        const dir = join(cInst.storageDir, "cache", "photos", cNew.id);
+        return readdirSync(dir).some((name) => {
+          const bytes = readFileSync(join(dir, name));
+          return adaLater.some((p) => p.bytes.equals(bytes));
+        });
+      },
+      { timeout: 60_000, message: "Cleo holds Ada's later photo" },
+    )
+    .toBe(true);
+  await c.keyboard.press("Escape");
+
   const secrets = [
     { label: "new album key", hex: newKey },
-    ...later().map((p) => ({ label: "later photo bytes", bytes: p.bytes })),
+    { label: "Cleo's new drive key", hex: cNew.selfDrive.key },
+    ...adaLater.map((p) => ({ label: "later photo bytes", bytes: p.bytes })),
   ];
+  // The route a later photo would take: Ben is connected to Cleo while he is scanned.
+  await expect
+    .poll(
+      async () =>
+        (await stateOf(b, bInst)).connections.filter((x) => x.identityKey === cIdentity).length,
+      { timeout: 60_000, message: "Ben and Cleo connected (the route a later photo would take)" },
+    )
+    .toBeGreaterThan(0);
   await watchPhotoNames(b, ["link-removed-2.png"]);
-  await staysClean(b, bInst, secrets, "removed");
+  await staysClean(b, bInst, secrets, "removed, Cleo on the new key");
   expect(await photoSeen(b), "later photo name on screen: removed").toBe(false);
+
+  // Reloads: the same checks hold, and the photo he had before is still his.
+  await b.reload();
+  const bId = (await stateOf(b, bInst)).folders.find((f) => f.shareKey === oldKey).id;
+  await b.goto(`/albums/${bId}`);
+  await expect(
+    b.getByRole("button", { name: words("gallery.view", { name: "link-removed-1.png" }) }),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    b.getByRole("button", { name: words("gallery.view", { name: "link-removed-2.png" }) }),
+  ).toHaveCount(0);
+  await staysClean(b, bInst, secrets, "after reload");
+  expect(await photoSeen(b), "later photo name on screen: after reload").toBe(false);
 
   // Uses the old link again.
   await b.goto("/join");
