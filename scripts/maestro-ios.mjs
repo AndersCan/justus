@@ -186,12 +186,23 @@ if (!ipad) {
           count: photoPixels,
           read: readFileSync,
           wait: (ms) => spawnSync("sleep", [String(ms / 1000)]),
-          open: () =>
-            run("open", ["-a", "Simulator"]).status === 0 &&
-            run("osascript", [
-              "-e",
-              'tell application "System Events" to tell process "Simulator" to click menu item "App Switcher" of menu "Device" of menu bar 1',
-            ]).status === 0,
+          open: () => {
+            const sh = (n) => run("xcrun", ["simctl", "io", udid, "screenshot", path.join(out, `dbg-${n}.png`)]);
+            const osa = (script) => run("osascript", ["-e", script]);
+            run("open", ["-a", "Simulator", "--args", "-CurrentDeviceUDID", udid]);
+            osa('tell application "Simulator" to activate');
+            spawnSync("sleep", ["2"]);
+            sh("0-before");
+            osa('tell application "System Events" to tell process "Simulator" to click menu item "App Switcher" of menu "Device" of menu bar 1');
+            spawnSync("sleep", ["2"]);
+            sh("1-menu");
+            osa('tell application "System Events" to tell process "Simulator" to key code 4 using {control down, shift down, command down}');
+            spawnSync("sleep", ["2"]);
+            sh("2-keys");
+            osa('tell application "System Events" to tell process "Simulator" to get name of every menu item of menu "Device" of menu bar 1');
+            osa('tell application "System Events" to get name of every window of process "Simulator"');
+            return true;
+          },
         };
     const done = helperRoute(request.url ?? "", { run, notify, udid, bundleId, switcher });
     if (done) console.log(`helper: ${request.url}`);

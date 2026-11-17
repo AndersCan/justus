@@ -88,5 +88,5 @@ jobs:
           path: |
             .maestro/out/switcher-lock-on.png
             .maestro/out/switcher-lock-off.png
-            .maestro/out/**/in-app.png
+            .maestro/out/dbg-*.png
           retention-days: 14
