@@ -217,9 +217,12 @@ export const joinRequestMachine = machine("joinRequest", {
       checkLink: async () => [undefined, { turnedOff: false }],
     };
     const asked = options.asked ?? ((code: string) => sent.get(code));
+    /** The album name each opened link carried, so a reopened request can still be compared with the real name. */
+    const linkAlbums = new Map<string, string>();
     /** The link's invite with the names this phone heard from the Admin's phone, "" when none. */
     function screenOf(invite: JoinInvite): JoinScreen {
       const ask = asked(invite.code);
+      if (invite.linkAlbum !== undefined) linkAlbums.set(invite.code, invite.linkAlbum);
       return { ...invite, album: ask?.albumName ?? "", ownerName: ask?.ownerName ?? "" };
     }
     /** A waiting screen's payload: the stored ask's names once it has any, else the screen's own. */
@@ -371,7 +374,11 @@ export const joinRequestMachine = machine("joinRequest", {
             ],
             handler: (e) => {
               const { ask: row } = e.payload;
-              const invite = inviteOf(row);
+              const linkAlbum = linkAlbums.get(row.code);
+              const invite = {
+                ...inviteOf(row),
+                ...(linkAlbum === undefined ? {} : { linkAlbum }),
+              };
               if (row.status === "linkOff") return { state: stoppedScreen(row.why, invite) };
               return row.status === "declined"
                 ? { state: declinedByAdmin.create(invite) }
