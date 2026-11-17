@@ -227,7 +227,7 @@ export const photoSpecs = {
     pluginId: "justus.photos",
     name: "photos.linkTurnedOff",
     args: {} as { code: string; owner: string },
-    result: {} as { turnedOff: boolean; ownerName: string },
+    result: {} as { turnedOff: boolean },
   },
   changed: {
     pluginId: "justus.photos",
@@ -489,7 +489,7 @@ export const photoEvents = {
     ): InvokeEnvelope<
       "photos.linkTurnedOff",
       { code: string; owner: string },
-      { turnedOff: boolean; ownerName: string }
+      { turnedOff: boolean }
     > {
       return invokeEvent(photoSpecs.linkTurnedOff, { code, owner }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },

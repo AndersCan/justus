@@ -12,7 +12,7 @@ checks this.
 
 - **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.
 - **The Admin's phone tells a waiting asker the album's name and its own** (new `received` answer on the answer channel). Who: nobody beyond the entry above; v0.4.0 phones are already refused. Do: nothing.
-- **A waiting request forgets the names its link carried** (saved asks keep only names the Admin's phone sent; `photos.ask` takes no names, `photos.linkTurnedOff` returns the Admin's published name). Who: testers with a request waiting from before this update: its row reads "Album you asked to join" until the Admin's phone is next connected. Do: nothing.
+- **A waiting request forgets the names its link carried** (saved asks keep only names the Admin's phone sent; `photos.ask` takes no names). Who: testers with a request waiting from before this update: its row shows no album name until the Admin's phone is next connected. Do: nothing.
 
 ## Protocol 4 (v0.4.0)
 

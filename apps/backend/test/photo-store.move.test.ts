@@ -1217,6 +1217,26 @@ describe("the other phones follow the move by themselves", () => {
     await s.close();
   }, 40_000);
 
+  it("the follow's own ask carries the names the Admin's offer sent", async () => {
+    const s = await invited();
+    const file = join(s.nils.deps.storageDir, "justus.json");
+    const names: unknown[] = [];
+    const deps = s.nils.deps;
+    const onChanged = deps.onChanged.bind(deps);
+    deps.onChanged = ((change: { cause?: string }) => {
+      if (change.cause === "ask") {
+        const saved = JSON.parse(readFileSync(file, "utf8")) as { asks: { names?: unknown }[] };
+        for (const ask of saved.asks) names.push(ask.names);
+      }
+      return onChanged(change);
+    }) as typeof deps.onChanged;
+    await s.admin.store.removeMember(s.folderId, s.keys.ben);
+    const next = s.record().shareKey;
+    await until(async () => (await albumOf(s.nils, s.ids.nils))?.shareKey === next, 15_000);
+    expect(names).toContainEqual({ album: "Trip", owner: "Anna" });
+    await s.close();
+  }, 40_000);
+
   it("after the follow the old album is gone and the id is kept", async () => {
     const s = await invited();
     const before = (await albumOf(s.nils, s.ids.nils))!;

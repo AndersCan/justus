@@ -518,10 +518,7 @@ export interface PhotoStore {
   /** Joiner: takes back a request still waiting; the Admin stops seeing it. The link can be asked through again. */
   cancelAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: whether the link's owner turned this link off, and the name their phone publishes ("" when unknown), read within 5 s; false when unknown. */
-  linkTurnedOff(
-    code: string,
-    owner: string,
-  ): Promise<EitherResult<{ turnedOff: boolean; ownerName: string }>>;
+  linkTurnedOff(code: string, owner: string): Promise<EitherResult<{ turnedOff: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */
   debugState(): Record<string, unknown>;
@@ -6046,23 +6043,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await readyPromise;
       if (!isHexKey(code) || !isHexKey(owner)) return err(PhotoError.INVALID_KEY, "Invalid link");
       const deadline = Date.now() + 5_000;
-      let named = "";
       const text = await withTimeout(
         openPeerOutbox(owner.toLowerCase()).then(async (drive) => {
-          // The name and the list may not have replicated yet: wait, but only until the timeout.
-          const reading = (async () => {
-            while (!closed && Date.now() < deadline) {
-              await withTimeout(drive.update(), 3_000);
-              const device = await readText(drive, DRIVE_PATH_DEVICE);
-              if (device !== null) {
-                const name = parseDeviceName(device);
-                named = name === "Unknown device" ? "" : name;
-                return;
-              }
-              await sleep(100);
-            }
-          })();
-          void reading.catch(() => undefined);
+          // The list may not have replicated yet: wait, but only until the timeout.
           while (!closed && Date.now() < deadline) {
             await withTimeout(drive.update(), 3_000);
             const list = await readText(drive, DRIVE_PATH_LINKS);
@@ -6074,7 +6057,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         5_000,
       ).catch(() => null);
       const turnedOff = linksOffIn(text ?? null).includes(linkOffId(code.toLowerCase(), crypto));
-      return ok({ turnedOff, ownerName: named });
+      return ok({ turnedOff });
     },
 
     async saveInviteLink(folderId, expiresAt) {
