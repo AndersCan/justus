@@ -69,14 +69,14 @@ describe("page and app read the same link", () => {
   }
 });
 
-// The first Chromium launch of the run is cold (binary load while other test files use the cores);
-// it took over 5 s on CI while later launches took about 1 s. Pay it here, bounded at 30 s.
-beforeAll(async () => {
-  const browser = await chromium.launch();
-  await browser.close();
-}, 30_000);
-
 describe("invite page in a browser", () => {
+  // The first Chromium launch of the run is cold (binary load while other test files use the cores);
+  // it took over 5 s on CI while later launches took about 1 s. Pay it here, bounded at 30 s.
+  beforeAll(async () => {
+    const browser = await chromium.launch();
+    await browser.close();
+  }, 30_000);
+
   async function open(hash: string) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
