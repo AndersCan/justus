@@ -2,10 +2,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import { requestRowOf } from "../utils/people";
+import { copy } from "../copy/copy";
+import { foldersActor } from "../machines/folders-machine";
 import { galleryMachine } from "../machines/gallery-machine";
 import {
   albumAddRow,
   albumHeader,
+  dropOverlay,
   missingAlbumText,
   requestLineText,
   scopeEmptyState,
@@ -438,56 +441,42 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
     const host = document.createElement("div");
     render(albumAddRow({ status, folders: [a] } as never, a as never), host);
     const buttons = [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
-    return { buttons, text: host.textContent?.replace(/\s+/g, " ") ?? "" };
+    return { buttons, host };
   };
-  const line = "Only you, until you invite someone.";
-
-  test("a waiting request drops the alone line but keeps Copy and its hint slot", () => {
-    const a = album("creator", 1);
-    const host = document.createElement("div");
-    render(
-      albumAddRow({ status: statusOf("f1", "creator"), folders: [a] } as never, a as never, true),
-      host,
-    );
-    const buttons = [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
-    expect(buttons).toContain("Copy invite link");
-    expect(host.textContent).not.toContain(line);
-    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
-  });
-
-  test("alone creator gets the invite button after Add photos and one line", () => {
-    const { buttons, text } = row(album("creator", 1), statusOf("f1", "creator"));
+  test("alone creator gets the invite button after Add photos and an empty hint", () => {
+    const { buttons, host } = row(album("creator", 1), statusOf("f1", "creator"));
     expect(buttons.filter((b) => b === "Copy invite link")).toHaveLength(1);
     expect(buttons.indexOf("Copy invite link")).toBeGreaterThan(
       buttons.findIndex((b) => b?.includes("Add photos")),
     );
-    expect(text.split(line)).toHaveLength(2);
+    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
+    expect(host.querySelector("[data-invite-hint]")?.textContent?.trim()).toBe("");
   });
 
   test("with a second person there is no invite button", () => {
-    const { buttons, text } = row(album("creator", 2), statusOf("f1", "creator"));
+    const { buttons, host } = row(album("creator", 2), statusOf("f1", "creator"));
     expect(buttons).not.toContain("Copy invite link");
-    expect(text).toContain("Only the 2 people in this album get them.");
+    expect(host.querySelector("[data-invite-hint]")).toBeNull();
+    expect(host.querySelectorAll("p")).toHaveLength(0);
   });
 
-  test("status for another album or none: no button, line shown", () => {
+  test("status for another album or none: no button and no line", () => {
     for (const status of [statusOf("other", "creator"), null]) {
-      const { buttons, text } = row(album("creator", 1), status);
+      const { buttons, host } = row(album("creator", 1), status);
       expect(buttons).not.toContain("Copy invite link");
-      expect(text).toContain(line);
+      expect(host.querySelectorAll("p")).toHaveLength(0);
     }
   });
 
   test("creator without an invite: no button", () => {
-    const { buttons, text } = row(album("creator", 1), statusOf("f1", "creator", false));
+    const { buttons, host } = row(album("creator", 1), statusOf("f1", "creator", false));
     expect(buttons).not.toContain("Copy invite link");
-    expect(text).toContain(line);
+    expect(host.querySelectorAll("p")).toHaveLength(0);
   });
 
-  test("Collaborator whose list still counts one: no invite button, line kept", () => {
-    const { buttons, text } = row(album("member", 1), statusOf("f1", "member"));
+  test("Collaborator whose list still counts one: no invite button", () => {
+    const { buttons } = row(album("member", 1), statusOf("f1", "member"));
     expect(buttons).not.toContain("Copy invite link");
-    expect(text).toContain(line);
   });
 
   test("buttons come from the open album's status, not the list entry", () => {
@@ -499,6 +488,20 @@ describe("albumAddRow invite buttons while the Admin is alone", () => {
   test("reader alone: no invite button", () => {
     const { buttons } = row(album("reader", 1), statusOf("f1", "reader"));
     expect(buttons).not.toContain("Copy invite link");
+  });
+});
+
+describe("dropOverlay", () => {
+  test("an album the person can add to shows the title and no detail line", () => {
+    const trip = { id: "f1", name: "Trip", role: "creator", members: 2 };
+    vi.spyOn(foldersActor, "snapshot").mockReturnValue({ context: { folders: [trip] } } as never);
+    const host = document.createElement("div");
+    render(
+      dropOverlay({ folders: [trip], status: null } as never, { kind: "album", id: "f1" }),
+      host,
+    );
+    const lines = [...host.querySelectorAll("p")].map((p) => p.textContent);
+    expect(lines).toEqual([copy("gallery.drop_to_add_to", { albumName: "Trip" })]);
   });
 });
 
@@ -567,16 +570,6 @@ describe("albumHeader join request line", () => {
     const { text } = draw_({ requests: [other, ask, second] });
     expect(text).toContain("2 people want to join");
     expect(text).not.toContain("Zed");
-  });
-
-  test("a waiting request keeps the line about the other people", () => {
-    const { text } = draw_({ album: { ...album, members: 3 }, status: null });
-    expect(text).toContain("Only the 3 people");
-  });
-
-  test("a waiting request hides the alone line", () => {
-    const { text } = draw_({ album: { ...album, members: 1 }, status: null });
-    expect(text).not.toContain("Only you, until you invite someone.");
   });
 
   test("a request for another album changes nothing", () => {

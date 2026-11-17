@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { t } from "../copy/copy";
 import { gateway } from "../gateway";
 import { inviteLink } from "../machines/sharing/invite-link";
 import { inviteRow } from "./invite";
@@ -31,7 +30,7 @@ const folder = (code: string) =>
 const rowButtons = (code: string) => {
   const host = document.createElement("div");
   document.body.append(host);
-  render(inviteRow(folder(code), "Nils", t("gallery.only_you_until_you_invite")), host);
+  render(inviteRow(folder(code), "Nils"), host);
   return [...host.querySelectorAll("button")];
 };
 

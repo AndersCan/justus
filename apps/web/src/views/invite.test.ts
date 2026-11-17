@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { copy, t } from "../copy/copy";
+import { copy } from "../copy/copy";
 import { linkEndText } from "../utils/time";
 import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import {
@@ -84,7 +84,7 @@ describe("invite row", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const f = { ...folder(role), ...(withInvite ? {} : { invite: undefined }) } as FolderSummary;
-    render(inviteRow(f, "Nils", t("gallery.only_you_until_you_invite")), host);
+    render(inviteRow(f, "Nils"), host);
     return host;
   };
   const labels = (host: HTMLElement) =>
@@ -99,7 +99,7 @@ describe("invite row", () => {
     expect(labels(mountRow("creator"))).toEqual(["Send invite link", "Copy link"]);
   });
 
-  test("Copy swaps the line for the pasted hint, then restores both", async () => {
+  test("Copy fills the empty hint, then empties it", async () => {
     vi.useFakeTimers();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn(async () => {}) },
@@ -116,13 +116,11 @@ describe("invite row", () => {
     ).toBe(copy("invite.copied_works_until", { end: linkEndText(expiresAt!) }));
     await vi.advanceTimersByTimeAsync(7000);
     expect(copyButton(host)!.textContent!.trim()).toBe("Copy invite link");
-    expect(host.textContent).toContain("Only you, until you invite someone.");
-    expect(
-      host.querySelector('[data-invite-hint] [data-copy-id="gallery.only_you_until_you_invite"]'),
-    ).not.toBeNull();
+    expect(host.querySelector("[data-invite-hint]")?.textContent?.trim()).toBe("");
+    expect(host.querySelector("[data-invite-hint] [data-copy-id]")).not.toBeNull();
   });
 
-  test("two quick Copy taps bring the line back with its own id", async () => {
+  test("two quick Copy taps leave the hint empty again", async () => {
     vi.useFakeTimers();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn(async () => {}) },
@@ -133,10 +131,9 @@ describe("invite row", () => {
     await vi.advanceTimersByTimeAsync(500);
     copyButton(host)!.click();
     await vi.advanceTimersByTimeAsync(7000);
-    expect(
-      host.querySelector('[data-invite-hint] [data-copy-id="gallery.only_you_until_you_invite"]')
-        ?.textContent,
-    ).toBe(copy("gallery.only_you_until_you_invite"));
+    const slot = host.querySelector("[data-invite-hint] [data-copy-id]");
+    expect(slot?.textContent).toBe("");
+    expect(slot?.getAttribute("data-copy-id")).toBe("");
   });
 
   test("a reader or a missing invite code renders no button", () => {

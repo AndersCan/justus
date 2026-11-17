@@ -342,9 +342,8 @@ function inviteButtons(
   </div>`;
 }
 
-/** The album's Send/Copy buttons with a line under them that Copy turns into the
- * "Copied…" hint. Admin only: renders nothing for anyone else or without an invite code. */
-export function inviteRow(folder: FolderSummary, myName: string, line: unknown) {
+/** The album's Send/Copy buttons with an empty hint under them that Copy fills for a moment. Admin only: renders nothing for anyone else or without an invite code. */
+export function inviteRow(folder: FolderSummary, myName: string) {
   if (folder.role !== "creator" || !folder.invite) return null;
   return watch(
     inviteLinkActor,
@@ -354,7 +353,7 @@ export function inviteRow(folder: FolderSummary, myName: string, line: unknown) 
         blocked: linkBlockedFor(folder, inviteLinkViewOf(snapshot)),
         copiedLine: "with-end",
       })}
-      <p class="mt-1 text-xs text-muted" data-invite-hint>${line}</p>
+      <p class="mt-1 text-xs text-muted" data-invite-hint><span data-copy-id></span></p>
     </div>`,
   );
 }

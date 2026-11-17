@@ -516,9 +516,9 @@ export function viewerLine(page: { status: SyncStatus | null }, album: { id: str
   return copy("gallery.you_re_a_viewer_you", { who });
 }
 
-/** The album's add row: the picker, the camera, and who gets the photos. Or,
- * when this device can't add here, why not. */
-export function albumAddRow(page: PhotosPage, album: FolderSummary, waiting = false) {
+/** The album's add row: the picker and the camera, then Copy/Send while the Admin is alone.
+ * Or, when this device can't add here, why not. */
+export function albumAddRow(page: PhotosPage, album: FolderSummary) {
   if (album.notice?.kind === "removed") {
     return html`<p class="text-sm text-muted">
       ${t("gallery.you_re_no_longer_in", { name: album.name })}
@@ -553,30 +553,10 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary, waiting = fa
     <div class="flex min-w-0 max-w-full gap-2">
       ${cameraButton(page, album)} ${addButton(page, album)}
     </div>
-    ${
-      inviteHere || (waiting && others <= 0)
-        ? null
-        : html`<p class="text-xs text-muted">
-            ${
-              others > 0
-                ? copy("gallery.only_the_people_in_this", { members: album.members })
-                : copy("gallery.only_you_until_you_invite")
-            }
-          </p>`
-    }
   </div>`;
   if (!inviteHere) return row;
   return html`${row}
-    <div class="mt-2">
-      ${inviteRow(
-        status.folder,
-        status.name,
-        // Empty while a request waits; Copy still writes its hint here.
-        waiting && others <= 0
-          ? html`<span data-copy-id></span>`
-          : t("gallery.only_you_until_you_invite"),
-      )}
-    </div>`;
+    <div class="mt-2">${inviteRow(status.folder, status.name)}</div>`;
 }
 
 /** The strip's motion key while it shows, so the page can slide around it. */
@@ -645,12 +625,9 @@ export function dropOverlay(page: PhotosPage, scope: PhotoScope) {
   const [title, detail] = !plan
     ? [copy("gallery.open_an_album_to_add_2"), copy("gallery.photos_always_go_into_one")]
     : plan.kind === "direct"
-      ? [
-          copy("gallery.drop_to_add_to", { albumName: albumName(plan.folderId) }),
-          copy("gallery.only_the_people_in_this_2"),
-        ]
+      ? [copy("gallery.drop_to_add_to", { albumName: albumName(plan.folderId) })]
       : plan.kind === "unknown"
-        ? [copy("gallery.getting_your_access"), ""]
+        ? [copy("gallery.getting_your_access")]
         : [
             copy("gallery.you_can_t_add_to", { name: plan.album.name }),
             copy("gallery.ask_the_admin_or_start"),
@@ -663,7 +640,7 @@ export function dropOverlay(page: PhotosPage, scope: PhotoScope) {
       class="rounded-3xl border-2 border-dashed border-accent bg-surface px-8 py-6 text-center text-fg shadow-xl"
     >
       <p class="text-lg font-semibold">${title}</p>
-      <p class="mt-1 text-sm text-muted">${detail}</p>
+      ${detail ? html`<p class="mt-1 text-sm text-muted">${detail}</p>` : null}
     </div>
   </div>`;
 }
@@ -849,7 +826,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
       </div>
       ${slot}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
-      ${albumAddRow(page, album, waiting > 0)}
+      ${albumAddRow(page, album)}
     </div>
   `;
 }
