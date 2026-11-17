@@ -8,6 +8,7 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { expect, test } from "@playwright/test";
 import { copyInviteLink, createAlbum, skipIntro } from "../p2p/steps";
 
@@ -72,7 +73,11 @@ async function step(n, fn) {
     await test.step(s.name, fn);
     s.result = "pass";
   } catch (error) {
-    s.error = String(error?.message ?? error).split("\n")[0];
+    // Playwright colours its messages; keep the first line and the locator it waited for.
+    const lines = stripVTControlCharacters(String(error?.message ?? error)).split("\n");
+    s.error = [lines[0], lines.find((l) => l.trim().startsWith("Locator:"))?.trim()]
+      .filter(Boolean)
+      .join(" ");
     throw error;
   } finally {
     s.ms = Date.now() - started;
@@ -82,7 +87,7 @@ async function step(n, fn) {
 // Ben's phone: one short Maestro flow, no shell. The flow's own timeouts are the step budget.
 function ben(flow, env, budgetMs) {
   const args = ["--device", serial, "test", "--test-output-dir", join(out, "maestro", flow)];
-  for (const [k, v] of Object.entries({ OUT: out, ...env })) args.push("-e", `${k}=${v}`);
+  for (const [k, v] of Object.entries(env)) args.push("-e", `${k}=${v}`);
   args.push(join(".maestro", "walk", `${flow}.yaml`));
   return new Promise((resolve, reject) => {
     const child = spawn("maestro", args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -146,9 +151,9 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     );
     await step(6, async () => {
       // Ada is on the album's page, so the request is listed there (no toast).
-      await expect(
-        a.getByText(words("ask_toast.wants_to_join", { name: "B", folderName: ALBUM })),
-      ).toBeVisible({ timeout: 120_000 });
+      await expect(a.getByText(words("album.wants_to_join", { folderName: ALBUM }))).toBeVisible({
+        timeout: 120_000,
+      });
       await a
         .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
         .click();
