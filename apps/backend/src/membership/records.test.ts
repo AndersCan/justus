@@ -373,6 +373,10 @@ describe("parseAnswer", () => {
     expect(parseAnswer({ ...value, albumName: "x".repeat(200) })).toMatchObject({
       albumName: "x".repeat(80),
     });
+    expect(parseAnswer({ ...value, ownerName: "y".repeat(200) })).toMatchObject({
+      ownerName: "y".repeat(80),
+    });
+    expect(parseAnswer({ ...value, ownerName: "  " })).toMatchObject({ ownerName: "" });
     expect(parseAnswer({ ...value, albumName: "  ", ownerName: "" })).toMatchObject({
       albumName: "",
       ownerName: "",

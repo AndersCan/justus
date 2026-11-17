@@ -1299,6 +1299,19 @@ describe("a request through a turned-off link", () => {
     await store.close();
   });
 
+  it("a waiting joiner is told the album's name and the Admin's, for its ask time", async () => {
+    const { s, arrived, joinerNetwork } = await teed();
+    const asked = await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
+    const askedAt = asked[1]!.ask.askedAt;
+    joinerNetwork.join(s.adminTopic, { server: false });
+    await until(() => arrived.some((m) => m.answer === "received"), 4_000);
+    expect(arrived.filter((m) => m.answer === "received")).toEqual([
+      { code: s.invite.code, answer: "received", askedAt, albumName: "Trip", ownerName: "Admin" },
+    ]);
+    expect(await askStatus(s)).toBe("waiting");
+    await s.close();
+  });
+
   it("a request through the live code gets no linkOff", async () => {
     const { s, arrived, joinerNetwork } = await teed();
     const code = (await s.admin.store.turnOffInvite(s.folderId))[1]!.invite.code;
