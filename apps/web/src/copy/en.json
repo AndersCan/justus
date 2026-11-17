@@ -2225,20 +2225,6 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
-  "gallery.only_the_people_in_this": {
-    "text": "Only the {members} people in this album get them.",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
-  "gallery.only_you_until_you_invite": {
-    "text": "Only you, until you invite someone.",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
   "gallery.a_photo": {
     "text": "a photo",
     "status": "draft",
@@ -2295,13 +2281,6 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": ""
   },
-  "gallery.only_the_people_in_this_2": {
-    "text": "Only the people in this album get them.",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
   "gallery.you_can_t_add_to": {
     "text": "You can't add to {name}",
     "status": "draft",
@@ -2352,7 +2331,7 @@
     "screen": ""
   },
   "gallery.add_the_first_one_with": {
-    "text": "Add the first one with the button above. Everyone in the album will get it.",
+    "text": "Add the first one with the button above.",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",

@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { FolderSummary } from "@justus/core";
-import { t } from "../copy/copy";
 import { inviteLink } from "../machines/sharing/invite-link";
 import { inviteRow } from "./invite";
 
@@ -38,7 +37,7 @@ describe("invite row while links are being turned off", () => {
     await new Promise((r) => setTimeout(r, 0));
     const host = document.createElement("div");
     document.body.append(host);
-    render(inviteRow(folder, "Nils", t("gallery.only_you_until_you_invite")), host);
+    render(inviteRow(folder, "Nils"), host);
     const buttons = [...host.querySelectorAll("button")];
     expect(buttons.map((b) => b.textContent?.trim())).toEqual(["Send invite link", "Copy link"]);
     expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
