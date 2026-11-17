@@ -7,8 +7,9 @@ export type PhotoMember = {
   name: string;
 };
 
-/** Who has a full copy of a photo, as their phones last told this one. */
-export type PhotoHolders = {
+/** Who has a full copy of a photo, as their phones last told this one, on a phone still in the album. */
+export type InAlbumHolders = {
+  kind: "inAlbum";
   /** This phone has the full copy (it added the photo, or the copy finished arriving). */
   here: boolean;
   /** Current album people other than this phone with a full copy, the adder always included. Sorted by name, then key. */
@@ -24,6 +25,16 @@ export type PhotoHolders = {
   /** Names of people who left the album and had a copy when they went; their phone deleted it, so they are not holders. Sorted, unique. */
   left: string[];
 };
+
+/** This phone was removed from the album: it hears no other phone, so it knows only its own copy. */
+export type RemovedHolders = {
+  kind: "removed";
+  /** This phone has the full copy (it added the photo, or the copy finished arriving). */
+  here: boolean;
+};
+
+/** Who has a full copy of a photo. Read `kind` first: a removed phone has no list of other people. */
+export type PhotoHolders = InAlbumHolders | RemovedHolders;
 
 export type Photo = {
   /** File id within the member drive (e.g. `abc123`). */

@@ -383,6 +383,7 @@ describe("holdersFor", () => {
 
   it("adder only", () => {
     expect(run({ held: [[ADDER, has("p1")]] })).toEqual({
+      kind: "inAlbum",
       here: false,
       others: [adder],
       unsure: [],
@@ -400,6 +401,7 @@ describe("holdersFor", () => {
   it("self is the adder", () => {
     const own = { id: "p1", driveKey: SELF, memberName: "Me" };
     expect(run({ photo: own, people: [self, ben], held: [[B, has()]] })).toEqual({
+      kind: "inAlbum",
       here: true,
       others: [],
       unsure: [],

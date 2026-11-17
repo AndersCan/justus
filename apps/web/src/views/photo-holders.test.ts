@@ -20,6 +20,7 @@ function photo(holders: PhotoHolders | undefined): Photo {
   };
 }
 const h = (p: Partial<PhotoHolders>): PhotoHolders => ({
+  kind: "inAlbum",
   here: true,
   others: [],
   unsure: [],

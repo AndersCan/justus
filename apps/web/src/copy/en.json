@@ -503,6 +503,13 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "holders.on_your_phone_removed": {
+    "text": "On your phone",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People removed from an album who open a photo they kept",
+    "screen": ""
+  },
   "holders.arriving_on_your_phone": {
     "text": "Arriving on your phone…",
     "status": "draft",

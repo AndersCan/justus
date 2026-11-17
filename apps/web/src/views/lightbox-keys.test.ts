@@ -70,6 +70,7 @@ describe("holders sheet in the lightbox", () => {
       ...photo,
       folderId: "f1",
       holders: {
+        kind: "inAlbum" as const,
         here: true,
         others: [],
         unsure: [],
@@ -92,6 +93,7 @@ describe("holders sheet in the lightbox", () => {
       ...photo,
       folderId: "f1",
       holders: {
+        kind: "inAlbum" as const,
         here: true,
         others: [],
         unsure: [],
