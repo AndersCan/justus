@@ -517,7 +517,7 @@ export interface PhotoStore {
   dismissDeclinedAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Joiner: takes back a request still waiting; the Admin stops seeing it. The link can be asked through again. */
   cancelAsk(code: string): Promise<EitherResult<{ ok: boolean }>>;
-  /** Joiner: whether the link's owner turned this link off, and the name their phone publishes ("" when unknown), read within 5 s; false when unknown. */
+  /** Joiner: whether the link's owner turned this link off, read from the owner's phone within 5 s; false when unknown. */
   linkTurnedOff(code: string, owner: string): Promise<EitherResult<{ turnedOff: boolean }>>;
   /** JSON snapshot of live p2p state (connections, topics, drives, folders),
    * served at `/__state` so a field bug can be diagnosed without probes. */

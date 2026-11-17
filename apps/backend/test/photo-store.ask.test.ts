@@ -257,7 +257,7 @@ describe("ask", () => {
     const again = createPhotoStore(restarted(s.joiner.deps));
     await again.ready();
     const [ask] = (await again.folders()).asks;
-    expect(ask).toMatchObject({ albumName: "" });
+    expect(ask).toMatchObject({ albumName: "", ownerName: "" });
     await again.close();
     await s.close();
   });
