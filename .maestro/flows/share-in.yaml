@@ -5,8 +5,7 @@ env:
 # Share two photos from the Files app into Justus. scripts/maestro-e2e.sh pushed
 # justus-share-a.jpg and justus-share-b.png into Downloads and passes the Files package as
 # DOCUMENTS_UI. Whether the photos arrived is checked by that script, from the inbox on disk.
-- launchApp:
-    clearState: true
+# No clearState: first-run's data stays for the survive check, and the inbox must outlive the flow.
 - stopApp
 - launchApp:
     appId: ${DOCUMENTS_UI}
