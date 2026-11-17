@@ -410,7 +410,7 @@ appId: no.cankode.justus
           text: "Photos"
           waitToSettleTimeoutMs: 500
       - extendedWaitUntil:
-          visible: "M, 1 photo"
+          visible: "1 photo"
           timeout: 30000
       - runScript:
           file: ../scripts/switcher.js
