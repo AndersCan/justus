@@ -5,4 +5,4 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: ${TILE}
     timeout: 120000
-- takeScreenshot: ${OUT}/ben-7-sees-photo
+- takeScreenshot: ben-7-sees-photo

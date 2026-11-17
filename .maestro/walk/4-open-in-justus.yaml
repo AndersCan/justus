@@ -21,4 +21,4 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: ${ASK_TITLE}
     timeout: 30000
-- takeScreenshot: ${OUT}/ben-4-asks-to-join
+- takeScreenshot: ben-4-asks-to-join

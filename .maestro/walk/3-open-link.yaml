@@ -16,4 +16,4 @@ appId: no.cankode.justus
 - extendedWaitUntil:
     visible: ${OPEN}
     timeout: 60000
-- takeScreenshot: ${OUT}/ben-3-invite-page
+- takeScreenshot: ben-3-invite-page
