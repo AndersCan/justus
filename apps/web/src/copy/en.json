@@ -3149,13 +3149,6 @@
     "who": "People joining by a link",
     "screen": ""
   },
-  "invite.update_justus_to_join_unnamed": {
-    "text": "Update Justus to join this album",
-    "status": "draft",
-    "where": "Invite & join › text",
-    "who": "People joining by a link",
-    "screen": ""
-  },
   "invite.request_reaches_after_update": {
     "text": "Your request is saved on this phone. It reaches {owner} once both phones have the same Justus.",
     "status": "draft",

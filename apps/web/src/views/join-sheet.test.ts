@@ -259,17 +259,20 @@ describe("renderJoinSheet names", () => {
   if (parsed.kind !== "invite") throw new Error("expected invite");
   /** What the screen holds for an edited link before the Admin's phone has answered. */
   const unnamed = { ...parsed.invite, album: "", ownerName: "" };
-  const states = labels.map(([state]) => state);
   const drawUnnamed = (state: JoinView["state"]) => {
     const div = document.createElement("div");
     render(renderJoinSheet({ state, invite: unnamed, error: "" }, actions), div);
     return div;
   };
 
-  test.each(states)("%s for an edited link shows no name from the link", (state) => {
-    const div = drawUnnamed(state);
-    expect(div.textContent).not.toMatch(/Holiday|Mallory/);
-    expect(div.querySelector("dialog")?.getAttribute("aria-label")).not.toMatch(/Holiday|Mallory/);
+  test("an edited link shows no name from the link on the question or the waiting screen", () => {
+    for (const state of ["decidingToAsk", "waitingForAdminToAccept"] as const) {
+      const div = drawUnnamed(state);
+      expect(div.textContent).not.toMatch(/Holiday|Mallory/);
+      expect(div.querySelector("dialog")?.getAttribute("aria-label")).not.toMatch(
+        /Holiday|Mallory/,
+      );
+    }
   });
 
   test("the question without an album name says 'this album'", () => {
@@ -281,9 +284,9 @@ describe("renderJoinSheet names", () => {
     );
   });
 
-  test("the update title without an album name says 'this album'", () => {
+  test("the update title without an album name names the album as the one asked for", () => {
     expect(drawUnnamed("waitingForYouToUpdate").querySelector("h3")?.textContent).toBe(
-      copy("invite.update_justus_to_join_unnamed"),
+      copy("invite.update_justus_to_join", { album: copy("albums.album_you_asked_to_join") }),
     );
   });
 

@@ -15,8 +15,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -54,8 +53,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -112,8 +110,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": true,
-            "ownerName": ""
+            "turnedOff": true
           }
         }
       ]
@@ -133,8 +130,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         }
       ]
@@ -154,8 +150,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -209,8 +204,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -260,8 +254,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -299,8 +292,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -334,8 +326,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -370,8 +361,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -400,8 +390,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         }
       ]
@@ -421,8 +410,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -481,8 +469,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -526,8 +513,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -573,8 +559,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -620,8 +605,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -660,8 +644,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -700,8 +683,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -739,8 +721,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -779,8 +760,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -823,8 +803,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -862,8 +841,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -906,8 +884,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -951,8 +928,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -1008,8 +984,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -1066,8 +1041,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {
@@ -1116,8 +1090,7 @@
           "kind": "event",
           "event": "linkChecked",
           "payload": {
-            "turnedOff": false,
-            "ownerName": ""
+            "turnedOff": false
           }
         },
         {

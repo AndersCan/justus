@@ -165,9 +165,9 @@ export function renderJoinSheet(
     const update = state === "waitingForYouToUpdate";
     const unnamed = invite.album === "";
     const title = update
-      ? unnamed
-        ? copy("invite.update_justus_to_join_unnamed")
-        : copy("invite.update_justus_to_join", { album: invite.album })
+      ? copy("invite.update_justus_to_join", {
+          album: unnamed ? copy("albums.album_you_asked_to_join") : invite.album,
+        })
       : copy("invite.you_re_done", { owner });
     return sheet(
       title,

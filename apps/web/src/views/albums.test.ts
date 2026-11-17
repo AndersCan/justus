@@ -369,11 +369,11 @@ describe("Join tab", () => {
   test("a link its owner turned off says so under the box and keeps the text", async () => {
     const host = document.createElement("div");
     render(joinPanel(), host);
-    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: true, ownerName: "Ada" }]);
+    mock.linkTurnedOff.mockResolvedValue([undefined, { turnedOff: true }]);
     const input = submit(host, goodLink);
     await vi.waitFor(() => expect(host.querySelector("[role=alert]")).not.toBeNull());
     expect(host.querySelector("[role=alert]")!.textContent).toBe(
-      "Ada turned off this link. Ask Ada for a new link if you still want to join.",
+      "The person who invited you turned off this link. Ask the person who invited you for a new link if you still want to join.",
     );
     expect(input.value).toBe(goodLink);
     expect(document.querySelector("dialog")).toBeNull();

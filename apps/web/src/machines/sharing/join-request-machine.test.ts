@@ -1380,11 +1380,7 @@ describe("joiner design", () => {
         name: "Maya's ask meets a deleted album",
         steps: [
           { kind: "event" as const, event: "openLink", payload: { text: LINK } },
-          {
-            kind: "event" as const,
-            event: "linkChecked",
-            payload: { turnedOff: false, ownerName: "" },
-          },
+          { kind: "event" as const, event: "linkChecked", payload: { turnedOff: false } },
           { kind: "event" as const, event: "askToJoin", payload: null },
           {
             kind: "event" as const,
@@ -1435,10 +1431,7 @@ describe("joiner design", () => {
         { code: "c".repeat(64), album: "Garden", ownerName: "Tom" },
       ],
       requestAnswered: answers,
-      linkChecked: [
-        { turnedOff: false, ownerName: "" },
-        { turnedOff: true, ownerName: "Ada" },
-      ],
+      linkChecked: [{ turnedOff: false }, { turnedOff: true }],
       requestFailed: [{ message: SEND_FAILED }],
     },
   };
@@ -1770,55 +1763,11 @@ describe("pasted link: branches the review found untested", () => {
 });
 
 describe("names come only from the Admin's phone", () => {
-  const checked = (ownerName: string, turnedOff = false): JoinPort => ({
-    ask: async () => [undefined, {}],
-    checkLink: async () => [undefined, { turnedOff, ownerName }],
-  });
-
   test("an edited link names nobody on the question", async () => {
     const s = setup();
     await s.send("openLink", { text: LINK });
     expect(payload(s)).toEqual(UNNAMED);
     expect(JSON.stringify(payload(s))).not.toMatch(/Holiday|Mallory/);
-  });
-
-  test("the link check gives the question the Admin's published name", async () => {
-    const s = setup({ port: checked("Ada") });
-    await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
-  });
-
-  test("a check with no published name leaves the owner unnamed", async () => {
-    const s = setup({ port: checked("") });
-    await s.send("openLink", { text: LINK });
-    expect(payload(s)).toEqual(UNNAMED);
-  });
-
-  test("a check that answers with no name field leaves the owner unnamed", async () => {
-    const s = setup({
-      port: {
-        ask: async () => [undefined, {}],
-        checkLink: async () => [undefined, { turnedOff: false }],
-      },
-    });
-    await s.send("openLink", { text: LINK });
-    expect(payload(s)).toEqual(UNNAMED);
-  });
-
-  test("a turned-off link says who turned it off by the published name", async () => {
-    const s = setup({ port: checked("Ada", true) });
-    await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("linkTurnedOffByAdmin");
-    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
-  });
-
-  test("a pasted link turned off says so with the published name", async () => {
-    const s = setup({ port: checked("Ada", true) });
-    await s.send("askWithPastedLink", { text: LINK });
-    expect(error(s)).toBe(
-      "Ada turned off this link. Ask Ada for a new link if you still want to join.",
-    );
   });
 
   test("the waiting screen takes the names of the stored ask", async () => {
@@ -1833,17 +1782,9 @@ describe("names come only from the Admin's phone", () => {
     expect(payload(s)).toEqual(NAMED);
   });
 
-  test("the stored ask's name wins over the name from the link check", async () => {
-    const s = await waitingSetup({
-      port: checked("Ada"),
-      asked: () => ({ ...ask("waiting"), ownerName: "Bea" }),
-    });
-    expect(payload(s)).toEqual({ ...NAMED, ownerName: "Bea" });
-  });
-
-  test("the waiting screen with no stored names keeps what it has", async () => {
-    const s = await waitingSetup({ port: checked("Ada") });
-    expect(payload(s)).toEqual({ ...UNNAMED, ownerName: "Ada" });
+  test("the waiting screen with no stored names stays unnamed", async () => {
+    const s = await waitingSetup({});
+    expect(payload(s)).toEqual(UNNAMED);
   });
 
   test.each(["waitingForAdminToAccept", "waitingForYouToUpdate"] as const)(
@@ -1863,6 +1804,21 @@ describe("names come only from the Admin's phone", () => {
     const s = await waitingSetup();
     await s.send("namesHeard", { code: "c".repeat(64), album: "Garden", ownerName: "Tom" });
     expect(payload(s)).toEqual(UNNAMED);
+  });
+
+  test("names the Admin's phone sent while the request was going out show on the waiting screen", async () => {
+    let stored: AskSummary | undefined;
+    const s = await waitingSetup({
+      port: {
+        ask: async () => {
+          stored = ask("waiting");
+          return [undefined, {}];
+        },
+      },
+      asked: () => stored,
+    });
+    expect(s.actor.state.name).toBe("waitingForAdminToAccept");
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test("a row with no names reopens unnamed", async () => {
