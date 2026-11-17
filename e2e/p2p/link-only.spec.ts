@@ -106,7 +106,39 @@ async function answerSince(page, inst, word, t0) {
   return (await stateOf(page, inst)).answersIn.some((m) => m.at >= t0 && m.text.includes(word));
 }
 
+/** Flags in `window.__photoSeen` any node or attribute on `page` that names one of `names`. */
+async function watchPhotoNames(page, names) {
+  const watch = (list) => {
+    const hit = (text) => list.some((n) => text.includes(n));
+    const scan = (node) => {
+      if (node.nodeType === 3 && hit(node.data)) window.__photoSeen = true;
+      if (node.nodeType !== 1) return;
+      for (const attr of node.attributes) if (hit(attr.value)) window.__photoSeen = true;
+      node.childNodes.forEach(scan);
+    };
+    window.__photoSeen = false;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === "attributes") scan(r.target);
+        else if (r.type === "characterData") scan(r.target);
+        else r.addedNodes.forEach(scan);
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    scan(document.documentElement);
+  };
+  await page.addInitScript(watch, names);
+  await page.evaluate(watch, names);
+}
+
+const photoSeen = (page) => page.evaluate(() => window.__photoSeen === true);
+
 const keyOf = (hex) => ({ label: "album key", hex });
+
+/** The photo files Ada's phone keeps for album `id`: what a phone holding the photo has on disk. */
+function photosOf(inst, id) {
+  const dir = join(inst.storageDir, "cache", "photos", id);
+  return readdirSync(dir).map((name) => ({ name, bytes: readFileSync(join(dir, name)) }));
+}
 
 test("a link holder who opens, asks, waits, is declined, asks again and cancels never gets the key, the photo or the member list", async ({
   instancePages,
@@ -123,8 +155,10 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   const link = await copyInviteLink(a);
 
   await askToJoin(c, link, album);
-  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
+  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+    timeout: 60_000,
+  });
+  await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
   await expect(c.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
   });
@@ -137,9 +171,11 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   const secrets = [
     { label: "album key", hex: shareKey },
     { label: "other member's key", hex: cKey },
-    { label: "photo bytes", bytes: pngOf(...runColour(71)) },
+    ...photosOf(aInst, id).map((p) => ({ label: "photo bytes", bytes: p.bytes })),
   ];
+  expect(secrets.length, "Ada keeps the photo").toBeGreaterThan(2);
   const t0 = Date.now();
+  await watchPhotoNames(b, [P1]);
 
   // Opens the tapped link and does not ask.
   await b.goto("/");
@@ -150,13 +186,17 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   const sheet = b.getByRole("dialog", { name: words("invite.ask_to_join", { album }) });
   await expect(sheet).toBeVisible({ timeout: 60_000 });
   await staysClean(b, bInst, secrets, "opened the link");
+  expect(await photoSeen(b), "photo name on screen: opened the link").toBe(false);
   await sheet.getByRole("button", { name: words("invite.not_now"), exact: true }).click();
 
   // Asks and waits.
   await askToJoin(b, link, album);
-  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+    timeout: 60_000,
+  });
   expect((await stateOf(b, bInst)).asks.some((x) => x.status === "waiting")).toBe(true);
   await staysClean(b, bInst, secrets, "waiting");
+  expect(await photoSeen(b), "photo name on screen: waiting").toBe(false);
 
   // Declined.
   await a.getByRole("button", { name: words("album.decline"), exact: true }).click();
@@ -165,18 +205,27 @@ test("a link holder who opens, asks, waits, is declined, asks again and cancels 
   });
   await expect.poll(() => answerSince(b, bInst, "declined", t0), { timeout: 30_000 }).toBe(true);
   await staysClean(b, bInst, secrets, "declined");
+  expect(await photoSeen(b), "photo name on screen: declined").toBe(false);
 
   // Asks again.
   await b.getByRole("button", { name: words("invite.ask_again"), exact: true }).click();
-  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+    timeout: 60_000,
+  });
   await staysClean(b, bInst, secrets, "asks again");
+  expect(await photoSeen(b), "photo name on screen: asks again").toBe(false);
 
   // Cancels.
   await b.goto("/join");
-  await b.getByRole("button", { name: new RegExp(`^Waiting for .+ to accept: ${album}$`) }).click();
+  await b
+    .getByRole("button", {
+      name: new RegExp(`^${pattern("albums.waiting_for_to_accept").source}: ${album}$`),
+    })
+    .click();
   await b.getByRole("button", { name: words("invite.cancel_request"), exact: true }).click();
   await expect(b.getByRole("button", { name: new RegExp(album) })).toHaveCount(0);
   await staysClean(b, bInst, secrets, "cancelled");
+  expect(await photoSeen(b), "photo name on screen: cancelled").toBe(false);
   await expect(b.locator("img")).toHaveCount(0);
 });
 
@@ -194,8 +243,10 @@ test("a stranger who was let in, removed and uses the old link never gets the ne
   const link = await copyInviteLink(a);
 
   await askToJoin(b, link, album);
-  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
-  await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
+  await expect(a.getByText(words("album.wants_to_join", { folderName: album }))).toBeVisible({
+    timeout: 60_000,
+  });
+  await a.getByRole("button", { name: words("album.accept_as_collaborator"), exact: true }).click();
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toBeVisible({
     timeout: 60_000,
   });
@@ -204,13 +255,27 @@ test("a stranger who was let in, removed and uses the old link never gets the ne
   const held = await leaksOn(b, bInst, [keyOf(oldKey)]);
   expect(held.some((h) => h.startsWith("store:"))).toBe(true);
   expect(held.some((h) => h.startsWith("disk:"))).toBe(true);
+  // ...and a photo it really holds.
+  const p1 = photosOf(aInst, id);
+  await expect
+    .poll(async () =>
+      leaksOn(
+        b,
+        bInst,
+        p1.map((p) => ({ label: "photo", bytes: p.bytes })),
+      ),
+    )
+    .toContainEqual(expect.stringMatching(/^disk: .*: photo$/));
 
-  const members = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
-  await members.getByRole("button", { name: /^Remove /, exact: false }).click();
-  await a.getByRole("button", { name: "Remove", exact: true }).last().click();
-  await expect(
-    a.getByText(`is no longer in ${album}. Links you sent stopped working.`),
-  ).toBeVisible({ timeout: 60_000 });
+  const members = a.locator("section", {
+    has: a.getByRole("heading", { name: words("album.members") }),
+  });
+  await members.getByRole("button", { name: pattern("album.remove_name"), exact: false }).click();
+  await a
+    .getByRole("button", { name: words("album.remove_2"), exact: true })
+    .last()
+    .click();
+  await expect(a.getByText(pattern("album.is_no_longer_in"))).toBeVisible({ timeout: 60_000 });
   await expect(b.getByText(pattern("gallery.you_re_no_longer_in")).first()).toBeVisible({
     timeout: 60_000,
   });
@@ -228,20 +293,28 @@ test("a stranger who was let in, removed and uses the old link never gets the ne
   ).toBeAttached({
     timeout: 20_000,
   });
+  // The move re-files P1 under the new key, same bytes: only P2's bytes are new.
+  const later = () => photosOf(aInst, id).filter((p) => !p1.some((q) => q.bytes.equals(p.bytes)));
+  await expect
+    .poll(() => later().length, { message: "Ada keeps the later photo" })
+    .toBeGreaterThan(0);
   const secrets = [
     { label: "new album key", hex: newKey },
-    { label: "later photo bytes", bytes: pngOf(...runColour(79)) },
+    ...later().map((p) => ({ label: "later photo bytes", bytes: p.bytes })),
   ];
+  await watchPhotoNames(b, ["link-removed-2.png"]);
   await staysClean(b, bInst, secrets, "removed");
+  expect(await photoSeen(b), "later photo name on screen: removed").toBe(false);
 
   // Uses the old link again.
   await b.goto("/join");
-  await b.getByLabel("Invite link").fill(link);
-  await b.getByRole("button", { name: "Ask to join", exact: true }).click();
+  await b.getByLabel(words("albums.invite_link")).fill(link);
+  await b.getByRole("button", { name: words("albums.ask_to_join"), exact: true }).click();
   // B's phone learned of the replacement when it was removed, so it answers by itself.
   await expect(b.getByRole("alert")).toContainText(
     words("join_request.owner_replaced_this_link").replace("{owner} ", ""),
     { timeout: 30_000 },
   );
   await staysClean(b, bInst, secrets, "old link");
+  expect(await photoSeen(b), "later photo name on screen: old link").toBe(false);
 });
