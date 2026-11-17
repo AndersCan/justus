@@ -139,6 +139,25 @@ jobs:
           name: store-captures
           path: apps/android/store-captures/*.png
           retention-days: 14
+      - name: Switcher cover
+        if: ${{ !cancelled() }}
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_3
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -wipe-data
+          working-directory: apps/android
+          script: bash scripts/switcher-cover.sh emulator-5554
+      - name: Upload switcher cover
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: switcher-cover
+          path: apps/android/switcher-cover/*.png
+          retention-days: 14
 
   # Ben (release APK, emulator) joins Ada's album (Chromium) from her invite link.
   # The walk itself: .github/workflows/release-walk.yml, .maestro/README.md "Release walk".
