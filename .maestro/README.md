@@ -66,5 +66,5 @@ sees her photo.
 - Ben's four steps are `.maestro/walk/*.yaml`. They are outside `config.yaml`'s `flows/*.yaml`, so the
   first-run suite never runs them. Each is given its words with `-e` from `apps/web/src/copy/en.json`.
 - The run page shows a table of the 7 steps with pass or FAILED and their time. The `release-walk`
-  download has `walk/walk-summary.md`, `walk/ben-<n>-<step>.png` and Maestro's failure shots.
+  download has `walk/walk-summary.md`, `walk/maestro/<flow>/…/takeScreenshot/ben-<n>-<step>.png` and Maestro's failure shots.
 - A dispatch from a branch walks main's deployed invite page, not the branch's page.

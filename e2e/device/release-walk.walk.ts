@@ -59,7 +59,7 @@ function summary() {
     ...rows,
     "",
     ...errors,
-    "Screenshots: download `release-walk`, see walk/ (ben-<n>-<step>.png, Maestro's failure shot in walk/maestro/<flow>/).",
+    "Screenshots: download `release-walk`, see walk/maestro/<flow>/ (ben-<n>-<step>.png under takeScreenshot/, Maestro's failure shot beside it).",
     "",
   ].join("\n");
 }
@@ -145,11 +145,10 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
       ),
     );
     await step(6, async () => {
-      const toast = a
-        .getByRole("status")
-        .filter({ hasText: words("ask_toast.wants_to_join", { name: "B", folderName: ALBUM }) });
-      await expect(toast).toBeVisible({ timeout: 120_000 });
-      await toast.getByRole("button", { name: words("ask_toast.review") }).click();
+      // Ada is on the album's page, so the request is listed there (no toast).
+      await expect(
+        a.getByText(words("ask_toast.wants_to_join", { name: "B", folderName: ALBUM })),
+      ).toBeVisible({ timeout: 120_000 });
       await a
         .getByRole("button", { name: words("album.accept_as_collaborator"), exact: true })
         .click();
