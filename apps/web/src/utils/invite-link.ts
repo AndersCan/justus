@@ -1,5 +1,7 @@
-import { copy } from "../copy/copy"; /** What an invite link carries: the code, who to ask, when it ends. Never a name:
- * the names a joiner reads come from the Admin's phone. */
+import { copy } from "../copy/copy";
+
+/** What an invite link carries: the code, who to ask, when it ends. The names a joiner reads come
+ * from the Admin's phone; `linkAlbum` is only kept to compare with the real one, never shown as a name. */
 export type JoinInvite = {
   /** 64-hex invite code. */
   code: string;
@@ -7,9 +9,11 @@ export type JoinInvite = {
   owner: string;
   /** When the link stops working, in ms since the epoch. Absent: never. */
   expiresAt?: number;
+  /** The album name the link carried, trimmed. Absent when the link has none. */
+  linkAlbum?: string;
 };
 
-/** Names the sender typed into the link, written only for the browser join page. The app never reads them back. */
+/** Names the sender typed into the link, written only for the browser join page. The app keeps the album name only to compare it with the one the Admin's phone sends. */
 export type LinkHints = { album: string; ownerName: string };
 
 export type ParsedInvite =
@@ -65,12 +69,14 @@ export function parseInviteLink(text: string): ParsedInvite {
   }
   const end = params.get("e");
   if (end !== null && (!SECONDS.test(end) || Number(end) <= 0)) return { kind: "garbled" };
+  const linkAlbum = (params.get("n") ?? "").trim();
   return {
     kind: "invite",
     invite: {
       code: code.toLowerCase(),
       owner: owner.toLowerCase(),
       ...(end === null ? {} : { expiresAt: Number(end) * 1000 }),
+      ...(linkAlbum === "" ? {} : { linkAlbum }),
     },
   };
 }

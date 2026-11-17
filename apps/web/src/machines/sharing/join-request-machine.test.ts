@@ -18,7 +18,7 @@ import {
   type Known,
 } from "./join-request-machine";
 
-/** The names typed into the link: the app must never show them. */
+/** The names typed into the link: the app must never show them; only the album name is kept, to compare. */
 const HINTS = { album: "Holiday", ownerName: "Mallory" };
 const INVITE: JoinInvite = { code: "a".repeat(64), owner: "b".repeat(64) };
 /** A link carrying the edited names, unless a test says otherwise. */
@@ -26,9 +26,13 @@ const buildInviteLink = (invite: JoinInvite & Partial<LinkHints>) =>
   writeInviteLink({ ...HINTS, ...invite });
 const LINK = buildInviteLink(INVITE);
 /** What the open screen holds when this phone has heard no names. */
-const UNNAMED = { ...INVITE, album: "", ownerName: "" };
+const ROW_UNNAMED = { ...INVITE, album: "", ownerName: "" };
+const UNNAMED = { ...INVITE, album: "", ownerName: "", linkAlbum: HINTS.album };
 /** What it holds once this phone has an ask from the Admin's phone. */
-const NAMED = { ...INVITE, album: "Spain 2026", ownerName: "Ada" };
+/** The invite a link opened: its album name is kept to compare, nothing else. */
+const LINKED = { ...INVITE, linkAlbum: HINTS.album };
+const ROW_NAMED = { ...INVITE, album: "Spain 2026", ownerName: "Ada" };
+const NAMED = { ...INVITE, album: "Spain 2026", ownerName: "Ada", linkAlbum: HINTS.album };
 
 function setup(
   options: {
@@ -147,7 +151,7 @@ describe("openLink", () => {
     const other = { ...INVITE, code: "c".repeat(64) };
     await s.send("openLink", { text: buildInviteLink(other) });
     expect(s.actor.state.name).toBe("decidingToAsk");
-    expect(payload(s)).toEqual({ ...other, album: "", ownerName: "" });
+    expect(payload(s)).toEqual({ ...other, album: "", ownerName: "", linkAlbum: HINTS.album });
   });
 });
 
@@ -219,7 +223,7 @@ describe("reopenRequest", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: ask(status) });
     expect(s.actor.state.name).toBe(expected);
-    expect(payload(s)).toEqual(NAMED);
+    expect(payload(s)).toEqual(ROW_NAMED);
   });
 });
 
@@ -700,7 +704,7 @@ describe("the welcome", () => {
     expect(s.actor.state.name).toBe("showingWelcome");
     await s.send("openLink", { text: LINK });
     expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(LINKED);
     await s.send("welcomeEnded");
     expect(s.actor.state.name).toBe("decidingToAsk");
     expect(payload(s)).toEqual(UNNAMED);
@@ -712,7 +716,7 @@ describe("the welcome", () => {
     await s.send("welcomeStarted");
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: buildInviteLink(other) });
-    expect(payload(s)).toEqual(other);
+    expect(payload(s)).toEqual({ ...other, linkAlbum: HINTS.album });
   });
 
   test("a garbled link keeps the held one and shows no error", async () => {
@@ -721,7 +725,7 @@ describe("the welcome", () => {
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: "hello" });
     expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(LINKED);
     expect(error(s)).toBe("");
   });
 
@@ -769,7 +773,7 @@ describe("the welcome", () => {
     await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f1" });
     await s.send("reopenRequest", { ask: ask("waiting") });
     expect(s.actor.state.name).toBe("holdingInviteUntilWelcomeEnds");
-    expect(payload(s)).toEqual(INVITE);
+    expect(payload(s)).toEqual(LINKED);
   });
 
   test("welcomeStarted and welcomeEnded outside the welcome are dropped", async () => {
@@ -1241,7 +1245,7 @@ describe("stopped links", () => {
     const s = setup();
     await s.send("reopenRequest", { ask: { ...ask("linkOff"), why } });
     expect(s.actor.state.name).toBe(name);
-    expect(payload(s)).toEqual(NAMED);
+    expect(payload(s)).toEqual(ROW_NAMED);
   });
 
   test.each(SCREENS)(
@@ -1742,7 +1746,7 @@ describe("pasted link: branches the review found untested", () => {
     expect(s.actor.state.name).toBe("joinedAlbum");
     await s.send("askWithPastedLink", { text: buildInviteLink(other) });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
-    expect(asks).toEqual([{ ...other, album: "", ownerName: "" }]);
+    expect(asks).toEqual([{ ...other, album: "", ownerName: "", linkAlbum: HINTS.album }]);
   });
 
   test("a garbled tapped link during the pasted check keeps the check", async () => {
@@ -1767,7 +1771,32 @@ describe("names come only from the Admin's phone", () => {
     const s = setup();
     await s.send("openLink", { text: LINK });
     expect(payload(s)).toEqual(UNNAMED);
-    expect(JSON.stringify(payload(s))).not.toMatch(/Holiday|Mallory/);
+    expect(JSON.stringify(payload(s))).not.toMatch(/Mallory/);
+  });
+
+  test("the request carries the link's album name, and a link without one carries none", async () => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = { ask: async (i) => (asks.push(i), [undefined, {}]) };
+    const s = setup({ port });
+    await s.send("openLink", { text: LINK });
+    await s.send("askToJoin");
+    expect(asks).toEqual([UNNAMED]);
+    const bare = setup({ port });
+    await bare.send("openLink", { text: writeInviteLink({ ...INVITE, album: "", ownerName: "" }) });
+    expect(payload(bare)).toEqual(ROW_UNNAMED);
+  });
+
+  test("the link's album name stays on the screen when the Admin's phone sends its names", async () => {
+    const s = await waitingSetup();
+    await s.send("namesHeard", { code: INVITE.code, album: "Spain 2026", ownerName: "Ada" });
+    expect(payload(s)).toEqual(NAMED);
+  });
+
+  test("a request reopened after the sheet closed still has the link's album name", async () => {
+    const s = await waitingSetup();
+    await s.send("closeWaiting");
+    await s.send("reopenRequest", { ask: ask("waiting") });
+    expect(payload(s)).toEqual(NAMED);
   });
 
   test("the waiting screen takes the names of the stored ask", async () => {
@@ -1833,6 +1862,46 @@ describe("names come only from the Admin's phone", () => {
   test("a row with no names reopens unnamed", async () => {
     const s = setup();
     await s.send("reopenRequest", { ask: { ...ask("waiting"), albumName: "", ownerName: "" } });
-    expect(payload(s)).toEqual(UNNAMED);
+    expect(payload(s)).toEqual(ROW_UNNAMED);
+  });
+});
+
+describe("the link's album name after a decline that arrives with no sheet open", () => {
+  test("Ask again keeps the link's album name, as a reopened row does", async () => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = {
+      ask: async (i) => (asks.push(i), [undefined, {}]),
+      checkLink: async () => [undefined, { turnedOff: false }],
+    };
+    const s = await waitingSetup({ port, asked: () => ask("waiting") });
+    await s.send("closeWaiting");
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    expect(s.actor.state.name).toBe("declinedByAdmin");
+    expect(payload(s)).toEqual(NAMED);
+    await s.send("askAgain");
+    expect(asks.at(-1)).toMatchObject({ linkAlbum: HINTS.album });
+    expect(payload(s)).toMatchObject({ linkAlbum: HINTS.album });
+  });
+});
+
+describe("the link's album name when the same invite is opened again", () => {
+  test("a later link without a name does not erase the earlier one", async () => {
+    const s = setup({ asked: () => ask("waiting") });
+    await s.send("openLink", { text: LINK });
+    await s.send("openLink", { text: writeInviteLink({ ...INVITE, album: "", ownerName: "" }) });
+    await s.send("reopenRequest", { ask: ask("declined") });
+    expect(payload(s)).toEqual(NAMED);
+  });
+
+  test("Ask again after a decline with the sheet open sends the link's album name", async () => {
+    const asks: JoinInvite[] = [];
+    const port: JoinPort = {
+      ask: async (i) => (asks.push(i), [undefined, {}]),
+      checkLink: async () => [undefined, { turnedOff: false }],
+    };
+    const s = await waitingSetup({ port, asked: () => ask("waiting") });
+    await s.send("requestAnswered", { code: INVITE.code, answer: "declined" });
+    await s.send("askAgain");
+    expect(asks.at(-1)).toMatchObject({ linkAlbum: HINTS.album });
   });
 });

@@ -254,7 +254,7 @@ describe("joinViewOf", () => {
     await settle();
     const view = joinViewOf(joinActor.snapshot());
     expect(view.state).toBe("decidingToAsk");
-    expect(view.invite).toEqual({ ...INVITE, album: "", ownerName: "" });
+    expect(view.invite).toEqual({ ...INVITE, album: "", ownerName: "", linkAlbum: "Holiday" });
   });
 });
 

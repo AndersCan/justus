@@ -6,7 +6,7 @@ Words used: **Admin** (code: creator), **Collaborator** (can add photos; code to
 
 ## Today, in one paragraph
 
-An invite link carries a one-time invite code, the Admin's id and the album and Admin names (`apps/web/src/utils/invite-link.ts`); the names are unsigned hints for the browser page only, and the app never shows them. While the joiner waits, the Admin's phone sends the album's name and its own name, and the screens show those. The joiner sees "Ask to join", sends a request and waits until the Admin accepts or declines (`apps/web/src/machines/sharing/join-request-machine.ts`). Approval decides who may add photos (`docs/design/ui-ux-spec.md` §2.3, lines 108-113). Old links that carry the album key no longer parse.
+An invite link carries a one-time invite code, the Admin's id and the album and Admin names (`apps/web/src/utils/invite-link.ts`); the names are unsigned hints for the browser page; the app never shows them as names, and keeps only the album name to compare with the one the Admin's phone sends. While the joiner waits, the Admin's phone sends the album's name and its own name, and the screens show those. The joiner sees "Ask to join", sends a request and waits until the Admin accepts or declines (`apps/web/src/machines/sharing/join-request-machine.ts`). Approval decides who may add photos (`docs/design/ui-ux-spec.md` §2.3, lines 108-113). Old links that carry the album key no longer parse.
 
 ## What changes
 
