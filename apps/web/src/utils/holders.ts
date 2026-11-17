@@ -29,6 +29,12 @@ export function holdersLine(h: PhotoHolders | undefined): { text: string; tappab
         tappable: true,
       };
     }
+    if (h.others.length === 0 && h.former.length === 1) {
+      return {
+        text: copy("holders.on_your_phone_name_removed", { name: h.former[0] }),
+        tappable: true,
+      };
+    }
     if (named) {
       const text = copy("holders.on_and_your_phone", { names: names.join(", ") });
       if (text.length <= LIMIT) return { text, tappable: true };
@@ -100,7 +106,12 @@ export function lacksFullPhoto(names: readonly string[]): string {
     : copy("full_photo.names_lack", { list: nameList(names), n: names.length });
 }
 
-/** The delete dialog's text: it leaves everyone's album, who has the full photo, and who does not. */
+/** "Ben was removed and keeps a copy on their phone."; "" unless exactly one removed person. */
+function removedKeeps(names: readonly string[]): string {
+  return names.length === 1 ? copy("full_photo.name_removed_keeps", { name: names[0] }) : "";
+}
+
+/** The delete dialog's text: it leaves everyone's album, who has the full photo, who does not, and who was removed but keeps a copy. */
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
   const live = h?.kind === "inAlbum" ? h : undefined;
@@ -112,7 +123,15 @@ export function deleteDetail(h: PhotoHolders | undefined): string {
       ? ""
       : copy("lightbox.stops_showing_can_t_erase", { n: have.length + preview.length });
   const back = copy("lightbox.deleting_can_t_take_back");
-  return [gone, hasFullPhoto(have), previewOnly(preview), cannot, lacksFullPhoto(lack), back]
+  return [
+    gone,
+    hasFullPhoto(have),
+    previewOnly(preview),
+    cannot,
+    removedKeeps(live?.former ?? []),
+    lacksFullPhoto(lack),
+    back,
+  ]
     .filter((x) => x !== "")
     .join(" ");
 }

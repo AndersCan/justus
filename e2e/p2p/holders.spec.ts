@@ -117,16 +117,22 @@ test("every holders line reads right on both phones from add to delete", async (
   });
 
   await a.getByRole("link", { name: "See photos in this album" }).click();
-  await expectHoldersLine(a, "remove", "Ada", words("holders.on_your_phone_and", { k: 1 }));
+  await expectHoldersLine(
+    a,
+    "remove",
+    "Ada",
+    words("holders.on_your_phone_name_removed", { name: "Ben" }),
+  );
   await expectHoldersLine(b, "remove", "Ben", words("holders.on_your_phone_removed"));
   await closePhoto(b);
 
   await a.getByRole("button", { name: "More options" }).click();
   await a.getByRole("menuitem", { name: "Delete" }).click();
-  await a
-    .locator("wa-dialog[open]", { hasText: `Delete “${FILE}”?` })
-    .getByRole("button", { name: "Delete" })
-    .click();
+  const dialog = a.locator("wa-dialog[open]", { hasText: `Delete “${FILE}”?` });
+  await expect(dialog, "delete · Ada's phone: dialog").toContainText(
+    words("full_photo.name_removed_keeps", { name: "Ben" }),
+  );
+  await dialog.getByRole("button", { name: "Delete" }).click();
   // 20 s: a local delete.
   await expect(a.getByRole("button", { name: `View ${FILE}` })).toHaveCount(0, {
     timeout: 20_000,
