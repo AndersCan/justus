@@ -27,11 +27,13 @@ import { startWebLogCapture } from "./log-capture";
 import { wordmark } from "./views/wordmark";
 import { inviteLinkFromAddress } from "./utils/invite-link";
 import { join } from "./machines/sharing/join-request";
+import { landOnLastAlbum } from "./views/landing";
 
 import { copy, t } from "./copy/copy";
 // The Android/iOS shells serve the app from a path ending in index.html —
 // normalize to the gallery route so first load never lands on "Not found".
-if (window.location.pathname.endsWith("/index.html")) {
+const appStart = window.location.pathname.endsWith("/index.html");
+if (appStart) {
   open("/", { replace: true });
 }
 
@@ -58,6 +60,7 @@ transport.subscribe((message) => {
 });
 
 listenForHostInvites(addressInvite);
+landOnLastAlbum({ appStart });
 gallery.load();
 sync.refresh();
 folders.refresh();
