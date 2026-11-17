@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { VirtualClock } from "@mantaq/core";
 import { inspectFile } from "@mantaq/inspect";
+import { recordRuns } from "@mantaq/inspect/record";
 import { expect, test } from "vite-plus/test";
 import { justusMachine } from "./app";
-import { statusSeen } from "./sync-machine";
+import { reopenRequest } from "./sharing/join-request-machine";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -26,28 +27,29 @@ test("the factory returns every machine the app has, the router as its actor", (
   expect(made.actor.snapshot().context).toHaveProperty("page");
 });
 
-test("onboarding tells folders the name and folders tell sync the status, and every machine is a part", async () => {
-  const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
+test("fuzzing finds exactly the six wires between the app's machines", async () => {
+  const loaded = await inspectFile(join(here, "app.ts"));
   const machine = loaded.machines.find((m) => m.id === "justus");
   expect(machine).toBeDefined();
-  const links = Object.entries(machine!.partOutputs).flatMap(([from, events]) =>
-    events.flatMap((event) => [
-      ...new Set(
-        machine!.edges
-          .filter((edge) => edge.event === event && edge.from.split(".")[0] !== from)
-          .map((edge) => `${from} → ${edge.from.split(".")[0]} ${event}`),
-      ),
-    ]),
+  const wires = new Set(
+    machine!.fuzz!.messages.map((m) => `${m.from.split(".")[0]} → ${m.to.split(".")[0]}`),
   );
-  expect(links.toSorted()).toEqual([
-    "folders → sync STATUS_SEEN",
-    "onboarding → folders NAME_SEEN",
+  // One pair per wire in app.ts; a new wire needs a step in the walk below.
+  expect([...wires].toSorted()).toEqual([
+    "folders → join",
+    "folders → sync",
+    "onboarding → folders",
+    "people → requests",
+    "sync → folders",
+    "sync → reach",
   ]);
   expect(machine!.regions).toHaveLength(17);
 }, 60_000);
 
-test("a saved name reaches folders, a sync status reaches folders and reach, an open sheet asks for requests", async () => {
-  const made = justusMachine.create({ clock: VirtualClock() });
+const recorded = recordRuns(justusMachine);
+
+test("a saved name, an opened album, a sync status, a waiting request and an open sheet each reach the machine they are wired to", async () => {
+  const made = recorded.create({ clock: VirtualClock() });
   made.onboarding.send({ type: "SKIP" });
   made.onboarding.send({ type: "EDIT_NAME", payload: { name: "Maya" } });
   made.onboarding.send({ type: "SAVE_PROFILE" });
@@ -55,25 +57,44 @@ test("a saved name reaches folders, a sync status reaches folders and reach, an 
   await made.onboarding.settled();
   expect(made.folders.snapshot().context.userName).toBe("Maya");
 
-  made.sync.send(statusSeen.create({ status: { name: "Ann", folder: { id: "f1" } } as never }));
-  expect(made.folders.snapshot().context.userName).toBe("Ann");
+  const ask = {
+    code: "c1",
+    owner: "o1",
+    albumName: "Spain",
+    ownerName: "Ann",
+    askedAt: 1,
+    status: "waiting",
+  } as const;
+  made.join.send(reopenRequest.create({ ask }));
+  made.folders.send({ type: "REFRESH" });
+  made.folders.inject({
+    type: "ALBUMS_LOADED",
+    payload: {
+      folders: [{ id: "f1", name: "Spain", role: "member", shareKey: "k1" }],
+      asks: [{ ...ask, whoMustUpdate: "you" }],
+      offers: [],
+      activeId: null,
+    },
+  } as never);
+  expect(made.join.snapshot().path[0]).toBe("waitingForYouToUpdate");
 
-  made.sync.send(
-    statusSeen.create({
+  made.folders.send({ type: "SET_ACTIVE", payload: { folderId: "f1" } });
+  made.folders.inject({
+    type: "SWITCHED",
+    payload: {
       status: {
         name: "Ann",
+        folder: { id: "f1" },
         members: [
           { key: "me", name: "Ann", admin: false, connected: true },
           { key: "a", name: "Maya", admin: true, connected: false },
         ],
-      } as never,
-    }),
-  );
-  expect(made.reach.snapshot().path[0]).toBe("tryingToReachMembers");
-
-  expect(made.requests.snapshot().path[0]).toBe("requestsNotLoaded");
+      },
+    },
+  } as never);
+  await made.folders.settled();
+  expect(made.folders.snapshot().context.userName).toBe("Ann");
   made.people.send({ type: "OPEN" } as never);
-  expect(made.requests.snapshot().path[0]).not.toBe("requestsNotLoaded");
 });
 
 test("every timed part runs on the clock the app is given", () => {

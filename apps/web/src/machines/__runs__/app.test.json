@@ -1,0 +1,226 @@
+{
+  "justus": [
+    {
+      "name": "a saved name, an opened album, a sync status, a waiting request and an open sheet each reach the machine they are wired to",
+      "end": "showingPage",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SKIP",
+          "payload": {},
+          "actor": {
+            "region": "onboarding"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "EDIT_NAME",
+          "payload": {
+            "name": "Maya"
+          },
+          "actor": {
+            "region": "onboarding"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVE_PROFILE",
+          "payload": {},
+          "actor": {
+            "region": "onboarding"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SAVED",
+          "payload": {
+            "name": "Maya"
+          },
+          "actor": {
+            "region": "onboarding"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "NAME_SEEN",
+          "payload": {
+            "name": "Maya"
+          },
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "reopenRequest",
+          "payload": {
+            "ask": {
+              "code": "c1",
+              "owner": "o1",
+              "albumName": "Spain",
+              "ownerName": "Ann",
+              "askedAt": 1,
+              "status": "waiting"
+            }
+          },
+          "actor": {
+            "region": "join"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {},
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [
+              {
+                "id": "f1",
+                "name": "Spain",
+                "role": "member",
+                "shareKey": "k1"
+              }
+            ],
+            "asks": [
+              {
+                "code": "c1",
+                "owner": "o1",
+                "albumName": "Spain",
+                "ownerName": "Ann",
+                "askedAt": 1,
+                "status": "waiting",
+                "whoMustUpdate": "you"
+              }
+            ],
+            "offers": [],
+            "activeId": null
+          },
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "whoMustUpdateChanged",
+          "payload": {
+            "code": "c1",
+            "who": "you"
+          },
+          "actor": {
+            "region": "join"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SET_ACTIVE",
+          "payload": {
+            "folderId": "f1"
+          },
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SWITCHED",
+          "payload": {
+            "status": {
+              "name": "Ann",
+              "folder": {
+                "id": "f1"
+              },
+              "members": [
+                {
+                  "key": "me",
+                  "name": "Ann",
+                  "admin": false,
+                  "connected": true
+                },
+                {
+                  "key": "a",
+                  "name": "Maya",
+                  "admin": true,
+                  "connected": false
+                }
+              ]
+            }
+          },
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "STATUS_SEEN",
+          "payload": {
+            "status": {
+              "name": "Ann",
+              "folder": {
+                "id": "f1"
+              },
+              "members": [
+                {
+                  "key": "me",
+                  "name": "Ann",
+                  "admin": false,
+                  "connected": true
+                },
+                {
+                  "key": "a",
+                  "name": "Maya",
+                  "admin": true,
+                  "connected": false
+                }
+              ]
+            }
+          },
+          "actor": {
+            "region": "sync"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "NAME_SEEN",
+          "payload": {
+            "name": "Ann"
+          },
+          "actor": {
+            "region": "folders"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "UNREACHABLE",
+          "payload": {
+            "name": "Maya"
+          },
+          "actor": {
+            "region": "reach"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "OPEN",
+          "payload": {},
+          "actor": {
+            "region": "people"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {},
+          "actor": {
+            "region": "requests"
+          }
+        }
+      ]
+    }
+  ]
+}
