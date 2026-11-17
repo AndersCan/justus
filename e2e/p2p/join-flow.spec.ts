@@ -9,8 +9,43 @@
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import type { Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { expect, test } from "../hub/fixtures.mjs";
 import { pngOf, runColour } from "../add-photos.js";
+
+const catalogue = JSON.parse(
+  readFileSync(new URL("../../apps/web/src/copy/en.json", import.meta.url), "utf8"),
+);
+const words = (id, params = {}) =>
+  catalogue[id].text.replace(/\{(\w+)\}/g, (whole, k) => String(params[k] ?? whole));
+// The text of an id as a pattern, a name or number standing for each placeholder.
+const pattern = (id) =>
+  new RegExp(
+    catalogue[id].text
+      .split(/\{\w+\}/)
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".+"),
+  );
+
+// A removed phone hears nobody: its line and sheet name only its own copy.
+async function expectOwnCopyOnly(page) {
+  const row = page.locator("[data-holders-row]");
+  await expect(row).toHaveAccessibleName(
+    words("photo_holders.show_who_has_this_photo", {
+      text: words("holders.on_your_phone_removed"),
+    }),
+    { timeout: 60_000 },
+  );
+  await row.click();
+  const sheet = page.getByRole("dialog", { name: words("photo_holders.who_has_this_photo") });
+  await expect(sheet.locator("li")).toHaveCount(1);
+  await expect(sheet.locator("li")).toContainText(words("photo_holders.you"));
+  await expect(sheet.locator('[data-copy-id="photo_holders.no_longer_in_this_album"]')).toHaveCount(
+    0,
+  );
+  await sheet.locator('[data-copy-id="photo_holders.close"]').click();
+  await expect(sheet).toHaveCount(0);
+}
 
 const ALBUM = "Hub trip";
 const FRIEND_ALBUM = "Friends trip";
@@ -284,7 +319,7 @@ test("A accepts B as a Viewer: B sees the photo, has no Add photos button, A's M
 test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A removes B: B is no longer in the album and keeps the photo", async ({
   instancePages,
 }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(240_000);
   const [a, b] = instancePages;
   await skipIntro([a, b]);
   const album = "Kept trip";
@@ -357,6 +392,16 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   await expect(b.getByRole("button", { name: `View ${kept}` })).toBeVisible({ timeout: 60_000 });
   await expect(b.getByRole("button", { name: `Add photos to ${album}` })).toHaveCount(0);
 
+  // B gets A's full copy before the removal, so it is a photo B kept.
+  await b.getByRole("button", { name: `View ${PHOTO}` }).click();
+  await expect(b.locator("[data-holders-row]")).toContainText(
+    pattern("holders.on_and_your_phone"),
+    {
+      timeout: 60_000,
+    },
+  );
+  await b.getByRole("button", { name: "Close" }).click();
+
   await a
     .getByRole("link", { name: /Invite & members/ })
     .first()
@@ -384,6 +429,25 @@ test("A makes B a Viewer: B loses Add photos, B's photo stays on both phones; A 
   expect(
     (await aToasts()).filter((t) => /stopped you adding photos|let you add photos/.test(t)),
   ).toEqual([]);
+
+  // A deletes the photo B kept: B's phone still says only its own copy, also after a reload.
+  await a.getByRole("link", { name: "See photos in this album" }).click();
+  await a.getByRole("button", { name: `View ${PHOTO}` }).click();
+  await a.getByRole("button", { name: "More options" }).click();
+  await a.getByRole("menuitem", { name: "Delete" }).click();
+  const deleteDialog = a.locator("wa-dialog[open]", { hasText: `Delete “${PHOTO}”?` });
+  await deleteDialog.getByRole("button", { name: "Delete" }).click();
+  await expect(a.getByRole("button", { name: `View ${PHOTO}` })).toHaveCount(0, {
+    timeout: 60_000,
+  });
+
+  await b.getByText(album).click();
+  await b.getByRole("link", { name: "See photos in this album" }).click();
+  await b.getByRole("button", { name: `View ${PHOTO}` }).click();
+  await expectOwnCopyOnly(b);
+  await b.reload();
+  await b.getByRole("button", { name: `View ${PHOTO}` }).click();
+  await expectOwnCopyOnly(b);
 });
 
 test("Back trip: A removes B while C waits on the same link; C is told the link was replaced; B's old link no longer works, B asks with A's new link, A accepts: B has the album once", async ({
