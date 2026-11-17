@@ -1,7 +1,7 @@
 import type { FolderSummary } from "@justus/core";
 import { arrivalFocusWithin } from "./arrival-focus";
 import { renderAlbumFull } from "#design/justus/album/album-full.ts";
-import { presenceDotClass } from "#design/components/presence-dot.ts";
+import { presenceDot } from "#design/components/presence-dot.ts";
 import { html, type TemplateResult } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { ref } from "lit-html/directives/ref.js";
@@ -331,15 +331,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
     <div class="min-w-0 flex-1">
       <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg">
         <span class="truncate">${p.name}${p.you ? copy("album.you") : ""}</span>
-        ${
-          p.you
-            ? null
-            : html`<span
-                role="img"
-                aria-label=${p.presence}
-                class="${presenceDotClass(p.connected ? "green" : "neutral", "md")} shrink-0"
-              ></span>`
-        }
+        ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
       ${memberLine(p.role)}
