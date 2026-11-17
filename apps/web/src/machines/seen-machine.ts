@@ -44,130 +44,130 @@ const initialContext: SeenContext = { known: {}, knownAtVisitStart: {}, status: 
 /** The port is injected so tests can drive the machine. */
 export const seenMachine = machine("seen", {
   create: (options: { port?: SeenPort }) => {
-  const { port = gateway.seen } = options;
+    const { port = gateway.seen } = options;
 
-  /** Saves the whole record; a failure is logged and the next change writes it again. */
-  const save = (ctx: SeenContext) => {
-    const record: SeenRecord = { version: 1, known: ctx.known };
-    if (ctx.lastAlbum !== undefined) record.lastAlbum = ctx.lastAlbum;
-    port.write(record).then(
-      ([err]) => {
-        if (err) console.error("seen: could not save", err);
+    /** Saves the whole record; a failure is logged and the next change writes it again. */
+    const save = (ctx: SeenContext) => {
+      const record: SeenRecord = { version: 1, known: ctx.known };
+      if (ctx.lastAlbum !== undefined) record.lastAlbum = ctx.lastAlbum;
+      port.write(record).then(
+        ([err]) => {
+          if (err) console.error("seen: could not save", err);
+        },
+        (e) => console.error("seen: could not save", e),
+      );
+    };
+
+    return Actor({
+      inputs: [albumsListed, albumOpened, photosLooked, visitEnded],
+      internal: [seenRead, seenReadFailed],
+      outputs: [],
+      states: [holdingSeen],
+      initial: holdingSeen,
+      context: initialContext,
+      setup: (m) => {
+        /** The saved record is read from the phone; if that fails, nothing is marked or written. */
+        m.effect(holdingSeen, {
+          name: "readingSeen",
+          sends: [seenRead, seenReadFailed],
+          fn: ({ signal, emit }) =>
+            runInvoke(
+              signal,
+              () => port.read(),
+              (result) => {
+                const seen = (result as { seen?: SeenRecord } | null)?.seen;
+                if (seen === undefined) emit(seenReadFailed.create({ message: "no record" }));
+                else emit(seenRead.create({ seen }));
+              },
+              (message) => {
+                console.error("seen: could not read", message);
+                emit(seenReadFailed.create({ message }));
+              },
+            ),
+        });
+        /** The saved record arrived: its albums start the visit as known. */
+        m.onAny({
+          event: seenRead,
+          handler: (e, opts) => {
+            const { lastAlbum, known } = e.payload.seen;
+            opts.context.set({ lastAlbum, known, knownAtVisitStart: known, status: "ready" });
+            return {};
+          },
+        });
+        /** The saved record could not be read: nothing is marked and nothing is written. */
+        m.onAny({
+          event: seenReadFailed,
+          handler: (_e, opts) => {
+            opts.context.set({ ...initialContext, status: "unreadable" });
+            return {};
+          },
+        });
+
+        /** An album listed for the first time with photos starts its record: those photos are not new. */
+        m.onAny({
+          event: albumsListed,
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            if (ctx.status !== "ready") return {};
+            const known = { ...ctx.known };
+            const atStart = { ...ctx.knownAtVisitStart };
+            let added = false;
+            for (const { albumId, photoIds } of e.payload.albums) {
+              if (known[albumId] !== undefined || photoIds.length === 0) continue;
+              known[albumId] = photoIds;
+              atStart[albumId] = photoIds;
+              added = true;
+            }
+            if (!added) return {};
+            const next = { ...ctx, known, knownAtVisitStart: atStart };
+            opts.context.set(next);
+            save(next);
+            return {};
+          },
+        });
+        /** The album opened last is remembered. */
+        m.onAny({
+          event: albumOpened,
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            if (ctx.status !== "ready" || ctx.lastAlbum === e.payload.albumId) return {};
+            const next = { ...ctx, lastAlbum: e.payload.albumId };
+            opts.context.set(next);
+            save(next);
+            return {};
+          },
+        });
+        /** Looked-at photos are saved as known; the marks on screen stay until the visit ends. */
+        m.onAny({
+          event: photosLooked,
+          handler: (e, opts) => {
+            const ctx = opts.context.get();
+            const known = { ...ctx.known };
+            let added = false;
+            for (const { albumId, photoId } of e.payload.photos) {
+              const ids = known[albumId];
+              if (ids === undefined || ids.includes(photoId)) continue;
+              known[albumId] = [...ids, photoId];
+              added = true;
+            }
+            if (!added) return {};
+            const next = { ...ctx, known };
+            opts.context.set(next);
+            save(next);
+            return {};
+          },
+        });
+        /** Leaving the page drops the marks of what was looked at. */
+        m.onAny({
+          event: visitEnded,
+          handler: (_e, opts) => {
+            const ctx = opts.context.get();
+            opts.context.set({ ...ctx, knownAtVisitStart: ctx.known });
+            return {};
+          },
+        });
       },
-      (e) => console.error("seen: could not save", e),
-    );
-  };
-
-  return Actor({
-    inputs: [albumsListed, albumOpened, photosLooked, visitEnded],
-    internal: [seenRead, seenReadFailed],
-    outputs: [],
-    states: [holdingSeen],
-    initial: holdingSeen,
-    context: initialContext,
-    setup: (m) => {
-      /** The saved record is read from the phone; if that fails, nothing is marked or written. */
-      m.effect(holdingSeen, {
-        name: "readingSeen",
-        sends: [seenRead, seenReadFailed],
-        fn: ({ signal, emit }) =>
-          runInvoke(
-            signal,
-            () => port.read(),
-            (result) => {
-              const seen = (result as { seen?: SeenRecord } | null)?.seen;
-              if (seen === undefined) emit(seenReadFailed.create({ message: "no record" }));
-              else emit(seenRead.create({ seen }));
-            },
-            (message) => {
-              console.error("seen: could not read", message);
-              emit(seenReadFailed.create({ message }));
-            },
-          ),
-      });
-      /** The saved record arrived: its albums start the visit as known. */
-      m.onAny({
-        event: seenRead,
-        handler: (e, opts) => {
-          const { lastAlbum, known } = e.payload.seen;
-          opts.context.set({ lastAlbum, known, knownAtVisitStart: known, status: "ready" });
-          return {};
-        },
-      });
-      /** The saved record could not be read: nothing is marked and nothing is written. */
-      m.onAny({
-        event: seenReadFailed,
-        handler: (_e, opts) => {
-          opts.context.set({ ...initialContext, status: "unreadable" });
-          return {};
-        },
-      });
-
-      /** An album listed for the first time with photos starts its record: those photos are not new. */
-      m.onAny({
-        event: albumsListed,
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          if (ctx.status !== "ready") return {};
-          const known = { ...ctx.known };
-          const atStart = { ...ctx.knownAtVisitStart };
-          let added = false;
-          for (const { albumId, photoIds } of e.payload.albums) {
-            if (known[albumId] !== undefined || photoIds.length === 0) continue;
-            known[albumId] = photoIds;
-            atStart[albumId] = photoIds;
-            added = true;
-          }
-          if (!added) return {};
-          const next = { ...ctx, known, knownAtVisitStart: atStart };
-          opts.context.set(next);
-          save(next);
-          return {};
-        },
-      });
-      /** The album opened last is remembered. */
-      m.onAny({
-        event: albumOpened,
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          if (ctx.status !== "ready" || ctx.lastAlbum === e.payload.albumId) return {};
-          const next = { ...ctx, lastAlbum: e.payload.albumId };
-          opts.context.set(next);
-          save(next);
-          return {};
-        },
-      });
-      /** Looked-at photos are saved as known; the marks on screen stay until the visit ends. */
-      m.onAny({
-        event: photosLooked,
-        handler: (e, opts) => {
-          const ctx = opts.context.get();
-          const known = { ...ctx.known };
-          let added = false;
-          for (const { albumId, photoId } of e.payload.photos) {
-            const ids = known[albumId];
-            if (ids === undefined || ids.includes(photoId)) continue;
-            known[albumId] = [...ids, photoId];
-            added = true;
-          }
-          if (!added) return {};
-          const next = { ...ctx, known };
-          opts.context.set(next);
-          save(next);
-          return {};
-        },
-      });
-      /** Leaving the page drops the marks of what was looked at. */
-      m.onAny({
-        event: visitEnded,
-        handler: (_e, opts) => {
-          const ctx = opts.context.get();
-          opts.context.set({ ...ctx, knownAtVisitStart: ctx.known });
-          return {};
-        },
-      });
-    },
-  });
+    });
   },
 });
 
