@@ -2810,6 +2810,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       adminName: people.find((p) => p.admin)?.name,
     });
     const photos: Photo[] = [];
+    const now = Date.now();
     const listed: { id: string; ext: string; driveKey: string }[] = [];
     const ownHeld = rt.held.get(selfKey);
     const heldIds =
@@ -2844,6 +2845,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
                 album: removed
                   ? { kind: "removed" }
                   : { kind: "inAlbum", people, former: rt.former },
+                presence: (k) => memberPresence(presence, k),
+                now,
               }),
             }
           : {}),
@@ -3409,6 +3412,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       selfKey,
       held: rt.held,
       album: { kind: "inAlbum", people: (await albumPeople(rt)) as PhotoMember[], former: [] },
+      presence: (k) => memberPresence(presence, k),
+      now: Date.now(),
     });
     if (holders.kind === "removed") return waiting;
     for (const person of [...holders.others, ...holders.previews]) {

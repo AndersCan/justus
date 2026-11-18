@@ -659,6 +659,26 @@ describe("who has each photo", () => {
     await s.anna.store.close();
   });
 
+  it("a restarted phone lists the Admin as quiet when it last had him 4 days ago", async () => {
+    const s = await album();
+    const adminKey = (await s.nilsPhoto())!.holders!.others[0]!.key;
+    await s.close();
+    const at = Date.now() - 4 * 24 * 60 * 60 * 1000;
+    writeFileSync(
+      join(s.nils.deps.storageDir, "presence.json"),
+      JSON.stringify({ [adminKey]: at }),
+    );
+    const reopened = createPhotoStore(restarted(s.nils.deps));
+    await reopened.ready();
+    const first = (await reopened.list(s.nilsFolderId)).find((p) => p.name === "sunset.jpg")!;
+    expect(first.holders).toMatchObject({
+      kind: "inAlbum",
+      others: [],
+      quiet: [{ key: adminKey, name: "Anna", lastSeenAt: at }],
+    });
+    await reopened.close();
+  });
+
   it("two listings started together both carry holders", async () => {
     const s = await album();
     await s.nils.store.close();

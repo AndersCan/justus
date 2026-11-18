@@ -2,7 +2,7 @@
  * The record each phone keeps of the photos it has a full copy of, and the
  * rules that turn those records into "who has it". Ports only: no photo-store.
  */
-import type { PhotoHolders, PhotoMember } from "@justus/core";
+import type { PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 import type { Drive } from "../ports/drive-store";
 import { isHexKey } from "../membership/records";
 import type { GalleryLog } from "./gallery";
@@ -205,6 +205,9 @@ function previewed(report: HeldReport | undefined, id: string): boolean {
   return report?.kind === "reports" && report.previews.has(id);
 }
 
+/** A phone not connected for this long stops counting as having the photo now. */
+export const HOLDER_QUIET_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+
 export function holdersFor(input: {
   photo: { id: string; driveKey: string; memberName: string };
   selfKey: string;
@@ -219,8 +222,12 @@ export function holdersFor(input: {
         former: ReadonlyArray<{ name: string; ids: ReadonlySet<string>; left?: true }>;
       }
     | { kind: "removed" };
+  /** Whether this phone is connected to each person now, and when it last was. */
+  presence: (key: string) => { connected: boolean; lastSeenAt?: number };
+  /** This phone's clock, for the quiet cut-off. */
+  now: number;
 }): PhotoHolders {
-  const { photo, selfKey, held, album } = input;
+  const { photo, selfKey, held, album, presence, now } = input;
   const here = photo.driveKey === selfKey || holds(held.get(selfKey), photo.id);
   if (album.kind === "removed") return { kind: "removed", here };
   const { people, former } = album;
@@ -243,12 +250,21 @@ export function holdersFor(input: {
   for (const entry of former) {
     if (entry.ids.has(photo.id)) (entry.left === true ? leavers : removed).add(entry.name);
   }
+  const quiet: QuietHolder[] = [];
+  for (const [key, holder] of others) {
+    const seen = presence(key);
+    if (seen.connected || seen.lastSeenAt === undefined) continue;
+    if (now - seen.lastSeenAt < HOLDER_QUIET_AFTER_MS) continue;
+    others.delete(key);
+    quiet.push({ ...holder, lastSeenAt: seen.lastSeenAt });
+  }
+  quiet.sort((a, b) => b.lastSeenAt - a.lastSeenAt || byNameThenKey(a, b));
   return {
     kind: "inAlbum",
     here,
     previewHere: !here && previewed(held.get(selfKey), photo.id),
     others: [...others.values()].sort(byNameThenKey),
-    quiet: [],
+    quiet,
     unsure: [...unsure.values()].sort(byNameThenKey),
     waiting: [...waiting.values()].sort(byNameThenKey),
     previews: [...previews.values()].sort(byNameThenKey),

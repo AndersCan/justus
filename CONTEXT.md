@@ -109,7 +109,10 @@ The code terms above are precise; the UI uses plainer ones. Never show the left 
 | Peer connection  | **Connected** (never "online")                                                        | Only who your device can reach right now. In the members list a dot by the name: filled when connected, an empty ring otherwise; its label says "last seen" or "hasn't connected yet". |
 
 **Holding record**:
-`/holding.json` and `/held/<id>` in a phone's own album drive: the photos it has a full copy of. A claim the phone makes; it never expires; only that phone withdraws it, by leaving, or once removed, by deleting the album from the phone. Every listed photo carries `holders`, worked out from these records.
+`/holding.json` and `/held/<id>` in a phone's own album drive: the photos it has a full copy of. A claim the phone makes; it never expires; only that phone withdraws it, by leaving, or once removed, by deleting the album from the phone. Every listed photo carries `holders`, worked out from these records and from when each phone was last connected.
+
+**Last confirmed**:
+When this phone last had a connection to a holder's phone. A holder not connected for 3 days or more is listed under "Last had the full photo" with that day; a phone cannot tell off from wiped. A holder with no stored time stays as it is.
 
 **Profile**:
 The user's display name and auto-assigned colour, set on first run. No account, email or password. Device labels are derived automatically.
