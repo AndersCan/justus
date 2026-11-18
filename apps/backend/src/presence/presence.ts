@@ -96,7 +96,7 @@ export function peerDisconnected(
     conns: 0,
   });
   if (member === undefined) return "unknown-peer-down";
-  presence.lastSeen.set(member, now);
+  for (const [m, key] of presence.peerKeys) if (key === peerKey) presence.lastSeen.set(m, now);
   return "member-down";
 }
 

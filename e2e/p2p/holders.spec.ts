@@ -97,8 +97,6 @@ async function shareAlbum(instancePages, album) {
   await expectHoldersLine(a, "open", "Ada", words("holders.on_and_your_phone", { names: "Ben's" }));
 }
 
-// Ada's phone stamps a friend as last seen under the first album it learned him in, so this test runs
-// first: Ben's first album with Ada is the one that goes quiet.
 test("a quiet phone's line says the day it last had it, also after a reload", async ({
   instancePages,
   instances,
@@ -157,6 +155,12 @@ test("a quiet phone's line says the day it last had it, also after a reload", as
       sheet.getByRole("heading", { name: words("photo_holders.last_had_full_photo") }),
       "sheet · Ada's phone: Last had the full photo heading",
     ).toBeVisible();
+    await expect(
+      sheet
+        .getByRole("heading", { name: words("full_photo.has"), exact: true })
+        .locator("xpath=following-sibling::ul[1]/li"),
+      "sheet · Ada's phone: Has the full photo lists only You",
+    ).toHaveText([new RegExp(`\\b${words("photo_holders.you")}\\b`)]);
     await expect(
       sheet.getByText(words("photo_holders.last_confirmed", { when: weekday })),
       "sheet · Ada's phone: Ben's day",

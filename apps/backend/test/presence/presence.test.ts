@@ -175,13 +175,18 @@ describe("presence data", () => {
     expect(p.connections.size).toBe(0);
   });
 
-  it("when two members name the same peer key, the first one learned gets the connection", () => {
+  it("a phone that is a member of two albums is stamped in both when it goes", () => {
+    // Ben's phone has one member key per album he shares with Ada; each album's holders line reads its own key.
     const p = createPresence({ lastSeen: [] });
     p.peerKeys.set(hex("1"), hex("9"));
     p.peerKeys.set(hex("2"), hex("9"));
     peerConnected(p, { peerKey: hex("9"), log: () => {} });
     peerDisconnected(p, { peerKey: hex("9"), now: 7, log: () => {} });
-    expect([...p.lastSeen]).toEqual([[hex("1"), 7]]);
+    expect(memberPresence(p, hex("2"))).toEqual({ connected: false, lastSeenAt: 7 });
+    expect([...p.lastSeen]).toEqual([
+      [hex("1"), 7],
+      [hex("2"), 7],
+    ]);
   });
 
   it("an unknown member has only connected: false", () => {
