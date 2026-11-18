@@ -11,6 +11,8 @@ import { errText } from "../p2p-log.ts";
 export const HOLDING_PATH = "/holding.json";
 export const HELD_DIR = "/held";
 export const PREVIEWED_DIR = "/previewed";
+/** Photos a phone added and then deleted: one entry per id, in its own album drive. Read only with a holding record (`/holding.json` version 1). */
+export const DELETED_DIR = "/deleted-photos";
 /** Peer-controlled list bound. */
 export const MAX_HELD = 20_000;
 const MAX_MARKER_BYTES = 1024;
@@ -65,6 +67,47 @@ export async function markPreviewed(drive: Drive, id: string): Promise<HoldersRe
   } catch (thrown: unknown) {
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }
+}
+
+/** Records that this phone deleted its own photo. False when the id is not safe to write. */
+export async function markDeleted(drive: Drive, id: string): Promise<HoldersResult<boolean>> {
+  if (!SAFE_ID.test(id)) return [null, false];
+  try {
+    await drive.put(`${DELETED_DIR}/${id}`, HELD_BODY);
+    return [null, true];
+  } catch (thrown: unknown) {
+    return [{ kind: "write-failed", message: errText(thrown) }, null];
+  }
+}
+
+/** The ids a phone says it deleted, at most MAX_HELD; undefined when the list is slow or failing (never "deleted nothing"). */
+export async function readDeleted(
+  drive: Drive,
+  opts: { timeoutMs: number; log: GalleryLog },
+): Promise<ReadonlySet<string> | undefined> {
+  try {
+    const listed = await listIds(drive, DELETED_DIR, Date.now() + opts.timeoutMs);
+    if ("timedOut" in listed) {
+      opts.log("holding.read", { drive: drive.key.slice(0, 8), err: "deleted-timeout" });
+      return undefined;
+    }
+    return listed.ids;
+  } catch (thrown: unknown) {
+    opts.log("holding.read", { drive: drive.key.slice(0, 8), err: errText(thrown) });
+    return undefined;
+  }
+}
+
+/** The Admin's delete list plus each phone's own deletes as "<driveKey>:<id>". Admin entries pass unchanged. */
+export function withOwnDeletes(
+  removed: Readonly<Record<string, unknown>>,
+  own: ReadonlyMap<string, ReadonlySet<string>>,
+): Readonly<Record<string, unknown>> {
+  const merged: Record<string, unknown> = { ...removed };
+  for (const [key, ids] of own) {
+    for (const id of ids) merged[`${key}:${id}`] ??= true;
+  }
+  return merged;
 }
 
 /** Takes the photo out of this phone's record, full copy and preview. False when the id is not safe to use. */

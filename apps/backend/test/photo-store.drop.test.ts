@@ -126,6 +126,28 @@ describe("dropping photos others deleted", () => {
     await s.nils.close();
   });
 
+  it("a phone whose cache was wiped still takes a photo the Collaborator deleted himself out of its record", async () => {
+    const s = await album();
+    await addWithThumb(s.nils, s.nilsDeps, s.nilsFolderId, "nils.jpg", 5);
+    await until(async () => (await s.anna.list()).some((p) => p.name === "nils.jpg"));
+    const photo = await load(s.annaDeps, s.anna, "nils.jpg");
+    const own = await s.annaDeps.drives.openOwn(`folder/${s.folderId}`);
+    const held = async () => {
+      for await (const e of own.list("/held")) if (e.path.endsWith(`/${photo.id}`)) return true;
+      return false;
+    };
+    await until(held);
+    expect(await held()).toBe(true);
+    rmSync(join(s.annaDeps.cacheDir, "photos", s.folderId), { recursive: true, force: true });
+    setFakeNodeConnected({ hub: s.hub, node: s.annaDeps.node, connected: false });
+    await s.nils.remove(photo.id, s.nilsFolderId);
+    setFakeNodeConnected({ hub: s.hub, node: s.annaDeps.node, connected: true });
+    await until(async () => !(await held()));
+    expect(await held()).toBe(false);
+    await s.anna.close();
+    await s.nils.close();
+  }, 30_000);
+
   it("the Admin's delete of Nils's photo drops Cara's copy while Nils's drive still lists it", async () => {
     const s = await album();
     const caraDeps = phoneDeps(s.hub, "Cara");

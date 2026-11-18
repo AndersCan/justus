@@ -20,6 +20,9 @@ import {
   markHeld,
   unmarkHeld,
   markPreviewed,
+  markDeleted,
+  readDeleted,
+  withOwnDeletes,
   readFormer,
   readHeld,
   stillToDrop,
@@ -2880,14 +2883,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return live;
   }
 
-  type DeleteProof = { removed: RemovedFile["removed"]; live: ReadonlySet<string> };
+  type DeleteProof = { removed: Readonly<Record<string, unknown>>; live: ReadonlySet<string> };
   /** The last proof read per album, for the synchronous debug snapshot. */
   const lastProof = new WeakMap<FolderRuntime, DeleteProof>();
+  /** The photos each Collaborator's drive says he deleted, by drive key. Only ever grows. */
+  const ownDeletes = new WeakMap<FolderRuntime, Map<string, ReadonlySet<string>>>();
+  function ownDeletesOf(rt: FolderRuntime): Map<string, ReadonlySet<string>> {
+    const known = ownDeletes.get(rt);
+    if (known !== undefined) return known;
+    const fresh = new Map<string, ReadonlySet<string>>();
+    ownDeletes.set(rt, fresh);
+    return fresh;
+  }
 
   async function deleteProof(rt: FolderRuntime): Promise<DeleteProof> {
     const registry = await readRegistryIn(rt.folderDrive);
     const proof = {
-      removed: await readRemovedIn(rt.folderDrive),
+      removed: withOwnDeletes(await readRemovedIn(rt.folderDrive), ownDeletesOf(rt)),
       live: liveDrives(rt, registry.members),
     };
     lastProof.set(rt, proof);
@@ -3138,12 +3150,34 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       await forgetHeld(rt, result.cleared);
       // A phone whose cache was wiped has a held mark and no cached copy: its record still goes once the bytes do.
       await rt.holding?.done;
+      const known = ownDeletesOf(rt);
+      const reads = await Promise.all(
+        [{ key: selfKey, drive: rt.selfDrive }, ...others]
+          .filter((s) => rt.held.get(s.key)?.kind === "reports")
+          .map(
+            async (s) =>
+              [
+                s.key,
+                await readDeleted(s.drive, {
+                  timeoutMs: 1_500,
+                  log: (event, fields) => log(event, { folder: short(rt.record.id), ...fields }),
+                }),
+              ] as const,
+          ),
+      );
+      for (const [key, ids] of reads) {
+        if (ids === undefined) continue;
+        const before = known.get(key);
+        known.set(key, new Set([...(before ?? []), ...ids]));
+      }
       const own = rt.ownHeldRead === selfKey ? rt.held.get(selfKey) : undefined;
       await forgetHeld(
         rt,
-        stillToDrop({ report: own, removed, live: result.clearedDrives }).filter(
-          (id) => !rt.unheld.has(id),
-        ),
+        stillToDrop({
+          report: own,
+          removed: withOwnDeletes(removed, known),
+          live: result.clearedDrives,
+        }).filter((id) => !rt.unheld.has(id)),
       );
     } catch (e) {
       log("error", { where: "dropDeleted", folder: short(rt.record.id), err: errText(e) });
@@ -6185,6 +6219,15 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
           await selfDrive.del(`${DRIVE_PATH_THUMBS}/${id}${RENDITION_EXT}`);
           forgetPhoto(rt, selfKey, id, base.slice(id.length));
           pruneIndex(id, selfKey);
+          if (role !== "creator") {
+            // A Collaborator's own delete is recorded on his drive, so other phones can tell it from a photo that left with him.
+            const [e] = await markDeleted(selfDrive, id);
+            if (e) log("error", { where: "remove.ownDelete", err: e.message });
+            else {
+              const mine = ownDeletesOf(rt);
+              mine.set(selfKey, new Set([...(mine.get(selfKey) ?? []), id]));
+            }
+          }
           if (role === "creator") {
             // The Admin's own delete is listed too, so other phones can tell it from a photo that left with its adder.
             rt.deletedHere.add(`${selfKey}:${id}`);
