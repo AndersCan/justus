@@ -32,10 +32,9 @@ new Admin.
    `handoverReady` carries `listsDigest` of the lists as the next Admin copied
    them; the leaving Admin finishes only when it matches the digest of what it
    sent.
-5. **Version 1 only.** A note of another version is not followed.
+5. **Version 1 only.** Another version is not followed.
 
 ## Consequences
 
-No server and no key moves: a phone trusts the new Admin only through the old
-lists and the new drive's own identity proof. Whether the leaving Admin's
-photos stay is not decided here; a kept-photos list can join the package.
+No server and no key moves: trust comes from the old lists and the new drive's
+identity proof. Whether the leaving Admin's photos stay is left open.
