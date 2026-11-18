@@ -1224,7 +1224,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   }
 
   /** Tell the web layer who holds what may have changed: a friend's phone
-   * connecting or dropping moves it between connected and quiet. */
+   * connecting or dropping can change the holders line. */
   function announceHolders() {
     const rt = activeRuntime();
     if (rt) deps.onChanged({ cause: "holders", folderId: rt.record.id });

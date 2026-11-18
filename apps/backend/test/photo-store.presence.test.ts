@@ -103,6 +103,30 @@ describe("member presence", () => {
     await store.close();
   });
 
+  it("pushes a holders change once a connected friend's phone is recognised", async () => {
+    const hub = createFakeHub();
+    const changes: string[] = [];
+    const admin = buildStore("Maya", hub);
+    const member = buildStore("Nils", hub, changes);
+    await admin.store.ready();
+    await member.store.ready();
+    const folder = (await admin.store.createFolder("Trip"))[1]!.folder;
+    await member.store.join(folder.shareKey);
+
+    // The connection opens before the Admin's swarm key is read from
+    // /device.json, so only the push after that read sees him connected.
+    admin.deps.network.join(member.topic(), { server: false });
+    await waitFor(
+      async () =>
+        (await member.store.status()).members.find((m: { admin: boolean }) => m.admin)
+          ?.connected === true,
+    );
+    await waitFor(async () => changes.lastIndexOf("holders") > changes.lastIndexOf("presence"));
+
+    await admin.store.close();
+    await member.store.close();
+  });
+
   it("lets the Admin remove an approved member", async () => {
     const hub = createFakeHub();
     const admin = buildStore("Maya", hub);
