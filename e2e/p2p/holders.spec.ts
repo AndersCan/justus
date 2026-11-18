@@ -1,6 +1,6 @@
 /**
  * Two real bare instances, one story: Ada adds a photo, Ben joins and opens it, Ben's phone is
- * taken off and back, Ada removes Ben, Ada deletes the photo. After each step the "who has this
+ * taken off and back, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
  * photo" line is read on the phones that have one; a wrong line fails with the step, the phone,
  * and both texts.
  *
@@ -13,6 +13,7 @@ import {
   copyInviteLink,
   createAlbum,
   pausePhone,
+  restartPhone,
   resumeAll,
   skipIntro,
   words,
@@ -43,12 +44,31 @@ async function expectHoldersLine(page, step, phone, text) {
   });
 }
 
+async function stateOf(page, instance) {
+  const res = await page.context().request.get(new URL("/__state", instance.url).href);
+  return res.json();
+}
+
+/** Polls until `from`'s phone lists `to`'s current swarm key among its connections. */
+async function connected(from, fromInstance, toInstance, label) {
+  // 60 s: reconnecting took 2-16 s, plus ~30 s for a stale connection to close.
+  await expect
+    .poll(
+      async () => {
+        const [f, t] = await Promise.all([stateOf(from, fromInstance), stateOf(from, toInstance)]);
+        return f.connections.some((c) => c.noiseKey === t.swarmKey);
+      },
+      { message: label, timeout: 60_000, intervals: [100] },
+    )
+    .toBe(true);
+}
+
 async function closePhoto(page) {
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.locator(".justus-holders-text")).toHaveCount(0);
 }
 
-test("every holders line reads right on both phones from add to delete", async ({
+test("every holders line reads right on both phones from add to delete, across a reload and app restarts", async ({
   instancePages,
   instances,
 }) => {
@@ -102,6 +122,71 @@ test("every holders line reads right on both phones from add to delete", async (
       "Ben back: both phones connected",
     ).toBeVisible({ timeout: 60_000 });
   }
+
+  const albumPath = { a: new URL(a.url()).pathname, b: new URL(b.url()).pathname };
+  const albumId = albumPath.a.split("/").pop();
+  // Both phones reload.
+  await a.reload();
+  await b.reload();
+  await expectHoldersLine(
+    a,
+    "reload",
+    "Ada",
+    words("holders.on_and_your_phone", { names: "Ben's" }),
+  );
+  await expectHoldersLine(
+    b,
+    "reload",
+    "Ben",
+    words("holders.on_and_your_phone", { names: "Ada's" }),
+  );
+  await closePhoto(a);
+  await closePhoto(b);
+
+  // Ada restarts while Ben is off: her phone writes its boot record, which Ben will hear of.
+  const resumeBen = await pausePhone(instances[1]);
+  try {
+    await restartPhone(a, instances[0]);
+  } finally {
+    resumeBen();
+  }
+  // Wait until Ada is connected to Ben and Ben's copy of her album knows her newest write, then
+  // take Ada off before Ben's 400 ms read fetches it.
+  await expect
+    .poll(
+      async () => {
+        const [ada, ben] = await Promise.all([stateOf(a, instances[0]), stateOf(b, instances[1])]);
+        const adaAlbum = ada.folders.find((f) => f.id === albumId);
+        const benAlbum = ben.folders.find((f) => f.shareKey === adaAlbum?.shareKey);
+        return (
+          ada.connections.some((c) => c.noiseKey === ben.swarmKey) &&
+          benAlbum?.folderDrive.length === adaAlbum.folderDrive.length
+        );
+      },
+      // 60 s: reconnecting took 2-16 s, plus ~30 s for a stale connection to close.
+      { message: "Ben heard of Ada's restart", timeout: 60_000, intervals: [50] },
+    )
+    .toBe(true);
+
+  // Ben restarts while Ada is off: his phone opens and reads her album with nobody to ask.
+  const resumeAda = await pausePhone(instances[0]);
+  try {
+    await restartPhone(b, instances[1]);
+    await expectHoldersLine(
+      b,
+      "Ben restarted, Ada off",
+      "Ben",
+      words("holders.on_and_your_phone", { names: "Ada's" }),
+    );
+    await closePhoto(b);
+  } finally {
+    resumeAda();
+  }
+  await connected(a, instances[0], instances[1], "Ada's phone: connected to Ben's restarted phone");
+  await connected(b, instances[1], instances[0], "Ben's phone: connected to Ada's phone");
+  // The restarted phones start at /index.html; open the album again.
+  await a.goto(albumPath.a);
+  await b.goto(albumPath.b);
 
   await a
     .getByRole("link", { name: /Invite & members/ })
