@@ -52,7 +52,6 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
     deleted: s.context.deleted,
     youLeft: s.context.youLeft,
     pendingChange: s.context.pendingChange,
-    changeRefused: s.context.changeRefused,
     asks: s.context.asks,
     offers: s.context.offers,
     activeFolderId: s.context.activeId,
@@ -141,8 +140,8 @@ const restoreAlbum = event("RESTORE_ALBUM")<AlbumTarget>();
 const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
 /** The Admin confirmed handing an album to a Collaborator. */
 const handOverAlbum = event("HAND_OVER_ALBUM")<AlbumTarget & { memberKey: string }>();
-/** The Admin calls a handover off. */
 const HANDOVER_REFUSED_CODE = "justus.photos/handover-refused";
+/** The Admin calls a handover off. */
 const stayAdmin = event("STAY_ADMIN")<AlbumTarget>();
 /** The Admin confirmed deleting an album for everyone. */
 const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();

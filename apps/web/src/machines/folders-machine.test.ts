@@ -380,7 +380,6 @@ describe("folders single owner", () => {
       archived: [],
       deleted: [],
       pendingChange: null,
-      changeRefused: false,
       asks: [],
       offers: [],
       activeFolderId: null,
