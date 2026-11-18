@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 // @ts-expect-error plain script without type declarations
-import { helperRoute } from "./maestro-ios-lib.mjs";
+import { helperRoute, lockUiService } from "./maestro-ios-lib.mjs";
 
 const settings = "com.apple.Preferences";
 
@@ -57,4 +57,51 @@ test("a failing command fails /away, /back and /match", () => {
 test("an unknown path is not a route and runs nothing", () => {
   expect(walk("/nope")).toEqual({ done: false, commands: [] });
   expect(walk("/toString")).toEqual({ done: false, commands: [] });
+});
+
+function uiWalk(lists: string[]) {
+  const commands: string[][] = [];
+  let pauses = 0;
+  let polled = 0;
+  const run = (cmd: string, args: string[]) => {
+    commands.push([cmd, ...args]);
+    return { status: 0 };
+  };
+  const capture = (cmd: string, args: string[]) => {
+    commands.push([cmd, ...args]);
+    return { stdout: lists[Math.min(polled++, lists.length - 1)] };
+  };
+  const result = lockUiService({ run, capture, pause: () => pauses++, udid: "U", limit: 3 });
+  return { result, commands, pauses };
+}
+
+const start = [
+  "xcrun",
+  "simctl",
+  "spawn",
+  "U",
+  "launchctl",
+  "start",
+  "com.apple.LocalAuthenticationUIService",
+];
+const list = ["xcrun", "simctl", "spawn", "U", "launchctl", "list"];
+const up = "PID\tStatus\tLabel\n412\t0\tcom.apple.LocalAuthenticationUIService\n";
+const down = "PID\tStatus\tLabel\n-\t0\tcom.apple.LocalAuthenticationUIService\n";
+
+test("the UI service is started, then listed, and no pause when it is already up", () => {
+  expect(uiWalk([up])).toEqual({ result: null, commands: [start, list], pauses: 0 });
+});
+
+test("it polls until the service has a pid", () => {
+  const walk = uiWalk([down, "", up]);
+  expect(walk.result).toBeNull();
+  expect(walk.commands).toEqual([start, list, list, list]);
+  expect(walk.pauses).toBe(2);
+});
+
+test("it gives up after the limit with the failure message", () => {
+  const walk = uiWalk([down]);
+  expect(walk.result).toBe("LocalAuthenticationUIService never started");
+  expect(walk.commands).toEqual([start, list, list, list]);
+  expect(walk.pauses).toBe(3);
 });
