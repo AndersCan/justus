@@ -50,6 +50,8 @@ const waitingForAdminToSeeYouLeft = state("waitingForAdminToSeeYouLeft")();
 const removingYourLastCopy = state("removingYourLastCopy")();
 /** Nothing of the album is on this phone. */
 const leftAlbum = state("leftAlbum")().final();
+/** The Admin's album is with the new Admin: this phone removes its copy and forgets the album. */
+const leavingAfterHandover = state("leavingAfterHandover")();
 /** The Admin confirmed delete: the delete note is written into the album, then this phone's copy is removed. */
 const deletingForEveryone = state("deletingForEveryone")();
 /** The Admin's phone keeps only the delete note and offers it to members who were away. */
@@ -74,6 +76,10 @@ const deleteHeard = event("deleteHeard")<{ adminName: string }>();
 /** The Admin's member list no longer lists this phone. */
 const adminSawYouLeave = event("adminSawYouLeave")();
 
+/** The new Admin's phone has the album. */
+const handOverFinished = event("handOverFinished")();
+/** This phone's copy of the handed-over album is removed. */
+const handOverRemoved = event("handOverRemoved")();
 /** The left note is written (when the Admin lists this phone) and this phone's copy is removed. */
 const leaveSaved = event("leaveSaved")<{ waiting: boolean }>();
 /** The left note could not be written; nothing was removed. */
@@ -146,7 +152,16 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
   create: (options: { port?: AlbumLifecyclePort; start?: LifecycleStart }) => {
     const { port = previewPort, start = { state: "shownInYourAlbums", role: "reader" } } = options;
     return Actor({
-      inputs: [roleSeen, archive, restore, leave, deleteForEveryone, deleteHeard, adminSawYouLeave],
+      inputs: [
+        roleSeen,
+        archive,
+        restore,
+        leave,
+        deleteForEveryone,
+        deleteHeard,
+        adminSawYouLeave,
+        handOverFinished,
+      ],
       internal: [
         leaveSaved,
         leaveFailed,
@@ -154,6 +169,7 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
         deleteFailed,
         deletedAlbumRemoved,
         lastCopyRemoved,
+        handOverRemoved,
       ],
       outputs: [],
       states: [
@@ -164,6 +180,7 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
         removingYourLastCopy,
         leftAlbum,
         deletingForEveryone,
+        leavingAfterHandover,
         deletedForEveryone,
         removingDeletedAlbum,
         deletedByAdmin,
@@ -218,6 +235,15 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
           handler: (_e, { context }) =>
             context.get().role === "creator" ? {} : { state: leavingAlbum },
         });
+        for (const at of [shownInYourAlbums, archived]) {
+          /** The new Admin's phone has the album; only the Admin was handing it over. */
+          m.on(at, {
+            event: handOverFinished,
+            to: [leavingAfterHandover],
+            handler: (_e, { context }) =>
+              context.get().role === "creator" ? { state: leavingAfterHandover } : {},
+          });
+        }
         /** The Admin deletes the album; nobody else can. */
         m.on(shownInYourAlbums, {
           event: deleteForEveryone,
@@ -270,6 +296,30 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
             context.set({ ...context.get(), error: e.payload.reason });
             return { state: shownInYourAlbums };
           },
+        });
+        /** This phone removes its copy; the new Admin's phone serves the album now. */
+        m.effect(leavingAfterHandover, {
+          name: "removeHandedOverAlbum",
+          sends: [handOverRemoved],
+          fn: (input) =>
+            withPromise({
+              promise: Promise.resolve().then(async () => {
+                await port.removeCopy("nothing");
+                await port.forget();
+              }),
+              signal: input.signal,
+              emit: input.emit,
+              events: {
+                success: () => handOverRemoved.create(),
+                error: () => handOverRemoved.create(),
+              },
+            }),
+        });
+        /** The copy is gone and nothing of the album is left on this phone. */
+        m.on(leavingAfterHandover, {
+          event: handOverRemoved,
+          to: [leftAlbum],
+          handler: () => ({ state: leftAlbum }),
         });
         /** The Admin's member list dropped this phone, so the kept drives go. */
         m.on(waitingForAdminToSeeYouLeft, {
@@ -383,6 +433,7 @@ export const albumLifecycleExpectations: Expectations<typeof albumLifecycleMachi
     leavingAlbum: { neverSee: [{ role: "creator" }] },
     waitingForAdminToSeeYouLeft: { neverSee: [{ role: "creator" }] },
     deletingForEveryone: { neverSee: [{ role: "member" }, { role: "reader" }] },
+    leavingAfterHandover: { neverSee: [{ role: "member" }, { role: "reader" }] },
     deletedForEveryone: { neverSee: [{ role: "member" }, { role: "reader" }] },
     removingDeletedAlbum: { neverSee: [{ role: "creator" }] },
     deletedByAdmin: { neverSee: [{ role: "creator" }] },

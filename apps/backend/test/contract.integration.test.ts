@@ -131,6 +131,7 @@ describe("backend -> web contract, from real backend output", () => {
     await a("photos.status");
     await a("photos.remove", { id: photo.id, folderId: folder.id });
     await a("photos.handOver", { folderId: folder.id, memberKey: requests[0].requesterKey });
+    await a("photos.stayAdmin", { folderId: folder.id });
     await a("photos.removeMember", { folderId: folder.id, memberKey: requests[0].requesterKey });
     // The removed phone takes the album off itself.
     const joinerAlbum = (await b("photos.folders")).folders[0];

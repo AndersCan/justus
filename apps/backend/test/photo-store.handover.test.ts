@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createPhotoStore, PhotoError } from "../src/photo-store.ts";
 import { listsDigest } from "../src/albums/handover.ts";
+import type { PeerNetwork } from "../src/ports/peer-network.ts";
 import { createFakeHub, addFakeNode, setFakeNodeConnected } from "./fakes/fake-world.ts";
 import {
   FakeLoopbackServer,
@@ -39,10 +40,30 @@ type Debug = {
   }>;
 };
 
-function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
+/** Drops "done" messages while `held.on`, so Ada's phone has not yet been told Ben's phone has the album. */
+function holdingDone(network: PeerNetwork, held: { on: boolean }) {
+  const start = network.start.bind(network);
+  network.start = (identity, onEvent, protocol) =>
+    start(
+      identity,
+      (e) => {
+        const done = e.type === "answer" && JSON.stringify(e.value).includes('"handoverDone"');
+        if (!(held.on && done)) onEvent(e);
+      },
+      protocol,
+    );
+}
+
+function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string, held?: { on: boolean }) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const deps = fakeStoreDeps({ hub, node, deviceName, server: new FakeLoopbackServer() });
+  const deps = fakeStoreDeps({
+    hub,
+    node,
+    deviceName,
+    server: new FakeLoopbackServer(),
+  });
+  if (held) holdingDone(deps.network, held);
   mkdirSync(deps.cacheDir, { recursive: true });
   return { deps, node, store: createPhotoStore(deps) };
 }
@@ -53,9 +74,10 @@ const identityOf = (p: Phone) => debugOf(p).identityDrive;
 const trip = async (p: Phone) => (await p.store.folders()).folders.find((f) => f.name === "Trip")!;
 
 /** Ada's "Trip" with Ben and Cy as Collaborators. */
-async function scene() {
+async function scene(options: { holdDone?: boolean } = {}) {
   const hub = createFakeHub();
-  const ada = phone(hub, "Ada");
+  const held = { on: options.holdDone === true };
+  const ada = phone(hub, "Ada", held);
   const ben = phone(hub, "Ben");
   const cy = phone(hub, "Cy");
   for (const p of [ada, ben, cy]) await p.store.ready();
@@ -76,7 +98,7 @@ async function scene() {
   const close = async () => {
     for (const p of [ada, ben, cy]) await p.store.close();
   };
-  return { hub, ada, ben, cy, folderId, shareKey, benKey, cyKey, read, close };
+  return { hub, held, ada, ben, cy, folderId, shareKey, benKey, cyKey, read, close };
 }
 
 describe("handing an album to a Collaborator", () => {
@@ -89,11 +111,10 @@ describe("handing an album to a Collaborator", () => {
     expect(folder.notice).toEqual({ kind: "madeAdmin", fromName: "Ada" });
     expect(debugOf(s.ben).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
 
-    const lists = JSON.parse((await s.read(s.ada, s.benKey, "/members.json"))!);
+    const lists = JSON.parse((await s.read(s.cy, s.benKey, "/members.json"))!);
     expect(Object.values(lists.members).map((m) => (m as { key: string }).key)).toEqual([s.cyKey]);
-    const note = JSON.parse((await s.read(s.ada, s.shareKey, "/admin.json"))!);
+    const note = JSON.parse((await s.read(s.cy, s.shareKey, "/admin.json"))!);
     expect(note.next).toMatchObject({ key: s.benKey, identity: identityOf(s.ben), name: "Ben" });
-    expect(debugOf(s.ada).folders[0]!.handover).toEqual({ to: s.benKey, written: true });
     await s.close();
   });
 
@@ -201,6 +222,106 @@ describe("refusing a handover", () => {
     await until(() => debugOf(s.ada).folders[0]!.handover?.written === true);
     const [error] = await s.ada.store.handOver(s.folderId, s.cyKey);
     expect(error?.code).toBe(PhotoError.HANDOVER_REFUSED);
+    await s.close();
+  });
+});
+
+describe("Ada's phone after Ben's phone has the album", () => {
+  it("removes the album from her phone once Ben's phone says it has it", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await s.ada.store.folders()).folders.length === 0);
+    expect((await s.ada.store.folders()).archived).toEqual([]);
+    expect(debugOf(s.ada).folders).toEqual([]);
+    expect((await trip(s.ben)).role).toBe("creator");
+    await s.close();
+  });
+
+  it("finishes leaving when Ben's phone says so after Ada's phone restarted", async () => {
+    const s = await scene({ holdDone: true });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    expect(debugOf(s.ada).folders[0]!.handover).toEqual({ to: s.benKey, written: true });
+    await s.ada.store.close();
+
+    const reopened = createPhotoStore(restarted(s.ada.deps));
+    await reopened.ready();
+    expect((await reopened.folders()).folders[0]!.handingOver).toEqual({
+      key: s.benKey,
+      name: "Ben",
+      final: true,
+    });
+    await until(async () => (await reopened.folders()).folders.length === 0, 30_000);
+    await reopened.close();
+    await s.ben.store.close();
+    await s.cy.store.close();
+  }, 40_000);
+});
+
+describe("Stay Admin", () => {
+  it("keeps the album on Ada's phone and ends the handover line", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    expect((await trip(s.ada)).handingOver).toEqual({
+      key: s.benKey,
+      name: "Ben",
+      final: false,
+    });
+    const changes: unknown[] = [];
+    s.ada.deps.onChanged = (c: unknown) => void changes.push(c);
+    expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
+    expect(changes).toContainEqual({ cause: "enroll", folderId: s.folderId });
+    expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
+    const folder = await trip(s.ada);
+    expect(folder.handingOver).toBeUndefined();
+    expect(folder.role).toBe("creator");
+    expect(debugOf(s.ada).folders[0]!.handover).toBeUndefined();
+    await s.close();
+  });
+
+  it("is ignored by Ben's phone when Ben's phone comes back afterwards", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: true });
+    await sleep(3_000);
+    expect((await trip(s.ben)).role).toBe("member");
+    expect(await s.read(s.cy, s.shareKey, "/admin.json")).toBeNull();
+    expect((await trip(s.ada)).role).toBe("creator");
+    await s.close();
+  }, 15_000);
+
+  it("can hand over again after staying", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: true });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    await s.close();
+  });
+
+  it("is refused once Ben's phone has the lists and /admin.json is written", async () => {
+    const s = await scene({ holdDone: true });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    const [error] = await s.ada.store.stayAdmin(s.folderId);
+    expect(error?.code).toBe(PhotoError.HANDOVER_REFUSED);
+    expect((await s.ada.store.handOver(s.folderId, s.cyKey))[0]?.code).toBe(
+      PhotoError.HANDOVER_REFUSED,
+    );
+    await s.close();
+  });
+
+  it("is for the Admin only", async () => {
+    const s = await scene();
+    const [error] = await s.ben.store.stayAdmin((await trip(s.ben)).id);
+    expect(error?.code).toBe(PhotoError.NOT_CREATOR);
+    const [missing] = await s.ada.store.stayAdmin("nope");
+    expect(missing?.code).toBe(PhotoError.FOLDER_NOT_FOUND);
     await s.close();
   });
 });
