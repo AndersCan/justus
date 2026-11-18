@@ -1,0 +1,291 @@
+{
+  "sharedPhotos": [
+    {
+      "name": "A share on a new phone waits until the welcome is done",
+      "end": "choosingAlbumForSharedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "PAGE_SHOWN",
+          "payload": {
+            "welcome": true
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "PAGE_SHOWN",
+          "payload": {
+            "welcome": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ada closes the sheet, and the shared copies are removed",
+      "end": "noSharedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "NOT_NOW",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "INBOX_CLEARED",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Ada shares three photos from Google Photos and adds them to Summer",
+      "end": "noSharedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD_STARTED",
+          "payload": {
+            "folderId": "summer"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD_ENDED",
+          "payload": {
+            "failed": 0
+          }
+        },
+        {
+          "kind": "event",
+          "event": "INBOX_CLEARED",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Ada shares two more while the sheet is open, and the sheet asks for those after",
+      "end": "choosingAlbumForSharedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              },
+              {
+                "id": "b",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "b-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "b-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "NOT_NOW",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "INBOX_CLEARED",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "One photo fails to add, so the shared photos stay in the inbox",
+      "end": "noSharedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "SHARED_PHOTOS_LISTED",
+          "payload": {
+            "batches": [
+              {
+                "id": "a",
+                "receivedAt": "2026-11-18T00:00:00Z",
+                "photos": [
+                  {
+                    "name": "a-0.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-1.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  },
+                  {
+                    "name": "a-2.jpg",
+                    "size": 1,
+                    "mime": "image/jpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD_STARTED",
+          "payload": {
+            "folderId": "summer"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD_ENDED",
+          "payload": {
+            "failed": 1
+          }
+        }
+      ]
+    }
+  ]
+}
