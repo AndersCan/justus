@@ -24,6 +24,8 @@ export type Presence = {
   unverified: Map<string, "unsigned" | "rejected">;
   /** Member drive key to the last time (ms epoch) their last connection closed. */
   lastSeen: Map<string, number>;
+  /** Peer key to when its last connection closed before any member was known for it. Not saved. */
+  closedAt: Map<string, number>;
 };
 
 /** What a member's entry in the People sheet takes from presence. Unset fields are absent. */
@@ -41,6 +43,7 @@ export function createPresence(options: { lastSeen: [string, number][] }): Prese
     identities: new Map(),
     unverified: new Map(),
     lastSeen: new Map(options.lastSeen),
+    closedAt: new Map(),
   };
 }
 
@@ -95,7 +98,10 @@ export function peerDisconnected(
     state: "down",
     conns: 0,
   });
-  if (member === undefined) return "unknown-peer-down";
+  if (member === undefined) {
+    presence.closedAt.set(peerKey, now);
+    return "unknown-peer-down";
+  }
   for (const [m, key] of presence.peerKeys) if (key === peerKey) presence.lastSeen.set(m, now);
   return "member-down";
 }
@@ -103,7 +109,9 @@ export function peerDisconnected(
 export function memberPresence(presence: Presence, memberKey: string): MemberPresence {
   const peerKey = presence.peerKeys.get(memberKey);
   const connected = peerKey !== undefined && (presence.connections.get(peerKey) ?? 0) > 0;
-  const seen = presence.lastSeen.get(memberKey);
+  const seen =
+    presence.lastSeen.get(memberKey) ??
+    (peerKey === undefined ? undefined : presence.closedAt.get(peerKey));
   const identity = presence.identities.get(memberKey);
   return {
     connected,

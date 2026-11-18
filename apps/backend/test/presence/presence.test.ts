@@ -167,6 +167,16 @@ describe("presence data", () => {
     expect(events[0]?.fields?.member).toBeUndefined();
   });
 
+  it("a peer that connected and closed before its member was learned has a last seen", () => {
+    const p = createPresence({ lastSeen: [] });
+    const { log } = logs();
+    peerConnected(p, { peerKey: hex("2"), log });
+    expect(peerDisconnected(p, { peerKey: hex("2"), now: 7000, log })).toBe("unknown-peer-down");
+    p.peerKeys.set(hex("1"), hex("2"));
+    expect(memberPresence(p, hex("1"))).toEqual({ connected: false, lastSeenAt: 7000 });
+    expect(p.lastSeen.size).toBe(0);
+  });
+
   it("a disconnect for a peer that never connected is an unknown peer going down", () => {
     const p = createPresence({ lastSeen: [] });
     expect(peerDisconnected(p, { peerKey: hex("9"), now: 1, log: () => {} })).toBe(
