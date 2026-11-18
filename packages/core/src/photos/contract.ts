@@ -151,6 +151,7 @@ export const syncMemberSchema = s.object({
   identity: s.optional(s.string),
   viewer: s.optional(s.boolean),
   color: s.optional(s.number),
+  stillToDrop: s.optional(s.array(s.string)),
 });
 
 export const folderSummarySchema = s.object({

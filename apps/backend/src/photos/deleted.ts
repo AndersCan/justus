@@ -8,6 +8,8 @@ export type Listing = {
   notice: string | undefined;
   /** False when a drive scan or the removed list could not be read. */
   complete: boolean;
+  /** Every writer's drive was listed and has synced: ids it does not show are gone from the album. */
+  covered: boolean;
   /** Drive key -> the drive object listed. */
   sources: ReadonlyMap<string, object>;
   /** "<driveKey>:<id>" */

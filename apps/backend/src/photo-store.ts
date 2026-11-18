@@ -24,6 +24,7 @@ import {
   markPreviewed,
   readFormer,
   readHeld,
+  stillToDrop,
   type FormerPerson,
   type HeldReport,
 } from "./photos/holders";
@@ -2687,9 +2688,10 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       gallery: Gallery;
       sources: ReadonlyMap<string, object>;
       adminName: string | undefined;
+      covered: boolean;
     },
   ) {
-    const { seq, selfKey, gallery, sources, adminName } = seen;
+    const { seq, selfKey, gallery, sources, adminName, covered } = seen;
     // A listing that started before the stored one is stale: no swap, no diff.
     if (rt.listing !== undefined && seq <= rt.listing.seq) return;
     const prev = rt.listing;
@@ -2698,6 +2700,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       role: rt.record.role,
       notice: rt.record.notice?.kind,
       complete: gallery.complete,
+      covered,
       sources,
       photos: new Map(
         gallery.photos.map((d) => [
@@ -2780,6 +2783,36 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return photos.filter((p) => !(p.sha256 && hidden.get(p.driveKey)?.has(p.sha256)));
   }
 
+  /** A never-synced copy lists nothing without an error; a closed one cannot be asked. */
+  function hasSynced(drive: Drive | undefined): boolean {
+    try {
+      return drive !== undefined && drive.stats().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Every drive a photo of this album can sit on, other than our own. */
+  function albumWriters(
+    rt: FolderRuntime,
+    members: Readonly<Record<string, unknown>>,
+  ): Set<string> {
+    const writers = new Set([...Object.keys(members), ...rt.keptAt.keys()]);
+    if (rt.record.role !== "creator") writers.add(rt.record.shareKey);
+    writers.delete(selfKeyOf(rt));
+    return writers;
+  }
+
+  /** The ids the person's phone still says it holds that the album no longer lists. */
+  function stillToDropIn(rt: FolderRuntime, key: string): string[] {
+    const listing = rt.listing;
+    if (listing === undefined || !listing.covered || rt.record.notice !== undefined) return [];
+    return stillToDrop({
+      report: rt.held.get(key),
+      listed: new Set([...listing.photos.values()].map((p) => p.id)),
+    });
+  }
+
   async function listPhotosIn(rt: FolderRuntime): Promise<Photo[]> {
     const seq = ++rt.listSeq;
     const selfKey = selfKeyOf(rt);
@@ -2809,6 +2842,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       gallery,
       sources: driveByKey,
       adminName: people.find((p) => p.admin)?.name,
+      covered:
+        gallery.complete &&
+        [...albumWriters(rt, registry.members)].every((key) => hasSynced(driveByKey.get(key))),
     });
     const photos: Photo[] = [];
     const now = Date.now();
@@ -3741,27 +3777,32 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       };
     }
     const selfKey = selfKeyOf(rt);
-    const memberList: SyncMember[] = (await albumPeople(rt)).map((person) =>
-      person.self
-        ? {
-            key: selfKey,
-            name: state.name,
-            admin: person.admin,
-            connected: true,
-            identity: ownDrive.key,
-            ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
-            ...(person.color === undefined ? {} : { color: person.color }),
-          }
-        : {
-            key: person.key,
-            name: person.name,
-            admin: person.admin,
-            ...memberPresence(presence, person.key),
-            ...(person.viewer ? { viewer: true as const } : {}),
-            ...(person.color === undefined ? {} : { color: person.color }),
-          },
-    );
     const photos = (await listPhotosIn(rt)).length;
+    const memberList: SyncMember[] = (await albumPeople(rt))
+      .map((person) =>
+        person.self
+          ? {
+              key: selfKey,
+              name: state.name,
+              admin: person.admin,
+              connected: true,
+              identity: ownDrive.key,
+              ...(rt.record.role === "reader" && rt.viewers[selfKey] ? { viewer: true } : {}),
+              ...(person.color === undefined ? {} : { color: person.color }),
+            }
+          : {
+              key: person.key,
+              name: person.name,
+              admin: person.admin,
+              ...memberPresence(presence, person.key),
+              ...(person.viewer ? { viewer: true as const } : {}),
+              ...(person.color === undefined ? {} : { color: person.color }),
+            },
+      )
+      .map((m) => {
+        const ids = m.key === selfKey ? [] : stillToDropIn(rt, m.key);
+        return ids.length === 0 ? m : { ...m, stillToDrop: ids };
+      });
     const role = rt.record.role;
     return {
       folder: toSummary(rt),
@@ -6566,6 +6607,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             swarmKey: presence.peerKeys.get(key) ?? null,
             connected: memberPresence(presence, key).connected,
           })),
+          stillToDrop: Object.fromEntries(
+            [...rt.held.keys()]
+              .filter((key) => key !== selfKeyOf(rt))
+              .map((key) => [key, stillToDropIn(rt, key)] as const)
+              .filter(([, ids]) => ids.length > 0),
+          ),
           folderOwner: {
             swarmKey: presence.peerKeys.get(rt.record.shareKey) ?? null,
             connected: memberPresence(presence, rt.record.shareKey).connected,

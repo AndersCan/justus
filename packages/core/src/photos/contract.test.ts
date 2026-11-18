@@ -100,6 +100,30 @@ describe("photo contract", () => {
     ).toContain("args.role.to");
   });
 
+  it("accepts the ids a person still has to drop and names a bad one", () => {
+    const status = (stillToDrop: unknown) => ({
+      folder: {
+        id: "f",
+        name: "A",
+        role: "creator",
+        shareKey: "s",
+        driveKey: "d",
+        members: 2,
+        addedAt: 1,
+      },
+      name: "Ada",
+      driveKey: "d",
+      discoveryKey: "k",
+      peers: 0,
+      photos: 0,
+      members: [{ key: "b", name: "Ben", admin: false, connected: false, stillToDrop }],
+      updateNeeded: false,
+      peersBehind: [],
+    });
+    expect(checkPhotoResult("photos.status", status(["p1"]))).toBeNull();
+    expect(checkPhotoResult("photos.status", status("p1"))).toContain("members[0].stillToDrop");
+  });
+
   it("accepts linkOff as an ask answer and status", () => {
     expect(checkPhotoChanged({ cause: "ask", code: "c", answer: "linkOff" })).toBeNull();
     const ask = {
