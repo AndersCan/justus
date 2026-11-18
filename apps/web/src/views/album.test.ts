@@ -342,6 +342,41 @@ describe("album people", () => {
   });
 });
 
+describe("same-name people", () => {
+  const twoBens = {
+    ...status,
+    members: [
+      status.members[0],
+      { key: "k1", name: "Ben", admin: false, connected: true, identity: "ib1", color: 1 },
+      { key: "k2", name: "Ben", admin: false, connected: false, identity: "ib2", color: 2 },
+    ],
+  } as unknown as SyncStatus;
+  const rows = (s: SyncStatus) => {
+    syncActor.send(statusSeen.create({ status: s }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    return memberRows(host);
+  };
+
+  test("two Ben rows each show their presence; a unique name shows none", () => {
+    const [, a, b] = rows(twoBens);
+    const lines = (r: Element) => [...r.querySelectorAll("p")].map((x) => x.textContent);
+    expect(lines(a!)).toContain(copy("people.connected"));
+    expect(lines(b!)).toContain(copy("people.not_connected_yet"));
+    const plain = rows(status);
+    expect(lines(plain[1]!)).not.toContain(copy("people.connected"));
+  });
+
+  test("the own row draws no presence line when it shares a name", () => {
+    const own = {
+      ...twoBens,
+      members: twoBens.members.map((m, i) => (i === 0 ? { ...m, name: "Ben" } : m)),
+    } as unknown as SyncStatus;
+    expect(rows(own)[0]!.textContent).not.toContain(copy("people.connected"));
+  });
+});
+
 describe("album people motion", () => {
   type Call = { el: Element; keyframes: any; options: any };
   let calls: Call[];
@@ -453,10 +488,10 @@ describe("album join requests", () => {
     }
   });
 
-  async function show(list: ReturnType<typeof ask>[]) {
+  async function show(list: ReturnType<typeof ask>[], shown: SyncStatus = status) {
     vi.mocked(gateway.requests).mockResolvedValue([null, { requests: list }] as never);
     vi.mocked(gateway.respond).mockClear();
-    syncActor.send(statusSeen.create({ status }));
+    syncActor.send(statusSeen.create({ status: shown }));
     people.open();
     requests.refresh();
     const host = document.createElement("div");
@@ -471,6 +506,64 @@ describe("album join requests", () => {
   };
   const button = (host: HTMLElement, text: string) =>
     [...host.querySelectorAll("button")].find((b) => name(b) === text);
+
+  test("the card says a same-name person is already in; a new name has no such line", async () => {
+    const withBen = {
+      ...status,
+      members: [
+        ...status.members,
+        { key: "kb", name: "Ben", admin: false, connected: true, identity: "ib", color: 3 },
+      ],
+    } as unknown as SyncStatus;
+    const host = await show(
+      [
+        { ...ask("a", false), requesterName: "Ben", requesterIdentity: "ia" },
+        { ...ask("b", false), requesterName: "Cy" },
+      ],
+      withBen,
+    );
+    const lines = host.querySelectorAll('[data-copy-id="album.same_name_in"]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.textContent).toBe(
+      copy("album.same_name_in", {
+        name: "Ben",
+        folderName: "Trip",
+        presence: copy("people.connected"),
+      }),
+    );
+  });
+
+  test("the Accept all sheet shows the same-name line on the matching person only", async () => {
+    const withBen = {
+      ...status,
+      members: [
+        ...status.members,
+        { key: "kb", name: "Ben", admin: false, connected: true, identity: "ib", color: 3 },
+      ],
+    } as unknown as SyncStatus;
+    const host = await show(
+      [
+        { ...ask("a", true, "maple river stone"), requesterName: "Ben", requesterIdentity: "ia" },
+        ask("b", true, "lamp ocean tiger"),
+      ],
+      withBen,
+    );
+    button(host, "Accept all 2, can only look")!.click();
+    await vi.waitFor(() =>
+      expect(host.querySelector('dialog[aria-label^="Accept these"]')).not.toBeNull(),
+    );
+    const lines = host
+      .querySelector('dialog[aria-label^="Accept these"]')!
+      .querySelectorAll('[data-copy-id="album.same_name_in"]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.textContent).toBe(
+      copy("album.same_name_in", {
+        name: "Ben",
+        folderName: "Trip",
+        presence: copy("people.connected"),
+      }),
+    );
+  });
 
   test("rows show their three words and the section says what it is for", async () => {
     const host = await show([

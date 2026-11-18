@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
+import { copy } from "../copy/copy";
 import type { JoinRequest, SyncStatus } from "@justus/core";
 import type { RequestRow } from "./people";
 import {
@@ -348,5 +349,123 @@ describe("person role", () => {
       ["Vic", "viewer"],
       ["Cy", "collaborator"],
     ]);
+  });
+});
+
+describe("same name", () => {
+  const ben = (key: string, identity: string, lastSeenAt?: number, connected = false) => ({
+    key,
+    name: "Ben",
+    admin: false,
+    connected,
+    identity,
+    ...(lastSeenAt !== undefined && { lastSeenAt }),
+  });
+  const withBens = (...bens: ReturnType<typeof ben>[]) => {
+    const s = status("creator");
+    return {
+      ...s,
+      members: [s.members[0]!, { key: "c", name: "Cy", admin: false, connected: true }, ...bens],
+    } as SyncStatus;
+  };
+  const ask = (over: Partial<JoinRequest>): JoinRequest => ({
+    ...request("f1"),
+    requesterName: "Ben",
+    requesterKey: "k2",
+    requesterIdentity: "i2",
+    ...over,
+  });
+  const threeDays = copy("people.last_seen", { when: copy("time.ago", { days: 3 }) });
+  const old = NOW - 3 * 86_400_000;
+
+  it("flags both rows with the same name, not other rows", () => {
+    const vm = buildPeople(withBens(ben("k1", "i1", old), ben("k3", "i3", old)), [], {}, NOW);
+    expect(vm.people.map((p) => p.sameName === true)).toEqual([false, false, true, true]);
+  });
+
+  it("ignores case and spacing, and a lone name is unflagged", () => {
+    const s = withBens(ben("k1", "i1", old));
+    const m = [...s.members, { key: "k9", name: " ben ", admin: false, connected: true }];
+    const vm = buildPeople({ ...s, members: m } as SyncStatus, [], {}, NOW);
+    expect(vm.people.filter((p) => p.sameName).length).toBe(2);
+    expect(buildPeople(s, [], {}, NOW).people.some((p) => p.sameName)).toBe(false);
+  });
+
+  it("the request carries the presence of the Ben already in", () => {
+    const vm = buildPeople(withBens(ben("k1", "i1", old)), [ask({})], {}, NOW);
+    expect(vm.requests[0]!.sameNameIn).toBe(threeDays);
+  });
+
+  it("uses the most recent presence when several match", () => {
+    const vm = buildPeople(
+      withBens(ben("k1", "i1", old), ben("k3", "i3", NOW - 86_400_000 * 1)),
+      [ask({ requesterName: " ben" })],
+      {},
+      NOW,
+    );
+    expect(vm.requests[0]!.sameNameIn).toBe(
+      copy("people.last_seen", { when: copy("time.ago", { days: 1 }) }),
+    );
+    const live = buildPeople(
+      withBens(ben("k1", "i1", old), ben("k3", "i3", undefined, true)),
+      [ask({})],
+      {},
+      NOW,
+    );
+    expect(live.requests[0]!.sameNameIn).toBe(copy("people.connected"));
+  });
+
+  it("the most recent match wins wherever it sits in the list", () => {
+    const day = copy("people.last_seen", { when: copy("time.ago", { days: 1 }) });
+    const recentFirst = withBens(ben("k3", "i3", NOW - 86_400_000), ben("k1", "i1", old));
+    expect(buildPeople(recentFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(day);
+    const liveFirst = withBens(ben("k3", "i3", undefined, true), ben("k1", "i1", old));
+    expect(buildPeople(liveFirst, [ask({})], {}, NOW).requests[0]!.sameNameIn).toBe(
+      copy("people.connected"),
+    );
+  });
+
+  it("matches the shown names: a saved friend name counts, the typed name under it does not", () => {
+    const savedAsBen = withBens({ ...ben("k1", "i1", old), name: "Benjamin" });
+    expect(buildPeople(savedAsBen, [ask({})], { i1: "Ben" }, NOW).requests[0]!.sameNameIn).toBe(
+      threeDays,
+    );
+    const askerSaved = withBens(ben("k1", "i1", old));
+    const row = buildPeople(askerSaved, [ask({})], { i2: "Benjamin" }, NOW).requests[0]!;
+    expect(row.sameNameIn).toBeUndefined();
+  });
+
+  it("has no line for the same phone, the same key, another name or an empty name", () => {
+    const s = withBens(ben("k1", "i1", old));
+    const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
+    expect(some(ask({ requesterIdentity: "i1" }))).toBeUndefined();
+    expect(some(ask({ requesterKey: "k1" }))).toBeUndefined();
+    expect(some(ask({ requesterName: "Dee" }))).toBeUndefined();
+    expect(some(ask({ requesterName: " " }))).toBeUndefined();
+  });
+
+  it("without an identity on either side the key decides", () => {
+    const { identity: _identity, ...noId } = ben("k1", "i1", old);
+    const s = withBens(noId as ReturnType<typeof ben>);
+    const some = (r: JoinRequest) => buildPeople(s, [r], {}, NOW).requests[0]!.sameNameIn;
+    expect(some(ask({ requesterIdentity: undefined }))).toBe(threeDays);
+    expect(some(ask({ requesterIdentity: undefined, requesterKey: "k1" }))).toBeUndefined();
+  });
+
+  it("an own row named Ben next to one other Ben flags both", () => {
+    const s = status("creator");
+    const own = { ...s.members[0]!, name: "Ben" };
+    const vm = buildPeople(
+      { ...s, members: [own, ben("k1", "i1", old)] } as SyncStatus,
+      [],
+      {},
+      NOW,
+    );
+    expect(vm.people.map((p) => p.sameName === true)).toEqual([true, true]);
+  });
+
+  it("the own row never matches", () => {
+    const vm = buildPeople(status("creator"), [ask({ requesterName: "Nils" })], {}, NOW);
+    expect(vm.requests[0]!.sameNameIn).toBeUndefined();
   });
 });
