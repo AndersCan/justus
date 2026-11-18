@@ -325,6 +325,7 @@ describe("Stay Admin", () => {
     expect(missing?.code).toBe(PhotoError.FOLDER_NOT_FOUND);
     await s.close();
   });
+});
 
 describe("other phones follow the new Admin", () => {
   const people = async (p: Phone) =>
@@ -338,8 +339,7 @@ describe("other phones follow the new Admin", () => {
     expect(debugOf(s.cy).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
     await until(async () => (await people(s.cy)).join() === "Ben,Cy");
     expect((await trip(s.cy)).role).toBe("member");
-    expect(debugOf(s.ada).folders[0]!.folderDrive.key).toBe(s.shareKey);
-    expect(debugOf(s.ada).folders[0]!.adminChain).toBeUndefined();
+    await until(async () => (await s.ada.store.folders()).folders.length === 0);
     await s.close();
   });
 
