@@ -31,22 +31,24 @@ afterEach(() => {
 });
 
 describe("listenForSharedPhotos", () => {
-  test("lists once at start and delivers each batch", async () => {
+  test("lists once at start and delivers the list", async () => {
     list.mockResolvedValue([null, { batches: [batch("a"), batch("b")] }]);
-    const got: string[] = [];
-    (await load())((b) => got.push(b.id));
+    const got: string[][] = [];
+    (await load())((bs) => got.push(bs.map((b) => b.id)));
     await tick();
     expect(list).toHaveBeenCalledTimes(1);
-    expect(got).toEqual(["a", "b"]);
+    expect(got).toEqual([["a", "b"]]);
   });
 
-  test("a nudge after the list finished lists again", async () => {
+  test("a nudge after the list finished lists again, and an empty list is delivered", async () => {
     list.mockResolvedValue([null, { batches: [] }]);
-    (await load())(() => {});
+    const got: number[] = [];
+    (await load())((bs) => got.push(bs.length));
     await tick();
     window.dispatchEvent(new CustomEvent("justus:shared"));
     await tick();
     expect(list).toHaveBeenCalledTimes(2);
+    expect(got).toEqual([0, 0]);
   });
 
   test("nudges during an in-flight list run exactly one more list, never in parallel", async () => {
@@ -75,8 +77,8 @@ describe("listenForSharedPhotos", () => {
   test("a list error delivers nothing and warns", async () => {
     list.mockResolvedValue([new Error("boom"), null]);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const got: string[] = [];
-    (await load())((b) => got.push(b.id));
+    const got: string[][] = [];
+    (await load())((bs) => got.push(bs.map((b) => b.id)));
     await tick();
     expect(got).toEqual([]);
     expect(warn).toHaveBeenCalledWith("justus:share-in.list-failed", "boom");
@@ -90,13 +92,13 @@ describe("listenForSharedPhotos", () => {
     });
     list.mockResolvedValue([null, { batches: [batch("late")] }]);
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const got: string[] = [];
-    (await load())((b) => got.push(b.id));
+    const got: string[][] = [];
+    (await load())((bs) => got.push(bs.map((b) => b.id)));
     await tick();
     window.dispatchEvent(new CustomEvent("justus:shared"));
     release(null);
     await tick();
     expect(list).toHaveBeenCalledTimes(2);
-    expect(got).toEqual(["late"]);
+    expect(got).toEqual([["late"]]);
   });
 });

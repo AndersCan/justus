@@ -4,7 +4,7 @@ env:
 ---
 # Share two photos from the Files app into Justus. scripts/maestro-e2e.sh pushed
 # justus-share-a.jpg and justus-share-b.png into Downloads and passes the Files package as
-# DOCUMENTS_UI. Whether the photos arrived is checked by that script, from the inbox on disk.
+# DOCUMENTS_UI. The flow ends with both photos in album M; that script then checks the inbox is empty.
 # No clearState: first-run's data stays for the survive check, and the inbox must outlive the flow.
 - stopApp
 - launchApp:
@@ -43,8 +43,15 @@ env:
 - tapOn:
     text: "Justus"
     waitToSettleTimeoutMs: 500
-# Justus opens from the share. Any screen of it proves the host took the intent.
+# Justus opens from the share: a phone start lands on M (first-run's album) with the sheet over it.
 - extendedWaitUntil:
-    visible:
-      text: "Skip|Your name|Albums"
+    visible: "Add 2 photos to"
     timeout: 90000
+- tapOn:
+    text: "Add 2 photos to M"
+    waitToSettleTimeoutMs: 500
+# Both photos are in M under the names Files gave them.
+- extendedWaitUntil:
+    visible: "View justus-share-a.jpg"
+    timeout: 30000
+- assertVisible: "View justus-share-b.png"

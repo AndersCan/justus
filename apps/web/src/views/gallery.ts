@@ -59,6 +59,7 @@ import { tabs } from "./tabs";
 import { lookedAt } from "./looked-at";
 import "./new-photos";
 import { isNewPhoto, newCount, seenActor, type SeenContext } from "../machines/seen-machine";
+import { sharedPhotos } from "../machines/shared-photos-machine";
 
 import { copy, t } from "../copy/copy";
 // Adding photos happens only inside an album, so where they go (and who gets
@@ -194,7 +195,9 @@ galleryActor.on("change", {
     const batch = snapshot.context.batch;
     const finished = wasRunning && batch !== null && !batch.running;
     wasRunning = batch?.running ?? false;
-    if (!finished || batch.failed.length > 0) return;
+    if (!finished) return;
+    if (pickedVia() === "shared") sharedPhotos.addEnded(batch.failed.length);
+    if (batch.failed.length > 0) return;
     const camera = pickedVia() === "camera";
     const scope = routeScope();
     const takeAnother =
