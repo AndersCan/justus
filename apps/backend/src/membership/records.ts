@@ -649,7 +649,7 @@ export function handoverMessage(code: string, to: string): Uint8Array {
 const isHexOf = (value: unknown, length: number): value is string =>
   typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`, "i").test(value);
 
-function parseProofChain(value: unknown): HandoverProof[] | undefined {
+export function parseProofChain(value: unknown): HandoverProof[] | undefined {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_ADMIN_CHAIN) return undefined;
   const out: HandoverProof[] = [];
   for (const raw of value as unknown[]) {

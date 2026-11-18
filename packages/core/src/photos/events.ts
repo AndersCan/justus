@@ -139,6 +139,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; memberKey: string },
     result: {} as { ok: boolean },
   },
+  handOver: {
+    pluginId: "justus.photos",
+    name: "photos.handOver",
+    args: {} as { folderId: string; memberKey: string },
+    result: {} as { ok: boolean },
+  },
   removeMember: {
     pluginId: "justus.photos",
     name: "photos.removeMember",
@@ -351,6 +357,17 @@ export const photoEvents = {
     > {
       return invokeEvent(
         photoSpecs.makeViewer,
+        { folderId, memberKey },
+        null,
+        PHOTOS_SHORT_TIMEOUT_MS,
+      );
+    },
+    handOver(
+      folderId: string,
+      memberKey: string,
+    ): InvokeEnvelope<"photos.handOver", { folderId: string; memberKey: string }, { ok: boolean }> {
+      return invokeEvent(
+        photoSpecs.handOver,
         { folderId, memberKey },
         null,
         PHOTOS_SHORT_TIMEOUT_MS,

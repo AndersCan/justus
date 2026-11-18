@@ -7,7 +7,17 @@ import {
   createFakeHub,
   setFakeNodeConnected,
 } from "../fakes/fake-world.ts";
-import { followAdmin, listsDigest, takeAdminRecords } from "../../src/albums/handover.ts";
+import {
+  buildHandoverPackage,
+  fitsPackage,
+  followAdmin,
+  handoverCodes,
+  listsDigest,
+  parseSavedHandover,
+  readyVerdict,
+  senderIsAdmin,
+  takeAdminRecords,
+} from "../../src/albums/handover.ts";
 
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const json = (value: unknown) => Buffer.from(JSON.stringify(value));
@@ -325,5 +335,126 @@ describe("plan step 3(a): the leaving Admin can check the reply's digest", () =>
     expect(mine).toBe(out?.digest);
     expect(mine).toBe(await listsDigest(to, hash));
     expect(await listsDigest(from, hash)).not.toBe(mine);
+  });
+});
+
+describe("who may hand an album over", () => {
+  it("accepts only the verified identity of the album's lists drive", () => {
+    expect(senderIsAdmin({ status: "verified", identityKey: "aa" }, "aa")).toBe(true);
+    expect(senderIsAdmin({ status: "verified", identityKey: "aa" }, "bb")).toBe(false);
+    expect(senderIsAdmin({ status: "unsigned" }, "aa")).toBe(false);
+    expect(senderIsAdmin({ status: "rejected" }, "aa")).toBe(false);
+  });
+});
+
+describe("the reply that lets the old Admin write /admin.json", () => {
+  const ok = {
+    sender: "ben",
+    chosen: "ben",
+    digest: "d1",
+    own: "d1",
+    theirs: "d1",
+    package: "p",
+    sent: "p",
+  };
+  it("writes when everything agrees", () => {
+    expect(readyVerdict(ok)).toBe("write");
+  });
+  it("names the first thing that disagrees", () => {
+    expect(readyVerdict({ ...ok, sender: "cy" })).toBe("sender");
+    expect(readyVerdict({ ...ok, own: "d2" })).toBe("lists");
+    expect(readyVerdict({ ...ok, theirs: "d2" })).toBe("copy");
+    expect(readyVerdict({ ...ok, theirs: undefined })).toBe("copy");
+    expect(readyVerdict({ ...ok, package: "q" })).toBe("package");
+    expect(readyVerdict({ ...ok, package: undefined, sent: undefined })).toBe("package");
+    expect(readyVerdict({ ...ok, sent: undefined })).toBe("package");
+  });
+});
+
+describe("the handover package", () => {
+  const code = "a".repeat(64);
+  const old = "b".repeat(64);
+  const link = { from: 1, to: 2 };
+  const proof = {
+    from: "01".repeat(32),
+    to: "02".repeat(32),
+    publicKey: "03".repeat(32),
+    signature: "04".repeat(64),
+  };
+  const record = {
+    invite: { code, links: [link] },
+    retiredInvites: [old],
+    retiredWhy: { [old]: "turnedOff" as const },
+    answers: { ["c".repeat(64)]: "accepted" as const },
+    declinedAsks: { ["d".repeat(64)]: 5 },
+  };
+  it("lists the album's code first, then the retired ones", () => {
+    expect(handoverCodes(record)).toEqual([code, old]);
+    expect(handoverCodes({})).toEqual([]);
+  });
+  it("carries the invite state and a proof per code", () => {
+    const pkg = buildHandoverPackage(record, {
+      fromName: "Ada",
+      chains: { [code]: [proof], [old]: [proof] },
+    });
+    expect(pkg).toEqual({
+      fromName: "Ada",
+      invite: { code, links: [link] },
+      retiredInvites: [old],
+      retiredWhy: record.retiredWhy,
+      answers: record.answers,
+      declinedAsks: record.declinedAsks,
+      chains: { [code]: [proof], [old]: [proof] },
+    });
+  });
+  it("leaves out what is empty", () => {
+    const pkg = buildHandoverPackage(
+      { invite: { code } },
+      { fromName: "Ada", chains: { [code]: [proof] } },
+    );
+    expect(pkg).toEqual({ fromName: "Ada", invite: { code }, chains: { [code]: [proof] } });
+  });
+  it("has none without an invite or without a proof for each code", () => {
+    expect(buildHandoverPackage({}, { fromName: "Ada", chains: {} })).toBeUndefined();
+    expect(
+      buildHandoverPackage(record, { fromName: "Ada", chains: { [code]: [proof] } }),
+    ).toBeUndefined();
+  });
+  it("fits only within the caps", () => {
+    expect(fitsPackage(record)).toBe(true);
+    expect(fitsPackage({})).toBe(false);
+    const codes = (n: number) =>
+      Array.from({ length: n }, (_, i) => i.toString(16).padStart(64, "0"));
+    const many = (n: number) =>
+      Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i), 1]));
+    expect(fitsPackage({ invite: { code }, declinedAsks: many(1001) })).toBe(false);
+    expect(fitsPackage({ invite: { code }, declinedAsks: many(1000) })).toBe(true);
+    expect(
+      fitsPackage({
+        invite: { code },
+        answers: Object.fromEntries(Object.keys(many(1001)).map((k) => [k, "accepted"])),
+      }),
+    ).toBe(false);
+    expect(fitsPackage({ invite: { code }, retiredInvites: codes(49) })).toBe(true);
+    expect(fitsPackage({ invite: { code }, retiredInvites: codes(50) })).toBe(false);
+  });
+  it("reads a saved handover back, and refuses a damaged one", () => {
+    const saved = {
+      to: { key: "AA".repeat(32), identity: "bb".repeat(32), name: "Ben" },
+      at: 7,
+      written: true,
+      chains: { [code]: [proof] },
+    };
+    expect(parseSavedHandover(saved)).toEqual({
+      ...saved,
+      to: { ...saved.to, key: "aa".repeat(32) },
+    });
+    expect(parseSavedHandover({ ...saved, written: undefined })?.written).toBeUndefined();
+    expect(parseSavedHandover({ ...saved, at: "x" })).toBeUndefined();
+    expect(parseSavedHandover({ ...saved, to: { ...saved.to, key: "no" } })).toBeUndefined();
+    expect(parseSavedHandover({ ...saved, to: { ...saved.to, identity: "no" } })).toBeUndefined();
+    expect(parseSavedHandover({ ...saved, chains: { [code]: [{ nope: 1 }] } })).toBeUndefined();
+    expect(parseSavedHandover({ ...saved, chains: { nothex: [proof] } })).toBeUndefined();
+    expect(parseSavedHandover(null)).toBeUndefined();
   });
 });

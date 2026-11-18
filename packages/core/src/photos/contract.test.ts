@@ -96,7 +96,14 @@ describe("photo contract", () => {
     const role = { from: "member", to: "reader", albumName: "A" };
     expect(checkPhotoChanged({ cause: "role", folderId: "f", role })).toBeNull();
     expect(
-      checkPhotoChanged({ cause: "role", folderId: "f", role: { ...role, to: "creator" } }),
+      checkPhotoChanged({
+        cause: "role",
+        folderId: "f",
+        role: { ...role, from: "member", to: "creator" },
+      }),
+    ).toBeNull();
+    expect(
+      checkPhotoChanged({ cause: "role", folderId: "f", role: { ...role, to: "admin" } }),
     ).toContain("args.role.to");
   });
 

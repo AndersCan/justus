@@ -10,6 +10,7 @@ checks this.
 
 ## Unreleased · peer protocol 5
 
+- **An Admin can hand the album to a Collaborator** (new drive file `/admin.json` on the Admin's drive; new peer messages `handover`, `handoverReady`, `handoverDone`; new `handedOver` answer). Who: testers on a protocol-5 build from before this change: their phone does not follow the handover and the old Admin's phone waits. Do: update Justus.
 - **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.
 - **The Admin's phone tells a waiting asker the album's name and its own** (new `received` answer on the answer channel). Who: nobody beyond the entry above; v0.4.0 phones are already refused. Do: nothing.
 - **A waiting request forgets the names its link carried** (saved asks keep only names the Admin's phone sent; `photos.ask` takes no names). Who: testers with a request waiting from before this update: its row shows no album name until the Admin's phone is next connected. Do: nothing.
