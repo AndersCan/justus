@@ -15,17 +15,20 @@ test("Ada picks 5 photos on Photos and adds them to Summer", async () => {
   actor.send({ type: "PHOTOS_PICKED", payload: { photos: five } });
   await actor.settled();
   expect(actor.state.name).toBe("choosingAlbumForPickedPhotos");
-  expect(pickedPhotosViewOf(actor.snapshot()).count).toBe(5);
+  expect(pickedPhotosViewOf(actor.snapshot())).toEqual({ asking: true, count: 5 });
   expect(actor.snapshot().context.photos).toEqual(five);
   actor.send({ type: "ADD_STARTED" });
   await actor.settled();
   expect(actor.state.name).toBe("noPickedPhotos");
   expect(actor.snapshot().context.photos).toEqual([]);
+  expect(pickedPhotosViewOf(actor.snapshot())).toEqual({ asking: false, count: 0 });
 });
 
 test("Ada picks photos, then closes the sheet", async () => {
   const actor = make.create();
   actor.send({ type: "PHOTOS_PICKED", payload: { photos: five.slice(0, 2) } });
+  await actor.settled();
+  expect(pickedPhotosViewOf(actor.snapshot())).toEqual({ asking: true, count: 2 });
   actor.send({ type: "CANCEL" });
   await actor.settled();
   expect(actor.state.name).toBe("noPickedPhotos");

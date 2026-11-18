@@ -17,7 +17,7 @@ const choosingAlbumForPickedPhotos = state("choosingAlbumForPickedPhotos")();
 const photosPicked = event("PHOTOS_PICKED")<{ photos: AddSource[] }>();
 /** The album she tapped took them; the gallery's batch holds them now. */
 const addStarted = event("ADD_STARTED")();
-/** She closed the sheet: Cancel, Escape, Back or a tap outside. */
+/** She closed the sheet: Not now, Escape, Back or a tap outside. */
 const cancelled = event("CANCEL")();
 
 const initialContext: PickedPhotosContext = { photos: [] };

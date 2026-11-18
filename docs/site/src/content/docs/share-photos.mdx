@@ -5,21 +5,21 @@ description: "A member adds photos to an album and decides who sees them."
 
 import Machine from "@mantaq/inspect/astro/Machine.astro";
 
-| What the person sees                                                                                  | What they do      | State                                       |
-| ----------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------- |
-| The photo grid                                                                                        | Taps "Add photos" | `gallery.showingPhotos`                     |
-| "n of m" while photos are added; afterwards a summary of added, already there and failed, with Retry  | Waits, or retries | `gallery.addingPhotos`                      |
-| Other phones reload the grid when photos arrive                                                       | Nothing           | `gallery.loadingPhotos`                     |
-| Nobody in the album can be reached for a while                                                        | Waits             | `reach.waitingBeforeWifiHint`               |
-| "Can't reach anyone in this album yet. If you're on mobile data, try WiFi."                           | Switches to WiFi  | `reach.showingWifiHint`                     |
-| Photos shared from another app: a sheet "Add 3 photos to" with her albums                             | Taps an album     | `sharedPhotos.choosingAlbumForSharedPhotos` |
-| The album, "Adding 1 of 3"                                                                            | Waits             | `sharedPhotos.addingSharedPhotos`           |
-| The photos leave the inbox, whether they went in or she closed the sheet                              | Nothing           | `sharedPhotos.clearingSharedPhotos`         |
-| The page as it was                                                                                    | Taps Not now      | `sharedPhotos.noSharedPhotos`               |
-| On Photos > All or Added by me, after picking: the sheet "Add 5 photos to" with her albums and Cancel | Taps an album     | `pickedPhotos.choosingAlbumForPickedPhotos` |
-| The page as it was, nothing added                                                                     | Taps Cancel       | `pickedPhotos.noPickedPhotos`               |
-| A photo full screen (see [Internals](../internals/))                                                  | Taps a photo      | `lightbox.showingPhoto`                     |
-| Only the photo, its controls hidden                                                                   | Taps the photo    | `lightbox.showingPhotoAlone`                |
+| What the person sees                                                                                   | What they do      | State                                       |
+| ------------------------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------- |
+| The photo grid                                                                                         | Taps "Add photos" | `gallery.showingPhotos`                     |
+| "n of m" while photos are added; afterwards a summary of added, already there and failed, with Retry   | Waits, or retries | `gallery.addingPhotos`                      |
+| Other phones reload the grid when photos arrive                                                        | Nothing           | `gallery.loadingPhotos`                     |
+| Nobody in the album can be reached for a while                                                         | Waits             | `reach.waitingBeforeWifiHint`               |
+| "Can't reach anyone in this album yet. If you're on mobile data, try WiFi."                            | Switches to WiFi  | `reach.showingWifiHint`                     |
+| Photos shared from another app: a sheet "Add 3 photos to" with her albums                              | Taps an album     | `sharedPhotos.choosingAlbumForSharedPhotos` |
+| The album, "Adding 1 of 3"                                                                             | Waits             | `sharedPhotos.addingSharedPhotos`           |
+| The photos leave the inbox, whether they went in or she closed the sheet                               | Nothing           | `sharedPhotos.clearingSharedPhotos`         |
+| The page as it was                                                                                     | Taps Not now      | `sharedPhotos.noSharedPhotos`               |
+| On Photos > All or Added by me, after picking: the sheet "Add 5 photos to" with her albums and Not now | Taps an album     | `pickedPhotos.choosingAlbumForPickedPhotos` |
+| The page as it was, nothing added                                                                      | Taps Not now      | `pickedPhotos.noPickedPhotos`               |
+| A photo full screen (see [Internals](../internals/))                                                   | Taps a photo      | `lightbox.showingPhoto`                     |
+| Only the photo, its controls hidden                                                                    | Taps the photo    | `lightbox.showingPhotoAlone`                |
 
 **When it goes wrong.**
 
