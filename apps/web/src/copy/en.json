@@ -3513,6 +3513,13 @@
     "who": "People who asked to join, once accepted",
     "screen": ""
   },
+  "notices.left_this_album": {
+    "text": "{name} left this album.",
+    "status": "draft",
+    "where": "Album › notice",
+    "who": "Album owners, when someone leaves",
+    "screen": ""
+  },
   "notices.you_left": {
     "text": "You left “{albumName}”.",
     "status": "draft",

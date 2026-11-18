@@ -21,7 +21,7 @@ import { onStateChange } from "../machines/actor-utils";
 import { ownerShown, parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
-import { deletedNoticeText, youLeftText } from "./notices";
+import { deletedNoticeText, noticeRow, youLeftText } from "./notices";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
@@ -88,6 +88,7 @@ const changeVerbs = {
   leave: "leave",
   delete: "delete",
   dismiss: copy("albums.dismiss_the_notice_for"),
+  dismissWhoLeft: copy("albums.dismiss_the_notice_for"),
 } as const;
 
 // Archive, restore, leave and delete end with a toast; leaving the album page
@@ -267,30 +268,6 @@ export function archivedSummary(count: number, waiting: number): string {
     count,
     note: waiting > 0 ? copy("albums.waiting", { waiting }) : "",
   });
-}
-
-/** One notice line with a Dismiss button, in the look of the album notices. */
-function noticeRow(
-  key: string,
-  text: string,
-  albumName: string,
-  disabled: boolean,
-  run: () => void,
-) {
-  return html`<div
-    data-motion-key=${key}
-    class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
-  >
-    <p class="min-w-0 flex-1 text-sm text-fg" role="status">${text}</p>
-    <button
-      class="ui-btn-ghost shrink-0"
-      aria-label=${copy("albums.dismiss_notice_about", { name: albumName })}
-      ?disabled=${disabled}
-      @click=${run}
-    >
-      ${t("albums.dismiss")}
-    </button>
-  </div>`;
 }
 
 /** The line saying the person left an album, until dismissed; none otherwise. */

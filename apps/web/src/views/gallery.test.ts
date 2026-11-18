@@ -334,6 +334,27 @@ describe("albumHeader after Create album", () => {
   });
 });
 
+describe("albumHeader when people left", () => {
+  const draw = (album: Record<string, unknown>) => {
+    const host = document.createElement("div");
+    const page = { status: null, folders: [album], requests: [], photos: [], lastSync: Date.now() };
+    render(albumHeader(page as never, album as never), host);
+    return host;
+  };
+  const base = { id: "f1", name: "Trip", role: "creator", members: 1 };
+
+  test("the Admin reads one line per person who left, each with Dismiss", () => {
+    const host = draw({ ...base, whoLeft: ["Ben", "Cara"] });
+    const lines = [...host.querySelectorAll("[role=status]")].map((e) => e.textContent?.trim());
+    expect(lines).toEqual(["Ben left this album.", "Cara left this album."]);
+    expect(host.querySelector("[aria-label='Dismiss notice about Trip']")).not.toBeNull();
+  });
+
+  test("no line when nobody left", () => {
+    expect(draw(base).textContent).not.toContain("left this album");
+  });
+});
+
 describe("albumHeader for a removed album", () => {
   const status = {
     folder: { id: "f1" },

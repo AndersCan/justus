@@ -427,6 +427,7 @@ describe("album lifecycle in the folders machine", () => {
       leaveAlbum: ok(),
       deleteAlbum: ok(),
       dismissAlbumNotice: ok(),
+      dismissWhoLeft: ok(),
       ...port,
     };
     const actor = foldersMachine.create({ gateway: gw as any });
@@ -458,6 +459,7 @@ describe("album lifecycle in the folders machine", () => {
     ["LEAVE_ALBUM", "leavingAlbum", "leaveAlbum"],
     ["DELETE_ALBUM", "deletingAlbum", "deleteAlbum"],
     ["DISMISS_DELETED_NOTICE", "dismissingDeletedNotice", "dismissAlbumNotice"],
+    ["DISMISS_WHO_LEFT", "dismissingWhoLeft", "dismissWhoLeft"],
   ] as const)("%s is busy in %s and calls %s", async (type, busy, call) => {
     const { actor, gw } = await loaded();
     send(actor, type, trip);
@@ -478,6 +480,15 @@ describe("album lifecycle in the folders machine", () => {
     expect(context.pendingChange).toEqual({ kind: "delete", ...trip });
     expect(context.error).toBe("NOT_CREATOR");
     expect(foldersViewModel(actor.snapshot())).toMatchObject({ settled: true, busy: false });
+  });
+
+  test("a failed who-left dismiss stays and keeps what failed", async () => {
+    const { actor } = await loaded({
+      dismissWhoLeft: vi.fn().mockResolvedValue([new Error("NOT_CREATOR"), null]),
+    });
+    send(actor, "DISMISS_WHO_LEFT", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotChangeAlbum"));
+    expect(actor.snapshot().context.pendingChange).toEqual({ kind: "dismissWhoLeft", ...trip });
   });
 
   test("a change that cannot reload the lists fails too", async () => {

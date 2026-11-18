@@ -4,7 +4,7 @@ import { expect, test } from "vite-plus/test";
 import { render } from "lit-html";
 import { inspectFile } from "@mantaq/inspect";
 import type { JoinView } from "./join-request";
-import { albumNoticeText, joinedText } from "../../views/notices";
+import { albumNoticeText, joinedText, whoLeftText } from "../../views/notices";
 import { renderJoinSheet } from "../../views/join-sheet";
 
 const ROOT = join(import.meta.dirname, "../../../../..");
@@ -60,10 +60,8 @@ const OFF_SHEET: Record<string, () => string[]> = {
   joinedAlbum: () => [joinedText("Holiday")],
 };
 
-/** Endings that show no words today. Roadmap Next 5 writes each line and deletes its entry; the list only shrinks. */
-const SILENT_TODAY: Record<string, string> = {
-  "membership.leftAlbum": "the Admin's phone drops the row; nothing says they left",
-};
+/** Endings that show no words today. The list only shrinks; it is empty now. */
+const SILENT_TODAY: Record<string, string> = {};
 
 function joinLines(state: string): string[] {
   const div = document.createElement("div");
@@ -107,8 +105,8 @@ function row(name: string, lines: () => string[]): Row {
 
 const rows = [
   ...joinStates.map((s) => row(`joinRequest.${s}`, OFF_SHEET[s] ?? (() => joinLines(s)))),
-  // The Admin's phone has no view for a membership ending yet.
-  ...membershipStates.map((s) => row(`membership.${s}`, () => [])),
+  // The Admin reads who left on the album (views/notices.ts whoLeftText).
+  ...membershipStates.map((s) => row(`membership.${s}`, () => [whoLeftText("Ben")])),
   row("albumNotice.removed", () => [albumNoticeText({ kind: "removed" }, "Holiday") ?? ""]),
 ];
 
