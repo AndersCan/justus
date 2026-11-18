@@ -2098,3 +2098,56 @@ describe("Leave album for the Admin", () => {
     expect(handingLine(folder)).toBeNull();
   });
 });
+
+describe("Admin handover on the album page", () => {
+  const handing = {
+    ...status,
+    folder: { ...status.folder, handingOver: { key: "k1", name: "Kim", final: false } },
+  } as unknown as SyncStatus;
+  const page = (s: SyncStatus) => {
+    syncActor.send(statusSeen.create({ status: s }));
+    people.open();
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    return host;
+  };
+
+  test("while handing over the page shows the line and the menu is only Archive", () => {
+    const host = page(handing);
+    expect(flat(host)).toContain("Handing Trip to Kim. It finishes when Kim's phone is on.");
+    expect(
+      [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
+    ).toEqual(["Archive"]);
+  });
+
+  test("Stay Admin on the line calls the handover off", () => {
+    const spy = vi.spyOn(folders, "stayAdmin").mockImplementation(() => {});
+    buttonNamed(page(handing), /^Stay Admin$/)?.click();
+    expect(spy).toHaveBeenCalledWith("f1", "Trip");
+  });
+
+  test("Stay Admin moves focus to More options so it is not lost with the line", () => {
+    vi.spyOn(folders, "stayAdmin").mockImplementation(() => {});
+    const host = page(handing);
+    document.body.append(host);
+    buttonNamed(host, /^Stay Admin$/)?.click();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("More options");
+    host.remove();
+  });
+
+  test("Leave album in the Admin's menu asks whom to hand it to, not the plain Leave", async () => {
+    vi.mocked(chooseNewAdmin).mockClear().mockResolvedValueOnce(null);
+    vi.mocked(confirmAction).mockClear();
+    const host = page(status);
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "leave" } } }));
+    await vi.waitFor(() =>
+      expect(chooseNewAdmin).toHaveBeenCalledWith("Trip", [
+        expect.objectContaining({ key: "k1" }),
+        expect.objectContaining({ key: "k2" }),
+      ]),
+    );
+    expect(confirmAction).not.toHaveBeenCalled();
+  });
+});

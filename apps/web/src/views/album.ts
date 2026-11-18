@@ -368,7 +368,12 @@ export function handingLine(folder: Pick<FolderSummary, "id" | "name" | "handing
         ? null
         : html`<button
             class="ui-btn-ghost shrink-0"
-            @click=${() => folders.stayAdmin(folder.id, folder.name)}
+            @click=${() => {
+              folders.stayAdmin(folder.id, folder.name);
+              document
+                .querySelector<HTMLElement>(`[aria-label="${copy("album.more_options")}"]`)
+                ?.focus();
+            }}
           >
             ${t("album.hand_over_stay")}
           </button>`

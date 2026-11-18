@@ -9,7 +9,7 @@ export function albumNoticeText(notice: FolderSummary["notice"], albumName: stri
   if (notice.kind === "removed") return copy("notices.you_re_no_longer_in", { albumName });
   if (notice.kind === "madeAdmin")
     return copy("notices.made_admin", {
-      fromName: notice.fromName || copy("notices.the_admin"),
+      fromName: notice.fromName || copy("notices.the_admin_2"),
       album: albumName,
     });
   if (notice.kind === "newKey") return copy("notices.this_album_has_a_new");
