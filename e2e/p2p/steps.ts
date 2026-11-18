@@ -88,8 +88,8 @@ export async function pausePhone(instance) {
 
 const WORKLET = /\/apps\/backend\/dist\/main\.core\.gen\.js/;
 
-/** Restarts a phone the way the app restarts: its backend stops and starts again on the same storage (the hub starts it), and its page opens afresh at /index.html. */
-export async function restartPhone(page, instance) {
+/** Restarts a phone the way the app restarts: its backend stops and starts again on the same storage (the hub starts it; `beforeKill` runs first, for a change to its storage), and its page opens afresh at /index.html. */
+export async function restartPhone(page, instance, { beforeKill = () => {} } = {}) {
   const old = (await listenerPids(instance.port)).map(Number);
   if (old.some((pid) => paused.has(pid))) {
     throw new Error(`${instance.id} is paused; resume it before restarting it`);
@@ -97,6 +97,8 @@ export async function restartPhone(page, instance) {
   if (old.length === 0 || !(await portHeldBy(instance.port, WORKLET))) {
     throw new Error(`port ${instance.port} is not a Justus worklet`);
   }
+  // The hub starts it again at once, so a change to its storage is made before the kill.
+  await beforeKill();
   for (const pid of old) process.kill(pid, "SIGKILL");
   // 30 s: the worklet binds again in 0.2-0.4 s; one stuck reading an absent phone never binds.
   await expect

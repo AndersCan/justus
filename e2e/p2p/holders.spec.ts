@@ -7,6 +7,8 @@
  *   pnpm test:e2e-p2p e2e/p2p/holders.spec.ts
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "../hub/fixtures.mjs";
 import {
   askToJoin,
@@ -20,6 +22,7 @@ import {
 } from "./steps";
 
 const ALBUM = "Holders trip";
+const QUIET_ALBUM = "Holders quiet";
 const FILE = "holders-ada.png";
 
 test.afterEach(() => resumeAll());
@@ -68,24 +71,21 @@ async function closePhoto(page) {
   await expect(page.locator(".justus-holders-text")).toHaveCount(0);
 }
 
-test("every holders line reads right on both phones from add to delete, across a reload and app restarts", async ({
-  instancePages,
-  instances,
-}) => {
-  test.setTimeout(240_000);
+/** Ada adds a photo, Ben joins and opens it; both phones read their "On … phone" line. */
+async function shareAlbum(instancePages, album) {
   const [a, b] = instancePages;
   await skipIntro([a, b]);
   await setName(a, "Ada");
   await setName(b, "Ben");
-  await createAlbum(a, ALBUM, FILE, 61);
+  await createAlbum(a, album, FILE, 61);
 
   await expectHoldersLine(a, "add", "Ada", words("holders.only_on_your_phone"));
   await closePhoto(a);
 
   const link = await copyInviteLink(a);
-  await askToJoin(b, link, ALBUM);
+  await askToJoin(b, link, album);
   // 60 s: the join request travels over the hub to Ada's phone.
-  await expect(a.getByText(`wants to join “${ALBUM}”`)).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByText(`wants to join “${album}”`)).toBeVisible({ timeout: 60_000 });
   await a.getByRole("button", { name: "Accept, can add photos", exact: true }).click();
   await a.getByRole("link", { name: "See photos in this album" }).click();
   // 60 s: the album and its photo sync to Ben's phone after Ada accepts.
@@ -95,6 +95,106 @@ test("every holders line reads right on both phones from add to delete, across a
   await expectHoldersLine(a, "join", "Ada", words("holders.only_on_your_phone_so"));
   await expectHoldersLine(b, "open", "Ben", words("holders.on_and_your_phone", { names: "Ada's" }));
   await expectHoldersLine(a, "open", "Ada", words("holders.on_and_your_phone", { names: "Ben's" }));
+}
+
+// Ada's phone stamps a friend as last seen under the first album it learned him in, so this test runs
+// first: Ben's first album with Ada is the one that goes quiet.
+test("a quiet phone's line says the day it last had it, also after a reload", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  await shareAlbum(instancePages, QUIET_ALBUM);
+  await closePhoto(a);
+  await closePhoto(b);
+  const albumPath = new URL(a.url()).pathname;
+
+  const resumeBen = await pausePhone(instances[1]);
+  try {
+    // 90 s: Ada's phone drops a gone peer when its connection times out, about 33 s.
+    await expect(
+      a.getByText(words("gallery.connected_now", { connected: 1 })),
+      "Ben off · Ada's phone: still connected",
+    ).toHaveCount(0, { timeout: 90_000 });
+
+    // Ben has been away for seconds: Ada's line stays calm.
+    await expectHoldersLine(
+      a,
+      "Ben off",
+      "Ada",
+      words("holders.on_and_your_phone", { names: "Ben's" }),
+    );
+
+    // Ada's phone remembers Ben was last seen 5 days ago, across a restart.
+    const at = Date.now() - 5 * 24 * 3600 * 1000;
+    await restartPhone(a, instances[0], {
+      beforeKill: () => {
+        const file = join(instances[0].storageDir, "presence.json");
+        const seen = JSON.parse(readFileSync(file, "utf8"));
+        const keys = Object.keys(seen);
+        expect(keys.length, "Ben off · Ada's phone: presence.json has Ben's key").toBeGreaterThan(
+          0,
+        );
+        writeFileSync(file, JSON.stringify(Object.fromEntries(keys.map((k) => [k, at]))));
+      },
+    });
+    await a.goto(albumPath);
+
+    const weekday = await a.evaluate(
+      (t) => new Date(t).toLocaleDateString("en-US", { weekday: "long" }),
+      at,
+    );
+    const quietLine = words("holders.line_and_quiet", {
+      line: words("holders.on_your_phone"),
+      quiet: words("holders.quiet_one_when", { name: "Ben's", when: weekday }),
+    });
+    await expectHoldersLine(a, "Ada restarted, Ben away 5 days", "Ada", quietLine);
+
+    await a.locator("[data-holders-row]").click();
+    const sheet = a.getByRole("dialog", { name: words("photo_holders.who_has_this_photo") });
+    await expect(
+      sheet.getByRole("heading", { name: words("photo_holders.last_had_full_photo") }),
+      "sheet · Ada's phone: Last had the full photo heading",
+    ).toBeVisible();
+    await expect(
+      sheet.getByText(words("photo_holders.last_confirmed", { when: weekday })),
+      "sheet · Ada's phone: Ben's day",
+    ).toBeVisible();
+    await expect(
+      sheet.getByText(words("photo_holders.off_or_wiped", { names: "Ben" })),
+      "sheet · Ada's phone: the note",
+    ).toBeVisible();
+    await sheet.getByRole("button", { name: words("photo_holders.close") }).click();
+    await closePhoto(a);
+
+    await a.reload();
+    await expectHoldersLine(a, "reload", "Ada", quietLine);
+    await closePhoto(a);
+  } finally {
+    resumeBen();
+  }
+
+  // 60 s: reconnecting after a resume took 2-16 s.
+  await expect(
+    a.getByText(words("gallery.connected_now", { connected: 1 })),
+    "Ben back: Ada's phone connected",
+  ).toBeVisible({ timeout: 60_000 });
+  await expectHoldersLine(
+    a,
+    "Ben back",
+    "Ada",
+    words("holders.on_and_your_phone", { names: "Ben's" }),
+  );
+});
+
+test("every holders line reads right on both phones from add to delete, across a reload and app restarts", async ({
+  instancePages,
+  instances,
+}) => {
+  test.setTimeout(240_000);
+  const [a, b] = instancePages;
+  await shareAlbum(instancePages, ALBUM);
   await closePhoto(a);
   await closePhoto(b);
 
