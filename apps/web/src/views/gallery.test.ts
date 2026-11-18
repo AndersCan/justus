@@ -334,6 +334,54 @@ describe("albumHeader after Create album", () => {
   });
 });
 
+describe("albumHeader when people left", () => {
+  const draw = (album: Record<string, unknown>, foldersSettled = false) => {
+    const host = document.createElement("div");
+    const page = {
+      status: null,
+      folders: [album],
+      requests: [],
+      photos: [],
+      lastSync: Date.now(),
+      foldersSettled,
+    };
+    render(albumHeader(page as never, album as never), host);
+    return host;
+  };
+  const base = { id: "f1", name: "Trip", role: "creator", members: 1 };
+
+  test("the Admin reads a line for each person who left, with one Dismiss", () => {
+    const host = draw({ ...base, whoLeft: ["Ben", "Cara"] }, true);
+    const lines = [...host.querySelectorAll("[role=status]")].map((e) => e.textContent?.trim());
+    expect(lines).toEqual(["Ben left this album. Cara left this album."]);
+    expect(host.querySelectorAll("[aria-label='Dismiss notice about Trip']")).toHaveLength(1);
+  });
+
+  test("no line when nobody left", () => {
+    expect(draw(base).textContent).not.toContain("left this album");
+  });
+
+  test("Dismiss is off until the album list is settled", () => {
+    const album = { ...base, whoLeft: ["Ben"] };
+    const sel = "[aria-label='Dismiss notice about Trip']";
+    expect(draw(album, false).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(true);
+    expect(draw(album, true).querySelector<HTMLButtonElement>(sel)?.disabled).toBe(false);
+  });
+
+  test("Dismiss asks the folders machine to clear this album's line", () => {
+    const send = vi.spyOn(foldersActor, "send").mockImplementation(() => {});
+    draw({ ...base, whoLeft: ["Ben"] }, true)
+      .querySelector<HTMLButtonElement>("[aria-label='Dismiss notice about Trip']")
+      ?.click();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      type: "DISMISS_WHO_LEFT",
+      payload: { folderId: "f1", name: "Trip" },
+    });
+    send.mockRestore();
+  });
+});
+
 describe("albumHeader for a removed album", () => {
   const status = {
     folder: { id: "f1" },

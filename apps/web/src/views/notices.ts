@@ -1,7 +1,8 @@
 import { html } from "lit-html";
 import type { DeletedAlbum, FolderSummary, SyncStatus } from "@justus/core";
 
-import { copy } from "../copy/copy";
+import { folders } from "../machines/folders-machine";
+import { copy, t } from "../copy/copy";
 /** The line under an album's title when it moved to a new key; none otherwise. */
 export function albumNoticeText(notice: FolderSummary["notice"], albumName: string): string | null {
   if (!notice) return null;
@@ -70,4 +71,46 @@ export function updateBanner(lines: string[]) {
   >
     ${lines.map((line) => html`<p>${line}</p>`)}
   </div>`;
+}
+
+/** One notice line with a Dismiss button, in the look of the album notices. */
+export function noticeRow(
+  key: string,
+  text: string,
+  albumName: string,
+  disabled: boolean,
+  run: () => void,
+) {
+  return html`<div
+    data-motion-key=${key}
+    class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
+  >
+    <p class="min-w-0 flex-1 text-sm text-fg" role="status">${text}</p>
+    <button
+      class="ui-btn-ghost shrink-0"
+      aria-label=${copy("albums.dismiss_notice_about", { name: albumName })}
+      ?disabled=${disabled}
+      @click=${run}
+    >
+      ${t("albums.dismiss")}
+    </button>
+  </div>`;
+}
+
+/** The Admin's line for one person who left an album. */
+export function whoLeftText(name: string): string {
+  return copy("notices.left_this_album", { name });
+}
+
+/** One notice for the album's people who left, one sentence per name and one Dismiss (it clears them all); none when nobody left. */
+export function whoLeftNotice(folder: FolderSummary, disabled: boolean) {
+  const names = folder.whoLeft ?? [];
+  if (names.length === 0) return null;
+  return noticeRow(
+    "who-left:" + folder.id,
+    names.map(whoLeftText).join(" "),
+    folder.name,
+    disabled,
+    () => folders.dismissWhoLeft(folder.id, folder.name),
+  );
 }
