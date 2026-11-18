@@ -52,6 +52,7 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
     deleted: s.context.deleted,
     youLeft: s.context.youLeft,
     pendingChange: s.context.pendingChange,
+    changeRefused: s.context.changeRefused,
     asks: s.context.asks,
     offers: s.context.offers,
     activeFolderId: s.context.activeId,
@@ -141,6 +142,7 @@ const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
 /** The Admin confirmed handing an album to a Collaborator. */
 const handOverAlbum = event("HAND_OVER_ALBUM")<AlbumTarget & { memberKey: string }>();
 /** The Admin calls a handover off. */
+const HANDOVER_REFUSED_CODE = "justus.photos/handover-refused";
 const stayAdmin = event("STAY_ADMIN")<AlbumTarget>();
 /** The Admin confirmed deleting an album for everyone. */
 const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();
@@ -151,7 +153,7 @@ const dismissWhoLeft = event("DISMISS_WHO_LEFT")<AlbumTarget>();
 /** The person dismisses the line saying they left an album. */
 const dismissYouLeft = event("DISMISS_YOU_LEFT")();
 /** Archiving, restoring, leaving, deleting or dismissing did not work. */
-const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string }>();
+const albumChangeFailed = event("ALBUM_CHANGE_FAILED")<{ message: string; refused?: boolean }>();
 /** The album list could not be loaded. */
 const loadFailed = event("LOAD_FAILED")<{ message: string }>();
 /** The person names and creates a new album. */
@@ -203,6 +205,8 @@ type FoldersContext = {
   deleted: DeletedAlbum[];
   activeId: string | null;
   error: string | null;
+  /** The last album change was refused because the handover already finished; trying again cannot work. */
+  changeRefused: boolean;
   pendingCreate: string | null;
   pendingActive: string | null;
   pendingName: string | null;
@@ -237,6 +241,7 @@ const settledStates = [
 ] as const;
 
 const noPending = {
+  changeRefused: false,
   pendingCreate: null,
   pendingActive: null,
   pendingName: null,
@@ -301,10 +306,16 @@ function runChange(
     dismiss: port.dismissAlbumNotice,
     dismissWhoLeft: port.dismissWhoLeft,
   };
-  const fail = (message: string) => emit(albumChangeFailed.create({ message }));
+  let refused = false;
+  const fail = (message: string) => emit(albumChangeFailed.create({ message, refused }));
   return runInvoke(
     signal,
-    () => calls[pending.kind](pending.folderId),
+    async () => {
+      const outcome = await calls[pending.kind](pending.folderId);
+      const code = (outcome[0] as { code?: string } | null)?.code;
+      refused = pending.kind === "stayAdmin" && code === HANDOVER_REFUSED_CODE;
+      return outcome;
+    },
     () =>
       void runInvoke(
         signal,
@@ -860,7 +871,11 @@ export const foldersMachine = machine("folders", {
             event: albumChangeFailed,
             to: [couldNotChangeAlbum],
             handler: (e, opts) => {
-              opts.context.set({ ...opts.context.get(), error: e.payload.message });
+              opts.context.set({
+                ...opts.context.get(),
+                error: e.payload.message,
+                changeRefused: e.payload.refused === true,
+              });
               return { state: couldNotChangeAlbum };
             },
           });

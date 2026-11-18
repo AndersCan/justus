@@ -2147,6 +2147,14 @@ describe("Leave album for the Admin", () => {
     expect(spy).toHaveBeenCalledWith("f1", "Summer", "b");
   });
 
+  test("the confirm says Ada can stay Admin until Ben's phone has the album, not that it can't be undone", async () => {
+    vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
+    await handOverAlbum(st, [ada, ben]);
+    const detail = vi.mocked(confirmAction).mock.calls[0]?.[0].detail ?? "";
+    expect(detail).toContain("You can stay Admin until Ben's phone has the album.");
+    expect(detail).not.toContain("take it back");
+  });
+
   test("the confirm promises nothing about the photos", async () => {
     vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
     await handOverAlbum(st, [ada, ben]);
@@ -2207,6 +2215,21 @@ describe("Admin handover on the album page", () => {
     const host = page(handing);
     expect(flat(host)).toContain("Handing Trip to Kim. It finishes when Kim's phone is on.");
     expect([...host.querySelectorAll("wa-dropdown-item")].map(itemLabel)).toEqual(["Archive"]);
+  });
+
+  test("Kim's row offers neither Stop adding photos nor Remove while the handover waits; Zed keeps both", () => {
+    const rows = memberRows(page(handing));
+    const kim = rows.find((r) => r.textContent?.includes("Kim"))!;
+    const zed = rows.find((r) => r.textContent?.includes("Zed"))!;
+    expect(buttonNamed(kim, /^(Remove|Stop|Let) /)).toBeUndefined();
+    expect(buttonNamed(zed, /^Stop .* adding photos$/)).toBeDefined();
+    expect(buttonNamed(zed, /^Remove /)).toBeDefined();
+  });
+
+  test("after Stay Admin Kim's row offers both again", () => {
+    const kim = memberRows(page(status)).find((r) => r.textContent?.includes("Kim"))!;
+    expect(buttonNamed(kim, /^Stop .* adding photos$/)).toBeDefined();
+    expect(buttonNamed(kim, /^Remove /)).toBeDefined();
   });
 
   test("Stay Admin on the line calls the handover off", () => {
