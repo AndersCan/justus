@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { render } from "lit-html";
 import type { Photo, PhotoHolders } from "@justus/core";
+import { copy } from "../copy/copy";
 import { holdersRow, holdersSheet } from "./photo-holders";
 import { memberColor } from "../utils/palette";
 import type { Person } from "../utils/people";
@@ -252,7 +253,15 @@ describe("holdersSheet previews", () => {
     expect(lists[1].textContent).toContain("Ben");
     expect(lists[1].textContent).not.toContain("Cy");
     expect(lists[2].textContent).toContain("Cy");
-    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe("Can still get it from you");
+    expect(
+      el.querySelector('[data-copy-id="photo_holders.can_still_get_it_from"]')?.textContent?.trim(),
+    ).toBe("Can still get it from you");
+  });
+  it("says what a preview is under its list", () => {
+    const el = draw(holdersSheet(photo(h({ previews: [m("Ben")] })), []));
+    const note = el.querySelectorAll('[data-copy-id="photo_holders.preview_is_a_small_copy"]');
+    expect(note.length).toBe(1);
+    expect(note[0].textContent?.trim()).toBe(copy("photo_holders.preview_is_a_small_copy"));
   });
 });
 

@@ -145,11 +145,11 @@ test("a member deletes only their own photo, the Admin's delete closes Ben's ope
 
   await expectBenLine(a, words("member.role_collaborator"));
 
-  // Ana opens her photo: only her phone has it. Her line then changes by itself, and the photo stays put, once Ben opens it.
+  // Ana opens her photo: Ben's phone has only its preview. Her line then changes by itself, and the photo stays put, once Ben opens it.
   await a.getByRole("button", { name: `View ${ANA}` }).click();
   const anaLine = a.getByRole("button", { name: /show who has this photo$/ });
-  await expect(anaLine).toContainText("On its way to the people you let in", {
-    timeout: 20_000,
+  await expect(anaLine).toContainText(/On your phone\. Preview on .+'s phone/, {
+    timeout: 60_000,
   });
   const lightboxImage = a.locator('div.fixed [data-part="photo"] > img:not([data-part])');
   const before = await lightboxImage.boundingBox();

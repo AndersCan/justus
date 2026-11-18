@@ -387,10 +387,26 @@ describe("previews", () => {
       "Deleted “b”. The photo no longer shows for Cara. Cara will see it's gone when connected.",
     );
   });
-  it("a preview-only phone keeps the photo 'on its way'", () => {
-    expect(holdersLine(h({ previews: [m("Nils")] })).text).toBe(
-      "On its way to the people you let in",
-    );
+  it.each([
+    [{ previews: [m("Ben")] }, "On your phone. Preview on Ben's phone"],
+    [{ previews: [m("Ben"), m("Cy")] }, "On your phone. Preview on Ben's and Cy's phones"],
+    [
+      { others: [m("Nils")], previews: [m("Cy")] },
+      "On Nils's and your phone. Preview on Cy's phone",
+    ],
+    [{ previews: [m("Ben"), m("Cy"), m("Jo")] }, "On your phone. Preview on 3 phones"],
+    [
+      {
+        previews: [
+          { key: "k1", name: "Ben" },
+          { key: "k2", name: "Ben" },
+        ],
+      },
+      "On your phone. Preview on 2 phones",
+    ],
+    [{ previews: [m("a"), m("b"), m("c"), m("d")] }, "On your phone. Preview on 4 phones"],
+  ])("a preview names its phone: %j", (p, text) => {
+    expect(holdersLine(h(p), 0).text).toBe(text);
   });
   it("sheet rows carry previews", () => {
     expect(holdersSheetRows(h({ previews: [m("Ben")] })).previews).toEqual([m("Ben")]);

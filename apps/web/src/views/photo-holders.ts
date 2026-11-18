@@ -121,7 +121,8 @@ export function holdersSheet(photo: Photo, people: readonly Person[], now = Date
             ? html`<h4 class="ui-label mt-4">${t("full_photo.only_preview")}</h4>
                 <ul>
                   ${previews.map((r) => personRow(r.name, r.badge))}
-                </ul>`
+                </ul>
+                <p class="text-xs text-muted">${t("photo_holders.preview_is_a_small_copy")}</p>`
             : null
         }
         ${
