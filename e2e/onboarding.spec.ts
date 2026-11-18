@@ -1,4 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { pngOf, runColour } from "./add-photos.js";
+import { writeSharedBatch } from "./share-in-helper.js";
+
+const EMPTY_CACHE = resolve(".dev-e2e/empty/cache");
 
 // A fresh install: no welcome-seen flag, so "/" lands on the intro. A phone that already has an
 // album skips the intro, so this file runs on the worklet with no sample album (playwright.config.ts,
@@ -88,6 +95,32 @@ test("an invite link opened before the welcome asks once the name is saved", asy
   await expect(question).toBeVisible({ timeout: 20_000 });
   // The names typed into the link are never shown.
   await expect(page.getByText(/Garden|Tom/)).toHaveCount(0);
+});
+
+/** Photos shared before the welcome is done wait: no sheet covers the intro or the name. */
+test("shared photos wait while the welcome is on screen", async ({ page }) => {
+  const dir = mkdtempSync(join(tmpdir(), "share-in-"));
+  const path = join(dir, "w.png");
+  writeFileSync(path, pngOf(...runColour(31)));
+  const { id } = writeSharedBatch(EMPTY_CACHE, [
+    { path, name: "w.png" },
+    { path, name: "x.png" },
+  ]);
+  try {
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.evaluate(() => dispatchEvent(new CustomEvent("justus:shared")));
+    await page.getByRole("button", { name: "Skip" }).click();
+    await page.getByLabel("Your name").fill("Robin Park");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { name: "Start sharing" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByRole("dialog", { name: "Add 2 photos to" })).toHaveCount(0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(resolve(EMPTY_CACHE, "shared-in", id), { recursive: true, force: true });
+  }
 });
 
 /** Creating the first album lands inside it, where its add button names it,

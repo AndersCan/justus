@@ -121,3 +121,23 @@ test("Not now removes the shared photos from the inbox and adds nothing", async 
     shared.cleanup();
   }
 });
+
+test.describe("a phone start, which passes through the welcome", () => {
+  // The Android shell changes the page origin each launch, so the seen flag is gone and the
+  // start goes through /welcome until the albums arrive (welcome.ts leavesWelcomeForSavedProfile).
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("the sheet opens once the welcome has gone", async ({ page }) => {
+    const shared = shareTwo(25, ["share-g.png", "share-h.png"]);
+    try {
+      await page.goto("/");
+      await expect(page).not.toHaveURL(/\/welcome$/, { timeout: 20_000 });
+      const sheet = page.getByRole("dialog", { name: "Add 2 photos to" });
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole("button", { name: "Not now" }).click();
+      await expect.poll(() => existsSync(shared.batchDir), { timeout: 10_000 }).toBe(false);
+    } finally {
+      shared.cleanup();
+    }
+  });
+});
