@@ -540,6 +540,20 @@ describe("album lifecycle in the folders machine", () => {
     expect(path(actor)).toBe("showingAlbums");
   });
 
+  test("archiving, restoring or deleting another album keeps the line and never writes one", async () => {
+    const { actor } = await loaded();
+    send(actor, "ARCHIVE_ALBUM", { folderId: "f9", name: "Other" });
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(actor.snapshot().context.youLeft).toBeUndefined();
+    send(actor, "LEAVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    for (const kind of ["ARCHIVE_ALBUM", "RESTORE_ALBUM", "DELETE_ALBUM"]) {
+      send(actor, kind, { folderId: "f9", name: "Other" });
+      await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+      expect(actor.snapshot().context.youLeft).toEqual(trip);
+    }
+  });
+
   test("busy while leaving", async () => {
     const { actor } = await loaded({ leaveAlbum: vi.fn(() => new Promise(() => {})) });
     send(actor, "LEAVE_ALBUM", trip);

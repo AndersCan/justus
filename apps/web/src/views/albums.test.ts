@@ -944,6 +944,7 @@ describe("leaving an album", () => {
       expect(host.querySelector("[role=status]")?.textContent?.trim()).toBe("You left “Summer”."),
     );
     expect(document.body.textContent).not.toContain("You left");
+    expect(document.body.textContent).not.toContain("from this phone");
     (host.querySelector("[aria-label='Dismiss notice about Summer']") as HTMLElement).click();
     await vi.waitFor(() => expect(host.querySelector("[role=status]")).toBeNull());
   });
