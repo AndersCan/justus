@@ -422,7 +422,14 @@ export function invitesAsked(text: string): Array<{ code: string; requestedAt: n
 
 /** What an Admin tells a joiner who asked through an invite code (`justus/answer/v1`). */
 export type Answer =
-  | { code: string; answer: "accepted"; shareKey: string; movedFrom?: string[] }
+  | {
+      code: string;
+      answer: "accepted";
+      shareKey: string;
+      movedFrom?: string[];
+      /** The drive holding the lists when the album was handed on and `shareKey` is the first Admin's. */
+      adminDrive?: string;
+    }
   | { code: string; answer: "declined"; askedAt?: number }
   /** The Admin handed the album on: `chain` signs the asker's code over to the new Admin's identity. */
   | { code: string; answer: "handedOver"; chain: HandoverProof[] }
@@ -441,18 +448,29 @@ export function isLinkOffWhy(value: unknown): value is LinkOffWhy {
 /** An answer off the wire, or undefined when it is malformed. */
 export function parseAnswer(value: unknown): Answer | undefined {
   if (!isTextJSON(value)) return undefined;
-  const { code, answer, shareKey, askedAt, movedFrom, why, albumName, ownerName, chain } =
-    value as {
-      code?: unknown;
-      chain?: unknown;
-      answer?: unknown;
-      shareKey?: unknown;
-      askedAt?: unknown;
-      movedFrom?: unknown;
-      why?: unknown;
-      albumName?: unknown;
-      ownerName?: unknown;
-    };
+  const {
+    code,
+    answer,
+    shareKey,
+    askedAt,
+    movedFrom,
+    adminDrive,
+    why,
+    albumName,
+    ownerName,
+    chain,
+  } = value as {
+    code?: unknown;
+    chain?: unknown;
+    answer?: unknown;
+    shareKey?: unknown;
+    askedAt?: unknown;
+    movedFrom?: unknown;
+    adminDrive?: unknown;
+    why?: unknown;
+    albumName?: unknown;
+    ownerName?: unknown;
+  };
   if (typeof code !== "string" || !isHexKey(code)) return undefined;
   if (answer === "handedOver") {
     const proofs = parseProofChain(chain);
@@ -484,7 +502,11 @@ export function parseAnswer(value: unknown): Answer | undefined {
       Array.isArray(movedFrom) &&
       movedFrom.length > 0 &&
       movedFrom.every((k): k is string => typeof k === "string" && isHexKey(k));
-    return moved ? { code, answer, shareKey, movedFrom } : { code, answer, shareKey };
+    const handed =
+      typeof adminDrive === "string" && isHexKey(adminDrive) && adminDrive !== shareKey
+        ? { adminDrive }
+        : {};
+    return { code, answer, shareKey, ...(moved ? { movedFrom } : {}), ...handed };
   }
   return undefined;
 }

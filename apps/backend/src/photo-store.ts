@@ -321,6 +321,8 @@ type AskRecord = Omit<AskSummary, "status" | "albumName" | "ownerName"> & {
   /** The names the Admin's phone sent for this ask; never the link's. */
   names?: { album: string; owner: string };
   shareKey?: string;
+  /** Where the lists are when the Admin who accepted had been handed the album: `shareKey` is the first Admin's. */
+  adminDrive?: string;
   /** Joining this ask's album replaces the album with this local id: the
    * Admin moved it to new keys and this phone is following. */
   replaces?: string;
@@ -1265,6 +1267,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(a.closed === true ? { closed: true } : {}),
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
         ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
+        ...(typeof a.adminDrive === "string" && isHexKey(a.adminDrive)
+          ? { adminDrive: a.adminDrive }
+          : {}),
         ...(linkEnd === undefined ? {} : { linkEnd }),
         ...(typeof a.sealedFor === "string" && isHexKey(a.sealedFor)
           ? { sealedFor: a.sealedFor }
@@ -5095,6 +5100,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     ask.status = "accepted";
     ask.shareKey = arrival.shareKey;
+    if (arrival.adminDrive) ask.adminDrive = arrival.adminDrive;
     saveState();
     await completeAccepted(ask);
   }
@@ -5109,6 +5115,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         invite: { code: ask.code, owner: ask.owner },
         selfNs: `ask/${ask.code}`,
         replaces: ask.replaces,
+        adminDrive: ask.adminDrive,
       });
       if (joined[0]) {
         log("error", { where: "ask.join", code: short(ask.code), err: joined[0].message });
@@ -6051,7 +6058,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function joinAlbum(
     key: string,
     nameHint?: string,
-    via?: { invite: { code: string; owner: string }; selfNs: string; replaces?: string },
+    via?: {
+      invite: { code: string; owner: string };
+      selfNs: string;
+      replaces?: string;
+      adminDrive?: string;
+    },
   ): Promise<EitherResult<SyncStatus>> {
     if (!isHexKey(key)) return err(PhotoError.INVALID_KEY, "Share key must be a 64-char hex key");
     if (
@@ -6143,9 +6155,17 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       },
       { from: drive, chain: [key] },
     );
-    const adminChain =
-      followed.hops.length > 0 ? [key, ...followed.hops.map((h) => h.drive.key)] : undefined;
-    const handedTo = followed.hops.at(-1)?.drive;
+    // Ada's drive may never show `/admin.json` (her phone is off): the Admin who accepted
+    // this ask, proven by its identity, says where the lists are.
+    const said = via?.adminDrive
+      ? await openDriveWithTopic(via.adminDrive, { server: false }).catch(() => undefined)
+      : undefined;
+    const adminChain = said
+      ? [key, said.key]
+      : followed.hops.length > 0
+        ? [key, ...followed.hops.map((h) => h.drive.key)]
+        : undefined;
+    const handedTo = said ?? followed.hops.at(-1)?.drive;
     if (handedTo) {
       drive = handedTo;
       registry = await readRegistryIn(handedTo);

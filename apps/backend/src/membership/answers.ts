@@ -85,6 +85,8 @@ export type OwingAlbum = {
   role?: string;
   name: string;
   shareKey: string;
+  /** Drives that held the lists, first Admin's first; longer than one once the album was handed on. */
+  adminChain?: readonly string[];
   invite?: { code: string; links?: readonly LinkTime[] };
   /** Identities with an open friend invite: never turned away by link times. */
   invited?: readonly string[];
@@ -158,6 +160,9 @@ export function answersOwed(
             answer,
             shareKey: album.shareKey,
             ...(album.movedFrom?.length ? { movedFrom: [...album.movedFrom] } : {}),
+            ...(album.adminChain && album.adminChain.length > 1
+              ? { adminDrive: album.adminChain[album.adminChain.length - 1] }
+              : {}),
           });
         } else owed.push(askedAt === undefined ? { code, answer } : { code, answer, askedAt });
       }
@@ -303,7 +308,7 @@ export type AnswerArrival =
   | { kind: "declined"; code: string }
   | { kind: "linkOff"; code: string; why?: LinkOffWhy }
   | { kind: "received"; code: string; albumName: string; ownerName: string }
-  | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] }
+  | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[]; adminDrive?: string }
   | { kind: "handedOver"; code: string; owner: string };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
@@ -361,5 +366,6 @@ export async function arrivingAnswer(
     code: answer.code,
     shareKey: answer.shareKey,
     movedFrom: answer.movedFrom ?? [],
+    ...(answer.adminDrive ? { adminDrive: answer.adminDrive } : {}),
   };
 }
