@@ -100,6 +100,12 @@ import {
   invitesAsked,
   verifiedDeviceIdentity,
   identityMessage,
+  handoverMessage,
+  parseHandoverPackage,
+  parseProofChain,
+  MAX_ADMIN_CHAIN,
+  type HandoverPackage,
+  type HandoverProof,
   peerName,
   CLOCK_SLACK_MS,
   DRIVE_FIELD_BOX,
@@ -114,6 +120,18 @@ import {
   type ViewersFile,
   type RemovedFile,
 } from "./membership/records";
+import {
+  DRIVE_PATH_ADMIN,
+  buildHandoverPackage,
+  fitsPackage,
+  followAdmin,
+  handoverCodes,
+  listsDigest,
+  parseSavedHandover,
+  readyVerdict,
+  senderIsAdmin,
+  takeAdminRecords,
+} from "./albums/handover";
 import { dropDeleted } from "./photos/drop";
 import { copyOwnEntries, countShownPhotos, moveAlbum } from "./albums/move";
 import {
@@ -186,6 +204,7 @@ import {
 import type {
   AskSummary,
   OfferSummary,
+  ChangedRole,
   FolderNotice,
   DeletedAlbum,
   FolderSummary,
@@ -224,6 +243,8 @@ export const PhotoError = {
   ADMIN_CANNOT_LEAVE: "justus.photos/admin-cannot-leave",
   INVALID_LINK_TIME: "justus.photos/invalid-link-time",
   REQUEST_CANCELLED: "justus.photos/request-cancelled",
+  HANDOVER_REFUSED: "justus.photos/handover-refused",
+  HANDOVER_MOVE_OPEN: "justus.photos/handover-move-open",
 } as const;
 
 /** Success/failure tuple matching the framework's `Either<E, A>` union. */
@@ -381,7 +402,28 @@ type FolderRecord = {
   /** Absent: shown. `archived`: hidden on this phone, still synced. The other
    * two mark work that a restart must finish. */
   lifecycle?: "archived" | "leaving" | "deleting";
+  /** Admin handing the album to `to`: who, and when it was confirmed. `written` once `/admin.json` is on the drive. */
+  handover?: {
+    to: { key: string; identity: string; name: string };
+    at: number;
+    written?: true;
+    /** One proof per invite code, signed for `to.identity`. */
+    chains: Record<string, HandoverProof[]>;
+  };
+  /** Collaborator the Admin sent a handover to: what the new Admin takes over once `/admin.json` names this phone. */
+  takingOver?: { from: string; fromName: string; admin: HandoverPackage };
+  /** New Admin: who handed the album over; they are told `handoverDone` until the next phone restart saves nothing more. */
+  handedBy?: { identity: string; name: string };
+  /** Album drive keys the Admin role passed along, starting with the share key. The last is the Admin's drive now. */
+  adminChain?: string[];
+  /** New Admin: the proof chain for each invite code the earlier Admin handed over. */
+  handoverChains?: Record<string, HandoverProof[]>;
 };
+
+/** A notice that stops the album's background work (a `madeAdmin` notice only tells the new Admin). */
+function freezesAlbum(record: { notice?: { kind: string } }): boolean {
+  return record.notice !== undefined && record.notice.kind !== "madeAdmin";
+}
 
 /** The copies an add brings besides the display copy (see `AddExtras` in
  * `@justus/core`): paths the host staged, or a hash/date the Web layer read. */
@@ -478,6 +520,8 @@ export interface PhotoStore {
    * own devices, but the album stops syncing with them). */
   makeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   makeViewer(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Admin only: hand the album to a Collaborator. The Admin's phone keeps the album until the new Admin's phone has it. */
+  handOver(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   removeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   respond(
     folderId: string,
@@ -614,6 +658,8 @@ type FolderRuntime = {
    * its own, made for this album alone (#195), which only takes photos once
    * the Admin has enrolled it. Never the device's identity drive. */
   selfDrive: Drive;
+  /** New Admin: the album drives earlier Admins held, still served so phones that have not followed can read them. */
+  pastAdmins?: Drive[];
   /** Registered writer drives other than this device, opened read-only. */
   memberDrives: Map<string, Drive>;
   /** For each `memberDrives` entry that is a read-only copy of a Viewer's drive,
@@ -910,7 +956,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               Number.isFinite(l.from) &&
               Number.isFinite(l.to) &&
               l.from <= l.to
-                ? [{ from: l.from, to: l.to }]
+                ? [
+                    typeof l.by === "string"
+                      ? { from: l.from, to: l.to, by: peerName(l.by, DEFAULT_ASK_OWNER) }
+                      : { from: l.from, to: l.to },
+                  ]
                 : [],
             )
             .slice(-MAX_LINK_TIMES)
@@ -1059,6 +1109,41 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       else if (f.notice.kind === "moved") {
         out.notice = { kind: "moved", ownerName: peerName(f.notice.ownerName, DEFAULT_ASK_OWNER) };
       }
+    }
+    if (f.notice !== undefined && isTextJSON(f.notice) && f.notice.kind === "madeAdmin") {
+      out.notice = { kind: "madeAdmin", fromName: peerName(f.notice.fromName, DEFAULT_ASK_OWNER) };
+    }
+    const handover = parseSavedHandover(f.handover);
+    if (handover) out.handover = handover;
+    if (isTextJSON(f.takingOver)) {
+      const admin = parseHandoverPackage(f.takingOver.admin);
+      if (admin && typeof f.takingOver.from === "string" && isHexKey(f.takingOver.from)) {
+        out.takingOver = {
+          from: f.takingOver.from.toLowerCase(),
+          fromName: peerName(f.takingOver.fromName, DEFAULT_ASK_OWNER),
+          admin,
+        };
+      }
+    }
+    if (isTextJSON(f.handedBy) && typeof f.handedBy.identity === "string") {
+      if (isHexKey(f.handedBy.identity)) {
+        out.handedBy = {
+          identity: f.handedBy.identity.toLowerCase(),
+          name: peerName(f.handedBy.name, DEFAULT_ASK_OWNER),
+        };
+      }
+    }
+    if (Array.isArray(f.adminChain)) {
+      const chain = f.adminChain.filter((k): k is string => typeof k === "string" && isHexKey(k));
+      if (chain.length > 0 && chain.length <= MAX_ADMIN_CHAIN) out.adminChain = chain;
+    }
+    if (isTextJSON(f.handoverChains)) {
+      const chains: Record<string, HandoverProof[]> = {};
+      for (const [code, chain] of Object.entries(f.handoverChains)) {
+        const parsed = isHexKey(code) ? parseProofChain(chain) : undefined;
+        if (parsed) chains[code] = parsed;
+      }
+      if (Object.keys(chains).length > 0) out.handoverChains = chains;
     }
     if (Array.isArray(f.whoLeft)) {
       const names = f.whoLeft.flatMap((n) => {
@@ -1242,9 +1327,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         drive,
       }));
       if (rt.record.role !== "creator")
-        sources.push({ memberKey: rt.record.shareKey, drive: rt.folderDrive });
+        sources.push({ memberKey: adminKeyOf(rt), drive: rt.folderDrive });
       for (const key of Object.keys(rt.viewers)) {
-        if (key === selfKeyOf(rt) || key === rt.record.shareKey) continue;
+        if (key === selfKeyOf(rt) || key === adminKeyOf(rt)) continue;
         if (rt.memberDrives.has(key) && !rt.keptAt.has(key)) continue;
         const open = viewerDeviceDrives.get(key);
         if (open) sources.push({ memberKey: key, drive: open.drive });
@@ -1359,8 +1444,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Tells the screen this phone's role changed. */
   function roleChangePush(
     rt: FolderRuntime,
-    from: "member" | "reader",
-    to: "member" | "reader",
+    from: ChangedRole | "creator",
+    to: ChangedRole | "creator",
     adminName: string | undefined,
   ) {
     log("role.changed", { folder: short(rt.record.id), from, to });
@@ -1453,6 +1538,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
             );
           void refreshAlbumName(rt).catch((e) =>
             log("error", { where: "refreshAlbumName", folder: short(folderId), err: errText(e) }),
+          );
+        }
+        // The Admin's drive may now hand the album to this phone.
+        if (rt && drive === rt.folderDrive && rt.record.takingOver) {
+          void advanceToSelf(rt).catch((e) =>
+            log("error", { where: "advanceToSelf", folder: short(folderId), err: errText(e) }),
           );
         }
         // The Admin's drive may now carry the delete note.
@@ -1641,6 +1732,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   /** Key of the drive this device writes to in `rt` (see `selfDrive`). */
   function selfKeyOf(rt: FolderRuntime): string {
     return rt.selfDrive.key;
+  }
+
+  /** Key of the drive that holds the album's lists: the Admin's own drive. It is the share key until the Admin hands the album over. */
+  function adminKeyOf(rt: FolderRuntime): string {
+    return rt.folderDrive.key;
   }
 
   /** This device's drive inside the album with `shareKey` (#195). One per
@@ -2803,7 +2899,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** The ids the person's phone still says it holds that the Admin deleted. */
   function stillToDropIn(rt: FolderRuntime, key: string, proof: DeleteProof | undefined): string[] {
-    if (proof === undefined || rt.record.notice !== undefined) return [];
+    if (proof === undefined || freezesAlbum(rt.record)) return [];
     return stillToDrop({ report: rt.held.get(key), ...proof });
   }
 
@@ -2913,14 +3009,14 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   ): Promise<void> {
     const id = rt.record.id;
     if (todo.length === 0 || thumbRuns.has(id)) return;
-    if (runtimes.get(id) !== rt || rt.record.notice !== undefined) return;
+    if (runtimes.get(id) !== rt || freezesAlbum(rt.record)) return;
     thumbRuns.add(id);
     try {
       await fetchThumbs({
         todo,
         driveOf: (k) => driveByKey.get(k),
         landed: (photoId) =>
-          runtimes.get(id) === rt && rt.record.notice === undefined
+          runtimes.get(id) === rt && !freezesAlbum(rt.record)
             ? notePreviewed(rt, photoId)
             : Promise.resolve(),
         log,
@@ -3006,7 +3102,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
   async function dropPass(rt: FolderRuntime) {
     try {
       if (runtimes.get(rt.record.id) !== rt) return;
-      if (rt.record.notice !== undefined) return;
+      if (freezesAlbum(rt.record)) return;
       const selfKey = selfKeyOf(rt);
       const others = galleryDrives({
         role: rt.record.role,
@@ -3353,7 +3449,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const selfKey = selfKeyOf(rt);
     // Dedupe self in case the registry already lists this device (issue #89).
     const isAdmin = rt.record.role === "creator";
-    const adminKey = rt.record.shareKey;
+    const adminKey = adminKeyOf(rt);
     const person = (
       key: string,
       name: string,
@@ -3416,7 +3512,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return viewerDeviceDrives.get(key)?.drive;
     const member = rt.memberDrives.get(key);
     if (member) return member;
-    if (key === rt.record.shareKey && rt.folderDrive !== rt.selfDrive) return rt.folderDrive;
+    if (key === adminKeyOf(rt) && rt.folderDrive !== rt.selfDrive) return rt.folderDrive;
     return viewerDeviceDrives.get(key)?.drive;
   }
 
@@ -4024,6 +4120,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       for (const seen of [...moveSeen]) if (seen.startsWith(`${keyHex}:`)) moveSeen.delete(seen);
       void deliverMoveOffers(keyHex).catch(answerErr("moveOffer"));
+      for (const rt of runtimes.values()) {
+        if (rt.record.handover?.to.identity === keyHex) {
+          void deliverHandover(rt).catch(answerErr("handover"));
+        }
+      }
+      void tellHandoverDone(keyHex).catch(answerErr("handoverDone"));
       void deliverOwedOffers(keyHex).catch(answerErr("owedOffer"));
       void tellAdminYouDeleted(keyHex).catch(answerErr("copyDeleted"));
       // An accepted ask whose join failed earlier: the Admin is here again.
@@ -4166,9 +4268,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       // registry doesn't list the creator as a member, so recomputing the role
       // from it would downgrade a creator folder to "reader" (issue #42). Trust
       // the persisted creator role.
-      const isCreator = record.role === "creator";
+      let isCreator = record.role === "creator";
+      // An album handed to this phone: its lists are on this phone's own drive, and the Admins before it stay served.
+      const handedOn = isCreator && (record.adminChain?.length ?? 0) > 1;
+      let handedDrive: Drive | undefined;
+      if (handedOn) {
+        handedDrive = await openSelfDrive(record.shareKey, record.selfNs);
+        if (handedDrive.key !== record.adminChain?.at(-1)) {
+          log("error", { where: "admin.mismatch", folder: short(record.id) });
+          isCreator = false;
+          record.role = "member";
+          handedDrive = undefined;
+        }
+      }
       let fd: Drive;
-      if (isCreator) {
+      if (handedDrive) {
+        fd = handedDrive;
+      } else if (isCreator) {
         // Our own album drive: local, so no remote-open timeout; serve its topic
         // so invitees can find it. An album created before #195 *is* the device
         // identity drive; a second Hyperdrive on the same key never becomes
@@ -4207,6 +4323,21 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       }
       const selfDrive = isCreator ? fd : await openSelfDrive(record.shareKey, record.selfNs);
       const selfKey = selfDrive.key;
+      const pastAdmins: Drive[] = [];
+      if (handedDrive) {
+        for (const past of record.adminChain?.slice(0, -1) ?? []) {
+          const [pastErr, pastDrive] = await deps.drives.open(past, {
+            timeoutMs: deps.driveOpenTimeoutMs ?? 45_000,
+          });
+          if (pastErr) {
+            log("error", { where: "admin.past", err: pastErr.message });
+            continue;
+          }
+          joinTopic(topicOf(pastDrive), { server: true });
+          rediscover(topicOf(pastDrive), pastDrive);
+          pastAdmins.push(pastDrive);
+        }
+      }
       const enrolled =
         !isCreator &&
         !record.moved &&
@@ -4221,6 +4352,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         record: { ...record, role, driveKey: role === "reader" ? "" : selfKey, pending },
         folderDrive: fd,
         selfDrive,
+        ...(pastAdmins.length > 0 ? { pastAdmins } : {}),
         memberDrives: new Map(),
         keptAt: new Map(),
         memberNameCache: new Map(),
@@ -4235,6 +4367,11 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         former: [],
       };
       runtimes.set(record.id, rt);
+      if (!isCreator && record.takingOver) {
+        void advanceToSelf(rt).catch((e) =>
+          log("error", { where: "advanceToSelf", folder: short(record.id), err: errText(e) }),
+        );
+      }
       // A delete the Admin made while this phone was away, or work a restart
       // must finish: the album is removed before anything else opens.
       const deleteNote = isCreator
@@ -4756,14 +4893,16 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     const asked = await askedThrough(identity);
     const deleted = new Set(state.gone.flatMap((g) => g.inviteCodes ?? []));
     const owed = () => {
-      const albums = [...runtimes.values()].map((rt) =>
-        rt.record.pastKeys?.length
-          ? {
-              ...rt.record,
-              movedFrom: rt.record.pastKeys.map((k) => deps.drives.discoveryKeyOf(k)),
-            }
-          : rt.record,
-      );
+      const albums = [...runtimes.values()]
+        .filter((rt) => !rt.record.handover?.written)
+        .map((rt) =>
+          rt.record.pastKeys?.length
+            ? {
+                ...rt.record,
+                movedFrom: rt.record.pastKeys.map((k) => deps.drives.discoveryKeyOf(k)),
+              }
+            : rt.record,
+        );
       return [
         ...answersOwed(albums, identity, asked),
         ...receivedOwed(albums, identity, asked, state.name ?? ""),
@@ -4951,6 +5090,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       void acceptOfferedFriend(sender).catch(answerErr("acceptOffered"));
       return;
     }
+    if (message.kind === "handover") return onHandover(connId, sender, message);
+    if (message.kind === "handoverReady") return onHandoverReady(sender, message);
+    if (message.kind === "handoverDone") return;
     if (message.kind !== "offer") return;
     receiveOffer(connId, sender, message);
   }
@@ -4981,6 +5123,306 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     log("copyDeleted.handled", { from: sender, result: results.join(",") || "no-album" });
     network.sendAnswer(connId, { kind: "copyDeletedSeen", album });
+  }
+
+  // --- Handing the album to a new Admin (#824). ---
+
+  const HANDOVER_READ_MS = 10_000;
+  const hashText = (text: string) => crypto.createHash("sha-256").update(text).digest("hex");
+  /** The package last sent for an album: the reply is only taken while the package would be the same. */
+  const handoverSent = new Map<string, string>();
+  const advancing = new Set<string>();
+
+  /** Sets `patch` on the live record and the saved one, then saves. */
+  function patchRecord(rt: FolderRuntime, patch: Partial<FolderRecord>) {
+    for (const target of [rt.record, state.folders.find((f) => f.id === rt.record.id)]) {
+      if (target) Object.assign(target, patch);
+    }
+    saveState();
+  }
+
+  function albumOfHandover(album: string): FolderRuntime | undefined {
+    return [...runtimes.values()].find(
+      (rt) => deps.drives.discoveryKeyOf(rt.record.shareKey) === album,
+    );
+  }
+
+  /** Waits until `drive` shows the lists with this digest, up to {@link HANDOVER_READ_MS}. */
+  async function listsReach(drive: Drive, digest: string, without?: string): Promise<boolean> {
+    const deadline = Date.now() + HANDOVER_READ_MS;
+    for (;;) {
+      await Promise.race([drive.update().catch(() => undefined), sleep(2_000)]);
+      if ((await listsDigest(drive, hashText, { without })) === digest) return true;
+      if (Date.now() >= deadline || closed) return false;
+      await sleep(200);
+    }
+  }
+
+  /** Admin: one proof per invite code, each handing the code on to identity `to`. */
+  async function signHandover(
+    rt: FolderRuntime,
+    to: string,
+  ): Promise<Record<string, HandoverProof[]> | undefined> {
+    const chains: Record<string, HandoverProof[]> = {};
+    for (const code of handoverCodes(rt.record)) {
+      const [signErr, signed] = await deps.drives.signAsIdentity(handoverMessage(code, to));
+      if (signErr) {
+        log("error", { where: "handover.sign", err: signErr.message });
+        return undefined;
+      }
+      chains[code] = [
+        ...(rt.record.handoverChains?.[code] ?? []),
+        { from: ownDrive.key, to, publicKey: signed.publicKey, signature: signed.signature },
+      ];
+    }
+    return chains;
+  }
+
+  async function handOverNow(
+    rt: FolderRuntime,
+    key: string,
+  ): Promise<EitherResult<{ ok: boolean }>> {
+    const record = rt.record;
+    const refused = (message: string) => err(PhotoError.HANDOVER_REFUSED, message);
+    if (record.role !== "creator")
+      return err(PhotoError.NOT_CREATOR, "Only the Admin can hand over");
+    if (record.lifecycle === "deleting" || record.lifecycle === "leaving")
+      return refused("The album is being changed");
+    if (record.handover?.written) return refused("The album is already being handed over");
+    if (
+      Object.keys(record.moving ?? {}).length > 0 ||
+      Object.keys(record.movingUnknown ?? {}).length > 0 ||
+      (record.moveOwed ?? []).length > 0
+    )
+      return err(PhotoError.HANDOVER_MOVE_OPEN, "The album is still moving people after a Remove");
+    if ((record.adminChain?.length ?? 1) >= MAX_ADMIN_CHAIN - 1)
+      return refused("The album has passed through too many Admins");
+    const registry = await readRegistryIn(rt.folderDrive);
+    const listed = registry.members[key];
+    if (!listed) return refused("Only someone who can add photos can take over");
+    if (!fitsPackage(record))
+      return refused("The album has too many links and answers to hand over");
+    const drive = rt.memberDrives.get(key) ?? (await openDriveWithTopic(key, { server: false }));
+    const device = verifiedDeviceIdentity((await readText(drive, DRIVE_PATH_DEVICE)) ?? "", {
+      driveKey: key,
+      verify: (p) => deps.drives.verifyIdentity(p),
+    });
+    if (device.status !== "verified") return refused("That phone has not proved who it is yet");
+    const chains = await signHandover(rt, device.identityKey);
+    if (!chains) return refused("This phone could not sign the handover");
+    patchRecord(rt, {
+      handover: {
+        to: { key, identity: device.identityKey, name: await readDeviceName(drive) },
+        at: Date.now(),
+        chains,
+      },
+    });
+    log("handover.started", { folder: short(record.id), to: short(device.identityKey) });
+    void deliverHandover(rt).catch(answerErr("handover"));
+    deps.onChanged({ cause: "enroll", folderId: record.id });
+    return ok({ ok: true });
+  }
+
+  /** Admin: sends the handover to the next Admin on every connection proven to be them, until `/admin.json` is written. */
+  async function deliverHandover(rt: FolderRuntime, attempt = 0): Promise<void> {
+    if (closed || !setupDone) return;
+    const handover = rt.record.handover;
+    if (!handover || handover.written || runtimes.get(rt.record.id) !== rt) return;
+    const admin = buildHandoverPackage(rt.record, {
+      fromName: state.name,
+      chains: handover.chains,
+    });
+    if (!admin) return log("error", { where: "handover.package", folder: short(rt.record.id) });
+    handoverSent.set(rt.record.id, JSON.stringify(admin));
+    const sent = await tellIdentity(invitePorts, {
+      identity: handover.to.identity,
+      message: {
+        kind: "handover",
+        album: deps.drives.discoveryKeyOf(rt.record.shareKey),
+        digest: await listsDigest(rt.folderDrive, hashText),
+        admin,
+      },
+      timeoutMs: 2_000,
+    });
+    log("handover.sent", { folder: short(rt.record.id), n: attempt + 1, sent });
+    if (attempt < 5) {
+      const timer = setTimeout(() => {
+        retryTimers.delete(timer);
+        void deliverHandover(rt, attempt + 1).catch(answerErr("handover"));
+      }, OFFER_RESEND_MS);
+      retryTimers.add(timer);
+    }
+  }
+
+  /** New Admin: the Admin's package arrived. Copies the lists onto this phone's own drive and says so. */
+  async function onHandover(
+    connId: number,
+    sender: string,
+    message: Extract<FriendMessage, { kind: "handover" }>,
+  ): Promise<void> {
+    const rt = albumOfHandover(message.album);
+    if (!rt || rt.record.role !== "member")
+      return log("handover.refused", { from: short(sender), reason: "album" });
+    const device = verifiedDeviceIdentity(
+      (await readText(rt.folderDrive, DRIVE_PATH_DEVICE)) ?? "",
+      {
+        driveKey: rt.folderDrive.key,
+        verify: (p) => deps.drives.verifyIdentity(p),
+      },
+    );
+    if (!senderIsAdmin(device, sender))
+      return log("handover.refused", { from: short(sender), reason: "sender" });
+    await oneChangePerAlbum(rt.record.id, async () => {
+      if (rt.record.role !== "member") return;
+      if (!(await listsReach(rt.folderDrive, message.digest))) {
+        return log("handover.waiting", { folder: short(rt.record.id), from: short(sender) });
+      }
+      const [takeErr, taken] = await takeAdminRecords(rt.folderDrive, rt.selfDrive, {
+        self: selfKeyOf(rt),
+        hash: hashText,
+      });
+      if (takeErr) return log("error", { where: "handover.take", err: takeErr.message });
+      patchRecord(rt, {
+        takingOver: { from: sender, fromName: message.admin.fromName, admin: message.admin },
+      });
+      network.sendAnswer(connId, {
+        kind: "handoverReady",
+        album: message.album,
+        digest: taken.digest,
+      });
+      log("handover.ready", { folder: short(rt.record.id) });
+    });
+    void advanceToSelf(rt).catch(answerErr("advance"));
+  }
+
+  /** Admin: the next Admin has the lists. Writes `/admin.json`, the drive's last write, when both copies agree and nothing changed since the package was sent. */
+  async function onHandoverReady(
+    sender: string,
+    message: Extract<FriendMessage, { kind: "handoverReady" }>,
+  ): Promise<void> {
+    const rt = albumOfHandover(message.album);
+    const first = rt?.record.handover;
+    if (!rt || rt.record.role !== "creator" || !first || first.written)
+      return log("handover.ready.ignored", { from: short(sender), reason: "album" });
+    await oneChangePerAlbum(rt.record.id, async () => {
+      const handover = rt.record.handover;
+      if (!handover || handover.written) return;
+      const own = await listsDigest(rt.folderDrive, hashText, { without: handover.to.key });
+      const copy = rt.memberDrives.get(handover.to.key);
+      const reached = copy !== undefined && (await listsReach(copy, message.digest));
+      const admin = buildHandoverPackage(rt.record, {
+        fromName: state.name,
+        chains: handover.chains,
+      });
+      const verdict = readyVerdict({
+        sender,
+        chosen: handover.to.identity,
+        digest: message.digest,
+        own,
+        theirs: reached ? message.digest : undefined,
+        package: admin ? JSON.stringify(admin) : undefined,
+        sent: handoverSent.get(rt.record.id),
+      });
+      if (verdict !== "write") {
+        log("handover.stale", { folder: short(rt.record.id), reason: verdict });
+        if (verdict !== "sender") void deliverHandover(rt).catch(answerErr("handover"));
+        return;
+      }
+      await rt.folderDrive.put(
+        DRIVE_PATH_ADMIN,
+        Buffer.from(
+          JSON.stringify({
+            version: 1,
+            next: { key: handover.to.key, identity: handover.to.identity, name: handover.to.name },
+            at: Date.now(),
+          }),
+        ),
+      );
+      patchRecord(rt, { handover: { ...handover, written: true } });
+      for (const code of handoverCodes(rt.record)) leaveTopic(hex(inviteTopic(code, crypto)));
+      log("handover.written", { folder: short(rt.record.id), to: short(handover.to.identity) });
+      deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+    });
+  }
+
+  /** New Admin: once the Admin's drive names this phone's drive, this phone is the Admin. */
+  async function advanceToSelf(rt: FolderRuntime): Promise<void> {
+    const id = rt.record.id;
+    if (rt.record.role !== "member" || !rt.record.takingOver || advancing.has(id)) return;
+    advancing.add(id);
+    try {
+      const selfDrive = rt.selfDrive;
+      const followed = await followAdmin(
+        {
+          open: async (key) =>
+            key === selfDrive.key ? [null, selfDrive] : [new Error("not this phone's drive"), null],
+          release: async () => {},
+          verify: (p) => deps.drives.verifyIdentity(p),
+          log,
+        },
+        { from: rt.folderDrive, chain: rt.record.adminChain ?? [rt.record.shareKey] },
+      );
+      const hop = followed.hops[0];
+      const taking = rt.record.takingOver;
+      if (!hop || hop.drive !== selfDrive || hop.next.identity !== ownDrive.key || !taking) return;
+      await becomeAdmin(rt, taking);
+    } finally {
+      advancing.delete(id);
+    }
+  }
+
+  /** This phone's drive now holds the album's lists: it is the Admin, with the invite state the earlier Admin handed over. */
+  async function becomeAdmin(
+    rt: FolderRuntime,
+    taking: NonNullable<FolderRecord["takingOver"]>,
+  ): Promise<void> {
+    const { admin } = taking;
+    const earlier = rt.folderDrive;
+    rt.pastAdmins = [...(rt.pastAdmins ?? []), earlier];
+    joinTopic(topicOf(earlier), { server: true });
+    rt.folderDrive = rt.selfDrive;
+    patchRecord(rt, {
+      role: "creator",
+      driveKey: selfKeyOf(rt),
+      pending: false,
+      adminChain: [...(rt.record.adminChain ?? [rt.record.shareKey]), selfKeyOf(rt)],
+      invite: {
+        code: admin.invite.code,
+        ...(admin.invite.links
+          ? { links: admin.invite.links.map((l) => ({ ...l, by: l.by ?? taking.fromName })) }
+          : {}),
+      },
+      retiredInvites: admin.retiredInvites,
+      retiredWhy: admin.retiredWhy,
+      answers: admin.answers ?? {},
+      declinedAsks: admin.declinedAsks,
+      handoverChains: admin.chains,
+      handedBy: { identity: taking.from, name: taking.fromName },
+      notice: { kind: "madeAdmin", fromName: taking.fromName },
+      takingOver: undefined,
+    });
+    joinTopic(topicOf(rt.folderDrive), { server: true });
+    serveInvite(admin.invite.code);
+    serveRetiredInvites(rt.record);
+    lifecycleOf(rt).send({ type: "roleSeen", payload: { role: "creator" } });
+    await refreshMembersFor(rt);
+    armFolderWatchers(rt);
+    log("handover.became", { folder: short(rt.record.id), from: short(taking.from) });
+    roleChangePush(rt, "member", "creator", taking.fromName);
+    deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+    void tellHandoverDone(taking.from).catch(answerErr("handoverDone"));
+  }
+
+  /** New Admin: tells the earlier Admin's phone it has the album, on every connection proven to be them. */
+  async function tellHandoverDone(identity: string): Promise<void> {
+    for (const rt of Array.from(runtimes.values())) {
+      if (rt.record.handedBy?.identity !== identity) continue;
+      await tellIdentity(invitePorts, {
+        identity,
+        message: { kind: "handoverDone", album: deps.drives.discoveryKeyOf(rt.record.shareKey) },
+        timeoutMs: 2_000,
+      });
+    }
   }
 
   /** Move offers a phone has said it saw, by `identity:code`. */
@@ -6287,7 +6729,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the Admin can let a Viewer add photos");
-      if (!isHexKey(memberKey) || memberKey.toLowerCase() === rt.record.shareKey.toLowerCase())
+      if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
       let alreadyCollaborator = false;
@@ -6308,13 +6750,25 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return lastRefusal.get(`${folderId}/${key}`) ?? membershipRefusal(actor);
     },
 
+    async handOver(folderId, memberKey) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can hand the album over");
+      if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
+        return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
+      const key = memberKey.toLowerCase();
+      return oneChangePerAlbum(rt.record.id, () => handOverNow(rt, key));
+    },
+
     async makeViewer(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
       if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
       if (rt.record.role !== "creator")
         return err(PhotoError.NOT_CREATOR, "Only the Admin can make someone a Viewer");
-      if (!isHexKey(memberKey) || memberKey.toLowerCase() === rt.record.shareKey.toLowerCase())
+      if (!isHexKey(memberKey) || memberKey.toLowerCase() === adminKeyOf(rt).toLowerCase())
         return err(PhotoError.INVALID_KEY, "Member key must be a 64-char hex key");
       const key = memberKey.toLowerCase();
       await refreshViewers(rt);
@@ -6600,9 +7054,20 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
               .filter(([, ids]) => ids.length > 0),
           ),
           folderOwner: {
-            swarmKey: presence.peerKeys.get(rt.record.shareKey) ?? null,
-            connected: memberPresence(presence, rt.record.shareKey).connected,
+            swarmKey: presence.peerKeys.get(adminKeyOf(rt)) ?? null,
+            connected: memberPresence(presence, adminKeyOf(rt)).connected,
           },
+          ...(rt.record.adminChain ? { adminChain: rt.record.adminChain } : {}),
+          ...(rt.record.handover
+            ? {
+                handover: {
+                  to: rt.record.handover.to.key,
+                  written: rt.record.handover.written === true,
+                },
+              }
+            : {}),
+          ...(rt.record.takingOver ? { takingOver: rt.record.takingOver.from } : {}),
+          ...(rt.record.handedBy ? { handedBy: rt.record.handedBy.identity } : {}),
         })),
       };
     },
@@ -6663,6 +7128,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     requests: fail,
     makeMember: refuse,
     makeViewer: refuse,
+    handOver: refuse,
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,

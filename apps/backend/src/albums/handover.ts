@@ -7,14 +7,24 @@
 import type { Drive, IdentityProof, OpenResult } from "../ports/drive-store";
 import {
   MAX_ADMIN_CHAIN,
+  MAX_HANDOVER_ANSWERS,
+  MAX_HANDOVER_CODES,
   isEnrolled,
+  isHexKey,
+  isTextJSON,
   parseAdminNote,
+  parseProofChain,
   parseRegistry,
+  peerName,
   verifiedDeviceIdentity,
   type AdminNote,
+  type DeviceIdentity,
+  type HandoverPackage,
+  type HandoverProof,
+  type LinkTime,
 } from "../membership/records";
 import { DRIVE_PATH_MEMBERS, MAX_PEER_JSON_BYTES } from "../membership/join.ts";
-import { errText } from "../p2p-log.ts";
+import { errText, type P2pLog } from "../p2p-log.ts";
 import type { AlbumResult } from "./albums";
 
 export const DRIVE_PATH_ADMIN = "/admin.json";
@@ -91,7 +101,7 @@ export type FollowPorts = {
   /** Called for a drive `open` gave that is not taken as a hop. */
   release: (drive: Drive) => Promise<void>;
   verify: (proof: IdentityProof) => boolean;
-  log: (event: string, fields: Record<string, unknown>) => void;
+  log: P2pLog;
 };
 
 /** Follows `/admin.json` from `from`. A hop is taken only when the next key is a Collaborator in the current lists, its `/device.json` verifies to the named identity, its `/members.json` reads, it is not in `chain` or already followed, and `chain` and the hops together stay under {@link MAX_ADMIN_CHAIN}. Stops at the first hop that fails; the caller tries again on the next change. `unsupported` is true when it stopped at a note of a newer version. The caller releases the hop drives. */
@@ -142,4 +152,128 @@ export async function followAdmin(
     current = drive;
   }
   return { hops, unsupported };
+}
+
+/** What an Admin keeps while a handover is under way. */
+export type SavedHandover = {
+  to: { key: string; identity: string; name: string };
+  at: number;
+  written?: true;
+  chains: Record<string, HandoverProof[]>;
+};
+
+/** A saved handover, or undefined when any part of it is malformed. */
+export function parseSavedHandover(value: unknown): SavedHandover | undefined {
+  if (!isTextJSON(value) || !isTextJSON(value.to) || !isTextJSON(value.chains)) return undefined;
+  const { key, identity } = value.to;
+  if (typeof key !== "string" || !isHexKey(key)) return undefined;
+  if (typeof identity !== "string" || !isHexKey(identity)) return undefined;
+  if (typeof value.at !== "number" || !Number.isFinite(value.at)) return undefined;
+  const chains: Record<string, HandoverProof[]> = {};
+  for (const [code, chain] of Object.entries(value.chains)) {
+    const parsed = isHexKey(code) ? parseProofChain(chain) : undefined;
+    if (!parsed) return undefined;
+    chains[code] = parsed;
+  }
+  return {
+    to: {
+      key: key.toLowerCase(),
+      identity: identity.toLowerCase(),
+      name: peerName(value.to.name, "Unknown device"),
+    },
+    at: value.at,
+    ...(value.written === true ? { written: true as const } : {}),
+    chains,
+  };
+}
+
+/** The invite codes an album hands over: its own first, then the retired ones. */
+export function handoverCodes(record: {
+  invite?: { code: string };
+  retiredInvites?: readonly string[];
+}): string[] {
+  const codes = new Set<string>();
+  if (record.invite) codes.add(record.invite.code.toLowerCase());
+  for (const code of record.retiredInvites ?? []) codes.add(code.toLowerCase());
+  return [...codes];
+}
+
+/** True when the album's invites and answers fit in one handover package. */
+export function fitsPackage(record: {
+  invite?: { code: string; links?: readonly LinkTime[] };
+  retiredInvites?: readonly string[];
+  answers?: Readonly<Record<string, string>>;
+  declinedAsks?: Readonly<Record<string, number>>;
+}): boolean {
+  return (
+    record.invite !== undefined &&
+    handoverCodes(record).length <= MAX_HANDOVER_CODES &&
+    (record.invite.links?.length ?? 0) <= MAX_HANDOVER_CODES &&
+    Object.keys(record.answers ?? {}).length <= MAX_HANDOVER_ANSWERS &&
+    Object.keys(record.declinedAsks ?? {}).length <= MAX_HANDOVER_ANSWERS
+  );
+}
+
+/** The package the Admin sends: the album's invite state and one proof chain per code. Undefined when there is no invite or a code has no proof. */
+export function buildHandoverPackage(
+  record: {
+    invite?: { code: string; links?: readonly LinkTime[] };
+    retiredInvites?: readonly string[];
+    retiredWhy?: Readonly<Record<string, "turnedOff" | "replaced">>;
+    answers?: Readonly<Record<string, "accepted" | "declined">>;
+    declinedAsks?: Readonly<Record<string, number>>;
+  },
+  options: { fromName: string; chains: Readonly<Record<string, HandoverProof[]>> },
+): HandoverPackage | undefined {
+  if (!record.invite) return undefined;
+  const chains: Record<string, HandoverProof[]> = {};
+  for (const code of handoverCodes(record)) {
+    const chain = options.chains[code];
+    if (!chain) return undefined;
+    chains[code] = chain;
+  }
+  const retired = (record.retiredInvites ?? []).map((c) => c.toLowerCase());
+  return {
+    fromName: options.fromName,
+    invite: {
+      code: record.invite.code.toLowerCase(),
+      ...(record.invite.links?.length ? { links: [...record.invite.links] } : {}),
+    },
+    ...(retired.length > 0 ? { retiredInvites: retired } : {}),
+    ...(record.retiredWhy && Object.keys(record.retiredWhy).length > 0
+      ? { retiredWhy: { ...record.retiredWhy } }
+      : {}),
+    ...(record.answers && Object.keys(record.answers).length > 0
+      ? { answers: { ...record.answers } }
+      : {}),
+    ...(record.declinedAsks && Object.keys(record.declinedAsks).length > 0
+      ? { declinedAsks: { ...record.declinedAsks } }
+      : {}),
+    chains,
+  };
+}
+
+/** True when `device` (read from the album's lists drive) is a verified identity and `sender` is it. */
+export function senderIsAdmin(device: DeviceIdentity, sender: string): boolean {
+  return device.status === "verified" && device.identityKey === sender;
+}
+
+/** What the old Admin does with the next Admin's "ready" reply: `write` only from the chosen phone, when the lists and the next Admin's copy both carry the digest in the reply and the package is still the one sent. Otherwise why not. */
+export function readyVerdict(input: {
+  sender: string;
+  chosen: string;
+  digest: string;
+  /** The digest of this phone's lists as the next Admin's copy would be written. */
+  own: string;
+  /** The digest of this phone's copy of the next Admin's drive; undefined when it never read. */
+  theirs: string | undefined;
+  /** The package that would be sent now, and the one last sent. */
+  package: string | undefined;
+  sent: string | undefined;
+}): "write" | "sender" | "lists" | "copy" | "package" {
+  if (input.sender !== input.chosen) return "sender";
+  if (input.own !== input.digest) return "lists";
+  if (input.theirs !== input.digest) return "copy";
+  if (input.package === undefined || input.package !== input.sent) return "package";
+  return "write";
 }

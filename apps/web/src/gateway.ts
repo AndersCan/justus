@@ -125,6 +125,8 @@ export const gateway = {
   /** Admin only: turns a Collaborator into a Viewer; the photos they added stay. */
   makeViewer: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.makeViewer(folderId, memberKey)),
+  handOver: (folderId: string, memberKey: string) =>
+    invoke(photoEvents.photos.handOver(folderId, memberKey)),
   removeMember: (folderId: string, memberKey: string) =>
     invoke(photoEvents.photos.removeMember(folderId, memberKey)),
   /** Native-host pick/capture (`justus.media`): staged file paths. */

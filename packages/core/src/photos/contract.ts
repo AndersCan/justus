@@ -165,7 +165,11 @@ export const folderSummarySchema = s.object({
   addedAt: s.number,
   invite: s.optional(s.object({ code: s.string, owner: s.string })),
   notice: s.optional(
-    s.object({ kind: s.oneOf("newKey", "moved", "removed"), ownerName: s.optional(s.string) }),
+    s.object({
+      kind: s.oneOf("newKey", "moved", "removed", "madeAdmin"),
+      ownerName: s.optional(s.string),
+      fromName: s.optional(s.string),
+    }),
   ),
   whoLeft: s.optional(s.array(s.string)),
   waitingFor: s.optional(s.array(s.string)),
@@ -248,8 +252,8 @@ export const photoChangedSchema = s.object({
   why: s.optional(s.oneOf("expired", "turnedOff", "replaced", "albumDeleted")),
   role: s.optional(
     s.object({
-      from: s.oneOf("member", "reader"),
-      to: s.oneOf("member", "reader"),
+      from: s.oneOf("member", "reader", "creator"),
+      to: s.oneOf("member", "reader", "creator"),
       albumName: s.string,
       adminName: s.optional(s.string),
     }),
@@ -294,6 +298,7 @@ export const photoResultSchemas = {
   "photos.requests": s.object({ requests: s.array(joinRequestSchema) }),
   "photos.makeMember": s.object({ ok: s.boolean }),
   "photos.makeViewer": s.object({ ok: s.boolean }),
+  "photos.handOver": s.object({ ok: s.boolean }),
   "photos.removeMember": s.object({ ok: s.boolean }),
   "photos.respond": s.object({ ok: s.boolean }),
   "photos.offerAlbum": s.object({ ok: s.boolean, waiting: s.optional(s.boolean) }),
