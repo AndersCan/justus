@@ -304,9 +304,9 @@ function wrap(
         return [e instanceof Error ? e : new Error(String(e)), null];
       }
     },
-    async *list(dir): AsyncGenerator<DriveEntry> {
+    async *list(dir, opts): AsyncGenerator<DriveEntry> {
       const from = await readFrom();
-      for await (const e of from.list(dir)) {
+      for await (const e of from.list(dir, opts)) {
         yield toDriveEntry(e);
       }
     },
