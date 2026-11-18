@@ -7,7 +7,7 @@
  */
 // @ts-nocheck: the hub fixtures are untyped .mjs
 import { expect, test } from "../hub/fixtures.mjs";
-import { askToJoin, copyInviteLink, createAlbum, skipIntro } from "./steps";
+import { askToJoin, copyInviteLink, createAlbum, skipIntro, words } from "./steps";
 
 const ALBUM = "Hytta";
 const PHOTO = "lifecycle.png";
@@ -68,4 +68,52 @@ test("B archives and restores A's album without A noticing; A deletes it and it 
   await dismiss.click();
   await b.reload();
   await expect(b.getByText(`deleted “${ALBUM}”`)).toHaveCount(0);
+});
+
+test("B joins A's album and is told so; B leaves: B reads that he left and A reads that B left", async ({
+  instancePages,
+}) => {
+  test.setTimeout(150_000);
+  const [a, b] = instancePages;
+  const name = "Sommer";
+  await skipIntro([a, b]);
+  await createAlbum(a, name, PHOTO, 12);
+  const link = await copyInviteLink(a);
+  await askToJoin(b, link, name);
+  await expect(a.getByText(`wants to join “${name}”`)).toBeVisible({ timeout: 60_000 });
+  await a.getByRole("button", { name: "Accept, can only look", exact: true }).click();
+  await expect(b).toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
+  await expect(
+    b.getByRole("status").filter({ hasText: words("notices.now_in_album", { albumName: name }) }),
+  ).toBeVisible({ timeout: 30_000 });
+
+  const members = (page) =>
+    page.locator("section", { has: page.getByRole("heading", { name: "Members" }) });
+  await openAlbumPage(a, name);
+  await expect(members(a).locator("li")).toHaveCount(2, { timeout: 60_000 });
+
+  await openAlbumPage(b, name);
+  await expect(members(b).locator("li")).toHaveCount(2, { timeout: 60_000 });
+  const more = b.getByRole("button", { name: "More options" });
+  await expect(more).toBeEnabled({ timeout: 30_000 });
+  await more.click();
+  await b.getByRole("menuitem", { name: "Leave album" }).click();
+  await b.getByRole("button", { name: "Leave", exact: true }).click();
+  await expect(b).toHaveURL(/\/sharing$/, { timeout: 30_000 });
+  await expect(
+    b.getByRole("status").filter({ hasText: words("notices.you_left", { albumName: name }) }),
+  ).toBeVisible();
+
+  await expect(members(a).locator("li")).toHaveCount(1, { timeout: 60_000 });
+  await a.getByRole("link", { name: "See photos in this album" }).click();
+  await expect(a).toHaveURL(/\/albums\/[^/]+$/);
+  const leftLine = a.getByRole("status").filter({ hasText: /left this album\./ });
+  await expect(leftLine).toBeVisible({ timeout: 60_000 });
+  await a.reload();
+  await expect(leftLine).toBeVisible({ timeout: 30_000 });
+  await a.getByRole("button", { name: `Dismiss notice about ${name}` }).click();
+  await expect(leftLine).toHaveCount(0);
+  await a.reload();
+  await expect(a.getByRole("button", { name: `View ${PHOTO}` })).toBeVisible({ timeout: 30_000 });
+  await expect(leftLine).toHaveCount(0);
 });
