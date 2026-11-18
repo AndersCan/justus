@@ -82,6 +82,37 @@ describe("a request made with the old Admin's link", () => {
     await s.close();
   }, 40_000);
 
+  it("filed before the handover, with Ada's phone off from then on, reaches Ben without Cy asking again", async () => {
+    const s = await scene();
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ada.store.requests()).requests.length === 1);
+    await sleep(500);
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+    await until(async () => (await s.ben.store.requests()).requests.length === 1);
+    expect((await s.cy.store.folders()).asks[0]).toMatchObject({ owner: identityOf(s.ben) });
+    await s.close();
+  }, 40_000);
+
+  it("filed before the handover, with Cy already connected to Ben, reaches Ben without Cy asking again", async () => {
+    const s = await scene();
+    // Ben and Cy meet before the handover (on real phones the swarm links them through the album's topics).
+    const met = "aa".repeat(32);
+    s.ben.deps.network.join(met, { server: true });
+    s.cy.deps.network.join(met, { server: false });
+    await s.cy.store.ask({ code: s.code, owner: identityOf(s.ada) });
+    await until(async () => (await s.ada.store.requests()).requests.length === 1);
+    await sleep(500);
+    await s.handOver();
+    setFakeNodeConnected({ hub: s.hub, node: s.ada.node, connected: false });
+    await until(
+      async () => (await s.cy.store.folders()).asks[0]?.owner === identityOf(s.ben),
+      5_000,
+    );
+    await until(async () => (await s.ben.store.requests()).requests.length === 1, 5_000);
+    await s.close();
+  }, 40_000);
+
   it("made after the handover, with Ada's phone off, still reaches Ben", async () => {
     const s = await scene();
     await s.handOver();

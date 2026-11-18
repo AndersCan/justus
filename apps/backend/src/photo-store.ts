@@ -5568,6 +5568,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     log("handover.became", { folder: short(rt.record.id), from: short(taking.from) });
     roleChangePush(rt, "member", "creator", taking.fromName);
     deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+    // Askers already connected were passed over while this phone was not yet the Admin: tell them now.
+    for (const id of connectedIdentities()) void deliverAnswers(id).catch(answerErr("deliver"));
     void tellHandoverDone(taking.from).catch(answerErr("handoverDone"));
   }
 
