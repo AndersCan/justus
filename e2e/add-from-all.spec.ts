@@ -58,4 +58,10 @@ test("Ada adds 5 photos from All into a chosen album, in picked order", async ({
   await expect(page.getByRole("heading", { name: album })).toBeVisible({ timeout: 20_000 });
   await expect(tiles.nth(4)).toBeAttached({ timeout: 20_000 });
   expect(await tiles.evaluateAll((els) => els.slice(0, 5).map((e) => e.ariaLabel))).toEqual(views);
+
+  // Archive it: albums.spec, next in order, counts one album and the seed photos on All.
+  await page.getByRole("link", { name: words("gallery.invite_members") }).click();
+  await page.getByRole("button", { name: words("album.more_options") }).click();
+  await page.getByRole("menuitem", { name: words("album.archive") }).click();
+  await expect(page).toHaveURL(/\/sharing$/, { timeout: 20_000 });
 });
