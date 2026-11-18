@@ -62,7 +62,10 @@ test("Ada hands the album to Ben and leaves; Ben is the Admin, accepts Cy, and C
 
     // Cy asks with the same link and waits.
     await askToJoin(c, link, album);
-    const cyWords = await c.getByRole("dialog", { name: /^You're done\. / }).innerText();
+    const cyDialog = c.getByRole("dialog", { name: /^You're done\. / });
+    // The three words show once the stored ask has them.
+    await expect(cyDialog.locator(".text-lg")).toBeVisible({ timeout: 20_000 });
+    const cyWords = await cyDialog.innerText();
     await c.goto("/sharing");
     await expect(
       c.getByRole("button", { name: `${words("albums.waiting_for_the_admin")}: ${album}` }),
