@@ -26,15 +26,37 @@ test.afterEach(() => resumeAll());
 
 async function nameOf(page) {
   await page.goto("/settings");
-  return page.getByRole("textbox", { name: words("settings.your_name"), exact: true }).inputValue();
+  const field = page.getByRole("textbox", { name: words("settings.your_name"), exact: true });
+  // The field is empty until the phone's status arrives; every phone has a name.
+  await expect(field, "c's name has loaded").not.toHaveValue("", { timeout: 20_000 });
+  return field.inputValue();
+}
+
+/** Ada may keep a friend from an earlier test (the old Ben saved as "Sam"); a saved friend hides the same-name line. */
+async function removeAllFriends(page) {
+  await page.goto("/settings");
+  const [before, after] = words("settings_friends.remove_label", { name: "§" }).split("§");
+  const remove = page.getByRole("button", {
+    name: new RegExp(`^${escaped(before)}.+${escaped(after)}$`),
+  });
+  for (let left = await remove.count(); left > 0; left--) {
+    await remove.first().click();
+    const confirm = page.getByRole("button", {
+      name: words("settings_friends.remove"),
+      exact: true,
+    });
+    await confirm.last().click();
+    await expect(remove, "a friend is removed").toHaveCount(left - 1);
+  }
+  await expect(remove, "Ada has no saved friends").toHaveCount(0);
 }
 
 function escaped(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The words for a Ben who is not connected: "last seen …", or "hasn't connected yet" when Ada's phone never saw his connection close. */
-const NOT_CONNECTED = `(?:${escaped(words("people.last_seen", { when: "§" }).split("§")[0])}.+|${escaped(words("people.not_connected_yet"))})`;
+/** The words for a Ben who was connected and is gone: "last seen …". */
+const NOT_CONNECTED = `(?:${escaped(words("people.last_seen", { when: "§" }).split("§")[0])}.+)`;
 
 /** A regex for `id`'s text with the not-connected words in place of the presence placeholder. */
 function withNotConnected(id, params) {
@@ -52,6 +74,7 @@ test("a reinstalled Ben's request says a Ben is already in, and Members and the 
   await skipIntro([a, b, c]);
   const cName = await nameOf(c);
   try {
+    await removeAllFriends(a);
     await setName(a, "Ada");
     await setName(b, "Ben");
     await setName(c, "Ben");
@@ -68,7 +91,9 @@ test("a reinstalled Ben's request says a Ben is already in, and Members and the 
     // 60 s: the album syncs to Ben's phone after Ada accepts.
     await expect(b, "Ben lands in the album").toHaveURL(/\/albums\/[^/]+$/, { timeout: 60_000 });
     // The old Ben opens the photo so his phone holds it, as the new Ben's will.
-    await b.getByRole("button", { name: `View ${FILE}` }).click({ timeout: 60_000 });
+    await b
+      .getByRole("button", { name: words("gallery.view", { name: FILE }) })
+      .click({ timeout: 60_000 });
     await expect(
       b.locator(".justus-holders-text"),
       "old Ben's phone: holders line has the photo",
@@ -81,8 +106,10 @@ test("a reinstalled Ben's request says a Ben is already in, and Members and the 
       a.locator("li[data-member-key]").filter({ hasText: "Ben" }),
       "Ada's Members: Ben is named",
     ).toHaveCount(1, { timeout: 60_000 });
-    await a.getByRole("link", { name: "See photos in this album" }).click();
-    await a.getByRole("button", { name: `View ${FILE}` }).click({ timeout: 60_000 });
+    await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
+    await a
+      .getByRole("button", { name: words("gallery.view", { name: FILE }) })
+      .click({ timeout: 60_000 });
     await expect(
       a.locator(".justus-holders-text"),
       "Ada's phone: old Ben holds the photo",
@@ -128,22 +155,25 @@ test("a reinstalled Ben's request says a Ben is already in, and Members and the 
     await expect(c, "new Ben lands in the album").toHaveURL(/\/albums\/[^/]+$/, {
       timeout: 60_000,
     });
-    await c.getByRole("button", { name: `View ${FILE}` }).click({ timeout: 60_000 });
+    await c
+      .getByRole("button", { name: words("gallery.view", { name: FILE }) })
+      .click({ timeout: 60_000 });
     await expect(
       c.locator(".justus-holders-text"),
       "new Ben's phone: holders line has the photo",
     ).toContainText("Ada's", { timeout: 60_000 });
 
-    await a.getByRole("link", { name: "See photos in this album" }).click();
+    await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
     await expect(a, "Ada opens the album").toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
     // 60 s: the album reloads from the phone's storage.
-    await a.getByRole("button", { name: `View ${FILE}` }).click({ timeout: 60_000 });
+    await a
+      .getByRole("button", { name: words("gallery.view", { name: FILE }) })
+      .click({ timeout: 60_000 });
     await expect(
       a.locator(".justus-holders-text"),
       "Ada's phone: holders line counts the two Bens",
     ).toHaveText(words("holders.on_your_phone_and", { k: 2 }), { timeout: 60_000 });
   } finally {
-    // A name cannot be saved empty, so a phone that had none keeps "Ben".
-    if (cName) await setName(c, cName);
+    await setName(c, cName);
   }
 });
