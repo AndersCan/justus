@@ -51,6 +51,22 @@ function run(overrides: Partial<DropInput>) {
 }
 
 describe("dropDeleted", () => {
+  it("names every photo it cleared, and not one whose cached copy it could not drop", async () => {
+    const r = run({
+      others: [{ key: "a", drive: stubDrive({ paths: [] }) }],
+      spoolNames: [
+        spoolNameFor("a", "p1", ".jpg"),
+        spoolNameFor("a", "p2", ".jpg"),
+        spoolNameFor("a", "stuck", ".jpg"),
+      ],
+      forget: (_k, id) => {
+        if (id === "stuck") throw new Error("disk busy");
+      },
+    });
+    expect((await r.result).cleared).toEqual(["p1", "p2"]);
+    expect(r.logs).toContain("error");
+  });
+
   it("forgets a spooled photo its drive no longer has, and keeps one it still has", async () => {
     const a = stubDrive({ paths: ["/photos/keep.jpg"] });
     const r = run({
@@ -61,7 +77,7 @@ describe("dropDeleted", () => {
         spoolNameFor("a", "keep", ".jpg"),
       ],
     });
-    expect(await r.result).toEqual({ dropped: 2 });
+    expect(await r.result).toEqual({ dropped: 2, cleared: ["gone"] });
     expect(r.forgotten).toEqual(["a:gone.jpg", "a:gone"]);
   });
 
@@ -70,7 +86,7 @@ describe("dropDeleted", () => {
       others: [{ key: "a", drive: stubDrive({ fail: true }) }],
       spoolNames: [spoolNameFor("a", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 0 });
+    expect(await r.result).toEqual({ dropped: 0, cleared: [] });
     expect(r.forgotten).toEqual([]);
     expect(r.logs).toContain("error");
   });
@@ -84,7 +100,7 @@ describe("dropDeleted", () => {
       ],
       spoolNames: [spoolNameFor("b", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 1 });
+    expect(await r.result).toEqual({ dropped: 1, cleared: ["x"] });
     expect(r.logs).toContain("error");
   });
 
@@ -95,7 +111,7 @@ describe("dropDeleted", () => {
       removed: { "self:x": {} },
       spoolNames: [spoolNameFor("self", "x", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 0 });
+    expect(await r.result).toEqual({ dropped: 0, cleared: [] });
     expect(own.cleared).toEqual([]);
   });
 
@@ -109,7 +125,7 @@ describe("dropDeleted", () => {
       removed: { "cara:p1": { removedAt: 1 } },
       spoolNames: [spoolNameFor("cara", "p1", ".jpg"), spoolNameFor("cara", "p2", ".jpg")],
     });
-    expect(await r.result).toEqual({ dropped: 1 });
+    expect(await r.result).toEqual({ dropped: 1, cleared: ["p1"] });
     expect(cara.cleared).toEqual(["/photos/p1.jpg", "/thumbs/p1.jpg"]);
     expect(r.forgotten).toEqual(["cara:p1.jpg"]);
   });
@@ -119,7 +135,7 @@ describe("dropDeleted", () => {
       others: [{ key: "a", drive: stubDrive({ paths: [] }) }],
       spoolNames: [`${spoolNameFor("a", "x", ".jpg")}.1.ab.tmp`, "notes.txt"],
     });
-    expect(await r.result).toEqual({ dropped: 1 });
+    expect(await r.result).toEqual({ dropped: 1, cleared: [] });
     expect(r.removedSpool).toHaveLength(1);
     expect(r.forgotten).toEqual([]);
   });

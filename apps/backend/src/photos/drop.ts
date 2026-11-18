@@ -22,7 +22,8 @@ export type DropInput = {
   timeoutMs: number;
 };
 
-export type DropResult = { dropped: number };
+/** `cleared`: ids of other phones' photos whose cached copy was dropped because they left the album. */
+export type DropResult = { dropped: number; cleared: readonly string[] };
 
 function message(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
@@ -36,6 +37,7 @@ function message(thrown: unknown): string {
 export async function dropDeleted(input: DropInput): Promise<DropResult> {
   const { others, selfKey, removed, spoolNames, log, timeoutMs } = input;
   let dropped = 0;
+  const cleared = new Set<string>();
   try {
     const byKey = new Map(others.map((o) => [o.key, o.drive]));
     const have = new Map<string, ReadonlySet<string>>();
@@ -109,7 +111,10 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
       if (!tomb && !gone) continue;
       try {
         if (name.endsWith(".tmp")) input.removeSpool(name);
-        else input.forget(driveKey, id, ext === THUMB_EXT ? "" : ext);
+        else {
+          input.forget(driveKey, id, ext === THUMB_EXT ? "" : ext);
+          cleared.add(id);
+        }
         dropped += 1;
       } catch (thrown: unknown) {
         log("error", { where: "dropDeleted", photo: id, err: message(thrown) });
@@ -119,5 +124,5 @@ export async function dropDeleted(input: DropInput): Promise<DropResult> {
   } catch (thrown: unknown) {
     log("error", { where: "dropDeleted", err: message(thrown) });
   }
-  return { dropped };
+  return { dropped, cleared: [...cleared] };
 }
