@@ -140,6 +140,12 @@ describe("stillToDrop", () => {
 
   it("lists what the record holds or previewed that the album no longer shows, sorted", () => {
     expect(stillToDrop({ report: reports, listed: new Set(["p1"]) })).toEqual(["p2", "p3"]);
+    const previewFirst: HeldReport = {
+      kind: "reports",
+      ids: new Set(["p9"]),
+      previews: new Set(["p1"]),
+    };
+    expect(stillToDrop({ report: previewFirst, listed: new Set() })).toEqual(["p1", "p9"]);
   });
 
   it("says nothing while the record is silent or the listing is partial", () => {

@@ -1329,6 +1329,21 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
     );
     await s.close();
   }, 30_000);
+
+  it("never lists the phone's own row, even while its own record still names the photo", async () => {
+    const s = await album();
+    const photo = await s.annaPhoto();
+    await s.nils.server.getForTest(new URL((await s.nilsPhoto())!.url).pathname);
+    await until(async () => (await s.nilsPhoto())!.holders!.here);
+    await s.anna.store.remove(photo.id);
+    await until(async () => (await s.nilsPhoto()) === undefined);
+    const ownRow = (await s.nils.store.status()).members.find(
+      (m: { identity?: string }) => m.identity !== undefined,
+    );
+    expect(ownRow).toMatchObject({ name: "Nils" });
+    expect(ownRow).not.toHaveProperty("stillToDrop");
+    await s.close();
+  }, 30_000);
 });
 
 describe("the phone that deletes a photo hears who dropped it", () => {
