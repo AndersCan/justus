@@ -7,6 +7,11 @@ import { copy, t } from "../copy/copy";
 export function albumNoticeText(notice: FolderSummary["notice"], albumName: string): string | null {
   if (!notice) return null;
   if (notice.kind === "removed") return copy("notices.you_re_no_longer_in", { albumName });
+  if (notice.kind === "madeAdmin")
+    return copy("notices.made_admin", {
+      fromName: notice.fromName || copy("notices.the_admin"),
+      album: albumName,
+    });
   if (notice.kind === "newKey") return copy("notices.this_album_has_a_new");
   return copy("notices.this_album_has_a_new_2", {
     admin: notice.ownerName || copy("notices.the_admin"),

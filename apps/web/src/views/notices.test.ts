@@ -37,6 +37,12 @@ describe("albumNoticeText", () => {
     );
   });
 
+  it("tells the new Admin who handed the album over", () => {
+    expect(albumNoticeText({ kind: "madeAdmin", fromName: "Ada" }, "Summer")).toBe(
+      "Ada handed Summer to you. You're the Admin now: you accept new people.",
+    );
+  });
+
   it("is empty without a notice", () => {
     expect(albumNoticeText(undefined, "Trip")).toBeNull();
   });

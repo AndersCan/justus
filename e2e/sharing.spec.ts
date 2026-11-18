@@ -46,7 +46,7 @@ test("a waiting request can be cancelled and asked again", async ({ page }) => {
   await waiting.getByRole("button", { name: "Cancel request" }).click();
   await expect(waiting).toBeHidden();
   const row = page.getByRole("button", {
-    name: "Waiting for the person who invited you to accept: Album you asked to join",
+    name: "Waiting for the album's Admin to accept: Album you asked to join",
   });
   await expect(row).toHaveCount(0);
   await page.reload();

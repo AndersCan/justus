@@ -10,11 +10,15 @@ import { statusSeen, syncActor } from "../machines/sync-machine";
 import { requests, requestsActor } from "../machines/requests-machine";
 import { folders, foldersActor } from "../machines/folders-machine";
 import { gateway } from "../gateway";
+import type { Person } from "../utils/people";
 import { gallery } from "../machines/gallery-machine";
 import {
   acceptAllToast,
   albumMenuItems,
   removedDeleteSheet,
+  handOverAlbum,
+  handOverChoices,
+  handingLine,
   albumView,
   declinedToast,
   revealMember,
@@ -30,6 +34,7 @@ import { memberColor } from "../utils/palette";
 import { inviteLink, inviteLinkActor, inviteLinkViewOf } from "../machines/sharing/invite-link";
 import { toast } from "./toast";
 import { confirmAction } from "./confirm";
+import { chooseNewAdmin } from "./hand-over-sheet";
 
 /** A press and release on the dim area: the dialog itself is the target. */
 function tapOutside(dialog: Element) {
@@ -38,6 +43,7 @@ function tapOutside(dialog: Element) {
 }
 
 vi.mock("./toast", () => ({ toast: vi.fn() }));
+vi.mock("./hand-over-sheet", () => ({ chooseNewAdmin: vi.fn() }));
 vi.mock("./confirm", () => ({ confirmAction: vi.fn().mockResolvedValue(true) }));
 
 vi.mock("../gateway", () => ({
@@ -1686,6 +1692,22 @@ describe("album menu items", () => {
     expect(albumMenuItems(role, pending, removed).map((i) => i.label)).toEqual(labels);
   });
 
+  test.each([
+    [{ handing: false, collaborators: 0 }, ["Archive", "Delete album"]],
+    [{ handing: false, collaborators: 1 }, ["Archive", "Leave album", "Delete album"]],
+    [{ handing: true, collaborators: 2 }, ["Archive"]],
+  ])("creator with %j", (handover, labels) => {
+    expect(albumMenuItems("creator", false, false, handover).map((i) => i.label)).toEqual(labels);
+  });
+
+  test("a Collaborator's menu ignores handover", () => {
+    expect(
+      albumMenuItems("member", false, false, { handing: false, collaborators: 3 }).map(
+        (i) => i.label,
+      ),
+    ).toEqual(["Archive", "Leave album"]);
+  });
+
   test("a removed person's dialog says the Admin sees it", () => {
     expect(removedDeleteSheet("Trip", "Anna")).toEqual({
       title: "Delete “Trip” from this phone?",
@@ -1702,7 +1724,7 @@ describe("album menu items", () => {
     expect(host.querySelector("[aria-label='More options']")?.className).toBe("ui-icon-btn");
     expect(
       [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
-    ).toEqual(["Archive", "Delete album"]);
+    ).toEqual(["Archive", "Leave album", "Delete album"]);
   });
 });
 
@@ -2004,5 +2026,75 @@ describe("Add photos waits for the gallery", () => {
     vi.mocked(gateway.add).mockReturnValueOnce(new Promise(() => {}) as never);
     gallery.addMany([{ kind: "path", path: "/a.jpg", name: "a.jpg" }], "f1");
     await vi.waitFor(() => expect(add().disabled).toBe(true));
+  });
+});
+
+describe("Leave album for the Admin", () => {
+  const person = (key: string, name: string, role: Person["role"], you = false) =>
+    ({ key, name, role, you, admin: role === "admin" }) as Person;
+  const ada = person("a", "Ada", "admin", true);
+  const ben = person("b", "Ben", "collaborator");
+  const cy = person("c", "Cy", "collaborator");
+  const dee = person("d", "Dee", "viewer");
+  const st = { folder: { id: "f1", name: "Summer", role: "creator" } } as never;
+
+  test("only Collaborators can take over", () => {
+    expect(handOverChoices([ada, ben, cy, dee]).map((p) => p.name)).toEqual(["Ben", "Cy"]);
+  });
+
+  test("with one Collaborator the confirm names them and leaving hands over", async () => {
+    const spy = vi.spyOn(folders, "handOver").mockImplementation(() => {});
+    vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(true);
+    await handOverAlbum(st, [ada, ben, dee]);
+    expect(chooseNewAdmin).not.toHaveBeenCalled();
+    expect(vi.mocked(confirmAction).mock.calls[0]?.[0]).toMatchObject({
+      title: "Hand Summer to Ben and leave?",
+      cancelLabel: "Stay Admin",
+      confirmLabel: "Hand over and leave",
+      tone: "danger",
+    });
+    expect(spy).toHaveBeenCalledWith("f1", "Summer", "b");
+  });
+
+  test("the confirm promises nothing about the photos", async () => {
+    vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(false);
+    await handOverAlbum(st, [ada, ben]);
+    expect(vi.mocked(confirmAction).mock.calls[0]?.[0].detail).not.toMatch(/photos/);
+  });
+
+  test("with two Collaborators the pick comes first and the chosen one is handed to", async () => {
+    const spy = vi.spyOn(folders, "handOver").mockImplementation(() => {});
+    vi.mocked(chooseNewAdmin).mockResolvedValueOnce("c");
+    vi.mocked(confirmAction).mockClear().mockResolvedValueOnce(true);
+    await handOverAlbum(st, [ada, ben, cy]);
+    expect(vi.mocked(confirmAction).mock.calls[0]?.[0].title).toBe("Hand Summer to Cy and leave?");
+    expect(spy).toHaveBeenLastCalledWith("f1", "Summer", "c");
+  });
+
+  test("closing the pick or Stay Admin changes nothing", async () => {
+    const spy = vi
+      .spyOn(folders, "handOver")
+      .mockClear()
+      .mockImplementation(() => {});
+    vi.mocked(chooseNewAdmin).mockResolvedValueOnce(null);
+    await handOverAlbum(st, [ada, ben, cy]);
+    vi.mocked(confirmAction).mockResolvedValueOnce(false);
+    await handOverAlbum(st, [ada, ben]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test("the waiting line has Stay Admin until it is written", () => {
+    const folder = { id: "f1", name: "Summer" };
+    const draw = (final: boolean) => {
+      const host = document.createElement("div");
+      render(handingLine({ ...folder, handingOver: { key: "b", name: "Ben", final } }), host);
+      return host;
+    };
+    expect(draw(false).textContent).toContain(
+      "Handing Summer to Ben. It finishes when Ben's phone is on.",
+    );
+    expect(draw(false).querySelector("button")?.textContent?.trim()).toBe("Stay Admin");
+    expect(draw(true).querySelector("button")).toBeNull();
+    expect(handingLine(folder)).toBeNull();
   });
 });

@@ -1,6 +1,85 @@
 {
   "folders": [
     {
+      "name": "Ada hands the album to Ben and waits for his phone",
+      "end": "showingAlbums",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        },
+        {
+          "kind": "event",
+          "event": "HAND_OVER_ALBUM",
+          "payload": {
+            "folderId": "summer",
+            "name": "Summer",
+            "memberKey": "ben"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ada taps Stay Admin and the album stays hers",
+      "end": "showingAlbums",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        },
+        {
+          "kind": "event",
+          "event": "STAY_ADMIN",
+          "payload": {
+            "folderId": "summer",
+            "name": "Summer"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        }
+      ]
+    },
+    {
       "name": "Anna creates the album Trip and sees it in her albums",
       "end": "showingAlbums",
       "steps": [
@@ -34,6 +113,43 @@
               "id": "trip",
               "name": "Trip"
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "The hand over fails and the album stays",
+      "end": "couldNotChangeAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "REFRESH",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "ALBUMS_LOADED",
+          "payload": {
+            "folders": [],
+            "asks": [],
+            "offers": [],
+            "activeId": null
+          }
+        },
+        {
+          "kind": "event",
+          "event": "HAND_OVER_ALBUM",
+          "payload": {
+            "folderId": "summer",
+            "name": "Summer",
+            "memberKey": "ben"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ALBUM_CHANGE_FAILED",
+          "payload": {
+            "message": "no"
           }
         }
       ]

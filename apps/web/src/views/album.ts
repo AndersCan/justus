@@ -33,6 +33,7 @@ import { linkKindOf, VALID_FOR_LABEL } from "../machines/sharing/invite-link-mac
 import { memberBadge } from "./avatar";
 import { roleLabel } from "./albums";
 import { confirmAction } from "./confirm";
+import { chooseNewAdmin } from "./hand-over-sheet";
 import { errorBanner } from "./error-banner";
 import { adminName, copyInviteLink, invitePanel } from "./invite";
 import { albumNotice } from "./notices";
@@ -97,14 +98,46 @@ export function albumMenuItems(
   role: "creator" | "member" | "reader",
   pending: boolean,
   removed = false,
+  handover: { handing: boolean; collaborators: number } = { handing: false, collaborators: 0 },
 ): { value: "archive" | "leave" | "delete"; label: string; danger: boolean }[] {
   const archive = { value: "archive", label: copy("album.archive"), danger: false } as const;
   if (pending) return [archive];
-  if (role === "creator")
-    return [archive, { value: "delete", label: copy("album.delete_album"), danger: true }];
+  if (role === "creator") {
+    if (handover.handing) return [archive];
+    const del = { value: "delete", label: copy("album.delete_album"), danger: true } as const;
+    if (handover.collaborators === 0) return [archive, del];
+    return [archive, { value: "leave", label: copy("album.leave_album"), danger: false }, del];
+  }
   if (removed)
     return [archive, { value: "leave", label: copy("album.delete_from_this_phone"), danger: true }];
   return [archive, { value: "leave", label: copy("album.leave_album"), danger: true }];
+}
+
+/** The people an Admin can hand the album to: Collaborators other than themselves. */
+export function handOverChoices(people: readonly Person[]): Person[] {
+  return people.filter((p) => p.role === "collaborator" && !p.you && !p.admin);
+}
+
+export async function handOverAlbum(status: Status, people: readonly Person[]) {
+  const { id, name } = status.folder;
+  const choices = handOverChoices(people);
+  const key =
+    choices.length > 1
+      ? await chooseNewAdmin(
+          name,
+          choices.map((c) => ({ key: c.key, name: c.name })),
+        )
+      : (choices[0]?.key ?? null);
+  const chosen = choices.find((c) => c.key === key);
+  if (!chosen) return;
+  const ok = await confirmAction({
+    title: copy("album.hand_over_title", { album: name, name: chosen.name }),
+    detail: copy("album.hand_over_detail", { album: name, name: chosen.name }),
+    cancelLabel: copy("album.hand_over_stay"),
+    confirmLabel: copy("album.hand_over_confirm"),
+    tone: "danger",
+  });
+  if (ok) folders.handOver(id, name, chosen.key);
 }
 
 async function chooseAlbumAction(value: string, status: Status, people: readonly Person[]) {
@@ -119,6 +152,10 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
       tone: "danger",
     });
     if (ok) folders.leave(id, name, true);
+    return;
+  }
+  if (value === "leave" && role === "creator") {
+    await handOverAlbum(status, people);
     return;
   }
   if (value === "leave") {
@@ -148,6 +185,10 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
     status.folder.role,
     Boolean(status.folder.pending),
     status.folder.notice?.kind === "removed",
+    {
+      handing: Boolean(status.folder.handingOver),
+      collaborators: handOverChoices(people).length,
+    },
   );
   return html`<wa-dropdown
     placement="bottom-end"
@@ -310,6 +351,29 @@ function memberLine(role: PeopleVm["people"][number]["role"]) {
     case "waiting":
       return html`<p class="text-xs text-muted">${t("member.waiting_for_admin")}</p>`;
   }
+}
+
+/** Ada's line while Summer is being handed to Ben: it ends when his phone is on, and Stay Admin calls it off until Ben's phone has confirmed. */
+export function handingLine(folder: Pick<FolderSummary, "id" | "name" | "handingOver">) {
+  const h = folder.handingOver;
+  if (!h) return null;
+  return html`<div
+    class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
+  >
+    <p class="min-w-0 flex-1 text-sm text-fg" role="status">
+      ${copy("album.handing_over", { album: folder.name, name: h.name })}
+    </p>
+    ${
+      h.final
+        ? null
+        : html`<button
+            class="ui-btn-ghost shrink-0"
+            @click=${() => folders.stayAdmin(folder.id, folder.name)}
+          >
+            ${t("album.hand_over_stay")}
+          </button>`
+    }
+  </div>`;
 }
 
 export function roleCaption(folder: Pick<FolderSummary, "role" | "pending" | "notice">) {
@@ -818,7 +882,7 @@ function albumBody(
         albumMenu(status, vm.people, !foldersViewModel(fs).settled),
       )}`,
       about: html`${roleCaption(status.folder)}
-      ${albumNotice(status.folder.notice, status.folder.name)}`,
+      ${albumNotice(status.folder.notice, status.folder.name)} ${handingLine(status.folder)}`,
       actions: html`<div class="flex flex-wrap items-center gap-2">
         ${
           !removed && planAdd(id, [status.folder], status).kind === "direct"
