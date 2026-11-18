@@ -1392,7 +1392,7 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
 });
 
 describe("the phone that deletes a photo hears who dropped it", () => {
-  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  type Dropped = { cause: string; dropped?: { people: { key: string }[] } };
   const droppedPushes = (s: Album) =>
     (s.anna.pushes as Dropped[]).filter((p) => p.cause === "dropped");
 
@@ -1434,13 +1434,13 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     expect(droppedPushes(s)).toEqual([
       expect.objectContaining({
         folderId: s.folderId,
-        dropped: { photoId: photo.id, people: [expect.objectContaining({ key: s.nilsKey })] },
+        dropped: { people: [expect.objectContaining({ key: s.nilsKey })] },
       }),
     ]);
     await s.close();
   });
 
-  it("does not wait on a quiet phone: a delete with Nils away 4 days records no watch for him", async () => {
+  it("names Nils when he drops it after 4 days away", async () => {
     const s = await album();
     await nilsOpens(s, "sunset.jpg");
     await s.anna.store.close();
@@ -1464,9 +1464,17 @@ describe("the phone that deletes a photo hears who dropped it", () => {
       return true;
     });
     await reopened.remove(id);
-    await s.nils.store.list(s.nilsFolderId);
-    await sleep(800);
-    expect(pushes.filter((p) => p.cause === "dropped")).toEqual([]);
+    await until(
+      async () => (
+        await s.nils.store.list(s.nilsFolderId),
+        pushes.some((p) => p.cause === "dropped")
+      ),
+    );
+    expect(pushes.filter((p) => p.cause === "dropped")).toEqual([
+      expect.objectContaining({
+        dropped: { people: [expect.objectContaining({ key: s.nilsKey })] },
+      }),
+    ]);
     await reopened.close();
     await s.nils.store.close();
   });
@@ -1493,15 +1501,15 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await s.close();
   });
 
-  it("stops listening 60 s after the delete", async () => {
+  it("still names Nils when he drops it 2 minutes after the delete", async () => {
     const s = await album();
     await nilsOpens(s, "sunset.jpg");
     await s.anna.store.remove((await s.annaPhoto()).id);
     const now = Date.now();
-    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
-    await until(async () => (await s.nils.store.list(s.nilsFolderId), false), 1_000);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 120_000);
+    await untilDropped(s, 1);
     clock.mockRestore();
-    expect(droppedPushes(s)).toEqual([]);
+    expect(droppedPushes(s)[0]!.dropped!.people.map((p) => p.key)).toEqual([s.nilsKey]);
     await s.close();
   });
 
@@ -1524,7 +1532,7 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await s.close();
   });
 
-  it("tells each delete on its own", async () => {
+  it("two deletes Nils drops in one record change name him once", async () => {
     const s = await album();
     await s.anna.store.addBytes("two.jpg", new Uint8Array([2, 2, 2, 2]));
     await until(async () => (await s.nils.store.list(s.nilsFolderId)).length === 2);
@@ -1533,19 +1541,17 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await until(async () => (await s.annaPhotoNamed("two.jpg")).holders!.others.length === 1);
     const ids = [(await s.annaPhoto()).id, (await s.annaPhotoNamed("two.jpg")).id];
     for (const id of ids) await s.anna.store.remove(id);
-    await untilDropped(s, 2);
-    await sleep(300);
-    expect(
-      droppedPushes(s)
-        .map((p) => p.dropped!.photoId)
-        .sort(),
-    ).toEqual([...ids].sort());
+    await untilDropped(s, 1);
+    await sleep(500);
+    expect(droppedPushes(s).flatMap((p) => p.dropped!.people.map((m) => m.key))).toEqual([
+      s.nilsKey,
+    ]);
     await s.close();
   });
 });
 
 describe("the deleting phone hears every holder, on any delete path", () => {
-  type Dropped = { cause: string; dropped?: { photoId: string; people: { key: string }[] } };
+  type Dropped = { cause: string; dropped?: { people: { key: string }[] } };
   const droppedKeys = (pushes: unknown[]) =>
     (pushes as Dropped[])
       .filter((p) => p.cause === "dropped")

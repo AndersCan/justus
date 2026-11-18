@@ -268,7 +268,7 @@ export const photoChangedSchema = s.object({
       ),
     }),
   ),
-  dropped: s.optional(s.object({ photoId: s.string, people: s.array(photoMemberSchema) })),
+  dropped: s.optional(s.object({ people: s.array(photoMemberSchema) })),
 });
 
 /** Result schema of every `photos.*` invoke the web reads, by event name. */
