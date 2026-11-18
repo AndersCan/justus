@@ -19,6 +19,8 @@ import { toast } from "./toast";
 // stages the files where the worklet can import them. In a browser the
 // chosen files are posted to the worklet's `POST /photos` route.
 const fileInputRef = createRef<HTMLInputElement>();
+/** A second input for picks made before an album is chosen: route views are cached, so it never shares `fileInputRef`. */
+const pickedInputRef = createRef<HTMLInputElement>();
 export function inNativeShell(): boolean {
   return typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
 }
@@ -120,6 +122,37 @@ export function pickerInput(albumId: string, onAdding?: () => void) {
       const sources = imageFiles(input.files).map((file): AddSource => ({ kind: "file", file }));
       if (addPicked(albumId, sources, "library")) onAdding?.();
       input.value = "";
+    }}
+  />`;
+}
+
+/** Picks photos on Photos before an album is chosen; `onPicked` gets a non-empty set in picked order. */
+export async function pickPhotos(onPicked: (photos: AddSource[]) => void): Promise<void> {
+  if (inNativeShell()) {
+    const photos = await pickNative("library");
+    if (photos) onPicked(photos);
+    return;
+  }
+  pickedInputRef.value?.click();
+}
+
+/** The hidden file input behind `pickPhotos` in a browser. */
+export function pickedPhotosInput(onPicked: (photos: AddSource[]) => void) {
+  return html`<input
+    ${ref(pickedInputRef)}
+    type="file"
+    accept="image/*"
+    multiple
+    class="hidden"
+    @change=${(e: Event) => {
+      const input = e.target as HTMLInputElement;
+      const files = imageFiles(input.files);
+      input.value = "";
+      if (files.length === 0) {
+        toast(copy("gallery.only_photos_can_be_added"));
+        return;
+      }
+      onPicked(files.map((file): AddSource => ({ kind: "file", file })));
     }}
   />`;
 }

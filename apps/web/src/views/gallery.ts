@@ -47,6 +47,8 @@ import {
   addPicked,
   inNativeShell,
   pickedVia,
+  pickedPhotosInput,
+  pickPhotos,
   pickerInput,
   startAdd,
 } from "./photo-picker";
@@ -62,10 +64,12 @@ import { lookedAt } from "./looked-at";
 import "./new-photos";
 import { isNewPhoto, newCount, seenActor, type SeenContext } from "../machines/seen-machine";
 import { sharedPhotos } from "../machines/shared-photos-machine";
+import { pickedPhotos } from "../machines/picked-photos-machine";
+import { addableAlbums } from "./share-to-album";
 
 import { copy, t } from "../copy/copy";
-// Adding photos happens only inside an album, so where they go (and who gets
-// them) is always on screen. Check the album can take them (before any picker
+// Adding photos happens inside an album, or on Photos > All and Added by me
+// where the sheet names the album before anything is added. Check the album can take them (before any picker
 // opens, so a dead end never costs a pick), pick one or many, then hand the
 // batch to the gallery actor, which adds them one by one with progress in
 // the gallery batch.
@@ -205,9 +209,12 @@ galleryActor.on("change", {
     const camera = pickedVia() === "camera";
     const scope = routeScope();
     const onAlbum = scope?.kind === "album" && scope.id === batch.folderId;
+    const route = currentPage()?.route;
+    const rowHere =
+      (route === "gallery" || route === "mine") && addRowBatchAlbum(foldersNow(), batch) !== null;
     const folderId = batch.folderId as string;
     const album = albumName(batch.folderId);
-    if (failed && onAlbum) return;
+    if (failed && (onAlbum || rowHere)) return;
     const takeAnother =
       camera && !failed && scope
         ? { label: copy("gallery.take_another"), run: () => void startAdd(folderId, "camera") }
@@ -653,7 +660,7 @@ export function dropOverlay(page: PhotosPage, scope: PhotoScope) {
   </div>`;
 }
 
-/** Outside an album there is no "Add photos": point into one instead. */
+/** Empty All or Added by me: point into an album too. */
 function openAlbumAction(folders: FolderSummary[]) {
   const targets = addTargets(folders);
   return targets.length === 1
@@ -722,7 +729,7 @@ function photoTabs(active: PhotoTab) {
   );
 }
 
-/** Title, Refresh and tabs. Adding lives in the album header, not here. */
+/** Title, Refresh, tabs, and on All and Added by me the Add photos row. */
 function pageHeader(page: PhotosPage, active: PhotoTab) {
   return html`
     <div class="flex items-center justify-between gap-3">
@@ -735,8 +742,37 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
         ${t("gallery.refresh")}
       </button>
     </div>
-    ${photoTabs(active)}
+    ${photoTabs(active)} ${active === "album" ? null : photosAddRow(page)}
   `;
+}
+
+/** The album a running or failed batch shows under Add photos; null with no album to add to or no batch. */
+function addRowBatchAlbum(folders: FolderSummary[], batch: AddBatch | null): FolderSummary | null {
+  if (!batch || addableAlbums(folders).length === 0) return null;
+  return folders.find((f) => f.id === batch.folderId) ?? null;
+}
+
+/** "Add photos" on All and Added by me: pick first, the sheet asks which album. */
+export function photosAddRow(page: PhotosPage) {
+  if (addableAlbums(page.folders).length === 0) return null;
+  const running = page.batch?.running ?? false;
+  const album = addRowBatchAlbum(page.folders, page.batch);
+  return html`<div class="mt-3">
+    ${pickedPhotosInput(pickedPhotos.picked)}
+    <wa-button
+      variant="brand"
+      class="min-w-0 max-w-full"
+      ?disabled=${page.busy || !page.settled || running}
+      @click=${() => void pickPhotos(pickedPhotos.picked)}
+    >
+      ${
+        running && page.batch
+          ? copy("gallery.adding", { current: page.batch.done + 1, total: page.batch.total })
+          : t("gallery.add_photos")
+      }
+    </wa-button>
+    ${album ? addProgress(page.batch, album) : null}
+  </div>`;
 }
 
 /** What the album's join line says: the oldest asker by name unless it copies a friend's name, or the count when several wait. */

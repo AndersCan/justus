@@ -2232,6 +2232,13 @@
     "who": "Everyone adding photos",
     "screen": ""
   },
+  "gallery.add_photos": {
+    "text": "Add photos",
+    "status": "draft",
+    "where": "Photos › All and Added by me › button",
+    "who": "Admins and Collaborators, on the Photos tab",
+    "screen": ""
+  },
   "gallery.add_photos_to": {
     "text": "Add photos to {name}",
     "status": "draft",

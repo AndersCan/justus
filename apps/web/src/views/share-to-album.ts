@@ -153,6 +153,7 @@ export function addPickedTo(albumId: string) {
   const folderId = addableAlbum(albumId);
   if (!folderId) return;
   if (!addPicked(folderId, pickedPhotosActor.snapshot().context.photos, "library")) return;
+  sheetModal();
   pickedPhotos.addStarted();
 }
 
@@ -164,7 +165,10 @@ function pickedPhotosSheet(count: number): unknown {
         copy("share_to_album.start_one_for_them", { count }),
         copy("start_album.create_album"),
       ).then((id) => id && addPickedTo(id)),
-    notNow: pickedPhotos.cancel,
+    notNow: () => {
+      sheetModal();
+      pickedPhotos.cancel();
+    },
   };
   return watch(foldersActor, (f) => shareSheetPanel({ count, albums: albumsOf(f) }, actions));
 }

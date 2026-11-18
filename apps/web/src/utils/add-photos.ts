@@ -1,9 +1,9 @@
 import type { FolderSummary, SyncStatus } from "@justus/core";
 
 import { copy } from "../copy/copy";
-/** Whether the album on screen can take photos, decided before the picker
- * opens so a dead end never costs the user a pick. Photos are only ever
- * added from inside an album, so where they go is never a guess. */
+/** Whether the album can take photos, decided before the picker opens so a
+ * dead end never costs the user a pick. Photos go into one named album; on
+ * Photos the sheet names it before anything is added. */
 export type AddPlan =
   /** The album takes them. */
   | { kind: "direct"; folderId: string }
