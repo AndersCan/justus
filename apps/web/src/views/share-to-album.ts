@@ -156,14 +156,17 @@ export function addPickedTo(albumId: string) {
   pickedPhotos.addStarted();
 }
 
-const pickedActions: ShareSheetActions = {
-  add: addPickedTo,
-  create: pickedPhotos.cancel,
-  notNow: pickedPhotos.cancel,
-};
-
 function pickedPhotosSheet(count: number): unknown {
-  return watch(foldersActor, (f) => shareSheetPanel({ count, albums: albumsOf(f) }, pickedActions));
+  const actions: ShareSheetActions = {
+    add: addPickedTo,
+    create: () =>
+      void startAlbum(
+        copy("share_to_album.start_one_for_them", { count }),
+        copy("start_album.create_album"),
+      ).then((id) => id && addPickedTo(id)),
+    notNow: pickedPhotos.cancel,
+  };
+  return watch(foldersActor, (f) => shareSheetPanel({ count, albums: albumsOf(f) }, actions));
 }
 
 /** The one album sheet, rendered once in main.ts: photos she just picked first; photos shared from another app wait until it closes. */

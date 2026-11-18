@@ -23,6 +23,7 @@ vi.mock("../machines/shared-photos-machine", () => ({
 vi.mock("./photo-picker", () => ({ addableAlbum: m.addableAlbum, addPicked: m.addPicked }));
 vi.mock("./start-album", () => ({ startAlbum: m.startAlbum }));
 
+import { copy } from "../copy/copy";
 import { pickedPhotos, pickedPhotosActor } from "../machines/picked-photos-machine";
 import { addPickedTo, albumSheet, createAndAdd, sharedPhotosSheet } from "./share-to-album";
 
@@ -32,6 +33,8 @@ afterEach(() => {
   m.view = { asking: true, batches: [], count: 2 };
   m.vm = { state: "showingAlbums", fatal: false, folders: [] };
 });
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function draw() {
   const host = document.createElement("div");
@@ -150,6 +153,42 @@ describe("the live sheet", () => {
       m.addableAlbum.mockReturnValue(null);
       addPickedTo("s");
       expect(m.addPicked).not.toHaveBeenCalled();
+    });
+
+    test("closing the pick's sheet opens the waiting share sheet as a fresh, open dialog", async () => {
+      pickedPhotos.picked(picks);
+      const host = document.createElement("div");
+      document.body.append(host);
+      render(albumSheet(), host);
+      await tick();
+      const first = host.querySelector("dialog")!;
+      expect(first.open).toBe(true);
+      host.querySelector<HTMLButtonElement>("[data-dismiss]")!.click();
+      await tick();
+      const dialogs = host.querySelectorAll("dialog");
+      expect(dialogs).toHaveLength(1);
+      expect(dialogs[0]).not.toBe(first);
+      expect(dialogs[0]!.getAttribute("aria-label")).toBe(
+        copy("share_to_album.add_photos_to", { count: 2 }),
+      );
+      expect(dialogs[0]!.open).toBe(true);
+      host.remove();
+    });
+
+    test("Create album on the pick's sheet (every row gone) starts an album and adds the pick to it", async () => {
+      m.view = { ...m.view, asking: false };
+      pickedPhotos.picked(picks);
+      m.startAlbum.mockResolvedValue("new");
+      m.addableAlbum.mockReturnValue("new");
+      m.addPicked.mockReturnValue(true);
+      const create = [...drawOne().querySelectorAll("button")].find(
+        (b) => b.textContent?.trim() === copy("start_album.create_album"),
+      );
+      create!.click();
+      await tick();
+      expect(m.startAlbum).toHaveBeenCalledOnce();
+      expect(m.addPicked).toHaveBeenCalledWith("new", picks, "library");
+      expect(pickedPhotosActor.snapshot().context.photos).toEqual([]);
     });
   });
 });
