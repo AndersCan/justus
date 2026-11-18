@@ -1687,11 +1687,12 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     return state.folders.filter((f) => f.lifecycle !== "archived");
   }
 
+  /** The album last opened, archived ones too (an archived album's page shows it), else the first shown album. */
   function activeFolderId(): string | null {
-    const shown = shownFolders();
-    if (state.activeFolderId && shown.some((f) => f.id === state.activeFolderId)) {
+    if (state.activeFolderId && state.folders.some((f) => f.id === state.activeFolderId)) {
       return state.activeFolderId;
     }
+    const shown = shownFolders();
     return shown.length > 0 ? shown[0].id : null;
   }
 
