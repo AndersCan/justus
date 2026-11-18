@@ -679,6 +679,37 @@ describe("who has each photo", () => {
     await reopened.close();
   });
 
+  it("a quiet Admin is back in has-it once the phones meet again", async () => {
+    const s = await album();
+    const adminKey = (await s.nilsPhoto())!.holders!.others[0]!.key;
+    await s.nils.store.close();
+    const at = Date.now() - 4 * 24 * 60 * 60 * 1000;
+    writeFileSync(
+      join(s.nils.deps.storageDir, "presence.json"),
+      JSON.stringify({ [adminKey]: at }),
+    );
+    const deps = restarted(s.nils.deps);
+    const pushes: { cause: string }[] = [];
+    const reopened = createPhotoStore({
+      ...deps,
+      onChanged: (e) => pushes.push(e as { cause: string }),
+    });
+    await reopened.ready();
+    await until(async () => {
+      const p = (await reopened.list(s.nilsFolderId)).find((x) => x.name === "sunset.jpg");
+      return p?.holders?.kind === "inAlbum" && p.holders.others.length === 1;
+    });
+    expect(pushes.some((p) => p.cause === "holders")).toBe(true);
+    const back = (await reopened.list(s.nilsFolderId)).find((p) => p.name === "sunset.jpg")!;
+    expect(back.holders).toMatchObject({ kind: "inAlbum", quiet: [] });
+    expect(back.holders!.kind === "inAlbum" && back.holders!.others).toEqual([
+      expect.not.objectContaining({ lastSeenAt: expect.anything() }),
+    ]);
+    expect(back.holders!.kind === "inAlbum" && back.holders!.others[0]!.key).toBe(adminKey);
+    await reopened.close();
+    await s.anna.store.close();
+  });
+
   it("two listings started together both carry holders", async () => {
     const s = await album();
     await s.nils.store.close();
@@ -1323,6 +1354,37 @@ describe("the phone that deletes a photo hears who dropped it", () => {
       }),
     ]);
     await s.close();
+  });
+
+  it("does not wait on a quiet phone: a delete with Nils away 4 days records no watch for him", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    await s.anna.store.close();
+    const at = Date.now() - 4 * 24 * 60 * 60 * 1000;
+    writeFileSync(
+      join(s.anna.deps.storageDir, "presence.json"),
+      JSON.stringify({ [s.nilsKey]: at }),
+    );
+    const pushes: Dropped[] = [];
+    const reopened = createPhotoStore({
+      ...restarted(s.anna.deps),
+      onChanged: (e) => pushes.push(e as Dropped),
+    });
+    await reopened.ready();
+    await reopened.setActive(s.folderId);
+    let id = "";
+    await until(async () => {
+      const p = (await reopened.list(s.folderId)).find((x) => x.name === "sunset.jpg");
+      if (p?.holders?.kind !== "inAlbum" || p.holders.quiet.length !== 1) return false;
+      id = p.id;
+      return true;
+    });
+    await reopened.remove(id);
+    await s.nils.store.list(s.nilsFolderId);
+    await sleep(800);
+    expect(pushes.filter((p) => p.cause === "dropped")).toEqual([]);
+    await reopened.close();
+    await s.nils.store.close();
   });
 
   it("names Nils for a photo he only previewed", async () => {

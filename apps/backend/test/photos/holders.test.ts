@@ -673,7 +673,7 @@ describe("holdersFor", () => {
     });
 
     it("sorts quiet newest first, then by name", () => {
-      const t = (k: string) => (k === B ? NOW - 5 * DAY : k === C ? NOW - 4 * DAY : NOW - 4 * DAY);
+      const t = (k: string) => (k === B ? NOW - 5 * DAY : NOW - 4 * DAY);
       const r = run({
         people: [self, adder, ben, cy],
         held: [
@@ -685,34 +685,65 @@ describe("holdersFor", () => {
       expect(r.quiet.map((m: { name: string }) => m.name)).toEqual(["Ada", "Cy", "Ben"]);
     });
 
-    it("never loses anyone: others and quiet together are the connected-everywhere others", () => {
+    it("breaks a tie on the same time by name, whatever the member order", () => {
+      const at = NOW - 4 * DAY;
+      const r = run({
+        people: [self, adder, cy, ben],
+        held: [
+          [C, has("p1")],
+          [B, has("p1")],
+        ],
+        presence: (k) => (k === ADDER ? { connected: true } : { connected: false, lastSeenAt: at }),
+      });
+      expect(r.quiet.map((m: { name: string }) => m.name)).toEqual(["Ben", "Cy"]);
+    });
+
+    it("never loses anyone: only holders move, from others to quiet", () => {
+      const records: HeldReport[] = [has("p1"), silent, has("other"), report([], ["p1"])];
       const times = [undefined, NOW - DAY, NOW - 3 * DAY, NOW - 8 * DAY];
-      for (const connectedB of [true, false]) {
-        for (const tb of times) {
-          for (const tc of times) {
-            const h: [string, HeldReport][] = [
-              [B, has("p1")],
-              [C, has("p1")],
-            ];
-            const ps = [self, adder, ben, cy];
-            const r = run({
-              people: ps,
-              held: h,
-              presence: (k) =>
-                k === B
-                  ? { connected: connectedB, ...(tb === undefined ? {} : { lastSeenAt: tb }) }
-                  : k === C
-                    ? { connected: false, ...(tc === undefined ? {} : { lastSeenAt: tc }) }
-                    : { connected: true },
-            });
-            const base = run({ people: ps, held: h });
-            const keys = [...r.others, ...r.quiet].map((m: { key: string }) => m.key).sort();
-            expect(keys).toEqual(base.others.map((m: { key: string }) => m.key).sort());
-            expect(
-              r.quiet.some((q: { key: string }) =>
-                r.others.some((o: { key: string }) => o.key === q.key),
-              ),
-            ).toBe(false);
+      const keysOf = (list: { key: string }[]) => list.map((m) => m.key).sort();
+      for (const adderKey of [SELF, B]) {
+        const p = { id: "p1", driveKey: adderKey, memberName: adderKey === SELF ? "Me" : "Ben" };
+        for (const rb of records) {
+          for (const rc of records) {
+            for (const connectedB of [true, false]) {
+              for (const connectedC of [true, false]) {
+                for (const tb of times) {
+                  for (const tc of times) {
+                    const ps = [self, adder, ben, cy];
+                    const held: [string, HeldReport][] = [
+                      [B, rb],
+                      [C, rc],
+                    ];
+                    const r = run({
+                      photo: p,
+                      people: ps,
+                      held,
+                      presence: (k) => {
+                        if (k === B)
+                          return {
+                            connected: connectedB,
+                            ...(tb === undefined ? {} : { lastSeenAt: tb }),
+                          };
+                        if (k === C)
+                          return {
+                            connected: connectedC,
+                            ...(tc === undefined ? {} : { lastSeenAt: tc }),
+                          };
+                        return { connected: true };
+                      },
+                    });
+                    const base = run({ photo: p, people: ps, held });
+                    expect(keysOf([...r.others, ...r.quiet])).toEqual(keysOf(base.others));
+                    expect(keysOf(r.previews)).toEqual(keysOf(base.previews));
+                    expect(keysOf(r.unsure)).toEqual(keysOf(base.unsure));
+                    expect(r.here).toBe(base.here);
+                    const inOthers = new Set(r.others.map((m: { key: string }) => m.key));
+                    expect(r.quiet.some((q: { key: string }) => inOthers.has(q.key))).toBe(false);
+                  }
+                }
+              }
+            }
           }
         }
       }
