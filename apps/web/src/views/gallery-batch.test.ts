@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
 import { gallery, galleryActor } from "../machines/gallery-machine";
+import { open } from "../machines/router-machine";
 import "./gallery";
 
 const hoisted = vi.hoisted(() => ({
@@ -23,7 +24,34 @@ describe("add batch toast", () => {
     await vi.waitFor(() => expect(hoisted.gateway.add).toHaveBeenCalled());
     await galleryActor.settled();
     await vi.waitFor(() => expect(batchOf()).toBeNull());
+    expect(hoisted.toast).toHaveBeenCalledTimes(1);
+    expect(hoisted.toast.mock.calls[0][0]).toBe("Added a photo to the album");
+    expect(hoisted.toast.mock.calls[0][1].action.label).toBe("Open the album");
+
+    open("/albums/f1");
+    hoisted.toast.mockClear();
+    hoisted.gateway.add.mockResolvedValueOnce([null, { ...photo, id: "p9", name: "p9.jpg" }]);
+    gallery.addMany([{ kind: "path", path: "/q.jpg", name: "q.jpg" }], "f1");
+    await vi.waitFor(() => expect(batchOf()).toBeNull());
     expect(hoisted.toast).not.toHaveBeenCalled();
+
+    hoisted.gateway.add.mockImplementation(async () => [
+      null,
+      { ...photo, id: `m${Math.random()}` },
+    ]);
+    gallery.addMany(
+      Array.from({ length: 5 }, (_, i) => ({
+        kind: "path" as const,
+        path: `/m${i}.jpg`,
+        name: `m${i}.jpg`,
+      })),
+      "f1",
+    );
+    await vi.waitFor(() => expect(hoisted.toast).toHaveBeenCalledTimes(1));
+    expect(hoisted.toast.mock.calls[0][0]).toBe("Added 5 photos to the album");
+    expect(hoisted.toast.mock.calls[0][1].action.label).toBe("Dismiss");
+    hoisted.gateway.add.mockReset();
+    await vi.waitFor(() => expect(batchOf()).toBeNull());
 
     hoisted.toast.mockClear();
     hoisted.gateway.add.mockResolvedValueOnce([{ message: "boom" }, null]);

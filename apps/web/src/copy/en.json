@@ -286,6 +286,13 @@
     "who": "Everyone adding photos",
     "screen": ""
   },
+  "add_photos.open_album": {
+    "text": "Open {album}",
+    "status": "draft",
+    "where": "Toasts › Adding photos › button",
+    "who": "Everyone adding photos",
+    "screen": ""
+  },
   "add_photos.added_photos_to": {
     "text": "Added {added} photos to {album}",
     "status": "draft",
@@ -2191,10 +2198,17 @@
     "screen": ""
   },
   "gallery.adding": {
-    "text": "Adding {current}/{total}…",
+    "text": "Adding {current} of {total}…",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
+    "screen": ""
+  },
+  "gallery.you_can_leave_this_page": {
+    "text": "You can leave this page. Keep Justus open until it's done.",
+    "status": "draft",
+    "where": "Photos › text",
+    "who": "Everyone adding photos",
     "screen": ""
   },
   "gallery.add_photos_to": {
@@ -2248,20 +2262,6 @@
   },
   "gallery.you_can_add_photos_once": {
     "text": "You can add photos once {owner} lets you in.",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
-  "gallery.a_photo": {
-    "text": "a photo",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
-  },
-  "gallery.of": {
-    "text": "{shown} of {total}",
     "status": "draft",
     "where": "Photos › text",
     "who": "Everyone, on the Photos tab and inside an album",
@@ -2532,13 +2532,6 @@
     "where": "Photos › button",
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": "start-album"
-  },
-  "gallery.adding_to": {
-    "text": "Adding {what} to",
-    "status": "draft",
-    "where": "Photos › text",
-    "who": "Everyone, on the Photos tab and inside an album",
-    "screen": ""
   },
   "help.what_is_justus": {
     "text": "What is Justus?",
