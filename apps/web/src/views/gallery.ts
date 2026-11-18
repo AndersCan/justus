@@ -51,7 +51,7 @@ import {
 } from "./photo-picker";
 import { ownerShown } from "../utils/invite-link";
 import { joinActor, joinedNow } from "../machines/sharing/join-request";
-import { joinedNotice, whoLeftRows } from "./notices";
+import { joinedNotice, whoLeftNotice } from "./notices";
 import { adminName, inviteRow, knownAdminName, waitingForAdmin } from "./invite";
 import { pendingAsks } from "./albums";
 import { openLightbox } from "./lightbox";
@@ -238,11 +238,13 @@ function photosPageOf(
   requests: JoinRequest[],
   prefs: { density: Density; sort: PhotoSort },
   foldersLoading: boolean,
+  foldersSettled: boolean,
 ) {
   return {
     ...galleryViewModel(g, status),
     folders,
     foldersLoading,
+    foldersSettled,
     status,
     lastSync: g.context.lastSyncAt ?? null,
     batch: g.context.batch,
@@ -270,6 +272,7 @@ function pageView(body: (page: PhotosPage) => unknown) {
                   sort: p.context.sort,
                 },
                 foldersLoadingOf(f),
+                foldersViewModel(f).settled,
               ),
             ),
           ),
@@ -831,8 +834,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
           ? joinedNotice(album.name)
           : null,
       )}
-      ${album.whoLeft?.length ? watch(foldersActor, (f) => whoLeftRows(album, !foldersViewModel(f).settled)) : null}
-      ${slot}
+      ${whoLeftNotice(album, !page.foldersSettled)} ${slot}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
       ${albumAddRow(page, album)}
     </div>

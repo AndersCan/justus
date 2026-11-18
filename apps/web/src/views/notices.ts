@@ -102,11 +102,15 @@ export function whoLeftText(name: string): string {
   return copy("notices.left_this_album", { name });
 }
 
-/** One line per person who left the album, each with Dismiss, until the Admin dismisses; none for other people. */
-export function whoLeftRows(folder: FolderSummary, disabled: boolean) {
-  return (folder.whoLeft ?? []).map((name, i) =>
-    noticeRow("who-left:" + folder.id + ":" + i, whoLeftText(name), folder.name, disabled, () =>
-      folders.dismissWhoLeft(folder.id, folder.name),
-    ),
+/** One notice for the album's people who left, one sentence per name and one Dismiss (it clears them all); none when nobody left. */
+export function whoLeftNotice(folder: FolderSummary, disabled: boolean) {
+  const names = folder.whoLeft ?? [];
+  if (names.length === 0) return null;
+  return noticeRow(
+    "who-left:" + folder.id,
+    names.map(whoLeftText).join(" "),
+    folder.name,
+    disabled,
+    () => folders.dismissWhoLeft(folder.id, folder.name),
   );
 }
