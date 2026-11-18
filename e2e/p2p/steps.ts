@@ -86,6 +86,44 @@ export async function pausePhone(instance) {
   return () => resume(pids);
 }
 
+const WORKLET = /\/apps\/backend\/dist\/main\.core\.gen\.js/;
+
+/** Restarts a phone the way the app restarts: its backend stops and starts again on the same storage (the hub starts it), and its page opens afresh at /index.html. */
+export async function restartPhone(page, instance) {
+  const old = (await listenerPids(instance.port)).map(Number);
+  if (old.some((pid) => paused.has(pid))) {
+    throw new Error(`${instance.id} is paused; resume it before restarting it`);
+  }
+  if (old.length === 0 || !(await portHeldBy(instance.port, WORKLET))) {
+    throw new Error(`port ${instance.port} is not a Justus worklet`);
+  }
+  for (const pid of old) process.kill(pid, "SIGKILL");
+  // 30 s: the worklet binds again in 0.2-0.4 s; one stuck reading an absent phone never binds.
+  await expect
+    .poll(
+      async () => {
+        const now = (await listenerPids(instance.port)).map(Number);
+        return (
+          now.length > 0 &&
+          now.every((pid) => !old.includes(pid)) &&
+          (await portHeldBy(instance.port, WORKLET))
+        );
+      },
+      {
+        message: `${instance.id} did not start again within 30 s`,
+        timeout: 30_000,
+        intervals: [100],
+      },
+    )
+    .toBe(true);
+  // A phone's page origin is new on every start.
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.goto("/index.html");
+}
+
 function resume(pids) {
   for (const pid of pids) {
     try {

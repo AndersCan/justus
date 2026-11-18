@@ -18,6 +18,8 @@
  *   node scripts/e2e-hub.mjs --plan --count 3
  *   node scripts/e2e-hub.mjs --count 3        # then run `playwright test`
  *
+ * A worklet stopped with SIGKILL starts again on the same storage (a test restarting a phone).
+ *
  * SIGTERM/SIGINT tears every child down in reverse-boot order (instances first,
  * then the DHT) so no orphaned process survives.
  */
@@ -133,6 +135,23 @@ async function main() {
 
   // Spawn the DHT first.
   const children = new Map();
+  // A worklet stopped with SIGKILL (a test restarting a phone) starts again on the same storage, with the
+  // spool wiped as a closed app does. Any other exit stays down, so a crash is never hidden.
+  function spawnWorklet(w) {
+    const child = spawn(bareExecutable, w.args, { stdio: "inherit" });
+    children.set(w.id, child);
+    log(`launched ${w.id} (pid=${child.pid ?? "unknown"}) on ${w.url}`);
+    child.on("exit", (code, signal) => {
+      if (shuttingDown) return;
+      if (signal !== "SIGKILL") {
+        log(`${w.id} exited (code=${code}, signal=${signal})`);
+        return;
+      }
+      log(`${w.id} was stopped; starting it again on the same storage`);
+      rmSync(resolve(w.storageDir, "cache", "photos"), { recursive: true, force: true });
+      spawnWorklet(w);
+    });
+  }
   const dht = spawn(plan.plan.dht.command, plan.plan.dht.args, {
     stdio: ["ignore", "pipe", "inherit"],
   });
@@ -146,9 +165,7 @@ async function main() {
 
   // Spawn each worklet, waiting for its port and confirming it is ours.
   for (const w of plan.plan.worklets) {
-    const child = spawn(bareExecutable, w.args, { stdio: "inherit" });
-    children.set(w.id, child);
-    log(`launched ${w.id} (pid=${child.pid ?? "unknown"}) on ${w.url}`);
+    spawnWorklet(w);
     if (!(await waitForPort(w.port, 30_000))) {
       log(`ERROR: ${w.id} did not bind port ${w.port} within 30s.`);
       await shutdown(children, plan);
@@ -174,7 +191,10 @@ async function main() {
   process.stdin.resume();
 }
 
+let shuttingDown = false;
+
 async function shutdown(children, plan) {
+  shuttingDown = true;
   log("shutting down...");
   // cleanup.order is reverse-boot: instances first, then the DHT.
   for (const id of plan.cleanup.order) {
