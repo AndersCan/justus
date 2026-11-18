@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.view.View
+import android.view.WindowManager
 import android.util.Log
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -231,7 +232,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        Log.i("JUSTUS_ANDROID", "lock pause lockEnabled=${lockEnabled(this)} webView=${::webView.isInitialized}")
         if (::webView.isInitialized && lockEnabled(this)) {
             covered = true
             renderLock()
@@ -267,10 +267,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyRecentsScreenshot() {
+        // Recents opened straight from the app shows a task snapshot that setRecentsScreenshotEnabled
+        // does not cover; a secure window is blank there on every API level.
+        if (lockEnabled(this)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val enabled = !lockEnabled(this)
-            Log.i("JUSTUS_ANDROID", "recents screenshot enabled=$enabled")
-            setRecentsScreenshotEnabled(enabled)
+            setRecentsScreenshotEnabled(!lockEnabled(this))
         }
     }
 
