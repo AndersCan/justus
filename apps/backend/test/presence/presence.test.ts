@@ -167,14 +167,44 @@ describe("presence data", () => {
     expect(events[0]?.fields?.member).toBeUndefined();
   });
 
-  it("a peer that connected and closed before its member was learned has a last seen", () => {
+  async function learnPeer(p: Presence, peerKey: string) {
+    const drive = await device(createFakeHub()).drives.openOwn("x");
+    await drive.put("/device.json", Buffer.from(JSON.stringify({ swarmKey: peerKey })));
+    await learnDevices(p, {
+      sources: [{ memberKey: hex("1"), drive }],
+      timeoutMs: 50,
+      verify: () => false,
+      log: () => {},
+    });
+  }
+
+  it("a peer that connected and closed before its member was learned has a last seen that survives a restart", async () => {
     const p = createPresence({ lastSeen: [] });
     const { log } = logs();
     peerConnected(p, { peerKey: hex("2"), log });
     expect(peerDisconnected(p, { peerKey: hex("2"), now: 7000, log })).toBe("unknown-peer-down");
-    p.peerKeys.set(hex("1"), hex("2"));
+    await learnPeer(p, hex("2"));
     expect(memberPresence(p, hex("1"))).toEqual({ connected: false, lastSeenAt: 7000 });
-    expect(p.lastSeen.size).toBe(0);
+    const after = createPresence({ lastSeen: parseLastSeen(serializeLastSeen(p)) });
+    expect(memberPresence(after, hex("1")).lastSeenAt).toBe(7000);
+  });
+
+  it("a close before the member was learned wins over an older saved last seen", async () => {
+    const p = createPresence({ lastSeen: [[hex("1"), 1000]] });
+    const { log } = logs();
+    peerConnected(p, { peerKey: hex("2"), log });
+    peerDisconnected(p, { peerKey: hex("2"), now: 7000, log });
+    await learnPeer(p, hex("2"));
+    expect(memberPresence(p, hex("1"))).toEqual({ connected: false, lastSeenAt: 7000 });
+  });
+
+  it("a saved last seen newer than an unknown close wins", async () => {
+    const p = createPresence({ lastSeen: [[hex("1"), 9000]] });
+    const { log } = logs();
+    peerConnected(p, { peerKey: hex("2"), log });
+    peerDisconnected(p, { peerKey: hex("2"), now: 7000, log });
+    await learnPeer(p, hex("2"));
+    expect(memberPresence(p, hex("1"))).toEqual({ connected: false, lastSeenAt: 9000 });
   });
 
   it("a disconnect for a peer that never connected is an unknown peer going down", () => {
