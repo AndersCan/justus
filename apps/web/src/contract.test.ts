@@ -111,8 +111,8 @@ describe("machines on real backend payloads", () => {
     expect(noteShown).toHaveBeenCalledTimes(
       fixture.pushes.filter((p) => p.cause === "deleted").length,
     );
-    // A holders or deleted push does not refresh sync; only the rest but presence reload the gallery.
-    const quiet = (c: unknown) => c === "holders" || c === "deleted";
+    // A deleted push does not refresh sync; only the rest but presence reload the gallery.
+    const quiet = (c: unknown) => c === "deleted";
     expect(refresh).toHaveBeenCalledTimes(fixture.pushes.filter((p) => !quiet(p.cause)).length);
     expect(load).toHaveBeenCalledTimes(
       fixture.pushes.filter((p) => p.cause !== "presence" && p.cause !== "deleted").length,

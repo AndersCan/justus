@@ -81,9 +81,10 @@ export function handleMessage(msg: WireMessage) {
       sync.refresh();
       return;
     }
-    // Who holds a photo changed: only the open photo's line needs the new list.
+    // Who holds a photo changed: the open photo's line and the album page's still-to-drop line need it.
     if (changeCause(h) === "holders") {
       gallery.load();
+      sync.refresh();
       return;
     }
     // A delete found by a list that is already current: tell the person, reload nothing.
@@ -92,10 +93,11 @@ export function handleMessage(msg: WireMessage) {
       deletedNote.add(deleted);
       return;
     }
-    // A friend's phone let go of a photo this phone deleted: tell the person, reload nothing.
+    // A friend's phone let go of a deleted photo: tell the person, and re-read who still has one.
     const dropped = droppedOf(h.args);
     if (dropped) {
       droppedToast.show(dropped);
+      sync.refresh();
       return;
     }
     gallery.synced(Date.now());

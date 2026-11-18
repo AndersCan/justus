@@ -2141,6 +2141,13 @@
     "who": "Everyone in an album, under who is connected",
     "screen": ""
   },
+  "gallery.still_to_drop": {
+    "text": "{list} {n?phone still has:phones still have} {photos?a deleted photo:deleted photos}. {n?It drops:They drop} {photos?it:them} when {n?it connects:they connect}.",
+    "status": "draft",
+    "where": "Photos › Album › text",
+    "who": "Everyone in an album where the Admin deleted a photo a phone that is off still has",
+    "screen": ""
+  },
   "gallery.photos_coming": {
     "text": "{count} {count?photo:photos} coming",
     "status": "draft",

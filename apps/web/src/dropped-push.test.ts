@@ -22,7 +22,7 @@ const push = (args: unknown) =>
 afterEach(() => vi.restoreAllMocks());
 
 describe("dropped push", () => {
-  it("reloads nothing", () => {
+  it("re-reads the status and reloads no photos", () => {
     const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
     const refresh = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     handleMessage(
@@ -33,7 +33,7 @@ describe("dropped push", () => {
       }),
     );
     expect(load).not.toHaveBeenCalled();
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("names a friend as the delete toast just did", () => {

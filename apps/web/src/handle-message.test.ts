@@ -68,13 +68,16 @@ describe("handleMessage", () => {
 });
 
 describe("handleMessage holders", () => {
-  it("a holders push reloads the gallery and not the albums", () => {
+  it("a holders push reloads the gallery and the status, and not the albums", () => {
     const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
+    const status = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     const refresh = vi.spyOn(folders, "refresh").mockImplementation(() => {});
     handleMessage(push({ cause: "holders" }));
     expect(load).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenCalledTimes(1);
     expect(refresh).not.toHaveBeenCalled();
     load.mockRestore();
+    status.mockRestore();
     refresh.mockRestore();
   });
 });
@@ -202,14 +205,14 @@ describe("handleMessage deleted", () => {
 describe("handleMessage dropped", () => {
   const dropped = { people: [{ key: "k1", name: "Ben" }] };
 
-  it("a dropped push tells the toast and reloads nothing", () => {
+  it("a dropped push tells the toast and re-reads the status", () => {
     const spy = vi.spyOn(droppedToast, "show").mockImplementation(() => {});
     const load = vi.spyOn(gallery, "load").mockImplementation(() => {});
     const refresh = vi.spyOn(sync, "refresh").mockImplementation(() => {});
     handleMessage(push({ cause: "dropped", folderId: "f1", dropped }));
     expect(spy).toHaveBeenCalledWith({ folderId: "f1", people: dropped.people });
     expect(load).not.toHaveBeenCalled();
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
 
