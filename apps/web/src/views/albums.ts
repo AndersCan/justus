@@ -18,7 +18,7 @@ import { friendsActor } from "../machines/friends-machine";
 import { people } from "../machines/people-machine";
 import { currentPage, onPageChange, open, type AppPage } from "../machines/router-machine";
 import { onStateChange } from "../machines/actor-utils";
-import { ownerShown, parseInviteLink } from "../utils/invite-link";
+import { parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
 import { deletedNoticeText, noticeRow, youLeftText } from "./notices";
@@ -86,6 +86,8 @@ const changeVerbs = {
   archive: "archive",
   restore: "restore",
   leave: "leave",
+  handOver: copy("albums.verb_hand_over"),
+  stayAdmin: copy("albums.verb_stay_admin"),
   delete: "delete",
   dismiss: copy("albums.dismiss_the_notice_for"),
   dismissWhoLeft: copy("albums.dismiss_the_notice_for"),
@@ -108,6 +110,7 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
       action: { label: copy("albums.undo"), run: () => folders.restore(folderId, name) },
     });
   }
+  if (prev === "stayingAdmin") toast(copy("album.stays_with_you", { album: name }));
   if (prev === "restoringAlbum") toast(copy("albums.is_back_in_your_albums", { name }));
   if (prev === "leavingAlbum") {
     open("/sharing");
@@ -299,7 +302,7 @@ function askRow(ask: AskSummary) {
       ? copy("albums.not_accepted")
       : ask.status === "linkOff"
         ? copy("albums.link_no_longer_works")
-        : copy("albums.waiting_for_to_accept", { ownerName: ownerShown(ask.ownerName, "mid") });
+        : copy("albums.waiting_for_the_admin");
   const muted = ask.status !== "waiting";
   return html`
     <li data-motion-key=${"ask:" + ask.code}>

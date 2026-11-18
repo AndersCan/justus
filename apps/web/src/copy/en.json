@@ -1616,13 +1616,6 @@
     "who": "Everyone, every time they open Your albums",
     "screen": ""
   },
-  "albums.waiting_for_to_accept": {
-    "text": "Waiting for {ownerName} to accept",
-    "status": "draft",
-    "where": "Your albums › text",
-    "who": "Everyone, every time they open Your albums",
-    "screen": ""
-  },
   "albums.album_you_asked_to_join": {
     "text": "Album you asked to join",
     "status": "draft",
@@ -2702,7 +2695,7 @@
     "screen": ""
   },
   "help.the_admin_is_the_person": {
-    "text": "The Admin is the person who started the album. They decide who joins, and they can remove people, and let people who can only look add photos.",
+    "text": "The Admin is the person who started the album, or who it was handed to. They decide who joins, and they can remove people, and let people who can only look add photos.",
     "status": "draft",
     "where": "Help › text",
     "who": "People who open Help from Settings",
@@ -4519,6 +4512,97 @@
     "status": "draft",
     "where": "Add shared photos › text",
     "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "hand_over_sheet.who_takes_over": {
+    "text": "Who takes over {album}?",
+    "status": "draft",
+    "where": "Album › Leave album › sheet",
+    "who": "Admins who leave an album with several Collaborators",
+    "screen": ""
+  },
+  "hand_over_sheet.can_add_photos_now": {
+    "text": "Can add photos now",
+    "status": "draft",
+    "where": "Album › Leave album › sheet",
+    "who": "Admins who leave an album with several Collaborators",
+    "screen": ""
+  },
+  "hand_over_sheet.close": {
+    "text": "Close",
+    "status": "draft",
+    "where": "Album › Leave album › sheet",
+    "who": "Admins who leave an album with several Collaborators",
+    "screen": ""
+  },
+  "album.hand_over_title": {
+    "text": "Hand {album} to {name} and leave?",
+    "status": "draft",
+    "where": "Album › Leave album › dialog",
+    "who": "Admins leaving an album",
+    "screen": ""
+  },
+  "album.hand_over_detail": {
+    "text": "{name} becomes the Admin and accepts new people from now on. Old invite links go to {name}. {album} disappears from this phone and you drop off the people list. You can't take it back.",
+    "status": "draft",
+    "where": "Album › Leave album › dialog",
+    "who": "Admins leaving an album",
+    "screen": ""
+  },
+  "album.hand_over_stay": {
+    "text": "Stay Admin",
+    "status": "draft",
+    "where": "Album › Leave album › button",
+    "who": "Admins leaving an album",
+    "screen": ""
+  },
+  "album.hand_over_confirm": {
+    "text": "Hand over and leave",
+    "status": "draft",
+    "where": "Album › Leave album › button",
+    "who": "Admins leaving an album",
+    "screen": ""
+  },
+  "album.handing_over": {
+    "text": "Handing {album} to {name}. It finishes when {name}'s phone is on.",
+    "status": "draft",
+    "where": "Album › text",
+    "who": "Admins who are handing an album over",
+    "screen": ""
+  },
+  "album.stays_with_you": {
+    "text": "{album} stays with you.",
+    "status": "draft",
+    "where": "Album › toast",
+    "who": "Admins who called a handover off",
+    "screen": ""
+  },
+  "notices.made_admin": {
+    "text": "{fromName} handed {album} to you. You're the Admin now: you accept new people.",
+    "status": "draft",
+    "where": "Album › text",
+    "who": "The person an album was handed to",
+    "screen": ""
+  },
+  "albums.waiting_for_the_admin": {
+    "text": "Waiting for the album's Admin to accept",
+    "status": "draft",
+    "where": "Your albums › text",
+    "who": "Everyone, every time they open Your albums",
+    "screen": ""
+  },
+  "albums.verb_hand_over": {
+    "text": "hand over",
+    "status": "draft",
+    "where": "Album › toast, after “Couldn't {action} …”",
+    "who": "Admins leaving an album",
+    "screen": ""
+  },
+  "albums.verb_stay_admin": {
+    "text": "call off the handover of",
+    "status": "draft",
+    "where": "Album › toast, after “Couldn't {action} …”",
+    "who": "Admins leaving an album",
     "screen": ""
   }
 }

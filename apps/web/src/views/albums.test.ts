@@ -188,7 +188,7 @@ describe("pending asks", () => {
     render(pendingAsks(), host);
     await load(["a"], [ask("waiting")]);
     const section = host.querySelector("section[aria-label='Waiting to join']");
-    expect(section?.textContent).toContain("Waiting for Anna to accept");
+    expect(section?.textContent).toContain("Waiting for the album's Admin to accept");
     expect(section?.querySelectorAll("li")).toHaveLength(1);
     section?.querySelector("button")?.click();
     await vi.waitFor(() => expect(joinActor.snapshot().path[0]).toBe("waitingForAdminToAccept"));
@@ -224,12 +224,11 @@ describe("pending asks", () => {
     );
   });
 
-  test("a stored ask from an older version reads as the person who invited you", async () => {
+  test("a stored ask from an older version reads as the album's Admin", async () => {
     const host = document.createElement("div");
     render(albumsPanel(), host);
     await load(["a"], [{ ...ask("waiting"), ownerName: "the Admin" }]);
-    expect(host.textContent).toContain("Waiting for the person who invited you to accept");
-    expect(host.textContent).not.toContain("Admin");
+    expect(host.textContent).toContain("Waiting for the album's Admin to accept");
   });
 
   test("a request whose Admin has not answered names no album", async () => {
@@ -238,7 +237,7 @@ describe("pending asks", () => {
     await load(["a"], [{ ...ask("waiting"), albumName: "", ownerName: "" }]);
     const row = host.querySelector("button[aria-label*='Album you asked to join']");
     expect(row?.getAttribute("aria-label")).toBe(
-      "Waiting for the person who invited you to accept: Album you asked to join",
+      "Waiting for the album's Admin to accept: Album you asked to join",
     );
     expect(row?.textContent).toContain("Album you asked to join");
   });
@@ -247,7 +246,7 @@ describe("pending asks", () => {
     const host = document.createElement("div");
     render(albumsPanel(), host);
     await load(["a"], [ask("waiting"), { ...ask("declined"), code: "c2" }]);
-    expect(host.textContent).toContain("Waiting for Anna to accept");
+    expect(host.textContent).toContain("Waiting for the album's Admin to accept");
     expect(host.textContent).toContain("Not accepted");
   });
 });
@@ -260,7 +259,7 @@ describe("Join tab", () => {
     const sections = host.querySelectorAll("section[aria-label='Waiting to join']");
     expect(sections).toHaveLength(1);
     expect(sections[0].textContent).toContain("Summer trip");
-    expect(sections[0].textContent).toContain("Waiting for Anna to accept");
+    expect(sections[0].textContent).toContain("Waiting for the album's Admin to accept");
     const input = host.querySelector("input[aria-label='Invite link']") as Node;
     expect(
       sections[0].compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,

@@ -26,6 +26,8 @@ export const FOLDERS_STATES = [
   "archivingAlbum",
   "restoringAlbum",
   "leavingAlbum",
+  "handingOverAlbum",
+  "stayingAdmin",
   "deletingAlbum",
   "dismissingDeletedNotice",
   "dismissingWhoLeft",
@@ -61,6 +63,8 @@ export function foldersViewModel(s: Snapshot<FoldersContext>) {
       state === "archivingAlbum" ||
       state === "restoringAlbum" ||
       state === "leavingAlbum" ||
+      state === "handingOverAlbum" ||
+      state === "stayingAdmin" ||
       state === "deletingAlbum" ||
       state === "dismissingDeletedNotice" ||
       state === "dismissingWhoLeft",
@@ -94,6 +98,10 @@ const archivingAlbum = state("archivingAlbum")();
 const restoringAlbum = state("restoringAlbum")();
 /** The person confirmed Leave and the album is being removed from this phone. */
 const leavingAlbum = state("leavingAlbum")();
+/** The Admin confirmed a Collaborator to hand the album to; the album stays the Admin's until that phone has it. */
+const handingOverAlbum = state("handingOverAlbum")();
+/** The Admin taps Stay Admin and the handover is being called off. */
+const stayingAdmin = state("stayingAdmin")();
 /** The Admin confirmed Delete and the album is being removed for everyone. */
 const deletingAlbum = state("deletingAlbum")();
 /** The notice about a deleted album is being dismissed. */
@@ -130,6 +138,10 @@ const archiveAlbum = event("ARCHIVE_ALBUM")<AlbumTarget>();
 const restoreAlbum = event("RESTORE_ALBUM")<AlbumTarget>();
 /** The person confirmed leaving an album. */
 const leaveAlbum = event("LEAVE_ALBUM")<AlbumTarget>();
+/** The Admin confirmed handing an album to a Collaborator. */
+const handOverAlbum = event("HAND_OVER_ALBUM")<AlbumTarget & { memberKey: string }>();
+/** The Admin calls a handover off. */
+const stayAdmin = event("STAY_ADMIN")<AlbumTarget>();
 /** The Admin confirmed deleting an album for everyone. */
 const deleteAlbum = event("DELETE_ALBUM")<AlbumTarget>();
 /** The person dismisses the notice about a deleted album. */
@@ -168,8 +180,16 @@ export const nameSeen = event("NAME_SEEN")<{ name: string }>();
 /** The new name was saved and should be shown everywhere. */
 const renamed = event("RENAMED")<{ name: string }>();
 
-type AlbumTarget = { folderId: string; name: string; removed?: true };
-type AlbumChange = "archive" | "restore" | "leave" | "delete" | "dismiss" | "dismissWhoLeft";
+type AlbumTarget = { folderId: string; name: string; removed?: true; memberKey?: string };
+type AlbumChange =
+  | "handOver"
+  | "stayAdmin"
+  | "archive"
+  | "restore"
+  | "leave"
+  | "delete"
+  | "dismiss"
+  | "dismissWhoLeft";
 
 type FoldersContext = {
   /** The name others see; the backend holds it, so status and onboarding report it here. */
@@ -200,6 +220,8 @@ type FoldersPort = Pick<
   | "archiveAlbum"
   | "restoreAlbum"
   | "leaveAlbum"
+  | "handOverAlbum"
+  | "stayAdmin"
   | "deleteAlbum"
   | "dismissAlbumNotice"
   | "dismissWhoLeft"
@@ -225,6 +247,8 @@ const changeStates = [
   ["archive", archivingAlbum, archiveAlbum],
   ["restore", restoringAlbum, restoreAlbum],
   ["leave", leavingAlbum, leaveAlbum],
+  ["handOver", handingOverAlbum, handOverAlbum],
+  ["stayAdmin", stayingAdmin, stayAdmin],
   ["delete", deletingAlbum, deleteAlbum],
   ["dismiss", dismissingDeletedNotice, dismissDeletedNotice],
   ["dismissWhoLeft", dismissingWhoLeft, dismissWhoLeft],
@@ -271,6 +295,8 @@ function runChange(
     archive: port.archiveAlbum,
     restore: port.restoreAlbum,
     leave: port.leaveAlbum,
+    handOver: (folderId: string) => port.handOverAlbum(folderId, pending.memberKey ?? ""),
+    stayAdmin: port.stayAdmin,
     delete: port.deleteAlbum,
     dismiss: port.dismissAlbumNotice,
     dismissWhoLeft: port.dismissWhoLeft,
@@ -325,6 +351,8 @@ export const foldersMachine = machine("folders", {
         archiveAlbum,
         restoreAlbum,
         leaveAlbum,
+        handOverAlbum,
+        stayAdmin,
         deleteAlbum,
         dismissDeletedNotice,
         dismissWhoLeft,
@@ -352,6 +380,8 @@ export const foldersMachine = machine("folders", {
         archivingAlbum,
         restoringAlbum,
         leavingAlbum,
+        handingOverAlbum,
+        stayingAdmin,
         deletingAlbum,
         dismissingDeletedNotice,
         dismissingWhoLeft,
@@ -733,6 +763,32 @@ export const foldersMachine = machine("folders", {
           fn: (args) => runChange(port, args),
         });
         for (const at of settledStates) {
+          /** The Admin hands the album to a Collaborator; the screen shows it is busy. */
+          m.on(at, {
+            event: handOverAlbum,
+            to: [handingOverAlbum],
+            handler: startChange("handOver", handingOverAlbum),
+          });
+          /** The Admin calls the handover off; the screen shows it is busy. */
+          m.on(at, {
+            event: stayAdmin,
+            to: [stayingAdmin],
+            handler: startChange("stayAdmin", stayingAdmin),
+          });
+        }
+        /** The handover is written down, then the lists are loaded again so the album shows it is being handed over. */
+        m.effect(handingOverAlbum, {
+          name: "handingOverAlbum",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        /** The handover is called off, then the lists are loaded again. */
+        m.effect(stayingAdmin, {
+          name: "stayingAdmin",
+          sends: [loaded, albumChangeFailed],
+          fn: (args) => runChange(port, args),
+        });
+        for (const at of settledStates) {
           /** The Admin deletes an album; the screen shows it is busy. */
           m.on(at, {
             event: deleteAlbum,
@@ -860,6 +916,10 @@ export const folders = {
     foldersActor.send(
       leaveAlbum.create(removed ? { folderId, name, removed: true } : { folderId, name }),
     ),
+  handOver: (folderId: string, name: string, memberKey: string) =>
+    foldersActor.send(handOverAlbum.create({ folderId, name, memberKey })),
+  stayAdmin: (folderId: string, name: string) =>
+    foldersActor.send(stayAdmin.create({ folderId, name })),
   delete: (folderId: string, name: string) =>
     foldersActor.send(deleteAlbum.create({ folderId, name })),
   dismissYouLeft: () => foldersActor.send(dismissYouLeft.create()),

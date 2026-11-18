@@ -425,6 +425,8 @@ describe("album lifecycle in the folders machine", () => {
       archiveAlbum: ok(),
       restoreAlbum: ok(),
       leaveAlbum: ok(),
+      handOverAlbum: ok(),
+      stayAdmin: ok(),
       deleteAlbum: ok(),
       dismissAlbumNotice: ok(),
       dismissWhoLeft: ok(),
@@ -507,6 +509,32 @@ describe("album lifecycle in the folders machine", () => {
     send(actor, "DISMISS_DELETED_NOTICE", { folderId: "f2", name: "Hytta" });
     await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
     expect(actor.snapshot().context.deleted).toEqual([notice]);
+  });
+
+  test("handing over passes the chosen person and is busy meanwhile", async () => {
+    const { actor, gw } = await loaded();
+    send(actor, "HAND_OVER_ALBUM", { ...trip, memberKey: "ben" });
+    expect(path(actor)).toBe("handingOverAlbum");
+    expect(foldersViewModel(actor.snapshot()).busy).toBe(true);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(gw.handOverAlbum).toHaveBeenCalledWith("f1", "ben");
+  });
+
+  test("Stay Admin calls the handover off", async () => {
+    const { actor, gw } = await loaded();
+    send(actor, "STAY_ADMIN", trip);
+    expect(path(actor)).toBe("stayingAdmin");
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(gw.stayAdmin).toHaveBeenCalledWith("f1");
+  });
+
+  test("a failed handover keeps the album and names what failed", async () => {
+    const { actor } = await loaded({
+      handOverAlbum: vi.fn().mockResolvedValue([{ message: "no" }, null]),
+    });
+    send(actor, "HAND_OVER_ALBUM", { ...trip, memberKey: "ben" });
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotChangeAlbum"));
+    expect(actor.snapshot().context.pendingChange?.kind).toBe("handOver");
   });
 
   test("leaving as a removed person keeps removed on the change", async () => {

@@ -113,6 +113,11 @@ export const gateway = {
   restoreAlbum: (folderId: string) => invoke(photoEvents.photos.restoreAlbum(folderId)),
   /** Takes the album and the photos this phone added off the phone; the Admin cannot leave. */
   leaveAlbum: (folderId: string) => invoke(photoEvents.photos.leaveAlbum(folderId)),
+  /** Admin only: hands the album to a Collaborator and leaves once their phone has it. */
+  handOverAlbum: (folderId: string, memberKey: string) =>
+    invoke(photoEvents.photos.handOver(folderId, memberKey)),
+  /** Admin only: calls a handover off while the new Admin's phone has not confirmed it. */
+  stayAdmin: (folderId: string) => invoke(photoEvents.photos.stayAdmin(folderId)),
   /** Admin only: removes the album and every photo in it from every member's phone. */
   deleteAlbum: (folderId: string) => invoke(photoEvents.photos.deleteAlbum(folderId)),
   dismissWhoLeft: (folderId: string) => invoke(photoEvents.photos.dismissWhoLeft(folderId)),

@@ -246,7 +246,7 @@ test("a link holder with an edited link who opens, asks, waits, is declined, ask
   await b.goto("/join");
   await b
     .getByRole("button", {
-      name: new RegExp(`^${pattern("albums.waiting_for_to_accept").source}: ${album}$`),
+      name: new RegExp(`^${pattern("albums.waiting_for_the_admin").source}: ${album}$`),
     })
     .click();
   await b.getByRole("button", { name: words("invite.cancel_request"), exact: true }).click();

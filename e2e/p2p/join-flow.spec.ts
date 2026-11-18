@@ -659,10 +659,12 @@ test("B asks by link, A turns off the links: B is told the link no longer works 
   await b.goto("/join");
   await expect(b.getByRole("button", { name: "Link no longer works: Off trip" })).toHaveCount(0);
   await expect(
-    b.getByRole("button", { name: /^Waiting for .+ to accept: Off trip$/ }),
+    b.getByRole("button", { name: /^Waiting for the album.s Admin to accept: Off trip$/ }),
   ).toBeVisible();
 
-  await b.getByRole("button", { name: /^Waiting for .+ to accept: Off trip$/ }).click();
+  await b
+    .getByRole("button", { name: /^Waiting for the album.s Admin to accept: Off trip$/ })
+    .click();
   await b.getByRole("button", { name: "Cancel request", exact: true }).click();
   await expect(b.getByRole("button", { name: /Off trip/ })).toHaveCount(0);
 });
