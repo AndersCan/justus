@@ -311,3 +311,19 @@ describe("listsDigest after takeAdminRecords (plan step 3b)", () => {
     expect(await listsDigest(to, hash)).toBe(out?.digest);
   });
 });
+
+describe("plan step 3(a): the leaving Admin can check the reply's digest", () => {
+  it("the Admin's digest less the next Admin, the reply's digest and the next Admin's own digest are equal", async () => {
+    const drives = store();
+    const SELF = "b".repeat(64);
+    const from = await drives.openOwn("from");
+    await from.put("/members.json", members(SELF, "c".repeat(64)));
+    await from.put("/folder.json", json({ version: 1, name: "Summer" }));
+    const to = await drives.openOwn("to");
+    const [, out] = await takeAdminRecords(from, to, { self: SELF, hash });
+    const mine = await listsDigest(from, hash, { without: SELF });
+    expect(mine).toBe(out?.digest);
+    expect(mine).toBe(await listsDigest(to, hash));
+    expect(await listsDigest(from, hash)).not.toBe(mine);
+  });
+});

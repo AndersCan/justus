@@ -30,7 +30,7 @@ new Admin.
 4. **Peer messages** (`handover`, `handoverReady`, `handoverDone`) carry the package of links, retired codes and answers.
    `handoverReady` carries `listsDigest` of the lists as the next Admin copied
    them; the leaving Admin finishes only when it matches the digest of the lists
-   it sent, less itself.
+   it sent, less the next Admin (`listsDigest` with `without`).
 5. **Version 1 only.** Another version is not followed.
 
 ## Consequences

@@ -43,9 +43,26 @@ function digestOf(texts: ReadonlyArray<string | undefined>, hash: (text: string)
   return hash(texts.map((t) => `${(t ?? "").length}:${t ?? ""}`).join("\n"));
 }
 
-/** sha-256 (by `hash`) of the six list files' texts as read, a missing file as "". */
-export async function listsDigest(drive: Drive, hash: (text: string) => string): Promise<string> {
-  return digestOf(await readLists(drive), hash);
+/** The `/members.json` text with `without` left out, as {@link takeAdminRecords} writes it. */
+function membersWithout(text: string | undefined, without: string): string {
+  const registry = parseRegistry(text ?? null);
+  const members = Object.fromEntries(
+    Object.entries(registry.members).filter(([, m]) => m.key !== without),
+  );
+  return JSON.stringify({ version: 1, members });
+}
+
+/** sha-256 (by `hash`) of the six list files' texts as read, a missing file as "". With `without`, the members are rewritten less that key, as {@link takeAdminRecords} writes them: the leaving Admin passes the next Admin's key to get the digest the reply must carry. */
+export async function listsDigest(
+  drive: Drive,
+  hash: (text: string) => string,
+  options: { without?: string } = {},
+): Promise<string> {
+  const texts = await readLists(drive);
+  if (options.without !== undefined) {
+    texts[LIST_PATHS.length - 1] = membersWithout(texts[LIST_PATHS.length - 1], options.without);
+  }
+  return digestOf(texts, hash);
 }
 
 /** Copies the six list files from the Admin's drive onto the next Admin's own drive, leaving `self` out of the members (an Admin is never in their own list). Writes `/members.json` last. Returns the digest of what was written, the same {@link listsDigest} gives for the next Admin's drive. */
@@ -60,11 +77,7 @@ export async function takeAdminRecords(
       const text = texts[i];
       if (text !== undefined) await to.put(LIST_PATHS[i], Buffer.from(text));
     }
-    const registry = parseRegistry(texts[LIST_PATHS.length - 1] ?? null);
-    const members = Object.fromEntries(
-      Object.entries(registry.members).filter(([, m]) => m.key !== options.self),
-    );
-    const membersText = JSON.stringify({ version: 1, members });
+    const membersText = membersWithout(texts[LIST_PATHS.length - 1], options.self);
     await to.put(DRIVE_PATH_MEMBERS, Buffer.from(membersText));
     const written = [...texts.slice(0, LIST_PATHS.length - 1), membersText];
     return [null, { digest: digestOf(written, options.hash) }];
