@@ -342,6 +342,14 @@ describe("parseAnswer", () => {
     });
   });
 
+  test("keeps adminDrive when it is a key other than shareKey, else drops it and keeps the answer", () => {
+    const base = { code: k1, answer: "accepted", shareKey: k2 };
+    expect(parseAnswer({ ...base, adminDrive: k1 })).toEqual({ ...base, adminDrive: k1 });
+    for (const bad of [k2, "abc", 1, null]) {
+      expect(parseAnswer({ ...base, adminDrive: bad })).toEqual(base);
+    }
+  });
+
   test("keeps movedFrom when every item is a key, else drops it and keeps the answer", () => {
     const base = { code: k1, answer: "accepted", shareKey: k2 };
     expect(parseAnswer({ ...base, movedFrom: [k1, k2] })).toEqual({ ...base, movedFrom: [k1, k2] });
