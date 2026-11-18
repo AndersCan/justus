@@ -1497,13 +1497,6 @@
     "who": "Everyone, every time they open Your albums",
     "screen": ""
   },
-  "albums.you_left": {
-    "text": "You left “{name}”",
-    "status": "draft",
-    "where": "Your albums › toast",
-    "who": "Everyone, every time they open Your albums",
-    "screen": ""
-  },
   "albums.deleted": {
     "text": "Deleted “{name}”",
     "status": "draft",
@@ -3518,6 +3511,13 @@
     "status": "draft",
     "where": "Album › notice",
     "who": "People who asked to join, once accepted",
+    "screen": ""
+  },
+  "notices.you_left": {
+    "text": "You left “{albumName}”.",
+    "status": "draft",
+    "where": "Your albums › notice",
+    "who": "People who left an album",
     "screen": ""
   },
   "notices.you_re_no_longer_in": {

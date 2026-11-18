@@ -21,7 +21,7 @@ import { onStateChange } from "../machines/actor-utils";
 import { ownerShown, parseInviteLink } from "../utils/invite-link";
 import { errorBanner } from "./error-banner";
 import { gridMotion } from "./grid-motion";
-import { deletedNoticeText } from "./notices";
+import { deletedNoticeText, youLeftText } from "./notices";
 import { toast } from "./toast";
 
 import { copy, t } from "../copy/copy";
@@ -110,20 +110,13 @@ onStateChange(foldersActor, FOLDERS_STATES, (next, prev) => {
   if (prev === "restoringAlbum") toast(copy("albums.is_back_in_your_albums", { name }));
   if (prev === "leavingAlbum") {
     open("/sharing");
-    toast(leaveToast(change));
+    if (change.removed) toast(copy("albums.deleted_from_this_phone", { name }));
   }
   if (prev === "deletingAlbum") {
     open("/sharing");
     toast(copy("albums.deleted", { name }));
   }
 });
-
-/** What a finished leave says: a removed person deleted the album, anyone else left. */
-export function leaveToast(change: { name: string; removed?: true }): string {
-  return change.removed
-    ? copy("albums.deleted_from_this_phone", { name: change.name })
-    : copy("albums.you_left", { name: change.name });
-}
 
 /** True when the open page is an album that was listed before and is in no list now. */
 export function albumVanished(
@@ -276,26 +269,49 @@ export function archivedSummary(count: number, waiting: number): string {
   });
 }
 
+/** One notice line with a Dismiss button, in the look of the album notices. */
+function noticeRow(
+  key: string,
+  text: string,
+  albumName: string,
+  disabled: boolean,
+  run: () => void,
+) {
+  return html`<div
+    data-motion-key=${key}
+    class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
+  >
+    <p class="min-w-0 flex-1 text-sm text-fg" role="status">${text}</p>
+    <button
+      class="ui-btn-ghost shrink-0"
+      aria-label=${copy("albums.dismiss_notice_about", { name: albumName })}
+      ?disabled=${disabled}
+      @click=${run}
+    >
+      ${t("albums.dismiss")}
+    </button>
+  </div>`;
+}
+
+/** The line saying the person left an album, until dismissed; none otherwise. */
+function youLeftNotice(view: FoldersViewModel) {
+  const left = view.youLeft;
+  if (!left) return null;
+  return noticeRow("left:" + left.folderId, youLeftText(left.name), left.name, !view.settled, () =>
+    folders.dismissYouLeft(),
+  );
+}
+
 /** One notice per album the Admin deleted, newest first, until dismissed. */
 function deletedNotices(view: FoldersViewModel) {
   const newestFirst: DeletedAlbum[] = [...view.deleted].reverse();
   return repeat(
     newestFirst,
     (d) => d.id,
-    (d) => html`<div
-      data-motion-key=${"notice:" + d.id}
-      class="flex items-center gap-3 rounded-xl bg-subtle px-4 py-2.5 ring-1 ring-trust-amber/40"
-    >
-      <p class="min-w-0 flex-1 text-sm text-fg" role="status">${deletedNoticeText(d)}</p>
-      <button
-        class="ui-btn-ghost shrink-0"
-        aria-label=${copy("albums.dismiss_notice_about", { name: d.name })}
-        ?disabled=${!view.settled}
-        @click=${() => folders.dismissNotice(d.id, d.name)}
-      >
-        ${t("albums.dismiss")}
-      </button>
-    </div>`,
+    (d) =>
+      noticeRow("notice:" + d.id, deletedNoticeText(d), d.name, !view.settled, () =>
+        folders.dismissNotice(d.id, d.name),
+      ),
   );
 }
 
@@ -371,6 +387,7 @@ function albumListKeys(view: FoldersViewModel): string[] {
 /** Every row key on Your albums: the page slides its sections when any of them changes. */
 function pageKeys(view: FoldersViewModel): string[] {
   return [
+    ...(view.youLeft ? ["left:" + view.youLeft.folderId] : []),
     ...view.deleted.map((d) => "notice:" + d.id),
     ...albumListKeys(view),
     ...view.archived.map((f) => "archived:" + f.id),
@@ -578,7 +595,7 @@ export function albumsPanel() {
         view.state === "couldNotLoadAlbums" && !view.fatal ? () => folders.retry() : undefined,
         view.fatal ? () => window.location.reload() : undefined,
       )}
-      ${deletedNotices(view)}
+      ${youLeftNotice(view)} ${deletedNotices(view)}
       <p class="text-sm text-muted" data-motion-key="section:hint">${albumsHint(view.folders)}</p>
       <div data-motion-key="section:albums">${albumList(view)}</div>
       ${archivedSection(view)} ${newAlbumSection(view)}

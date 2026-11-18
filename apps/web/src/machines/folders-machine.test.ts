@@ -510,6 +510,50 @@ describe("album lifecycle in the folders machine", () => {
     });
   });
 
+  test("a finished leave keeps the album left, a removed person's does not", async () => {
+    const { actor } = await loaded();
+    send(actor, "LEAVE_ALBUM", { ...trip, removed: true });
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(foldersViewModel(actor.snapshot()).youLeft).toBeUndefined();
+    send(actor, "LEAVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(foldersViewModel(actor.snapshot()).youLeft).toEqual(trip);
+  });
+
+  test("a failed leave keeps no line, the next leave replaces it, dismissing clears it", async () => {
+    const { actor, gw } = await loaded({
+      leaveAlbum: vi
+        .fn()
+        .mockResolvedValueOnce([new Error("nope"), null])
+        .mockResolvedValue([null, { ok: true }]),
+    });
+    send(actor, "LEAVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("couldNotChangeAlbum"));
+    expect(actor.snapshot().context.youLeft).toBeUndefined();
+    send(actor, "LEAVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    send(actor, "LEAVE_ALBUM", { folderId: "f9", name: "Other" });
+    await vi.waitFor(() => expect(gw.leaveAlbum).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(actor.snapshot().context.youLeft?.name).toBe("Other"));
+    send(actor, "DISMISS_YOU_LEFT");
+    expect(actor.snapshot().context.youLeft).toBeUndefined();
+    expect(path(actor)).toBe("showingAlbums");
+  });
+
+  test("archiving, restoring or deleting another album keeps the line and never writes one", async () => {
+    const { actor } = await loaded();
+    send(actor, "ARCHIVE_ALBUM", { folderId: "f9", name: "Other" });
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    expect(actor.snapshot().context.youLeft).toBeUndefined();
+    send(actor, "LEAVE_ALBUM", trip);
+    await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+    for (const kind of ["ARCHIVE_ALBUM", "RESTORE_ALBUM", "DELETE_ALBUM"]) {
+      send(actor, kind, { folderId: "f9", name: "Other" });
+      await vi.waitFor(() => expect(path(actor)).toBe("showingAlbums"));
+      expect(actor.snapshot().context.youLeft).toEqual(trip);
+    }
+  });
+
   test("busy while leaving", async () => {
     const { actor } = await loaded({ leaveAlbum: vi.fn(() => new Promise(() => {})) });
     send(actor, "LEAVE_ALBUM", trip);

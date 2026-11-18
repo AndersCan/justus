@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { albumNoticeText, deletedNoticeText, joinedText, updateLines } from "./notices";
+import {
+  albumNoticeText,
+  deletedNoticeText,
+  joinedText,
+  updateLines,
+  youLeftText,
+} from "./notices";
 
 describe("deletedNoticeText", () => {
   it("names the Admin and the album", () => {
@@ -60,5 +66,11 @@ describe("albumNoticeText removed", () => {
 describe("joinedText", () => {
   it("says the person is now in the album", () => {
     expect(joinedText("Summer")).toBe("You're now in “Summer”.");
+  });
+});
+
+describe("youLeftText", () => {
+  it("says the person left the album", () => {
+    expect(youLeftText("Summer")).toBe("You left “Summer”.");
   });
 });
