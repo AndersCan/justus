@@ -3646,6 +3646,27 @@
     "who": "People who tap the photo's holders",
     "screen": ""
   },
+  "photo_holders.last_had_full_photo": {
+    "text": "Last had the full photo",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › heading",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.last_confirmed": {
+    "text": "Last confirmed {when}",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
+  "photo_holders.off_or_wiped": {
+    "text": "A phone that is off or wiped can't say. {names} may still have it.",
+    "status": "draft",
+    "where": "Photo viewer › Who has this photo › text",
+    "who": "People who tap the photo's holders",
+    "screen": ""
+  },
   "photo_holders.close": {
     "text": "Close",
     "status": "draft",

@@ -1,4 +1,4 @@
-import type { PhotoHolders, PhotoMember } from "@justus/core";
+import type { PhotoHolders, PhotoMember, QuietHolder } from "@justus/core";
 
 import { copy } from "../copy/copy";
 import { nameList } from "./people";
@@ -74,6 +74,7 @@ export type HoldersSheetRows = {
   /** True when this phone is still waiting for its copy. */
   youArriving: boolean;
   others: PhotoMember[];
+  quiet: QuietHolder[];
   unsure: PhotoMember[];
   waiting: PhotoMember[];
   previews: PhotoMember[];
@@ -87,6 +88,7 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
     return {
       youArriving: !h.here,
       others: [],
+      quiet: [],
       unsure: [],
       waiting: [],
       previews: [],
@@ -97,6 +99,7 @@ export function holdersSheetRows(h: PhotoHolders | undefined): HoldersSheetRows 
   return {
     youArriving: !h?.here,
     others: h?.others ?? [],
+    quiet: h?.quiet ?? [],
     unsure: h?.unsure ?? [],
     waiting: h?.waiting ?? [],
     previews: h?.previews ?? [],
@@ -133,7 +136,7 @@ function removedKeeps(names: readonly string[]): string {
 export function deleteDetail(h: PhotoHolders | undefined): string {
   const gone = copy("lightbox.it_will_be_gone_from");
   const live = h?.kind === "inAlbum" ? h : undefined;
-  const have = (live?.others ?? []).map((m) => m.name);
+  const have = [...(live?.others ?? []), ...(live?.quiet ?? [])].map((m) => m.name);
   const preview = (live?.previews ?? []).map((m) => m.name);
   const lack = (live?.waiting ?? []).map((m) => m.name);
   const cannot =
@@ -162,10 +165,10 @@ export function deletedMessage(
 ): string {
   const named = (m: PhotoMember) => people.find((p) => p.key === m.key)?.name ?? m.name;
   const live = holders?.kind === "inAlbum" ? holders : undefined;
-  const have = (live?.others ?? []).map(named);
+  const have = [...(live?.others ?? []), ...(live?.quiet ?? [])].map(named);
   const preview = (live?.previews ?? []).map(named);
   const lack = (live?.waiting ?? []).map(named);
-  const later = [...(live?.others ?? []), ...(live?.previews ?? [])]
+  const later = [...(live?.others ?? []), ...(live?.quiet ?? []), ...(live?.previews ?? [])]
     .filter((m) => people.some((p) => p.key === m.key && !p.connected))
     .map(named);
   return [

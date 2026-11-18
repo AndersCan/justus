@@ -48,6 +48,7 @@ describe("holdersLine", () => {
   it("lists only this phone in the sheet of a removed phone", () => {
     const rows = {
       others: [],
+      quiet: [],
       unsure: [],
       waiting: [],
       previews: [],
@@ -387,5 +388,27 @@ describe("a removed phone", () => {
     const removed: PhotoHolders = { kind: "removed", here: true };
     expect(deleteDetail(removed)).toBe(deleteDetail(undefined));
     expect(deletedMessage("a.jpg", removed, [])).toBe(deletedMessage("a.jpg", undefined, []));
+  });
+});
+
+describe("a quiet phone in the delete dialog and toast", () => {
+  const q = (name: string) => ({ key: name, name, lastSeenAt: 1 });
+  it("still names the phone as having the full photo, after the fresh ones", () => {
+    const holders = h({ others: [m("Cy")], quiet: [q("Ben")] });
+    expect(deleteDetail(holders)).toBe(deleteDetail(h({ others: [m("Cy"), m("Ben")] })));
+    expect(deleteDetail(holders)).toContain("Cy and Ben have the full photo.");
+  });
+  it("tells a quiet phone that is not connected it will see the photo gone", () => {
+    const people = [{ key: "Ben", name: "Ben", connected: false }];
+    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), people)).toBe(
+      deletedMessage("a", h({ others: [m("Ben")] }), people),
+    );
+    expect(deletedMessage("a", h({ quiet: [q("Ben")] }), people)).toContain(
+      "Ben will see it's gone when connected.",
+    );
+  });
+  it("passes quiet through to the sheet rows", () => {
+    expect(holdersSheetRows(h({ quiet: [q("Ben")] })).quiet).toEqual([q("Ben")]);
+    expect(holdersSheetRows(undefined).quiet).toEqual([]);
   });
 });

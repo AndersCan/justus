@@ -255,3 +255,54 @@ describe("holdersSheet previews", () => {
     expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe("Can still get it from you");
   });
 });
+
+describe("holdersSheet quiet phones", () => {
+  const now = new Date(2026, 10, 18, 9, 0).getTime();
+  const friday = new Date(2026, 10, 13, 20, 0).getTime();
+  const q = (name: string, lastSeenAt: number) => ({ key: name, name, lastSeenAt });
+  const headings = (el: HTMLElement) =>
+    [...el.querySelectorAll("h4")].map((x) => x.textContent?.trim());
+
+  it("lists a quiet phone under its own heading with the day and one note", () => {
+    const el = draw(holdersSheet(photo(h({ quiet: [q("Ben", friday)] })), [], now));
+    expect(headings(el)).toEqual(["Has the full photo", "Last had the full photo"]);
+    const lists = el.querySelectorAll("ul");
+    expect(lists).toHaveLength(2);
+    expect(lists[1].textContent).toContain("Ben");
+    expect(lists[1].textContent).toContain("Last confirmed Friday");
+    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
+      "A phone that is off or wiped can't say. Ben may still have it.",
+    );
+  });
+  it("puts a quiet phone after Has the full photo and out of the sources", () => {
+    const el = draw(
+      holdersSheet(
+        photo(h({ here: false, others: [m("Ada")], quiet: [q("Ben", friday)] })),
+        [],
+        now,
+      ),
+    );
+    expect(headings(el)).toEqual([
+      "Has the full photo",
+      "Last had the full photo",
+      "Doesn't have the full photo",
+    ]);
+    expect(el.textContent).toContain("Can still get it from Ada");
+    expect(el.textContent).not.toContain("Can still get it from Ada and Ben");
+  });
+  it("names several quiet phones in the one note, with Members names", () => {
+    const people: Person[] = [
+      { key: "Ben", name: "Benny", color: memberColor(0), you: false } as unknown as Person,
+    ];
+    const el = draw(
+      holdersSheet(photo(h({ quiet: [q("Ben", friday), q("Cy", friday)] })), people, now),
+    );
+    expect(el.querySelector("p.text-xs")?.textContent?.trim()).toBe(
+      "A phone that is off or wiped can't say. Benny and Cy may still have it.",
+    );
+  });
+  it("leaves the section out when nobody is quiet", () => {
+    const el = draw(holdersSheet(photo(h({})), [], now));
+    expect(el.textContent).not.toContain("Last had the full photo");
+  });
+});

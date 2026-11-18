@@ -5,6 +5,7 @@ import type { Photo } from "@justus/core";
 import { lightboxActor, lightboxEvents } from "../machines/lightbox-machine";
 import { holdersLine, holdersSheetRows } from "../utils/holders";
 import { nameList, type Person } from "../utils/people";
+import { formatDay } from "../utils/time";
 import { memberBadge } from "./avatar";
 import { modalDialog } from "./modal-dialog";
 
@@ -67,9 +68,10 @@ function personRow(name: string, badge: TemplateResult, detail?: string) {
   </li>`;
 }
 
-export function holdersSheet(photo: Photo, people: readonly Person[]) {
+export function holdersSheet(photo: Photo, people: readonly Person[], now = Date.now()) {
   const rows = holdersSheetRows(photo.holders);
   const others = rows.others.map((m) => resolve(m, people));
+  const quiet = rows.quiet.map((m) => ({ ...resolve(m, people), lastSeenAt: m.lastSeenAt }));
   const waiting = rows.waiting.map((m) => resolve(m, people));
   const unsure = rows.unsure.map((m) => resolve(m, people));
   const previews = rows.previews.map((m) => resolve(m, people));
@@ -95,6 +97,23 @@ export function holdersSheet(photo: Photo, people: readonly Person[]) {
                   ${rows.youArriving ? null : personRow(youName, youBadge)}
                   ${others.map((r) => personRow(r.name, r.badge))}
                 </ul>`
+            : null
+        }
+        ${
+          quiet.length > 0
+            ? html`<h4 class="ui-label mt-4">${t("photo_holders.last_had_full_photo")}</h4>
+                <ul>
+                  ${quiet.map((r) =>
+                    personRow(
+                      r.name,
+                      r.badge,
+                      copy("photo_holders.last_confirmed", { when: formatDay(r.lastSeenAt, now) }),
+                    ),
+                  )}
+                </ul>
+                <p class="text-xs text-muted">
+                  ${t("photo_holders.off_or_wiped", { names: nameList(quiet.map((r) => r.name)) })}
+                </p>`
             : null
         }
         ${
