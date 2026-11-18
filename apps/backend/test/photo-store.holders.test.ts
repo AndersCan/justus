@@ -30,7 +30,9 @@ function watched(
     on: boolean;
     previews: boolean;
     delFails: boolean;
+    delFailsFor?: string;
     slowHeldMs?: number;
+    slowMarkerMs?: number;
     dels?: string[];
   },
 ) {
@@ -41,6 +43,8 @@ function watched(
       const del = drive.del.bind(drive);
       drive.del = async (path: string, ...rest: unknown[]) => {
         if (quiet.delFails && path.startsWith("/held/")) throw new Error("disk full");
+        if (quiet.delFailsFor !== undefined && path === `/held/${quiet.delFailsFor}`)
+          throw new Error("disk full");
         quiet.dels?.push(path);
         return (del as (...a: unknown[]) => Promise<void>)(path, ...rest);
       };
@@ -70,6 +74,8 @@ function watched(
       const readSmall = drive.readSmall.bind(drive);
       drive.readSmall = async (...a: Parameters<Drive["readSmall"]>) => {
         if (quiet.on && a[0] === "/holding.json") throw new Error("unreachable");
+        // A record read over the network takes a while; reads triggered meanwhile overlap.
+        if (quiet.slowMarkerMs && a[0] === "/holding.json") await sleep(quiet.slowMarkerMs);
         return readSmall(...a);
       };
       return result;
@@ -100,7 +106,9 @@ function phone(
     on: boolean;
     previews: boolean;
     delFails: boolean;
+    delFailsFor?: string;
     slowHeldMs?: number;
+    slowMarkerMs?: number;
     dels?: string[];
   } = { on: false, previews: false, delFails: false };
   const logs: { event: string; fields: Record<string, unknown> }[] = [];
@@ -1478,6 +1486,47 @@ describe("the phone that deletes a photo hears who dropped it", () => {
     await reopened.close();
     await s.nils.store.close();
   });
+
+  it("names Nils once when two reads of his record overlap", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    await s.anna.store.addBytes("other.jpg", new Uint8Array([4, 4, 4, 4]));
+    await until(async () =>
+      (await s.nils.store.list(s.nilsFolderId)).some((p) => p.name === "other.jpg"),
+    );
+    // Anna's read of Nils's record takes longer than the 400 ms change debounce.
+    s.anna.quiet.slowMarkerMs = 1_000;
+    s.nils.quiet.dels = [];
+    await s.anna.store.remove((await s.annaPhoto()).id);
+    await until(
+      async () => (await s.nils.store.list(s.nilsFolderId), s.nils.quiet.dels!.length > 0),
+    );
+    // Nils's record changes again while Anna's first read is still running.
+    await sleep(500);
+    const other = (await s.nils.store.list(s.nilsFolderId)).find((p) => p.name === "other.jpg")!;
+    await s.nils.server.getForTest(new URL(other.url).pathname);
+    await sleep(3_000);
+    expect(droppedPushes(s).flatMap((p) => p.dropped!.people.map((m) => m.key))).toEqual([
+      s.nilsKey,
+    ]);
+    await s.close();
+  });
+
+  it("names Nils when his record drops one deleted photo and keeps another", async () => {
+    const s = await album();
+    await nilsOpens(s, "sunset.jpg");
+    const thumbed = await addThumbed(s, "thumbed.jpg");
+    await s.nils.server.getForTest(new URL(thumbed.thumbUrl!).pathname);
+    await until(async () => (await previewKeys(s, "thumbed.jpg")).length === 1);
+    // Nils's phone cannot take the full photo out of its record, only the preview.
+    const held = await s.annaPhoto();
+    s.nils.quiet.delFailsFor = held.id;
+    await s.anna.store.remove(held.id);
+    await s.anna.store.remove(thumbed.id);
+    await untilDropped(s, 1);
+    expect(droppedPushes(s)[0]!.dropped!.people.map((p) => p.key)).toEqual([s.nilsKey]);
+    await s.close();
+  }, 15_000);
 
   it("names Nils for a photo he only previewed", async () => {
     const s = await album();

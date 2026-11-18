@@ -647,7 +647,6 @@ type FolderRuntime = {
   deletedHere: Set<string>;
   /** Ids this phone took out of its own holding record this session; never recorded again. */
   unheld: Set<string>;
-  /** Photos this phone deleted lately, by id: the connected phones whose records should drop them. */
 };
 
 /** Only a phone the Admin removed tells the Admin it deleted its copy; any other leave is seen on the Admin's own list. */
@@ -3433,8 +3432,8 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
 
   /** Reads another phone's record. A failed read never replaces a report already known. */
   async function refreshHeld(rt: FolderRuntime, key: string, drive: Drive) {
-    const prev = rt.held.get(key);
     const read = await readHeld(drive, { timeoutMs: 1_500, log });
+    const prev = rt.held.get(key);
     if (read.kind === "silent" && prev?.kind === "reports") return;
     // A previews list that failed keeps the previews already known.
     const next: HeldReport =
