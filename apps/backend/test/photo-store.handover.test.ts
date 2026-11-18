@@ -34,6 +34,7 @@ type Debug = {
     shareKey: string;
     folderDrive: { key: string };
     adminChain?: string[];
+    inviteOwner?: string;
     handover?: { to: string; written: boolean };
     takingOver?: string;
     handedBy?: string;
@@ -322,6 +323,89 @@ describe("Stay Admin", () => {
     expect(error?.code).toBe(PhotoError.NOT_CREATOR);
     const [missing] = await s.ada.store.stayAdmin("nope");
     expect(missing?.code).toBe(PhotoError.FOLDER_NOT_FOUND);
+    await s.close();
+  });
+
+describe("other phones follow the new Admin", () => {
+  const people = async (p: Phone) =>
+    (await p.store.status()).members.map((m: { name: string }) => m.name).toSorted();
+
+  it("a connected Collaborator reads Ben's lists, with Ada gone from them", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey);
+    expect(debugOf(s.cy).folders[0]!.folderDrive.key).toBe(s.benKey);
+    expect(debugOf(s.cy).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
+    await until(async () => (await people(s.cy)).join() === "Ben,Cy");
+    expect((await trip(s.cy)).role).toBe("member");
+    expect(debugOf(s.ada).folders[0]!.folderDrive.key).toBe(s.shareKey);
+    expect(debugOf(s.ada).folders[0]!.adminChain).toBeUndefined();
+    await s.close();
+  });
+
+  it("trusts Ben as the owner of the invite a phone joined through", async () => {
+    const s = await scene();
+    await s.cy.store.close();
+    const file = join(s.cy.deps.storageDir, "justus.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    saved.folders[0].invite = { code: "ab".repeat(32), owner: identityOf(s.ada) };
+    writeFileSync(file, JSON.stringify(saved));
+    const cy = createPhotoStore(restarted(s.cy.deps));
+    await cy.ready();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf({ store: cy }).folders[0]!.adminChain?.at(-1) === s.benKey);
+    expect(debugOf({ store: cy }).folders[0]!.inviteOwner).toBe(identityOf(s.ben));
+    await cy.close();
+    await s.ada.store.close();
+    await s.ben.store.close();
+  });
+
+  it("a phone that was off follows once it reaches Ben alone", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    await sleep(200);
+    expect(debugOf(s.cy).folders[0]!.adminChain).toBeUndefined();
+
+    await s.ada.store.close();
+    setFakeNodeConnected({ hub: s.hub, node: s.cy.node, connected: true });
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey, 30_000);
+    await until(async () => (await people(s.cy)).join() === "Ben,Cy");
+    await s.ben.store.close();
+    await s.cy.store.close();
+  }, 40_000);
+
+  it("keeps following Ben after the phone restarts", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf(s.cy).folders[0]!.adminChain?.at(-1) === s.benKey);
+    await s.cy.store.close();
+
+    const reopened = createPhotoStore(restarted(s.cy.deps));
+    await reopened.ready();
+    const folder = debugOf({ store: reopened }).folders[0]!;
+    expect(folder.folderDrive.key).toBe(s.benKey);
+    expect(folder.adminChain).toEqual([s.shareKey, s.benKey]);
+    expect(folder.role).toBe("member");
+    await reopened.close();
+    await s.ada.store.close();
+    await s.ben.store.close();
+  });
+
+  it("a newcomer with the old share key lands on Ben's lists", async () => {
+    const s = await scene();
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(async () => (await trip(s.ben)).role === "creator");
+    const benFolderId = (await trip(s.ben)).id;
+    const dee = phone(s.hub, "Dee");
+    await dee.store.ready();
+    const deeKey = await joinAsMember(s.ben.store, benFolderId, dee.store, s.shareKey);
+    expect(debugOf(dee).folders[0]!.adminChain).toEqual([s.shareKey, s.benKey]);
+    expect((await trip(dee)).role).toBe("member");
+    const lists = JSON.parse((await s.read(s.ben, s.benKey, "/members.json"))!);
+    expect(Object.values(lists.members).map((m) => (m as { key: string }).key)).toContain(deeKey);
+    await dee.store.close();
     await s.close();
   });
 });
