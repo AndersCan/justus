@@ -1743,7 +1743,10 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
       expect(asked[1]!.ask.status).toBe("waiting");
       // Longer than the 5 s the filing waits for the Admin's key.
       await until(async () => false, 5_500);
-      expect(await outboxText(s.outbox)).not.toContain("invite:");
+      // A placeholder, with no key, tells a phone that took the code over there is an ask.
+      const placeholder = await outboxText(s.outbox);
+      expect(placeholder).toContain("invite:");
+      expect(placeholder).not.toContain("sealedKey");
       for (const node of s.hub.nodes) setFakeNodeConnected({ hub: s.hub, node, connected: true });
       const back = createPhotoStore(restarted(s.admin.deps));
       await back.ready();
@@ -1929,18 +1932,19 @@ describe("a joiner's ask is sealed to the Admin's phone", () => {
     return { s, events };
   }
 
-  it("an Admin phone that publishes no sealing key gets no ask, and the joiner logs why", async () => {
+  it("an Admin phone that publishes no sealing key gets a placeholder ask, and the joiner logs why", async () => {
     const { s, events } = await loggedScenario();
     const identity = await s.admin.deps.drives.openOwn();
     await identity.put("/device.json", Buffer.from(JSON.stringify({ name: "Admin" })));
     await s.joiner.store.ask({ code: s.invite.code, owner: s.owner });
     await until(async () => events.some((e) => e.event === "ask.unsealed"));
     expect(events.find((e) => e.event === "ask.unsealed")?.fields.reason).toBe("no-box-key");
-    expect(await outboxText(s.outbox)).not.toContain("invite:");
+    await until(async () => (await outboxText(s.outbox)).includes("invite:"));
+    expect(await outboxText(s.outbox)).not.toContain("sealedKey");
     await s.close();
   });
 
-  it("an Admin phone that cannot be reached gets no ask, and the joiner logs why", async () => {
+  it("an Admin phone that cannot be reached gets a placeholder ask, and the joiner logs why", async () => {
     const { s, events } = await loggedScenario();
     setFakeNodeConnected({ hub: s.hub, node: s.admin.deps.node, connected: false });
     await s.admin.store.close();

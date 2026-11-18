@@ -5,13 +5,15 @@
  * topics, timers and notifications.
  */
 import type { LinkOffWhy } from "@justus/core";
-import type { Drive, OpenResult } from "../ports/drive-store";
+import type { Drive, IdentityProof, OpenResult } from "../ports/drive-store";
 import type { PeerNetwork } from "../ports/peer-network";
 import {
+  chainReaches,
   inLinkTime,
   parseAnswer,
   parseDeviceSwarmKey,
   type Answer,
+  type HandoverProof,
   type LinkTime,
 } from "./records";
 import { errText, short, type P2pLog } from "../p2p-log.ts";
@@ -96,9 +98,43 @@ export type OwingAlbum = {
   heldAsks?: Readonly<Record<string, string>>;
   /** Discovery keys of the keys this album had before it moved, newest first. */
   movedFrom?: readonly string[];
+  /** Per invite code, the proofs that handed it on to this phone's identity (a new Admin only). */
+  handoverChains?: Readonly<Record<string, readonly HandoverProof[]>>;
 };
 
-export type AskedCode = { code: string; requestedAt: number };
+/** `opens`: the ask's entry in the asker's outbox is sealed so this phone can open it. */
+export type AskedCode = { code: string; requestedAt: number; opens?: boolean };
+
+/** `owed` with a "handedOver" first for each code that needs one, and nothing else for that
+ * code: an `accepted` is never used up on a connection before the asker re-points. */
+export function handedOverFirst(
+  albums: Iterable<OwingAlbum>,
+  asked: readonly AskedCode[],
+  owed: readonly Answer[],
+): Answer[] {
+  const handedOver = handedOverOwed(albums, asked);
+  const codes = new Set(handedOver.map((a) => a.code));
+  return [...handedOver, ...owed.filter((a) => !codes.has(a.code))];
+}
+
+/** For each code in `asked` that this new Admin holds a chain for and whose ask does not
+ * open here: a "handedOver", so the asker re-points and seals the ask again. */
+export function handedOverOwed(
+  albums: Iterable<OwingAlbum>,
+  asked: readonly AskedCode[],
+): Answer[] {
+  const owed: Answer[] = [];
+  for (const album of albums) {
+    if (album.role !== "creator") continue;
+    for (const a of asked) {
+      const chain = album.handoverChains?.[a.code];
+      if (!chain || chain.length === 0 || a.opens === true) continue;
+      if (owed.some((o) => o.code === a.code)) continue;
+      owed.push({ code: a.code, answer: "handedOver", chain: [...chain] });
+    }
+  }
+  return owed;
+}
 
 /** Every answer owed to `identity`: per creator album with an invite and an
  * answer for it, one message per code (current code first, then retired codes
@@ -183,7 +219,8 @@ export function receivedOwed(
         answer: "received",
         askedAt: a.requestedAt,
         albumName: album.name,
-        ownerName,
+        // The owner's name the asker saw was the earlier Admin's.
+        ownerName: album.handoverChains?.[a.code] ? "" : ownerName,
       });
     }
   }
@@ -253,7 +290,10 @@ export async function deliverOwed(
   return { sent, retry };
 }
 
-export type ArrivalPorts = { provenIdentity(conn: number): Promise<string | undefined> };
+export type ArrivalPorts = {
+  provenIdentity(conn: number): Promise<string | undefined>;
+  verify(proof: IdentityProof): boolean;
+};
 
 export type AnswerArrival =
   | {
@@ -263,7 +303,8 @@ export type AnswerArrival =
   | { kind: "declined"; code: string }
   | { kind: "linkOff"; code: string; why?: LinkOffWhy }
   | { kind: "received"; code: string; albumName: string; ownerName: string }
-  | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] };
+  | { kind: "accepted"; code: string; shareKey: string; movedFrom: string[] }
+  | { kind: "handedOver"; code: string; owner: string };
 
 /** What an answer arriving on `conn` settles. Only the ask's owner, proven, settles it. */
 export async function arrivingAnswer(
@@ -279,10 +320,24 @@ export async function arrivingAnswer(
   if (refused) return { kind: "ignored", reason: "version" };
   const answer = parseAnswer(value);
   if (!answer) return { kind: "ignored", reason: "malformed" };
-  if (answer.answer === "handedOver") return { kind: "ignored", reason: "unverified" };
   const waiting = (code: string) => asks().find((a) => a.code === code && a.status === "waiting");
   const ask = waiting(answer.code);
   if (!ask) return { kind: "ignored", reason: "no-waiting-ask" };
+  if (answer.answer === "handedOver") {
+    const sender = await ports.provenIdentity(conn);
+    const valid =
+      sender !== undefined &&
+      sender !== ask.owner &&
+      chainReaches(answer.chain, {
+        code: answer.code,
+        from: ask.owner,
+        to: sender,
+        verify: (proof) => ports.verify(proof),
+      });
+    if (!valid) return { kind: "ignored", reason: "unverified" };
+    if (!waiting(answer.code)) return { kind: "ignored", reason: "settled" };
+    return { kind: "handedOver", code: answer.code, owner: sender };
+  }
   const stale =
     answer.answer !== "accepted" && answer.askedAt !== undefined && answer.askedAt < ask.askedAt;
   if (stale) return { kind: "ignored", reason: "stale" };

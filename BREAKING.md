@@ -15,6 +15,7 @@ checks this.
 - **Join asks say which link they came through** (the sealed ask in `/requests.json` invite entries gains `linkEnd`). Who: testers on v0.4.0 or older: their phones and updated phones show "<name> needs to update Justus" and stop syncing. Do: update Justus.
 - **The Admin's phone tells a waiting asker the album's name and its own** (new `received` answer on the answer channel). Who: nobody beyond the entry above; v0.4.0 phones are already refused. Do: nothing.
 - **A waiting request forgets the names its link carried** (saved asks keep only names the Admin's phone sent; `photos.ask` takes no names). Who: testers with a request waiting from before this update: its row shows no album name until the Admin's phone is next connected. Do: nothing.
+- **Handed-over links.** A request made with a link whose Admin handed the album on is answered by the new Admin only on this version (new `handedOver` answer to an asker; an ask made while the Admin's sealing key cannot be read files a placeholder `/requests.json` entry with no `sealedKey`, which older Admins drop). An older phone that asked keeps waiting; an updated phone seals its saved ask again for the new Admin, so it needs no new ask. Who: mixed-version groups. Do: everyone updates.
 
 ## Protocol 4 (v0.4.0)
 
