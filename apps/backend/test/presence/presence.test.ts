@@ -180,8 +180,10 @@ describe("presence data", () => {
     const p = createPresence({ lastSeen: [] });
     p.peerKeys.set(hex("1"), hex("9"));
     p.peerKeys.set(hex("2"), hex("9"));
+    p.peerKeys.set(hex("3"), hex("8"));
     peerConnected(p, { peerKey: hex("9"), log: () => {} });
     peerDisconnected(p, { peerKey: hex("9"), now: 7, log: () => {} });
+    expect(memberPresence(p, hex("3"))).toEqual({ connected: false });
     expect(memberPresence(p, hex("2"))).toEqual({ connected: false, lastSeenAt: 7 });
     expect([...p.lastSeen]).toEqual([
       [hex("1"), 7],
