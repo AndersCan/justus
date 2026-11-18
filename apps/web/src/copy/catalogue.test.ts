@@ -16,6 +16,7 @@ function sources(): string[] {
 
 /** Text that is not for people: internal error codes, CSS, SVG, date-name tables. */
 const NOT_COPY = [
+  /^(Unknown device|New member)$/,
   /^no /,
   / returned no /,
   /^unknown error$/,

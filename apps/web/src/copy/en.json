@@ -2113,6 +2113,20 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": "start-album"
   },
+  "gallery.new_photos_from": {
+    "text": "{count} new {count?photo:photos} from {name}",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, above the photos",
+    "screen": ""
+  },
+  "gallery.new_photos_count": {
+    "text": "{count} new {count?photo:photos}",
+    "status": "draft",
+    "where": "Album › Photos › text",
+    "who": "Everyone in an album, above the photos",
+    "screen": ""
+  },
   "gallery.photos_wait_for_one": {
     "text": "{count} {count?photo waits:photos wait} for {name}'s phone",
     "status": "draft",
