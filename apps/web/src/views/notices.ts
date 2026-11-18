@@ -12,6 +12,11 @@ export function albumNoticeText(notice: FolderSummary["notice"], albumName: stri
   });
 }
 
+/** Ben's line on an album he was just let into. */
+export function joinedText(albumName: string): string {
+  return copy("notices.now_in_album", { albumName });
+}
+
 /** The line on Your albums after the Admin deleted an album for everyone. */
 export function deletedNoticeText(d: DeletedAlbum): string {
   return copy("notices.deleted_the_album_and_its", {
@@ -39,6 +44,16 @@ export function albumNotice(notice: FolderSummary["notice"], albumName: string) 
     role="status"
   >
     ${text}
+  </p>`;
+}
+
+/** One line in the notice look, drawn on the album the person was just let into. */
+export function joinedNotice(albumName: string) {
+  return html`<p
+    class="rounded-xl bg-subtle px-4 py-2.5 text-sm text-fg ring-1 ring-trust-amber/40"
+    role="status"
+  >
+    ${joinedText(albumName)}
   </p>`;
 }
 

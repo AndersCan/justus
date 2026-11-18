@@ -3492,6 +3492,13 @@
     "who": "People troubleshooting, rarely",
     "screen": ""
   },
+  "notices.now_in_album": {
+    "text": "You're now in “{albumName}”.",
+    "status": "draft",
+    "where": "Album › notice",
+    "who": "People who asked to join, once accepted",
+    "screen": ""
+  },
   "notices.you_re_no_longer_in": {
     "text": "You're no longer in {albumName}.",
     "status": "draft",

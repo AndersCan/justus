@@ -1,6 +1,6 @@
 import { VirtualClock } from "@mantaq/core";
 import { onOutput } from "@mantaq/sugar";
-import { expectAllStatesReached, expectNoDesignErrors } from "@mantaq/inspect";
+import { expectNoDesignErrors, expectReached, inspect } from "@mantaq/inspect";
 import { recordRuns } from "@mantaq/inspect/record";
 import type { VizRun } from "@mantaq/viz";
 import { describe, expect, test } from "vite-plus/test";
@@ -123,7 +123,7 @@ describe("openLink", () => {
     async (kind) => {
       const s = setup({ known: { kind, folderId: "f1" } });
       await s.send("openLink", { text: LINK });
-      expect(s.actor.state.name).toBe("joinedAlbum");
+      expect(s.actor.state.name).toBe("alreadyInAlbum");
       expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
     },
   );
@@ -425,8 +425,8 @@ describe("linkExpired", () => {
   });
 
   test.each([
-    [{ kind: "own", folderId: "f1" }, "joinedAlbum"],
-    [{ kind: "member", folderId: "f1" }, "joinedAlbum"],
+    [{ kind: "own", folderId: "f1" }, "alreadyInAlbum"],
+    [{ kind: "member", folderId: "f1" }, "alreadyInAlbum"],
     [{ kind: "waiting" }, "waitingForAdminToAccept"],
   ] as const)("a late link for a known %j shows %s", async (known, name) => {
     const s = setup({ known });
@@ -586,7 +586,7 @@ describe("link states", () => {
     const s = setup({ known: { kind: "own", folderId: "f1" } });
     await s.send("openLink", { text: LINK });
     await s.send("openLink", { text: LINK });
-    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.state.name).toBe("alreadyInAlbum");
     expect(s.outputs).toHaveLength(2);
   });
 
@@ -656,6 +656,45 @@ describe("answers with no sheet open", () => {
     expect(error(s)).toBe(GARBLED_LINK);
     await s.send("openLink", { text: LINK });
     expect(error(s)).toBe("");
+  });
+
+  test("an accept names the album it opened", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    await s.send("askToJoin");
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.snapshot().payload).toEqual({ folderId: "f9" });
+  });
+
+  test("albumClosed after an accept clears the line; in any other state it changes nothing", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    await s.send("albumClosed");
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    await s.send("askToJoin");
+    await s.send("requestAnswered", { code: INVITE.code, answer: "accepted", folderId: "f9" });
+    await s.send("albumClosed");
+    expect(s.actor.state.name).toBe("noInviteOpen");
+  });
+
+  test("an answer with no row while the line shows keeps the line's album", async () => {
+    const s = await closed({ asked: () => undefined });
+    await s.send("requestAnswered", accepted);
+    await s.send("requestAnswered", { code: "other", answer: "declined" });
+    await s.send("requestAnswered", { code: "other", answer: "linkOff" });
+    await s.send("requestAnswered", { code: "other", answer: "accepted" });
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.snapshot().payload).toEqual({ folderId: "f9" });
+  });
+
+  test("an accept over another open sheet names the album it opened", async () => {
+    const s = setup();
+    await s.send("openLink", { text: LINK });
+    expect(s.actor.state.name).toBe("decidingToAsk");
+    await s.send("requestAnswered", accepted);
+    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.snapshot().payload).toEqual({ folderId: "f9" });
   });
 
   test("a second accept from joinedAlbum opens a second album", async () => {
@@ -754,7 +793,7 @@ describe("the welcome", () => {
     await s.send("welcomeStarted");
     await s.send("openLink", { text: LINK });
     await s.send("welcomeEnded");
-    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.state.name).toBe("alreadyInAlbum");
     expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
   });
 
@@ -986,7 +1025,7 @@ describe("askWithPastedLink", () => {
   test.each(["own", "member"] as const)("a link to an album already %s opens it", async (kind) => {
     const s = setup({ known: { kind, folderId: "f1" } });
     await s.send("askWithPastedLink", { text: LINK });
-    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.state.name).toBe("alreadyInAlbum");
     expect(s.outputs).toEqual([{ type: "openAlbum", payload: { folderId: "f1" } }]);
   });
 
@@ -1442,8 +1481,12 @@ describe("joiner design", () => {
   test("has no design errors", () => {
     expectNoDesignErrors(target);
   });
-  test("reaches every state", () => {
-    expectAllStatesReached(target);
+  // The design target knows no albums, so only the unit tests above reach alreadyInAlbum.
+  test("reaches every state a link to a new album can reach", () => {
+    const states = inspect(target)
+      .machine.states.map((s) => s.id)
+      .filter((id) => id !== "alreadyInAlbum");
+    expectReached(target, { states });
   });
 });
 
@@ -1743,7 +1786,7 @@ describe("pasted link: branches the review found untested", () => {
       port: { ask: async (i) => (asks.push(i), [undefined, {}]) },
     });
     await s.send("askWithPastedLink", { text: LINK });
-    expect(s.actor.state.name).toBe("joinedAlbum");
+    expect(s.actor.state.name).toBe("alreadyInAlbum");
     await s.send("askWithPastedLink", { text: buildInviteLink(other) });
     expect(s.actor.state.name).toBe("waitingForAdminToAccept");
     expect(asks).toEqual([{ ...other, album: "", ownerName: "", linkAlbum: HINTS.album }]);

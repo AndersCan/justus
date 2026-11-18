@@ -558,7 +558,8 @@ onStateChange(joinActor, JOIN_STATES, (next) => {
   if (
     next === "waitingForAdminToAccept" ||
     next === "waitingForYouToUpdate" ||
-    next === "joinedAlbum"
+    next === "joinedAlbum" ||
+    next === "alreadyInAlbum"
   ) {
     clearPasteBoxes(document);
   }

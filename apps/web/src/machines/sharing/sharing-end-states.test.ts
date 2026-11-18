@@ -4,7 +4,7 @@ import { expect, test } from "vite-plus/test";
 import { render } from "lit-html";
 import { inspectFile } from "@mantaq/inspect";
 import type { JoinView } from "./join-request";
-import { albumNoticeText } from "../../views/notices";
+import { albumNoticeText, joinedText } from "../../views/notices";
 import { renderJoinSheet } from "../../views/join-sheet";
 
 const ROOT = join(import.meta.dirname, "../../../../..");
@@ -52,11 +52,16 @@ const NO_SHEET: Record<string, string> = {
   checkingPastedLink: "the paste box button reads Checking the link…",
   sendingPastedRequest: "the paste box button reads Asking…",
   showingLinkProblem: "the paste box shows the problem line",
+  alreadyInAlbum: "the album this phone is already in opens",
+};
+
+/** Join states whose words are not on the join sheet, and the line that shows them. */
+const OFF_SHEET: Record<string, () => string[]> = {
+  joinedAlbum: () => [joinedText("Holiday")],
 };
 
 /** Endings that show no words today. Roadmap Next 5 writes each line and deletes its entry; the list only shrinks. */
 const SILENT_TODAY: Record<string, string> = {
-  "joinRequest.joinedAlbum": "the album opens; nothing says the Admin accepted",
   "membership.leftAlbum": "the Admin's phone drops the row; nothing says they left",
 };
 
@@ -101,7 +106,7 @@ function row(name: string, lines: () => string[]): Row {
 }
 
 const rows = [
-  ...joinStates.map((s) => row(`joinRequest.${s}`, () => joinLines(s))),
+  ...joinStates.map((s) => row(`joinRequest.${s}`, OFF_SHEET[s] ?? (() => joinLines(s)))),
   // The Admin's phone has no view for a membership ending yet.
   ...membershipStates.map((s) => row(`membership.${s}`, () => [])),
   row("albumNotice.removed", () => [albumNoticeText({ kind: "removed" }, "Holiday") ?? ""]),
