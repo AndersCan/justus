@@ -1,0 +1,50 @@
+appId: no.cankode.justus
+env:
+  DOCUMENTS_UI: com.google.android.documentsui
+---
+# Share two photos from the Files app into Justus. scripts/maestro-e2e.sh pushed
+# justus-share-a.jpg and justus-share-b.png into Downloads and passes the Files package as
+# DOCUMENTS_UI. Whether the photos arrived is checked by that script, from the inbox on disk.
+# No clearState: first-run's data stays for the survive check, and the inbox must outlive the flow.
+- stopApp
+- launchApp:
+    appId: ${DOCUMENTS_UI}
+    stopApp: true
+# Files may open on Recent or on the last folder: go to Downloads when the photos are not listed.
+- runFlow:
+    when:
+      notVisible: "justus-share-a.jpg"
+    commands:
+      - tapOn:
+          text: "Show roots"
+      - tapOn:
+          text: "Downloads"
+- extendedWaitUntil:
+    visible: "justus-share-a.jpg"
+    timeout: 30000
+- longPressOn: "justus-share-a.jpg"
+- tapOn: "justus-share-b.png"
+- tapOn: "Share"
+# The share sheet shows a short row of apps that did not scroll to Justus: pull the sheet open to
+# its full app list, then scroll that list until Justus shows.
+- swipe:
+    start: 50%, 55%
+    end: 50%, 8%
+    duration: 500
+- repeat:
+    while:
+      notVisible: "Justus"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 30%
+          duration: 500
+- tapOn:
+    text: "Justus"
+    waitToSettleTimeoutMs: 500
+# Justus opens from the share. Any screen of it proves the host took the intent.
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Your name|Albums"
+    timeout: 90000

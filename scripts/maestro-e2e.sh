@@ -228,7 +228,17 @@ run_walk() {
       pnpm exec playwright test --config playwright.walk.config.ts )
 }
 
-run_maestro() { maestro --device "$SERIAL" test --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; }
+# The share-in flow shares two photos from the Files app: put them in Downloads, make the media
+# store list them, and tell the flow which package is Files.
+DOCUMENTS_UI="$("$ADB" -s "$SERIAL" shell pm list packages documentsui | tr -d '\r' | sed -n 's/^package://p' | grep -v '^com.android.providers' | head -n 1)"
+: "${DOCUMENTS_UI:=com.google.android.documentsui}"
+prepare_share_in() {
+  "$ADB" -s "$SERIAL" push "$REPO_ROOT/e2e/fixtures/share-in/share-a.jpg" /sdcard/Download/justus-share-a.jpg >/dev/null || return 1
+  "$ADB" -s "$SERIAL" push "$REPO_ROOT/e2e/fixtures/share-in/share-b.png" /sdcard/Download/justus-share-b.png >/dev/null || return 1
+  "$ADB" -s "$SERIAL" shell content call --uri content://media/external/file --method scan_volume --arg external_primary >/dev/null || return 1
+}
+
+run_maestro() { maestro --device "$SERIAL" test -e "DOCUMENTS_UI=$DOCUMENTS_UI" --test-output-dir "$OUT_DIR" "$FLOWS_DIR"; }
 
 # adb can drop a freshly booted emulator for a moment: Maestro then fails in seconds with
 # "device offline" / DeviceServerDiedException on its first command (justus#654, first attempt of
@@ -266,6 +276,7 @@ run_maestro_suite() {
 }
 
 mkdir -p "$OUT_DIR"
+[[ "$WALK" == 1 ]] || prepare_share_in || { echo "✗ could not put the share-in photos on the device"; exit 1; }
 if [[ "$WALK" == 1 ]]; then
   echo
   echo "▶ Preparing Chrome, then running the release walk ..."
@@ -303,6 +314,35 @@ if [[ "$WALK" == 1 ]] || ! run_maestro_suite; then
   echo "  $worklet_file (worklet logs, if any)"
   echo "Screenshots/artifacts (if configured) live under: $OUT_DIR"
   echo
+  exit 1
+fi
+
+# ----------------------------------------------------------------------------
+# 5a. The share-in flow shared two photos: both must wait in the shared-photos inbox
+# ----------------------------------------------------------------------------
+echo
+echo "▶ Share-in check: two photos wait in the inbox..."
+share_started=$SECONDS
+batch_files=""
+for _ in $(seq 1 15); do
+  batches="$(run_as 'ls -d cache/bare-cache/shared-in/*/ 2>/dev/null || true' | tr -d '\r')"
+  if [[ -n "$batches" && "$(wc -l <<<"$batches")" -eq 1 ]]; then
+    batch_files="$(run_as "ls $batches 2>/dev/null || true" | tr -d '\r')"
+    if grep -q '^batch.json$' <<<"$batch_files" && grep -q '^0\.jpeg$' <<<"$batch_files" && grep -q '^1\.png$' <<<"$batch_files" \
+      && grep -q '^copy-0-display\.jpg$' <<<"$batch_files" && grep -q '^copy-0-thumb\.jpg$' <<<"$batch_files" \
+      && grep -q '^copy-1-display\.jpg$' <<<"$batch_files" && grep -q '^copy-1-thumb\.jpg$' <<<"$batch_files"; then
+      echo "share-in: ok $(( (SECONDS - share_started) * 1000 )) ms"
+      break
+    fi
+  fi
+  batch_files=""
+  sleep 2
+done
+if [[ -z "$batch_files" ]]; then
+  echo "✗ Share-in check FAILED: exactly one batch with 0.jpeg, 1.png, their copies and batch.json in cache/bare-cache/shared-in"
+  mkdir -p "$OUT_DIR"
+  "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$OUT_DIR/logcat-JUSTUS_ANDROID.txt" 2>/dev/null || true
+  run_as 'ls -laR cache/bare-cache/shared-in 2>&1 || true' >"$OUT_DIR/worklet-logs.txt" 2>/dev/null || true
   exit 1
 fi
 
