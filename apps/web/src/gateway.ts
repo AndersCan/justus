@@ -115,6 +115,7 @@ export const gateway = {
   leaveAlbum: (folderId: string) => invoke(photoEvents.photos.leaveAlbum(folderId)),
   /** Admin only: removes the album and every photo in it from every member's phone. */
   deleteAlbum: (folderId: string) => invoke(photoEvents.photos.deleteAlbum(folderId)),
+  dismissWhoLeft: (folderId: string) => invoke(photoEvents.photos.dismissWhoLeft(folderId)),
   dismissAlbumNotice: (folderId: string) => invoke(photoEvents.photos.dismissAlbumNotice(folderId)),
   /** Takes a declined request off this phone. */
   dismissDeclinedAsk: (code: string) => invoke(photoEvents.photos.dismissDeclinedAsk(code)),

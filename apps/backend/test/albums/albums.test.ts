@@ -570,4 +570,29 @@ describe("device record", () => {
       rotated!.shareKey,
     ]);
   });
+
+  it("only the Admin's album names who left, and only when someone did", () => {
+    const admin = (whoLeft: string[] | undefined) =>
+      albumSummary(
+        {
+          ...readerSource({ role: "creator" }),
+          record: { ...readerSource({ role: "creator" }).record, whoLeft },
+        },
+        { ownIdentity: "me" },
+      );
+    expect(admin(["Ben", "Cara"]).whoLeft, "Trip: list: Admin sees the names").toEqual([
+      "Ben",
+      "Cara",
+    ]);
+    expect("whoLeft" in admin([]), "Trip: list: empty list shows no key").toBe(false);
+    expect("whoLeft" in admin(undefined), "Trip: list: unset shows no key").toBe(false);
+    const member = albumSummary(
+      {
+        ...readerSource({ role: "member" }),
+        record: { ...readerSource({ role: "member" }).record, whoLeft: ["Ben"] },
+      },
+      { ownIdentity: "me" },
+    );
+    expect("whoLeft" in member, "Trip: list: a Member never sees it").toBe(false);
+  });
 });
