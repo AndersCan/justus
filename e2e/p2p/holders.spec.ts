@@ -13,10 +13,12 @@ import { expect, test } from "../hub/fixtures.mjs";
 import {
   askToJoin,
   copyInviteLink,
+  closePhoto,
   createAlbum,
   pausePhone,
   restartPhone,
   resumeAll,
+  setName,
   skipIntro,
   words,
 } from "./steps";
@@ -26,14 +28,6 @@ const QUIET_ALBUM = "Holders quiet";
 const FILE = "holders-ada.png";
 
 test.afterEach(() => resumeAll());
-
-async function setName(page, name) {
-  await page.goto("/settings");
-  const field = page.getByRole("textbox", { name: "Your name", exact: true });
-  await field.fill(name);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(field).toHaveValue(name);
-}
 
 /** Opens the photo if none is open, then expects its holders line to read exactly `text`. */
 async function expectHoldersLine(page, step, phone, text) {
@@ -64,11 +58,6 @@ async function connected(from, fromInstance, toInstance, label) {
       { message: label, timeout: 60_000, intervals: [100] },
     )
     .toBe(true);
-}
-
-async function closePhoto(page) {
-  await page.getByRole("button", { name: "Close" }).click();
-  await expect(page.locator(".justus-holders-text")).toHaveCount(0);
 }
 
 /** Ada adds a photo, Ben joins and opens it; both phones read their "On … phone" line. */

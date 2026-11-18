@@ -140,3 +140,16 @@ function resume(pids) {
 export function resumeAll() {
   resume([...paused]);
 }
+
+export async function setName(page, name) {
+  await page.goto("/settings");
+  const field = page.getByRole("textbox", { name: "Your name", exact: true });
+  await field.fill(name);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(field).toHaveValue(name);
+}
+
+export async function closePhoto(page) {
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator(".justus-holders-text")).toHaveCount(0);
+}
