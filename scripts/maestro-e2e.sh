@@ -325,16 +325,21 @@ echo "▶ Share-in check: two photos wait in the inbox..."
 share_started=$SECONDS
 batch_files=""
 for _ in $(seq 1 15); do
-  batch_files="$(run_as 'ls cache/bare-cache/shared-in/*/ 2>/dev/null || true' | tr -d '\r')"
-  if grep -q '^batch.json$' <<<"$batch_files" && grep -q '\.jpeg$' <<<"$batch_files" && grep -q '\.png$' <<<"$batch_files"; then
-    echo "share-in: ok $(( (SECONDS - share_started) * 1000 )) ms"
-    break
+  batches="$(run_as 'ls -d cache/bare-cache/shared-in/*/ 2>/dev/null || true' | tr -d '\r')"
+  if [[ -n "$batches" && "$(wc -l <<<"$batches")" -eq 1 ]]; then
+    batch_files="$(run_as "ls $batches 2>/dev/null || true" | tr -d '\r')"
+    if grep -q '^batch.json$' <<<"$batch_files" && grep -q '^0\.jpeg$' <<<"$batch_files" && grep -q '^1\.png$' <<<"$batch_files" \
+      && grep -q '^copy-0-display\.jpg$' <<<"$batch_files" && grep -q '^copy-0-thumb\.jpg$' <<<"$batch_files" \
+      && grep -q '^copy-1-display\.jpg$' <<<"$batch_files" && grep -q '^copy-1-thumb\.jpg$' <<<"$batch_files"; then
+      echo "share-in: ok $(( (SECONDS - share_started) * 1000 )) ms"
+      break
+    fi
   fi
   batch_files=""
   sleep 2
 done
 if [[ -z "$batch_files" ]]; then
-  echo "✗ Share-in check FAILED: no batch with a jpeg, a png and batch.json in cache/bare-cache/shared-in"
+  echo "✗ Share-in check FAILED: exactly one batch with 0.jpeg, 1.png, their copies and batch.json in cache/bare-cache/shared-in"
   mkdir -p "$OUT_DIR"
   "$ADB" -s "$SERIAL" logcat -d -s JUSTUS_ANDROID chromium >"$OUT_DIR/logcat-JUSTUS_ANDROID.txt" 2>/dev/null || true
   run_as 'ls -laR cache/bare-cache/shared-in 2>&1 || true' >"$OUT_DIR/worklet-logs.txt" 2>/dev/null || true

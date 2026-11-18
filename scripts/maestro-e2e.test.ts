@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
@@ -90,4 +90,64 @@ test("the flow suite keeps the debug APK and the screen PIN", () => {
   const out = walkSetup({ JUSTUS_WALK: "", JUSTUS_VARIANT: "" });
   expect(out).toContain("apk=apps/android/app/build/outputs/apk/debug/app-debug.apk");
   expect(out).toContain("locksettings set-pin 1111");
+});
+
+// Runs the script's share-in inbox check against a stub app storage with the given batches.
+function shareInCheck(batches: string[][]) {
+  const dir = mkdtempSync(join(tmpdir(), "maestro-share-in-"));
+  const inbox = join(dir, "app/cache/bare-cache/shared-in");
+  batches.forEach((files, i) => {
+    mkdirSync(join(inbox, `b${i}`), { recursive: true });
+    for (const f of files) writeFileSync(join(inbox, `b${i}`, f), "");
+  });
+  const driver = join(dir, "driver.sh");
+  writeFileSync(
+    driver,
+    `set -uo pipefail
+OUT_DIR="${dir}/out"; SERIAL=emulator-5554; ADB=true
+run_as() { (cd "${dir}/app" && sh -c "$1"); }
+sleep() { :; }
+eval "$(sed -n '/^# 5a\\./,/^# 5b\\./p' "${script}")"
+echo "rc=0"
+`,
+  );
+  const r = spawnSync("bash", [driver], { encoding: "utf8", timeout: 30_000 });
+  return r.stdout;
+}
+
+const shared = [
+  "0.jpeg",
+  "1.png",
+  "batch.json",
+  "copy-0-display.jpg",
+  "copy-0-thumb.jpg",
+  "copy-1-display.jpg",
+  "copy-1-thumb.jpg",
+];
+
+test("one batch with both photos passes the share-in check", () => {
+  expect(shareInCheck([shared])).toContain("share-in: ok");
+});
+
+test("a share staged twice fails the share-in check", () => {
+  expect(shareInCheck([shared, shared])).not.toContain("share-in: ok");
+});
+
+test("each photo in its own batch fails the share-in check", () => {
+  expect(
+    shareInCheck([
+      ["0.jpeg", "batch.json"],
+      ["0.png", "batch.json"],
+    ]),
+  ).not.toContain("share-in: ok");
+});
+
+test("a batch without the png fails the share-in check", () => {
+  expect(shareInCheck([["0.jpeg", "batch.json", "copy-0-display.jpg"]])).not.toContain(
+    "share-in: ok",
+  );
+});
+
+test("a batch whose copies were not made fails the share-in check", () => {
+  expect(shareInCheck([["0.jpeg", "1.png", "batch.json"]])).not.toContain("share-in: ok");
 });

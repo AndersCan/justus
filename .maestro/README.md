@@ -53,14 +53,6 @@ times the relaunched worklet must reopen the album "M" from `first-run.yaml` out
 The UI cannot show this: the intro-seen flag lives in web storage keyed by the loopback port,
 which changes every launch.
 
-## Share in
-
-`flows/share-in.yaml` shares two photos from the Files app into Justus. It runs after `first-run`
-(see `flows/config.yaml`) and does not clear state. It only waits for Justus to open; the
-arrival is checked by `scripts/maestro-e2e.sh` after the suite, which lists
-`cache/bare-cache/shared-in/*/` and prints `share-in: ok`. Page-unique strings: `Show roots`,
-`Downloads`, `Share`, `Justus`.
-
 ## Release walk
 
 Actions › release-walk › Run workflow walks Ada (web, Chromium) and Ben (the release APK) through an invite: `e2e/device/release-walk.walk.ts` with Ben's steps in `.maestro/walk/`, outside `flows/*.yaml`. A branch dispatch walks main's deployed invite page.
