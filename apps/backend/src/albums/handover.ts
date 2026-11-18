@@ -48,7 +48,7 @@ export async function listsDigest(drive: Drive, hash: (text: string) => string):
   return digestOf(await readLists(drive), hash);
 }
 
-/** Copies the six list files from the Admin's drive onto the next Admin's own drive, leaving `self` out of the members (an Admin is never in their own list). Writes `/members.json` last. Returns the digest of what was read. */
+/** Copies the six list files from the Admin's drive onto the next Admin's own drive, leaving `self` out of the members (an Admin is never in their own list). Writes `/members.json` last. Returns the digest of what was written, the same {@link listsDigest} gives for the next Admin's drive. */
 export async function takeAdminRecords(
   from: Drive,
   to: Drive,
@@ -64,8 +64,10 @@ export async function takeAdminRecords(
     const members = Object.fromEntries(
       Object.entries(registry.members).filter(([, m]) => m.key !== options.self),
     );
-    await to.put(DRIVE_PATH_MEMBERS, Buffer.from(JSON.stringify({ version: 1, members })));
-    return [null, { digest: digestOf(texts, options.hash) }];
+    const membersText = JSON.stringify({ version: 1, members });
+    await to.put(DRIVE_PATH_MEMBERS, Buffer.from(membersText));
+    const written = [...texts.slice(0, LIST_PATHS.length - 1), membersText];
+    return [null, { digest: digestOf(written, options.hash) }];
   } catch (thrown: unknown) {
     return [{ kind: "write-failed", message: errText(thrown) }, null];
   }

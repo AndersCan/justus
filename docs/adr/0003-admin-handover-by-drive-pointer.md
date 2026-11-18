@@ -27,11 +27,10 @@ new Admin.
    identity. An asker given the proof chain (`handedOver` answer) checks
    `chainReaches` from the Admin they asked to the Admin who answers. A chain
    of such links covers later handovers.
-4. **Peer messages** (`handover`, `handoverReady`, `handoverDone`,
-   `handoverCancelled`) carry the package of links, retired codes and answers.
+4. **Peer messages** (`handover`, `handoverReady`, `handoverDone`) carry the package of links, retired codes and answers.
    `handoverReady` carries `listsDigest` of the lists as the next Admin copied
-   them; the leaving Admin finishes only when it matches the digest of what it
-   sent.
+   them; the leaving Admin finishes only when it matches the digest of the lists
+   it sent, less itself.
 5. **Version 1 only.** Another version is not followed.
 
 ## Consequences

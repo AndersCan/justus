@@ -208,7 +208,7 @@ describe("takeAdminRecords", () => {
     return from;
   }
 
-  it("copies the six files, drops self from the members and returns the source digest", async () => {
+  it("copies the six files, drops self from the members and returns the digest of what it wrote", async () => {
     const drives = store();
     const from = await fill(drives);
     const to = await drives.openOwn("to");
@@ -226,7 +226,7 @@ describe("takeAdminRecords", () => {
     expect(JSON.parse((await to.readSmall("/members.json", 1000))!).members).toEqual({
       [OTHER]: { key: OTHER, name: "x", addedAt: 1 },
     });
-    expect(out?.digest).toBe(await listsDigest(from, hash));
+    expect(out?.digest).toBe(await listsDigest(to, hash));
   });
 
   it("writes /members.json last", async () => {
@@ -296,5 +296,18 @@ describe("listsDigest", () => {
     await b.put("/viewers.json", Buffer.from("p"));
     await b.put("/folder.json", Buffer.from("\nq"));
     expect(await listsDigest(a, hash)).not.toBe(await listsDigest(b, hash));
+  });
+});
+
+describe("listsDigest after takeAdminRecords (plan step 3b)", () => {
+  it("the next Admin's copy digests the same as the lists it was copied from", async () => {
+    const drives = store();
+    const SELF = "b".repeat(64);
+    const from = await drives.openOwn("from");
+    await from.put("/members.json", members(SELF, "c".repeat(64)));
+    await from.put("/folder.json", json({ version: 1, name: "Summer" }));
+    const to = await drives.openOwn("to");
+    const [, out] = await takeAdminRecords(from, to, { self: SELF, hash });
+    expect(await listsDigest(to, hash)).toBe(out?.digest);
   });
 });

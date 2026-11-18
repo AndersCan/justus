@@ -756,13 +756,13 @@ describe("handover messages", () => {
     ...over,
   });
 
-  test("handoverReady, handoverDone and handoverCancelled carry a hex album (and a digest)", () => {
+  test("handoverReady and handoverDone carry a hex album (and a digest)", () => {
     expect(parseFriendMessage({ kind: "handoverReady", album: KEY_B, digest: ID })).toEqual({
       kind: "handoverReady",
       album: KEY_B.toLowerCase(),
       digest: ID,
     });
-    for (const kind of ["handoverDone", "handoverCancelled"] as const) {
+    for (const kind of ["handoverDone"] as const) {
       expect(parseFriendMessage({ kind, album: KEY_A, digest: 5 })).toEqual({ kind, album: KEY_A });
       expect(parseFriendMessage({ kind, album: "nope" })).toBeUndefined();
       expect(parseFriendMessage({ kind })).toBeUndefined();

@@ -238,7 +238,7 @@ export async function deliverOwed(
       continue;
     }
     for (const message of owed()) {
-      const key = `${message.code}:${message.answer}:${message.answer === "accepted" ? "" : (message.askedAt ?? "")}`;
+      const key = `${message.code}:${message.answer}:${message.answer === "accepted" || message.answer === "handedOver" ? "" : (message.askedAt ?? "")}`;
       if (codes.has(key)) continue;
       codes.add(key);
       if (ports.sendAnswer(conn, message) === true) {
@@ -279,6 +279,7 @@ export async function arrivingAnswer(
   if (refused) return { kind: "ignored", reason: "version" };
   const answer = parseAnswer(value);
   if (!answer) return { kind: "ignored", reason: "malformed" };
+  if (answer.answer === "handedOver") return { kind: "ignored", reason: "unverified" };
   const waiting = (code: string) => asks().find((a) => a.code === code && a.status === "waiting");
   const ask = waiting(answer.code);
   if (!ask) return { kind: "ignored", reason: "no-waiting-ask" };

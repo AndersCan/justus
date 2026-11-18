@@ -517,9 +517,7 @@ export type FriendMessage =
   /** Next Admin to the Admin: its copy of the lists matches `digest`. */
   | { kind: "handoverReady"; album: string; digest: string }
   /** Next Admin to the Admin: the next Admin's phone is the Admin now. */
-  | { kind: "handoverDone"; album: string }
-  /** Admin to the next Admin: the Admin stayed; ignore the handover. */
-  | { kind: "handoverCancelled"; album: string };
+  | { kind: "handoverDone"; album: string };
 
 export type MoveOffer = { from: string[]; role: "member" | "reader" };
 
@@ -545,15 +543,10 @@ export function isFriendMessageShape(value: unknown): boolean {
 export function parseFriendMessage(value: unknown): FriendMessage | undefined {
   if (!isTextJSON(value)) return undefined;
   const { kind, code, albumName, ownerName, album } = value;
-  if (
-    kind === "handover" ||
-    kind === "handoverReady" ||
-    kind === "handoverDone" ||
-    kind === "handoverCancelled"
-  ) {
+  if (kind === "handover" || kind === "handoverReady" || kind === "handoverDone") {
     if (typeof album !== "string" || !isHexKey(album)) return undefined;
     const albumKey = album.toLowerCase();
-    if (kind === "handoverDone" || kind === "handoverCancelled") return { kind, album: albumKey };
+    if (kind === "handoverDone") return { kind, album: albumKey };
     if (typeof value.digest !== "string" || !isHexKey(value.digest)) return undefined;
     const digest = value.digest.toLowerCase();
     if (kind === "handoverReady") return { kind, album: albumKey, digest };
