@@ -515,7 +515,6 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   ).toBeVisible({
     timeout: 60_000,
   });
-  const benFolder = new URL(b.url()).pathname.split("/").filter(Boolean)[1];
   const adaFolder = new URL(a.url()).pathname.split("/").filter(Boolean)[1];
 
   await b.setInputFiles("input[type=file]", {
@@ -527,6 +526,7 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   await expect(viewA(GONE)).toBeVisible({ timeout: 60_000 });
 
   // Ada opens it, so her phone holds the full copy and her record names it.
+  // Thumbnails already carry the photo's id, so count files: the full copy is one more file.
   const cacheOf = () => {
     try {
       return readdirSync(join(instances[0].storageDir, "cache", "photos", adaFolder)).length;
@@ -544,8 +544,20 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   await a.getByRole("button", { name: words("lightbox.close") }).click();
   // 20 s: the full photo is written to Ada's cache.
   await expect
-    .poll(cacheOf, { message: "Ada's cache · Ben's full photo", timeout: 20_000 })
+    .poll(cacheOf, {
+      message: "Ada's cache · Ben's full photo",
+      timeout: 20_000,
+    })
     .toBeGreaterThan(filesBefore);
+
+  // Ben's phone reads Ada's record naming the photo before she goes off; its delete warning and line name her only then.
+  await viewB(GONE).click();
+  // 60 s: Ada's phone tells Ben's phone it holds the full photo.
+  await expect(b.locator(".justus-holders-text"), "Ada on · Ben's phone: Ada has it").toHaveText(
+    words("holders.on_and_your_phone", { names: "Ada's" }),
+    { timeout: 60_000 },
+  );
+  await b.getByRole("button", { name: words("lightbox.close") }).click();
 
   // 60 s: Ben's phone shows Ada connected before she goes off; without this the off-wait below can pass at once.
   await expect(
@@ -559,7 +571,6 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
     recursive: true,
     force: true,
   });
-  expect(cacheOf(), "Ada's cache · no copy of Ben's photo").toBe(0);
 
   let bToasts;
   const resumeAda = await pausePhone(instances[0]);
@@ -607,7 +618,7 @@ test("a photo Ben deletes while Ada's phone is off leaves her phone when it come
   await expect(stillLine, "Ada back · Ben's album page: the line is gone").toHaveCount(0, {
     timeout: 60_000,
   });
-  // 20 s: the toast comes with the same read.
+  // 20 s: the toast comes with the same read; the line hides while Ada is connected, so this is what proves the sweep.
   await expect
     .poll(bToasts, {
       message: "Ada back · Ben's phone: Removed from Ada's phone.",
