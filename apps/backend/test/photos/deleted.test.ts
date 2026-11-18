@@ -11,7 +11,6 @@ function listing(over: Partial<Listing> & { keys?: string[] } = {}): Listing {
     role: "member",
     notice: undefined,
     complete: true,
-    covered: true,
     sources: new Map([
       ["A", drive],
       ["ME", drive],

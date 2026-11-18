@@ -1330,6 +1330,16 @@ describe("the phone that deletes a photo lists who still has to drop it", () => 
     await s.close();
   }, 30_000);
 
+  it("the Admin's delete of her own photo gives her phone no deleted note", async () => {
+    const s = await album();
+    const photo = await s.annaPhoto();
+    s.anna.pushes.length = 0;
+    await s.anna.store.remove(photo.id);
+    await s.anna.store.list();
+    expect(s.anna.pushes.some((p) => p.cause === "deleted")).toBe(false);
+    await s.close();
+  }, 30_000);
+
   it("stops listing Nils once his phone is back, though no screen of his lists the album", async () => {
     const s = await album();
     const photo = await s.annaPhoto();

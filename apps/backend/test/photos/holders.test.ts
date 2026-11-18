@@ -138,19 +138,28 @@ describe("stillToDrop", () => {
     previews: new Set(["p3"]),
   };
 
-  it("lists what the record holds or previewed that the album no longer shows, sorted", () => {
-    expect(stillToDrop({ report: reports, listed: new Set(["p1"]) })).toEqual(["p2", "p3"]);
-    const previewFirst: HeldReport = {
-      kind: "reports",
-      ids: new Set(["p9"]),
-      previews: new Set(["p1"]),
-    };
-    expect(stillToDrop({ report: previewFirst, listed: new Set() })).toEqual(["p1", "p9"]);
+  const removed = { "A:p1": {}, "A:p3": {}, "K:p2": {} };
+
+  it("lists what the record holds or previewed that the Admin's delete list names, sorted", () => {
+    expect(stillToDrop({ report: reports, removed, live: new Set(["A"]) })).toEqual(["p1", "p3"]);
   });
 
-  it("says nothing while the record is silent or the listing is partial", () => {
-    expect(stillToDrop({ report: { kind: "silent" }, listed: new Set() })).toEqual([]);
-    expect(stillToDrop({ report: reports, listed: undefined })).toEqual([]);
+  it("says nothing while the record is silent or missing", () => {
+    expect(stillToDrop({ report: { kind: "silent" }, removed, live: new Set(["A"]) })).toEqual([]);
+    expect(stillToDrop({ report: undefined, removed, live: new Set(["A"]) })).toEqual([]);
+  });
+
+  it("names nothing for a photo that left with its adder", () => {
+    expect(stillToDrop({ report: reports, removed: {}, live: new Set(["A"]) })).toEqual([]);
+  });
+
+  it("names nothing for a kept copy or a drive that left", () => {
+    expect(stillToDrop({ report: reports, removed, live: new Set(["Z"]) })).toEqual([]);
+  });
+
+  it("lists an id held and previewed once", () => {
+    const both: HeldReport = { kind: "reports", ids: new Set(["p1"]), previews: new Set(["p1"]) };
+    expect(stillToDrop({ report: both, removed, live: new Set(["A"]) })).toEqual(["p1"]);
   });
 });
 
