@@ -21,3 +21,9 @@ describe("newPhotosFrom", () => {
     }
   });
 });
+
+describe("newPhotosFrom counts people by key", () => {
+  it("names nobody when two people share a name", () => {
+    expect(newPhotosFrom([...by("a", "Ada", 1), ...by("b", "Ada", 1)])).toEqual({ count: 2 });
+  });
+});

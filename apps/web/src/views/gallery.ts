@@ -838,8 +838,7 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
       )}
       ${whoLeftNotice(album, !page.foldersSettled)} ${slot}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
-      ${album.notice === undefined ? newPhotosLine(page.photos, album.id) : null}
-      ${albumAddRow(page, album)}
+      ${newPhotosLine(page.photos, album.id)} ${albumAddRow(page, album)}
     </div>
   `;
 }
@@ -856,7 +855,7 @@ function newPhotosLine(photos: Photo[], albumId: string) {
       ${
         from.adder === undefined
           ? t("gallery.new_photos_count", { count: from.count })
-          : t("gallery.new_photos_from", { count: from.count, name: from.adder })
+          : t("gallery.new_photos_from_one", { count: from.count, name: from.adder })
       }
     </p>`;
   });

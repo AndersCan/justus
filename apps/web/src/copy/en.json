@@ -2113,7 +2113,7 @@
     "who": "Everyone, on the Photos tab and inside an album",
     "screen": "start-album"
   },
-  "gallery.new_photos_from": {
+  "gallery.new_photos_from_one": {
     "text": "{count} new {count?photo:photos} from {name}",
     "status": "draft",
     "where": "Album › Photos › text",

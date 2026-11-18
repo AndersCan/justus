@@ -147,3 +147,12 @@ describe("the album's new photos line after the visit", () => {
     expect(await line([by("a", ada), by("b", ada)])).toBeUndefined();
   });
 });
+
+describe("the album's new photos line counts this album only", () => {
+  it("leaves out new photos of another album", async () => {
+    await ready();
+    seen.albumsListed([{ albumId: "f2", photoIds: ["y"] }]);
+    const elsewhere = { ...by("z", ada), folderId: "f2" };
+    expect(await line([by("a", ada), by("e", ada), elsewhere])).toBe("1 new photo from Ada");
+  });
+});
