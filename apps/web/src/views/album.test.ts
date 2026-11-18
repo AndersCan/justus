@@ -1953,15 +1953,39 @@ describe("album member status", () => {
     }
   });
 
-  test("a member whose phone only has previews reads the same line, with no photo counts", async () => {
-    const host = await open([photo("a", "f1", true), photo("b", "f1", false)]);
-    const line = memberRows(host)[1]
-      .querySelector('[data-copy-id="member.role_collaborator"]')!
-      .closest("p")!;
-    expect(line.textContent?.trim()).toBe(copy("member.role_collaborator"));
-    expect(host.textContent).not.toMatch(
-      /not opened|has \d+ of|has all|hasn't said yet|has no photos yet/,
-    );
+  test("each row says how many of the album's photos that phone holds, under the role line", async () => {
+    const full = (previews: unknown[]) => ({
+      kind: "inAlbum",
+      here: true,
+      previewHere: false,
+      others: [],
+      quiet: [],
+      unsure: [{ key: "k2", name: "Zed" }],
+      waiting: [],
+      previews,
+      former: [],
+      left: [],
+    });
+    const kim = { key: "k1", name: "Kim" };
+    const host = await open([
+      { id: "a", folderId: "f1", holders: { ...full([]), others: [kim] } },
+      { id: "b", folderId: "f1", holders: full([kim]) },
+      { id: "c", folderId: "f2", holders: full([]) },
+    ]);
+    const lines = memberRows(host).map((row) => {
+      const role = row.querySelector('[data-copy-id^="member.role_"]')!.closest("p")!;
+      return role.nextElementSibling?.matches("[data-member-photos]")
+        ? role.nextElementSibling.textContent?.trim()
+        : undefined;
+    });
+    expect(lines[0]).toBe("Photos: 2 of 2");
+    expect(lines[1]).toBe("Photos: 1 of 2, 1 as previews");
+    expect(host.querySelectorAll("[data-member-photos]").length).toBe(2);
+  });
+
+  test("no photo line while a photo's holders are not known", async () => {
+    const host = await open([{ id: "a", folderId: "f1", holders: undefined }]);
+    expect(host.querySelector("[data-member-photos]")).toBeNull();
   });
 });
 

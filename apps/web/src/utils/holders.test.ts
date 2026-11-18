@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { PhotoHolders } from "@justus/core";
+import type { Photo, PhotoHolders } from "@justus/core";
 import { copy } from "../copy/copy";
 import {
   deleteDetail,
@@ -8,6 +8,8 @@ import {
   holdersLine,
   holdersSheetRows,
   lacksFullPhoto,
+  memberHoldings,
+  memberPhotosLine,
   previewOnly,
 } from "./holders";
 
@@ -441,5 +443,49 @@ describe("a quiet phone in the delete dialog and toast", () => {
   it("passes quiet through to the sheet rows", () => {
     expect(holdersSheetRows(h({ quiet: [q("Ben")] })).quiet).toEqual([q("Ben")]);
     expect(holdersSheetRows(undefined).quiet).toEqual([]);
+  });
+});
+
+describe("memberHoldings", () => {
+  const photoWith = (holders: PhotoHolders | undefined) =>
+    ({ id: "p", holders }) as unknown as Photo;
+  const q = (name: string) => ({ ...m(name), lastSeenAt: 1 });
+  const people = ["Ada", "Ben", "Cy", "Dan", "Eve", "Fay"].map((key, i) => ({ key, you: i === 0 }));
+
+  it("counts each member from the sheet's lists", () => {
+    const rest = { quiet: [q("Cy")], unsure: [m("Dan")], waiting: [m("Eve")] };
+    const photos = [
+      photoWith(h({ others: [m("Ben")], ...rest })),
+      photoWith(h({ previews: [m("Ben")], ...rest })),
+      photoWith(h({ here: false, previewHere: true, previews: [m("Ben")], ...rest })),
+    ];
+    const got = memberHoldings(photos, people);
+    expect(got.get("Ada")).toEqual({ full: 2, previews: 1, total: 3 });
+    expect(got.get("Ben")).toEqual({ full: 1, previews: 2, total: 3 });
+    expect(got.get("Eve")).toEqual({ full: 0, previews: 0, total: 3 });
+    expect([...got.keys()]).toEqual(["Ada", "Ben", "Eve"]);
+  });
+
+  it("counts your own phone even when it holds neither copy", () => {
+    const photos = [photoWith(h({ here: false })), photoWith(h({}))];
+    expect(memberHoldings(photos, people).get("Ada")).toEqual({ full: 1, previews: 0, total: 2 });
+  });
+
+  it("says nothing until every photo's holders are known", () => {
+    expect(memberHoldings([], people).size).toBe(0);
+    expect(memberHoldings([photoWith(h({})), photoWith(undefined)], people).size).toBe(0);
+    expect(
+      memberHoldings([photoWith(h({})), photoWith({ kind: "removed", here: true })], people).size,
+    ).toBe(0);
+  });
+});
+
+describe("memberPhotosLine", () => {
+  it("words the line", () => {
+    expect(memberPhotosLine(undefined)).toBe("");
+    expect(memberPhotosLine({ full: 3, previews: 0, total: 3 })).toBe("Photos: 3 of 3");
+    expect(memberPhotosLine({ full: 1, previews: 2, total: 3 })).toBe(
+      "Photos: 1 of 3, 2 as previews",
+    );
   });
 });

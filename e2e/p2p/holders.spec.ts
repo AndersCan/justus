@@ -1,6 +1,6 @@
 /**
  * Two real bare instances, one story: Ada adds a photo, Ben joins, his phone has the preview, he opens it, Ben's phone is
- * taken off and back, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
+ * taken off and back, Ada adds two more photos and Members says what Ben's phone holds, both phones reload, each phone restarts while the other is off, Ada removes Ben, Ada deletes the photo. After each step the "who has this
  * photo" line is read on the phones that have one; a wrong line fails with the step, the phone,
  * and both texts.
  *
@@ -10,6 +10,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../hub/fixtures.mjs";
+import { pngOf, runColour } from "../add-photos.js";
 import {
   askToJoin,
   copyInviteLink,
@@ -26,6 +27,8 @@ import {
 const ALBUM = "Holders trip";
 const QUIET_ALBUM = "Holders quiet";
 const FILE = "holders-ada.png";
+/** Photos Ada adds after Ben joined; Ben never opens them, so his phone has only their previews. */
+const MORE = ["holders-ada-2.png", "holders-ada-3.png"];
 
 test.afterEach(() => resumeAll());
 
@@ -203,6 +206,38 @@ test("every holders line reads right on both phones from add to delete, across a
   await shareAlbum(instancePages, ALBUM);
   await closePhoto(a);
   await closePhoto(b);
+
+  // Ada adds two more photos; Ben's phone fetches their previews by itself and he opens neither.
+  await a.setInputFiles(
+    "input[type=file]",
+    MORE.map((name, i) => ({ name, mimeType: "image/png", buffer: pngOf(...runColour(62 + i)) })),
+  );
+  for (const name of MORE) {
+    await expect(b.getByRole("button", { name: `View ${name}` })).toBeVisible({ timeout: 60_000 });
+  }
+  await a
+    .getByRole("link", { name: /Invite & members/ })
+    .first()
+    .click();
+  const rows = a.locator("section", { has: a.getByRole("heading", { name: "Members" }) });
+  // 60 s: Ada's phone re-reads Ben's record after each of his changes.
+  await expect(
+    rows.locator("[data-member-key]", { hasText: "Ben" }).locator("[data-member-photos]"),
+    "Ben has 1 photo and 2 previews · Members: Ben's row",
+  ).toHaveText(
+    words("members.and_previews", {
+      line: words("members.has_photos", { full: 1, total: 3 }),
+      n: 2,
+    }),
+    {
+      timeout: 60_000,
+    },
+  );
+  await expect(
+    rows.locator("[data-member-key]", { hasText: "Ada" }).locator("[data-member-photos]"),
+    "Ben has 1 photo and 2 previews · Members: Ada's row",
+  ).toHaveText(words("members.has_photos", { full: 3, total: 3 }));
+  await a.getByRole("link", { name: "See photos in this album" }).click();
 
   const resume = await pausePhone(instances[1]);
   try {
