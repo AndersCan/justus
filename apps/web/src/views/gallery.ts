@@ -185,10 +185,12 @@ if (typeof document !== "undefined" && !inNativeShell()) {
 
 /** Long enough to read "· N already there"; the timer still ends it if nobody taps Dismiss. */
 const DUPLICATES_TOAST_MS = 10_000;
+/** A batch this small that ends on its own album page needs no toast (#661). */
+const QUIET_BATCH_BELOW = 5;
 
-// When a batch ends cleanly, say what happened and clear it (a batch with
-// duplicates stays up longer, with Dismiss); one with failures stays on the
-// page (with Retry) until dismissed.
+// When a batch ends, say what happened wherever she is (a batch with
+// duplicates stays up longer); one with failures keeps its card in the add
+// row (with Retry) until dismissed.
 let wasRunning = false;
 galleryActor.on("change", {
   fn: (snapshot) => {
@@ -197,26 +199,33 @@ galleryActor.on("change", {
     wasRunning = batch?.running ?? false;
     if (!finished) return;
     if (pickedVia() === "shared") sharedPhotos.addEnded(batch.failed.length);
-    if (batch.failed.length > 0) return;
+    const failed = batch.failed.length > 0;
     const camera = pickedVia() === "camera";
     const scope = routeScope();
+    const onAlbum = scope?.kind === "album" && scope.id === batch.folderId;
+    const folderId = batch.folderId as string;
+    const album = albumName(batch.folderId);
+    if (failed && onAlbum) return;
     const takeAnother =
-      camera && scope && batch.folderId
-        ? {
-            label: copy("gallery.take_another"),
-            run: () => void startAdd(batch.folderId as string, "camera"),
-          }
+      camera && !failed && scope
+        ? { label: copy("gallery.take_another"), run: () => void startAdd(folderId, "camera") }
         : undefined;
-    const dismiss = { label: copy("gallery.dismiss"), run: () => {} };
-    if (batch.duplicates > 0) {
-      toast(batchSummary(batch, albumName(batch.folderId)), {
-        action: takeAnother ?? dismiss,
-        duration: DUPLICATES_TOAST_MS,
+    const action =
+      takeAnother ??
+      (onAlbum
+        ? { label: copy("gallery.dismiss"), run: () => {} }
+        : {
+            label: copy("add_photos.open_album", { album }),
+            run: () => open(`/albums/${folderId}`),
+          });
+    const quiet = onAlbum && !camera && batch.duplicates === 0 && batch.total < QUIET_BATCH_BELOW;
+    if (!quiet) {
+      toast(batchSummary(batch, album), {
+        action,
+        ...(batch.duplicates > 0 ? { duration: DUPLICATES_TOAST_MS } : {}),
       });
-    } else if (takeAnother) {
-      toast(batchSummary(batch, albumName(batch.folderId)), { action: takeAnother });
     }
-    gallery.dismissBatch();
+    if (!failed) gallery.dismissBatch();
   },
 });
 
@@ -473,6 +482,7 @@ function emptyState(title: string, body: string, actions: unknown) {
 /** "Add photos to <album>": the only way in, so the album is always named. */
 function addButton(page: PhotosPage, album: FolderSummary) {
   const running = page.batch?.running ?? false;
+  const thisAlbum = running && page.batch?.folderId === album.id;
   return html`<wa-button
     variant="brand"
     class="min-w-0 max-w-full"
@@ -480,7 +490,7 @@ function addButton(page: PhotosPage, album: FolderSummary) {
     @click=${() => void startAdd(album.id)}
   >
     ${
-      running && page.batch
+      thisAlbum && page.batch
         ? copy("gallery.adding", { current: page.batch.done + 1, total: page.batch.total })
         : copy("gallery.add_photos_to", { name: album.name })
     }
@@ -562,31 +572,19 @@ export function albumAddRow(page: PhotosPage, album: FolderSummary) {
       ${cameraButton(page, album)} ${addButton(page, album)}
     </div>
   </div>`;
-  if (!inviteHere) return row;
-  return html`${row}
+  const progress = addProgress(page.batch, album);
+  if (!inviteHere) return html`${row}${progress}`;
+  return html`${row}${progress}
     <div class="mt-2">${inviteRow(status.folder, status.name)}</div>`;
 }
 
-/** The strip's motion key while it shows, so the page can slide around it. */
-function batchKeys(batch: AddBatch | null): string[] {
-  return batch?.running ? ["batch:adding"] : [];
-}
-
-/** Progress of an add batch, then its failures (with Retry) if any. */
-function batchStrip(batch: AddBatch | null) {
-  if (!batch) return null;
-  const album = albumName(batch.folderId);
+/** Under the add row: progress while this album adds, then its failures (with Retry) if any. */
+function addProgress(batch: AddBatch | null, folder: FolderSummary) {
+  if (!batch || batch.folderId !== folder.id) return null;
+  const album = folder.name;
   if (batch.running) {
-    const shown = Math.min(batch.done + 1, batch.total);
-    return html`<div
-      class="rounded-2xl bg-surface p-4 ring-1 ring-line"
-      role="status"
-      data-motion-key="batch:adding"
-    >
-      <p class="text-sm text-fg">
-        ${t("gallery.adding_to", { what: batch.total === 1 ? copy("gallery.a_photo") : copy("gallery.of", { shown, total: batch.total }) })}
-        <span class="font-medium">${album}</span>…
-      </p>
+    return html`<div class="mt-2" role="status">
+      <p class="text-sm text-muted">${copy("gallery.you_can_leave_this_page")}</p>
       <div
         class="mt-2 h-1.5 overflow-hidden rounded-full bg-subtle"
         role="progressbar"
@@ -735,7 +733,7 @@ function pageHeader(page: PhotosPage, active: PhotoTab) {
         ${t("gallery.refresh")}
       </button>
     </div>
-    ${photoTabs(active)} ${batchStrip(page.batch)}
+    ${photoTabs(active)}
   `;
 }
 
@@ -861,7 +859,6 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
   const loading =
     (state === "loadingPhotos" || state === "photosNotLoaded") && page.photos.length === 0;
   const drop = dropHandlers(scope);
-  const scopeKey = scope.kind === "album" ? `album:${scope.id}` : scope.kind;
   const photos = loading
     ? loadingGrid()
     : scope.kind === "album" && !album
@@ -876,7 +873,6 @@ function photosBody(page: PhotosPage, scope: PhotoScope) {
     <div
       class="space-y-5"
       data-vt=${scope.kind === "album" && album ? "album" : nothing}
-      ${gridMotion({ keys: batchKeys(page.batch), settle: scopeKey })}
       @dragenter=${drop.enter}
       @dragover=${drop.over}
       @dragleave=${drop.leave}
