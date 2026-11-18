@@ -99,8 +99,21 @@ export function albumMenuItems(
   pending: boolean,
   removed = false,
   handover: { handing: boolean; collaborators: number } = { handing: false, collaborators: 0 },
-): { value: "archive" | "leave" | "delete"; label: string; danger: boolean }[] {
-  const archive = { value: "archive", label: copy("album.archive"), danger: false } as const;
+  archived = false,
+  name = "",
+): {
+  value: "archive" | "leave" | "delete" | "restore";
+  label: string;
+  hint?: string;
+  danger: boolean;
+}[] {
+  if (archived) return [{ value: "restore", label: copy("albums.restore_2"), danger: false }];
+  const archive = {
+    value: "archive",
+    label: copy("album.archive"),
+    hint: copy("album.archive_hint", { name }),
+    danger: false,
+  } as const;
   if (pending) return [archive];
   if (role === "creator") {
     if (handover.handing) return [archive];
@@ -146,6 +159,10 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
     folders.archive(id, name);
     return;
   }
+  if (value === "restore") {
+    folders.restore(id, name);
+    return;
+  }
   if (value === "leave" && status.folder.notice?.kind === "removed") {
     const ok = await confirmAction({
       ...removedDeleteSheet(name, adminName(status)),
@@ -180,7 +197,7 @@ async function chooseAlbumAction(value: string, status: Status, people: readonly
   }
 }
 
-function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
+function albumMenu(status: Status, people: readonly Person[], busy: boolean, archived: boolean) {
   const items = albumMenuItems(
     status.folder.role,
     Boolean(status.folder.pending),
@@ -189,6 +206,8 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
       handing: Boolean(status.folder.handingOver),
       collaborators: handOverChoices(people).length,
     },
+    archived,
+    status.folder.name,
   );
   return html`<wa-dropdown
     placement="bottom-end"
@@ -208,7 +227,11 @@ function albumMenu(status: Status, people: readonly Person[], busy: boolean) {
           value=${item.value}
           variant=${item.danger ? "danger" : "default"}
           ?disabled=${busy}
-          >${item.label}</wa-dropdown-item
+          >${item.label}${
+            item.hint
+              ? html`<span class="block max-w-64 text-xs text-muted">${item.hint}</span>`
+              : null
+          }</wa-dropdown-item
         >`,
     )}
   </wa-dropdown>`;
@@ -884,20 +907,29 @@ function albumBody(
       name: status.folder.name,
       role: removed ? undefined : roleLabel(status.folder.role, status.folder.pending),
       menu: html`${watch(foldersActor, (fs) =>
-        albumMenu(status, vm.people, !foldersViewModel(fs).settled),
+        albumMenu(
+          status,
+          vm.people,
+          !foldersViewModel(fs).settled,
+          foldersViewModel(fs).archived.some((f) => f.id === id),
+        ),
       )}`,
       about: html`${roleCaption(status.folder)}
       ${albumNotice(status.folder.notice, status.folder.name)} ${handingLine(status.folder)}`,
-      actions: html`<div class="flex flex-wrap items-center gap-2">
-        ${
-          !removed && planAdd(id, [status.folder], status).kind === "direct"
-            ? addPhotosButton(id)
-            : null
-        }
-        <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
-          >${t("album.see_photos_in_this_album")}</a
-        >
-      </div>`,
+      actions: html`${watch(foldersActor, (fs) =>
+        foldersViewModel(fs).archived.some((f) => f.id === id)
+          ? null
+          : html`<div class="flex flex-wrap items-center gap-2">
+              ${
+                !removed && planAdd(id, [status.folder], status).kind === "direct"
+                  ? addPhotosButton(id)
+                  : null
+              }
+              <a class="ui-btn-ghost inline-flex items-center" href="/albums/${id}"
+                >${t("album.see_photos_in_this_album")}</a
+              >
+            </div>`,
+      )}`,
       problem: html`${errorBanner(
         error,
         state === "couldNotCheckAlbum" && !fatal ? () => sync.retry() : undefined,

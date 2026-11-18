@@ -53,6 +53,7 @@ vi.mock("../gateway", () => ({
       add: vi.fn(async (identity: string, name: string) => [null, { friend: { identity, name } }]),
     },
     folders: vi.fn(),
+    restoreAlbum: vi.fn().mockResolvedValue([null, { ok: true }]),
     requests: vi.fn().mockResolvedValue([null, { requests: [] }]),
     removeMember: vi.fn(),
     saveInviteLink: vi.fn().mockResolvedValue([null, { ok: true }]),
@@ -1674,6 +1675,13 @@ describe("leave and delete copy", () => {
   });
 });
 
+const itemLabel = (i: Element) =>
+  [...i.childNodes]
+    .filter((n) => n.nodeType === Node.TEXT_NODE)
+    .map((n) => n.textContent)
+    .join("")
+    .trim();
+
 describe("album menu items", () => {
   test.each([
     ["creator", false, ["Archive", "Delete album"]],
@@ -1722,9 +1730,39 @@ describe("album menu items", () => {
     const host = document.createElement("div");
     render(albumView("f1"), host);
     expect(host.querySelector("[aria-label='More options']")?.className).toBe("ui-icon-btn");
-    expect(
-      [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
-    ).toEqual(["Archive", "Leave album", "Delete album"]);
+    const items = [...host.querySelectorAll("wa-dropdown-item")];
+    expect(items.map(itemLabel)).toEqual(["Archive", "Leave album", "Delete album"]);
+    expect(items[0]?.querySelector("span")?.textContent).toBe(
+      copy("album.archive_hint", { name: status.folder.name }),
+    );
+    expect(items.slice(1).some((i) => i.querySelector("span"))).toBe(false);
+  });
+
+  test("an archived album's menu offers only Restore", () => {
+    expect(albumMenuItems("creator", false, false, undefined, true, "Trip")).toEqual([
+      { value: "restore", label: copy("albums.restore_2"), danger: false },
+    ]);
+  });
+
+  test("an archived album's page offers Restore only and no photo buttons", async () => {
+    vi.mocked(gateway.folders).mockResolvedValue([
+      null,
+      { folders: [], archived: [status.folder], activeFolderId: status.folder.id },
+    ] as never);
+    syncActor.send(statusSeen.create({ status }));
+    const host = document.createElement("div");
+    render(albumView("f1"), host);
+    folders.refresh();
+    await vi.waitFor(() =>
+      expect([...host.querySelectorAll("wa-dropdown-item")].map(itemLabel)).toEqual([
+        copy("albums.restore_2"),
+      ]),
+    );
+    expect(host.querySelector('[data-copy-id="album.see_photos_in_this_album"]')).toBeNull();
+    host
+      .querySelector("wa-dropdown")
+      ?.dispatchEvent(new CustomEvent("wa-select", { detail: { item: { value: "restore" } } }));
+    expect(gateway.restoreAlbum).toHaveBeenCalledWith("f1");
   });
 });
 
@@ -2115,9 +2153,7 @@ describe("Admin handover on the album page", () => {
   test("while handing over the page shows the line and the menu is only Archive", () => {
     const host = page(handing);
     expect(flat(host)).toContain("Handing Trip to Kim. It finishes when Kim's phone is on.");
-    expect(
-      [...host.querySelectorAll("wa-dropdown-item")].map((i) => i.textContent?.trim()),
-    ).toEqual(["Archive"]);
+    expect([...host.querySelectorAll("wa-dropdown-item")].map(itemLabel)).toEqual(["Archive"]);
   });
 
   test("Stay Admin on the line calls the handover off", () => {
