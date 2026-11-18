@@ -43,6 +43,17 @@ function previewClause(previews: readonly PhotoMember[]): string {
   return copy("holders.preview_on_names", { names: String(previews.length), n: previews.length });
 }
 
+/** "On its way to Ben's phone", or "On its way to 4 phones" when the names are many, alike or long. */
+function onItsWayClause(waiting: readonly PhotoMember[]): string {
+  const names = waiting.map((m) => `${m.name}'s`);
+  const distinct = new Set(waiting.map((m) => nameKey(m.name))).size === waiting.length;
+  if (names.length <= 3 && distinct) {
+    const text = copy("holders.on_its_way_to_names", { names: nameList(names), n: names.length });
+    if (text.length <= LIMIT) return text;
+  }
+  return copy("holders.on_its_way_to_names", { names: String(waiting.length), n: waiting.length });
+}
+
 function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolean } {
   if (!h) return { text: copy("holders.can_t_tell_who_has"), tappable: false };
   if (h.kind === "removed") {
@@ -61,8 +72,8 @@ function baseLine(h: PhotoHolders | undefined): { text: string; tappable: boolea
         text:
           h.unsure.length > 0
             ? copy("holders.on_your_phone_others_haven")
-            : h.waiting.length + h.previews.length > 0
-              ? copy("holders.only_on_your_phone_so")
+            : h.waiting.length > 0
+              ? onItsWayClause(h.waiting)
               : copy("holders.only_on_your_phone"),
         tappable: true,
       };
