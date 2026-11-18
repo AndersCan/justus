@@ -43,6 +43,42 @@ const ready = async () => {
 
 afterEach(() => document.body.replaceChildren());
 
+const ada = { key: "ka", name: "Ada" };
+const cara = { key: "kc", name: "Cara" };
+const by = (id: string, member: { key: string; name: string }, mine = false) => ({
+  ...photo(id, mine),
+  member,
+});
+const line = async (list: unknown[]) => {
+  const { albumHeader } = await import("./gallery");
+  const album = { id: "f1", name: "Trip", role: "viewer", members: 2 };
+  const status = { folder: { id: "f1" }, members: [] };
+  const page = { status, folders: [album], requests: [], photos: list, lastSync: Date.now() };
+  const host = draw(albumHeader(page as never, album as never));
+  return host.querySelector("[data-new-photos-line]")?.textContent?.replace(/\s+/g, " ").trim();
+};
+
+describe("the album's new photos line", () => {
+  it("says how many are new and who added them", async () => {
+    await ready();
+    expect(await line([by("a", ada), by("b", ada), by("c", ada), by("d", cara, true)])).toBe(
+      "2 new photos from Ada",
+    );
+    expect(await line([by("a", ada), by("b", ada), by("c", ada)])).toBe("2 new photos from Ada");
+  });
+
+  it("names nobody when two people added them", async () => {
+    await ready();
+    expect(await line([by("a", ada), by("b", ada), by("c", cara)])).toBe("2 new photos");
+  });
+
+  it("is absent with nothing new, and counts one as one", async () => {
+    await ready();
+    expect(await line([by("a", ada)])).toBeUndefined();
+    expect(await line([by("a", ada), by("b", ada)])).toBe("1 new photo from Ada");
+  });
+});
+
 describe("new photo marks", () => {
   it("marks only a photo that is not the person's own and not known", async () => {
     await ready();
@@ -100,5 +136,23 @@ describe("unreadable seen file", () => {
     const { isNewPhoto, newCount } = await import("../machines/seen-machine");
     expect(isNewPhoto(actor.snapshot().context, photo("b"))).toBe(false);
     expect(newCount(actor.snapshot().context, photos as never)).toBe(0);
+  });
+});
+
+describe("the album's new photos line after the visit", () => {
+  it("is gone once the visit ends", async () => {
+    await ready();
+    seen.photosLooked([{ albumId: "f1", photoId: "b" }]);
+    seen.visitEnded();
+    expect(await line([by("a", ada), by("b", ada)])).toBeUndefined();
+  });
+});
+
+describe("the album's new photos line counts this album only", () => {
+  it("leaves out new photos of another album", async () => {
+    await ready();
+    seen.albumsListed([{ albumId: "f2", photoIds: ["y"] }]);
+    const elsewhere = { ...by("z", ada), folderId: "f2" };
+    expect(await line([by("a", ada), by("e", ada), elsewhere])).toBe("1 new photo from Ada");
   });
 });

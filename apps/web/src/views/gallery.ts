@@ -24,6 +24,7 @@ import { formatRelative } from "../utils/time";
 import { unreachableMember } from "../utils/reach-hint";
 import { backTo, currentPage, open, ownLink } from "../machines/router-machine";
 import { photoWait, type PhotoWait } from "../utils/photo-wait";
+import { newPhotosFrom } from "../utils/new-photos-from";
 import { gridColsFor, type Density } from "../utils/gallery-density";
 import {
   addTargets,
@@ -837,9 +838,27 @@ export function albumHeader(page: PhotosPage, album: FolderSummary) {
       )}
       ${whoLeftNotice(album, !page.foldersSettled)} ${slot}
       ${album.notice === undefined && status ? photoWaitLine(photoWait(photosInScope(page.photos, { kind: "album", id: album.id }), status.members)) : null}
-      ${albumAddRow(page, album)}
+      ${newPhotosLine(page.photos, album.id)} ${albumAddRow(page, album)}
     </div>
   `;
+}
+
+/** One line for Ben: how many photos are new in this album and, when one named person added them, who. */
+function newPhotosLine(photos: Photo[], albumId: string) {
+  return watch(seenActor, (s) => {
+    const fresh = photosInScope(photos, { kind: "album", id: albumId }).filter((p) =>
+      isNewPhoto(s.context, p),
+    );
+    const from = newPhotosFrom(fresh);
+    if (from === null) return null;
+    return html`<p class="text-sm text-fg break-words" data-new-photos-line>
+      ${
+        from.adder === undefined
+          ? t("gallery.new_photos_count", { count: from.count })
+          : t("gallery.new_photos_from_one", { count: from.count, name: from.adder })
+      }
+    </p>`;
+  });
 }
 
 function loadingGrid() {
