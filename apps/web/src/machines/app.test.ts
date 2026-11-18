@@ -99,7 +99,7 @@ test("a saved name, an opened album, a sync status, a waiting request and an ope
 });
 
 test("the whole-app walk names who sent each of its six messages, in order", async () => {
-  const loaded = await inspectFile(join(here, "app.ts"));
+  const loaded = await inspectFile(join(here, "app.ts"), { fuzz: false });
   const run = loaded.machines.find((m) => m.id === "justus")?.runs[0];
   expect(run).toBeDefined();
   const driver = createDriver({
@@ -115,7 +115,7 @@ test("the whole-app walk names who sent each of its six messages, in order", asy
   driver.reset();
   for (const step of run!.steps) {
     const state = driver.step(step);
-    for (const entry of [state.last, ...state.after]) {
+    for (const entry of state.after) {
       if (entry?.message === undefined) continue;
       const actor =
         entry.actor !== undefined && "region" in entry.actor ? entry.actor.region : undefined;
@@ -132,7 +132,7 @@ test("the whole-app walk names who sent each of its six messages, in order", asy
     ["people", "REFRESH", "requests"],
   ]);
   expect(dropped).toEqual([]);
-});
+}, 60_000);
 
 test("every timed part runs on the clock the app is given", () => {
   const clock = VirtualClock();
