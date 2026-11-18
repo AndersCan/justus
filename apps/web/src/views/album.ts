@@ -334,7 +334,7 @@ function memberRow(vm: PeopleVm, p: PeopleVm["people"][number]) {
         ${p.you ? null : presenceDot({ tone: p.connected ? "green" : "neutral", label: p.presence, size: "md", class: "shrink-0" })}
         ${p.friend ? html`<span class="shrink-0 text-xs font-normal text-muted">${t("album.friend")}</span>` : null}
       </p>
-      ${memberLine(p.role)}
+      ${memberLine(p.role)}${p.sameName && !p.you ? html`<p class="truncate text-xs text-muted">${p.presence}</p>` : null}
       ${
         p.clash
           ? html`<p class="truncate text-xs font-semibold text-warn-fg">
@@ -480,6 +480,7 @@ export function requestIdentity(r: PeopleVm["requests"][number], joining: Templa
         r.friend ? html`<span class="ml-1 text-xs text-muted">${t("album.friend")}</span>` : null
       }
     </p>
+    ${r.sameNameIn ? html`<p class="text-xs font-semibold text-warn-fg">${t("album.same_name_in", { name: r.name, folderName: r.folderName, presence: r.sameNameIn })}</p>` : null}
     ${r.clash ? html`<p class="text-xs font-semibold text-warn-fg">${t("album.not_your_friend", { clash: r.clash })}</p>` : null}
     ${
       r.friend && r.requesterName !== r.name

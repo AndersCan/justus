@@ -28,11 +28,19 @@ export type Person = {
   connected: boolean;
   /** "connected", "last seen 2h ago" or "hasn't connected yet"; empty on your own row. */
   presence: string;
+  /** Another row shows the same name, so the row prints its presence words. Unset otherwise. */
+  sameName?: true;
 };
 
 /** A pending join request with the name to show: your friend name for the
  * asker when their identity key is a saved friend. */
-export type RequestRow = JoinRequest & { name: string; friend: boolean; clash?: string };
+export type RequestRow = JoinRequest & {
+  name: string;
+  friend: boolean;
+  clash?: string;
+  /** Presence of the most recent person already in, not this phone, who shows the asker's name. Set only by buildPeople. */
+  sameNameIn?: string;
+};
 
 export type People = {
   people: Person[];
@@ -107,6 +115,27 @@ function otherRole(m: { admin: boolean; viewer?: boolean }): Person["role"] {
   return m.viewer === true ? "viewer" : "collaborator";
 }
 
+/** The row plus the presence of the most recent person already in who shows its name from another phone. */
+function withSameName(
+  row: RequestRow,
+  people: readonly Person[],
+  members: SyncStatus["members"],
+): RequestRow {
+  const key = nameKey(row.name);
+  if (key === "") return row;
+  const seen = (k: string) => {
+    const m = members.find((x) => x.key === k);
+    return m?.connected ? Infinity : (m?.lastSeenAt ?? 0);
+  };
+  let best: Person | undefined;
+  for (const p of people) {
+    if (p.you || nameKey(p.name) !== key || p.key === row.requesterKey) continue;
+    if (p.identity !== undefined && p.identity === row.requesterIdentity) continue;
+    if (best === undefined || seen(p.key) > seen(best.key)) best = p;
+  }
+  return best === undefined ? row : { ...row, sameNameIn: best.presence };
+}
+
 /** View-model for the People sheet and the header chip. The first member the
  * backend reports is this device, which always counts as connected. */
 export function buildPeople(
@@ -141,6 +170,9 @@ export function buildPeople(
       };
     })
     .sort((a, b) => Number(b.you) - Number(a.you) || Number(b.admin) - Number(a.admin));
+  const counts = new Map<string, number>();
+  for (const p of people) counts.set(nameKey(p.name), (counts.get(nameKey(p.name)) ?? 0) + 1);
+  for (const p of people) if ((counts.get(nameKey(p.name)) ?? 0) > 1) p.sameName = true;
   const connectedCount = members.filter((m) => m.connected).length;
   const folderId = status?.folder.id;
   const isAdmin = status?.folder.role === "creator";
@@ -150,7 +182,9 @@ export function buildPeople(
     total: members.length,
     chip: chipText(members.length - 1, connectedCount - 1),
     requests: isAdmin
-      ? requests.filter((r) => r.folderId === folderId).map((r) => requestRowOf(r, friends))
+      ? requests
+          .filter((r) => r.folderId === folderId)
+          .map((r) => withSameName(requestRowOf(r, friends), people, members))
       : [],
   };
 }
