@@ -172,7 +172,7 @@ export const folderSummarySchema = s.object({
     }),
   ),
   whoLeft: s.optional(s.array(s.string)),
-  handingOver: s.optional(s.object({ name: s.string })),
+  handingOver: s.optional(s.object({ key: s.string, name: s.string, final: s.boolean })),
   waitingFor: s.optional(s.array(s.string)),
   invitedFriends: s.optional(
     s.array(s.object({ identity: s.string, role: s.oneOf("reader", "member") })),

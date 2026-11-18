@@ -235,8 +235,8 @@ export const albumLifecycleMachine = machine("albumLifecycle", {
           handler: (_e, { context }) =>
             context.get().role === "creator" ? {} : { state: leavingAlbum },
         });
-        /** The new Admin's phone has the album; only the Admin was handing it over. */
         for (const at of [shownInYourAlbums, archived]) {
+          /** The new Admin's phone has the album; only the Admin was handing it over. */
           m.on(at, {
             event: handOverFinished,
             to: [leavingAfterHandover],

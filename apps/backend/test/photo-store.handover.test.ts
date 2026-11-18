@@ -246,7 +246,11 @@ describe("Ada's phone after Ben's phone has the album", () => {
 
     const reopened = createPhotoStore(restarted(s.ada.deps));
     await reopened.ready();
-    expect((await reopened.folders()).folders[0]!.handingOver).toEqual({ name: "Ben" });
+    expect((await reopened.folders()).folders[0]!.handingOver).toEqual({
+      key: s.benKey,
+      name: "Ben",
+      final: true,
+    });
     await until(async () => (await reopened.folders()).folders.length === 0, 30_000);
     await reopened.close();
     await s.ben.store.close();
@@ -259,8 +263,15 @@ describe("Stay Admin", () => {
     const s = await scene();
     setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
     expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
-    expect((await trip(s.ada)).handingOver).toEqual({ name: "Ben" });
+    expect((await trip(s.ada)).handingOver).toEqual({
+      key: s.benKey,
+      name: "Ben",
+      final: false,
+    });
+    const changes: unknown[] = [];
+    s.ada.deps.onChanged = (c: unknown) => void changes.push(c);
     expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
+    expect(changes).toContainEqual({ cause: "enroll", folderId: s.folderId });
     expect((await s.ada.store.stayAdmin(s.folderId))[0]).toBeNull();
     const folder = await trip(s.ada);
     expect(folder.handingOver).toBeUndefined();

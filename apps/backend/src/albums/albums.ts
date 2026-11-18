@@ -76,7 +76,7 @@ export type AlbumSummarySource = {
     earlier?: Array<{ key: string; name: string }>;
     notice?: FolderNotice;
     whoLeft?: string[];
-    handover?: { to: { name: string } };
+    handover?: { to: { name: string; key: string }; written?: boolean };
   };
   selfDrive: { key: string };
   memberDrives: ReadonlyMap<string, unknown>;
@@ -126,7 +126,13 @@ export function albumSummary(
     ...(role === "creator" && record.whoLeft?.length ? { whoLeft: record.whoLeft } : {}),
     ...(waitingFor.length > 0 ? { waitingFor } : {}),
     ...(role === "creator" && record.handover
-      ? { handingOver: { name: record.handover.to.name } }
+      ? {
+          handingOver: {
+            key: record.handover.to.key,
+            name: record.handover.to.name,
+            final: record.handover.written === true,
+          },
+        }
       : {}),
     ...(invitedFriends.length > 0 ? { invitedFriends } : {}),
     ...(record.invite
