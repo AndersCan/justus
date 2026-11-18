@@ -1,0 +1,8 @@
+appId: no.cankode.justus
+---
+# Step 8 of the release walk: Ben opens Ada's photo, so his phone fetches it in full and reports it.
+# The tile's screen reader label comes in with -e from the copy catalogue.
+- tapOn:
+    text: ${TILE}
+    waitToSettleTimeoutMs: 500
+- takeScreenshot: ben-8-opens-photo

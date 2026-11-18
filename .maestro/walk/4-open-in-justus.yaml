@@ -15,7 +15,7 @@ appId: no.cankode.justus
 - tapOn:
     text: ${YOUR_NAME}
     waitToSettleTimeoutMs: 500
-- inputText: "B"
+- inputText: ${NAME}
 # Submit with Enter, not "Continue": the keyboard can cover the button.
 - pressKey: Enter
 - extendedWaitUntil:

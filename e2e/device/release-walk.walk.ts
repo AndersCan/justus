@@ -1,7 +1,8 @@
 /**
  * The release walk: Ada (web, in Chromium) makes an album and copies her invite link. Ben (the release
  * APK on an emulator) opens it in Chrome, taps Open in Justus, asks to join, Ada accepts, and Ben sees
- * her photo. Run through `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` (or the release-walk workflow).
+ * her photo, opens it, and Ada's photo says it is on Ben's phone. Run through
+ * `JUSTUS_WALK=1 bash scripts/maestro-e2e.sh` (or the release-walk workflow).
  * Ben's words come from the copy catalogue by id, never as English written here.
  */
 // @ts-nocheck: the p2p steps are untyped
@@ -24,6 +25,7 @@ const startsWith = (id) => exact(catalogue[id].text.split("{")[0]) + ".*";
 
 const ALBUM = "Walk";
 const PHOTO = "walk.png";
+const BEN = "Ben";
 // The invite page's button is page copy, not an app catalogue entry.
 const OPEN = exact(
   /<a id="open"[^>]*>([^<]+)<\/a>/.exec(
@@ -42,6 +44,8 @@ const STEPS = [
   "Ben asks to join",
   "Ada sees Ben's request and accepts",
   "Ben sees Ada's photo",
+  "Ben opens Ada's photo",
+  `Ada reads “${words("holders.on_and_your_phone", { names: `${BEN}'s` })}” on her photo`,
 ].map((name) => ({ name, result: "not run", ms: 0, error: "" }));
 
 function summary() {
@@ -135,6 +139,7 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
         "4-open-in-justus",
         {
           OPEN,
+          NAME: BEN,
           SKIP: exact(words("welcome.skip")),
           YOUR_NAME: exact(words("welcome.your_name")),
           ASK_TITLE: exact(words("invite.ask_to_join_unnamed")),
@@ -162,6 +167,25 @@ test("Ben joins Ada's album from her invite link on the release build", async ({
     await step(7, () =>
       ben("7-sees-photo", { TILE: exact(words("gallery.view", { name: PHOTO })) }, 120_000),
     );
+    await step(8, () =>
+      ben("8-opens-photo", { TILE: exact(words("gallery.view", { name: PHOTO })) }, 60_000),
+    );
+    await step(9, async () => {
+      try {
+        await a.getByRole("link", { name: words("album.see_photos_in_this_album") }).click();
+        await expect(a).toHaveURL(/\/albums\/[^/]+$/, { timeout: 20_000 });
+        await a
+          .getByRole("button", { name: words("gallery.view", { name: PHOTO }), exact: true })
+          .click();
+        // 120 s: Ben's phone reports it holds the photo; the wait ends when the text matches.
+        await expect(a.locator(".justus-holders-text")).toHaveText(
+          words("holders.on_and_your_phone", { names: `${BEN}'s` }),
+          { timeout: 120_000 },
+        );
+      } finally {
+        await a.screenshot({ path: join(out, "ada-9-holders.png") });
+      }
+    });
   } finally {
     const text = summary();
     writeFileSync(join(out, "walk-summary.md"), text);
