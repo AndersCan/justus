@@ -838,3 +838,20 @@ describe("answers: the names a waiting ask is told", () => {
     });
   });
 });
+
+describe("answers: a handedOver answer before its wiring", () => {
+  it("a handedOver answer from the ask's owner is not taken as accepted", async () => {
+    const OWNER = hex("a");
+    const link = { from: OWNER, to: hex("b"), publicKey: hex("c"), signature: "d".repeat(128) };
+    const result = await arrivingAnswer(
+      { provenIdentity: async () => OWNER },
+      {
+        conn: 1,
+        value: { code: CODE, answer: "handedOver", chain: [link] },
+        refused: false,
+        asks: () => [{ code: CODE, owner: OWNER, status: "waiting", askedAt: 2 }],
+      },
+    );
+    expect(result.kind).not.toBe("accepted");
+  });
+});
