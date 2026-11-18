@@ -1,0 +1,90 @@
+{
+  "pickedPhotos": [
+    {
+      "name": "A pick with no photos opens no sheet",
+      "end": "noPickedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "PHOTOS_PICKED",
+          "payload": {
+            "photos": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ada picks 5 photos on Photos and adds them to Summer",
+      "end": "noPickedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "PHOTOS_PICKED",
+          "payload": {
+            "photos": [
+              {
+                "kind": "path",
+                "path": "/cache/p1.jpg",
+                "name": "p1.jpg"
+              },
+              {
+                "kind": "path",
+                "path": "/cache/p2.jpg",
+                "name": "p2.jpg"
+              },
+              {
+                "kind": "path",
+                "path": "/cache/p3.jpg",
+                "name": "p3.jpg"
+              },
+              {
+                "kind": "path",
+                "path": "/cache/p4.jpg",
+                "name": "p4.jpg"
+              },
+              {
+                "kind": "path",
+                "path": "/cache/p5.jpg",
+                "name": "p5.jpg"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "ADD_STARTED",
+          "payload": {}
+        }
+      ]
+    },
+    {
+      "name": "Ada picks photos, then closes the sheet",
+      "end": "noPickedPhotos",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "PHOTOS_PICKED",
+          "payload": {
+            "photos": [
+              {
+                "kind": "path",
+                "path": "/cache/p1.jpg",
+                "name": "p1.jpg"
+              },
+              {
+                "kind": "path",
+                "path": "/cache/p2.jpg",
+                "name": "p2.jpg"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "event",
+          "event": "CANCEL",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}

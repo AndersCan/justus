@@ -16,7 +16,8 @@
     "apps/web/src/machines/gallery-machine.ts",
     "apps/web/src/machines/reach-hint-machine.ts",
     "apps/web/src/machines/seen-machine.ts",
-    "apps/web/src/machines/shared-photos-machine.ts"
+    "apps/web/src/machines/shared-photos-machine.ts",
+    "apps/web/src/machines/picked-photos-machine.ts"
   ],
   "internals": [
     "apps/web/src/machines/router-machine.ts",

@@ -44,7 +44,7 @@ test("fuzzing finds exactly the six wires between the app's machines", async () 
     "sync → folders",
     "sync → reach",
   ]);
-  expect(machine!.regions).toHaveLength(18);
+  expect(machine!.regions).toHaveLength(19);
 }, 60_000);
 
 const recorded = recordRuns(justusMachine);
