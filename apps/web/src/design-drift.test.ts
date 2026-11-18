@@ -31,6 +31,7 @@ const KNOWN_HAND_DRAWN: Record<string, { count: number; what: string }> = {
     what: "sort switch, album tile link, add-photos tile",
   },
   "views/photo-holders.ts": { count: 1, what: "holders row button" },
+  "views/share-to-album.ts": { count: 1, what: "album row button" },
   "views/settings.ts": { count: 1, what: "settings card link" },
 };
 

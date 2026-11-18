@@ -23,7 +23,7 @@ export function inNativeShell(): boolean {
   return typeof window !== "undefined" && (window as { BareShell?: boolean }).BareShell === true;
 }
 /** How the running batch was picked, for the "Take another" follow-up. */
-let batchVia: "library" | "camera" = "library";
+let batchVia: "library" | "camera" | "shared" = "library";
 
 export const pickedVia = () => batchVia;
 
@@ -58,7 +58,7 @@ export function addableAlbum(folderId: string): string | null {
 export function addPicked(
   folderId: string,
   sources: AddSource[],
-  via: "library" | "camera",
+  via: "library" | "camera" | "shared",
 ): boolean {
   if (sources.length === 0) return false;
   if (galleryActor.snapshot().context.batch?.running) {

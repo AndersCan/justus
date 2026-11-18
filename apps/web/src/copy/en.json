@@ -4450,5 +4450,47 @@
     "where": "Join page (site) › text",
     "who": "People opening an invite link",
     "screen": ""
+  },
+  "share_to_album.add_photos_to": {
+    "text": "Add {count} photo{count?:s} to",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "share_to_album.add_photos_to_album": {
+    "text": "Add {count} photo{count?:s} to {name}",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "share_to_album.no_album_you_can_add_to": {
+    "text": "No album you can add to",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "share_to_album.albums_not_read": {
+    "text": "Your albums could not be read.",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "share_to_album.not_now": {
+    "text": "Not now",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
+  },
+  "share_to_album.start_one_for_them": {
+    "text": "Start one per trip, family or event. The {count} photo{count?:s} {count?goes:go} into it.",
+    "status": "draft",
+    "where": "Add shared photos › text",
+    "who": "Everyone, right after sharing photos to Justus from another app",
+    "screen": ""
   }
 }
