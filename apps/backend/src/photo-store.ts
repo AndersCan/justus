@@ -1267,6 +1267,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
         ...(a.closed === true ? { closed: true } : {}),
         ...(typeof a.shareKey === "string" && isHexKey(a.shareKey) ? { shareKey: a.shareKey } : {}),
         ...(typeof a.replaces === "string" ? { replaces: a.replaces } : {}),
+        ...(typeof a.adminDrive === "string" && isHexKey(a.adminDrive)
+          ? { adminDrive: a.adminDrive }
+          : {}),
         ...(linkEnd === undefined ? {} : { linkEnd }),
         ...(typeof a.sealedFor === "string" && isHexKey(a.sealedFor)
           ? { sealedFor: a.sealedFor }
@@ -6154,10 +6157,9 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     );
     // Ada's drive may never show `/admin.json` (her phone is off): the Admin who accepted
     // this ask, proven by its identity, says where the lists are.
-    const said =
-      followed.hops.length === 0 && via?.adminDrive && via.adminDrive !== key
-        ? await openDriveWithTopic(via.adminDrive, { server: false }).catch(() => undefined)
-        : undefined;
+    const said = via?.adminDrive
+      ? await openDriveWithTopic(via.adminDrive, { server: false }).catch(() => undefined)
+      : undefined;
     const adminChain = said
       ? [key, said.key]
       : followed.hops.length > 0

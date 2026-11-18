@@ -2,4 +2,4 @@
 "@justus/android": minor
 ---
 
-[user]: Someone you accept as the album's new Admin gets in and sees your lists, even if the old Admin's phone is off
+[user]: When you have taken over an album as its Admin, people you let in get in, even when the old Admin's phone is off
