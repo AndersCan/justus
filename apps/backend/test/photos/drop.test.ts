@@ -106,6 +106,20 @@ describe("dropDeleted", () => {
     expect(r.logs).toContain("error");
   });
 
+  it("does not count a drive whose tombstoned entry it could not clear", async () => {
+    const cara = stubDrive({ paths: [], live: ["/photos/p1.jpg"] });
+    cara.clear = () => Promise.reject(new Error("disk busy"));
+    const r = run({
+      others: [
+        { key: "cara", drive: cara },
+        { key: "b", drive: stubDrive({ paths: [] }) },
+      ],
+      removed: { "cara:p1": { removedAt: 1 } },
+    });
+    expect([...(await r.result).clearedDrives]).toEqual(["b"]);
+    expect(r.logs).toContain("error");
+  });
+
   it("never touches this phone's own spool files", async () => {
     const own = stubDrive({ paths: [] });
     const r = run({

@@ -3046,7 +3046,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       });
       await forgetHeld(rt, result.cleared);
       // A phone whose cache was wiped has a held mark and no cached copy: its record still goes once the bytes do.
-      await startHolding(rt);
+      await rt.holding?.done;
       const own = rt.ownHeldRead === selfKey ? rt.held.get(selfKey) : undefined;
       await forgetHeld(
         rt,

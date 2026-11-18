@@ -871,6 +871,7 @@ describe("who has each photo", () => {
       for (const p of [anna, nils, cleo]) await p.store.close();
     };
     return {
+      hub,
       anna,
       nils,
       cleo,
@@ -1135,6 +1136,24 @@ describe("who has each photo", () => {
       await s.close();
     }, 30_000);
   });
+
+  it("lists Cleo while her phone is off for a Collaborator's photo the Admin deleted", async () => {
+    const s = await threePhones();
+    await s.nils.store.addBytes("nils.jpg", new Uint8Array([6, 7, 8]));
+    await until(async () => (await s.cleo.store.list(s.cleoFolderId)).length === 2);
+    const photo = (await s.cleo.store.list(s.cleoFolderId)).find((p) => p.name === "nils.jpg")!;
+    await s.cleo.server.getForTest(new URL(photo.url).pathname);
+    const named = async () =>
+      (await s.anna.store.list(s.folderId)).find((p) => p.name === "nils.jpg")!.holders!.others;
+    await until(async () => (await named()).some((m: { key: string }) => m.key === s.cleoKey));
+    setFakeNodeConnected({ hub: s.hub, node: s.cleo.node, connected: false });
+    expect((await s.anna.store.remove(photo.id, s.folderId))[0]).toBeNull();
+    const cleoRow = (await s.anna.store.status()).members.find(
+      (m: { key: string }) => m.key === s.cleoKey,
+    );
+    expect(cleoRow?.stillToDrop).toEqual([photo.id]);
+    await s.close();
+  }, 30_000);
 });
 
 describe("a deleted photo leaves the phone's holding record", () => {
