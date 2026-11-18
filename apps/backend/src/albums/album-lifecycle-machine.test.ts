@@ -79,6 +79,12 @@ test("Maya leaves Hytta, and Nils deletes it before his phone sees her leave", a
   expect(actor.state.name).toBe("leftAlbum");
 });
 
+test("Ada hands the album on and it leaves her phone", async () => {
+  const actor = make.create();
+  await send(actor, seen("creator"), { type: "handOverFinished" });
+  expect(actor.state.name).toBe("leftAlbum");
+});
+
 function recordingPort(options: { failure?: PortError; listed?: boolean } = {}) {
   const calls: string[] = [];
   const failed = options.failure ? Either.left(options.failure) : Either.right();
@@ -196,6 +202,29 @@ describe("album lifecycle", () => {
     expect(calls).toEqual(["writeLeftNote"]);
     expect(actor.state.name).toBe("shownInYourAlbums");
     expect(actor.snapshot().context.error).toBe("disk full");
+  });
+
+  test("a handed-over album is removed from Ada's phone, archived or not", async () => {
+    for (const archived of [false, true]) {
+      const { port, calls } = recordingPort();
+      const actor = plain("creator", port);
+      if (archived) actor.send({ type: "archive" });
+      actor.send({ type: "handOverFinished" });
+      await actor.settled();
+      expect({ archived, state: actor.state.name, calls }).toEqual({
+        archived,
+        state: "leftAlbum",
+        calls: ["removeCopy:nothing", "forget"],
+      });
+    }
+  });
+
+  test("Maya, a Member, ignores a handover finishing", async () => {
+    const { port, calls } = recordingPort();
+    const actor = plain("member", port);
+    actor.send({ type: "handOverFinished" });
+    await actor.settled();
+    expect({ state: actor.state.name, calls }).toEqual({ state: "shownInYourAlbums", calls: [] });
   });
 
   test("a payload that is not a role is ignored", async () => {

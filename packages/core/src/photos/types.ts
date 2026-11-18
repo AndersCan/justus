@@ -133,6 +133,8 @@ export type FolderSummary = {
   notice?: FolderNotice;
   /** Admin only: names of people who left on their own, in the order they left, until the Admin dismisses the line. Unset when none. */
   whoLeft?: string[];
+  /** Admin only: the album is being handed to this person and is still the Admin's until their phone has it. */
+  handingOver?: { name: string };
   /** Admin only: identity keys of friends whose invite is waiting for them to open Justus, oldest first. */
   waitingFor?: string[];
   /** Admin only: friends invited to this album who have not joined; the ones whose phone has not taken the invite yet come first. */

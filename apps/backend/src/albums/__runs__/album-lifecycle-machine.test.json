@@ -1,6 +1,29 @@
 {
   "albumLifecycle": [
     {
+      "name": "Ada hands the album on and it leaves her phone",
+      "end": "leftAlbum",
+      "steps": [
+        {
+          "kind": "event",
+          "event": "roleSeen",
+          "payload": {
+            "role": "creator"
+          }
+        },
+        {
+          "kind": "event",
+          "event": "handOverFinished",
+          "payload": {}
+        },
+        {
+          "kind": "event",
+          "event": "handOverRemoved",
+          "payload": {}
+        }
+      ]
+    },
+    {
       "name": "Ben, a Viewer, leaves Hytta, and is gone once Nils's phone sees it",
       "end": "leftAlbum",
       "steps": [

@@ -47,10 +47,34 @@ function watchNet(network: PeerNetwork) {
   return { joined, events };
 }
 
-function phone(hub: ReturnType<typeof createFakeHub>, deviceName: string) {
+/** Drops "done" messages while `held.on`, so Ada's phone has not yet been told Ben's phone has the album. */
+function holdingDone(network: PeerNetwork, held: { on: boolean; pass?: number }) {
+  const start = network.start.bind(network);
+  network.start = (identity, onEvent, protocol) =>
+    start(
+      identity,
+      (e) => {
+        const done = e.type === "answer" && JSON.stringify(e.value).includes('"handoverDone"');
+        if (!(held.on && done && e.conn !== held.pass)) onEvent(e);
+      },
+      protocol,
+    );
+}
+
+function phone(
+  hub: ReturnType<typeof createFakeHub>,
+  deviceName: string,
+  held?: { on: boolean; pass?: number },
+) {
   const node = addFakeNode(hub);
   setFakeNodeConnected({ hub, node, connected: true });
-  const deps = fakeStoreDeps({ hub, node, deviceName, server: new FakeLoopbackServer() });
+  const deps = fakeStoreDeps({
+    hub,
+    node,
+    deviceName,
+    server: new FakeLoopbackServer(),
+  });
+  if (held) holdingDone(deps.network, held);
   mkdirSync(deps.cacheDir, { recursive: true });
   const net = watchNet(deps.network);
   return { deps, node, net, store: createPhotoStore(deps) };
@@ -63,9 +87,10 @@ type Debug = {
 const debugOf = (store: { debugState(): unknown }) => store.debugState() as Debug;
 const trip = async (p: Phone) => (await p.store.folders()).folders.find((f) => f.name === "Trip")!;
 
-async function scene() {
+async function scene(options: { holdDone?: boolean } = {}) {
   const hub = createFakeHub();
-  const ada = phone(hub, "Ada");
+  const held: { on: boolean; pass?: number } = { on: options.holdDone === true };
+  const ada = phone(hub, "Ada", held);
   const ben = phone(hub, "Ben");
   const cy = phone(hub, "Cy");
   for (const p of [ada, ben, cy]) await p.store.ready();
@@ -79,18 +104,19 @@ async function scene() {
     return m.length === 3 && m.every((x: { identity?: string }) => x.identity !== undefined);
   });
   const code = (await trip(ada)).invite!.code;
-  return { hub, ada, ben, cy, folderId, shareKey, benKey, cyKey, code };
+  return { hub, held, ada, ben, cy, folderId, shareKey, benKey, cyKey, code };
 }
 
 describe("an old Admin once /admin.json is written", () => {
   it("stays off its invite codes after a restart", async () => {
-    const s = await scene();
+    const s = await scene({ holdDone: true });
     expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
     await until(() => debugOf(s.ada.store).folders[0]!.handover?.written === true);
     expect(s.ada.net.joined.has(topicOfCode(s.code))).toBe(false);
     await s.ada.store.close();
 
     const deps = restarted(s.ada.deps);
+    holdingDone(deps.network, s.held);
     const net = watchNet(deps.network);
     const reopened = createPhotoStore(deps);
     await reopened.ready();
@@ -100,7 +126,7 @@ describe("an old Admin once /admin.json is written", () => {
   }, 30_000);
 
   it("refuses to change the lists it handed over", async () => {
-    const s = await scene();
+    const s = await scene({ holdDone: true });
     expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
     await until(() => debugOf(s.ada.store).folders[0]!.handover?.written === true);
     const viewer = await s.ada.store.makeViewer(s.folderId, s.cyKey);
@@ -192,7 +218,7 @@ describe("a handover package sent to a Viewer", () => {
 
 describe("an old Admin once /admin.json is written (more)", () => {
   it("refuses every other album change it no longer owns", async () => {
-    const s = await scene();
+    const s = await scene({ holdDone: true });
     expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
     await until(() => debugOf(s.ada.store).folders[0]!.handover?.written === true);
     const refused = PhotoError.HANDOVER_REFUSED;
@@ -207,6 +233,52 @@ describe("an old Admin once /admin.json is written (more)", () => {
     );
     expect((await s.ada.store.offerAlbum(s.folderId, s.cyKey))[0]?.code).toBe(refused);
     expect((await s.ada.store.takeBackOffer(s.folderId, s.cyKey))[0]?.code).toBe(refused);
+    for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
+  }, 30_000);
+});
+
+describe("a done that is not from the new Admin", () => {
+  it("leaves the album on Ada's phone", async () => {
+    const s = await scene({ holdDone: true });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    await until(() => debugOf(s.ada.store).folders[0]!.handover?.written === true);
+    const adaIdentity = debugOf(s.ada.store).identityDrive;
+    const cyIdentity = debugOf(s.cy.store).identityDrive;
+    const identified = (net: Phone["net"], identity: string) =>
+      net.events.find(
+        (e): e is Extract<PeerEvent, { type: "identified" }> =>
+          e.type === "identified" && e.identityKey === identity,
+      )!.conn;
+    // Only the message from Cy's phone gets through to Ada's phone.
+    s.held.pass = identified(s.ada.net, cyIdentity);
+    const conn = identified(s.cy.net, adaIdentity);
+    s.cy.deps.network.sendAnswer(conn, {
+      kind: "handoverDone",
+      album: s.ada.deps.drives.discoveryKeyOf(s.shareKey),
+    });
+    await sleep(1_000);
+    expect(debugOf(s.ada.store).folders).toHaveLength(1);
+    for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
+  }, 30_000);
+});
+
+describe("a done before the handover is written", () => {
+  it("leaves the album on Ada's phone", async () => {
+    const s = await scene();
+    setFakeNodeConnected({ hub: s.hub, node: s.ben.node, connected: false });
+    expect((await s.ada.store.handOver(s.folderId, s.benKey))[0]).toBeNull();
+    const adaIdentity = debugOf(s.ada.store).identityDrive;
+    const conn = s.ben.net.events.find(
+      (e): e is Extract<PeerEvent, { type: "identified" }> =>
+        e.type === "identified" && e.identityKey === adaIdentity,
+    )!.conn;
+    s.ben.deps.network.sendAnswer(conn, {
+      kind: "handoverDone",
+      album: s.ada.deps.drives.discoveryKeyOf(s.shareKey),
+    });
+    await sleep(1_000);
+    expect(debugOf(s.ada.store).folders).toHaveLength(1);
+    expect(debugOf(s.ada.store).folders[0]!.handover?.written).toBe(false);
     for (const p of [s.ada, s.ben, s.cy]) await p.store.close();
   }, 30_000);
 });

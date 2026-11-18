@@ -523,6 +523,8 @@ export interface PhotoStore {
   makeViewer(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   /** Admin only: hand the album to a Collaborator. The Admin's phone keeps the album until the new Admin's phone has it. */
   handOver(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
+  /** Admin: calls off a handover before the new Admin's phone has it. */
+  stayAdmin(folderId: string): Promise<EitherResult<{ ok: boolean }>>;
   removeMember(folderId: string, memberKey: string): Promise<EitherResult<{ ok: boolean }>>;
   respond(
     folderId: string,
@@ -5082,7 +5084,7 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
     }
     if (message.kind === "handover") return onHandover(connId, sender, message);
     if (message.kind === "handoverReady") return onHandoverReady(sender, message);
-    if (message.kind === "handoverDone") return;
+    if (message.kind === "handoverDone") return onHandoverDone(sender, message);
     if (message.kind !== "offer") return;
     receiveOffer(connId, sender, message);
   }
@@ -5333,6 +5335,23 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       log("handover.written", { folder: short(rt.record.id), to: short(handover.to.identity) });
       deps.onChanged({ cause: "enroll", folderId: rt.record.id });
     });
+  }
+
+  /** Old Admin: the new Admin's phone has the album, so it leaves this phone. */
+  function onHandoverDone(
+    sender: string,
+    message: Extract<FriendMessage, { kind: "handoverDone" }>,
+  ): void {
+    const rt = albumOfHandover(message.album);
+    const handover = rt?.record.handover;
+    if (!rt || !handover?.written || handover.to.identity !== sender)
+      return log("handover.done.ignored", { from: short(sender) });
+    const actor = lifecycleOf(rt);
+    const name = actor.state.name;
+    if (name !== "shownInYourAlbums" && name !== "archived") return;
+    log("handover.done", { folder: short(rt.record.id) });
+    actor.send({ type: "roleSeen", payload: { role: "creator" } });
+    actor.send({ type: "handOverFinished" });
   }
 
   /** New Admin: once the Admin's drive names this phone's drive, this phone is the Admin. */
@@ -6766,6 +6785,24 @@ export function createPhotoStore(deps: PhotoStoreDeps): PhotoStore {
       return oneChangePerAlbum(rt.record.id, () => handOverNow(rt, key));
     },
 
+    async stayAdmin(folderId) {
+      await readyPromise;
+      const rt = runtimes.get(folderId);
+      if (!rt) return err(PhotoError.FOLDER_NOT_FOUND, `No album ${folderId}`);
+      if (rt.record.role !== "creator")
+        return err(PhotoError.NOT_CREATOR, "Only the Admin can keep the album");
+      return oneChangePerAlbum(rt.record.id, async () => {
+        const handover = rt.record.handover;
+        if (!handover) return ok({ ok: true });
+        if (handover.written)
+          return err(PhotoError.HANDOVER_REFUSED, "The album is already with the new Admin");
+        patchRecord(rt, { handover: undefined });
+        log("handover.cancelled", { folder: short(rt.record.id) });
+        deps.onChanged({ cause: "enroll", folderId: rt.record.id });
+        return ok({ ok: true });
+      });
+    },
+
     async makeViewer(folderId, memberKey) {
       await readyPromise;
       const rt = runtimes.get(folderId);
@@ -7137,6 +7174,7 @@ function updateRequiredStore(inner: PhotoStore): PhotoStore {
     makeMember: refuse,
     makeViewer: refuse,
     handOver: refuse,
+    stayAdmin: refuse,
     removeMember: refuse,
     respond: refuse,
     turnOffInvite: refuse,

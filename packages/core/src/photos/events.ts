@@ -145,6 +145,12 @@ export const photoSpecs = {
     args: {} as { folderId: string; memberKey: string },
     result: {} as { ok: boolean },
   },
+  stayAdmin: {
+    pluginId: "justus.photos",
+    name: "photos.stayAdmin",
+    args: {} as { folderId: string },
+    result: {} as { ok: boolean },
+  },
   removeMember: {
     pluginId: "justus.photos",
     name: "photos.removeMember",
@@ -372,6 +378,11 @@ export const photoEvents = {
         null,
         PHOTOS_SHORT_TIMEOUT_MS,
       );
+    },
+    stayAdmin(
+      folderId: string,
+    ): InvokeEnvelope<"photos.stayAdmin", { folderId: string }, { ok: boolean }> {
+      return invokeEvent(photoSpecs.stayAdmin, { folderId }, null, PHOTOS_SHORT_TIMEOUT_MS);
     },
     removeMember(
       folderId: string,
